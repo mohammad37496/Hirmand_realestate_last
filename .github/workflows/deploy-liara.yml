@@ -1,0 +1,79 @@
+name: Deploy to Liara
+# Deployment trigger: keep Liara in sync with the latest main commit.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Only the newest main commit should be deployed.
+concurrency:
+  group: liara-deploy-main
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Liara CLI
+        run: npm i -g @liara/cli@9
+
+      - name: Deploy
+        env:
+          LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+          LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
+          LIARA_APP_NAME: ${{ vars.LIARA_APP_NAME }}
+          http_proxy: http://proxy.liara.ir:6666
+          https_proxy: http://proxy.liara.ir:6666
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_NAME="${LIARA_APP_NAME:-hirmand}"
+          if [[ -z "${LIARA_TOKEN:-}" ]]; then
+            echo "::error::GitHub Actions secret LIARA_API_TOKEN is empty or unavailable."
+            exit 1
+          fi
+          TEAM_ARGS=()
+          if [[ -n "${LIARA_TEAM_ID:-}" ]]; then
+            TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
+          fi
+
+          liara deploy \
+            --app="${APP_NAME}" \
+            --api-token="${LIARA_TOKEN}" \
+            "${TEAM_ARGS[@]}" \
+            --build-location="germany" \
+            --port="3000" \
+            --no-app-logs \
+            --message="Deploy ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}" \
+            --debug
+
+      - name: Diagnose Liara runtime on failure
+        if: failure()
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+          LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEAM_ARGS=()
+          if [[ -n "${LIARA_TEAM_ID:-}" ]]; then
+            TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
+          fi
+          liara app logs \
+            --app="hirmand" \
+            --api-token="${LIARA_TOKEN}" \
+            "${TEAM_ARGS[@]}" \
+            --timestamps \
+            --last-lines \
+            --since="30 minutes ago"
