@@ -63,15 +63,17 @@ jobs:
         env:
           LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
           LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
+          LIARA_APP_NAME: ${{ vars.LIARA_APP_NAME }}
         shell: bash
         run: |
           set -euo pipefail
+          APP_NAME="${LIARA_APP_NAME:-hirmand}"
           TEAM_ARGS=()
           if [[ -n "${LIARA_TEAM_ID:-}" ]]; then
             TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
           fi
           liara app logs \
-            --app="hirmand" \
+            --app="${APP_NAME}" \
             --api-token="${LIARA_TOKEN}" \
             "${TEAM_ARGS[@]}" \
             --timestamps \
