@@ -1,0 +1,70 @@
+name: CI
+# Homepage refactor verification trigger
+# Final homepage hierarchy pass verification
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hirmand_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hirmand_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      # Applies every migration and then executes the Phone Bridge write
+      # statements against a real Postgres. This is the only check that can
+      # catch a parameter-typing or conflict-target regression, which is how
+      # this project has broken before.
+      - name: Phone Bridge schema and SQL
+        run: npm run test:phone-bridge:sql
+
+      - name: Production build
+        run: npm run build
+        env:
+          VITE_SITE_URL: https://www.hirmandrealestate.ir
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci
