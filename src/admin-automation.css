@@ -1,0 +1,56 @@
+.admin-automation-page{display:grid;gap:16px}
+.admin-automation-hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px}
+.admin-automation-hero-icon{width:58px;height:58px;border-radius:18px;display:grid;place-items:center;background:rgba(183,123,72,.14);color:#f2d6b0;border:1px solid rgba(183,123,72,.24)}
+.admin-automation-toolbar{align-items:center}
+.admin-automation-search{min-width:260px;max-width:360px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--text)}
+.admin-schedule-list,.admin-trash-list,.admin-audit-list{display:grid;gap:10px}
+.admin-schedule-row,.admin-trash-row,.admin-audit-row{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:13px;display:grid;gap:12px}
+.admin-schedule-row{grid-template-columns:minmax(180px,1fr) minmax(320px,1.1fr) auto;align-items:end}
+.admin-schedule-main{min-width:0}
+.admin-schedule-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.admin-schedule-title strong{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-schedule-title small{font-size:.72rem;color:var(--muted)}
+.admin-automation-status{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:4px 7px;background:rgba(183,123,72,.1);color:var(--text);font-size:.7rem}
+.admin-schedule-main>small{display:block;margin-top:5px;color:var(--muted);font-size:.69rem}
+.admin-schedule-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.admin-schedule-fields label{display:grid;gap:5px}
+.admin-schedule-fields label>span{display:flex;align-items:center;gap:5px;font-size:.71rem;color:var(--muted)}
+.admin-schedule-fields input,.admin-automation-toolbar select{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card-2);color:var(--text)}
+.admin-schedule-actions,.admin-trash-actions,.admin-audit-hero-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.admin-automation-note,.admin-automation-warning{display:flex;align-items:flex-start;gap:8px;border:1px solid var(--line);border-radius:13px;padding:11px 12px;background:rgba(255,255,255,.55);font-size:.75rem;color:var(--muted)}
+.admin-automation-note strong{color:var(--text);white-space:nowrap}
+.admin-automation-warning{background:rgba(190,104,58,.07);border-color:rgba(190,104,58,.18)}
+.admin-automation-warning svg{flex:0 0 auto}
+.admin-trash-copy{display:grid;gap:4px;min-width:0}
+.admin-trash-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-trash-copy>span{font-size:.69rem;color:var(--muted)}
+.admin-trash-copy small{font-size:.71rem;color:var(--muted);line-height:1.7}
+.admin-trash-row{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.admin-audit-row{grid-template-columns:auto minmax(0,1fr) auto;align-items:center}
+.admin-audit-icon{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:rgba(183,123,72,.1);color:var(--text)}
+.admin-audit-copy{min-width:0;display:grid;gap:3px}
+.admin-audit-copy strong{font-size:.79rem}
+.admin-audit-copy span{font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-audit-copy small{font-size:.68rem;color:var(--muted)}
+.admin-audit-meta{display:grid;gap:3px;text-align:left;direction:rtl}
+.admin-audit-meta span{font-size:.68rem;color:var(--muted)}
+.admin-audit-meta small{font-size:.66rem;color:var(--muted);white-space:nowrap}
+@media (max-width:900px){
+ .admin-automation-hero{grid-template-columns:auto minmax(0,1fr)}
+ .admin-automation-hero>.btn-ghost{grid-column:1/-1;justify-self:start}
+ .admin-schedule-row{grid-template-columns:1fr}
+ .admin-schedule-fields{grid-template-columns:1fr}
+ .admin-trash-row{grid-template-columns:1fr}
+ .admin-trash-actions{justify-content:flex-start}
+ .admin-automation-search{max-width:none;width:100%}
+ .admin-audit-hero-actions{grid-column:1/-1;justify-content:flex-start}
+}
+@media (max-width:560px){
+ .admin-automation-hero{align-items:start}
+ .admin-automation-hero-icon{width:46px;height:46px;border-radius:14px}
+ .admin-automation-note,.admin-automation-warning{font-size:.7rem}
+ .admin-schedule-actions,.admin-trash-actions{justify-content:stretch}
+ .admin-schedule-actions>* ,.admin-trash-actions>*{flex:1}
+ .admin-audit-row{grid-template-columns:auto 1fr}
+ .admin-audit-meta{grid-column:2;text-align:right}
+}

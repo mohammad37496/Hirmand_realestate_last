@@ -1,0 +1,35 @@
+# Liara upload/build context — keep deploy payload focused on runtime sources.
+.git/
+.github/
+.vscode/
+.idea/
+screenshots/
+artifacts/
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+tmp/
+temp/
+.grok/
+# Monorepo: Android projects have their own CI and are never part of the
+# Liara upload/build context. Keeping them out reduces deploy payload and
+# prevents Android-only changes from affecting website deployment.
+android/
+android-staff/
+node_modules/
+dist/
+.output/
+.vercel/
+.nitro/
+.tanstack/
+*.log
+*.tsbuildinfo
+**/*.test.ts
+**/*.test.tsx
+**/*.test.mjs
+**/*.spec.ts
+**/*.spec.tsx
+**/*.spec.mjs
+README.md
+AGENTS.md

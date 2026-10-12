@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1a2b">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="{{APP_NAME}}">
+<title>افزودن {{APP_NAME}} به صفحه اصلی</title>
+<link rel="manifest" href="/__grok/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/pwa/icon-180.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/__grok/install/styles.css">
+<style>
+:root{--navy:#0b1a2b;--gold:#c79a49;--cream:#f7f3ea;--ink:#162333}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(160deg,var(--cream),#fff);color:var(--ink);font-family:Vazirmatn,system-ui,-apple-system,sans-serif}.page{min-height:100vh}
+.powered{display:flex;align-items:center;justify-content:center;gap:8px;padding:18px 20px;color:#6c6a64}.powered-brand{display:inline-flex;align-items:center;gap:8px;color:var(--navy);font-weight:800}.brand-icon{width:30px;height:30px;border-radius:9px;box-shadow:0 8px 20px rgba(11,26,43,.15)}
+.content{width:min(760px,calc(100% - 32px));margin:0 auto 26px;padding:28px;border:1px solid rgba(11,26,43,.08);border-radius:28px;background:rgba(255,255,255,.9);box-shadow:0 20px 55px rgba(11,26,43,.08)}
+.hero{text-align:center}.hero img{width:88px;height:88px;border-radius:24px;box-shadow:0 18px 34px rgba(11,26,43,.18)}h1{font-size:clamp(1.5rem,4vw,2.2rem);margin:12px 0 6px;line-height:1.5}.lead{color:#5b6470;line-height:2;font-size:.94rem;margin:0}.steps{display:grid;gap:10px;margin-top:24px}.step{display:grid;grid-template-columns:36px 1fr;gap:10px;align-items:start;padding:13px 14px;border-radius:15px;background:#fbfaf6;border:1px solid rgba(11,26,43,.07)}.num{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(199,154,73,.14);color:#8c671f;font-weight:800}.step strong{display:block;margin-bottom:3px}.step span{color:#68717c;font-size:.86rem;line-height:1.9}.cta{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:12px;background:var(--navy);color:#fff;text-decoration:none;font-weight:800;margin-top:18px}.note{margin-top:12px;color:#777;font-size:.78rem;line-height:1.9;text-align:center}
+@media(max-width:600px){.content{padding:20px;border-radius:22px}}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="powered" aria-label="برنامه وب هیرمند"><img class="brand-icon" src="/pwa/icon-180.png" width="30" height="30" alt=""><span class="powered-brand">{{APP_NAME}}</span></header>
+<main class="content">
+<section class="hero"><img src="/pwa/icon-180.png" width="88" height="88" alt="آیکون {{APP_NAME}}"><h1>{{APP_NAME}} را به صفحه اصلی اضافه کنید</h1><p class="lead">بعد از نصب، هیرمند مثل یک اپلیکیشن روی گوشی شما باز می‌شود و دسترسی سریع‌تری به فایل‌های ملکی و ذخیره‌های شما خواهید داشت.</p></section>
+<section class="steps" aria-label="مراحل نصب">
+<div class="step"><span class="num">۱</span><div><strong>دکمه Share را بزنید</strong><span>در Safari روی آیکون اشتراک‌گذاری بزنید.</span></div></div>
+<div class="step"><span class="num">۲</span><div><strong>Add to Home Screen را انتخاب کنید</strong><span>در فهرست گزینه‌ها «افزودن به صفحه اصلی» را انتخاب کنید.</span></div></div>
+<div class="step"><span class="num">۳</span><div><strong>نام و آیکون هیرمند را تأیید کنید</strong><span>روی Add بزنید؛ آیکون هیرمند در صفحه اصلی شما قرار می‌گیرد.</span></div></div>
+</section>
+<div style="text-align:center"><a class="cta" href="{{APP_URL}}">بازگشت به هیرمند</a></div>
+<p class="note">این راهنما مخصوص Safari روی iPhone و iPad است. در Chrome/Android معمولاً نصب از دکمه «نصب روی گوشی» داخل خود سایت انجام می‌شود.</p>
+</main>
+</div>
+</body>
+</html>

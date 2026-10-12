@@ -1,0 +1,648 @@
+/* ==========================================================================
+   HIRMAND — Property card  (`pcard` namespace)
+   --------------------------------------------------------------------------
+   ONE authoritative layer for the shared property card. Every surface that
+   renders a card — homepage showcase, /properties grid + list view, favorites,
+   related properties, consultant files, smart recommendations, area pages and
+   the budget matcher — resolves its look from this file only.
+
+   Why a dedicated namespace?
+   The legacy `.property-card*` rules were spread across seven overlapping
+   layers (styles.css, ui-clarity.css, theme-pro.css, theme-pro-pages.css,
+   refinements.css, mobile-device-fixes.css, mobile.css) with a late
+   `!important` block that fought every other layer. Rather than keep that
+   cascade war, the component now owns the `pcard-*` namespace: the legacy
+   `.property-card*` rules no longer match anything and can be deleted from
+   those files whenever convenient. No `!important` is used here.
+
+   Rules:
+   1. Tokens only — navy structure, brass accent, warm paper, white card.
+   2. Two radii: 20px (desktop) / 18px (mobile).
+   3. Motion stays between 160ms and 320ms; no heavy shadows or blur effects.
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ grid -- */
+.property-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  align-items: stretch;
+}
+
+/* ----------------------------------------------------------------- shell -- */
+.pcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--card);
+  box-shadow: var(--el-1);
+  transition:
+    transform 220ms var(--ease),
+    box-shadow 220ms var(--ease),
+    border-color 220ms var(--ease);
+}
+
+.pcard:hover,
+.pcard:focus-within {
+  transform: translateY(-3px);
+  border-color: var(--brass-300);
+  box-shadow: var(--el-2);
+}
+
+.pcard-link {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  color: inherit;
+}
+
+/* ----------------------------------------------------------------- media -- */
+.pcard-media {
+  position: relative;
+  height: auto;
+  overflow: hidden;
+  background: var(--paper-2);
+}
+
+.pcard-media picture {
+  display: block;
+}
+
+.pcard-media img {
+  display: block;
+  width: 100%;
+  height: 232px;
+  object-fit: cover;
+  object-position: center;
+  aspect-ratio: auto;
+  transition: transform 320ms var(--ease);
+}
+
+.pcard:hover .pcard-media img,
+.pcard:focus-within .pcard-media img {
+  transform: scale(1.03);
+}
+
+/* ---------------------------------------------------------------- badges -- */
+.pcard-badges {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+}
+
+.pcard-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 10px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: var(--r-pill);
+  background: rgb(8 19 32 / 76%);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.pcard-badge-featured {
+  border-color: transparent;
+  background: var(--brass-500);
+  color: var(--navy-950);
+}
+
+.pcard-badge-discount {
+  position: absolute;
+  top: 50px;
+  right: 14px;
+  z-index: 2;
+  border-color: transparent;
+  background: var(--brass-700);
+  color: #fff;
+}
+
+/* ----------------------------------------------------------------- arrow -- */
+.pcard-arrow {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  background: rgb(255 255 255 / 92%);
+  color: var(--navy-900);
+  opacity: 0;
+  transform: translateX(-6px);
+  transition:
+    opacity 200ms var(--ease),
+    transform 200ms var(--ease);
+}
+
+.pcard:hover .pcard-arrow,
+.pcard:focus-within .pcard-arrow {
+  opacity: 1;
+  transform: none;
+}
+
+/* --------------------------------------------------------------- actions -- */
+/* `PropertyActions` keeps its shared .property-actions / .property-action
+   classes (the detail page uses them too); the card just re-skins its copy. */
+.pcard-actions {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 3;
+  padding: 0;
+}
+
+.pcard-actions .property-actions,
+.pcard-actions .property-actions-compact {
+  position: static;
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.pcard-actions .property-action {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 26%);
+  border-radius: var(--r-sm);
+  background: rgb(8 19 32 / 62%);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition:
+    background-color 160ms var(--ease),
+    border-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.pcard-actions .property-action:hover {
+  border-color: var(--brass-300);
+  background: rgb(8 19 32 / 88%);
+  color: var(--brass-300);
+}
+
+.pcard-actions .property-action.is-active {
+  border-color: var(--brass-500);
+  background: var(--brass-500);
+  color: var(--navy-950);
+}
+
+.pcard-actions .property-action:focus-visible {
+  outline: 2px solid var(--brass-500);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ body -- */
+.pcard-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 18px 18px;
+  background: var(--card);
+}
+
+.pcard-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pcard-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pcard-meta span {
+  white-space: nowrap;
+}
+
+.pcard-meta span + span::before {
+  content: "•";
+  margin-inline-end: 8px;
+  color: var(--brass-500);
+}
+
+.pcard-code {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------- title -- */
+.pcard-title {
+  display: -webkit-box;
+  min-height: calc(1.0625rem * 1.7 * 2);
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--navy-900);
+  font-size: 1.0625rem;
+  font-weight: 800;
+  line-height: 1.7;
+}
+
+/* ----------------------------------------------------------------- price -- */
+.pcard-price-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pcard-price {
+  margin: 0;
+  color: var(--navy-900);
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pcard-price-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  color: var(--navy-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.pcard-price-label {
+  color: var(--subtle);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pcard-price-value {
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+.pcard-price-pending {
+  color: var(--brass-700);
+  font-size: 1.0625rem;
+}
+
+.pcard-unit-price {
+  color: var(--subtle);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ----------------------------------------------------------------- specs -- */
+/* ----------------------------------------------------------------- specs -- */
+/* Compact property facts: warm branded strip + individual white chips. */
+.pcard-specs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  direction: rtl;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 10px 11px;
+  border-top: 1px solid rgba(11, 26, 43, 0.09);
+  border-bottom: 1px solid rgba(11, 26, 43, 0.09);
+  border-radius: 10px;
+  background: #f1eae0;
+  color: #626d7b;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.pcard-specs span {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 31px;
+  padding: 5px 9px;
+  border: 1px solid rgba(11, 26, 43, 0.09);
+  border-radius: 8px;
+  background: #fff;
+  color: #626d7b;
+  box-shadow: 0 2px 8px rgba(11, 26, 43, 0.035);
+  line-height: 1;
+  white-space: nowrap;
+  transition: none;
+}
+
+.pcard-specs span svg {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  color: #8a5e14;
+  stroke: currentColor;
+}
+
+/* Keep compact property facts static; the main Hirmand theme does not
+   change their color, border or position on hover. */
+
+/* ---------------------------------------------------------------- footer -- */
+.pcard-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 2px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pcard-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pcard-location svg {
+  flex: 0 0 auto;
+  color: var(--brass-700);
+}
+
+.pcard-details-link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  color: var(--brass-700);
+  font-weight: 700;
+  transition:
+    color 160ms var(--ease),
+    gap 160ms var(--ease);
+}
+
+.pcard:hover .pcard-details-link,
+.pcard:focus-within .pcard-details-link {
+  gap: 7px;
+  color: var(--brass-800);
+}
+
+/* ----------------------------------------------------------------- empty -- */
+.property-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 48px 24px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-xl);
+  background: var(--card);
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ------------------------------------------------- budget-result variant -- */
+.budget-result-item .pcard {
+  border-radius: var(--r-md);
+  box-shadow: none;
+}
+
+.budget-result-item .pcard-actions {
+  display: none;
+}
+
+/* ==========================================================================
+   List view — [ image ] [ details ] [ actions ]
+   ========================================================================== */
+@media (min-width: 721px) {
+  .property-grid.is-list-view {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .property-grid.is-list-view .pcard {
+    display: grid;
+    grid-template-columns: 288px minmax(0, 1fr) auto;
+    align-items: stretch;
+    min-height: 208px;
+  }
+
+  .property-grid.is-list-view .pcard-link {
+    display: grid;
+    grid-column: 1 / 3;
+    grid-row: 1;
+    grid-template-columns: 288px minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .property-grid.is-list-view .pcard-media {
+    grid-column: 1;
+    grid-row: 1;
+    height: 100%;
+    min-height: 208px;
+  }
+
+  .property-grid.is-list-view .pcard-media img {
+    height: 100%;
+    min-height: 208px;
+  }
+
+  .property-grid.is-list-view .pcard-body {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 18px 20px;
+  }
+
+  .property-grid.is-list-view .pcard-arrow {
+    display: none;
+  }
+
+  .property-grid.is-list-view .pcard-actions {
+    position: static;
+    grid-column: 3;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    border-inline-start: 1px solid var(--line);
+    background: var(--card-2);
+  }
+
+  .property-grid.is-list-view .pcard-actions .property-actions,
+  .property-grid.is-list-view .pcard-actions .property-actions-compact {
+    flex-direction: column;
+  }
+
+  .property-grid.is-list-view .pcard-actions .property-action {
+    border-color: var(--line-2);
+    background: var(--card);
+    color: var(--muted);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .property-grid.is-list-view .pcard-actions .property-action:hover {
+    border-color: var(--brass-500);
+    background: var(--brass-100);
+    color: var(--brass-800);
+  }
+
+  .property-grid.is-list-view .pcard-actions .property-action.is-active {
+    border-color: var(--brass-500);
+    background: var(--brass-500);
+    color: var(--navy-950);
+  }
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 1180px) {
+  .property-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+
+@media (max-width: 720px) {
+  .property-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .pcard {
+    border-radius: 18px;
+  }
+
+  .pcard-media img {
+    height: 200px;
+  }
+
+  .pcard-body {
+    gap: 9px;
+    padding: 14px 15px 16px;
+  }
+
+  .pcard-title {
+    min-height: calc(1rem * 1.7 * 2);
+    font-size: 1rem;
+  }
+
+  .pcard-price {
+    font-size: 1.1875rem;
+  }
+
+  .pcard-actions {
+    top: 10px;
+    left: 10px;
+  }
+
+  .pcard-actions .property-action {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .pcard-badges {
+    top: 10px;
+    right: 12px;
+  }
+
+  .pcard-badge-discount {
+    top: 46px;
+    right: 12px;
+  }
+
+  /* Hover-only affordance is meaningless on touch. */
+  .pcard-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .pcard-actions .property-action {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .pcard-price {
+    font-size: 1.0625rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pcard,
+  .pcard-media img,
+  .pcard-arrow,
+  .pcard-details-link {
+    transition: none;
+  }
+
+  .pcard:hover,
+  .pcard:focus-within {
+    transform: none;
+  }
+
+  .pcard:hover .pcard-media img,
+  .pcard:focus-within .pcard-media img {
+    transform: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .pcard-specs {
+    gap: 6px;
+    padding: 9px 10px;
+  }
+
+  .pcard-specs span {
+    min-height: 29px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    font-size: 0.68rem;
+  }
+
+  .pcard-specs span svg {
+    width: 13px;
+    height: 13px;
+    flex-basis: 13px;
+  }
+}
+
+.pcard-badge-availability{border:1px solid rgba(34,76,48,.12);background:rgba(255,255,255,.92);color:#244b31}
+.pcard-badge-availability-ok{background:rgba(234,247,237,.94);color:#2f6b42}

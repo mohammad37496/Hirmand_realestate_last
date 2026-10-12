@@ -1,0 +1,233 @@
+/* HIRMAND — property detail finishing layer
+   Final, scoped polish for the current premium RTL detail experience.
+   Presentation only: no data, routing, or interaction logic changes. */
+
+.property-detail-page {
+  scroll-behavior: smooth;
+}
+
+.property-detail-page section[id],
+.property-detail-page article[id] {
+  scroll-margin-top: 132px;
+}
+
+.property-detail-page .property-gallery-wrap {
+  min-width: 0;
+}
+
+.property-detail-page .property-gallery-main {
+  isolation: isolate;
+  contain: layout paint;
+}
+
+.property-detail-page .property-gallery-main img,
+.property-detail-page .property-gallery-main video {
+  background: var(--hr-panel-warm, var(--card-2));
+}
+
+.property-detail-page .property-gallery-overlays {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.property-detail-page .property-gallery-overlays > * {
+  max-width: calc(50% - 4px);
+}
+
+.property-detail-page .property-gallery-counter {
+  pointer-events: none;
+  line-height: 1.5;
+  box-shadow: 0 8px 18px rgb(11 26 43 / 12%);
+}
+
+.property-detail-page .property-gallery-featured {
+  line-height: 1.5;
+  box-shadow: 0 8px 18px rgb(11 26 43 / 10%);
+}
+
+.property-detail-page .property-gallery-rail {
+  scroll-snap-type: y proximity;
+  overscroll-behavior: contain;
+}
+
+.property-detail-page .property-gallery-thumb {
+  scroll-snap-align: center;
+  contain: layout paint;
+}
+
+.property-detail-page .property-gallery-thumb.is-active {
+  outline: 2px solid rgb(192 138 42 / 16%);
+  outline-offset: 1px;
+}
+
+.property-detail-page .property-detail-section-nav {
+  scroll-padding-inline: 12px;
+  overscroll-behavior-inline: contain;
+}
+
+.property-detail-page .property-trust-strip {
+  align-items: flex-start;
+}
+
+.property-detail-page .property-trust-strip span {
+  min-height: 24px;
+}
+
+.property-detail-page .property-final-cta {
+  position: relative;
+  overflow: hidden;
+}
+
+.property-detail-page .property-final-cta::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 4px;
+  border-radius: 0 22px 22px 0;
+  background: var(--hr-brass-fill, var(--brass-500));
+}
+
+.property-detail-page .property-final-cta > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 760px) {
+  .property-detail-page {
+    scroll-behavior: auto;
+  }
+
+  .property-detail-page section[id],
+  .property-detail-page article[id] {
+    scroll-margin-top: 112px;
+  }
+
+  .property-detail-page .property-gallery-rail {
+    scroll-snap-type: x proximity;
+    overscroll-behavior-inline: contain;
+  }
+
+  .property-detail-page .property-gallery-thumb {
+    scroll-snap-align: center;
+  }
+
+  .property-detail-page .property-gallery-overlays > * {
+    max-width: 46%;
+  }
+
+  .property-detail-page .property-final-cta {
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 359px) {
+  .property-detail-page section[id],
+  .property-detail-page article[id] {
+    scroll-margin-top: 104px;
+  }
+
+  .property-detail-page .property-gallery-overlays {
+    gap: 6px;
+  }
+
+  .property-detail-page .property-gallery-overlays > * {
+    max-width: 44%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .property-detail-page,
+  .property-detail-page * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+
+/* Availability states: informative, but still inside the warm navy/brass language. */
+.property-detail-page .property-availability-badge {
+  position: relative;
+  gap: 6px;
+  border: 1px solid var(--hr-border-strong, var(--line));
+  background: var(--hr-panel-soft, var(--card-2));
+  color: var(--hr-navy, var(--navy-900));
+}
+
+.property-detail-page .property-availability-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.property-detail-page .property-availability-badge-available {
+  border-color: rgb(192 138 42 / 34%);
+  background: var(--hr-brass-soft, var(--brass-100));
+  color: var(--hr-brass, var(--brass-700));
+}
+
+.property-detail-page .property-availability-badge-reserved,
+.property-detail-page .property-availability-badge-unavailable {
+  border-color: rgb(11 26 43 / 14%);
+  background: rgb(11 26 43 / 5%);
+  color: var(--hr-navy, var(--navy-900));
+}
+
+.property-detail-page .property-availability-badge-sold,
+.property-detail-page .property-availability-badge-rented {
+  border-color: rgb(142 41 31 / 20%);
+  background: rgb(142 41 31 / 6%);
+  color: #7d332b;
+}
+
+.property-detail-page .property-detail-meta {
+  min-width: 0;
+}
+
+.property-detail-page .property-detail-meta span {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .property-detail-page .property-availability-badge {
+    min-height: 27px;
+    padding-inline: 8px;
+    font-size: .59rem;
+  }
+
+  .property-detail-page .property-availability-badge::before {
+    width: 5px;
+    height: 5px;
+    flex-basis: 5px;
+  }
+}
+
+
+/* Closed listings: keep the CTA useful without implying an available viewing slot. */
+.property-detail-page .property-final-cta-closed {
+  background:
+    linear-gradient(135deg, rgb(11 26 43 / 2%), rgb(192 138 42 / 5%)),
+    var(--hr-panel, var(--card));
+}
+
+.property-detail-page .property-final-cta-closed .kicker {
+  color: var(--hr-muted, var(--muted));
+}
+
+.property-detail-page .property-final-cta-similar {
+  text-decoration: none;
+}
+
+@media (max-width: 760px) {
+  .property-detail-page .property-final-cta-closed .property-final-cta-actions {
+    grid-template-columns: 1fr;
+  }
+}

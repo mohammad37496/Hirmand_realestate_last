@@ -1,0 +1,28 @@
+.property-review-alerts,.property-reminder-tool{margin-top:24px;padding:22px;border:1px solid var(--line);border-radius:24px;background:var(--surface);box-shadow:0 10px 30px rgba(0,0,0,.05);}
+.property-review-head,.property-reminder-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;flex-wrap:wrap;}
+.property-review-head h2,.property-reminder-head h2{display:flex;align-items:center;gap:8px;margin:5px 0 6px;font-size:1.2rem;}
+.property-review-head p,.property-reminder-head p{color:var(--muted);font-size:.78rem;line-height:1.85;max-width:900px;}
+.property-review-counts{display:flex;gap:6px;flex-wrap:wrap;}
+.property-review-counts span{padding:6px 9px;border-radius:999px;font-size:.66rem;font-weight:800;border:1px solid var(--line-2);}
+.property-review-counts .is-high{color:#8b2f2f;background:rgba(180,70,70,.08);}
+.property-review-counts .is-medium{color:var(--gold-soft);background:rgba(192,138,42,.08);}
+.property-review-counts .is-low{color:var(--muted);background:var(--card-2);}
+.property-review-list{display:grid;gap:8px;margin-top:16px;}
+.property-review-item{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:12px;border:1px solid var(--line);border-radius:13px;background:var(--card);}
+.property-review-item.is-high{border-color:rgba(180,70,70,.28);}
+.property-review-item.is-medium{border-color:rgba(192,138,42,.25);}
+.property-review-icon{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--card-2);color:var(--muted);}
+.property-review-item strong{font-size:.7rem;}
+.property-review-item p{margin:3px 0 0;font-size:.71rem;line-height:1.8;color:var(--muted);}
+.property-review-clean{display:flex;align-items:center;gap:8px;margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:.72rem;color:var(--muted);}
+.property-reminder-grid{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:10px;margin-top:16px;}
+.property-reminder-grid label,.property-reminder-note{display:grid;gap:6px;}
+.property-reminder-grid span,.property-reminder-note>span{font-size:.7rem;font-weight:800;color:var(--muted);}
+.property-reminder-grid input,.property-reminder-grid select,.property-reminder-note textarea{width:100%;min-height:40px;border:1px solid var(--line-2);border-radius:10px;background:var(--card);color:var(--fg);padding:0 10px;font:inherit;font-size:.72rem;}
+.property-reminder-note{margin-top:11px;}.property-reminder-note textarea{padding:9px;line-height:1.8;resize:vertical;}
+.property-reminder-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;}
+.property-reminder-actions button{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 11px;border:1px solid var(--line-2);border-radius:10px;background:transparent;color:var(--muted);font:inherit;font-size:.68rem;font-weight:800;cursor:pointer;}
+.property-reminder-save{background:var(--navy-900)!important;color:#fff!important;border-color:var(--navy-900)!important;}
+.property-reminder-done{padding:6px 9px;border-radius:999px;background:rgba(55,140,90,.08);color:#32734d;font-size:.67rem;font-weight:800;}
+.property-reminder-hidden-title{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+@media(max-width:720px){.property-reminder-grid{grid-template-columns:1fr;}.property-review-alerts,.property-reminder-tool{padding:18px;}}

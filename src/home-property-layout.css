@@ -1,0 +1,367 @@
+/* ==========================================================================
+   HIRMAND HOME — property showcase layout
+   Scoped to the homepage only. The shared property-card contract remains
+   untouched so /properties, favorites, related files and consultant pages keep
+   their existing layouts.
+   ========================================================================== */
+
+.site-home .property-showcase {
+  position: relative;
+  width: min(100% - 32px, 1220px);
+  padding: 30px;
+  margin-top: 72px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(183, 123, 72, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(249, 246, 239, 0.96));
+  box-shadow: 0 18px 50px rgba(23, 32, 51, 0.055);
+}
+
+.site-home .property-showcase .section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  max-width: 760px;
+  margin-bottom: 18px;
+}
+
+.site-home .property-showcase .section-head h2 {
+  letter-spacing: -0.035em;
+}
+
+.site-home .property-showcase .section-head p {
+  max-width: 680px;
+  margin-top: 0;
+}
+
+.site-home .property-showcase-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 0 2px 16px;
+  border-bottom: 1px solid rgba(23, 32, 51, 0.08);
+}
+
+.site-home .property-showcase-cta .text-link {
+  margin-top: 0;
+  padding-top: 0;
+  font-size: 0.79rem;
+}
+
+.site-home .property-showcase-cta .text-link:first-child {
+  padding-inline: 13px;
+  min-height: 38px;
+  align-items: center;
+  border: 1px solid rgba(143, 93, 50, 0.18);
+  border-radius: 999px;
+  background: rgba(143, 93, 50, 0.06);
+}
+
+.site-home .property-showcase-cta .text-link:first-child::after {
+  content: "↗";
+  margin-inline-start: 7px;
+  font-size: 0.9rem;
+}
+
+.site-home .property-showcase-cta .text-link:last-child {
+  color: #6d4930;
+}
+
+.site-home .property-showcase .property-toolbar {
+  display: grid;
+  grid-template-columns: minmax(210px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  margin: 0 0 22px;
+  padding: 12px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 26px rgba(23, 32, 51, 0.045);
+}
+
+.site-home .property-showcase .property-toolbar-title {
+  min-width: 0;
+}
+
+.site-home .property-showcase .property-toolbar-title strong {
+  font-size: 0.85rem;
+}
+
+.site-home .property-showcase .property-toolbar-title small {
+  color: #858b96;
+}
+
+.site-home .property-showcase .property-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 8px;
+  min-width: 0;
+}
+
+.site-home .property-showcase .property-filters label,
+.site-home .property-showcase .property-filters select,
+.site-home .property-showcase .property-filter-button {
+  min-width: 0;
+  width: 100%;
+}
+
+.site-home .property-showcase .property-filters select {
+  min-height: 44px;
+  padding-inline: 13px 32px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+}
+
+.site-home .property-showcase .property-filter-button {
+  min-height: 44px;
+  padding-inline: 18px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.site-home .property-showcase .property-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.site-home .property-showcase .pcard {
+  min-height: 100%;
+  border-radius: 20px;
+  box-shadow: 0 10px 26px rgba(23, 32, 51, 0.065);
+}
+
+.site-home .property-showcase .pcard:hover,
+.site-home .property-showcase .pcard:focus-within {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 38px rgba(23, 32, 51, 0.11);
+}
+
+.site-home .property-showcase .pcard-media img {
+  height: 218px;
+  aspect-ratio: 4 / 3;
+}
+
+.site-home .property-showcase .pcard-body {
+  gap: 9px;
+  padding: 15px 16px 17px;
+}
+
+.site-home .property-showcase .pcard-topline {
+  gap: 8px;
+}
+
+.site-home .property-showcase .pcard-meta {
+  font-size: 0.69rem;
+}
+
+.site-home .property-showcase .pcard-code {
+  font-size: 0.65rem;
+}
+
+.site-home .property-showcase .pcard-title {
+  min-height: calc(1rem * 1.68 * 2);
+  font-size: 1rem;
+  line-height: 1.68;
+}
+
+.site-home .property-showcase .pcard-price {
+  font-size: 1.14rem;
+}
+
+.site-home .property-showcase .pcard-price-value {
+  font-size: 0.98rem;
+}
+
+.site-home .property-showcase .pcard-unit-price,
+.site-home .property-showcase .pcard-price-label {
+  font-size: 0.69rem;
+}
+
+.site-home .property-showcase .pcard-specs {
+  gap: 7px 11px;
+  padding: 10px 0;
+  font-size: 0.69rem;
+}
+
+.site-home .property-showcase .pcard-footer {
+  gap: 8px;
+  font-size: 0.69rem;
+}
+
+.site-home .property-showcase .pcard-details-link {
+  font-size: 0.7rem;
+}
+
+.site-home .property-showcase .pcard-actions .property-action {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border-radius: 10px;
+}
+
+.site-home .property-showcase .pcard-badge {
+  min-height: 25px;
+  padding-inline: 9px;
+  font-size: 0.65rem;
+}
+
+.site-home .property-showcase .pcard-badges {
+  top: 12px;
+  right: 12px;
+}
+
+.site-home .property-showcase .pcard-badge-discount {
+  top: 45px;
+  right: 12px;
+}
+
+.site-home .smart-recommendations .property-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+@media (max-width: 1180px) {
+  .site-home .property-showcase {
+    padding: 26px;
+  }
+
+  .site-home .property-showcase .property-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .site-home .property-showcase .property-filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .site-home .property-showcase .property-filter-button {
+    grid-column: 1 / -1;
+  }
+
+  .site-home .property-showcase .property-grid,
+  .site-home .smart-recommendations .property-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .site-home .property-showcase .pcard-media img {
+    height: 220px;
+  }
+}
+
+@media (max-width: 900px) {
+  .site-home .property-showcase .property-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-home .property-showcase .property-grid,
+  .site-home .smart-recommendations .property-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .site-home .property-showcase .pcard-media img {
+    height: 212px;
+  }
+}
+
+@media (max-width: 720px) {
+  .site-home .property-showcase {
+    width: min(100% - 20px, 760px);
+    margin-top: 52px;
+    padding: 18px;
+    border-radius: 24px;
+  }
+
+  .site-home .property-showcase-cta {
+    overflow-x: auto;
+    justify-content: flex-start;
+    gap: 9px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    scrollbar-width: none;
+  }
+
+  .site-home .property-showcase-cta::-webkit-scrollbar {
+    display: none;
+  }
+
+  .site-home .property-showcase-cta .text-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .site-home .property-showcase .property-toolbar {
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .site-home .property-showcase .property-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .site-home .property-showcase .property-filter-button {
+    grid-column: auto;
+  }
+
+  .site-home .property-showcase .property-grid,
+  .site-home .smart-recommendations .property-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .site-home .property-showcase .pcard {
+    border-radius: 18px;
+  }
+
+  .site-home .property-showcase .pcard-media img {
+    height: auto;
+    aspect-ratio: 1.55 / 1;
+  }
+
+  .site-home .property-showcase .pcard-body {
+    padding: 14px 15px 16px;
+  }
+
+  .site-home .property-showcase .pcard-title {
+    min-height: calc(1rem * 1.68 * 2);
+  }
+
+  .site-home .property-showcase .pcard-actions .property-action {
+    width: 42px;
+    height: 42px;
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 420px) {
+  .site-home .property-showcase {
+    width: min(100% - 14px, 760px);
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .site-home .property-showcase .pcard-media img {
+    aspect-ratio: 1.45 / 1;
+  }
+
+  .site-home .property-showcase .pcard-body {
+    padding: 13px 13px 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-home .property-showcase .pcard {
+    transition: none;
+  }
+
+  .site-home .property-showcase .pcard:hover,
+  .site-home .property-showcase .pcard:focus-within {
+    transform: none;
+  }
+}

@@ -1,0 +1,14 @@
+.smart-recommendations{position:relative}
+.smart-recommendations-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.smart-recommendation-card{display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;min-width:0;padding:10px;border:1px solid rgba(138,94,20,.16);border-radius:18px;background:#f7f4ee;color:inherit;text-decoration:none;box-shadow:0 8px 24px rgba(11,26,43,.045);transition:transform .18s ease,box-shadow .18s ease}
+.smart-recommendation-card:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(11,26,43,.09)}
+.smart-recommendation-media{position:relative;min-height:104px;border-radius:13px;overflow:hidden;background:#e9e1d7;display:grid;place-items:center;color:#8a5e14;font-weight:800}
+.smart-recommendation-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.smart-recommendation-media b{position:absolute;right:6px;bottom:6px;padding:3px 7px;border-radius:999px;background:#0b1a2b;color:#f7f4ee;font-size:.62rem}
+.smart-recommendation-copy{align-self:center;min-width:0;display:flex;flex-direction:column;gap:5px}
+.smart-recommendation-copy strong{font-size:.9rem;line-height:1.65;color:#0b1a2b;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.smart-recommendation-copy span{font-size:.76rem;color:#66717d}
+.smart-recommendation-copy em{font-size:.67rem;line-height:1.65;color:#8a5e14;font-style:normal}
+.smart-recommendations-foot{display:inline-flex;align-items:center;gap:5px;margin-top:14px;color:#0b1a2b;font-size:.8rem;font-weight:800;text-decoration:none}
+@media (max-width:960px){.smart-recommendations-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.smart-recommendations-grid{grid-template-columns:1fr}.smart-recommendation-card{grid-template-columns:96px minmax(0,1fr);border-radius:15px;padding:9px}.smart-recommendation-media{min-height:92px}.smart-recommendation-copy strong{font-size:.83rem}.smart-recommendation-copy span{font-size:.72rem}.smart-recommendation-copy em{font-size:.65rem}}

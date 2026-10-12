@@ -1,0 +1,7 @@
+.compare-toolbar-actions{display:flex;flex-wrap:wrap;gap:8px;}
+@media print{
+  .site-nav,.footer,.compare-toolbar-actions,.compare-actions,.compare-page>header{display:none!important;}
+  .compare-page{width:100%!important;padding:0!important;}
+  .compare-table-wrap{overflow:visible!important;}
+  .compare-table{min-width:0!important;font-size:10pt;}
+}

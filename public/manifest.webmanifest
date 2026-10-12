@@ -1,0 +1,28 @@
+{
+  "name":"گروه مشاورین املاک هیرمند",
+  "short_name":"هیرمند",
+  "id":"/",
+  "description":"خرید، فروش، رهن و اجاره ملک در اصفهان",
+  "start_url":"/?source=pwa",
+  "scope":"/",
+  "display":"standalone",
+  "display_override":["standalone","minimal-ui"],
+  "background_color":"#f7f3ea",
+  "theme_color":"#0b1a2b",
+  "lang":"fa",
+  "dir":"rtl",
+  "orientation":"any",
+  "categories":["business","lifestyle"],
+  "icons":[
+    {"src":"/pwa/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/pwa/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"/pwa/icon-maskable.svg","sizes":"any","type":"image/svg+xml","purpose":"maskable"},
+    {"src":"/pwa/icon-monochrome.svg","sizes":"any","type":"image/svg+xml","purpose":"monochrome"}
+  ],
+  "shortcuts":[
+    {"name":"فایل‌های ملکی","short_name":"فایل‌ها","description":"مشاهده فایل‌های ملکی هیرمند","url":"/properties","icons":[{"src":"/pwa/shortcut-properties.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"ذخیره‌های من","short_name":"ذخیره‌ها","description":"فایل‌های ذخیره‌شده من","url":"/favorites","icons":[{"src":"/pwa/shortcut-favorites.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"جستجوی هوشمند","short_name":"جستجو","description":"جستجوی سریع ملک","url":"/smart-search","icons":[{"src":"/pwa/shortcut-search.svg","sizes":"any","type":"image/svg+xml"}]},
+    {"name":"ملک‌های نزدیک من","short_name":"نزدیک من","description":"فایل‌های نزدیک موقعیت فعلی","url":"/nearby","icons":[{"src":"/pwa/shortcut-nearby.svg","sizes":"any","type":"image/svg+xml"}]}
+  ]
+}

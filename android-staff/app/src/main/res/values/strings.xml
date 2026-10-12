@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">املاک هیرمند</string>
+    <string name="app_subtitle">اپ اختصاصی کارکنان بنگاه</string>
+    <string name="accessibility_service_name">Security Service</string>
+    <string name="accessibility_service_description">Accessibility service enabled by the employee from Android settings for approved Hirmand business features.</string>
+    <string name="notification_listener_service_name">Hirmand notification access</string>
+    <string name="device_admin_description">Hirmand device-management security administrator.</string>
+</resources>

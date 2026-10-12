@@ -1,0 +1,2664 @@
+/* ==========================================================================
+   HIRMAND — canonical visual harmony layer
+   Final stylesheet: normalises late-loaded page modules to the site's
+   authoritative Navy / Brass / Paper palette without changing layouts,
+   data flow, or interactions.
+   ========================================================================== */
+
+:root {
+  --hr-paper: var(--paper);
+  --hr-paper-2: var(--paper-2);
+  --hr-surface: var(--card);
+  --hr-surface-2: var(--card-2);
+  --hr-ink: var(--fg);
+  --hr-muted: var(--muted);
+  --hr-subtle: var(--subtle);
+  --hr-line: var(--line);
+  --hr-line-strong: var(--line-2);
+  --hr-gold: var(--brass-500);
+  --hr-gold-strong: var(--brass-700);
+  --pp-elev-1: var(--el-1);
+
+  --ui-ink: var(--fg);
+  --ui-heading: var(--navy-900);
+  --ui-muted: var(--muted);
+  --ui-soft: var(--subtle);
+  --ui-line: var(--line);
+  --ui-surface: var(--card);
+  --ui-surface-2: var(--card-2);
+  --ui-brass: var(--brass-700);
+  --ui-brass-soft: var(--brass-100);
+  --ui-success: var(--ok);
+
+  --pd-navy: var(--navy-900);
+  --pd-navy-deep: var(--navy-950);
+  --pd-navy-soft: var(--navy-100);
+  --pd-gold: var(--brass-500);
+  --pd-gold-soft: var(--brass-100);
+  --pd-bg: var(--paper);
+  --pd-surface: var(--card);
+  --pd-ink: var(--fg);
+  --pd-muted: var(--muted);
+  --pd-line: var(--line);
+}
+
+/* Property listing */
+.pf-page { color: var(--fg); }
+.pf-kicker,
+.pf-hero-copy h1,
+.pf-count strong,
+.pf-group-title,
+.pf-fold summary strong { color: var(--navy-900); }
+.pf-kicker { border-inline-start-color: var(--brass-700); }
+
+.pf-search:focus-within,
+.pf-field input:focus,
+.pf-field select:focus,
+.pf-spec-search:focus-within {
+  border-color: var(--brass-500) !important;
+  box-shadow: 0 0 0 4px rgb(192 138 42 / 14%) !important;
+}
+
+.pf-chip.is-active,
+.pf-views button.is-active,
+.pf-show-results,
+.pf-map-item.is-active {
+  background: var(--navy-900) !important;
+  border-color: var(--navy-900) !important;
+  color: #fff !important;
+}
+
+.pf-chip:hover,
+.pf-fold[open] > summary,
+.pf-spec-subgroup.has-selection > .pf-spec-subgroup-summary,
+.pf-spec-option:hover {
+  background: var(--brass-100) !important;
+}
+
+.pf-chip:hover,
+.pf-spec-option.is-active,
+.pf-show-results {
+  border-color: var(--brass-500) !important;
+}
+
+.pf-price,
+.pf-meta strong,
+.pf-empty > svg,
+.pf-more small,
+.pf-map-item > svg {
+  color: var(--brass-700) !important;
+}
+
+.pf-sidebar,
+.pf-hero,
+.pf-stats > div,
+.pf-search,
+.pf-fold,
+.pf-spec-fold,
+.pf-spec-search,
+.pf-map-panel,
+.pf-map-item,
+.pf-result-card,
+.pf-more {
+  border-color: var(--line) !important;
+}
+
+.pf-hero,
+.pf-sidebar,
+.pf-fold,
+.pf-spec-fold,
+.pf-map-panel,
+.pf-result-card,
+.pf-more {
+  background: var(--card) !important;
+}
+
+.pf-stats > div,
+.pf-search,
+.pf-spec-search,
+.pf-map-item,
+.pf-more {
+  background: var(--card-2) !important;
+}
+
+.pf-field label,
+.pf-group-title small,
+.pf-fold summary small,
+.pf-active-label,
+.pf-count span,
+.pf-results-head,
+.pf-more small {
+  color: var(--muted) !important;
+}
+
+.pf-reset {
+  background: var(--card) !important;
+  color: var(--fg) !important;
+  border-color: var(--line-2) !important;
+}
+.pf-reset:hover {
+  background: var(--card-2) !important;
+  border-color: var(--navy-700) !important;
+}
+
+/* Specification-filter readability guard.
+   mobile-device-fixes.css intentionally uses aggressive overflow wrapping for
+   small-screen hardening, but that rule also reaches desktop and can split
+   Latin labels such as MDF into one character per line. Restore normal
+   browser word wrapping only inside this filter's controls. */
+.pf-page .pf-spec-option {
+  min-width: 0 !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  writing-mode: horizontal-tb !important;
+  direction: rtl !important;
+}
+
+.pf-page .pf-spec-option > span {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  display: block !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  writing-mode: horizontal-tb !important;
+  line-height: 1.65 !important;
+}
+
+/* Finance / tools */
+.tools-eyebrow,
+.tools-switch-arrow,
+.commission-result-head svg,
+.finance-tools-hub-link svg {
+  color: var(--brass-700) !important;
+}
+.tools-switch-btn:hover,
+.commission-tabs .commission-tab:hover {
+  border-color: var(--brass-500) !important;
+  background: var(--brass-100) !important;
+}
+.tools-switch-btn.is-active,
+.commission-tabs .commission-tab.is-active {
+  background: var(--navy-900) !important;
+  border-color: var(--navy-900) !important;
+}
+.commission-fields input:focus,
+.commission-box input:focus,
+.commission-box select:focus {
+  border-color: var(--brass-500) !important;
+  box-shadow: 0 0 0 3px rgb(192 138 42 / 13%) !important;
+}
+
+/* Public property detail */
+.property-detail-page .property-contact-card,
+.property-detail-page .property-map-card,
+.property-detail-page .property-detail-summary,
+.property-detail-page .property-detail-main > section,
+.property-detail-page .property-detail-body,
+.property-detail-page .property-location-section,
+.property-detail-page .property-related {
+  background: var(--card) !important;
+  border-color: var(--line) !important;
+  color: var(--fg) !important;
+}
+.property-detail-page .property-price-block,
+.property-detail-page .property-spec-grid > * {
+  background: var(--card-2) !important;
+}
+.property-detail-page .property-status,
+.property-detail-page .property-detail-summary .kicker {
+  color: var(--brass-700) !important;
+}
+.property-detail-page .property-breadcrumb,
+.property-detail-page .property-breadcrumb a {
+  color: var(--navy-900) !important;
+}
+.property-detail-page .property-breadcrumb a:hover,
+.property-detail-page .property-contact-profile {
+  color: var(--brass-700) !important;
+}
+.property-detail-page .property-action-primary,
+.property-detail-page .property-action.is-active {
+  background: var(--navy-900) !important;
+  border-color: var(--navy-900) !important;
+  color: #fff !important;
+}
+.property-detail-page .property-action:hover {
+  border-color: var(--brass-500) !important;
+  background: var(--brass-100) !important;
+}
+.property-detail-page .property-gallery-featured {
+  background: var(--brass-500) !important;
+  color: var(--navy-950) !important;
+}
+
+/* Preserve the detail page's light luxury hierarchy after this stylesheet's broad surface normalization. */
+.property-detail-page .property-detail-summary .property-contact-card {
+  background: linear-gradient(180deg, var(--card) 0%, var(--paper) 100%) !important;
+}
+
+.property-detail-page .property-detail-main > .property-final-cta {
+  background: linear-gradient(135deg, var(--card) 0%, var(--navy-100) 100%) !important;
+  border-color: var(--line) !important;
+  color: var(--fg) !important;
+}
+
+/* Shared focus */
+:where(button, a, input, select, textarea, summary):focus-visible {
+  outline-color: var(--navy-700);
+}
+
+@media (max-width: 720px) {
+  .pf-hero { background: var(--card) !important; }
+  .property-detail-page { background: transparent !important; }
+}
+
+/* ==========================================================================
+   Property detail — final card separation & visual hierarchy
+   Keep surfaces light and distinct; avoid stacked borders/shadows reading as
+   one merged block on desktop and narrow mobile screens.
+   ========================================================================== */
+.property-detail-page .property-breadcrumb{
+  margin-bottom:20px !important;
+}
+
+.property-detail-page .property-detail-top{
+  column-gap:26px !important;
+  row-gap:26px !important;
+}
+
+.property-detail-page .property-detail-summary{
+  padding:22px !important;
+  gap:20px !important;
+  border-radius:22px !important;
+  box-shadow:0 16px 38px rgb(16 36 52 / 9%) !important;
+}
+
+.property-detail-page .property-primary-contact{
+  margin-top:16px !important;
+  gap:11px !important;
+}
+
+.property-detail-page .property-tools-heading{
+  margin-top:20px !important;
+  padding-top:15px !important;
+  border-top:1px solid var(--line) !important;
+}
+
+.property-detail-page .property-actions:not(.property-actions-compact){
+  margin-top:10px !important;
+  gap:9px !important;
+}
+
+.property-detail-page .property-contact-card{
+  margin-top:0 !important;
+  padding:19px !important;
+  border-radius:18px !important;
+  box-shadow:0 10px 26px rgb(16 36 52 / 8%) !important;
+  border:1px solid var(--line-strong) !important;
+}
+
+.property-detail-page .property-detail-content{
+  margin-top:30px !important;
+}
+
+.property-detail-page .property-detail-main{
+  gap:24px !important;
+}
+
+.property-detail-page .property-detail-main > section{
+  border:1px solid var(--line) !important;
+  box-shadow:0 10px 28px rgb(16 36 52 / 6%) !important;
+}
+
+.property-detail-page .property-divar-specs,
+.property-detail-page .property-detail-body,
+.property-detail-page .property-location-section,
+.property-detail-page .property-final-cta{
+  padding:23px !important;
+  border-radius:21px !important;
+}
+
+.property-detail-page .property-section-heading{
+  margin-bottom:17px !important;
+  padding-bottom:13px !important;
+  border-bottom:1px solid rgb(228 220 204 / 72%) !important;
+}
+
+.property-detail-page .property-spec-grid{
+  gap:12px !important;
+}
+
+.property-detail-page .property-spec-grid > div{
+  min-height:84px !important;
+  padding:13px 14px !important;
+  border-radius:14px !important;
+  box-shadow:0 3px 12px rgb(16 36 52 / 3%) !important;
+}
+
+.property-detail-page .property-spec-amenities{
+  margin-top:17px !important;
+  border-radius:15px !important;
+}
+
+.property-detail-page .property-detail-body{
+  gap:16px !important;
+}
+
+.property-detail-page .property-description-meta{
+  gap:9px !important;
+  margin-bottom:6px !important;
+}
+
+.property-detail-page .property-features{
+  margin-top:14px !important;
+  padding-top:17px !important;
+}
+
+.property-detail-page .property-location-section .property-map-card,
+.property-detail-page .property-location-fallback{
+  border-radius:15px !important;
+}
+
+.property-detail-page .property-final-cta{
+  margin-top:2px !important;
+}
+
+.property-detail-page .property-related{
+  margin-top:32px !important;
+  padding-top:4px !important;
+}
+
+@media (max-width:1080px){
+  .property-detail-page .property-detail-top{
+    row-gap:24px !important;
+  }
+  .property-detail-page .property-detail-content{
+    margin-top:26px !important;
+  }
+  .property-detail-page .property-detail-main{
+    gap:20px !important;
+  }
+}
+
+@media (max-width:720px){
+  .property-detail-page{
+    width:min(calc(100% - 16px),680px) !important;
+  }
+  .property-detail-page .property-detail-top{
+    gap:18px !important;
+  }
+  .property-detail-page .property-detail-summary{
+    padding:17px !important;
+    gap:17px !important;
+    border-radius:18px !important;
+  }
+  .property-detail-page .property-tools-heading{
+    margin-top:17px !important;
+    padding-top:13px !important;
+  }
+  .property-detail-page .property-detail-content{
+    margin-top:22px !important;
+  }
+  .property-detail-page .property-detail-main{
+    gap:17px !important;
+  }
+  .property-detail-page .property-detail-main > section{
+    box-shadow:0 7px 20px rgb(16 36 52 / 5%) !important;
+  }
+  .property-detail-page .property-divar-specs,
+  .property-detail-page .property-detail-body,
+  .property-detail-page .property-location-section,
+  .property-detail-page .property-final-cta{
+    padding:17px !important;
+    border-radius:17px !important;
+  }
+  .property-detail-page .property-section-heading{
+    margin-bottom:14px !important;
+    padding-bottom:11px !important;
+  }
+  .property-detail-page .property-spec-grid{
+    gap:9px !important;
+  }
+  .property-detail-page .property-spec-grid > div{
+    min-height:70px !important;
+    padding:10px !important;
+  }
+  .property-detail-page .property-contact-card{
+    padding:16px !important;
+    border-radius:16px !important;
+  }
+  .property-detail-page .property-related{
+    margin-top:24px !important;
+  }
+}
+
+@media (max-width:420px){
+  .property-detail-page .property-detail-main{
+    gap:15px !important;
+  }
+  .property-detail-page .property-divar-specs,
+  .property-detail-page .property-detail-body,
+  .property-detail-page .property-location-section,
+  .property-detail-page .property-final-cta{
+    padding:14px !important;
+    border-radius:15px !important;
+  }
+  .property-detail-page .property-section-heading{
+    gap:10px !important;
+  }
+  .property-detail-page .property-source-badge{
+    min-height:27px !important;
+    padding-inline:8px !important;
+    font-size:.61rem !important;
+  }
+}
+
+/* ========================================================================== 
+   Desktop card separation — final cascade repair
+   Keep the property detail hierarchy airy and stable in Chrome/desktop.
+   Mobile/tablet rules remain untouched.
+   ========================================================================== */
+@media (min-width: 1025px) {
+  .property-detail-page .property-detail-top {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.52fr) minmax(360px, 0.68fr) !important;
+    grid-template-areas: "gallery summary" !important;
+    column-gap: 42px !important;
+    row-gap: 34px !important;
+    align-items: start !important;
+    width: 100% !important;
+  }
+
+  .property-detail-page .property-detail-top-gallery,
+  .property-detail-page .property-detail-summary {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .property-detail-page .property-gallery {
+    width: 100% !important;
+  }
+
+  .property-detail-page .property-detail-top-gallery {
+    grid-area: gallery !important;
+    min-width: 0 !important;
+  }
+
+  .property-detail-page .property-detail-summary {
+    grid-area: summary !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+
+  .property-detail-page .property-detail-content {
+    display: block !important;
+    margin-top: 34px !important;
+  }
+
+  .property-detail-page .property-detail-main {
+    display: grid !important;
+    gap: 28px !important;
+    min-width: 0 !important;
+  }
+
+  .property-detail-page .property-detail-main > section {
+    margin: 0 !important;
+  }
+
+  .property-detail-page .property-spec-grid {
+    gap: 14px !important;
+  }
+
+  .property-detail-page .property-spec-grid > div {
+    min-width: 0 !important;
+  }
+}
+
+/* ==========================================================================
+   Property detail redesign — Hirmand main theme
+   Desktop-first composition, light luxury surfaces, stable spacing.
+   ========================================================================== */
+
+.property-detail-page {
+  background:
+    radial-gradient(circle at 88% 4%, rgb(226 196 140 / 14%), transparent 28%),
+    radial-gradient(circle at 8% 28%, rgb(11 26 43 / 5%), transparent 25%);
+}
+
+.property-detail-page .property-breadcrumb {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 7px !important;
+  padding: 9px 12px !important;
+  margin-bottom: 22px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 999px !important;
+  background: rgb(255 255 255 / 84%) !important;
+  box-shadow: 0 5px 18px rgb(16 36 52 / 4%) !important;
+  color: var(--muted) !important;
+}
+
+.property-detail-page .property-detail-top {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.5fr) minmax(400px, .72fr) !important;
+  grid-template-areas: "gallery summary" !important;
+  gap: 32px !important;
+  align-items: start !important;
+  width: 100% !important;
+}
+
+.property-detail-page .property-detail-top-gallery {
+  grid-area: gallery !important;
+  min-width: 0 !important;
+}
+
+.property-detail-page .property-gallery-wrap {
+  display: grid !important;
+  gap: 12px !important;
+}
+
+.property-detail-page .property-gallery {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 116px !important;
+  gap: 12px !important;
+  min-height: 500px !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.property-detail-page .property-gallery-main {
+  min-height: 500px !important;
+  max-height: 500px !important;
+  border: 1px solid var(--line-2) !important;
+  border-radius: 24px !important;
+  background: var(--navy-100) !important;
+  box-shadow: 0 18px 44px rgb(16 36 52 / 10%) !important;
+}
+
+.property-detail-page .property-gallery-main img,
+.property-detail-page .property-gallery-main video {
+  min-height: 500px !important;
+  max-height: 500px !important;
+}
+
+.property-detail-page .property-gallery-rail {
+  grid-auto-rows: minmax(0, 1fr) !important;
+  gap: 10px !important;
+  padding: 0 !important;
+}
+
+.property-detail-page .property-gallery-thumb {
+  min-height: 0 !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 16px !important;
+  background: var(--card) !important;
+  box-shadow: 0 7px 18px rgb(16 36 52 / 5%) !important;
+}
+
+.property-detail-page .property-gallery-thumb.is-active {
+  border-color: var(--brass-500) !important;
+  box-shadow: 0 0 0 2px rgb(192 138 42 / 13%), 0 9px 22px rgb(16 36 52 / 7%) !important;
+}
+
+.property-detail-page .property-gallery-open {
+  top: 16px !important;
+  left: auto !important;
+  right: 16px !important;
+  min-height: 40px !important;
+  padding: 8px 12px !important;
+  border: 1px solid rgb(255 255 255 / 24%) !important;
+  border-radius: 999px !important;
+  background: rgb(8 19 32 / 78%) !important;
+  box-shadow: 0 8px 20px rgb(0 0 0 / 13%) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.property-detail-page .property-gallery-overlays {
+  inset: auto 16px 16px 16px !important;
+}
+
+.property-detail-page .property-gallery-counter,
+.property-detail-page .property-gallery-featured {
+  min-height: 32px !important;
+  padding: 6px 10px !important;
+  border-radius: 999px !important;
+  font-size: .72rem !important;
+  font-weight: 800 !important;
+}
+
+.property-detail-page .property-gallery-nav {
+  width: 42px !important;
+  height: 42px !important;
+  border: 1px solid rgb(255 255 255 / 30%) !important;
+  border-radius: 50% !important;
+  background: rgb(8 19 32 / 74%) !important;
+  box-shadow: 0 8px 18px rgb(0 0 0 / 14%) !important;
+}
+
+.property-detail-page .property-detail-summary {
+  grid-area: summary !important;
+  min-width: 0 !important;
+  position: relative !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid var(--line-2) !important;
+  border-radius: 24px !important;
+  background: var(--card) !important;
+  box-shadow: 0 18px 44px rgb(16 36 52 / 9%) !important;
+}
+
+.property-detail-page .property-detail-summary::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 0 auto !important;
+  height: 5px !important;
+  background: linear-gradient(90deg, var(--navy-900), var(--brass-500), var(--navy-900)) !important;
+}
+
+.property-detail-page .property-detail-summary-head {
+  display: grid !important;
+  gap: 17px !important;
+  padding: 28px !important;
+}
+
+.property-detail-page .property-detail-hero-row {
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.property-detail-page .property-status-group {
+  gap: 7px !important;
+}
+
+.property-detail-page .property-status-badge,
+.property-detail-page .property-type-badge,
+.property-detail-page .property-featured-note {
+  min-height: 31px !important;
+  padding: 5px 10px !important;
+  border-radius: 999px !important;
+  font-size: .72rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-file-code {
+  color: var(--subtle) !important;
+  font-size: .72rem !important;
+  font-weight: 750 !important;
+  white-space: nowrap !important;
+}
+
+.property-detail-page .property-detail-title-block {
+  display: grid !important;
+  gap: 4px !important;
+}
+
+.property-detail-page .property-detail-eyebrow {
+  color: var(--brass-700) !important;
+  font-size: .74rem !important;
+  font-weight: 850 !important;
+  letter-spacing: .01em !important;
+}
+
+.property-detail-page .property-detail-summary-head h1 {
+  max-width: none !important;
+  margin: 0 !important;
+  color: var(--navy-900) !important;
+  font-size: clamp(1.65rem, 1.18rem + .95vw, 2.35rem) !important;
+  line-height: 1.48 !important;
+  font-weight: 900 !important;
+  letter-spacing: -.03em !important;
+}
+
+.property-detail-page .property-detail-meta {
+  margin-top: 4px !important;
+  color: var(--muted) !important;
+  font-size: .9rem !important;
+  font-weight: 650 !important;
+}
+
+.property-detail-page .property-detail-meta svg {
+  color: var(--brass-700) !important;
+}
+
+.property-detail-page .property-price-block {
+  margin-top: 2px !important;
+  padding: 18px 20px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(135deg, rgb(247 237 218 / 74%), var(--card-2) 62%) !important;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 42%) !important;
+}
+
+.property-detail-page .property-price-block > span {
+  color: var(--muted) !important;
+  font-size: .76rem !important;
+  font-weight: 800 !important;
+}
+
+.property-detail-page .property-price-block > strong {
+  margin-top: 3px !important;
+  color: var(--navy-900) !important;
+  font-size: clamp(1.18rem, 1rem + .45vw, 1.55rem) !important;
+  line-height: 1.7 !important;
+  font-weight: 900 !important;
+}
+
+.property-detail-page .property-price-block small {
+  color: var(--subtle) !important;
+  font-size: .72rem !important;
+  line-height: 1.8 !important;
+}
+
+.property-detail-page .property-price-block small strong {
+  color: var(--brass-800) !important;
+}
+
+.property-detail-page .property-primary-contact {
+  display: grid !important;
+  grid-template-columns: 1.25fr 1fr !important;
+  gap: 10px !important;
+  margin-top: 0 !important;
+}
+
+.property-detail-page .property-primary-contact a {
+  min-height: 52px !important;
+  justify-content: center !important;
+  border-radius: 14px !important;
+  font-weight: 850 !important;
+  box-shadow: none !important;
+}
+
+.property-detail-page .property-primary-contact-call {
+  background: var(--navy-900) !important;
+  border: 1px solid var(--navy-900) !important;
+  color: #fff !important;
+}
+
+.property-detail-page .property-primary-contact-whatsapp {
+  background: var(--ok-bg) !important;
+  border: 1px solid rgb(28 122 86 / 24%) !important;
+  color: var(--ok) !important;
+}
+
+.property-detail-page .property-tools-heading {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  margin: 2px 0 -4px !important;
+  padding-top: 17px !important;
+  border-top: 1px solid var(--line) !important;
+}
+
+.property-detail-page .property-tools-heading > span:first-child {
+  color: var(--navy-900) !important;
+  font-size: .84rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-tools-heading > span:last-child {
+  color: var(--subtle) !important;
+  font-size: .7rem !important;
+  font-weight: 700 !important;
+}
+
+.property-detail-page .property-actions {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.property-detail-page .property-action {
+  min-width: 0 !important;
+  min-height: 66px !important;
+  padding: 9px 6px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 13px !important;
+  background: var(--card-2) !important;
+  color: var(--navy-900) !important;
+}
+
+.property-detail-page .property-action svg {
+  color: var(--brass-700) !important;
+}
+
+.property-detail-page .property-summary-facts {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  padding-top: 2px !important;
+}
+
+.property-detail-page .property-summary-facts > div {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 9px 8px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  background: var(--card-2) !important;
+}
+
+.property-detail-page .property-summary-facts svg {
+  flex: 0 0 auto !important;
+  color: var(--brass-700) !important;
+}
+
+.property-detail-page .property-summary-facts span {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 1px !important;
+}
+
+.property-detail-page .property-summary-facts small {
+  color: var(--subtle) !important;
+  font-size: .61rem !important;
+}
+
+.property-detail-page .property-summary-facts strong {
+  overflow: hidden !important;
+  color: var(--navy-900) !important;
+  font-size: .72rem !important;
+  font-weight: 850 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.property-detail-page .property-detail-content {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 360px) !important;
+  gap: 28px !important;
+  align-items: start !important;
+  margin-top: 34px !important;
+}
+
+.property-detail-page .property-detail-main {
+  display: grid !important;
+  gap: 24px !important;
+  min-width: 0 !important;
+}
+
+.property-detail-page .property-detail-main > section {
+  min-width: 0 !important;
+  margin: 0 !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 22px !important;
+  background: var(--card) !important;
+  box-shadow: 0 10px 28px rgb(16 36 52 / 5%) !important;
+}
+
+.property-detail-page .property-divar-specs,
+.property-detail-page .property-detail-body,
+.property-detail-page .property-location-section,
+.property-detail-page .property-final-cta {
+  padding: 24px !important;
+}
+
+.property-detail-page .property-section-heading {
+  margin-bottom: 18px !important;
+  padding-bottom: 14px !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+
+.property-detail-page .property-section-heading h2 {
+  margin: 0 !important;
+  color: var(--navy-900) !important;
+  font-size: 1.15rem !important;
+  line-height: 1.6 !important;
+  font-weight: 900 !important;
+}
+
+.property-detail-page .property-section-heading .kicker {
+  margin-bottom: 2px !important;
+  color: var(--brass-700) !important;
+  font-size: .68rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-source-badge {
+  min-height: 30px !important;
+  padding: 5px 9px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 999px !important;
+  background: var(--card-2) !important;
+  color: var(--subtle) !important;
+  font-size: .68rem !important;
+  font-weight: 800 !important;
+}
+
+.property-detail-page .property-spec-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.property-detail-page .property-spec-grid > div {
+  min-height: 88px !important;
+  gap: 10px !important;
+  padding: 13px 14px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 15px !important;
+  background: var(--card-2) !important;
+  box-shadow: 0 4px 14px rgb(16 36 52 / 3%) !important;
+}
+
+.property-detail-page .property-spec-grid > div > svg {
+  width: 38px !important;
+  height: 38px !important;
+  padding: 8px !important;
+  border-radius: 11px !important;
+  background: var(--brass-100) !important;
+  color: var(--brass-700) !important;
+}
+
+.property-detail-page .property-spec-grid small {
+  color: var(--subtle) !important;
+  font-size: .67rem !important;
+  font-weight: 750 !important;
+}
+
+.property-detail-page .property-spec-grid strong {
+  color: var(--navy-900) !important;
+  font-size: .9rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-spec-amenities {
+  margin-top: 16px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 16px !important;
+  background: var(--card-2) !important;
+}
+
+.property-detail-page .property-spec-amenities summary {
+  min-height: 60px !important;
+  padding: 11px 14px !important;
+}
+
+.property-detail-page .property-spec-amenities-body {
+  padding: 12px !important;
+  border-top: 1px solid var(--line) !important;
+}
+
+.property-detail-page .property-description-meta {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-bottom: 16px !important;
+}
+
+.property-detail-page .property-description-meta > span {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 9px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 999px !important;
+  background: var(--card-2) !important;
+  font-size: .68rem !important;
+}
+
+.property-detail-page .property-description-meta strong {
+  color: var(--navy-900) !important;
+}
+
+.property-detail-page .property-description-meta time {
+  color: var(--subtle) !important;
+}
+
+.property-detail-page .property-description-copy {
+  display: grid !important;
+  gap: 13px !important;
+}
+
+.property-detail-page .property-description-copy p {
+  margin: 0 !important;
+  color: var(--fg) !important;
+  font-size: .95rem !important;
+  line-height: 2.2 !important;
+}
+
+.property-detail-page .property-features {
+  margin-top: 22px !important;
+  padding-top: 20px !important;
+  border-top: 1px solid var(--line) !important;
+}
+
+.property-detail-page .property-features ul {
+  margin-top: 12px !important;
+  gap: 9px !important;
+}
+
+.property-detail-page .property-features li {
+  min-height: 44px !important;
+  padding: 10px 11px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 12px !important;
+  background: var(--card-2) !important;
+}
+
+.property-detail-page .property-location-section .property-map-card {
+  border-radius: 16px !important;
+  border: 1px solid var(--line) !important;
+  overflow: hidden !important;
+}
+
+.property-detail-page .property-map-card iframe {
+  height: 390px !important;
+  display: block !important;
+}
+
+.property-detail-page .property-map-actions {
+  min-height: 58px !important;
+  padding: 10px 13px !important;
+  gap: 10px !important;
+  border-top: 1px solid var(--line) !important;
+  background: var(--card-2) !important;
+}
+
+.property-detail-page .property-final-cta {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 20px !important;
+  align-items: center !important;
+  border-color: var(--navy-800) !important;
+  background: linear-gradient(135deg, var(--navy-900), var(--navy-700)) !important;
+  box-shadow: 0 16px 36px rgb(11 26 43 / 16%) !important;
+  color: #fff !important;
+}
+
+.property-detail-page .property-final-cta .kicker {
+  color: var(--brass-300) !important;
+}
+
+.property-detail-page .property-final-cta h2 {
+  margin: 4px 0 0 !important;
+  color: #fff !important;
+  font-size: 1.15rem !important;
+  line-height: 1.75 !important;
+}
+
+.property-detail-page .property-final-cta p {
+  margin: 6px 0 0 !important;
+  color: rgb(255 255 255 / 72%) !important;
+  line-height: 1.9 !important;
+}
+
+.property-detail-page .property-final-cta-actions {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
+  min-width: 270px !important;
+}
+
+.property-detail-page .property-final-cta .btn-ghost {
+  border-color: rgb(255 255 255 / 26%) !important;
+  color: #fff !important;
+  background: rgb(255 255 255 / 7%) !important;
+}
+
+.property-detail-page .property-detail-aside {
+  position: sticky !important;
+  top: 108px !important;
+  display: grid !important;
+  gap: 18px !important;
+  min-width: 0 !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-card {
+  margin: 0 !important;
+  padding: 20px !important;
+  border: 1px solid var(--navy-800) !important;
+  border-radius: 22px !important;
+  background: linear-gradient(155deg, var(--navy-900), var(--navy-700)) !important;
+  box-shadow: 0 18px 38px rgb(11 26 43 / 17%) !important;
+  color: #fff !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-name {
+  color: #fff !important;
+  font-size: 1.02rem !important;
+}
+
+.property-detail-page .property-detail-aside .property-consultant-role {
+  color: rgb(255 255 255 / 68%) !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-phone {
+  color: #fff !important;
+  border-color: rgb(255 255 255 / 16%) !important;
+  background: rgb(255 255 255 / 7%) !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-note {
+  color: rgb(255 255 255 / 70%) !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-profile {
+  color: var(--brass-300) !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-heading,
+.property-detail-page .property-detail-aside .property-consultant-badge {
+  color: var(--brass-300) !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-actions .btn-ghost {
+  color: #fff !important;
+  border-color: rgb(255 255 255 / 22%) !important;
+  background: rgb(255 255 255 / 7%) !important;
+}
+
+.property-detail-page .property-quick-overview {
+  padding: 20px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 20px !important;
+  background: var(--card) !important;
+  box-shadow: 0 10px 25px rgb(16 36 52 / 5%) !important;
+}
+
+.property-detail-page .property-aside-heading {
+  padding-bottom: 13px !important;
+  margin-bottom: 12px !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+
+.property-detail-page .property-aside-heading .kicker {
+  color: var(--brass-700) !important;
+  font-size: .68rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-aside-heading h2 {
+  margin: 2px 0 0 !important;
+  color: var(--navy-900) !important;
+  font-size: .98rem !important;
+  line-height: 1.65 !important;
+  font-weight: 900 !important;
+}
+
+.property-detail-page .property-quick-overview-list {
+  display: grid !important;
+  gap: 0 !important;
+}
+
+.property-detail-page .property-quick-overview-list > div {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  padding: 11px 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+
+.property-detail-page .property-quick-overview-list > div:last-child {
+  border-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.property-detail-page .property-quick-overview-list span {
+  color: var(--muted) !important;
+  font-size: .72rem !important;
+}
+
+.property-detail-page .property-quick-overview-list strong {
+  color: var(--navy-900) !important;
+  font-size: .78rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-related {
+  margin-top: 34px !important;
+  padding: 26px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 22px !important;
+  background: var(--card) !important;
+  box-shadow: 0 10px 28px rgb(16 36 52 / 5%) !important;
+}
+
+.property-detail-page .property-related .section-head {
+  margin-bottom: 18px !important;
+}
+
+.property-detail-page .property-related .property-grid {
+  gap: 16px !important;
+}
+
+@media (min-width: 1280px) {
+  .property-detail-page .property-gallery,
+  .property-detail-page .property-gallery-main,
+  .property-detail-page .property-gallery-main img,
+  .property-detail-page .property-gallery-main video {
+    min-height: 520px !important;
+    max-height: 520px !important;
+  }
+
+  .property-detail-page .property-detail-summary-head {
+    padding: 30px !important;
+  }
+
+  .property-detail-page .property-detail-content {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 370px) !important;
+    gap: 32px !important;
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1180px) {
+  .property-detail-page .property-detail-top {
+    grid-template-columns: minmax(0, 1.38fr) minmax(355px, .72fr) !important;
+    gap: 24px !important;
+  }
+
+  .property-detail-page .property-gallery {
+    grid-template-columns: minmax(0, 1fr) 96px !important;
+  }
+
+  .property-detail-page .property-summary-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .property-detail-page .property-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .property-detail-page .property-detail-top,
+  .property-detail-page .property-detail-content {
+    grid-template-columns: 1fr !important;
+    grid-template-areas: none !important;
+    gap: 20px !important;
+  }
+
+  .property-detail-page .property-detail-top-gallery {
+    grid-area: auto !important;
+  }
+
+  .property-detail-page .property-detail-summary {
+    grid-area: auto !important;
+  }
+
+  .property-detail-page .property-detail-aside {
+    position: static !important;
+  }
+
+  .property-detail-page .property-summary-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .property-detail-page .property-spec-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-detail-top {
+    gap: 16px !important;
+  }
+
+  .property-detail-page .property-gallery {
+    grid-template-columns: 1fr !important;
+    min-height: 0 !important;
+  }
+
+  .property-detail-page .property-gallery-main,
+  .property-detail-page .property-gallery-main img,
+  .property-detail-page .property-gallery-main video {
+    min-height: 300px !important;
+    max-height: 300px !important;
+  }
+
+  .property-detail-page .property-gallery-rail {
+    grid-auto-flow: column !important;
+    grid-auto-columns: minmax(82px, 1fr) !important;
+    grid-auto-rows: 72px !important;
+    overflow-x: auto !important;
+  }
+
+  .property-detail-page .property-detail-summary-head {
+    gap: 14px !important;
+    padding: 18px !important;
+  }
+
+  .property-detail-page .property-detail-summary-head h1 {
+    font-size: 1.45rem !important;
+  }
+
+  .property-detail-page .property-detail-content {
+    margin-top: 22px !important;
+  }
+
+  .property-detail-page .property-detail-main {
+    gap: 17px !important;
+  }
+
+  .property-detail-page .property-divar-specs,
+  .property-detail-page .property-detail-body,
+  .property-detail-page .property-location-section,
+  .property-detail-page .property-final-cta,
+  .property-detail-page .property-quick-overview,
+  .property-detail-page .property-related {
+    padding: 16px !important;
+    border-radius: 18px !important;
+  }
+
+  .property-detail-page .property-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .property-detail-page .property-summary-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .property-detail-page .property-final-cta {
+    grid-template-columns: 1fr !important;
+  }
+
+  .property-detail-page .property-final-cta-actions {
+    min-width: 0 !important;
+  }
+
+  .property-detail-page .property-spec-grid {
+    gap: 9px !important;
+  }
+
+  .property-detail-page .property-spec-grid > div {
+    min-height: 72px !important;
+    padding: 10px !important;
+  }
+
+  .property-detail-page .property-map-card iframe {
+    height: 250px !important;
+  }
+}
+
+/* Final property-detail flow containment fix */
+/*
+ * The summary and content are siblings in normal document flow.
+ * Older detail CSS declared the summary as sticky, which can make the
+ * following content visually cover/cover the summary when the cascade
+ * changes or a stale stylesheet is served. The detail page should use
+ * one deterministic vertical flow here; the contact sidebar remains
+ * independently sticky below.
+ */
+.property-detail-page .property-detail-top {
+  display: grid !important;
+  grid-template-rows: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  align-items: start !important;
+  position: relative !important;
+}
+
+.property-detail-page .property-detail-summary {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  inset: auto !important;
+  align-self: start !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  transform: none !important;
+  z-index: 1 !important;
+}
+
+.property-detail-page .property-detail-content {
+  position: relative !important;
+  clear: both !important;
+  z-index: 0 !important;
+  margin-top: 34px !important;
+}
+
+@media (max-width: 1024px) {
+  .property-detail-page .property-detail-content {
+    margin-top: 20px !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-detail-content {
+    margin-top: 22px !important;
+  }
+}
+
+
+/* Property description readability hardening */
+
+.property-detail-page .property-detail-body {
+  color: #152430 !important;
+  background: #ffffff !important;
+  isolation: isolate;
+}
+
+.property-detail-page .property-detail-body .property-section-heading h2 {
+  color: #0b1a2b !important;
+  text-shadow: none !important;
+}
+
+.property-detail-page .property-detail-body .property-section-heading .kicker {
+  color: #8a5e14 !important;
+}
+
+.property-detail-page .property-detail-body .property-source-badge {
+  color: #57646e !important;
+  background: #fbf8f2 !important;
+}
+
+.property-detail-page .property-detail-body .property-description-meta > span {
+  color: #57646e !important;
+  background: #fbf8f2 !important;
+}
+
+.property-detail-page .property-detail-body .property-description-meta strong {
+  color: #152430 !important;
+}
+
+.property-detail-page .property-detail-body .property-description-meta time {
+  color: #57646e !important;
+}
+
+.property-detail-page .property-detail-body .property-description-copy {
+  max-width: 920px !important;
+}
+
+.property-detail-page .property-detail-body .property-description-copy p {
+  color: #152430 !important;
+  font-size: 1rem !important;
+  font-weight: 450 !important;
+  line-height: 2.25 !important;
+  letter-spacing: 0 !important;
+  text-align: right !important;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.property-detail-page .property-detail-body .property-features {
+  border-top-color: #e4dccc !important;
+}
+
+.property-detail-page .property-detail-body .property-section-subheading h3 {
+  color: #0b1a2b !important;
+}
+
+.property-detail-page .property-detail-body .property-section-subheading > span {
+  color: #57646e !important;
+}
+
+.property-detail-page .property-detail-body li {
+  color: #12293f !important;
+  background: #f7edda !important;
+  border-color: #ddc99f !important;
+}
+
+.property-detail-page .property-detail-body li svg {
+  color: #8a5e14 !important;
+}
+
+
+/* Final property specification readability layer */
+.property-detail-page .property-divar-specs {
+  position: relative !important;
+  overflow: visible !important;
+  isolation: isolate !important;
+  color: #152430 !important;
+  background: #ffffff !important;
+}
+
+.property-detail-page .property-divar-specs::after {
+  display: none !important;
+  content: none !important;
+}
+
+.property-detail-page .property-divar-specs .property-section-heading,
+.property-detail-page .property-divar-specs .property-spec-grid,
+.property-detail-page .property-divar-specs .property-spec-amenities {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.property-detail-page .property-divar-specs .property-section-heading h2 {
+  color: #0b1a2b !important;
+  font-size: 1.2rem !important;
+  font-weight: 900 !important;
+  line-height: 1.7 !important;
+}
+
+.property-detail-page .property-divar-specs .property-section-heading .kicker {
+  color: #8a5e14 !important;
+  font-size: .72rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-divar-specs .property-source-badge {
+  color: #57646e !important;
+  background: #fbf8f2 !important;
+  border-color: #e4dccc !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-grid > div {
+  min-width: 0 !important;
+  min-height: 88px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 11px !important;
+  padding: 14px !important;
+  color: #152430 !important;
+  background: #fbf8f2 !important;
+  border: 1px solid #e4dccc !important;
+  border-radius: 15px !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-grid > div > svg {
+  flex: 0 0 auto !important;
+  width: 38px !important;
+  height: 38px !important;
+  padding: 8px !important;
+  color: #8a5e14 !important;
+  background: #f7edda !important;
+  border: 1px solid #ddc99f !important;
+  border-radius: 11px !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-grid > div > span {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 3px !important;
+  color: #152430 !important;
+  font-size: .9rem !important;
+  font-weight: 700 !important;
+  line-height: 1.7 !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-grid small {
+  color: #57646e !important;
+  font-size: .72rem !important;
+  font-weight: 750 !important;
+  line-height: 1.6 !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-grid strong {
+  color: #0b1a2b !important;
+  font-size: .98rem !important;
+  font-weight: 900 !important;
+  line-height: 1.65 !important;
+  overflow-wrap: anywhere !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-amenities {
+  margin-top: 14px !important;
+  color: #152430 !important;
+  background: #fbf8f2 !important;
+  border-color: #e4dccc !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-amenities > summary {
+  color: #152430 !important;
+  background: #fbf8f2 !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-amenities-title strong {
+  color: #0b1a2b !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-amenities-title small,
+.property-detail-page .property-divar-specs .property-spec-amenities-toggle small {
+  color: #57646e !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-amenity-item {
+  color: #152430 !important;
+  background: #ffffff !important;
+  border-color: #e4dccc !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-amenity-item > svg {
+  color: #8a5e14 !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-amenity-item small {
+  color: #57646e !important;
+}
+
+.property-detail-page .property-divar-specs .property-spec-amenity-item strong {
+  color: #12293f !important;
+}
+
+@media (max-width: 1024px) {
+  .property-detail-page .property-divar-specs .property-spec-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-divar-specs .property-spec-grid {
+    grid-template-columns: 1fr !important;
+    gap: 9px !important;
+  }
+
+  .property-detail-page .property-divar-specs .property-spec-grid > div {
+    min-height: 76px !important;
+    padding: 11px !important;
+  }
+
+  .property-detail-page .property-divar-specs .property-spec-grid > div > svg {
+    width: 34px !important;
+    height: 34px !important;
+    padding: 7px !important;
+  }
+
+  .property-detail-page .property-divar-specs .property-spec-grid > div > span {
+    font-size: .88rem !important;
+  }
+}
+
+
+/* Final consultant card — unified light Hirmand theme */
+.property-detail-page .property-detail-aside .property-contact-card {
+  position: relative !important;
+  overflow: hidden !important;
+  display: grid !important;
+  gap: 14px !important;
+  margin: 0 !important;
+  padding: 20px !important;
+  color: #152430 !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fbf8f2 100%) !important;
+  border: 1px solid #e4dccc !important;
+  border-radius: 22px !important;
+  box-shadow: 0 12px 30px rgb(11 26 43 / 8%) !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-card::before {
+  content: "" !important;
+  position: absolute !important;
+  inset-inline: 0 !important;
+  inset-block-start: 0 !important;
+  height: 4px !important;
+  background: linear-gradient(90deg, #0b1a2b 0%, #8a5e14 100%) !important;
+}
+
+.property-detail-page .property-detail-aside .property-consultant-main {
+  grid-template-columns: 58px minmax(0, 1fr) 40px !important;
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+.property-detail-page .property-detail-aside .property-consultant-avatar {
+  width: 58px !important;
+  height: 58px !important;
+  border-radius: 17px !important;
+  background: linear-gradient(145deg, #e2c48c 0%, #c08a2a 100%) !important;
+  color: #0b1a2b !important;
+  font-size: 1.35rem !important;
+  font-weight: 900 !important;
+  box-shadow: 0 8px 18px rgb(11 26 43 / 12%) !important;
+}
+
+.property-detail-page .property-detail-aside .property-consultant-copy {
+  gap: 2px !important;
+}
+
+.property-detail-page .property-detail-aside .property-consultant-copy .kicker {
+  color: #8a5e14 !important;
+  font-size: .7rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-name {
+  color: #0b1a2b !important;
+  font-size: 1.05rem !important;
+  font-weight: 900 !important;
+  line-height: 1.65 !important;
+}
+
+.property-detail-page .property-detail-aside .property-consultant-role {
+  color: #57646e !important;
+  font-size: .76rem !important;
+  font-weight: 700 !important;
+}
+
+.property-detail-page .property-detail-aside .property-consultant-badge {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 12px !important;
+  background: #f7edda !important;
+  color: #8a5e14 !important;
+  border: 1px solid #ddc99f !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-phone {
+  width: 100% !important;
+  min-height: 48px !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 10px 13px !important;
+  border-radius: 13px !important;
+  background: #f7f4ee !important;
+  border: 1px solid #e4dccc !important;
+  color: #0b1a2b !important;
+  font-size: .95rem !important;
+  font-weight: 900 !important;
+  letter-spacing: .02em !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-phone:hover {
+  background: #fbf8f2 !important;
+  border-color: #c08a2a !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-note {
+  margin: 0 !important;
+  color: #57646e !important;
+  font-size: .78rem !important;
+  font-weight: 500 !important;
+  line-height: 2 !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 9px !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-actions .btn-gold,
+.property-detail-page .property-detail-aside .property-contact-actions .btn-ghost {
+  min-height: 46px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  padding: 10px 11px !important;
+  border-radius: 12px !important;
+  font-size: .78rem !important;
+  font-weight: 850 !important;
+  text-decoration: none !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-actions .btn-gold {
+  background: linear-gradient(180deg, #e2c48c 0%, #c08a2a 100%) !important;
+  color: #0b1a2b !important;
+  border: 1px solid #b77d1f !important;
+  box-shadow: 0 7px 16px rgb(192 138 42 / 18%) !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-actions .btn-gold:hover {
+  transform: translateY(-1px) !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-actions .btn-ghost {
+  background: #ffffff !important;
+  color: #0b1a2b !important;
+  border: 1px solid #e4dccc !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-actions .btn-ghost:hover {
+  background: #fbf8f2 !important;
+  border-color: #c08a2a !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-profile {
+  display: inline-flex !important;
+  align-items: center !important;
+  align-self: flex-start !important;
+  gap: 6px !important;
+  width: fit-content !important;
+  padding: 2px 0 !important;
+  color: #8a5e14 !important;
+  font-size: .76rem !important;
+  font-weight: 850 !important;
+  text-decoration: none !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-profile:hover {
+  color: #6f4a0f !important;
+  text-decoration: underline !important;
+  text-underline-offset: 4px !important;
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-detail-aside .property-contact-card {
+    padding: 17px !important;
+    border-radius: 18px !important;
+  }
+
+  .property-detail-page .property-detail-aside .property-consultant-main {
+    grid-template-columns: 52px minmax(0, 1fr) 38px !important;
+  }
+
+  .property-detail-page .property-detail-aside .property-consultant-avatar {
+    width: 52px !important;
+    height: 52px !important;
+    font-size: 1.2rem !important;
+  }
+
+  .property-detail-page .property-detail-aside .property-contact-actions {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* Final property location readability layer */
+.property-detail-page .property-location-section {
+  color: #152430 !important;
+  background: #ffffff !important;
+}
+
+.property-detail-page .property-location-section .property-section-heading h2 {
+  color: #0b1a2b !important;
+  font-size: 1.18rem !important;
+  font-weight: 900 !important;
+  line-height: 1.7 !important;
+}
+
+.property-detail-page .property-location-section .property-section-heading .kicker {
+  color: #8a5e14 !important;
+  font-size: .72rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-location-section .property-location-fallback {
+  width: 100% !important;
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: 42px minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 16px !important;
+  color: #152430 !important;
+  background: #fbf8f2 !important;
+  border: 1px solid #e4dccc !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
+}
+
+.property-detail-page .property-location-section .property-location-fallback > svg {
+  width: 42px !important;
+  height: 42px !important;
+  padding: 10px !important;
+  color: #8a5e14 !important;
+  background: #f7edda !important;
+  border: 1px solid #ddc99f !important;
+  border-radius: 12px !important;
+}
+
+.property-detail-page .property-location-section .property-location-fallback > div {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 3px !important;
+}
+
+.property-detail-page .property-location-section .property-location-fallback strong {
+  color: #0b1a2b !important;
+  font-size: .9rem !important;
+  font-weight: 900 !important;
+  line-height: 1.7 !important;
+}
+
+.property-detail-page .property-location-section .property-location-fallback p {
+  margin: 0 !important;
+  color: #57646e !important;
+  font-size: .82rem !important;
+  font-weight: 600 !important;
+  line-height: 1.8 !important;
+  overflow-wrap: anywhere !important;
+}
+
+.property-detail-page .property-location-section .property-location-fallback .btn-ghost {
+  min-height: 44px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  padding: 9px 13px !important;
+  border: 1px solid #d3c8b4 !important;
+  border-radius: 11px !important;
+  background: #ffffff !important;
+  color: #0b1a2b !important;
+  font-size: .75rem !important;
+  font-weight: 850 !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+}
+
+.property-detail-page .property-location-section .property-location-fallback .btn-ghost:hover {
+  background: #f7edda !important;
+  border-color: #c08a2a !important;
+}
+
+.property-detail-page .property-location-section .property-section-heading > svg {
+  color: #8a5e14 !important;
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-location-section .property-location-fallback {
+    grid-template-columns: 36px minmax(0, 1fr) !important;
+    gap: 10px !important;
+    padding: 13px !important;
+  }
+
+  .property-detail-page .property-location-section .property-location-fallback > svg {
+    width: 36px !important;
+    height: 36px !important;
+    padding: 8px !important;
+  }
+
+  .property-detail-page .property-location-section .property-location-fallback .btn-ghost {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+}
+
+
+/* Final property CTA readability + unified light theme */
+.property-detail-page .property-final-cta {
+  position: relative !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 330px) !important;
+  gap: 24px !important;
+  align-items: center !important;
+  padding: 24px !important;
+  color: #152430 !important;
+  background: linear-gradient(135deg, #ffffff 0%, #fbf8f2 100%) !important;
+  border: 1px solid #e4dccc !important;
+  border-radius: 22px !important;
+  box-shadow: 0 12px 30px rgb(11 26 43 / 7%) !important;
+}
+
+.property-detail-page .property-final-cta::before {
+  content: "" !important;
+  position: absolute !important;
+  inset-inline-end: 0 !important;
+  inset-block: 0 !important;
+  width: 5px !important;
+  background: linear-gradient(180deg, #0b1a2b 0%, #8a5e14 100%) !important;
+}
+
+.property-detail-page .property-final-cta > div:first-child {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 3px !important;
+}
+
+.property-detail-page .property-final-cta .kicker {
+  color: #8a5e14 !important;
+  font-size: .72rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-final-cta h2 {
+  margin: 2px 0 0 !important;
+  color: #0b1a2b !important;
+  font-size: clamp(1.05rem, .92rem + .35vw, 1.3rem) !important;
+  font-weight: 900 !important;
+  line-height: 1.9 !important;
+  letter-spacing: 0 !important;
+  text-wrap: pretty !important;
+}
+
+.property-detail-page .property-final-cta p {
+  margin: 5px 0 0 !important;
+  color: #57646e !important;
+  font-size: .82rem !important;
+  font-weight: 500 !important;
+  line-height: 2 !important;
+}
+
+.property-detail-page .property-final-cta-actions {
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 9px !important;
+}
+
+.property-detail-page .property-final-cta-actions a {
+  min-height: 50px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  padding: 10px 12px !important;
+  border-radius: 13px !important;
+  font-size: .8rem !important;
+  font-weight: 850 !important;
+  text-decoration: none !important;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease !important;
+}
+
+.property-detail-page .property-final-cta-actions .btn-gold {
+  background: linear-gradient(180deg, #e2c48c 0%, #c08a2a 100%) !important;
+  color: #0b1a2b !important;
+  border: 1px solid #b77d1f !important;
+  box-shadow: 0 8px 18px rgb(192 138 42 / 18%) !important;
+}
+
+.property-detail-page .property-final-cta-actions .btn-gold:hover {
+  transform: translateY(-1px) !important;
+}
+
+.property-detail-page .property-final-cta-actions .btn-ghost {
+  background: #ffffff !important;
+  color: #0b1a2b !important;
+  border: 1px solid #d3c8b4 !important;
+}
+
+.property-detail-page .property-final-cta-actions .btn-ghost:hover {
+  transform: translateY(-1px) !important;
+  background: #fbf8f2 !important;
+  border-color: #c08a2a !important;
+  box-shadow: 0 6px 14px rgb(11 26 43 / 6%) !important;
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-final-cta {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    padding: 18px !important;
+    border-radius: 18px !important;
+  }
+
+  .property-detail-page .property-final-cta-actions {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .property-detail-page .property-final-cta-actions a {
+    min-height: 48px !important;
+  }
+}
+
+
+/* Final desktop sidebar flow fix — prevent nested sticky overlap */
+@media (min-width: 1025px) {
+  .property-detail-page .property-detail-content {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 370px) !important;
+    align-items: start !important;
+    gap: 30px !important;
+  }
+
+  .property-detail-page .property-detail-main {
+    min-width: 0 !important;
+  }
+
+  .property-detail-page .property-detail-aside {
+    position: sticky !important;
+    top: 108px !important;
+    align-self: start !important;
+    display: grid !important;
+    grid-auto-rows: max-content !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 18px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    isolation: isolate !important;
+  }
+
+  .property-detail-page .property-detail-aside .property-contact-card {
+    position: static !important;
+    top: auto !important;
+    inset: auto !important;
+    align-self: start !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 1 !important;
+  }
+
+  .property-detail-page .property-detail-aside .property-quick-overview {
+    position: static !important;
+    top: auto !important;
+    inset: auto !important;
+    align-self: start !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 0 !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .property-detail-page .property-detail-content {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 20px !important;
+  }
+
+  .property-detail-page .property-detail-aside {
+    position: static !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 16px !important;
+    height: auto !important;
+  }
+
+  .property-detail-page .property-detail-aside .property-contact-card,
+  .property-detail-page .property-detail-aside .property-quick-overview {
+    position: static !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-detail-content {
+    gap: 16px !important;
+  }
+
+  .property-detail-page .property-detail-aside {
+    gap: 14px !important;
+  }
+}
+
+
+/* Final property features readability layer */
+.property-detail-page .property-detail-body .property-features {
+  position: relative !important;
+  isolation: isolate !important;
+  margin-top: 22px !important;
+  padding-top: 19px !important;
+  border-top: 1px solid #e4dccc !important;
+  color: #152430 !important;
+}
+
+.property-detail-page .property-detail-body .property-features .property-section-subheading {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+  margin: 0 0 12px !important;
+}
+
+.property-detail-page .property-detail-body .property-features .property-section-subheading h3 {
+  margin: 0 !important;
+  color: #0b1a2b !important;
+  font-size: 1rem !important;
+  line-height: 1.8 !important;
+  font-weight: 900 !important;
+  text-shadow: none !important;
+}
+
+.property-detail-page .property-detail-body .property-features .property-section-subheading > span {
+  flex: 0 0 auto !important;
+  color: #57646e !important;
+  background: #fbf8f2 !important;
+  border: 1px solid #e4dccc !important;
+  border-radius: 999px !important;
+  padding: 5px 9px !important;
+  font-size: .7rem !important;
+  font-weight: 800 !important;
+  line-height: 1.4 !important;
+  white-space: nowrap !important;
+}
+
+.property-detail-page .property-detail-body .property-features ul {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+}
+
+.property-detail-page .property-detail-body .property-features li {
+  min-width: 0 !important;
+  min-height: 46px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  color: #12293f !important;
+  background: #f7edda !important;
+  border: 1px solid #ddc99f !important;
+  border-radius: 12px !important;
+  box-sizing: border-box !important;
+}
+
+.property-detail-page .property-detail-body .property-features li svg {
+  flex: 0 0 auto !important;
+  width: 16px !important;
+  height: 16px !important;
+  color: #8a5e14 !important;
+  stroke-width: 2.5 !important;
+}
+
+.property-detail-page .property-detail-body .property-features li > span {
+  min-width: 0 !important;
+  color: #12293f !important;
+  font-size: .88rem !important;
+  font-weight: 750 !important;
+  line-height: 1.8 !important;
+  overflow-wrap: anywhere !important;
+  text-shadow: none !important;
+}
+
+.property-detail-page .property-detail-body .property-features li:hover {
+  background: #fffaf1 !important;
+  border-color: #c08a2a !important;
+  box-shadow: 0 6px 16px rgb(11 26 43 / 6%) !important;
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-detail-body .property-features {
+    margin-top: 18px !important;
+    padding-top: 16px !important;
+  }
+
+  .property-detail-page .property-detail-body .property-features .property-section-subheading {
+    align-items: flex-start !important;
+  }
+
+  .property-detail-page .property-detail-body .property-features ul {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .property-detail-page .property-detail-body .property-features li {
+    min-height: 44px !important;
+    padding: 9px 11px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .property-detail-page .property-detail-body .property-features .property-section-subheading {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+}
+
+
+/* Final detail content composition — aligned main/specs with sidebar */
+@media (min-width: 1025px) {
+  .property-detail-page .property-detail-content {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 370px) !important;
+    grid-template-areas: "main aside" !important;
+    align-items: start !important;
+    column-gap: 30px !important;
+    row-gap: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .property-detail-page .property-detail-main {
+    grid-area: main !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 24px !important;
+    align-self: start !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .property-detail-page .property-detail-main > section,
+  .property-detail-page .property-detail-main > .property-convert-slider,
+  .property-detail-page .property-detail-main > .text-link {
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .property-detail-page .property-detail-main > .property-divar-specs {
+    margin-top: 0 !important;
+  }
+
+  .property-detail-page .property-detail-aside {
+    grid-area: aside !important;
+    align-self: start !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+
+  .property-detail-page .property-detail-aside > .property-contact-card,
+  .property-detail-page .property-detail-aside > .property-quick-overview {
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .property-detail-page .property-detail-content {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "main"
+      "aside" !important;
+    gap: 20px !important;
+  }
+
+  .property-detail-page .property-detail-main {
+    grid-area: main !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 20px !important;
+    min-width: 0 !important;
+  }
+
+  .property-detail-page .property-detail-aside {
+    grid-area: aside !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-detail-content {
+    gap: 16px !important;
+  }
+
+  .property-detail-page .property-detail-main {
+    gap: 16px !important;
+  }
+
+  .property-detail-page .property-detail-aside {
+    gap: 14px !important;
+  }
+}
+
+
+/* Final CTA theme lock — authoritative Hirmand Navy / Brass / Paper */
+.property-detail-page .property-final-cta {
+  position: relative !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 330px) !important;
+  align-items: center !important;
+  gap: 24px !important;
+  padding: 24px !important;
+  color: var(--fg) !important;
+  background: linear-gradient(135deg, var(--card) 0%, var(--paper-2) 100%) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 22px !important;
+  box-shadow: 0 12px 30px rgb(8 19 32 / 7%) !important;
+}
+
+.property-detail-page .property-final-cta::before {
+  content: "" !important;
+  position: absolute !important;
+  inset-inline-end: 0 !important;
+  inset-block: 0 !important;
+  width: 5px !important;
+  background: linear-gradient(180deg, var(--navy-900) 0%, var(--brass-500) 100%) !important;
+}
+
+.property-detail-page .property-final-cta > div:first-child {
+  min-width: 0 !important;
+  position: relative !important;
+  z-index: 1 !important;
+  display: grid !important;
+  gap: 3px !important;
+}
+
+.property-detail-page .property-final-cta .kicker {
+  color: var(--brass-700) !important;
+  font-size: .72rem !important;
+  font-weight: 850 !important;
+}
+
+.property-detail-page .property-final-cta h2 {
+  margin: 2px 0 0 !important;
+  color: var(--navy-900) !important;
+  font-size: clamp(1.05rem, .92rem + .35vw, 1.3rem) !important;
+  line-height: 1.9 !important;
+  font-weight: 900 !important;
+  letter-spacing: 0 !important;
+  text-wrap: pretty !important;
+}
+
+.property-detail-page .property-final-cta p {
+  margin: 5px 0 0 !important;
+  color: var(--muted) !important;
+  font-size: .82rem !important;
+  line-height: 2 !important;
+  font-weight: 500 !important;
+}
+
+.property-detail-page .property-final-cta-actions {
+  position: relative !important;
+  z-index: 1 !important;
+  min-width: 0 !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 9px !important;
+}
+
+.property-detail-page .property-final-cta-actions a {
+  min-height: 50px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  padding: 10px 12px !important;
+  border-radius: 13px !important;
+  font-size: .8rem !important;
+  font-weight: 850 !important;
+  text-decoration: none !important;
+  box-sizing: border-box !important;
+}
+
+.property-detail-page .property-final-cta-actions .btn-gold {
+  background: linear-gradient(180deg, var(--brass-300) 0%, var(--brass-500) 100%) !important;
+  border: 1px solid var(--brass-700) !important;
+  color: var(--navy-950) !important;
+  box-shadow: 0 8px 18px rgb(192 138 42 / 18%) !important;
+}
+
+.property-detail-page .property-final-cta-actions .btn-gold:hover,
+.property-detail-page .property-final-cta-actions .btn-gold:focus-visible {
+  background: linear-gradient(180deg, var(--brass-300) 0%, var(--brass-600) 100%) !important;
+  border-color: var(--brass-800) !important;
+  transform: translateY(-1px) !important;
+}
+
+.property-detail-page .property-final-cta-actions .btn-ghost {
+  background: var(--card) !important;
+  border: 1px solid var(--line-2) !important;
+  color: var(--navy-900) !important;
+}
+
+.property-detail-page .property-final-cta-actions .btn-ghost:hover,
+.property-detail-page .property-final-cta-actions .btn-ghost:focus-visible {
+  background: var(--brass-100) !important;
+  border-color: var(--brass-500) !important;
+  color: var(--navy-950) !important;
+  transform: translateY(-1px) !important;
+}
+
+@media (max-width: 720px) {
+  .property-detail-page .property-final-cta {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    padding: 18px !important;
+    border-radius: 18px !important;
+  }
+
+  .property-detail-page .property-final-cta-actions {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .property-detail-page .property-final-cta-actions a {
+    min-height: 48px !important;
+  }
+}
+
+/* ==========================================================================
+   Desktop readability pass — stronger Persian contrast + comfortable text sizes
+   Keeps the light luxury theme while removing low-contrast / micro-text issues.
+   ========================================================================== */
+@media (min-width: 980px) {
+  /* Property listing / advanced specification filters */
+  .pf-page .pf-hero-copy p,
+  .pf-page .pf-group-title small,
+  .pf-page .pf-field > span,
+  .pf-page .pf-quick > span,
+  .pf-page .pf-active-label,
+  .pf-page .pf-sort,
+  .pf-page .pf-more small,
+  .pf-page .pf-spec-filter > summary small,
+  .pf-page .pf-spec-filter > summary b,
+  .pf-page .pf-spec-filter-group-title small {
+    color: #526474 !important;
+  }
+
+  .pf-page .pf-group-title,
+  .pf-page .pf-spec-filter > summary strong,
+  .pf-page .pf-spec-filter-group-title span {
+    color: #173149 !important;
+  }
+
+  .pf-page .pf-spec-filter > summary {
+    min-height: 68px !important;
+  }
+
+  .pf-page .pf-spec-filter > summary strong {
+    font-size: .86rem !important;
+    line-height: 1.65 !important;
+  }
+
+  .pf-page .pf-spec-filter > summary small {
+    font-size: .68rem !important;
+    line-height: 1.75 !important;
+  }
+
+  .pf-page .pf-spec-filter-group-title span {
+    font-size: .75rem !important;
+  }
+
+  .pf-page .pf-spec-filter-group-title small {
+    font-size: .66rem !important;
+  }
+
+  .pf-page .pf-spec-options {
+    gap: 7px !important;
+  }
+
+  .pf-page .pf-spec-option {
+    min-height: 46px !important;
+    padding: 8px 10px !important;
+    color: #33495c !important;
+    font-size: .76rem !important;
+    font-weight: 700 !important;
+    line-height: 1.8 !important;
+  }
+
+  .pf-page .pf-spec-option:hover {
+    color: #173149 !important;
+  }
+
+  .pf-page .pf-spec-option.is-active {
+    color: #fff !important;
+    background: #173149 !important;
+    border-color: #173149 !important;
+  }
+
+  .pf-page .pf-spec-option-mark {
+    border-color: #aeb9c3 !important;
+    color: #173149 !important;
+  }
+
+  /* Property detail page — body copy and secondary labels */
+  .property-detail-page .property-detail-meta,
+  .property-detail-page .property-description-meta,
+  .property-detail-page .property-map-actions > span,
+  .property-detail-page .property-location-fallback p {
+    color: #536575 !important;
+  }
+
+  .property-detail-page .property-detail-meta {
+    font-size: .94rem !important;
+    line-height: 2 !important;
+    font-weight: 650 !important;
+  }
+
+  .property-detail-page .property-detail-body p,
+  .property-detail-page .property-detail-body li,
+  .property-detail-page .property-description-copy p,
+  .property-detail-page .property-location-section p {
+    color: #263d50 !important;
+    font-size: .96rem !important;
+    line-height: 2.08 !important;
+  }
+
+  .property-detail-page .property-detail-main h2,
+  .property-detail-page .property-detail-body h2,
+  .property-detail-page .property-location-section h2,
+  .property-detail-page .property-related h2 {
+    color: #102d45 !important;
+  }
+
+  .property-detail-page .property-spec-grid small,
+  .property-detail-page .property-summary-facts small,
+  .property-detail-page .property-tools-heading > span:last-child,
+  .property-detail-page .property-price-block > span,
+  .property-detail-page .property-price-block small {
+    color: #566878 !important;
+  }
+
+  .property-detail-page .property-spec-grid strong,
+  .property-detail-page .property-summary-facts strong,
+  .property-detail-page .property-tools-heading > span:first-child {
+    color: #173149 !important;
+  }
+
+  .property-detail-page .property-spec-grid small,
+  .property-detail-page .property-summary-facts small {
+    font-size: .68rem !important;
+    line-height: 1.6 !important;
+    font-weight: 700 !important;
+  }
+
+  .property-detail-page .property-summary-facts strong {
+    font-size: .78rem !important;
+  }
+
+  .property-detail-page .property-tools-heading > span:last-child {
+    font-size: .74rem !important;
+  }
+
+  /* Text placed over gallery images stays readable even on bright rooms. */
+  .property-detail-page .property-gallery-open,
+  .property-detail-page .property-gallery-counter,
+  .property-detail-page .property-gallery-featured,
+  .property-detail-page .property-gallery-thumb-number {
+    text-shadow: 0 1px 2px rgb(0 0 0 / 45%) !important;
+  }
+
+  .property-detail-page .property-gallery-open {
+    font-size: .78rem !important;
+    font-weight: 800 !important;
+  }
+
+  .property-detail-page .property-gallery-counter,
+  .property-detail-page .property-gallery-featured {
+    font-size: .76rem !important;
+  }
+
+  /* Breadcrumb / utility text gets enough size for normal desktop zoom. */
+  .property-detail-page .property-breadcrumb {
+    font-size: .86rem !important;
+  }
+
+  .property-detail-page .property-source-badge {
+    color: #526474 !important;
+    font-size: .73rem !important;
+  }
+}
+

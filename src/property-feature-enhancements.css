@@ -1,0 +1,123 @@
+.property-public-questions,.property-open-house{margin-top:22px;padding:22px;border:1px solid var(--line);border-radius:20px;background:#fffdfa;box-shadow:0 10px 30px rgba(30,45,62,.06)}
+.property-public-questions-head,.property-open-house-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.property-public-questions-head h2,.property-open-house-head h2{margin:4px 0 0;color:var(--navy-900);font-size:1.05rem}
+.property-public-questions-head p,.property-open-house-head p{margin:4px 0 0;color:var(--muted);line-height:1.9;font-size:.76rem}
+.property-public-questions-badge,.property-open-house-badge{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:999px;background:#f7f4ee;color:var(--gold);font-size:.65rem;font-weight:800}
+.property-public-questions-list{display:grid;gap:10px;margin-top:16px}
+.property-public-questions-empty,.property-open-house-empty{padding:15px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);font-size:.72rem;line-height:1.9}
+.property-public-question{border:1px solid var(--line);border-radius:15px;background:#fffdfa;overflow:hidden}
+.property-public-question-q{display:flex;gap:9px;padding:14px 15px 10px;color:var(--navy-900)}
+.property-public-question-q>svg{color:var(--gold);flex:none;margin-top:2px}
+.property-public-question-q span{display:block;color:var(--subtle);font-size:.62rem;font-weight:800}
+.property-public-question-q p,.property-public-question-a p{margin:4px 0 0;line-height:2;font-size:.76rem;white-space:pre-wrap}
+.property-public-question-a{padding:11px 15px 14px;background:#f7f4ee;border-top:1px solid var(--line)}
+.property-public-question-a strong{color:var(--navy-900);font-size:.7rem}
+.property-public-question-a time{display:block;margin-top:6px;color:var(--subtle);font-size:.58rem}
+.property-public-questions-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin-top:14px}
+.property-public-question-input{display:grid;gap:5px}
+.property-public-question-input>span{color:var(--navy-900);font-weight:800;font-size:.7rem}
+.property-public-question-input textarea{width:100%;min-height:92px;resize:vertical;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fffdfa;color:var(--fg);font:inherit;font-size:.74rem;line-height:1.9;outline:none}
+.property-public-question-input textarea:focus{border-color:var(--gold)}
+.property-public-question-input small{color:var(--subtle);font-size:.58rem}
+.property-public-questions-form .btn-gold{min-height:44px;white-space:nowrap}
+.property-open-house{border-color:var(--gold-line);background:linear-gradient(145deg,rgba(183,123,72,.07),transparent 70%),#fffdfa}
+.property-open-house-grid{display:grid;grid-template-columns:minmax(240px,.9fr) minmax(0,1.1fr);gap:14px;margin-top:16px}
+.property-open-house-events{display:grid;gap:8px}
+.property-open-house-event{display:flex;align-items:center;gap:10px;text-align:right;padding:11px;border:1px solid var(--line);border-radius:13px;background:#fffdfa;color:var(--fg);font:inherit;cursor:pointer}
+.property-open-house-event.is-active{border-color:var(--gold);box-shadow:0 5px 18px rgba(138,94,20,.10)}
+.property-open-house-event-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:#f7f4ee;color:var(--gold);flex:none}
+.property-open-house-event strong,.property-open-house-event small{display:block}
+.property-open-house-event strong{font-size:.7rem;color:var(--navy-900);line-height:1.8}
+.property-open-house-event small{margin-top:2px;color:var(--muted);font-size:.6rem}
+.property-open-house-form{padding:14px;border:1px solid var(--line);border-radius:15px;background:#fffdfa}
+.property-open-house-summary{display:grid;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.property-open-house-summary div{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.property-open-house-summary span{color:var(--subtle);font-size:.61rem}
+.property-open-house-summary strong{color:var(--navy-900);font-size:.72rem}
+.property-open-house-summary p{margin:2px 0 0;color:var(--muted);font-size:.68rem;line-height:1.9}
+.property-open-house-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
+.property-open-house-fields label{display:grid;gap:4px}
+.property-open-house-fields label>span{color:var(--navy-900);font-size:.62rem;font-weight:800}
+.property-open-house-fields input,.property-open-house-fields textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fffdfa;color:var(--fg);font:inherit;font-size:.7rem;outline:none}
+.property-open-house-fields input:focus,.property-open-house-fields textarea:focus{border-color:var(--gold)}
+.property-open-house-field-wide{grid-column:1/-1}
+.property-open-house-form>.btn-gold{margin-top:9px;min-height:44px}
+.admin-property-feature-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:12px}
+.admin-property-feature-head>div{min-width:0}
+.admin-property-feature-head h3{display:flex;align-items:center;gap:7px;margin:4px 0 0;color:var(--navy-900);font-size:.9rem}
+.admin-property-feature-head p{margin:4px 0 0;color:var(--muted);font-size:.68rem;line-height:1.85}
+.admin-property-feature-list{display:grid;gap:9px}
+.admin-property-feature-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.8fr);gap:12px;padding:12px;border:1px solid var(--line);border-radius:13px;background:#fffdfa}
+.admin-property-feature-row-main{min-width:0}
+.admin-property-feature-row-main>strong{display:block;color:var(--navy-900);font-size:.72rem;line-height:1.9}
+.admin-property-feature-row-main>small{display:block;margin-top:4px;color:var(--muted);font-size:.62rem}
+.admin-property-feature-row-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+.admin-property-feature-row-meta>span{padding:3px 7px;border-radius:999px;background:#f7f4ee;color:var(--gold);font-size:.58rem;font-weight:800}
+.admin-property-feature-row-meta>small{color:var(--subtle);font-size:.58rem}
+.admin-property-question-answer{display:grid;gap:7px}
+.admin-property-question-answer textarea{width:100%;min-height:72px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fffdfa;color:var(--fg);font:inherit;font-size:.68rem;line-height:1.9;resize:vertical;outline:none}
+.admin-property-question-answer textarea:focus{border-color:var(--gold)}
+.admin-property-question-preview{padding:9px;border-radius:10px;background:#f7f4ee;color:var(--muted);font-size:.65rem;line-height:1.9}
+.admin-property-feature-actions{display:flex;gap:7px;flex-wrap:wrap}
+.admin-property-open-house{margin-top:14px}
+.admin-open-house-create{display:grid;grid-template-columns:1fr 1fr 110px;gap:9px;align-items:end;margin-bottom:13px}
+.admin-open-house-create label{display:grid;gap:4px}
+.admin-open-house-create label>span{font-size:.61rem;color:var(--navy-900);font-weight:800}
+.admin-open-house-create input{width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:#fffdfa;color:var(--fg);font:inherit;font-size:.68rem}
+.admin-open-house-wide{grid-column:1/-1}
+.admin-open-house-create>.btn-gold{min-height:40px}
+.admin-open-house-rsvps{margin-top:15px;padding-top:15px;border-top:1px solid var(--line)}
+.admin-open-house-rsvps .admin-property-feature-head{margin-bottom:8px}
+.admin-open-house-rsvps-empty{margin:0;color:var(--muted);font-size:.68rem}
+.admin-open-house-rsvp-list{display:grid;gap:7px}
+.admin-open-house-rsvp{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:#fffdfa}
+.admin-open-house-rsvp strong{display:block;color:var(--navy-900);font-size:.68rem}
+.admin-open-house-rsvp small,.admin-open-house-rsvp>span{color:var(--subtle);font-size:.58rem}
+.admin-open-house-rsvp p{grid-column:1/-1;margin:1px 0 0;color:var(--muted);font-size:.61rem}
+.owner-property-status{margin-top:18px;padding:22px;border:1px solid var(--gold-line);border-radius:20px;background:linear-gradient(145deg,rgba(183,123,72,.08),transparent 70%),#fffdfa}
+.owner-property-status-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+.owner-property-status-head h2{margin:5px 0 0;color:var(--navy-900);font-size:1.05rem}
+.owner-property-status-head p{margin:5px 0 0;color:var(--muted);font-size:.74rem;line-height:1.9}
+.owner-property-status-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:14px;background:#f7f4ee;color:var(--gold);flex:none}
+.owner-property-status-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin-top:16px}
+.owner-property-status-form label{display:grid;gap:5px}
+.owner-property-status-form label>span{font-size:.65rem;color:var(--navy-900);font-weight:800}
+.owner-property-status-form input{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:11px;background:#fffdfa;color:var(--fg);font:inherit;font-size:.72rem;outline:none}
+.owner-property-status-form input:focus{border-color:var(--gold)}
+.owner-property-status-form .btn-gold{min-height:43px;white-space:nowrap}
+.owner-property-status-result{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:15px;background:#fffdfa}
+.owner-property-status-summary{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.owner-property-status-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;font-size:.65rem;font-weight:900;background:#f7f4ee;color:var(--navy-900)}
+.owner-property-status-pill.is-approved{color:#2a6248;background:#edf6ef}
+.owner-property-status-pill.is-rejected{color:#8c3f35;background:#fbefed}
+.owner-property-status-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:.61rem}
+.owner-property-status-meta span{display:inline-flex;align-items:center;gap:5px}
+.owner-property-status-note{margin-top:11px;padding:11px;border:1px solid rgba(163,49,39,.2);border-radius:12px;background:#fff3f1}
+.owner-property-status-note strong{display:flex;gap:6px;align-items:center;color:#8c3f35;font-size:.67rem}
+.owner-property-status-note p{margin:5px 0 9px;color:var(--muted);font-size:.68rem;line-height:1.9;white-space:pre-wrap}
+.owner-property-status-note .btn-ghost{min-height:38px}
+.owner-property-status-property{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:11px;padding:10px;border:1px solid var(--gold-line);border-radius:12px;background:#f7f4ee}
+.owner-property-status-property strong{display:block;margin-top:3px;color:var(--navy-900);font-size:.7rem}
+.owner-property-status-timeline{display:grid;gap:8px;margin-top:13px;padding-top:13px;border-top:1px solid var(--line)}
+.owner-property-status-event{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px}
+.owner-property-status-event>span{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#f7f4ee;color:var(--gold)}
+.owner-property-status-event strong{display:block;color:var(--navy-900);font-size:.66rem}
+.owner-property-status-event p{margin:2px 0;color:var(--muted);font-size:.62rem;line-height:1.8}
+.owner-property-status-event time{display:block;color:var(--subtle);font-size:.56rem}
+.owner-property-status-foot,.owner-property-status-help{display:block;margin-top:11px;color:var(--subtle);font-size:.58rem;line-height:1.8}
+.owner-property-status-help{padding-top:10px;border-top:1px dashed var(--line)}
+.owner-property-status-spin{animation:owner-status-spin .9s linear infinite}
+@keyframes owner-status-spin{to{transform:rotate(360deg)}}
+@media (max-width:720px){
+ .property-public-questions,.property-open-house,.owner-property-status{padding:16px;border-radius:16px}
+ .property-public-questions-form,.owner-property-status-form{grid-template-columns:1fr}
+ .property-open-house-grid{grid-template-columns:1fr}
+ .property-open-house-fields{grid-template-columns:1fr}
+ .property-open-house-field-wide{grid-column:auto}
+ .admin-property-feature-row{grid-template-columns:1fr}
+ .admin-open-house-create{grid-template-columns:1fr 1fr}
+ .admin-open-house-create>.btn-gold{grid-column:1/-1}
+ .owner-property-status-summary{align-items:flex-start}
+ .owner-property-status-property{align-items:flex-start;flex-direction:column}
+ .owner-property-status-property .btn-gold{width:100%;justify-content:center}
+}

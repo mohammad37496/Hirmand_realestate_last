@@ -1,0 +1,178 @@
+.staff-agreement-page {
+  direction: ltr;
+  background: #111315;
+  color: #f7f5ef;
+  min-height: 100vh;
+  font-family: var(--font, Vazirmatn, Tahoma, sans-serif);
+}
+.staff-agreement-shell {
+  width: min(1000px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 52px 0 68px;
+}
+.staff-agreement-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  border-bottom: 1px solid rgba(244,239,230,.10);
+  padding-bottom: 28px;
+}
+.staff-agreement-hero-icon {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(217,184,121,.08);
+  border: 1px solid rgba(217,184,121,.20);
+  color: #d9b879;
+}
+.staff-agreement-hero h1 {
+  margin: 5px 0 9px;
+  font-size: clamp(1.65rem, 3vw, 2.3rem);
+  line-height: 1.35;
+}
+.staff-agreement-hero p {
+  margin: 0;
+  color: rgba(247,245,239,.68);
+  line-height: 1.9;
+  max-width: 780px;
+}
+.staff-agreement-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.staff-agreement-meta div,
+.staff-agreement-intro,
+.staff-agreement-section,
+.staff-agreement-signature-note {
+  background: #191c20;
+  border: 1px solid rgba(244,239,230,.09);
+  border-radius: 17px;
+}
+.staff-agreement-meta div {
+  padding: 15px 16px;
+  display: grid;
+  gap: 5px;
+}
+.staff-agreement-meta span {
+  color: rgba(247,245,239,.48);
+  font-size: .72rem;
+}
+.staff-agreement-meta strong {
+  font-size: .88rem;
+}
+.staff-agreement-intro {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 15px 17px;
+  margin-bottom: 14px;
+  color: rgba(247,245,239,.70);
+}
+.staff-agreement-intro svg {
+  color: #d9b879;
+  flex: 0 0 auto;
+  margin-top: 3px;
+}
+.staff-agreement-intro p {
+  margin: 0;
+  line-height: 1.85;
+}
+.staff-agreement-sections {
+  display: grid;
+  gap: 12px;
+}
+.staff-agreement-section {
+  display: grid;
+  grid-template-columns: 50px minmax(0,1fr);
+  gap: 18px;
+  padding: 21px 22px;
+}
+.staff-agreement-section-number {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: rgba(217,184,121,.09);
+  border: 1px solid rgba(217,184,121,.16);
+  color: #d9b879;
+  font-weight: 800;
+}
+.staff-agreement-section-body h2,
+.staff-agreement-signature-note h2 {
+  margin: 0 0 9px;
+  font-size: 1.02rem;
+}
+.staff-agreement-section-body p {
+  margin: 0 0 10px;
+  color: rgba(247,245,239,.69);
+  line-height: 1.95;
+}
+.staff-agreement-section-body p:last-child {
+  margin-bottom: 0;
+}
+.staff-agreement-section-body ul {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+}
+.staff-agreement-section-body li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: rgba(247,245,239,.70);
+  line-height: 1.82;
+}
+.staff-agreement-section-body li svg {
+  color: #d9b879;
+  flex: 0 0 auto;
+  margin-top: 5px;
+}
+.staff-agreement-signature-note {
+  margin-top: 14px;
+  padding: 23px;
+}
+.staff-agreement-signature-note p {
+  margin: 0 0 10px;
+  color: rgba(247,245,239,.68);
+  line-height: 1.9;
+}
+.staff-agreement-signature-note p:last-child { margin-bottom: 0; }
+.staff-agreement-back { color: #d9b879 !important; }
+.staff-agreement-footer {
+  display: flex;
+  gap: 15px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding-top: 24px;
+  color: rgba(247,245,239,.42);
+  font-size: .76rem;
+}
+.staff-agreement-footer a { color: rgba(247,245,239,.65); }
+.staff-agreement-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 18px;
+  color: #f7f5ef;
+  text-decoration: none;
+  font-size: .82rem;
+}
+@media (max-width: 720px) {
+  .staff-agreement-shell { width: min(100% - 20px, 1000px); padding-top: 28px; }
+  .staff-agreement-hero { gap: 12px; }
+  .staff-agreement-hero-icon { width: 48px; height: 48px; border-radius: 13px; }
+  .staff-agreement-meta { grid-template-columns: 1fr; }
+  .staff-agreement-section {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 18px;
+  }
+}

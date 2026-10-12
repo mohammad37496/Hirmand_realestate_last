@@ -1,0 +1,172 @@
+.property-back-in-market-body{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:16px;
+  border:1px solid var(--line);
+  border-radius:var(--r-xl);
+  background:var(--card-2);
+}
+.property-back-in-market-copy{
+  min-width:0;
+  display:grid;
+  gap:4px;
+}
+.property-back-in-market-copy strong{
+  color:var(--navy-900);
+  line-height:1.6;
+}
+.property-back-in-market-copy small{
+  color:var(--muted);
+  line-height:1.75;
+}
+.property-financing-summary,
+.property-prep-metrics{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:16px;
+}
+.property-financing-summary > div,
+.property-prep-metrics > div{
+  min-width:0;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  background:var(--card-2);
+}
+.property-financing-summary span,
+.property-prep-metrics span{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:var(--muted);
+  font-size:.76rem;
+  margin-bottom:5px;
+}
+.property-financing-summary strong,
+.property-prep-metrics strong{
+  color:var(--navy-900);
+  font-size:.95rem;
+  line-height:1.5;
+}
+.property-financing-fields,
+.property-prep-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+.property-financing-fields label,
+.property-prep-grid label{
+  display:grid;
+  gap:7px;
+}
+.property-financing-fields label > span,
+.property-prep-grid label > span{
+  color:var(--navy-900);
+  font-size:.78rem;
+  font-weight:700;
+}
+.property-financing-fields input,
+.property-financing-fields textarea,
+.property-prep-grid input{
+  width:100%;
+  min-width:0;
+  border:1px solid var(--line);
+  border-radius:var(--r-md);
+  background:var(--card-2);
+  color:var(--navy-900);
+  padding:11px 12px;
+  outline:none;
+}
+.property-financing-fields input:focus,
+.property-financing-fields textarea:focus,
+.property-prep-grid input:focus{
+  border-color:var(--gold);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 12%,transparent);
+}
+.property-financing-note-field{grid-column:1/-1;}
+.property-financing-request > .btn-gold{margin-top:14px;}
+.property-financing-disclaimer,
+.property-prep-note{
+  display:block;
+  margin-top:10px;
+  color:var(--muted);
+  font-size:.74rem;
+  line-height:1.8;
+}
+.property-financing-success{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  padding:16px;
+  border:1px solid var(--line);
+  border-radius:var(--r-xl);
+  background:var(--card-2);
+}
+.property-financing-success > span{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:48px;
+  height:48px;
+  flex:0 0 auto;
+  border-radius:14px;
+  background:var(--card);
+  color:var(--navy-900);
+}
+.property-financing-success strong{color:var(--navy-900);}
+.property-financing-success p{
+  margin:3px 0;
+  color:var(--muted);
+  font-size:.82rem;
+}
+.property-financing-success small{color:var(--muted);}
+.property-prep-total{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-top:14px;
+}
+.property-prep-total > div{
+  display:flex;
+  min-width:0;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:13px 14px;
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  background:var(--card-2);
+}
+.property-prep-total span{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+  color:var(--muted);
+  font-size:.78rem;
+}
+.property-prep-total strong{
+  flex:0 0 auto;
+  color:var(--navy-900);
+  font-size:.84rem;
+}
+.property-prep-total .is-highlight{
+  border-color:var(--gold);
+  background:color-mix(in srgb,var(--gold) 6%,var(--card-2));
+}
+@media (max-width:760px){
+  .property-back-in-market-body{align-items:stretch;flex-direction:column;}
+  .property-back-in-market-body .btn-gold,
+  .property-back-in-market-body .btn-ghost{width:100%;justify-content:center;}
+  .property-financing-summary,
+  .property-prep-metrics,
+  .property-prep-total{grid-template-columns:1fr;}
+}
+@media (max-width:640px){
+  .property-financing-fields,
+  .property-prep-grid{grid-template-columns:1fr;}
+  .property-financing-note-field{grid-column:auto;}
+}

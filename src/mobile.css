@@ -1,0 +1,851 @@
+/* ==========================================================================
+   HIRMAND — Mobile experience layer (Android + iPhone)
+   --------------------------------------------------------------------------
+   Loaded last. Refines the native-app feel on phones without touching
+   desktop. Groups:
+     1. Platform behaviour (safe areas, tap highlight, momentum, zoom guards)
+     2. Header & mobile navigation
+     3. Hero & home sections
+     4. Property cards & filters
+     5. Property detail page
+     6. Forms & financial tools
+     7. Footer
+     8. Small-phone refinement (≤ 360px)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Platform behaviour
+   -------------------------------------------------------------------------- */
+@supports (padding: max(0px)) {
+  .site-nav {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Every interactive control is a comfortable touch target on phones. */
+@media (max-width: 720px) {
+  .site-nav {
+    position: sticky;
+    top: 0;
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+  }
+
+  a,
+  button,
+  select,
+  summary,
+  label,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .nav-brand {
+    min-height: 44px;
+  }
+
+  /* Kill the double-tap zoom on fast taps between controls. */
+  .quick-actions,
+  .quick-action,
+  .menu-toggle,
+  .nav-call,
+  .pf-chip,
+  .hero-actions a,
+  .form-actions button {
+    touch-action: manipulation;
+  }
+
+  /* Music bar must never cover the quick-action dock. */
+  .music-player {
+    bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+
+  body:has(.music-player:not(.music-player-empty)) {
+    padding-bottom: 152px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. Header & mobile navigation
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .site-nav-inner {
+    min-height: 62px;
+    padding: 8px 0;
+    gap: 10px;
+  }
+
+  .nav-brand {
+    gap: 8px;
+    padding-inline-end: 10px;
+  }
+
+  .nav-brand small {
+    max-width: 9.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-actions {
+    gap: 6px;
+    margin-right: 0;
+  }
+
+  .menu-toggle {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease);
+  }
+
+  .menu-toggle:active {
+    background: rgba(11, 26, 43, 0.07);
+  }
+
+  .nav-call {
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+  }
+
+  /* Full app-style sheet: covers the viewport, slides up, own scroll. */
+  .mobile-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    padding: calc(74px + env(safe-area-inset-top)) 18px calc(88px + env(safe-area-inset-bottom));
+    background:
+      radial-gradient(circle at 85% 4%, rgba(192, 138, 42, 0.12), transparent 42%),
+      linear-gradient(180deg, #fbf9f4 0%, #f4f0e8 100%);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-12px);
+    transition:
+      opacity var(--med) var(--ease),
+      transform var(--med) var(--ease),
+      visibility 0s linear var(--med);
+  }
+
+  .mobile-menu.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition:
+      opacity var(--med) var(--ease),
+      transform var(--med) var(--ease);
+  }
+
+  .mobile-menu a {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 6px;
+    border: 1px solid rgba(11, 26, 43, 0.07);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.75);
+    color: var(--navy-900);
+    font-size: 1rem;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(11, 26, 43, 0.04);
+  }
+
+  .mobile-menu a:active {
+    background: rgba(192, 138, 42, 0.1);
+    border-color: rgba(192, 138, 42, 0.35);
+  }
+
+  .mobile-menu .mobile-call-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 14px;
+    border-top: 1px dashed rgba(11, 26, 43, 0.12);
+  }
+
+  .mobile-menu .mobile-call {
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 0;
+    color: var(--navy-950);
+    background: linear-gradient(180deg, var(--brass-300), var(--brass-500));
+    border-color: transparent;
+    font-weight: 700;
+  }
+
+  .mobile-menu .mobile-call:active {
+    filter: brightness(0.96);
+  }
+
+  /* When the sheet is open the header (and its X button) sits above it. */
+  .site-nav:has(.mobile-menu.is-open) {
+    z-index: 100;
+    background: rgba(247, 244, 238, 0.98);
+    box-shadow: 0 1px 0 var(--line);
+  }
+
+  /* The nav itself must also rise above the sheet, not just paint above it:
+     sticky positioning creates its own stacking context, so without this the
+     X (close) button stays underneath and the menu cannot be dismissed. */
+  .site-nav:has(.mobile-menu.is-open) .site-nav-inner {
+    position: relative;
+    z-index: 95;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. Hero & home sections
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .hero {
+    min-height: min(78svh, 640px);
+  }
+
+  .hero-inner {
+    padding: 58px 0 60px;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.65rem, 1.15rem + 2.4vw, 2.3rem);
+    line-height: 1.35;
+  }
+
+  .slogan strong {
+    font-size: 1.0625rem;
+  }
+
+  .hero-search {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding: 12px;
+    border-radius: 20px;
+    background: rgba(251, 249, 244, 0.96);
+    box-shadow: 0 22px 60px rgba(8, 19, 32, 0.42);
+  }
+
+  .hero-search select {
+    min-height: 50px;
+    border: 1px solid rgba(11, 26, 43, 0.1);
+    border-radius: 12px;
+    background-color: #fff;
+    color: var(--navy-900);
+    font-size: 16px; /* prevents focus zoom on iOS */
+    font-weight: 600;
+  }
+
+  .hero-search .search-submit {
+    grid-column: auto;
+    min-width: 0;
+    min-height: 50px;
+    font-size: 1rem;
+  }
+
+  .hero-actions {
+    gap: 9px;
+  }
+
+  .hero-actions .btn-gold,
+  .hero-actions .btn-ghost {
+    width: 100%;
+    min-height: 52px;
+    font-size: 1rem;
+  }
+
+  .trust-strip-wrap {
+    margin-top: -30px;
+  }
+
+  .trust-stat strong {
+    font-size: 1.5rem;
+  }
+
+  .section {
+    margin-top: 58px;
+  }
+
+  .section-head h2 {
+    font-size: clamp(1.35rem, 1.05rem + 1.3vw, 1.75rem);
+  }
+
+  .type-grid {
+    gap: 12px;
+  }
+
+  .type-card img,
+  .location-visual img {
+    height: 190px;
+  }
+
+  .type-body strong {
+    font-size: 1.0625rem;
+  }
+
+  /* Quick-action dock: true bottom bar with home-indicator clearance. */
+  .quick-actions {
+    bottom: max(10px, env(safe-area-inset-bottom));
+    padding: 6px;
+    gap: 5px;
+  }
+
+  .quick-action {
+    min-height: 48px;
+    padding-inline: 6px;
+  }
+
+  .quick-action svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .quick-action span {
+    font-size: 0.6563rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. Property cards & filters  (/properties)
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .pf-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+  }
+
+  .pf-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pf-chip {
+    flex: 0 0 auto;
+    min-height: 42px;
+    padding: 0 16px;
+    font-size: 0.8125rem;
+    scroll-snap-align: start;
+  }
+
+  .pf-search input,
+  .pf-select,
+  .pf-filter-btn {
+    font-size: 16px; /* no focus zoom */
+  }
+
+  .pf-search {
+    min-height: 52px;
+  }
+
+  .pf-filter-btn {
+    min-height: 52px;
+  }
+
+  .pf-card {
+    border-radius: 18px;
+  }
+
+  .pf-card-media {
+    height: 210px;
+  }
+
+  .pf-card-body {
+    padding: 14px 16px 16px;
+  }
+
+  /* Sticky sort/view summary stays one thumb-reach from the dock. */
+  .pf-results-head {
+    position: sticky;
+    top: calc(62px + env(safe-area-inset-top));
+    z-index: 30;
+    margin-inline: -6px;
+    padding: 8px 6px;
+    background: rgba(247, 244, 238, 0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 0 0 14px 14px;
+  }
+
+  .pf-sidebar {
+    inset-inline: 0;
+    bottom: 0;
+    max-height: calc(100svh - 60px);
+    border-radius: 22px 22px 0 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .pf-backdrop {
+    z-index: 110;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. Property detail page
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .property-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 230px 84px;
+    gap: 8px;
+  }
+
+  .property-gallery-main {
+    grid-column: 1 / -1;
+  }
+
+  .property-gallery-thumb:nth-of-type(n + 3) {
+    display: none;
+  }
+
+  .property-detail h1,
+  .property-title {
+    font-size: clamp(1.3rem, 1.05rem + 1.2vw, 1.6rem);
+    line-height: 1.45;
+  }
+
+  /* On the detail page the CTA strip rests above the dock while its own
+     section is in view, then scrolls away with the page content. */
+  .property-actions:not(.property-actions-compact) {
+    position: sticky;
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    z-index: 35;
+    width: 100%;
+    margin-top: 14px;
+    padding: 8px;
+    background: rgba(251, 249, 244, 0.96);
+    border: 1px solid rgba(11, 26, 43, 0.08);
+    border-radius: 16px;
+    box-shadow: 0 -6px 30px rgba(11, 26, 43, 0.12);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .property-actions .property-action {
+    flex: 1 1 auto;
+    min-height: 48px;
+    justify-content: center;
+  }
+
+  .property-spec-grid {
+    gap: 9px;
+  }
+
+  .property-spec-grid > div {
+    padding: 11px 12px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. Forms & financial tools
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px; /* stops iOS Safari auto-zoom on focus */
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    min-height: 50px;
+    border-radius: 12px;
+  }
+
+  .field label {
+    font-size: 0.8125rem;
+  }
+
+  .inquiry-section {
+    padding: 22px 16px 26px;
+    border-radius: 22px;
+  }
+
+  .inquiry-form {
+    gap: 12px;
+  }
+
+  .inquiry-amenities-picker summary {
+    min-height: 54px;
+    padding: 9px 12px;
+  }
+
+  .inquiry-amenities-picker summary > b {
+    font-size: 0.68rem;
+    padding: 5px 8px;
+  }
+
+  .inquiry-amenities-body {
+    padding: 10px 12px 12px;
+  }
+
+  .inquiry-amenity-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .inquiry-amenity-option {
+    min-height: 44px;
+    padding: 8px;
+    font-size: 0.76rem;
+  }
+
+  .form-actions .btn-gold,
+  .form-actions .btn-ghost {
+    min-height: 52px;
+    font-size: 1rem;
+  }
+
+  .contact-card {
+    min-height: 84px;
+    padding: 14px 48px 14px 16px;
+  }
+
+  .commission-fields input,
+  .commission-fields select {
+    min-height: 50px;
+  }
+
+  .preset-chip {
+    min-height: 58px;
+  }
+
+  .tools-switch-btn {
+    min-height: 66px;
+  }
+
+  .rahn-slider {
+    height: 28px; /* usable thumb height; visual track is styled separately */
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7. Footer
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .footer {
+    padding-bottom: 96px; /* clears the fixed quick-action dock */
+    text-align: center;
+  }
+
+  .footer-links {
+    gap: 0 16px;
+  }
+
+  .footer-links a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 0.9375rem;
+  }
+
+  .footer-cta {
+    width: 100%;
+    min-height: 50px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7b. Property list tooling (links, filters, view switch, slider)
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  /* Text links ("مشاهده همه فایل‌ها", budget matcher …) get breathing room
+     without growing into full-width buttons. */
+  .text-link {
+    min-height: 44px;
+    padding: 6px 4px;
+  }
+
+  /* Parking/elevator toggles: the checkbox itself stays compact but its whole
+     label row is a 52px hit area. */
+  .pf-switch {
+    min-height: 52px;
+    padding: 0 14px;
+  }
+
+  .pf-switch input {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* List / grid / map segmented control: taller rows so the icon buttons are
+     comfortable to tap. */
+  .pf-views {
+    padding: 4px;
+  }
+
+  .pf-views button {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 0.8125rem;
+  }
+
+  /* Rent slider: the whole 40px rail is draggable, so the invisible native
+     strip comfortably exceeds the 44px-with-margin guideline. */
+  .rahn-slider {
+    height: 40px;
+  }
+
+  /* Sticky results header: keep room for the hidden scrollbar so chips don't
+     jump when the sticky bar engages. */
+  .pf-results-head {
+    scroll-margin-top: 120px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   8. Small-phone refinement (≤ 360px, e.g. iPhone SE class, small Androids)
+   -------------------------------------------------------------------------- */
+@media (max-width: 360px) {
+  .nav-brand small {
+    display: none;
+  }
+
+  .hero h1 {
+    font-size: 1.55rem;
+  }
+
+  .quick-action span {
+    font-size: 0.5938rem;
+  }
+
+  .quick-action {
+    padding-inline: 4px;
+  }
+}
+
+/* Landscape phones: keep the dock slim so it doesn't eat the viewport. */
+@media (max-width: 920px) and (orientation: landscape) {
+  .quick-actions {
+    bottom: max(6px, env(safe-area-inset-bottom));
+  }
+
+  .quick-action {
+    min-height: 40px;
+  }
+
+  .quick-action span {
+    display: none;
+  }
+
+  .hero {
+    min-height: 480px;
+  }
+}
+/* === Mobile header: persistent navigation + visible menu sheet ================= */
+@media (max-width: 720px) {
+  .site-nav {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+    isolation: isolate !important;
+    width: 100% !important;
+    background: rgba(247,244,238,.97) !important;
+    box-shadow: 0 4px 18px rgba(11,26,43,.08) !important;
+  }
+
+  .site-nav.is-scrolled {
+    background: rgba(247,244,238,.99) !important;
+    box-shadow: 0 6px 20px rgba(11,26,43,.1) !important;
+  }
+
+  .site-nav-inner {
+    min-height: 62px !important;
+    width: min(100% - 20px, var(--wrap)) !important;
+    padding: 7px 0 !important;
+  }
+
+  .nav-brand {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  .nav-brand span {
+    min-width: 0 !important;
+  }
+
+  .nav-brand strong {
+    color: var(--navy-900) !important;
+  }
+
+  .nav-brand small {
+    display: block !important;
+    color: var(--subtle) !important;
+  }
+
+  .nav-actions {
+    flex: 0 0 auto !important;
+  }
+
+  .header-inquiry {
+    display: none !important;
+  }
+
+  .nav-call {
+    min-height: 42px !important;
+    padding: 0 11px !important;
+    font-size: .72rem !important;
+  }
+
+  .menu-toggle {
+    display: inline-grid !important;
+    width: 42px !important;
+    height: 42px !important;
+    flex: 0 0 42px !important;
+    background: #fff !important;
+    border: 1px solid var(--line-2) !important;
+    color: var(--navy-900) !important;
+    box-shadow: 0 3px 10px rgba(11,26,43,.06) !important;
+  }
+
+  .menu-toggle:hover,
+  .menu-toggle:focus-visible {
+    background: var(--brass-100) !important;
+    border-color: var(--brass-300) !important;
+    color: var(--navy-950) !important;
+  }
+
+  .mobile-menu {
+    position: fixed !important;
+    top: 62px !important;
+    right: 10px !important;
+    left: 10px !important;
+    bottom: auto !important;
+    z-index: 995 !important;
+    width: auto !important;
+    max-height: calc(100svh - 76px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 12px !important;
+    overflow-y: auto !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 18px !important;
+    background: rgba(255,255,255,.98) !important;
+    box-shadow: 0 18px 48px rgba(11,26,43,.16) !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(-8px) scale(.985) !important;
+    transform-origin: top center !important;
+  }
+
+  .mobile-menu.is-open {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  .mobile-menu a {
+    min-height: 50px !important;
+    margin: 0 0 5px !important;
+    padding: 11px 14px !important;
+    border: 1px solid #e8ecf1 !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    color: var(--navy-900) !important;
+    font-size: .9rem !important;
+    font-weight: 700 !important;
+  }
+
+  .mobile-menu a:last-child {
+    margin-bottom: 0 !important;
+  }
+
+  .mobile-menu a:active,
+  .mobile-menu a:focus-visible {
+    background: var(--brass-100) !important;
+    border-color: var(--brass-300) !important;
+  }
+
+  .mobile-menu .mobile-call-list {
+    margin-top: 8px !important;
+    padding-top: 10px !important;
+    border-top: 1px solid #e8ecf1 !important;
+  }
+
+  .mobile-menu .mobile-call {
+    justify-content: center !important;
+    min-height: 46px !important;
+    background: linear-gradient(180deg, var(--brass-300), var(--brass-500)) !important;
+    color: var(--navy-950) !important;
+    border: 0 !important;
+  }
+
+  /* Keep the open sheet and its close button in the same predictable stack. */
+  .site-nav:has(.mobile-menu.is-open) {
+    z-index: 1000 !important;
+  }
+
+  .site-nav:has(.mobile-menu.is-open) .site-nav-inner {
+    position: relative !important;
+    z-index: 1001 !important;
+  }
+
+  body.menu-open {
+    overflow: hidden !important;
+  }
+}
+@media (max-width: 720px) {
+  .mobile-menu .mobile-menu-inquiry {
+    justify-content: center !important;
+    margin-top: 3px !important;
+    background: var(--navy-900) !important;
+    border-color: var(--navy-900) !important;
+    color: #fff !important;
+  }
+
+  .mobile-menu .mobile-menu-inquiry:active,
+  .mobile-menu .mobile-menu-inquiry:focus-visible {
+    background: var(--navy-800) !important;
+    border-color: var(--navy-800) !important;
+    color: #fff !important;
+  }
+}
+/* === Mobile header: fixed to viewport, independent of page scrolling ========= */
+@media (max-width: 720px) {
+  .site-nav {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    z-index: 1200 !important;
+    transform: translateZ(0) !important;
+    -webkit-transform: translateZ(0) !important;
+  }
+
+  .site-nav-inner {
+    position: relative !important;
+    z-index: 1201 !important;
+  }
+
+  .site-nav .nav-brand,
+  .site-nav .nav-actions,
+  .site-nav .menu-toggle,
+  .site-nav .nav-call {
+    position: relative !important;
+    z-index: 1202 !important;
+  }
+
+  .page {
+    padding-top: 76px !important;
+  }
+
+  .mobile-menu {
+    z-index: 1190 !important;
+  }
+
+  .site-nav:has(.mobile-menu.is-open) {
+    z-index: 1200 !important;
+  }
+}

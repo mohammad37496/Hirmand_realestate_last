@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# پنل مدیریت نباید ایندکس شود
+Disallow: /admin
+Disallow: /admin/
+
+Sitemap: https://www.hirmandrealestate.ir/sitemap.xml

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.HirmandStaff" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/hirmand_bg</item>
+        <item name="android:navigationBarColor">@color/hirmand_bg</item>
+        <item name="android:windowBackground">@color/hirmand_bg</item>
+        <item name="colorPrimary">@color/hirmand_gold</item>
+        <item name="colorOnPrimary">#1A1712</item>
+        <item name="colorSurface">@color/hirmand_surface</item>
+    </style>
+</resources>

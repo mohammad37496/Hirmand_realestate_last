@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="hirmand_bg">#111315</color>
+    <color name="hirmand_surface">#191C20</color>
+    <color name="hirmand_surface_2">#20242A</color>
+    <color name="hirmand_text">#F7F5EF</color>
+    <color name="hirmand_muted">#A7A39B</color>
+    <color name="hirmand_gold">#D9B879</color>
+    <color name="hirmand_gold_dark">#B99655</color>
+</resources>

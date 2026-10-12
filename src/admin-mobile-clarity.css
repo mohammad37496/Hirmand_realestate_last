@@ -1,0 +1,104 @@
+/* Hirmand Admin — mobile drawer legibility
+   The admin shell was designed around a dark desktop sidebar. On phones the same
+   nav markup is rendered inside a light drawer, so the original light-on-dark
+   nav colors become nearly invisible. Keep the desktop palette untouched and
+   remap only the mobile drawer controls to the light workspace tokens.
+*/
+@media (max-width: 900px) {
+  .admin-app .admin-drawer {
+    color: var(--fg, #152430) !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-brand {
+    color: var(--fg, #152430) !important;
+    background: #fff !important;
+    border-bottom-color: var(--line, #e2dacb) !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-brand strong {
+    color: var(--fg, #152430) !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-brand small {
+    color: var(--subtle, #5b6870) !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-nav {
+    background: linear-gradient(180deg, #ffffff 0%, #fbf8f2 100%);
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn {
+    color: #43515c !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    text-shadow: none !important;
+    opacity: 1 !important;
+    font-weight: 650 !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn svg {
+    color: #687681 !important;
+    opacity: 1 !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn:hover,
+  .admin-app .admin-drawer .admin-nav-btn:focus-visible {
+    color: #152430 !important;
+    background: #f7f1e5 !important;
+    border-color: #eadcc2 !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn:hover svg,
+  .admin-app .admin-drawer .admin-nav-btn:focus-visible svg {
+    color: #7a5414 !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn.is-active {
+    color: #7a5414 !important;
+    background: linear-gradient(90deg, #fffaf0 0%, #f7efdd 100%) !important;
+    border-color: #d9bd7c !important;
+    box-shadow: inset -3px 0 0 #b98224, 0 4px 12px rgb(11 26 43 / 6%) !important;
+    font-weight: 800 !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn.is-active svg {
+    color: #8a5e14 !important;
+    opacity: 1 !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-foot {
+    background: #fff !important;
+    border-top-color: var(--line, #e2dacb) !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-foot .admin-nav-btn {
+    color: #5b6870 !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-foot .admin-nav-btn svg {
+    color: #6d7a84 !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-app .admin-drawer .admin-sidebar-brand {
+    padding: 18px 16px 16px !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-nav {
+    padding: 12px 10px 16px !important;
+    gap: 6px !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn {
+    min-height: 48px !important;
+    padding: 11px 13px !important;
+    border-radius: 13px !important;
+    gap: 11px !important;
+    font-size: .9rem !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-foot {
+    padding: 10px 10px 14px !important;
+  }
+}

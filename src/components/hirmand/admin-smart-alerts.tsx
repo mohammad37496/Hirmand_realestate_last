@@ -1,0 +1,13 @@
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock3, ImageOff, UsersRound } from "lucide-react";
+import "@/admin-smart-alerts.css";
+type Props={followUpsDue:number;leadSlaOverdue:number;newLeadsOver4Hours:number;propertiesWithoutImages:number;incompleteProperties:number;onOpenLeads?:()=>void;onOpenProperties?:()=>void};
+export function AdminSmartAlerts(p:Props){
+  const items=[
+    p.onOpenLeads && p.followUpsDue>0&&{tone:"red",icon:Clock3,title:"پیگیری سررسید شده",value:p.followUpsDue,text:"موعد پیگیری این مشتری‌ها گذشته است.",action:p.onOpenLeads,label:"باز کردن پیگیری‌ها"},
+    p.onOpenLeads && p.leadSlaOverdue>0&&{tone:"red",icon:AlertTriangle,title:"لید بدون تماس بیش از ۲۴ ساعت",value:p.leadSlaOverdue,text:"این درخواست‌ها نیاز به رسیدگی سریع دارند.",action:p.onOpenLeads,label:"بررسی لیدها"},
+    p.onOpenLeads && p.newLeadsOver4Hours>0&&{tone:"amber",icon:UsersRound,title:"لید جدید با تأخیر",value:p.newLeadsOver4Hours,text:"لید جدید بیش از ۴ ساعت بدون پاسخ مانده است.",action:p.onOpenLeads,label:"پیگیری فوری"},
+    p.onOpenProperties && p.propertiesWithoutImages>0&&{tone:"amber",icon:ImageOff,title:"فایل بدون تصویر",value:p.propertiesWithoutImages,text:"تصویر اصلی این فایل‌ها را تکمیل کنید.",action:p.onOpenProperties,label:"رفتن به فایل‌ها"},
+    p.onOpenProperties && p.incompleteProperties>0&&{tone:"gold",icon:AlertTriangle,title:"فایل نیازمند تکمیل",value:p.incompleteProperties,text:"اطلاعات ناقص کیفیت انتشار را پایین می‌آورد.",action:p.onOpenProperties,label:"تکمیل فایل‌ها"},
+  ].filter(Boolean) as Array<{tone:string;icon:typeof Clock3;title:string;value:number;text:string;action:()=>void;label:string}>;
+  return <section className="admin-smart-alerts admin-panel"><div className="admin-panel-head"><div><span className="kicker">هشدار هوشمند</span><h2>موارد مهم امروز</h2><p className="admin-smart-alerts-subtitle">{items.length?"این موارد بهتر است امروز بررسی شوند.":"هشدار فوری مهمی وجود ندارد."}</p></div><span className={"admin-smart-alerts-state "+(items.length?"has-alerts":"is-clear")}>{items.length?items.length.toLocaleString("fa-IR")+" هشدار":"همه‌چیز مرتب"}</span></div>{items.length?<div className="admin-smart-alerts-grid">{items.map(i=>{const Icon=i.icon;return <article key={i.title} className="admin-smart-alert" data-tone={i.tone}><div className="admin-smart-alert-top"><span className="admin-smart-alert-icon"><Icon size={17}/></span><strong>{i.value.toLocaleString("fa-IR")}</strong></div><h3>{i.title}</h3><p>{i.text}</p><button type="button" onClick={i.action}><span>{i.label}</span><ArrowLeft size={14}/></button></article>})}</div>:<div className="admin-smart-alerts-clear"><CheckCircle2 size={21}/><span>پیگیری‌ها، SLA لید و تکمیل فایل‌ها وضعیت فوری ندارند.</span></div>}</section>;
+}

@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "گروه مشاورین املاک هیرمند | اصفهان",
+      "hasCanvas": false,
+      "bodyTextLen": 7488,
+      "bodyTextHash": "6e89aeed6bf9ed7400c5506089e2e0c4a9b8adf15214c2b0019b724d5b8d1f4a",
+      "bodyTextPrefix": "رفتن به محتوا هیرمند با مدیریت آقای شیخ درباره خدمات انواع ملک ا",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "گروه مشاورین املاک هیرمند | اصفهان",
+      "hasCanvas": false,
+      "bodyTextLen": 7524,
+      "bodyTextHash": "c3f1031a173d150f83e3e4a071ffd9946018fbd723dc23e6497ed0893be2d7c9",
+      "bodyTextPrefix": "رفتن به محتوا هیرمند با مدیریت آقای شیخ تماس درباره خدمات انواع ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

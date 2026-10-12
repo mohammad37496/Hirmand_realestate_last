@@ -1,0 +1,396 @@
+/* --------------------------------------------------------------------------
+   Narrow Android / legacy mobile hardening
+   Target: ~320–390px CSS viewports (Galaxy J7 Pro class devices)
+   Keep this file loaded last so older, more specific mobile rules cannot
+   re-introduce horizontal clipping or unreadable compressed rows.
+   -------------------------------------------------------------------------- */
+
+html,
+body,
+#root {
+  max-width: 100%;
+  min-width: 0;
+}
+
+html {
+  overflow-x: hidden !important;
+}
+
+body {
+  overflow-x: hidden !important;
+  overflow-wrap: anywhere;
+}
+
+img,
+video,
+iframe,
+canvas {
+  max-width: 100%;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+label,
+small,
+strong,
+span,
+a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+pre,
+code {
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+table {
+  max-width: 100%;
+}
+
+@media (max-width: 390px) {
+  body {
+    font-size: 15px;
+  }
+
+  .page,
+  .site-home,
+  main,
+  section,
+  article,
+  aside,
+  header,
+  footer,
+  .section,
+  .inquiry-section,
+  .property-detail-page,
+  .property-detail-top,
+  .property-detail-content,
+  .consultants-directory-page,
+  .finance-tool-page,
+  .budget-match-page,
+  .team-grid,
+  .property-grid,
+  .contact-grid,
+  .social-row,
+  .trust-strip {
+    min-width: 0 !important;
+  }
+
+  /* Header: leave enough room for brand + call + menu without squeezing. */
+  .site-nav-inner {
+    width: calc(100% - 12px) !important;
+    gap: 6px !important;
+    padding-inline: 0 !important;
+  }
+
+  .nav-brand {
+    gap: 6px !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 92px) !important;
+  }
+
+  .nav-brand .brand-logo-nav {
+    height: 38px !important;
+    flex: 0 0 auto !important;
+  }
+
+  .nav-actions {
+    gap: 5px !important;
+    min-width: 0 !important;
+  }
+
+  .nav-call {
+    min-height: 40px !important;
+    padding-inline: 9px !important;
+    font-size: .68rem !important;
+    min-width: 0 !important;
+  }
+
+  .menu-toggle {
+    width: 40px !important;
+    height: 40px !important;
+    flex: 0 0 40px !important;
+  }
+
+  /* Long headings and labels must wrap instead of forcing a wider layout. */
+  .section-head h2,
+  .section-head p,
+  .hero h1,
+  .property-detail-page h1,
+  .consultant-profile-page h1,
+  .tracking-card h2,
+  .faq-item summary,
+  .contact-card small,
+  .contact-card strong,
+  .team-card h3,
+  .team-role,
+  .team-phone {
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+  }
+
+  .faq-item summary {
+    align-items: flex-start !important;
+    gap: 9px !important;
+    line-height: 1.8 !important;
+  }
+
+  .faq-item summary span {
+    flex: 0 0 28px !important;
+  }
+
+  /* Dense desktop-style rows become genuinely mobile-friendly. */
+  .team-card,
+  .contact-card,
+  .tracking-card,
+  .tools-heading-row,
+  .budget-form-heading,
+  .property-detail-meta,
+  .property-status-group,
+  .property-other-amenities-head {
+    min-width: 0 !important;
+    flex-wrap: wrap !important;
+  }
+
+  .team-card {
+    padding: 16px !important;
+    gap: 11px !important;
+  }
+
+  .team-copy {
+    min-width: 0 !important;
+  }
+
+  .team-actions {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .team-actions .btn-gold,
+  .team-actions .copy-btn {
+    min-width: 0 !important;
+  }
+
+  /* At 360px two compact tiles are harder to read than a clean single column. */
+  .site-home .service-grid,
+  .site-home .type-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .site-home .service-card-button {
+    min-height: 78px !important;
+    grid-template-columns: auto minmax(0, 1fr) !important;
+  }
+
+  .site-home .type-card img {
+    height: 180px !important;
+  }
+
+  /* Keep the property gallery readable, without forcing tiny columns. */
+  .property-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: 220px 82px !important;
+  }
+
+  .property-gallery-main {
+    grid-column: 1 / -1 !important;
+  }
+
+  .property-detail-page .property-actions:not(.property-actions-compact) {
+    grid-template-columns: 1fr !important;
+  }
+
+  .property-detail-page .property-primary-contact {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .property-detail-page .property-primary-contact a,
+  .property-detail-page .property-actions .property-action {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .property-detail-page .property-detail-meta {
+    display: flex !important;
+    align-items: flex-start !important;
+    flex-wrap: wrap !important;
+    gap: 5px 8px !important;
+  }
+
+  .property-detail-page .property-spec-amenities > summary {
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .property-detail-page .property-spec-amenities-title {
+    min-width: 0 !important;
+  }
+
+  .property-detail-page .property-spec-amenities-title strong {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .property-detail-page .property-spec-amenities-toggle {
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+  }
+
+  .property-detail-page .property-other-amenities-head {
+    align-items: flex-start !important;
+  }
+
+  .property-detail-page .property-other-amenities-list {
+    min-width: 0 !important;
+  }
+
+  /* Lightbox and video controls should size to the container, not the viewport. */
+  .property-lightbox-stage,
+  .property-lightbox-media-button {
+    max-width: calc(100% - 16px) !important;
+  }
+
+  .property-lightbox-stage {
+    width: calc(100% - 20px) !important;
+  }
+
+  .property-video-controls {
+    min-width: 0 !important;
+    max-width: calc(100% - 16px) !important;
+  }
+
+  /* Filters and tools: never let a child with intrinsic width enlarge the page. */
+  .pf-page,
+  .pf-layout,
+  .pf-toolbar,
+  .pf-results-head,
+  .pf-grid,
+  .pf-sidebar,
+  .tools-wrap,
+  .tools-layout,
+  .finance-tools-hub,
+  .finance-tools-hub-grid {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .pf-search,
+  .pf-sort,
+  .pf-filter-btn,
+  .pf-select,
+  .tools-switch,
+  .tools-panel,
+  .finance-tools-hub-card,
+  .budget-matcher-main,
+  .budget-matcher-side {
+    min-width: 0 !important;
+  }
+
+  /* Keep pill rows scrollable instead of increasing document width. */
+  .pf-chips,
+  .site-home .hero-intents,
+  .site-home .property-showcase-cta {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain !important;
+    scrollbar-width: none !important;
+  }
+
+  .pf-chips::-webkit-scrollbar,
+  .site-home .hero-intents::-webkit-scrollbar,
+  .site-home .property-showcase-cta::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Maps/media and embedded content cannot grow beyond their card. */
+  .area-map,
+  .location-card,
+  .location-visual,
+  .location-body,
+  .map-embed,
+  .map-embed iframe {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .location-card,
+  .area-map {
+    overflow: hidden !important;
+  }
+
+  /* Fixed players/quick actions stay inside the safe viewport. */
+  .music-player,
+  .quick-actions,
+  .floating-call-menu {
+    max-width: calc(100vw - 16px) !important;
+  }
+}
+
+
+/* Property detail: final narrow-device alignment */
+@media (max-width: 390px) {
+  .property-detail-page .property-gallery {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+    gap: 8px !important;
+  }
+
+  .property-detail-page .property-gallery-main {
+    grid-column: 1 !important;
+    min-height: 285px !important;
+    height: 285px !important;
+  }
+
+  .property-detail-page .property-gallery-main img,
+  .property-detail-page .property-gallery-main video {
+    min-height: 285px !important;
+    height: 285px !important;
+  }
+
+  .property-detail-page .property-gallery-rail {
+    grid-auto-flow: column !important;
+    grid-auto-columns: 74px !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    max-height: none !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  .property-detail-page .property-gallery-thumb,
+  .property-detail-page .property-gallery-thumb:nth-of-type(n + 5) {
+    display: block !important;
+    width: 74px !important;
+    height: 58px !important;
+    min-height: 58px !important;
+  }
+
+  .property-detail-page .property-primary-contact {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .property-detail-page .property-actions:not(.property-actions-compact) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .property-detail-page .property-actions:not(.property-actions-compact) .property-action,
+  .property-detail-page .property-primary-contact a {
+    min-height: 44px !important;
+  }
+}
+
+@media (max-width: 340px) {
+  .property-detail-page .property-primary-contact,
+  .property-detail-page .property-actions:not(.property-actions-compact) {
+    grid-template-columns: 1fr !important;
+  }
+}

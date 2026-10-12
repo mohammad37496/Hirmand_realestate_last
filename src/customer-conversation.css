@@ -1,0 +1,25 @@
+.customer-conversation{margin-top:20px;padding:20px;border:1px solid rgba(11,26,43,.1);border-radius:22px;background:#f7f4ee;box-shadow:0 12px 30px rgba(11,26,43,.05)}
+.customer-conversation-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.customer-conversation-head h3{margin:4px 0 0;color:#0b1a2b;font-size:1.08rem;line-height:1.65}
+.customer-conversation-head p{margin:5px 0 0;color:#66717d;font-size:.78rem;line-height:1.8}
+.customer-conversation-refresh{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.customer-conversation-note{display:flex;align-items:center;gap:7px;margin:14px 0;padding:9px 11px;border-radius:12px;background:#efe8de;color:#53606d;font-size:.72rem}
+.customer-conversation-thread{display:flex;flex-direction:column;gap:9px;max-height:420px;overflow:auto;padding:2px}
+.customer-chat-bubble{max-width:min(78%,680px);padding:11px 13px;border-radius:16px;line-height:1.8}
+.customer-chat-bubble.is-admin{align-self:flex-start;background:#0b1a2b;color:#f7f4ee;border-bottom-right-radius:5px}
+.customer-chat-bubble.is-customer{align-self:flex-end;background:#f1eae0;color:#1f2a35;border:1px solid rgba(138,94,20,.15);border-bottom-left-radius:5px}
+.customer-chat-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.68rem;opacity:.86}
+.customer-chat-bubble p{margin:3px 0 0;white-space:pre-wrap;word-break:break-word;font-size:.82rem}
+.customer-conversation-empty{display:grid;place-items:center;text-align:center;gap:5px;padding:28px 16px;color:#6b7480}
+.customer-conversation-empty strong{color:#253140;font-size:.86rem}
+.customer-conversation-empty span{font-size:.74rem}
+.customer-conversation-compose{margin-top:12px;padding-top:12px;border-top:1px solid rgba(11,26,43,.08)}
+.customer-conversation-compose textarea{width:100%;resize:vertical;min-height:86px;border:1px solid rgba(11,26,43,.14);border-radius:14px;padding:11px;background:#fffdf9;color:#1c2733;outline:none}
+.customer-conversation-compose textarea:focus{border-color:#8a5e14;box-shadow:0 0 0 3px rgba(138,94,20,.11)}
+.customer-conversation-compose-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+.customer-conversation-compose-foot small{color:#77808a;font-size:.68rem}
+.customer-conversation-compose-foot button{display:inline-flex;align-items:center;gap:7px}
+.customer-conversation-status{margin:8px 0 0;color:#8a5e14;font-size:.75rem}
+.customer-conversation-spin{animation:customer-conversation-spin .8s linear infinite}
+@keyframes customer-conversation-spin{to{transform:rotate(360deg)}}
+@media (max-width:640px){.customer-conversation{padding:15px;border-radius:18px}.customer-conversation-head{align-items:flex-start;flex-direction:column}.customer-chat-bubble{max-width:92%}.customer-conversation-head h3{font-size:.95rem}.customer-conversation-compose-foot{align-items:flex-end}}

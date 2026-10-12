@@ -1,0 +1,1259 @@
+/* ==========================================================================
+   HIRMAND — Refinements layer (loaded last)
+   --------------------------------------------------------------------------
+   1. Red removal — every red left in the build is re-pointed to the
+      navy + brass brand system.
+   2. Finance tools v2 — premium calculators, desktop + mobile.
+   3. Music player v2 — smaller, neater floating dock (desktop focus).
+   4. Team socials — icon-only chips.
+   5. Property detail page v2 — readable, high-hierarchy detail sheet.
+   6. Mobile refinements (≤ 720px) for all of the above.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Red removal
+   -------------------------------------------------------------------------- */
+
+:root {
+  /* Semantic tokens re-pointed to the navy/brass family */
+  --danger: var(--brass-700);
+  --danger-bg: var(--brass-100);
+}
+
+/* Legacy "black & crimson" block re-pointed to navy + brass */
+:root {
+  --gold: #1a3a55;
+  --gold-soft: #a8761f;
+  --gold-line: rgba(138, 94, 20, 0.26);
+}
+
+body {
+  background:
+    radial-gradient(circle at 50% -10%, rgba(192, 138, 42, 0.10), transparent 30%),
+    var(--bg);
+}
+
+.danger-btn {
+  border-color: rgb(138 94 20 / 28%);
+  color: var(--brass-700);
+  background: rgb(138 94 20 / 6%);
+}
+
+.admin-property-tags span {
+  color: var(--brass-700);
+  background: rgb(138 94 20 / 10%);
+}
+
+.form-error {
+  color: var(--brass-800);
+}
+
+/* Crimson hero / surfaces → navy veils */
+.hero-veil {
+  background:
+    linear-gradient(180deg, rgba(15, 23, 39, 0.12) 0%, rgba(15, 23, 39, 0.44) 45%, rgba(15, 23, 39, 0.84) 78%, var(--navy-950) 100%),
+    radial-gradient(ellipse at 50% 10%, rgba(192, 138, 42, 0.18), transparent 48%);
+}
+
+.hero-inner::after {
+  background: radial-gradient(ellipse at 50% 8%, rgba(192, 138, 42, 0.18), transparent 44%);
+}
+
+/* Buttons, icon boxes and cards → brass */
+.btn-gold,
+.header-inquiry,
+.quick-action-primary,
+.floating-call {
+  background: linear-gradient(180deg, var(--brass-600), var(--brass-500));
+  box-shadow: 0 10px 26px rgba(192, 138, 42, 0.28);
+}
+
+.btn-gold:hover,
+.header-inquiry:hover,
+.quick-action-primary:hover,
+.floating-call:hover {
+  background: linear-gradient(180deg, var(--brass-500), var(--brass-600));
+  border-color: rgb(138 94 20 / 48%);
+}
+
+.icon-box,
+.social-badge,
+.team-avatar,
+.tracking-card-icon,
+.service-card-arrow,
+.faq-item summary span {
+  color: var(--brass-700);
+  background: rgba(192, 138, 42, 0.10);
+  border-color: rgba(138, 94, 20, 0.26);
+}
+
+.icon-box svg,
+.social-badge svg {
+  color: var(--brass-700);
+}
+
+.team-avatar {
+  color: var(--brass-300);
+  background: linear-gradient(150deg, var(--navy-900), var(--navy-700));
+  border-color: transparent;
+}
+
+/* Interactive states that used crimson */
+.properties-view-switch button.is-active {
+  color: #fff;
+  background: rgb(192 138 42 / 22%);
+  border-color: rgb(138 94 20 / 52%);
+}
+
+.properties-filter-chip {
+  color: var(--brass-800);
+  background: var(--brass-100);
+  border-color: rgb(138 94 20 / 34%);
+}
+
+/* The shared property card now lives in property-card.css (pcard-* namespace),
+   so the legacy .property-card rules were removed from this layer. */
+
+.property-detail-summary {
+  background:
+    linear-gradient(180deg, rgba(192, 138, 42, 0.08), transparent 35%),
+    var(--card);
+}
+
+.property-detail-summary-head > .kicker,
+.property-detail-meta svg,
+.property-price-block > strong,
+.property-price-block .property-price-per-m2 strong,
+.property-contact-phone {
+  color: var(--brass-700);
+}
+
+.property-price-block {
+  background: rgba(192, 138, 42, 0.07);
+  border-color: rgba(138, 94, 20, 0.26);
+}
+
+.property-contact-heading,
+.property-source-badge {
+  color: var(--brass-700);
+}
+
+.property-source-badge {
+  background: var(--brass-100);
+  border-color: rgb(138 94 20 / 26%);
+}
+
+.property-gallery-thumb.is-active {
+  border-color: var(--brass-600);
+  box-shadow: 0 0 0 2px rgba(192, 138, 42, 0.18);
+}
+
+.property-gallery-featured {
+  color: var(--navy-950);
+  background: linear-gradient(135deg, var(--brass-300), var(--brass-500));
+}
+
+.property-detail-body li svg,
+.property-location-fallback > svg {
+  color: var(--brass-700);
+}
+
+.properties-map-list-item:hover,
+.properties-map-list-item.is-active {
+  background: rgba(192, 138, 42, 0.09);
+}
+
+.properties-map-list-item.is-active {
+  box-shadow: inset -3px 0 0 var(--brass-500);
+}
+
+.music-player-error {
+  border-color: rgb(138 94 20 / 22%);
+  background: rgb(192 138 42 / 16%);
+  color: var(--navy-950);
+}
+
+.budget-form-badge {
+  color: var(--brass-800);
+  background: var(--brass-100);
+  border-color: rgb(138 94 20 / 20%);
+}
+
+.partner-lookup-result strong[data-status="rejected"] {
+  color: var(--brass-700);
+}
+
+/* --------------------------------------------------------------------------
+   2. Finance tools v2 — premium calculators
+   -------------------------------------------------------------------------- */
+
+.tools-wrap {
+  display: grid;
+  gap: 26px;
+}
+
+.tools-header {
+  position: relative;
+  overflow: hidden;
+  padding: 30px;
+  background:
+    radial-gradient(circle at 88% -20%, rgb(192 138 42 / 14%), transparent 46%),
+    linear-gradient(150deg, var(--card), var(--card-2));
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--el-2);
+}
+
+.tools-header::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--brass-500) 22%,
+    var(--brass-300) 50%,
+    var(--brass-500) 78%,
+    transparent
+  );
+}
+
+.tools-title {
+  color: var(--navy-950);
+  font-size: clamp(1.2rem, 1.02rem + 0.9vw, 1.6rem);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.tools-description {
+  font-size: 0.9375rem;
+  line-height: 2;
+  color: var(--muted);
+}
+
+.tools-header-badge {
+  padding: 10px 16px;
+  background: var(--navy-100);
+  border: 1px solid rgb(38 80 111 / 18%);
+  box-shadow: var(--el-1);
+}
+
+.tools-layout {
+  grid-template-columns: 296px 1fr;
+  gap: 18px;
+}
+
+.tools-switch {
+  background: linear-gradient(180deg, var(--card), var(--card-2));
+  border-radius: var(--r-xl);
+  box-shadow: var(--el-1);
+}
+
+.tools-switch-heading {
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--line-2);
+}
+
+.tools-switch-heading span {
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.tools-switch-heading small {
+  font-size: var(--fs-2xs);
+}
+
+.tools-switch-btn {
+  position: relative;
+  overflow: hidden;
+  padding: 13px 14px;
+  background: var(--card);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition:
+    background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    color var(--fast) var(--ease),
+    box-shadow var(--fast) var(--ease),
+    transform var(--fast) var(--ease);
+}
+
+.tools-switch-btn:hover {
+  border-color: var(--brass-500);
+  background: var(--brass-100);
+  box-shadow: var(--el-1);
+  transform: translateY(-1px);
+}
+
+.tools-switch-btn:active {
+  transform: translateY(0);
+}
+
+.tools-switch-btn.is-active {
+  background: linear-gradient(150deg, var(--navy-800), var(--navy-950));
+  border-color: var(--navy-900);
+  color: #fff;
+  box-shadow: var(--el-2);
+}
+
+.tools-switch-btn.is-active::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, var(--brass-300), var(--brass-600));
+}
+
+.tools-switch-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  background: linear-gradient(150deg, var(--brass-100), rgb(192 138 42 / 20%));
+  border: 1px solid rgb(138 94 20 / 16%);
+  border-radius: var(--r-sm);
+  color: var(--brass-700);
+  transition: color var(--fast) var(--ease);
+}
+
+.tools-switch-btn.is-active .tools-switch-icon {
+  background: rgb(192 138 42 / 26%);
+  border-color: rgb(226 196 140 / 34%);
+  color: var(--brass-300);
+}
+
+.tools-switch-copy strong {
+  font-size: 0.9375rem;
+  font-weight: 800;
+}
+
+.tools-switch-copy small {
+  font-size: 0.75rem;
+}
+
+.tools-switch-arrow {
+  transition:
+    opacity var(--fast) var(--ease),
+    transform var(--fast) var(--ease);
+}
+
+.tools-switch-btn.is-active .tools-switch-arrow {
+  transform: translateX(-3px);
+}
+
+.tools-panel {
+  gap: 20px;
+  padding: 26px;
+  border-radius: var(--r-xl);
+}
+
+.tools-panel-head {
+  padding-bottom: 18px;
+  border-bottom: 1px dashed var(--line-2);
+}
+
+.tools-panel-icon {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  background: linear-gradient(150deg, var(--navy-800), var(--navy-950));
+  border-radius: var(--r-sm);
+  box-shadow: var(--el-1);
+}
+
+.tools-panel-head > div strong {
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+.tools-panel-status {
+  padding: 6px 13px;
+  border: 1px solid rgb(28 122 86 / 20%);
+}
+
+.tools-panel-body {
+  gap: 20px;
+}
+
+/* Calculators — shared shell polish */
+.commission-layout {
+  gap: 16px;
+}
+
+.commission-box,
+.rahn-box {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+}
+
+.commission-tabs {
+  padding: 5px;
+  border-radius: var(--r-md);
+}
+
+.commission-tab {
+  cursor: pointer;
+  border-radius: var(--r-xs);
+  transition:
+    background-color var(--fast) var(--ease),
+    color var(--fast) var(--ease),
+    box-shadow var(--fast) var(--ease);
+}
+
+.commission-tab.is-active {
+  box-shadow: var(--el-1);
+}
+
+.commission-fields {
+  gap: 14px;
+}
+
+.commission-fields .field input,
+.commission-fields .field select {
+  background: var(--card-2);
+  font-weight: 600;
+}
+
+.commission-fields .field input:focus,
+.commission-fields .field select:focus {
+  background: var(--card);
+}
+
+.commission-result {
+  position: relative;
+  overflow: hidden;
+  gap: 16px;
+  padding: 22px;
+  background:
+    linear-gradient(180deg, rgb(192 138 42 / 6%), transparent 38%),
+    var(--card-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+
+.commission-result-head strong {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.commission-rows li {
+  padding: 13px 15px;
+  font-size: 0.875rem;
+}
+
+.commission-rows li span {
+  font-weight: 600;
+}
+
+.commission-rows li strong {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.commission-rows li.is-total {
+  background: linear-gradient(135deg, var(--navy-800), var(--navy-950));
+}
+
+.commission-rows li.is-total strong {
+  color: var(--brass-300);
+  font-size: 1.0625rem;
+}
+
+.copy-result {
+  cursor: pointer;
+  transition:
+    border-color var(--fast) var(--ease),
+    background-color var(--fast) var(--ease),
+    transform var(--fast) var(--ease);
+}
+
+.copy-result:hover {
+  transform: translateY(-1px);
+}
+
+.commission-disclaimer,
+.commission-hint {
+  font-size: 0.8125rem;
+  line-height: 1.9;
+}
+
+.commission-guide {
+  padding: 22px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-lg);
+}
+
+.commission-guide h3 {
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--line);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.commission-guide ol {
+  gap: 10px;
+  padding-inline-start: 20px;
+  font-size: 0.8125rem;
+  line-height: 1.9;
+}
+
+.preset-grid {
+  gap: 10px;
+}
+
+.preset-chip {
+  min-height: 66px;
+  border-radius: var(--r-md);
+}
+
+.preset-chip strong {
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.preset-chip span {
+  font-size: 0.75rem;
+}
+
+.split-bar {
+  height: 12px;
+  box-shadow: inset 0 0 0 1px rgb(11 26 43 / 8%);
+}
+
+.split-legend {
+  font-size: 0.8125rem;
+}
+
+.amount-words {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+@media (max-width: 1080px) {
+  .tools-layout {
+    grid-template-columns: 250px 1fr;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. Music player v2 — compact floating dock (desktop focus)
+   -------------------------------------------------------------------------- */
+
+/* Size & spacing: shorter bar, tighter paddings */
+.music-player {
+  inset: auto 0 0 0;
+  padding: 7px 14px calc(7px + env(safe-area-inset-bottom));
+}
+
+.music-player-main {
+  gap: 10px;
+  min-height: 46px;
+}
+
+.music-cover {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-xs);
+}
+
+.music-cover svg {
+  width: 16px;
+  height: 16px;
+}
+
+.music-meta strong {
+  font-size: var(--fs-sm);
+  font-weight: 800;
+}
+
+.music-meta > span,
+.music-meta small {
+  font-size: 0.625rem;
+}
+
+.music-transport {
+  gap: 4px;
+}
+
+.music-transport button,
+.music-compact-actions button {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-xs);
+}
+
+.music-transport .music-play {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+}
+
+.music-compact-actions {
+  gap: 4px;
+}
+
+.music-live-badge {
+  display: none;
+}
+
+/* Merge the progress row into the same line: the dock stays one slim strip */
+.music-player-main {
+  padding-bottom: 2px;
+}
+
+.music-player:not(.is-expanded) .music-progress-row {
+  position: absolute;
+  inset-inline: 14px;
+  bottom: calc(2px + env(safe-area-inset-bottom));
+  padding: 0;
+  opacity: 0.85;
+}
+
+.music-player:not(.is-expanded) .music-progress-row > span {
+  display: none;
+}
+
+.music-player:not(.is-expanded) .music-progress {
+  height: 10px;
+}
+
+/* Icon-only action buttons in the compact dock */
+.music-compact-actions button {
+  color: rgb(247 237 218 / 72%);
+}
+
+.music-secondary-controls > button {
+  min-height: 34px;
+  border-radius: var(--r-xs);
+}
+
+.music-playlist {
+  inset: auto 0 calc(100% + 8px) 0;
+  max-width: 420px;
+  margin-inline-start: auto;
+}
+
+.music-playlist-list {
+  max-height: 220px;
+}
+
+/* Launcher chip: tighter, pill-shaped */
+.music-player-launcher {
+  min-height: 42px;
+  padding: 7px 12px;
+  font-size: var(--fs-sm);
+}
+
+/* Floating controls keep clear of the slim dock */
+body:has(.music-player:not(.music-player-empty)) {
+  padding-bottom: 66px;
+}
+
+body:has(.music-player:not(.music-player-empty)) .site-back-top,
+body:has(.music-player:not(.music-player-empty)) .floating-call-menu {
+  bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+/* When the visitor hides the dock, the page reclaims the reserved space. */
+body:has(.music-player.is-hidden) {
+  padding-bottom: 0;
+}
+
+body:has(.music-player.is-hidden) .site-back-top,
+body:has(.music-player.is-hidden) .floating-call-menu {
+  bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* --------------------------------------------------------------------------
+   4. Team & contact socials — icon-only
+   -------------------------------------------------------------------------- */
+
+/* Team cards: icon-only pill buttons */
+.team-socials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line-2);
+}
+
+.team-social {
+  width: 44px;
+  height: 44px;
+  min-height: 0;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  color: var(--navy-800);
+  font-size: 0;
+  transition:
+    background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    color var(--fast) var(--ease),
+    transform var(--fast) var(--ease);
+}
+
+.team-social svg {
+  width: 22px;
+  height: 22px;
+}
+
+.team-social:hover {
+  color: var(--brass-700);
+  border-color: var(--brass-500);
+  background: var(--brass-100);
+  transform: translateY(-2px);
+}
+
+/* Contact section rows become centered icon rings */
+.social-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.social-link {
+  width: 56px;
+  height: 56px;
+  min-height: 0;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--r-lg);
+}
+
+.social-badge {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  color: var(--navy-800);
+  transition:
+    background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    color var(--fast) var(--ease),
+    transform var(--fast) var(--ease);
+}
+
+.social-badge svg {
+  width: 26px;
+  height: 26px;
+}
+
+.social-link:hover .social-badge {
+  color: var(--brass-700);
+  border-color: var(--brass-500);
+  background: var(--brass-100);
+  transform: translateY(-2px);
+}
+
+/* --------------------------------------------------------------------------
+   5. Property detail page v2
+   -------------------------------------------------------------------------- */
+
+/* Gallery: taller hero image, unified radii */
+.property-gallery {
+  border-radius: var(--r-xl);
+}
+
+/* Summary sheet: stronger hierarchy */
+.property-detail-summary {
+  gap: 18px;
+  padding: 26px;
+  border-radius: var(--r-xl);
+  box-shadow: var(--el-2);
+}
+
+.property-detail-summary-head h1 {
+  font-size: clamp(1.3rem, 1.05rem + 1.1vw, 1.9rem);
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.property-detail-ad-meta {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.property-detail-ad-meta span + span::before {
+  margin-inline-end: 10px;
+  color: var(--brass-600);
+}
+
+.property-detail-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.property-detail-meta svg {
+  color: var(--brass-700);
+}
+
+/* Price block: brass hero card */
+.property-price-block {
+  gap: 6px;
+  padding: 18px 20px;
+  background:
+    linear-gradient(135deg, rgb(192 138 42 / 14%), rgb(192 138 42 / 5%)),
+    var(--card-2);
+  border: 1px solid rgb(138 94 20 / 28%);
+  border-radius: var(--r-lg);
+  box-shadow: var(--el-1);
+}
+
+.property-price-block > span {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.property-price-block > strong {
+  font-size: clamp(1.25rem, 1.1rem + 0.7vw, 1.55rem);
+  font-weight: 800;
+  color: var(--navy-950);
+}
+
+.property-price-per-m2 {
+  font-size: 0.875rem;
+}
+
+.property-price-per-m2 strong {
+  color: var(--brass-800);
+}
+
+/* Action row: primary emphasis */
+.property-action {
+  min-height: 46px;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-ui);
+}
+
+.property-action:hover {
+  border-color: var(--brass-500);
+  background: var(--brass-100);
+}
+
+/* Specs: icon chips instead of gray boxes */
+.property-section-heading {
+  font-size: 1.0625rem;
+}
+
+.property-source-badge {
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+}
+
+.property-spec-grid {
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 10px;
+}
+
+.property-spec-grid > div,
+.property-divar-specs > div {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 15px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition:
+    border-color var(--fast) var(--ease),
+    box-shadow var(--fast) var(--ease),
+    transform var(--fast) var(--ease);
+}
+
+.property-spec-grid > div:hover,
+.property-divar-specs > div:hover {
+  border-color: var(--brass-500);
+  box-shadow: var(--el-1);
+  transform: translateY(-1px);
+}
+
+.property-spec-grid > div > svg,
+.property-divar-specs > div > svg {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--brass-100);
+  border: 1px solid rgb(138 94 20 / 16%);
+  border-radius: var(--r-xs);
+  color: var(--brass-700);
+}
+
+.property-spec-grid span,
+.property-divar-specs span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--subtle);
+}
+
+.property-spec-grid strong,
+.property-divar-specs strong {
+  margin-top: 1px;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--navy-900);
+}
+
+/* Detail body: readable, dignified text */
+.property-detail-body h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--navy-950);
+}
+
+.property-detail-body h2::before {
+  content: "";
+  width: 4px;
+  height: 20px;
+  flex: 0 0 4px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, var(--brass-600), var(--brass-600));
+}
+
+.property-detail-body p,
+.property-detail-body li {
+  font-size: 1rem;
+  line-height: 2.1;
+  color: var(--fg);
+}
+
+.property-detail-body ul {
+  gap: 9px;
+}
+
+.property-detail-body li {
+  padding: 10px 14px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.property-detail-body li svg {
+  color: var(--brass-700);
+}
+
+/* Location */
+.property-map-card {
+  border-radius: var(--r-xl);
+}
+
+.property-map-card iframe {
+  border-radius: var(--r-md);
+}
+
+.property-location-fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--brass-100);
+  border: 1px solid rgb(138 94 20 / 22%);
+  border-radius: var(--r-md);
+  color: var(--brass-800);
+}
+
+.property-location-fallback strong {
+  color: var(--navy-950);
+}
+
+/* Contact card */
+.property-contact-card {
+  position: sticky;
+  top: 96px;
+  gap: 14px;
+  padding: 24px;
+  border-radius: var(--r-xl);
+}
+
+.property-contact-heading {
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--line-2);
+}
+
+.property-contact-name {
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+.property-contact-phone {
+  justify-self: start;
+  padding: 8px 14px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-size: 1.0625rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Breadcrumb & section headings */
+.property-breadcrumb {
+  font-size: 0.8125rem;
+}
+
+.property-related .section-head h2 {
+  font-weight: 800;
+}
+
+/* --------------------------------------------------------------------------
+   6. Mobile refinements (≤ 720px) — finance tools, music dock, detail page
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  /* Finance tools stack cleanly */
+  .tools-header {
+    padding: 22px 18px;
+  }
+
+  .tools-header-badge {
+    align-self: flex-start;
+  }
+
+  .tools-layout {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .tools-switch {
+    padding: 12px;
+    gap: 7px;
+  }
+
+  .tools-switch-heading {
+    padding-bottom: 10px;
+  }
+
+  .tools-switch-btn {
+    min-height: 60px;
+    padding: 11px 12px;
+  }
+
+  .tools-switch-icon {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+  }
+
+  .tools-switch-copy strong {
+    font-size: 0.875rem;
+  }
+
+  .tools-switch-copy small {
+    font-size: 0.6875rem;
+  }
+
+  .tools-panel {
+    padding: 18px 14px;
+    gap: 16px;
+  }
+
+  .tools-panel-head {
+    gap: 10px;
+    padding-bottom: 14px;
+  }
+
+  .tools-panel-icon {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+  }
+
+  .tools-panel-status {
+    padding: 5px 10px;
+    font-size: 0.6875rem;
+  }
+
+  .commission-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .commission-box,
+  .rahn-box,
+  .commission-guide {
+    padding: 18px 14px;
+  }
+
+  .commission-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .commission-fields .field input,
+  .commission-fields .field select {
+    min-height: 52px;
+  }
+
+  .commission-result {
+    padding: 18px 14px;
+  }
+
+  .commission-rows li {
+    padding: 12px 13px;
+  }
+
+  .commission-rows li.is-total strong {
+    font-size: 1rem;
+  }
+
+  .preset-chip {
+    min-height: 62px;
+    padding: 10px 12px;
+  }
+
+  .copy-result {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+
+  /* Music dock: compact strip above the quick-action bar */
+  .music-player {
+    left: 8px;
+    right: 8px;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    padding: 7px 10px;
+    border-radius: var(--r-md);
+  }
+
+  .music-player:not(.is-expanded) .music-progress-row {
+    position: static;
+    inset: auto;
+    margin-top: 2px;
+    opacity: 1;
+  }
+
+  .music-player-main {
+    gap: 8px;
+    min-height: 44px;
+    padding-bottom: 0;
+  }
+
+  .music-cover {
+    width: 38px;
+    height: 38px;
+  }
+
+  .music-meta {
+    max-width: 40vw;
+  }
+
+  body:has(.music-player:not(.music-player-empty)) {
+    padding-bottom: 138px;
+  }
+
+  body:has(.music-player.is-hidden) {
+    padding-bottom: 96px; /* quick-action dock clearance only */
+  }
+
+  /* Team socials: 44px icon grid, centered */
+  .team-socials {
+    justify-content: center;
+    padding-top: 12px;
+  }
+
+  .social-row {
+    gap: 10px;
+  }
+
+  .social-link {
+    width: 52px;
+    height: 52px;
+  }
+
+  /* Property detail on phones */
+  .property-detail-summary {
+    padding: 20px 16px;
+  }
+
+  .property-detail-summary-head h1 {
+    font-size: 1.3rem;
+    line-height: 1.55;
+  }
+
+  .property-price-block {
+    padding: 15px 16px;
+  }
+
+  .property-price-block > strong {
+    font-size: 1.2rem;
+  }
+
+  .property-spec-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .property-spec-grid > div,
+  .property-divar-specs > div {
+    padding: 11px 12px;
+    gap: 9px;
+  }
+
+  .property-spec-grid > div > svg,
+  .property-divar-specs > div > svg {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    padding: 7px;
+  }
+
+  .property-spec-grid strong,
+  .property-divar-specs strong {
+    font-size: 0.875rem;
+  }
+
+  .property-detail-body p,
+  .property-detail-body li {
+    font-size: 0.9375rem;
+    line-height: 2;
+  }
+
+  .property-detail-body h2 {
+    font-size: 1rem;
+  }
+
+  .property-contact-card {
+    position: static;
+    padding: 20px 16px;
+  }
+
+  .property-contact-phone {
+    font-size: 1rem;
+  }
+}
+
+/* Small phones (≤ 360px): keep two spec columns readable */
+@media (max-width: 360px) {
+  .property-spec-grid > div,
+  .property-divar-specs > div {
+    padding: 10px;
+  }
+
+  .property-spec-grid > div > svg,
+  .property-divar-specs > div > svg {
+    display: none;
+  }
+}

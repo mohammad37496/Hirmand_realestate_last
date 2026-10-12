@@ -1,0 +1,15 @@
+{
+  "app": "hirmand",
+  "port": 3000,
+  "build": {
+    "location": "germany",
+    "cache": true
+  },
+  "disks": [],
+  "node": {
+    "version": "22",
+    "mirror": true,
+    "timezone": "Asia/Tehran",
+    "npmAudit": false
+  }
+}

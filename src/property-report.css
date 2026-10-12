@@ -1,0 +1,7 @@
+.property-report{margin:18px 0;padding:18px;border:1px solid rgba(11,26,43,.1);border-radius:22px;background:#f7f4ee}
+.property-report-head h2{margin:3px 0;color:#0b1a2b;font-size:1.08rem;line-height:1.65}
+.property-report-head p{margin:4px 0 0;color:#66727e;font-size:.74rem;line-height:1.8}
+.property-report-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}
+.property-report-actions button{display:inline-flex;align-items:center;gap:6px}
+.property-report-status{margin:9px 0 0;color:#8a5e14;font-size:.7rem;line-height:1.8}
+@media(max-width:600px){.property-report{padding:15px;border-radius:18px}.property-report-actions{display:grid;grid-template-columns:1fr 1fr}.property-report-actions button{justify-content:center}}

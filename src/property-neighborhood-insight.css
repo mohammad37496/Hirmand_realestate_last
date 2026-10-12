@@ -1,0 +1,13 @@
+.property-neighborhood-insight{margin:18px 0;padding:19px;border:1px solid rgba(138,94,20,.16);border-radius:22px;background:#f1eae0;box-shadow:0 12px 30px rgba(11,26,43,.045)}
+.property-neighborhood-insight-head h2{margin:3px 0;color:#0b1a2b;font-size:1.08rem;line-height:1.65}
+.property-neighborhood-insight-head p{margin:4px 0 0;color:#65717d;font-size:.72rem;line-height:1.9}
+.property-neighborhood-insight-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.property-neighborhood-insight-grid article{min-width:0;padding:13px;border-radius:15px;background:#f7f4ee;border:1px solid rgba(11,26,43,.08)}
+.property-neighborhood-insight-grid span{display:flex;align-items:center;gap:5px;color:#6c7680;font-size:.68rem}
+.property-neighborhood-insight-grid span svg{color:#8a5e14}
+.property-neighborhood-insight-grid strong{display:block;margin-top:6px;color:#0b1a2b;font-size:.84rem;line-height:1.6}
+.property-neighborhood-insight-current{margin-top:11px;padding:10px 12px;border-radius:12px;background:#fffdf9;color:#4f5b66;font-size:.71rem;line-height:1.9}
+.property-neighborhood-insight-current strong{color:#8a5e14}
+.property-neighborhood-insight-loading{color:#68737e;font-size:.75rem;text-align:center;padding:12px}
+@media(max-width:800px){.property-neighborhood-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.property-neighborhood-insight{padding:15px;border-radius:18px}.property-neighborhood-insight-grid{grid-template-columns:1fr 1fr;gap:8px}.property-neighborhood-insight-grid article{padding:10px}.property-neighborhood-insight-grid strong{font-size:.76rem}.property-neighborhood-insight-current{font-size:.67rem}}

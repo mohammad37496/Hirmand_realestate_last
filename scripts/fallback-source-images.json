@@ -1,0 +1,42 @@
+{
+  "apartment": [
+    "https://images.pexels.com/photos/7546596/pexels-photo-7546596.jpeg?auto=compress&dpr=1&h=750&w=1260",
+    "https://images.pexels.com/photos/7173672/pexels-photo-7173672.jpeg?auto=compress&dpr=1&h=750&w=1260",
+    "https://images.pexels.com/photos/8142052/pexels-photo-8142052.jpeg?auto=compress&dpr=1&h=750&w=1260",
+    "https://images.pexels.com/photos/6636258/pexels-photo-6636258.jpeg?auto=compress&dpr=1&h=750&w=1260",
+    "https://images.pexels.com/photos/6447393/pexels-photo-6447393.jpeg?auto=compress&dpr=1&h=750&w=1260",
+    "https://images.pexels.com/photos/7534559/pexels-photo-7534559.jpeg?auto=compress&dpr=1&h=750&w=1260"
+  ],
+  "villa": [
+    "https://images.unsplash.com/photo-1771888703723-01d85da1dae1?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1773754532196-014342510e64?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1775241183056-06f3f6c10c76?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1770063817031-f3b98dff347f?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1784318519037-7ee0b1668e95?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1760072513376-67a46aab0fd1?auto=format&fit=crop&fm=jpg&q=84&w=1600"
+  ],
+  "office": [
+    "https://images.unsplash.com/photo-1774953037913-af0cf688491a?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1767786330387-5cef0327b6c1?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1765371512971-9d4da531d004?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1782080163196-26ed8ea266d7?auto=format&fit=crop&fm=jpg&q=84&w=1600"
+  ],
+  "heritage": [
+    "https://images.unsplash.com/photo-1780245989984-a178d6c54a7b?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1782414720823-5966c6c24446?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1783195269540-37d9a87b270b?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1783066232761-b68438c0d9a6?auto=format&fit=crop&fm=jpg&q=84&w=1600"
+  ],
+  "land": [
+    "https://images.unsplash.com/photo-1781816927578-ec36210fede0?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1769961332176-3e88f410857d?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1779275397165-f8b00cc64818?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1779275397168-6f6fdf4fa8d6?auto=format&fit=crop&fm=jpg&q=84&w=1600"
+  ],
+  "commercial": [
+    "https://images.unsplash.com/photo-1778034758869-75d25cd6e737?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1786114604377-43f9636c3414?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1786456629213-d087d121044f?auto=format&fit=crop&fm=jpg&q=84&w=1600",
+    "https://images.unsplash.com/photo-1778069982088-eb6605730a30?auto=format&fit=crop&fm=jpg&q=84&w=1600"
+  ]
+}

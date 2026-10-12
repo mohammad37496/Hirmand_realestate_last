@@ -1,0 +1,470 @@
+package ir.hirmand.phonebridge.sync
+
+import android.app.ActivityManager
+import android.content.Context
+import android.net.Uri
+import android.os.BatteryManager
+import android.os.Environment
+import android.os.StatFs
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
+import ir.hirmand.phonebridge.BuildConfig
+import ir.hirmand.phonebridge.data.AppPrefs
+import ir.hirmand.phonebridge.data.EndpointPolicy
+import ir.hirmand.phonebridge.data.LocalQueueDb
+import ir.hirmand.phonebridge.data.PhoneDataCollector
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.security.MessageDigest
+import java.io.File
+import java.util.Base64
+import java.util.concurrent.TimeUnit
+
+class SyncWorker(appContext: Context, params: WorkerParameters) : CoroutineWorker(appContext, params) {
+    companion object {
+        private const val MAX_BATCH_SIZE = 20
+        private const val MAX_ITEMS_PER_RUN = 200
+        private const val MAX_QUEUE_ATTEMPTS = 5
+    }
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .writeTimeout(20, TimeUnit.SECONDS)
+        .build()
+
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val prefs = AppPrefs(applicationContext)
+        val endpoint = prefs.endpoint.trim()
+        if (endpoint.isBlank() || prefs.token.isBlank()) return@withContext Result.failure()
+        if (!EndpointPolicy.isAllowed(endpoint)) return@withContext Result.failure()
+
+        val db = LocalQueueDb(applicationContext)
+        val collector = PhoneDataCollector(applicationContext)
+
+        try {
+            // Location points buffered by LocationTrackingService are drained first.
+            // This used to be defined but never invoked, so every buffered fix sat
+            // in SharedPreferences forever and no location ever reached the server
+            // even when the location module was fully consented and permitted.
+            uploadPendingLocations(prefs, endpoint)
+
+            // Call audio is uploaded through its dedicated authenticated, signed endpoint.
+            uploadCallRecordings(prefs, endpoint)
+
+            // Other explicitly selected files remain on their existing path.
+            uploadSelectedFiles(prefs, endpoint)
+
+            var processed = 0
+
+            while (processed < MAX_ITEMS_PER_RUN) {
+                // claim(), not peek(): it takes a lease so a manual sync and the
+                // periodic sync — which run under different unique work names —
+                // can never both send the same packet.
+                val batch = db.claim(MAX_BATCH_SIZE)
+
+                if (batch.isEmpty()) {
+                    // Do not create newer snapshots while an older packet is
+                    // waiting for its per-item backoff window.
+                    if (db.count() > 0) {
+                        return@withContext Result.retry()
+                    }
+
+                    // Delta mode: if no meaningful module data changed since the
+                    // last successful snapshot, send only a tiny heartbeat.
+                    val snapshot = collector.collect(prefs)
+                    val snapshotHash = snapshotHash(snapshot)
+
+                    if (snapshotHash == prefs.lastSnapshotHash) {
+                        when (sendHeartbeat(prefs, endpoint, snapshotHash)) {
+                            HeartbeatResult.SUCCESS -> {
+                                prefs.lastSuccessfulSyncAt = System.currentTimeMillis()
+                                return@withContext Result.success()
+                            }
+                            HeartbeatResult.NEEDS_SNAPSHOT -> {
+                                snapshot.put("snapshotHash", snapshotHash)
+                                // Dedupe on the snapshot hash: a retry after a
+                                // dropped connection reuses the row rather than
+                                // queueing a second copy of the same snapshot.
+                                db.enqueue(snapshot.toString(), "snapshot", 100, snapshotHash)
+                                continue
+                            }
+                            HeartbeatResult.AUTH_FAILURE -> return@withContext Result.failure()
+                            HeartbeatResult.RETRY -> return@withContext Result.retry()
+                            HeartbeatResult.PERMANENT -> return@withContext Result.failure()
+                        }
+                    }
+
+                    snapshot.put("snapshotHash", snapshotHash)
+                    db.enqueue(snapshot.toString(), "snapshot", 100, snapshotHash)
+                    continue
+                }
+
+                for (item in batch) {
+                    val bodyBytes = item.payload.toByteArray(Charsets.UTF_8)
+                    val body = bodyBytes.toRequestBody(
+                        "application/json; charset=utf-8".toMediaType()
+                    )
+                    val requestBuilder = Request.Builder()
+                        .url(endpoint)
+                        .post(body)
+                        .header("Authorization", "Bearer ${prefs.token}")
+                        .header("X-Hirmand-Device-Id", prefs.installId)
+                    SignedRequest.addHeaders(requestBuilder, prefs.token, prefs.installId, bodyBytes)
+                    val request = requestBuilder.build()
+
+                    try {
+                        client.newCall(request).execute().use { response ->
+                            when {
+                                response.isSuccessful -> {
+                                    val sentHash = runCatching {
+                                        org.json.JSONObject(item.payload).optString("snapshotHash")
+                                    }.getOrDefault("")
+                                    db.complete(item.id)
+                                    if (sentHash.isNotBlank()) prefs.lastSnapshotHash = sentHash
+                                }
+
+                                response.code == 401 || response.code == 403 -> {
+                                    // Keep the packet so re-registration can resend
+                                    // it, but hand the lease back so another worker
+                                    // is not blocked by a claim we are abandoning.
+                                    db.release(item.id)
+                                    return@withContext Result.failure()
+                                }
+
+                                response.code == 408 || response.code == 429 || response.code >= 500 -> {
+                                    val deadLettered = db.markFailure(
+                                        item.id,
+                                        "HTTP ${response.code}",
+                                        MAX_QUEUE_ATTEMPTS,
+                                    )
+                                    if (!deadLettered) return@withContext Result.retry()
+                                }
+
+                                response.code in 400..499 -> {
+                                    // Other 4xx errors are permanent for this packet.
+                                    db.markFailure(
+                                        item.id,
+                                        "HTTP ${response.code}",
+                                        maxAttempts = 1,
+                                    )
+                                }
+
+                                else -> {
+                                    val deadLettered = db.markFailure(
+                                        item.id,
+                                        "HTTP ${response.code}",
+                                        MAX_QUEUE_ATTEMPTS,
+                                    )
+                                    if (!deadLettered) return@withContext Result.retry()
+                                }
+                            }
+                        }
+                    } catch (error: Exception) {
+                        // A dropped connection is not a reason to lose the packet:
+                        // release the claim without burning an attempt and let the
+                        // worker-level backoff retry it.
+                        db.release(item.id)
+                        throw error
+                    }
+                }
+
+                processed += batch.size
+            }
+
+            // Safety cap reached; continue with the remaining queue later.
+            Result.retry()
+        } catch (_: PermanentFileUploadException) {
+            Result.failure()
+        } catch (_: Exception) {
+            Result.retry()
+        }
+    }
+
+    private enum class HeartbeatResult { SUCCESS, NEEDS_SNAPSHOT, AUTH_FAILURE, RETRY, PERMANENT }
+
+    private fun snapshotHash(payload: org.json.JSONObject): String {
+        val copy = org.json.JSONObject(payload.toString()).apply {
+            remove("sentAt")
+            remove("syncId")
+            remove("deviceStats")
+            remove("snapshotHash")
+        }
+        val canonical = canonicalize(copy)
+        return MessageDigest.getInstance("SHA-256")
+            .digest(canonical.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+    }
+
+    private fun canonicalize(value: Any?): String = when (value) {
+        null, org.json.JSONObject.NULL -> "null"
+        is org.json.JSONObject -> {
+            value.keys().asSequence().toList().sorted().joinToString(
+                prefix = "{",
+                postfix = "}",
+                separator = ",",
+            ) { key -> org.json.JSONObject.quote(key) + ":" + canonicalize(value.opt(key)) }
+        }
+        is org.json.JSONArray -> {
+            (0 until value.length()).joinToString(
+                prefix = "[",
+                postfix = "]",
+                separator = ",",
+            ) { index -> canonicalize(value.opt(index)) }
+        }
+        is Number, is Boolean -> value.toString()
+        else -> org.json.JSONObject.quote(value.toString())
+    }
+
+    private fun collectHeartbeatStats(): org.json.JSONObject {
+        val batteryManager = applicationContext.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+        val battery = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+            ?.takeIf { it in 0..100 }
+
+        val stat = StatFs(Environment.getDataDirectory().path)
+        val storageAvailable = stat.availableBytes
+        val storageTotal = stat.totalBytes
+
+        val memoryManager = applicationContext.getSystemService(ActivityManager::class.java)
+        val memoryInfo = ActivityManager.MemoryInfo()
+        memoryManager?.getMemoryInfo(memoryInfo)
+
+        val charging = applicationContext.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+            ?.let { status ->
+                val value = status.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                value == BatteryManager.BATTERY_STATUS_CHARGING || value == BatteryManager.BATTERY_STATUS_FULL
+            }
+
+        return org.json.JSONObject()
+            .put("batteryPercent", battery ?: org.json.JSONObject.NULL)
+            .put("batteryCharging", charging ?: org.json.JSONObject.NULL)
+            .put("storageAvailableBytes", storageAvailable)
+            .put("storageTotalBytes", storageTotal)
+            .put("ramAvailableBytes", memoryInfo.availMem)
+            .put("ramTotalBytes", memoryInfo.totalMem)
+    }
+
+    private fun sendHeartbeat(
+        prefs: AppPrefs,
+        endpoint: String,
+        snapshotHash: String,
+    ): HeartbeatResult {
+        val queue = LocalQueueDb(applicationContext)
+        val body = org.json.JSONObject()
+            .put("snapshotHash", snapshotHash)
+            .put("deviceStats", collectHeartbeatStats())
+            .put(
+                "queue",
+                org.json.JSONObject()
+                    .put("queued", queue.count())
+                    .put("deadLetters", queue.countDeadLetters())
+                    .put("reportedAt", System.currentTimeMillis())
+            )
+            .put(
+                "device",
+                org.json.JSONObject()
+                    .put("id", prefs.installId)
+                    .put("name", prefs.deviceName)
+                    .put("manufacturer", android.os.Build.MANUFACTURER)
+                    .put("model", android.os.Build.MODEL)
+                    .put("androidVersion", android.os.Build.VERSION.RELEASE ?: "unknown")
+                    .put("sdkInt", android.os.Build.VERSION.SDK_INT)
+                    .put("appVersionName", BuildConfig.VERSION_NAME)
+                    .put("appVersionCode", BuildConfig.VERSION_CODE),
+            )
+
+        val bodyBytes = body.toString().toByteArray(Charsets.UTF_8)
+        val requestBuilder = Request.Builder()
+            .url(endpoint.trimEnd('/') + "/heartbeat")
+            .post(bodyBytes.toRequestBody("application/json; charset=utf-8".toMediaType()))
+            .header("Authorization", "Bearer ${prefs.token}")
+            .header("X-Hirmand-Device-Id", prefs.installId)
+        SignedRequest.addHeaders(requestBuilder, prefs.token, prefs.installId, bodyBytes)
+        val request = requestBuilder.build()
+
+        return try {
+            client.newCall(request).execute().use { response ->
+                when {
+                    response.isSuccessful -> {
+                        val responseJson = runCatching {
+                            org.json.JSONObject(response.body?.string().orEmpty())
+                        }.getOrNull()
+                        if (responseJson?.optBoolean("snapshotRequired", false) == true) {
+                            HeartbeatResult.NEEDS_SNAPSHOT
+                        } else {
+                            HeartbeatResult.SUCCESS
+                        }
+                    }
+                    response.code == 401 || response.code == 403 -> HeartbeatResult.AUTH_FAILURE
+                    response.code == 408 || response.code == 429 || response.code >= 500 -> HeartbeatResult.RETRY
+                    response.code in 400..499 -> HeartbeatResult.PERMANENT
+                    else -> HeartbeatResult.RETRY
+                }
+            }
+        } catch (_: Exception) {
+            HeartbeatResult.RETRY
+        }
+    }
+
+    private class PermanentFileUploadException(message: String) : Exception(message)
+
+    private suspend fun uploadPendingLocations(prefs: AppPrefs, endpoint: String) {
+        val points = prefs.pendingLocations().take(100)
+        if (points.isEmpty()) return
+        val uploadEndpoint = endpoint.trimEnd('/') + "/location"
+        for (point in points) {
+            val clientPointId = point.optString("clientPointId")
+            if (clientPointId.isBlank()) continue
+            val bodyBytes = point.toString().toByteArray(Charsets.UTF_8)
+            val requestBuilder = Request.Builder()
+                .url(uploadEndpoint)
+                .post(bodyBytes.toRequestBody("application/json; charset=utf-8".toMediaType()))
+                .header("Authorization", "Bearer " + prefs.token)
+                .header("X-Hirmand-Device-Id", prefs.installId)
+            SignedRequest.addHeaders(requestBuilder, prefs.token, prefs.installId, bodyBytes)
+            client.newCall(requestBuilder.build()).execute().use { response ->
+                when {
+                    response.isSuccessful -> prefs.removePendingLocation(clientPointId)
+                    response.code == 401 || response.code == 403 -> return
+                    response.code == 408 || response.code == 429 || response.code >= 500 ->
+                        throw IllegalStateException("temporary-location-upload-" + response.code)
+                    response.code in 400..499 -> prefs.removePendingLocation(clientPointId)
+                }
+            }
+        }
+    }
+    private suspend fun uploadCallRecordings(prefs: AppPrefs, endpoint: String) {
+        val uploadEndpoint = endpoint.trimEnd('/') + "/call-recordings"
+        for (recording in prefs.pendingCallRecordings()) {
+            val path = recording.optString("path").takeIf { it.isNotBlank() } ?: continue
+            val file = File(path)
+            if (!file.exists() || !file.isFile()) {
+                prefs.removePendingCallRecording(path)
+                continue
+            }
+            if (file.length() <= 0L || file.length() > 25L * 1024L * 1024L) {
+                prefs.updatePendingCallRecording(path, org.json.JSONObject().put("blocked", true))
+                continue
+            }
+            if (recording.optBoolean("blocked", false)) continue
+            val bytes = runCatching { file.readBytes() }.getOrElse {
+                throw IllegalStateException("call-recording-read")
+            }
+            val sha256 = MessageDigest.getInstance("SHA-256").digest(bytes)
+                .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            val body = bytes.toRequestBody(
+                recording.optString("mimeType", "audio/mp4").toMediaType(),
+            )
+            val requestBuilder = Request.Builder()
+                .url(uploadEndpoint)
+                .post(body)
+                .header("Authorization", "Bearer " + prefs.token)
+                .header("X-Hirmand-Device-Id", prefs.installId)
+                .header("X-Hirmand-File-Sha256", sha256)
+                .header("X-Hirmand-File-Mime", recording.optString("mimeType", "audio/mp4"))
+                .header("X-Hirmand-File-Size", bytes.size.toString())
+                .header("X-Hirmand-Call-Started-At", java.time.Instant.ofEpochMilli(recording.optLong("startedAt", System.currentTimeMillis())).toString())
+                .header("X-Hirmand-Call-Ended-At", java.time.Instant.ofEpochMilli(recording.optLong("endedAt", System.currentTimeMillis())).toString())
+                .header("X-Hirmand-Call-Direction", recording.optString("direction", "unknown"))
+                .header("X-Hirmand-Call-Duration", recording.optLong("durationSeconds", 0L).toString())
+            SignedRequest.addHeaders(requestBuilder, prefs.token, prefs.installId, bytes)
+            client.newCall(requestBuilder.build()).execute().use { response ->
+                when {
+                    response.isSuccessful -> {
+                        prefs.removePendingCallRecording(path)
+                        file.delete()
+                        prefs.lastCallRecordingStatus = "آخرین ضبط تماس با موفقیت و به‌صورت امن ارسال شد"
+                    }
+                    response.code == 401 || response.code == 403 -> return
+                    response.code == 408 || response.code == 429 || response.code >= 500 ->
+                        throw IllegalStateException("temporary-call-upload-" + response.code)
+                    response.code in 400..499 -> {
+                        val attempts = recording.optInt("uploadAttempts", 0) + 1
+                        if (attempts >= MAX_QUEUE_ATTEMPTS) {
+                            prefs.updatePendingCallRecording(
+                                path,
+                                org.json.JSONObject().put("uploadAttempts", attempts).put("blocked", true)
+                            )
+                            prefs.lastCallRecordingStatus = "یک ضبط تماس به‌دلیل خطای تکراری در انتظار بررسی است"
+                        } else {
+                            prefs.updatePendingCallRecording(path, org.json.JSONObject().put("uploadAttempts", attempts))
+                        }
+                    }
+                }
+            }
+        }
+    }
+    private suspend fun uploadSelectedFiles(prefs: AppPrefs, endpoint: String) {
+        val uploadEndpoint = endpoint.trimEnd('/') + "/files"
+        val files = prefs.selectedFiles()
+        val resolver = applicationContext.contentResolver
+        val maxPerFile = 8L * 1024L * 1024L
+
+        for (file in files) {
+            if (file.optBoolean("policyBlocked", false)) continue
+            val uri = file.optString("uri").takeIf { it.isNotBlank() } ?: continue
+            val declaredSize = file.optLong("sizeBytes", 0L)
+            if (declaredSize > maxPerFile) continue
+            val bytes = resolver.openInputStream(Uri.parse(uri))?.use { it.readBytes() } ?: continue
+            if (bytes.isEmpty() || bytes.size > maxPerFile) continue
+
+            val sha256 = MessageDigest.getInstance("SHA-256").digest(bytes)
+                .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            if (sha256 == file.optString("lastUploadedHash")) continue
+
+            val encodedName = Base64.getEncoder().encodeToString(
+                file.optString("name", "file").toByteArray(Charsets.UTF_8)
+            )
+            val body = bytes.toRequestBody(
+                (file.optString("mimeType", "application/octet-stream")).toMediaType()
+            )
+            val requestBuilder = Request.Builder()
+                .url(uploadEndpoint)
+                .post(body)
+                .header("Authorization", "Bearer ${prefs.token}")
+                .header("X-Hirmand-Device-Id", prefs.installId)
+                .header("X-Hirmand-File-Name", encodedName)
+                .header("X-Hirmand-File-Sha256", sha256)
+                .header("X-Hirmand-File-Size", bytes.size.toString())
+                .header("X-Hirmand-File-Mime", file.optString("mimeType", "application/octet-stream"))
+            SignedRequest.addHeaders(requestBuilder, prefs.token, prefs.installId, bytes)
+            val request = requestBuilder.build()
+
+            client.newCall(request).execute().use { response ->
+                when {
+                    response.isSuccessful -> {
+                        val responseJson = runCatching {
+                            org.json.JSONObject(response.body?.string().orEmpty())
+                        }.getOrNull()
+                        prefs.markSelectedFileUploaded(
+                            uri,
+                            sha256,
+                            responseJson?.optString("fileId")
+                        )
+                    }
+
+                    response.code == 401 ->
+                        throw PermanentFileUploadException("file-auth-401")
+
+                    response.code == 403 -> {
+                        prefs.markSelectedFileBlocked(uri, "server-policy")
+                        Unit
+                    }
+
+                    response.code == 408 || response.code == 429 || response.code >= 500 ->
+                        throw IllegalStateException("temporary-file-upload-${response.code}")
+
+                    response.code in 400..499 ->
+                        throw PermanentFileUploadException("file-upload-${response.code}")
+
+                    else ->
+                        throw IllegalStateException("file-upload-${response.code}")
+                }
+            }
+        }
+    }
+}

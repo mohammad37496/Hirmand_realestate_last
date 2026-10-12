@@ -1,0 +1,38 @@
+.admin-floor-plan-field{display:grid;gap:10px}
+.admin-floor-plan-dropzone{
+  width:100%;min-height:112px;display:flex;align-items:center;gap:13px;
+  padding:14px 16px;border:1px dashed var(--line-2);border-radius:16px;
+  background:var(--card-2);color:var(--navy-900);font:inherit;text-align:right;
+  cursor:pointer;transition:.16s ease;
+}
+.admin-floor-plan-dropzone:hover,.admin-floor-plan-dropzone:focus-visible{
+  border-color:var(--brass-500);background:var(--brass-100);transform:translateY(-1px);
+}
+.admin-floor-plan-dropzone:disabled{cursor:wait;opacity:.78;transform:none}
+.admin-floor-plan-dropzone>span:last-child{display:grid;gap:3px}
+.admin-floor-plan-dropzone strong{font-size:.86rem}
+.admin-floor-plan-dropzone small{color:var(--muted);font-size:.71rem;line-height:1.7}
+.admin-floor-plan-dropzone-icon{
+  width:44px;height:44px;display:grid;place-items:center;flex:0 0 44px;
+  border-radius:13px;background:var(--brass-100);color:var(--brass-700);
+}
+.admin-floor-plan-preview{
+  overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--card-2);
+}
+.admin-floor-plan-preview img{
+  display:block;width:100%;max-height:360px;object-fit:contain;background:#f7f3eb;
+}
+.admin-floor-plan-preview-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border-top:1px solid var(--line);
+}
+.admin-floor-plan-preview-bar span{display:inline-flex;align-items:center;gap:6px;color:var(--navy-900);font-size:.74rem;font-weight:800}
+.admin-floor-plan-preview-bar span svg{color:var(--brass-700)}
+.admin-floor-plan-preview-bar button{
+  display:inline-flex;align-items:center;gap:5px;border:1px solid #e7d0d0;border-radius:9px;
+  background:#fff5f5;color:#9b4141;padding:7px 9px;font:inherit;font-size:.7rem;font-weight:800;cursor:pointer;
+}
+.admin-floor-plan-broken{min-height:180px;display:grid;place-items:center;gap:7px;padding:25px;text-align:center;color:var(--muted)}
+.admin-floor-plan-change{display:flex;justify-content:flex-start}
+.admin-floor-plan-change .btn-ghost{min-height:38px}
+.admin-floor-plan-spin{animation:admin-floor-plan-spin .9s linear infinite}
+@keyframes admin-floor-plan-spin{to{transform:rotate(360deg)}}
