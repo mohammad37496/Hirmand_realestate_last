@@ -36,7 +36,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rsync -a --delete --exclude='.git/' --exclude='.github/' .source-repo/ ./
+          test -d .source-repo/src
+          test -f .source-repo/package.json
+          # IMPORTANT: exclude the source checkout itself from rsync's --delete
+          # set, otherwise rsync can delete .source-repo while still reading it.
+          rsync -a --delete --exclude='.git/' --exclude='.github/' --exclude='.source-repo/' .source-repo/ ./
+          test -f package.json
+          test -d src
           rm -rf .source-repo
           git status --short
 
