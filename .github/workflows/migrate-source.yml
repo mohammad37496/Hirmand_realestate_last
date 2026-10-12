@@ -1,0 +1,55 @@
+name: One-time source repository migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/migrate-source.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hirmand-source-migration
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'Initialize one-time source migration')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout destination
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          repository: mohammad37496/Hirmand_real_Estate
+          ref: main
+          path: .source-repo
+
+      - name: Copy complete tracked project
+        shell: bash
+        run: |
+          set -euo pipefail
+          rsync -a --delete --exclude='.git/' --exclude='.github/' .source-repo/ ./
+          rm -rf .source-repo
+          git status --short
+
+      - name: Commit and push copied project
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No source changes to copy."
+            exit 0
+          fi
+          git commit -m "chore: copy Hirmand project from source repository"
+          git push origin HEAD:main
