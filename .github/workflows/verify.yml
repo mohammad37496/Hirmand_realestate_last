@@ -1,0 +1,137 @@
+name: Verify
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hirmand-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # A cold runner can spend 10+ minutes in `playwright install --with-deps`
+    # alone, and this job is timed including that. At 20 minutes the job was
+    # cancelled mid-download before any project code ran, which reads as a
+    # failure in the checks list but is only a slow install.
+    timeout-minutes: 40
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
+      BROWSER_SMOKE_PROPERTY_ID: browser-smoke-property-001
+      BROWSER_SMOKE_PROPERTY_SLUG: آپارتمان-تست-ناوبری-۱۴۰۵-browser-smoke
+      BROWSER_SMOKE_PROPERTY_TITLE: فایل تست ناوبری جزئیات هیرمند
+      REQUIRE_PROPERTY_SMOKE: "1"
+      HIRMAND_ADMIN_KEY: browser-smoke-admin-key
+      ADMIN_SMOKE_PROPERTY_TITLE: فایل تست mutation ادمین هیرمند
+      ADMIN_SMOKE_PROPERTY_PRICE: "12345678901"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hirmand_verify
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hirmand_verify"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify npm lockfile
+        shell: bash
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          if ! git diff --quiet -- package-lock.json; then
+            echo "::error::package-lock.json is out of sync with package.json. Run npm install locally and commit the updated lockfile."
+            git diff -- package-lock.json
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      # `npm run build` no longer prunes devDependencies — that step moved to
+      # `build:deploy`, which is what the runtime image uses. This reinstall is
+      # kept as a cheap safety net in case the build command changes back, since
+      # the browser smoke below needs Vite and Playwright.
+      - name: Ensure CI dev dependencies after production build
+        run: npm ci
+
+      # The smoke fixtures below write to and read from the real `properties`
+      # table, so the service database has to be migrated first. Without this
+      # the seed dies with `relation "properties" does not exist` and the
+      # browser smoke never runs.
+      - name: Apply database migrations
+        id: migrate_database
+        run: npm run db:migrate
+
+      - name: Seed deterministic property-detail fixture
+        run: node scripts/seed-browser-smoke.mjs
+
+      - name: Browser smoke against production preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /workspace
+          sudo chown "$USER":"$USER" /workspace
+
+          npx vite preview --host 127.0.0.1 --port 8081 > /tmp/hirmand-preview.log 2>&1 &
+          PREVIEW_PID=$!
+
+          cleanup() {
+            status=$?
+            kill "$PREVIEW_PID" >/dev/null 2>&1 || true
+            wait "$PREVIEW_PID" >/dev/null 2>&1 || true
+            if [ "$status" -ne 0 ]; then
+              echo "::group::Vite preview log"
+              cat /tmp/hirmand-preview.log || true
+              echo "::endgroup::"
+            fi
+            exit "$status"
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..45}; do
+            if curl --silent --fail http://127.0.0.1:8081/ >/dev/null; then
+              break
+            fi
+            if ! kill -0 "$PREVIEW_PID" >/dev/null 2>&1; then
+              echo "::error::Vite preview exited before becoming ready."
+              exit 1
+            fi
+            if [ "$attempt" -eq 45 ]; then
+              echo "::error::Vite preview did not become ready on port 8081."
+              exit 1
+            fi
+            sleep 1
+          done
+
+          npx playwright install --with-deps chromium
+          curl --silent --fail http://127.0.0.1:8081/ >/dev/null
+          node scripts/browser-smoke.mjs http://127.0.0.1:8081/ /workspace/screenshots/hirmand-preview.png
+          node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081
+
+      - name: Cleanup property-detail fixture
+        if: always() && steps.migrate_database.outcome == 'success'
+        run: node scripts/seed-browser-smoke.mjs --cleanup
+
+      - name: Upload browser smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hirmand-browser-smoke
+          path: /workspace/screenshots
+          if-no-files-found: warn
