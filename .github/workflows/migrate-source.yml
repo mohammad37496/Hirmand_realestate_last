@@ -1,22 +1,26 @@
-name: One-time source repository migration
+name: Synchronize source repository to destination
 
 on:
+  # Poll the source repository so ordinary source commits are mirrored
+  # even though a workflow in another repository cannot trigger this one
+  # without a separately configured webhook/token.
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
       - ".github/workflows/migrate-source.yml"
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: hirmand-source-migration
+  group: hirmand-source-sync
   cancel-in-progress: false
 
 jobs:
-  copy:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'Initialize one-time source migration')
+  sync:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -32,30 +36,52 @@ jobs:
           ref: main
           path: .source-repo
 
-      - name: Copy complete tracked project
+      - name: Mirror source files while preserving destination workflows
         shell: bash
         run: |
           set -euo pipefail
           test -d .source-repo/src
           test -f .source-repo/package.json
-          # IMPORTANT: exclude the source checkout itself from rsync's --delete
-          # set, otherwise rsync can delete .source-repo while still reading it.
-          rsync -a --delete --exclude='.git/' --exclude='.github/' --exclude='.source-repo/' .source-repo/ ./
+
+          # Keep destination-specific deployment/sync workflows intact.
+          # Exclude the source checkout itself from rsync's --delete set.
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.source-repo/' \
+            .source-repo/ ./
+
           test -f package.json
           test -d src
           rm -rf .source-repo
           git status --short
 
-      - name: Commit and push copied project
+      - name: Stage source changes, including source-tracked ignored assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+
+          # These source assets are intentionally covered by .gitignore,
+          # so force-add them to ensure the mirror is actually complete.
+          if [[ -d public/images/fallback ]]; then
+            git add -f public/images/fallback/
+          fi
+          if [[ -d artifacts/imagine_images ]]; then
+            git add -f artifacts/imagine_images/
+          fi
+
+      - name: Commit and push changes when needed
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+
           if git diff --cached --quiet; then
-            echo "No source changes to copy."
+            echo "Destination is already synchronized with source main."
             exit 0
           fi
-          git commit -m "chore: copy Hirmand project from source repository"
+
+          git commit -m "chore: synchronize project from source repository"
           git push origin HEAD:main
