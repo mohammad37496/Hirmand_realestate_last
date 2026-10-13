@@ -1,4 +1,5 @@
 name: Deploy to Liara
+# Re-deploy the fully synchronized main tree after source asset migration.
 # Deployment trigger: keep Liara in sync with the latest main commit.
 
 on:
