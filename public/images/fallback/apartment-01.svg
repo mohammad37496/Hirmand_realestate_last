@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+<title id="title">تصویر پیش‌فرض آپارتمان — نمای داخلی</title>
+<desc id="desc">تصویر گرافیکی حرفه‌ای و غیرواقعی برای زمانی که عکس واقعی ملک در دسترس نیست.</desc>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#091522"/><stop offset=".55" stop-color="#16384a"/><stop offset="1" stop-color="#49695f"/></linearGradient>
+<linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d6cdbd"/><stop offset="1" stop-color="#9f9586"/></linearGradient>
+<linearGradient id="wall" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#f6f1e8"/><stop offset=".62" stop-color="#e8e0d3"/><stop offset="1" stop-color="#d7cec1"/></linearGradient>
+<linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c5eee3"/><stop offset=".45" stop-color="#7bb5ad"/><stop offset="1" stop-color="#365e66"/></linearGradient>
+<linearGradient id="sofa" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#3a5260"/><stop offset="1" stop-color="#213544"/></linearGradient>
+<filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="30" stdDeviation="28" flood-color="#02070d" flood-opacity=".34"/></filter>
+<filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="22"/></filter>
+</defs>
+<rect width="1600" height="1000" fill="url(#bg)"/>
+<circle cx="1320" cy="160" r="260" fill="#d8c18d" opacity=".18" filter="url(#soft)"/>
+<circle cx="240" cy="860" r="260" fill="#8ec6b5" opacity=".10" filter="url(#soft)"/>
+<g filter="url(#shadow)">
+<rect x="105" y="120" width="1390" height="760" rx="46" fill="#ede6db"/>
+<path d="M130 620V165c0-14 11-25 25-25h1290c14 0 25 11 25 25v455z" fill="url(#wall)"/>
+<path d="M130 620h1340l-80 260H210z" fill="url(#floor)"/>
+<g transform="translate(200 190)">
+<rect width="690" height="350" rx="24" fill="#1b2d37"/>
+<rect x="28" y="28" width="300" height="294" rx="14" fill="url(#glass)"/>
+<rect x="362" y="28" width="300" height="294" rx="14" fill="url(#glass)"/>
+<path d="M178 28v294M512 28v294M28 176h300M362 176h300" stroke="#e8f8f0" stroke-opacity=".34" stroke-width="3"/>
+<path d="M28 295c90-60 168-54 300-6v43H28z" fill="#466a67" opacity=".5"/>
+<path d="M362 290c78-44 184-48 300 10v32H362z" fill="#466a67" opacity=".5"/>
+<rect y="322" width="690" height="28" rx="14" fill="#b89452" opacity=".48"/>
+</g>
+<g transform="translate(245 545)">
+<rect x="0" y="62" width="500" height="130" rx="34" fill="url(#sofa)"/>
+<rect x="32" y="12" width="140" height="98" rx="24" fill="#446273"/>
+<rect x="188" y="12" width="140" height="98" rx="24" fill="#365565"/>
+<rect x="344" y="12" width="126" height="98" rx="24" fill="#294552"/>
+<rect x="22" y="154" width="456" height="34" rx="17" fill="#182732"/>
+</g>
+<g transform="translate(835 505)">
+<rect x="0" y="50" width="370" height="185" rx="26" fill="#d7c8ac"/>
+<rect x="26" y="76" width="318" height="132" rx="18" fill="#efe7d9"/>
+<rect x="62" y="0" width="246" height="80" rx="18" fill="#c7b595"/>
+<ellipse cx="182" cy="235" rx="194" ry="35" fill="#756a5d" opacity=".22"/>
+</g>
+<g transform="translate(1210 545)">
+<rect x="40" y="145" width="92" height="150" rx="26" fill="#6d5b49"/>
+<path d="M86 160c-78-42-104-126-33-166 54-30 108 13 109 68 1 55-25 82-76 98Z" fill="#66827b"/>
+<path d="M92 130c34-57 64-88 111-97-20 51-55 89-111 97Z" fill="#7fa19a"/>
+<ellipse cx="88" cy="304" rx="112" ry="25" fill="#756a5d" opacity=".2"/>
+</g>
+<path d="M210 805h1180" stroke="#b99b64" stroke-width="10" stroke-linecap="round" opacity=".9"/>
+</g>
+<rect x="54" y="54" width="1492" height="892" rx="52" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="2"/>
+<g transform="translate(92 90)">
+<rect width="230" height="54" rx="27" fill="#081320" fill-opacity=".76" stroke="#e2c48c" stroke-opacity=".35"/>
+<circle cx="29" cy="27" r="7" fill="#c08a2a"/>
+<text x="52" y="35" fill="#fff" font-size="22" font-family="Arial, Tahoma, sans-serif" font-weight="700">آپارتمان</text>
+</g>
+<text x="1508" y="914" text-anchor="end" fill="#fff" fill-opacity=".62" font-size="18" font-family="Arial, Tahoma, sans-serif">تصویر نمونه • هیرمند</text>
+</svg>

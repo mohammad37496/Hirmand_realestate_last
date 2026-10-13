@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+<title id="title">تصویر پیش‌فرض آپارتمان — نمای ساختمان</title>
+<desc id="desc">تصویر گرافیکی حرفه‌ای و غیرواقعی برای زمانی که عکس واقعی ملک در دسترس نیست.</desc>
+<defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#0a1725"/><stop offset=".6" stop-color="#355e6d"/><stop offset="1" stop-color="#8da58f"/></linearGradient>
+<linearGradient id="facade" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4eee4"/><stop offset=".55" stop-color="#ddd3c4"/><stop offset="1" stop-color="#b7aa99"/></linearGradient>
+<linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#aee0d2"/><stop offset=".5" stop-color="#4e8888"/><stop offset="1" stop-color="#203d4b"/></linearGradient>
+<linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#655c51"/><stop offset="1" stop-color="#292c2f"/></linearGradient>
+<filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="35" stdDeviation="32" flood-color="#02060a" flood-opacity=".42"/></filter>
+<filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="38"/></filter>
+</defs>
+<rect width="1600" height="1000" fill="url(#sky)"/>
+<circle cx="1280" cy="170" r="190" fill="#f2dfb5" opacity=".28" filter="url(#blur)"/>
+<path d="M0 760c250-120 490-90 780-8 282 80 488 104 820-4v252H0Z" fill="url(#ground)"/>
+<g filter="url(#shadow)" transform="translate(195 135)">
+<path d="M205 665V192l335-150 335 150v473Z" fill="#d6cbbc"/>
+<path d="M270 640V228l270-120 270 120v412Z" fill="url(#facade)"/>
+<path d="M540 108v532" stroke="#b4935d" stroke-width="9" opacity=".9"/>
+<g>
+<rect x="315" y="270" width="120" height="155" rx="8" fill="#1b2d37"/>
+<rect x="450" y="270" width="180" height="155" rx="8" fill="#1b2d37"/>
+<rect x="645" y="270" width="120" height="155" rx="8" fill="#1b2d37"/>
+<rect x="315" y="452" width="120" height="140" rx="8" fill="#20333c"/>
+<rect x="450" y="452" width="180" height="140" rx="8" fill="#20333c"/>
+<rect x="645" y="452" width="120" height="140" rx="8" fill="#20333c"/>
+<g opacity=".95">
+<rect x="327" y="284" width="96" height="127" rx="4" fill="url(#glass)"/>
+<rect x="462" y="284" width="156" height="127" rx="4" fill="url(#glass)"/>
+<rect x="657" y="284" width="96" height="127" rx="4" fill="url(#glass)"/>
+<rect x="327" y="466" width="96" height="114" rx="4" fill="url(#glass)"/>
+<rect x="462" y="466" width="156" height="114" rx="4" fill="url(#glass)"/>
+<rect x="657" y="466" width="96" height="114" rx="4" fill="url(#glass)"/>
+</g>
+<g stroke="#e7f8f2" stroke-opacity=".28" stroke-width="3">
+<path d="M375 284v127M462 347h156M705 284v127"/>
+<path d="M375 466v114M462 523h156M705 466v114"/>
+</g>
+</g>
+<path d="M250 640h650" stroke="#b4935d" stroke-width="12" stroke-linecap="round"/>
+<g transform="translate(90 585)">
+<path d="M0 70c30-62 64-90 110-120 30 67 18 111-42 140-24 12-47 11-68-20Z" fill="#56766f"/>
+<path d="M54 35c45-48 88-69 122-72-15 56-53 91-122 72Z" fill="#76958d"/>
+<rect x="44" y="80" width="72" height="92" rx="23" fill="#685746"/>
+</g>
+<g transform="translate(860 585)">
+<path d="M0 70c30-62 64-90 110-120 30 67 18 111-42 140-24 12-47 11-68-20Z" fill="#56766f"/>
+<path d="M54 35c45-48 88-69 122-72-15 56-53 91-122 72Z" fill="#76958d"/>
+<rect x="44" y="80" width="72" height="92" rx="23" fill="#685746"/>
+</g>
+</g>
+<rect x="54" y="54" width="1492" height="892" rx="52" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="2"/>
+<g transform="translate(92 90)">
+<rect width="260" height="54" rx="27" fill="#081320" fill-opacity=".76" stroke="#e2c48c" stroke-opacity=".35"/>
+<circle cx="29" cy="27" r="7" fill="#c08a2a"/>
+<text x="52" y="35" fill="#fff" font-size="22" font-family="Arial, Tahoma, sans-serif" font-weight="700">نمای ساختمان</text>
+</g>
+<text x="1508" y="914" text-anchor="end" fill="#fff" fill-opacity=".62" font-size="18" font-family="Arial, Tahoma, sans-serif">تصویر نمونه • هیرمند</text>
+</svg>

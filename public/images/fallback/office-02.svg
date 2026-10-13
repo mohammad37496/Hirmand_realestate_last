@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">ساختمان اداری</title>
+  <desc id="desc">نمای شیشه‌ای و مدرن برای فایل‌های اداری</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#0f171c"/>
+      <stop offset=".55" stop-color="#1e3438"/>
+      <stop offset="1" stop-color="#49685f"/>
+    </linearGradient>
+    <radialGradient id="sun" cx=".78" cy=".18" r=".55">
+      <stop stop-color="#fff4d8" stop-opacity=".92"/>
+      <stop offset=".45" stop-color="#d8c18d" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#d8c18d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fff" stop-opacity=".09"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".16"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#071014" flood-opacity=".35"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="760" fill="url(#bg)"/>
+  <rect width="1200" height="760" fill="url(#sun)"/>
+  <circle cx="160" cy="125" r="90" fill="#f5ecd7" opacity=".045"/>
+  <circle cx="1015" cy="670" r="220" fill="#84b9a8" opacity=".08"/>
+  <g filter="url(#shadow)">
+    
+      <path d="M155 610V190l270-65 270 65v420Z" fill="#e7e8e4"/>
+      <path d="M185 220h480v335H185z" fill="#1b2b34"/>
+      <g fill="#7ec6bb">
+        <rect x="210" y="250" width="62" height="230" rx="4"/><rect x="290" y="250" width="62" height="230" rx="4"/><rect x="370" y="250" width="62" height="230" rx="4"/><rect x="450" y="250" width="62" height="230" rx="4"/><rect x="530" y="250" width="62" height="230" rx="4"/>
+      </g>
+      <path d="M425 135v475" stroke="#c0a56f" stroke-width="9" opacity=".85"/>
+      <path d="M115 620h930" stroke="#b4afa7" stroke-width="24" stroke-linecap="round"/>
+      <g fill="#445e55"><circle cx="830" cy="580" r="38"/><circle cx="900" cy="580" r="27"/><circle cx="965" cy="580" r="34"/></g>
+    
+  </g>
+  <rect x="48" y="48" width="1104" height="664" rx="34" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="2"/>
+  <path d="M88 645H1112" stroke="#fff" stroke-opacity=".09" stroke-width="2"/>
+  <g opacity=".88">
+    <rect x="86" y="86" width="7" height="42" rx="3.5" fill="#c9ad73"/>
+    <rect x="104" y="86" width="3" height="42" rx="1.5" fill="#9ac9bc"/>
+  </g>
+</svg>
