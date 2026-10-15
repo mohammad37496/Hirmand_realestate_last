@@ -1682,6 +1682,8 @@ function PropertiesIndexPage() {
                             to="/properties/$slug"
                             params={{ slug: property.slug.trim() || property.id }}
                             className="pf-map-item-open"
+                            data-property-link="true"
+                            data-property-id={property.id}
                             aria-label={`مشاهده جزئیات ${property.title}`}
                           >
                             مشاهده
