@@ -36,9 +36,6 @@ function isUsableFile(output) {
   }
 }
 
-const isCi = process.env.CI === "true";
-const requestTimeoutMs = isCi ? 10_000 : 30_000;
-
 async function download(url, output) {
   const temp = output + ".part";
   try {
@@ -47,7 +44,7 @@ async function download(url, output) {
         "user-agent": "Hirmand-Real-Estate-fallback-assets/3.1",
         accept: "image/jpeg,image/webp,image/avif,image/*;q=0.8",
       },
-      signal: AbortSignal.timeout(requestTimeoutMs),
+      signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok || !response.body) {
@@ -78,10 +75,7 @@ async function main() {
     urls.map((url, index) => ({ type, url, index })),
   );
   const concurrency = 4;
-  // CI builds should not spend minutes retrying optional remote stock photos.
-  // Local/manual runs retain retries; FORCE_FALLBACK_IMAGE_REFRESH can still
-  // explicitly request a refresh in CI.
-  const maxAttempts = isCi && process.env.FORCE_FALLBACK_IMAGE_REFRESH !== "1" ? 1 : 3;
+  const maxAttempts = 3;
   let cursor = 0;
   let success = 0;
   let skipped = 0;
