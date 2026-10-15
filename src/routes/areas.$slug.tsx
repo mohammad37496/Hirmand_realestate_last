@@ -175,28 +175,35 @@ function AreaPage() {
           </div>
 
           <div className="area-hero-aside">
-            <div className="area-guide-card">
-              <div className="area-guide-card-top">
-                <div className="area-guide-icon"><MapPinned size={24} /></div>
-                <span className="area-guide-tag"><Sparkles size={13} /> راهنمای محله</span>
+            <figure className="area-hero-visual">
+              <img
+                src="/images/isfahan-hero.jpg"
+                alt="نمایی از معماری و فضای شهری اصفهان"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+              />
+              <div className="area-visual-overlay" aria-hidden="true" />
+              <div className="area-visual-topline">
+                <span className="area-visual-mark"><MapPinned size={18} /></span>
+                <span className="area-visual-brand">راهنمای محله‌های هیرمند</span>
+                <span className="area-visual-city">اصفهان</span>
               </div>
-              <span className="area-guide-overline">ملک در محدوده</span>
-              <h2>{area.name}</h2>
-              <p className="area-guide-location">اصفهان، {area.groupTitle}</p>
-              <div className="area-guide-rule" />
-              <div className="area-guide-feature">
-                <span className="area-guide-feature-icon"><Home size={17} /></span>
-                <span>خرید، فروش، رهن و اجاره</span>
-              </div>
-              <div className="area-guide-feature">
-                <span className="area-guide-feature-icon"><CheckCircle2 size={17} /></span>
-                <span>نمایش فایل‌های منتشرشده</span>
-              </div>
-              <a className="area-guide-link" href="#area-location">
-                مشاهده اطلاعات موقعیت <ArrowUpLeft size={17} />
+              <figcaption className="area-visual-caption">
+                <span className="area-visual-kicker"><Sparkles size={13} /> انتخاب آگاهانه، از شناخت محله شروع می‌شود</span>
+                <h2>{area.name}</h2>
+                <p>راهنمای بررسی فایل‌های خرید، فروش و اجاره در این محدوده</p>
+              </figcaption>
+              <a href="#area-properties" className="area-visual-count" aria-label="مشاهده فایل‌های ملکی این محله">
+                <span className="area-visual-count-icon"><Home size={18} /></span>
+                <span className="area-visual-count-copy">
+                  <small>فایل‌های قابل مشاهده در سایت</small>
+                  <strong>{properties.length.toLocaleString("fa-IR")} <span>فایل</span></strong>
+                </span>
+                <span className="area-visual-count-arrow"><ArrowUpLeft size={19} /></span>
               </a>
-              <div className="area-guide-decoration" aria-hidden="true">H</div>
-            </div>
+              <span className="area-visual-index" aria-hidden="true">HIRMAND / ISFAHAN</span>
+            </figure>
           </div>
         </section>
 
