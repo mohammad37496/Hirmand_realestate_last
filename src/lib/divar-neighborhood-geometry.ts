@@ -73,7 +73,7 @@ function nonEmptyString(value: unknown): string | null {
 export function normalizeDivarNeighborhoodName(value: string): string {
   return value.normalize("NFKC")
     .replace(/ي/g, "ی").replace(/ك/g, "ک")
-    .replace(/[\u200c\u200d\u200e\u200f\u0640]/g, "")
+    .replaceAll("\u200c", "").replaceAll("\u200d", "").replaceAll("\u200e", "").replaceAll("\u200f", "").replaceAll("\u0640", "")
     .replace(/[\s\u00a0]+/g, " ").trim().toLocaleLowerCase("fa");
 }
 
