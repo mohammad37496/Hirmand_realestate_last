@@ -10,6 +10,10 @@ const deployEnv = await readFile(
   new URL("./validate-deploy-env.mjs", import.meta.url),
   "utf8",
 );
+const fallbackGenerator = await readFile(
+  new URL("./generate-fallback-assets.mjs", import.meta.url),
+  "utf8",
+);
 
 test("FFmpeg download has a finite timeout and an actionable timeout error", () => {
   assert.match(ffmpegDownloader, /AbortSignal\.timeout\(timeoutMs\)/);
@@ -18,4 +22,14 @@ test("FFmpeg download has a finite timeout and an actionable timeout error", () 
 
 test("npm build does not repeat fallback image downloads", () => {
   assert.match(deployEnv, /npm_lifecycle_event !== "build"/);
+});
+
+
+test("fallback image downloads bound the full response stream and retry count", () => {
+  assert.match(fallbackGenerator, /AbortSignal\\.timeout\\(timeoutMs\\)/);
+  assert.match(
+    fallbackGenerator,
+    /pipeline\\(response\\.body, createWriteStream\\(temp\\), \\{ signal \\}\\)/,
+  );
+  assert.match(fallbackGenerator, /const maxAttempts = 2;/);
 });
