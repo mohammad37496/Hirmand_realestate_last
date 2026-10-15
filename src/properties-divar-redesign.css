@@ -449,3 +449,101 @@
   .pf-map-controls button { width: 34px; height: 34px; }
   .pf-map-empty-note, .pf-map-offline-note { inset-inline: 42px; font-size: .7rem; }
 }
+
+
+/* Neighborhood bounding boxes come from the bundled Divar-backed Isfahan catalog.
+   Each box is interactive but leaves the underlying OpenStreetMap tiles draggable. */
+.pf-map-neighborhood-layer {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+}
+.pf-neighborhood-box {
+  position: absolute;
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 1px solid rgb(18 105 95 / 72%);
+  border-radius: 3px;
+  background: rgb(18 105 95 / 5%);
+  color: #184f47;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 35%);
+  cursor: pointer;
+  font: inherit;
+  pointer-events: auto;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.pf-neighborhood-box:hover {
+  z-index: 3;
+  border-color: #12695f;
+  background: rgb(18 105 95 / 16%);
+}
+.pf-neighborhood-box > span {
+  position: absolute;
+  top: -22px;
+  inset-inline-start: -1px;
+  display: block;
+  max-width: 170px;
+  overflow: hidden;
+  padding: 2px 6px;
+  border: 1px solid rgb(18 105 95 / 24%);
+  border-radius: 5px 5px 0 0;
+  background: rgb(255 255 255 / 96%);
+  color: #294740;
+  box-shadow: 0 -1px 5px rgb(12 47 40 / 8%);
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.pf-neighborhood-box.is-selected {
+  z-index: 4;
+  border: 2px solid #12695f;
+  background: rgb(18 105 95 / 20%);
+  box-shadow: inset 0 0 0 1px #fff, 0 0 0 1px rgb(18 105 95 / 18%);
+}
+.pf-neighborhood-box.is-selected > span {
+  top: -24px;
+  inset-inline-start: -2px;
+  border-color: #12695f;
+  background: #12695f;
+  color: #fff;
+}
+.pf-map-zoom-hint {
+  position: absolute;
+  z-index: 9;
+  bottom: 62px;
+  left: 50%;
+  max-width: calc(100% - 28px);
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  border: 1px solid rgb(32 52 45 / 12%);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 3px 14px rgb(20 38 32 / 12%);
+  color: #344e46;
+  font-size: .75rem;
+  line-height: 1.7;
+  text-align: center;
+  pointer-events: none;
+}
+.pf-map-floating-head span {
+  max-width: min(60%, 370px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 979px) {
+  .pf-map-divar-layout .pf-map-panel .pf-map-canvas {
+    min-height: 420px;
+  }
+  .pf-neighborhood-box > span {
+    max-width: 120px;
+    font-size: 9px;
+  }
+}
