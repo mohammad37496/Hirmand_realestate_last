@@ -75,7 +75,7 @@ if (unchanged) {
   await writeFile(outputPath, JSON.stringify({
     schemaVersion: 1, city: { id: cityId, slug: "isfahan" }, sourceUrl,
     fetchedAt: new Date().toISOString(), districts,
-  }, null, 2) + "\\n", "utf8");
+  }, null, 2) + "\n", "utf8");
   console.log(`Stored ${districts.length} raw Divar district records at ${outputPath}.`);
 }
 const withPolygon = districts.filter((d) =>

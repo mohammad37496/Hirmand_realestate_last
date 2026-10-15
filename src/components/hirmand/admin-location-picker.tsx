@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ExternalLink, LocateFixed, MapPinned, RotateCcw } from "lucide-react";
-import { NEIGHBORHOOD_GROUPS, SITE } from "@/lib/site";
+import { listDivarNeighborhoodCatalog, type DivarNeighborhoodCatalogResult } from "@/lib/divar-neighborhoods";
+import { normalizeDivarNeighborhoodName, type DivarNeighborhoodClientItem } from "@/lib/divar-neighborhood-geometry";
 
 type Coordinates = {
   latitude: number | null;
@@ -46,6 +47,7 @@ const LOCATION_PICKER_CSS = `
 .admin-location-map-head span{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid rgb(192 138 42 / 20%);background:var(--brass-100);color:var(--brass-800);font-size:.65rem;font-weight:800;white-space:nowrap}
 .admin-location-map{min-height:330px}
 .admin-location-map iframe{display:block;width:100%;height:330px;border:0}
+.admin-location-map-empty{display:grid;place-items:center;min-height:330px;padding:24px;text-align:center;color:var(--muted);font-size:.82rem;line-height:1.9}
 .admin-location-map-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid var(--line);color:var(--subtle);font-size:.68rem;line-height:1.7}
 .admin-location-map-foot strong{color:var(--fg)}
 .admin-location-foot{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;color:var(--subtle);font-size:.7rem;line-height:1.8;padding:0 2px}
@@ -53,14 +55,14 @@ const LOCATION_PICKER_CSS = `
 .admin-location-coordinates{display:inline-flex;align-items:center;direction:ltr;unicode-bidi:plaintext;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (max-width:900px){
   .admin-location-panel{grid-template-columns:1fr}
-  .admin-location-map,.admin-location-map iframe{min-height:290px;height:290px}
+  .admin-location-map,.admin-location-map iframe,.admin-location-map-empty{min-height:290px;height:290px}
 }
 @media (max-width:600px){
   .admin-location-head{padding:13px}
   .admin-location-actions{width:100%}
   .admin-location-actions button,.admin-location-actions a{flex:1 1 auto}
   .admin-location-grid{grid-template-columns:1fr}
-  .admin-location-map,.admin-location-map iframe{min-height:250px;height:250px}
+  .admin-location-map,.admin-location-map iframe,.admin-location-map-empty{min-height:250px;height:250px}
   .admin-location-foot{font-size:.68rem}
 }
 `;
@@ -79,14 +81,20 @@ function parseCoordinate(value: string, min: number, max: number) {
   return parsed;
 }
 
-function osmEmbedUrl(latitude: number, longitude: number) {
-  const delta = 0.012;
-  const bbox = [
-    longitude - delta,
-    latitude - delta,
-    longitude + delta,
-    latitude + delta,
-  ].join(",");
+function osmEmbedUrl(
+  latitude: number | null,
+  longitude: number | null,
+  exactDivarBbox?: DivarNeighborhoodClientItem["bbox"] | null,
+) {
+  if (exactDivarBbox) {
+    const bbox = exactDivarBbox.join(",");
+    const marker = latitude != null && longitude != null ? `&marker=${latitude}%2C${longitude}` : "";
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik${marker}`;
+  }
+  if (latitude == null || longitude == null) return null;
+  // This view window is only for a manually placed property pin, not a neighborhood boundary.
+  const delta = 0.002;
+  const bbox = [longitude - delta, latitude - delta, longitude + delta, latitude + delta].join(",");
   return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${latitude}%2C${longitude}`;
 }
 
@@ -98,6 +106,24 @@ export function AdminLocationPicker({
 }: AdminLocationPickerProps) {
   const [latitudeText, setLatitudeText] = useState(latitude == null ? "" : String(latitude));
   const [longitudeText, setLongitudeText] = useState(longitude == null ? "" : String(longitude));
+  const [divarCatalog, setDivarCatalog] = useState<DivarNeighborhoodClientItem[]>([]);
+  const [catalogSource, setCatalogSource] = useState<DivarNeighborhoodCatalogResult["source"] | "unavailable" | "loading">("loading");
+
+  useEffect(() => {
+    let active = true;
+    listDivarNeighborhoodCatalog()
+      .then((result) => {
+        if (!active) return;
+        setDivarCatalog(result.items);
+        setCatalogSource(result.source);
+      })
+      .catch(() => {
+        if (!active) return;
+        setDivarCatalog([]);
+        setCatalogSource("unavailable");
+      });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     setLatitudeText(latitude == null ? "" : String(latitude));
@@ -108,18 +134,19 @@ export function AdminLocationPicker({
   }, [longitude]);
 
   const suggested = useMemo(() => {
-    const normalized = neighborhood.trim();
+    const normalized = normalizeDivarNeighborhoodName(neighborhood);
     if (!normalized) return null;
-    for (const group of NEIGHBORHOOD_GROUPS) {
-      const found = group.items.find((item) => item.name === normalized);
-      if (found) return found;
-    }
-    return null;
-  }, [neighborhood]);
+    return divarCatalog.find((item) => normalizeDivarNeighborhoodName(item.name) === normalized) ?? null;
+  }, [neighborhood, divarCatalog]);
 
-  const previewLatitude = latitude ?? suggested?.lat ?? 32.6546;
-  const previewLongitude = longitude ?? suggested?.lng ?? 51.6680;
+  const previewLatitude = latitude ?? suggested?.defaultLocation.latitude ?? null;
+  const previewLongitude = longitude ?? suggested?.defaultLocation.longitude ?? null;
   const hasCustomLocation = latitude != null && longitude != null;
+  const previewMapUrl = hasCustomLocation
+    ? osmEmbedUrl(previewLatitude, previewLongitude)
+    : suggested
+      ? osmEmbedUrl(previewLatitude, previewLongitude, suggested.bbox)
+      : osmEmbedUrl(previewLatitude, previewLongitude);
 
   function setCoordinate(key: "latitude" | "longitude", raw: string) {
     if (key === "latitude") {
@@ -135,10 +162,10 @@ export function AdminLocationPicker({
   }
 
   function useNeighborhoodCenter() {
-    if (!suggested) return;
-    setLatitudeText(String(suggested.lat ?? 32.6546));
-    setLongitudeText(String(suggested.lng ?? 51.6680));
-    onChange({ latitude: suggested.lat ?? null, longitude: suggested.lng ?? null });
+    if (!suggested?.defaultLocation) return;
+    setLatitudeText(String(suggested.defaultLocation.latitude));
+    setLongitudeText(String(suggested.defaultLocation.longitude));
+    onChange({ latitude: suggested.defaultLocation.latitude, longitude: suggested.defaultLocation.longitude });
   }
 
   function clearLocation() {
@@ -187,7 +214,7 @@ export function AdminLocationPicker({
             </div>
 
             <div className="admin-location-actions">
-              {suggested ? (
+              {suggested?.defaultLocation ? (
                 <button type="button" onClick={useNeighborhoodCenter}>
                   <LocateFixed size={15} aria-hidden="true" />
                   مرکز محله
@@ -216,11 +243,11 @@ export function AdminLocationPicker({
                 value={latitudeText}
                 onChange={(event) => setCoordinate("latitude", event.target.value)}
                 onBlur={() => commitCoordinate("latitude")}
-                placeholder={suggested?.lat != null ? String(suggested.lat) : "32.6546"}
+                placeholder={suggested?.defaultLocation ? String(suggested.defaultLocation.latitude) : ""}
                 aria-label="عرض جغرافیایی موقعیت تقریبی"
                 aria-invalid={!latitudeValid}
               />
-              <small>{`مثال: ${suggested ? String(suggested.lat) : "32.6546"}`}</small>
+              <small>{suggested?.defaultLocation ? `مرکز دیوار: ${String(suggested.defaultLocation.latitude)}` : "مختصات حدسی وارد نمی‌شود."}</small>
               <span className={`admin-location-validation ${latitudeValid ? "is-ok" : "is-error"}`} aria-live="polite">
                 {latitudeValid ? "فرمت مختصات معتبر است" : "عدد واردشده برای عرض جغرافیایی معتبر نیست"}
               </span>
@@ -233,11 +260,11 @@ export function AdminLocationPicker({
                 value={longitudeText}
                 onChange={(event) => setCoordinate("longitude", event.target.value)}
                 onBlur={() => commitCoordinate("longitude")}
-                placeholder={suggested?.lng != null ? String(suggested.lng) : "51.6680"}
+                placeholder={suggested?.defaultLocation ? String(suggested.defaultLocation.longitude) : ""}
                 aria-label="طول جغرافیایی موقعیت تقریبی"
                 aria-invalid={!longitudeValid}
               />
-              <small>{`مثال: ${suggested ? String(suggested.lng) : "51.6680"}`}</small>
+              <small>{suggested?.defaultLocation ? `مرکز دیوار: ${String(suggested.defaultLocation.longitude)}` : "مختصات حدسی وارد نمی‌شود."}</small>
               <span className={`admin-location-validation ${longitudeValid ? "is-ok" : "is-error"}`} aria-live="polite">
                 {longitudeValid ? "فرمت مختصات معتبر است" : "عدد واردشده برای طول جغرافیایی معتبر نیست"}
               </span>
@@ -250,8 +277,12 @@ export function AdminLocationPicker({
               {hasCustomLocation
                 ? "موقعیت اختصاصی این فایل ثبت شده است و در سایت عمومی به‌صورت تقریبی نمایش داده می‌شود."
                 : suggested
-                  ? `هنوز موقعیت اختصاصی ثبت نشده؛ مرکز «${neighborhood}» فقط به‌عنوان پیش‌نمایش استفاده می‌شود.`
-                  : "هنوز موقعیت اختصاصی ثبت نشده؛ نقشه فعلاً مرکز اصفهان را به‌عنوان پیش‌نمایش نشان می‌دهد."}
+                  ? "مرکز و bbox از کاتالوگ دیوار گرفته شده‌اند. bbox کادر مستطیلی دیوار است، نه چندضلعی مرز محله."
+                  : catalogSource === "loading"
+                    ? "در حال دریافت فهرست اصلی محله‌های دیوار…"
+                    : catalogSource === "unavailable"
+                      ? "داده معتبر دیوار در دسترس نیست؛ هیچ مختصات یا محدوده‌ای حدس زده نمی‌شود."
+                      : `محله «${neighborhood || "انتخاب‌نشده"}» در کاتالوگ فعلی دیوار پیدا نشد.`}
             </span>
           </p>
         </div>
@@ -259,18 +290,24 @@ export function AdminLocationPicker({
         <div className="admin-location-map-shell">
           <div className="admin-location-map-head">
             <strong>پیش‌نمایش موقعیت</strong>
-            <span>{hasCustomLocation ? "موقعیت ثبت‌شده" : "پیش‌نمایش تقریبی"}</span>
+            <span>{hasCustomLocation ? "موقعیت ثبت‌شده" : suggested ? "کادر مکانی از دیوار" : "دادهٔ مکانی ناموجود"}</span>
           </div>
           <div className="admin-location-map">
-            <iframe
-              title={`پیش‌نمایش موقعیت تقریبی ${neighborhood || "فایل"}`}
-              src={osmEmbedUrl(previewLatitude, previewLongitude)}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+            {previewMapUrl ? (
+              <iframe
+                title={`کادر مکانی دیوار یا نقطه ثبت‌شده ${neighborhood || "فایل"}`}
+                src={previewMapUrl}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            ) : (
+              <div className="admin-location-map-empty" role="status">
+                نقشه تا زمان دریافت مختصات معتبر دیوار یا ثبت دستی نقطه نمایش داده نمی‌شود.
+              </div>
+            )}
           </div>
           <div className="admin-location-map-foot">
-            <span>نقشه داخلی فقط برای کنترل موقعیت فایل در پنل مدیریت است.</span>
+            <span>{suggested ? "کادر نمایش از bbox دیوار است؛ این نقشه چندضلعی جعلی تولید نمی‌کند." : "نقشه داخلی فقط برای کنترل موقعیت فایل در پنل مدیریت است."}</span>
             <strong>{bothCoordinatesValid ? "مختصات آماده ثبت" : "در انتظار مختصات کامل"}</strong>
           </div>
         </div>

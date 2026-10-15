@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, FilePlus2, Film, Home, ImagePlus, Loader2, MapPin, Phone, Send, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { PROPERTY_TYPES, SERVICES, NEIGHBORHOODS, SITE } from "@/lib/site";
+import { PROPERTY_TYPES, SERVICES, SITE } from "@/lib/site";
+import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import {
   PROPERTY_CABINET_OPTIONS,
   PROPERTY_COOLING_OPTIONS,
@@ -70,6 +71,8 @@ function SubmitPropertyPage() {
   const [transactionType, setTransactionType] = useState<"buy"|"sell"|"rent"|"mortgage">("sell");
   const [propertyType, setPropertyType] = useState<"apartment"|"villa"|"office"|"heritage"|"land"|"commercial">("apartment");
   const [neighborhood, setNeighborhood] = useState("");
+  const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>([]);
+  const [neighborhoodCatalogStatus, setNeighborhoodCatalogStatus] = useState<"loading" | "ready" | "unavailable">("loading");
   const [address, setAddress] = useState("");
   const [area, setArea] = useState("");
   const [bedrooms, setBedrooms] = useState("");
@@ -98,6 +101,20 @@ function SubmitPropertyPage() {
   const [media, setMedia] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    listNeighborhoodNames().then((names) => {
+      if (!active) return;
+      setNeighborhoodOptions(names);
+      setNeighborhoodCatalogStatus(names.length ? "ready" : "unavailable");
+    }).catch(() => {
+      if (!active) return;
+      setNeighborhoodOptions([]);
+      setNeighborhoodCatalogStatus("unavailable");
+    });
+    return () => { active = false; };
+  }, []);
   const [uploadLabel, setUploadLabel] = useState("");
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
@@ -402,7 +419,7 @@ function SubmitPropertyPage() {
             <label className="field customer-property-wide"><span>عنوان ملک</span><input value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="مثلاً آپارتمان نوساز دوخوابه در سپاهان‌شهر"/></label>
             <label className="field"><span>نوع معامله</span><select value={transactionType} onChange={(e)=>setTransactionType(e.target.value as typeof transactionType)}>{SERVICES.map((item)=><option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
             <label className="field"><span>نوع ملک</span><select value={propertyType} onChange={(e)=>setPropertyType(e.target.value as typeof propertyType)}>{CUSTOMER_PROPERTY_TYPES.map((item)=><option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
-            <label className="field"><span>محله</span><select value={neighborhood} onChange={(e)=>setNeighborhood(e.target.value)}><option value="">انتخاب محله</option>{NEIGHBORHOODS.map((item)=><option key={item.name}>{item.name}</option>)}</select></label>
+            <label className="field"><span>محله</span><select value={neighborhood} onChange={(e)=>setNeighborhood(e.target.value)}><option value="">{neighborhoodCatalogStatus === "loading" ? "در حال دریافت محله‌های دیوار…" : neighborhoodCatalogStatus === "unavailable" ? "کاتالوگ دیوار در دسترس نیست" : "انتخاب محله از دیوار"}</option>{neighborhood && !neighborhoodOptions.includes(neighborhood) ? <option value={neighborhood}>{neighborhood} (در کاتالوگ فعلی دیوار نیست)</option> : null}{neighborhoodOptions.map((name)=><option key={name} value={name}>{name}</option>)}</select></label>
             <label className="field customer-property-location-field"><span>آدرس / توضیح موقعیت</span><input value={address} onChange={(e)=>setAddress(e.target.value)} placeholder="اختیاری؛ شماره واحد حساس ننویسید"/>
               <div className="customer-property-location-row"><button type="button" className="btn-ghost" onClick={captureLocation} disabled={locationStatus==="loading"}><MapPin size={15}/>{locationStatus==="loading"?"در حال دریافت موقعیت…":locationStatus==="done"?"موقعیت ثبت شد":"ثبت موقعیت روی نقشه"}</button>{latitude!=null&&longitude!=null?<small dir="ltr">{latitude.toFixed(6)}, {longitude.toFixed(6)}</small>:<small>اختیاری؛ با اجازه مرورگر ثبت می‌شود.</small>}</div>
             </label>
