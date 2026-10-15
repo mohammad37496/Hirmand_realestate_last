@@ -151,8 +151,8 @@ export function PropertiesMap({
       const bottomRight = project(neighborhoodSouth, neighborhoodEast, 0);
       const usableWidth = Math.max(240, size.width - 72);
       const usableHeight = Math.max(240, size.height - 128);
-      const zoomX = Math.log2(usableWidth / Math.max(1, bottomRight.x - topLeft.x));
-      const zoomY = Math.log2(usableHeight / Math.max(1, bottomRight.y - topLeft.y));
+      const zoomX = Math.log2(usableWidth / Math.max(0.0001, bottomRight.x - topLeft.x));
+      const zoomY = Math.log2(usableHeight / Math.max(0.0001, bottomRight.y - topLeft.y));
       const zoom = Math.max(10, Math.min(17, Math.floor(Math.min(zoomX, zoomY))));
       setView({
         latitude: (neighborhoodSouth + neighborhoodNorth) / 2,
