@@ -47,8 +47,8 @@ function areaDirectoryKey(value: string): string {
     .replace(/[يى]/g, "ی")
     .replace(/ك/g, "ک")
     .replace(/[ۀة]/g, "ه")
-    .replace(/[\u200c\u200d\u200e\u200f\u202a-\u202e\u0640]/g, "")
-    .replace(/[\s\u00a0\-‐‑–—_\/،,]+/g, "")
+    .replace(/(?:\u200c|\u200d|\u200e|\u200f|[\u202a-\u202e]|\u0640)/g, "")
+    .replace(/[\s\u00a0‐‑–—_/،,-]+/g, "")
     .toLocaleLowerCase("fa");
 }
 
