@@ -75,12 +75,18 @@ test("area directory attaches Divar geometry to exact names and vetted Persian s
     { name: "شهرک ولی‌عصر", slug: "شهرک-ولیعصر", groupTitle: "غرب" },
     { name: "درب‌کوش", slug: "دربکوش", groupTitle: "مرکز" },
     { name: "پوزوه", slug: "پوزوه", groupTitle: "شرق" },
+    { name: "گل‌نرگس", slug: "گل-نرگس", groupTitle: "جنوب" },
+    { name: "جوان", slug: "جوان", groupTitle: "غرب" },
+    { name: "قلعه تبرک", slug: "قلعه-تبرک", groupTitle: "مرکز" },
   ];
   const catalog = [
     directoryDistrict("1547", "درچه", "dorcheh", 32.613102, 51.5545082),
     directoryDistrict("1441", "شهرک ولیعصر", "valiasr-town", 32.7392426, 51.6611),
     directoryDistrict("1459", "درب کوشک", "mahale-now", 32.67, 51.68),
     directoryDistrict("1509", "پزوه", "pozveh", 32.7, 51.75),
+    directoryDistrict("2408", "شهرک گل نرگس", "shahrak-gol-narges", 32.61, 51.63),
+    directoryDistrict("1549", "جاوان", "javan", 32.65, 51.61),
+    directoryDistrict("1473", "قلعه طبره", "ghale-tabre", 32.67, 51.69),
     directoryDistrict("9999", "محدوده تازه دیوار", "new-divar-area", 32.71, 51.77),
   ];
 
@@ -89,6 +95,9 @@ test("area directory attaches Divar geometry to exact names and vetted Persian s
   const valiasr = merged.find((area) => area.slug === "شهرک-ولیعصر");
   const darbKoosh = merged.find((area) => area.slug === "دربکوش");
   const pozveh = merged.find((area) => area.slug === "پوزوه");
+  const golNarges = merged.find((area) => area.slug === "گل-نرگس");
+  const javan = merged.find((area) => area.slug === "جوان");
+  const tabarak = merged.find((area) => area.slug === "قلعه-تبرک");
 
   assert.equal(dorcheh?.divarDistrictId, "1547");
   assert.equal(dorcheh?.divarSlug, "dorcheh");
@@ -96,6 +105,9 @@ test("area directory attaches Divar geometry to exact names and vetted Persian s
   assert.deepEqual(valiasr?.divarBbox, [51.6511, 32.7292426, 51.6711, 32.7492426]);
   assert.equal(darbKoosh?.divarDistrictId, "1459");
   assert.equal(pozveh?.divarDistrictId, "1509");
+  assert.equal(golNarges?.divarDistrictId, "2408");
+  assert.equal(javan?.divarDistrictId, "1549");
+  assert.equal(tabarak?.divarDistrictId, "1473");
 
   const assignedIds = merged.map((area) => area.divarDistrictId).filter((id): id is string => Boolean(id));
   assert.equal(new Set(assignedIds).size, catalog.length, "each Divar record must appear exactly once");
