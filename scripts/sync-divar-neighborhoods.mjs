@@ -114,7 +114,7 @@ if (unchanged) {
     sourceUrl,
     fetchedAt: new Date().toISOString(),
     districts,
-  }, null, 2) + "\\n", "utf8");
+  }, null, 2) + "\n", "utf8");
   console.log(`Stored ${districts.length} raw Divar districts for ${city.display} (city_id=${cityId}).`);
 }
 const withPolygon = districts.filter((d) =>
