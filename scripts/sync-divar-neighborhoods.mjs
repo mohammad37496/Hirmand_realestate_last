@@ -18,7 +18,6 @@ function norm(value) {
     .replace(/ي/g, "ی").replace(/ك/g, "ک")
     .replaceAll("\u200c", "").replaceAll("\u200d", "").replaceAll("\u200e", "").replaceAll("\u200f", "").replaceAll("\u0640", "")
     .replace(/[\s\u00a0]+/g, " ").trim().toLowerCase();
-    .replace(/[\u200c\u200d\u200e\u200f\u0640]/g, "").replace(/[\s\u00a0]+/g, " ").trim().toLowerCase();
 }
 function cityCandidates(payload, out = [], depth = 0) {
   if (depth > 12 || payload == null) return out;
