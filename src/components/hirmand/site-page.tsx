@@ -23,8 +23,6 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import {
   FAQS,
   mapLinks,
-  NEIGHBORHOOD_GROUPS,
-  NEIGHBORHOODS,
   PRINCIPLES,
   PROPERTY_TYPES,
   SERVICES,
@@ -32,6 +30,8 @@ import {
   STEPS,
   type Neighborhood,
 } from "@/lib/site";
+import { listDivarNeighborhoodCatalog } from "@/lib/divar-neighborhoods";
+import { normalizeDivarNeighborhoodName, type DivarNeighborhoodClientItem } from "@/lib/divar-neighborhood-geometry";
 import { FinanceTools } from "./finance-tools";
 import { InquiryForm, type InquiryDraft } from "./inquiry-form";
 import { MapAppButtons, MapEmbed } from "./map-apps";
@@ -84,6 +84,32 @@ const OFFICE_PLACE: Neighborhood = {
   address: SITE.address,
   searchQuery: "گروه مشاورین املاک هیرمند، اصفهان",
 };
+
+type NeighborhoodCatalogStatus = "loading" | "ready" | "unavailable";
+
+function useDivarNeighborhoodCatalog() {
+  const [items, setItems] = useState<DivarNeighborhoodClientItem[]>([]);
+  const [status, setStatus] = useState<NeighborhoodCatalogStatus>("loading");
+
+  useEffect(() => {
+    let active = true;
+    listDivarNeighborhoodCatalog()
+      .then((result) => {
+        if (!active) return;
+        setItems(result.items);
+        setStatus(result.items.length ? "ready" : "unavailable");
+      })
+      .catch((error) => {
+        console.warn("[site-page] Divar neighborhood catalog unavailable", error);
+        if (!active) return;
+        setItems([]);
+        setStatus("unavailable");
+      });
+    return () => { active = false; };
+  }, []);
+
+  return { items, status };
+}
 
 async function copyText(value: string): Promise<boolean> {
   try {
@@ -138,7 +164,7 @@ function SectionHead({ kicker, title, text }: { kicker: string; title: string; t
   );
 }
 
-function Hero() {
+function Hero({ neighborhoods, catalogStatus }: { neighborhoods: DivarNeighborhoodClientItem[]; catalogStatus: NeighborhoodCatalogStatus }) {
   const [deal, setDeal] = useState("خرید");
   const [propertyType, setPropertyType] = useState("");
   const [neighborhood, setNeighborhood] = useState("");
@@ -246,9 +272,12 @@ function Hero() {
             value={neighborhood}
             onChange={(event) => setNeighborhood(event.target.value)}
           >
-            <option value="">محله در اصفهان</option>
-            {NEIGHBORHOODS.map((item) => (
-              <option key={item.name} value={item.name}>
+            <option value="">
+              {catalogStatus === "loading" ? "در حال دریافت محله‌های دیوار…" :
+                catalogStatus === "unavailable" ? "کاتالوگ دیوار در دسترس نیست" : "انتخاب محله"}
+            </option>
+            {neighborhoods.map((item) => (
+              <option key={item.id} value={item.name}>
                 {item.name}
               </option>
             ))}
@@ -299,12 +328,12 @@ function Hero() {
   );
 }
 
-function TrustStrip() {
+function TrustStrip({ neighborhoodCount }: { neighborhoodCount: number }) {
   const consultants = useConsultants();
   const highlights = [
     { value: `${SERVICES.length}`, label: "مسیر اصلی معامله" },
     { value: `${consultants.length}`, label: "مشاور مستقیم" },
-    { value: `${NEIGHBORHOODS.length}+`, label: "محله و محدوده در اصفهان" },
+    { value: neighborhoodCount ? neighborhoodCount.toLocaleString("fa-IR") : "—", label: "محله در کاتالوگ دیوار" },
   ] as const;
 
   return (
@@ -605,21 +634,37 @@ function TrackingCta() {
   );
 }
 
-function Neighborhoods({ onPick }: { onPick: (name: string) => void }) {
+function Neighborhoods({
+  onPick,
+  neighborhoods,
+  catalogStatus,
+}: {
+  onPick: (name: string) => void;
+  neighborhoods: DivarNeighborhoodClientItem[];
+  catalogStatus: NeighborhoodCatalogStatus;
+}) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Neighborhood>(OFFICE_PLACE);
+  const [selectedDivar, setSelectedDivar] = useState<DivarNeighborhoodClientItem | null>(null);
 
   const groups = useMemo(() => {
-    const q = query.trim();
-    return NEIGHBORHOOD_GROUPS
-      .map((group) => ({
-        ...group,
-        items: [...group.items]
-          .filter((item) => !q || item.name.includes(q))
-          .sort((a, b) => a.name.localeCompare(b.name, "fa", { sensitivity: "base", numeric: true })),
-      }))
-      .filter((group) => group.items.length > 0);
-  }, [query]);
+    const q = normalizeDivarNeighborhoodName(query);
+    const items = neighborhoods
+      .filter((item) => !q || normalizeDivarNeighborhoodName(item.name).includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name, "fa", { sensitivity: "base", numeric: true }));
+    return items.length ? [{ title: "محله‌های کاتالوگ دیوار", items }] : [];
+  }, [query, neighborhoods]);
+
+  function selectDivarNeighborhood(item: DivarNeighborhoodClientItem) {
+    setSelected({
+      name: item.name,
+      address: `${item.name}، اصفهان`,
+      searchQuery: `${item.name}، اصفهان`,
+      lat: item.defaultLocation.latitude,
+      lng: item.defaultLocation.longitude,
+    });
+    setSelectedDivar(item);
+  }
 
   const target: Neighborhood = {
     ...selected,
@@ -627,13 +672,16 @@ function Neighborhoods({ onPick }: { onPick: (name: string) => void }) {
     searchQuery: selected.searchQuery || `${selected.name}، اصفهان`,
   };
   const links = mapLinks(target);
+  const divarMapUrl = selectedDivar
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(selectedDivar.bbox.join(","))}&layer=mapnik&marker=${selectedDivar.defaultLocation.latitude}%2C${selectedDivar.defaultLocation.longitude}`
+    : null;
 
   return (
     <Reveal as="section" className="section" id="areas">
       <SectionHead
         kicker="اصفهان"
         title="محله‌هایی که در آن‌ها فعالیم"
-        text={`بیش از ${NEIGHBORHOODS.length} محله و محدوده در اصفهان. هر محله را انتخاب کنید تا نشانی و مقصد آن در نشان، بلد و Google Maps بررسی شود؛ بدون ذخیره مختصات حدسی.`}
+        text={catalogStatus === "ready" ? `${neighborhoods.length.toLocaleString("fa-IR")} محله با مختصات مرکز و کادر مکانی ثبت‌شده در دیوار. این کادر مستطیلی است؛ مرز چندضلعی از API دریافت نشده است.` : catalogStatus === "loading" ? "در حال دریافت فهرست رسمی محله‌های دیوار…" : "فهرست معتبر دیوار در دسترس نیست؛ مختصات یا محدودهٔ حدسی نمایش داده نمی‌شود."}
       />
       <div className="area-layout">
         <div className="area-groups">
@@ -647,12 +695,16 @@ function Neighborhoods({ onPick }: { onPick: (name: string) => void }) {
             />
           </label>
 
-          {groups.length === 0 ? (
-            <p className="commission-hint">محله‌ای با این نام پیدا نشد.</p>
+          {catalogStatus === "loading" ? (
+            <p className="commission-hint">در حال دریافت کاتالوگ مکانی دیوار…</p>
+          ) : catalogStatus === "unavailable" ? (
+            <p className="commission-hint">کاتالوگ معتبر دیوار در دسترس نیست؛ برای جلوگیری از نمایش مکان حدسی، فهرست موقتاً خالی است.</p>
+          ) : groups.length === 0 ? (
+            <p className="commission-hint">محله‌ای با این نام در کاتالوگ دیوار پیدا نشد.</p>
           ) : (
             <div className="area-dropdowns">
               {groups.map((group) => {
-                const isSelectedInGroup = group.items.some((item) => item.name === selected.name);
+                const isSelectedInGroup = group.items.some((item) => item.id === selectedDivar?.id);
                 return (
                   <details
                     key={group.title}
@@ -662,17 +714,17 @@ function Neighborhoods({ onPick }: { onPick: (name: string) => void }) {
                     <summary className="area-dropdown-summary">
                       <span>
                         <strong>{group.title}</strong>
-                        <small>{isSelectedInGroup ? `محله انتخاب‌شده: ${selected.name}` : "انتخاب محله"}</small>
+                        <small>{isSelectedInGroup ? `محله انتخاب‌شده: ${selected.name}` : `${group.items.length.toLocaleString("fa-IR")} محله`}</small>
                       </span>
                       <span className="area-dropdown-caret" aria-hidden="true">⌄</span>
                     </summary>
                     <div className="area-dropdown-options">
                       {group.items.map((item) => (
                         <button
-                          key={item.name}
+                          key={item.id}
                           type="button"
-                          className={selected.name === item.name ? "area-neighborhood-option is-active" : "area-neighborhood-option"}
-                          onClick={() => setSelected(item)}
+                          className={selectedDivar?.id === item.id ? "area-neighborhood-option is-active" : "area-neighborhood-option"}
+                          onClick={() => selectDivarNeighborhood(item)}
                         >
                           <span>{item.name}</span>
                           {selected.name === item.name ? <Check size={15} aria-hidden="true" /> : null}
@@ -693,10 +745,25 @@ function Neighborhoods({ onPick }: { onPick: (name: string) => void }) {
             </div>
             <div>
               <h3>{selected.name}</h3>
-              <p>نشان و بلد مرجع اصلی؛ Google Maps برای بررسی تکمیلی</p>
+              <p>{selectedDivar ? "مرکز و bbox مستقیماً از کاتالوگ دیوار است." : "برای دیدن کادر معتبر، یک محله از فهرست دیوار انتخاب کنید."}</p>
             </div>
           </div>
-          <MapEmbed target={target} title={`نقشه ${selected.name} در اصفهان`} />
+          {selectedDivar && divarMapUrl ? (
+            <iframe
+              title={`کادر مکانی دیوار برای ${selected.name}`}
+              src={divarMapUrl}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              style={{ display: "block", width: "100%", height: 320, border: 0, borderRadius: 18 }}
+            />
+          ) : (
+            <MapEmbed target={target} title={`نقشه ${selected.name} در اصفهان`} />
+          )}
+          {selectedDivar ? (
+            <p className="commission-hint" style={{ marginTop: 8 }}>
+              نشانگر از مرکز ثبت‌شدهٔ دیوار و کادر از bbox خود دیوار است؛ مرز چندضلعی در پاسخ دیوار موجود نبود.
+            </p>
+          ) : null}
           <MapAppButtons target={target} googleHref={links.google} />
           {selected.name !== OFFICE_PLACE.name ? (
             <button type="button" className="btn-gold area-request" onClick={() => onPick(selected.name)}>
@@ -889,6 +956,7 @@ export function SitePage({
   announcement?: string;
   faqItems?: ReadonlyArray<{ q: string; a: string }>;
 }) {
+  const { items: divarNeighborhoods, status: divarCatalogStatus } = useDivarNeighborhoodCatalog();
   const [draft, setDraft] = useState<InquiryDraft>({
     deal: "خرید",
     propertyType: "",
@@ -938,8 +1006,8 @@ export function SitePage({
             <span>{announcement.trim()}</span>
           </aside>
         ) : null}
-        <Hero />
-        <TrustStrip />
+        <Hero neighborhoods={divarNeighborhoods} catalogStatus={divarCatalogStatus} />
+        <TrustStrip neighborhoodCount={divarNeighborhoods.length} />
         <PropertyShowcase initialProperties={initialProperties} />
         <HomeDiscovery />
         <Inquiry draft={draft} />
@@ -954,7 +1022,7 @@ export function SitePage({
           <div className="home-secondary-body">
             <About />
             <Process />
-            <Neighborhoods onPick={(name) => goInquiry({ neighborhood: name })} />
+            <Neighborhoods onPick={(name) => goInquiry({ neighborhood: name })} neighborhoods={divarNeighborhoods} catalogStatus={divarCatalogStatus} />
             <Team />
             <SmartRecommendations />
             <Tools />

@@ -1,10 +1,14 @@
 import { NEIGHBORHOOD_GROUPS, type Neighborhood } from "@/lib/site";
 import { SITE } from "@/lib/site";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
+import type { DivarBbox } from "@/lib/divar-neighborhood-geometry";
 
 export type AreaInfo = Neighborhood & {
   slug: string;
   groupTitle: string;
+  /** Exact source fields are present only when a unique Divar catalog match exists. */
+  divarDistrictId?: string;
+  divarBbox?: DivarBbox;
 };
 
 /** Stable URL slug for Persian neighborhood names. */

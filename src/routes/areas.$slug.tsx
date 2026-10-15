@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, MapPinned, Phone } from "lucide-react";
 import { listPublishedProperties } from "@/lib/properties";
 import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "@/lib/neighborhood-market";
-import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas } from "@/lib/areas";
+import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas, type AreaInfo } from "@/lib/areas";
+import { listDivarNeighborhoodCatalog } from "@/lib/divar-neighborhoods";
+import { normalizeDivarNeighborhoodName } from "@/lib/divar-neighborhood-geometry";
 import { breadcrumbJsonLd } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
@@ -10,8 +12,38 @@ import { PropertyCard } from "@/components/hirmand/property-showcase";
 
 export const Route = createFileRoute("/areas/$slug")({
   loader: async ({ params }) => {
-    const area = findAreaBySlug(params.slug);
-    if (!area) return { area: null, properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>, market: null as NeighborhoodMarketSnapshot | null };
+    const foundArea = findAreaBySlug(params.slug);
+    if (!foundArea) return { area: null, properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>, market: null as NeighborhoodMarketSnapshot | null };
+
+    // Static editorial entries must not leak old/guessed coordinates. Start
+    // without geometry and attach a center/bbox only after a unique Divar match.
+    let area: AreaInfo = {
+      ...foundArea,
+      lat: undefined,
+      lng: undefined,
+      divarDistrictId: undefined,
+      divarBbox: undefined,
+    };
+    try {
+      const catalog = await listDivarNeighborhoodCatalog();
+      const key = normalizeDivarNeighborhoodName(foundArea.name);
+      const matches = catalog.items.filter((item) => normalizeDivarNeighborhoodName(item.name) === key);
+      if (matches.length === 1) {
+        const source = matches[0];
+        area = {
+          ...area,
+          lat: source.defaultLocation.latitude,
+          lng: source.defaultLocation.longitude,
+          divarDistrictId: source.id,
+          divarBbox: source.bbox,
+        };
+      } else if (matches.length > 1) {
+        console.warn("[area] ambiguous Divar name; withholding coordinates", foundArea.name);
+      }
+    } catch (error) {
+      console.warn("[area] Divar location unavailable; withholding coordinates", error);
+    }
+
     try {
       const [properties, market] = await Promise.all([
         listPublishedProperties({ data: { neighborhood: area.name } }),
@@ -55,7 +87,12 @@ function AreaPage() {
     .filter((a) => a.groupTitle === area.groupTitle && a.slug !== area.slug)
     .slice(0, 8);
 
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${area.lat},${area.lng}`;
+  const mapsUrl = area.lat != null && area.lng != null
+    ? `https://www.google.com/maps/search/?api=1&query=${area.lat},${area.lng}`
+    : null;
+  const divarMapUrl = area.divarBbox && area.lat != null && area.lng != null
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(area.divarBbox.join(","))}&layer=mapnik&marker=${area.lat}%2C${area.lng}`
+    : null;
 
   return (
     <SiteChrome className="property-detail-shell">
@@ -116,13 +153,31 @@ function AreaPage() {
               <div>
                 <strong>موقعیت روی نقشه</strong>
                 <p>
-                  {area.name}، اصفهان — مختصات تقریبی{" "}
-                  {area.lat == null || area.lng == null ? "ثبت نشده" :
-                    `${area.lat.toFixed(4)}، ${area.lng.toFixed(4)}`}
+                  {area.divarDistrictId && area.lat != null && area.lng != null
+                    ? `${area.name}، اصفهان — مرکز ثبت‌شده در دیوار: ${area.lat.toFixed(5)}، ${area.lng.toFixed(5)}`
+                    : `${area.name}، اصفهان — مرکز معتبر دیوار برای این نام به‌طور یکتا یافت نشد.`}
                 </p>
-                <a href={mapsUrl} target="_blank" rel="noopener noreferrer">
-                  باز کردن در گوگل‌مپ
-                </a>
+                {divarMapUrl ? (
+                  <iframe
+                    title={`کادر مکانی برگرفته از دیوار برای ${area.name}`}
+                    src={divarMapUrl}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    style={{ display: "block", width: "100%", height: 240, border: 0, borderRadius: 12, marginTop: 10 }}
+                  />
+                ) : null}
+                {mapsUrl ? (
+                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer">
+                    باز کردن مرکز دیوار در گوگل‌مپ
+                  </a>
+                ) : (
+                  <small>برای جلوگیری از نمایش نقطه حدسی، لینک مختصات ساخته نشده است.</small>
+                )}
+                {area.divarBbox ? (
+                  <small style={{ display: "block", marginTop: 6 }}>
+                    کادر مستطیلی از bbox خود دیوار است؛ دادهٔ چندضلعی مرز در پاسخ دیوار موجود نبود.
+                  </small>
+                ) : null}
               </div>
             </div>
 
