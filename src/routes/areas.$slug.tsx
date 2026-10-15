@@ -1,5 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, MapPinned, Phone } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpLeft,
+  Building2,
+  CheckCircle2,
+  Home,
+  MapPinned,
+  Phone,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 import { listPublishedProperties } from "@/lib/properties";
 import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "@/lib/neighborhood-market";
 import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas, type AreaInfo } from "@/lib/areas";
@@ -15,8 +25,7 @@ export const Route = createFileRoute("/areas/$slug")({
     const foundArea = findAreaBySlug(params.slug);
     if (!foundArea) return { area: null, properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>, market: null as NeighborhoodMarketSnapshot | null };
 
-    // Static editorial entries must not leak old/guessed coordinates. Start
-    // without geometry and attach a center/bbox only after a unique Divar match.
+    // Do not expose guessed coordinates. Only attach geometry after a unique catalog match.
     let area: AreaInfo = {
       ...foundArea,
       lat: undefined,
@@ -38,10 +47,10 @@ export const Route = createFileRoute("/areas/$slug")({
           divarBbox: source.bbox,
         };
       } else if (matches.length > 1) {
-        console.warn("[area] ambiguous Divar name; withholding coordinates", foundArea.name);
+        console.warn("[area] ambiguous neighborhood name; withholding coordinates", foundArea.name);
       }
     } catch (error) {
-      console.warn("[area] Divar location unavailable; withholding coordinates", error);
+      console.warn("[area] neighborhood location unavailable; withholding coordinates", error);
     }
 
     try {
@@ -64,15 +73,18 @@ function AreaPage() {
 
   if (!area) {
     return (
-      <SiteChrome className="property-detail-shell">
-        <section className="property-not-found">
-          <MapPinned size={32} />
-          <h1>این محله پیدا نشد</h1>
-          <p>محله درخواستی در فهرست مناطق تحت پوشش هیرمند نیست.</p>
-          <Link to="/" hash="areas" className="btn-gold">
-            مشاهده محله‌ها
-          </Link>
-        </section>
+      <SiteChrome className="property-detail-shell area-page-shell">
+        <main className="area-page">
+          <section className="area-not-found">
+            <div className="area-not-found-icon"><MapPinned size={28} /></div>
+            <span className="area-eyebrow">راهنمای محله‌های هیرمند</span>
+            <h1>این محله پیدا نشد</h1>
+            <p>محله درخواستی در فهرست مناطق تحت پوشش هیرمند نیست.</p>
+            <Link to="/" hash="areas" className="btn-gold">
+              <ArrowRight size={17} /> مشاهده محله‌ها
+            </Link>
+          </section>
+        </main>
       </SiteChrome>
     );
   }
@@ -84,18 +96,18 @@ function AreaPage() {
   ]);
 
   const nearby = allAreas()
-    .filter((a) => a.groupTitle === area.groupTitle && a.slug !== area.slug)
+    .filter((candidate) => candidate.groupTitle === area.groupTitle && candidate.slug !== area.slug)
     .slice(0, 8);
 
   const mapsUrl = area.lat != null && area.lng != null
-    ? `https://www.google.com/maps/search/?api=1&query=${area.lat},${area.lng}`
+    ? "https://www.google.com/maps/search/?api=1&query=" + area.lat + "," + area.lng
     : null;
   const divarMapUrl = area.divarBbox && area.lat != null && area.lng != null
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(area.divarBbox.join(","))}&layer=mapnik&marker=${area.lat}%2C${area.lng}`
+    ? "https://www.openstreetmap.org/export/embed.html?bbox=" + encodeURIComponent(area.divarBbox.join(",")) + "&layer=mapnik&marker=" + area.lat + "%2C" + area.lng
     : null;
 
   return (
-    <SiteChrome className="property-detail-shell">
+    <SiteChrome className="property-detail-shell area-page-shell">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(areaJsonLd(area)) }}
@@ -105,149 +117,183 @@ function AreaPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }}
       />
 
-      <main className="property-detail">
-        <nav
-          aria-label="مسیر صفحه"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 16,
-            fontSize: "0.82rem",
-            color: "var(--subtle)",
-          }}
-        >
-          <Link to="/" style={{ color: "var(--muted)" }}>
-            صفحه اصلی
-          </Link>
-          <span>/</span>
-          <Link to="/" hash="areas" style={{ color: "var(--muted)" }}>
-            محله‌ها
-          </Link>
-          <span>/</span>
-          <span>{area.name}</span>
+      <main className="area-page">
+        <nav aria-label="مسیر صفحه" className="area-breadcrumbs">
+          <Link to="/">صفحه اصلی</Link>
+          <span aria-hidden="true">/</span>
+          <Link to="/" hash="areas">محله‌ها</Link>
+          <span aria-hidden="true">/</span>
+          <span aria-current="page">{area.name}</span>
         </nav>
 
-        <div className="property-detail-top">
-          <Link to="/" hash="areas" className="back-link">
-            <ArrowRight size={17} /> همه محله‌ها
-          </Link>
-          <span className="property-detail-code">{area.groupTitle}</span>
-        </div>
-
-        <div className="property-detail-grid">
-          <div className="property-detail-main">
-            <div className="pcard-meta">
+        <section className="area-hero" aria-labelledby="area-title">
+          <div className="area-hero-copy">
+            <div className="area-eyebrow">
+              <span className="area-eyebrow-mark" />
+              راهنمای خرید و اجاره ملک در اصفهان
+            </div>
+            <div className="area-context">
+              <MapPinned size={15} />
               <span>اصفهان</span>
+              <span className="area-context-separator" />
               <span>{area.groupTitle}</span>
             </div>
-            <h1>املاک {area.name}</h1>
-            <p className="property-detail-description">
-              خرید، فروش، رهن و اجاره ملک در محله <strong>{area.name}</strong> اصفهان با همراهی
-              گروه مشاورین املاک هیرمند. فایل‌های به‌روز این محله را در همین صفحه ببینید یا برای
-              مشاوره اختصاصی با دفتر تماس بگیرید.
+            <h1 id="area-title">
+              خرید، فروش و اجاره ملک در <span>{area.name}</span>
+            </h1>
+            <p className="area-hero-description">
+              فایل‌های ملکی محله {area.name} را بررسی کنید و برای انتخاب خانه، آپارتمان یا ملک مناسب،
+              از راهنمایی گروه مشاورین املاک هیرمند کمک بگیرید.
             </p>
-
-            <div className="property-address">
-              <MapPinned size={20} />
-              <div>
-                <strong>موقعیت روی نقشه</strong>
-                <p>
-                  {area.divarDistrictId && area.lat != null && area.lng != null
-                    ? `${area.name}، اصفهان — مرکز ثبت‌شده در دیوار: ${area.lat.toFixed(5)}، ${area.lng.toFixed(5)}`
-                    : `${area.name}، اصفهان — مرکز معتبر دیوار برای این نام به‌طور یکتا یافت نشد.`}
-                </p>
-                {divarMapUrl ? (
-                  <iframe
-                    title={`کادر مکانی برگرفته از دیوار برای ${area.name}`}
-                    src={divarMapUrl}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    style={{ display: "block", width: "100%", height: 240, border: 0, borderRadius: 12, marginTop: 10 }}
-                  />
-                ) : null}
-                {mapsUrl ? (
-                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer">
-                    باز کردن مرکز دیوار در گوگل‌مپ
-                  </a>
-                ) : (
-                  <small>برای جلوگیری از نمایش نقطه حدسی، لینک مختصات ساخته نشده است.</small>
-                )}
-                {area.divarBbox ? (
-                  <small style={{ display: "block", marginTop: 6 }}>
-                    کادر مستطیلی از bbox خود دیوار است؛ دادهٔ چندضلعی مرز در پاسخ دیوار موجود نبود.
-                  </small>
-                ) : null}
-              </div>
+            <div className="area-hero-actions">
+              <a href="#area-properties" className="btn-gold">
+                <Building2 size={18} /> دیدن فایل‌های این محله
+              </a>
+              <a href={"tel:" + SITE.phone.mobile} className="btn-ghost">
+                <Phone size={17} /> مشاوره تلفنی
+              </a>
+            </div>
+            <div className="area-trust-note">
+              <CheckCircle2 size={16} />
+              <span>فهرست زیر از فایل‌های منتشرشده در سایت هیرمند نمایش داده می‌شود.</span>
             </div>
 
-            {market ? (
-              <section style={{ marginTop: 28, padding: 18, border: "1px solid var(--line)", borderRadius: 20, background: "var(--card)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-                  <div>
-                    <span className="kicker">تصویر بازار داخلی هیرمند</span>
-                    <h2 style={{ fontSize: "1.15rem", margin: "4px 0 0" }}>نبض بازار {area.name}</h2>
-                  </div>
-                  <small style={{ color: "var(--subtle)" }}>فایل‌های منتشرشده و رفتار ۳۰ روز اخیر سایت</small>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 14 }}>
-                  {[
-                    ["فایل فعال", market.activeFiles.toLocaleString("fa-IR")],
-                    ["فروش", market.saleFiles.toLocaleString("fa-IR")],
-                    ["رهن و اجاره", market.rentFiles.toLocaleString("fa-IR")],
-                    ["فایل جدید ۳۰ روزه", market.newFiles30d.toLocaleString("fa-IR")],
-                    ["کاهش قیمت", market.priceDropFiles.toLocaleString("fa-IR")],
-                    ["بازدید ۳۰ روزه", market.views30d.toLocaleString("fa-IR")],
-                  ].map(([label, value]) => (
-                    <div key={label} style={{ padding: 12, borderRadius: 14, background: "var(--card-2)", border: "1px solid var(--line)" }}>
-                      <span style={{ display: "block", color: "var(--subtle)", fontSize: ".72rem" }}>{label}</span>
-                      <strong style={{ display: "block", marginTop: 5, fontSize: "1.02rem", color: "var(--navy-900)" }}>{value}</strong>
-                    </div>
-                  ))}
-                </div>
-                <p style={{ margin: "12px 0 0", color: "var(--muted)", lineHeight: 1.9, fontSize: ".84rem" }}>
-                  {market.saleAvgPerM2 != null ? (
-                    <>میانگین تقریبی قیمت فروش هر متر: <strong>{market.saleAvgPerM2.toLocaleString("fa-IR")} تومان</strong>. </>
-                  ) : null}
-                  {market.rentAvg != null ? (
-                    <>میانگین اجاره ثبت‌شده: <strong>{market.rentAvg.toLocaleString("fa-IR")} تومان</strong>. </>
-                  ) : null}
-                  در ۳۰ روز اخیر {market.favorites30d.toLocaleString("fa-IR")} ذخیره، {market.calls30d.toLocaleString("fa-IR")} تماس/واتساپ و {market.viewingRequests30d.toLocaleString("fa-IR")} درخواست بازدید ثبت شده است.
-                </p>
-              </section>
-            ) : null}
+            <div className="area-hero-stats" aria-label="خلاصه فایل‌های محله">
+              <div className="area-hero-stat area-hero-stat-primary">
+                <span>فایل قابل مشاهده</span>
+                <strong>{properties.length.toLocaleString("fa-IR")}</strong>
+              </div>
+              <div className="area-hero-stat">
+                <span>فایل فروش</span>
+                <strong>{market ? market.saleFiles.toLocaleString("fa-IR") : "—"}</strong>
+              </div>
+              <div className="area-hero-stat">
+                <span>رهن و اجاره</span>
+                <strong>{market ? market.rentFiles.toLocaleString("fa-IR") : "—"}</strong>
+              </div>
+            </div>
+          </div>
 
-            <section style={{ marginTop: 28 }}>
-              <h2 style={{ fontSize: "1.15rem", marginBottom: 12 }}>
-                فایل‌های فعال در {area.name}
-              </h2>
+          <div className="area-hero-aside">
+            <div className="area-guide-card">
+              <div className="area-guide-card-top">
+                <div className="area-guide-icon"><MapPinned size={24} /></div>
+                <span className="area-guide-tag"><Sparkles size={13} /> راهنمای محله</span>
+              </div>
+              <span className="area-guide-overline">ملک در محدوده</span>
+              <h2>{area.name}</h2>
+              <p className="area-guide-location">اصفهان، {area.groupTitle}</p>
+              <div className="area-guide-rule" />
+              <div className="area-guide-feature">
+                <span className="area-guide-feature-icon"><Home size={17} /></span>
+                <span>خرید، فروش، رهن و اجاره</span>
+              </div>
+              <div className="area-guide-feature">
+                <span className="area-guide-feature-icon"><CheckCircle2 size={17} /></span>
+                <span>نمایش فایل‌های منتشرشده</span>
+              </div>
+              <a className="area-guide-link" href="#area-location">
+                مشاهده اطلاعات موقعیت <ArrowUpLeft size={17} />
+              </a>
+              <div className="area-guide-decoration" aria-hidden="true">H</div>
+            </div>
+          </div>
+        </section>
+
+        {market ? (
+          <section className="area-market" aria-labelledby="area-market-title">
+            <div className="area-section-heading area-market-heading">
+              <div>
+                <span className="area-section-kicker"><TrendingUp size={15} /> داده‌های سایت هیرمند</span>
+                <h2 id="area-market-title">نبض بازار {area.name}</h2>
+                <p>خلاصه‌ای از فایل‌ها و تعامل‌های ثبت‌شده برای این محله</p>
+              </div>
+              <span className="area-market-period">۳۰ روز اخیر و فایل‌های فعال</span>
+            </div>
+            <div className="area-market-grid">
+              {[
+                ["فایل فعال", market.activeFiles.toLocaleString("fa-IR"), "منتشرشده در سایت"],
+                ["فروش", market.saleFiles.toLocaleString("fa-IR"), "فایل فروش"],
+                ["رهن و اجاره", market.rentFiles.toLocaleString("fa-IR"), "فایل اجاره"],
+                ["فایل جدید", market.newFiles30d.toLocaleString("fa-IR"), "در ۳۰ روز اخیر"],
+                ["کاهش قیمت", market.priceDropFiles.toLocaleString("fa-IR"), "تغییر قیمت ثبت‌شده"],
+                ["بازدید صفحه", market.views30d.toLocaleString("fa-IR"), "در ۳۰ روز اخیر"],
+              ].map(([label, value, note], index) => (
+                <div className={"area-market-item" + (index === 0 ? " area-market-item-emphasis" : "")} key={label}>
+                  <span className="area-market-label">{label}</span>
+                  <strong>{value}</strong>
+                  <small>{note}</small>
+                </div>
+              ))}
+            </div>
+            {market.saleAvgPerM2 != null || market.rentAvg != null ? (
+              <div className="area-market-prices">
+                {market.saleAvgPerM2 != null ? (
+                  <p>میانگین تقریبی قیمت فروش هر متر: <strong>{market.saleAvgPerM2.toLocaleString("fa-IR")} تومان</strong></p>
+                ) : null}
+                {market.rentAvg != null ? (
+                  <p>میانگین اجاره ثبت‌شده: <strong>{market.rentAvg.toLocaleString("fa-IR")} تومان</strong></p>
+                ) : null}
+              </div>
+            ) : null}
+            <p className="area-market-footnote">
+              در ۳۰ روز اخیر {market.favorites30d.toLocaleString("fa-IR")} ذخیره، {market.calls30d.toLocaleString("fa-IR")} تماس یا واتساپ و {market.viewingRequests30d.toLocaleString("fa-IR")} درخواست بازدید ثبت شده است.
+            </p>
+          </section>
+        ) : null}
+
+        <div className="area-content-layout">
+          <div className="area-content-main">
+            <section id="area-properties" className="area-listings" aria-labelledby="area-properties-title">
+              <div className="area-section-heading area-listings-heading">
+                <div>
+                  <span className="area-section-kicker"><Building2 size={15} /> فایل‌های هیرمند</span>
+                  <h2 id="area-properties-title">ملک‌های موجود در {area.name}</h2>
+                  <p>برای دیدن جزئیات، تصاویر و اطلاعات هر فایل، آن را انتخاب کنید.</p>
+                </div>
+                <span className="area-listing-count">{properties.length.toLocaleString("fa-IR")} فایل</span>
+              </div>
+
               {properties.length ? (
-                <div className="property-grid">
+                <div className="property-grid area-property-grid">
                   {properties.map((property) => (
                     <PropertyCard key={property.id} property={property} />
                   ))}
                 </div>
               ) : (
-                <p style={{ color: "var(--muted)", lineHeight: 1.8 }}>
-                  در حال حاضر فایل منتشرشده‌ای برای این محله ثبت نشده است. برای دریافت فایل‌های
-                  مناسب {area.name} از فرم درخواست یا تماس با مشاوران استفاده کنید.
-                </p>
+                <div className="area-empty-state">
+                  <div className="area-empty-icon"><Building2 size={25} /></div>
+                  <h3>فعلاً فایلی برای این محله منتشر نشده است</h3>
+                  <p>
+                    برای اطلاع از فایل‌های تازه یا دریافت پیشنهادهای نزدیک به محدوده {area.name}،
+                    درخواستتان را ثبت کنید یا با دفتر هیرمند تماس بگیرید.
+                  </p>
+                  <div className="area-empty-actions">
+                    <Link to="/" hash="inquiry" className="btn-gold">درخواست فایل ملک</Link>
+                    <a href={"tel:" + SITE.phone.mobile} className="btn-ghost"><Phone size={16} /> تماس با دفتر</a>
+                  </div>
+                </div>
               )}
             </section>
 
             {nearby.length ? (
-              <section style={{ marginTop: 32 }}>
-                <h2 style={{ fontSize: "1.05rem", marginBottom: 12 }}>محله‌های نزدیک در همین منطقه</h2>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {nearby.map((n) => (
+              <section className="area-nearby" aria-labelledby="area-nearby-title">
+                <div className="area-section-heading">
+                  <div>
+                    <span className="area-section-kicker">برای بررسی بیشتر</span>
+                    <h2 id="area-nearby-title">محله‌های دیگر در {area.groupTitle}</h2>
+                  </div>
+                </div>
+                <div className="area-nearby-grid">
+                  {nearby.map((candidate) => (
                     <Link
-                      key={n.slug}
+                      key={candidate.slug}
                       to="/areas/$slug"
-                      params={{ slug: n.slug }}
-                      className="btn-ghost"
-                      style={{ fontSize: "0.85rem", padding: "8px 14px" }}
+                      params={{ slug: candidate.slug }}
+                      className="area-nearby-link"
                     >
-                      {n.name}
+                      <span>{candidate.name}</span>
+                      <ArrowUpLeft size={16} />
                     </Link>
                   ))}
                 </div>
@@ -255,22 +301,66 @@ function AreaPage() {
             ) : null}
           </div>
 
-          <aside className="property-detail-side">
-            <div className="property-price-box">
-              <span>منطقه</span>
-              <strong>{area.name}</strong>
-            </div>
-            <div className="property-contact-box">
-              <span className="kicker">مشاوره محلی</span>
-              <h2>گروه مشاورین هیرمند</h2>
-              <p>برای فایل‌های {area.name} و بازدید هماهنگ کنید.</p>
-              <a href={`tel:${SITE.phone.mobile}`} className="btn-gold">
+          <aside className="area-sidebar">
+            <section className="area-contact-card" aria-labelledby="area-contact-title">
+              <div className="area-contact-icon"><Phone size={21} /></div>
+              <span className="area-contact-kicker">همراه شما در انتخاب ملک</span>
+              <h2 id="area-contact-title">برای محله {area.name} راهنمایی می‌خواهید؟</h2>
+              <p>برای هماهنگی بازدید یا دریافت فایل‌های متناسب با نیازتان با مشاوران هیرمند در ارتباط باشید.</p>
+              <a href={"tel:" + SITE.phone.mobile} className="btn-gold">
                 <Phone size={17} /> تماس با دفتر
               </a>
-              <Link to="/" hash="inquiry" className="btn-ghost">
-                فرم درخواست فایل
-              </Link>
-            </div>
+              <Link to="/" hash="inquiry" className="btn-ghost">ثبت درخواست ملک</Link>
+              <div className="area-contact-note">
+                <CheckCircle2 size={15} />
+                <span>پیش از بازدید، جزئیات فایل را با مشاور هماهنگ کنید.</span>
+              </div>
+            </section>
+
+            <section id="area-location" className="area-location-card" aria-labelledby="area-location-title">
+              <div className="area-location-card-heading">
+                <div className="area-location-icon"><MapPinned size={20} /></div>
+                <div>
+                  <span className="area-section-kicker">اطلاعات جغرافیایی</span>
+                  <h2 id="area-location-title">موقعیت محله</h2>
+                </div>
+              </div>
+              <p className="area-location-name">{area.name}، اصفهان</p>
+              {area.divarDistrictId && area.lat != null && area.lng != null ? (
+                <p className="area-location-detail">
+                  مرکز ثبت‌شده این محدوده: {area.lat.toFixed(5)}، {area.lng.toFixed(5)}
+                </p>
+              ) : (
+                <p className="area-location-detail">
+                  برای جلوگیری از نمایش موقعیت نادرست، نقشه فقط پس از پیدا شدن تطبیق یکتای محدوده نمایش داده می‌شود.
+                </p>
+              )}
+              {divarMapUrl ? (
+                <iframe
+                  title={"نقشه محدوده " + area.name}
+                  src={divarMapUrl}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="area-location-map"
+                />
+              ) : (
+                <div className="area-map-placeholder">
+                  <MapPinned size={27} />
+                  <span>نقشه این محدوده در دسترس نیست</span>
+                  <small>اطلاعات مکانی معتبر هنوز تأیید نشده است.</small>
+                </div>
+              )}
+              {mapsUrl ? (
+                <a className="area-map-external" href={mapsUrl} target="_blank" rel="noopener noreferrer">
+                  باز کردن مرکز ثبت‌شده در گوگل‌مپ <ArrowUpLeft size={16} />
+                </a>
+              ) : null}
+              {area.divarBbox ? (
+                <small className="area-map-note">
+                  محدوده نمایش‌داده‌شده بر پایه کادر جغرافیایی منبع است و مرز رسمی چندضلعی محسوب نمی‌شود.
+                </small>
+              ) : null}
+            </section>
           </aside>
         </div>
       </main>
