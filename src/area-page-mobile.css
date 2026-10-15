@@ -1,0 +1,217 @@
+/* Mobile/tablet layout for neighborhood pages (/areas/:slug).
+   This page uses .property-detail-shell rather than the property-ad detail classes,
+   so keep these rules scoped to avoid changing listing pages. */
+
+.property-detail-shell .property-detail,
+.property-detail-shell .property-detail > *,
+.property-detail-shell .property-detail-grid,
+.property-detail-shell .property-detail-main,
+.property-detail-shell .property-detail-side {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.property-detail-shell .property-detail-main > h1 {
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  word-break: normal;
+  text-wrap: pretty;
+}
+
+.property-detail-shell .property-detail-description,
+.property-detail-shell .property-address p,
+.property-detail-shell .property-contact-box p {
+  direction: rtl;
+  line-height: 2;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.property-detail-shell .property-address > svg {
+  flex: 0 0 auto;
+}
+
+.property-detail-shell .property-address > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.property-detail-shell .property-contact-box .btn-gold,
+.property-detail-shell .property-contact-box .btn-ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 48px;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  line-height: 1.7;
+}
+
+.property-detail-shell .property-contact-box .btn-gold svg,
+.property-detail-shell .property-contact-box .btn-ghost svg {
+  flex: 0 0 auto;
+}
+
+/* The fixed 320px sidebar cannot sit beside the main column below tablet size.
+   Collapse the grid before the main column becomes too narrow to read. */
+@media (max-width: 920px) {
+  .property-detail-shell .property-detail {
+    width: min(calc(100% - 32px), 760px);
+  }
+
+  .property-detail-shell .property-detail-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 20px;
+    margin-top: 18px;
+  }
+
+  .property-detail-shell .property-detail-side {
+    position: static;
+    top: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .property-detail-shell .property-price-box,
+  .property-detail-shell .property-contact-box {
+    min-width: 0;
+    padding: 18px;
+    border-radius: 18px;
+  }
+}
+
+/* Phone layout: comfortable reading width, stacked actions, natural Persian wrapping. */
+@media (max-width: 720px) {
+  .property-detail-shell {
+    padding-top: calc(82px + env(safe-area-inset-top)) !important;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .property-detail-shell .property-detail {
+    width: calc(100% - 28px);
+    margin-inline: auto;
+  }
+
+  .property-detail-shell .property-detail nav {
+    gap: 5px 8px !important;
+    margin-bottom: 14px !important;
+    font-size: 0.8rem !important;
+    line-height: 1.8;
+  }
+
+  .property-detail-shell .property-detail-top {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 12px;
+  }
+
+  .property-detail-shell .property-detail-grid {
+    gap: 18px;
+    margin-top: 14px;
+  }
+
+  .property-detail-shell .property-detail-main > h1 {
+    margin-top: 8px;
+    font-size: clamp(1.5rem, 5.8vw, 1.9rem);
+    line-height: 1.55;
+    letter-spacing: 0;
+  }
+
+  .property-detail-shell .property-detail-description {
+    margin-top: 12px;
+    font-size: 0.94rem;
+    line-height: 2.1;
+  }
+
+  .property-detail-shell .property-address {
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 18px;
+    padding: 14px;
+    border-radius: 17px;
+  }
+
+  .property-detail-shell .property-address p {
+    font-size: 0.85rem;
+  }
+
+  .property-detail-shell .property-address iframe {
+    height: 220px !important;
+    border-radius: 12px;
+  }
+
+  .property-detail-shell .property-detail-side {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .property-detail-shell .property-price-box,
+  .property-detail-shell .property-contact-box {
+    padding: 17px;
+    border-radius: 17px;
+  }
+
+  .property-detail-shell .property-contact-box h2 {
+    font-size: 1.05rem;
+    line-height: 1.7;
+  }
+
+  .property-detail-shell .property-contact-box p {
+    font-size: 0.9rem;
+  }
+
+  .property-detail-shell .property-contact-box .btn-gold,
+  .property-detail-shell .property-contact-box .btn-ghost {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+  }
+
+  .property-detail-shell .property-detail-main section[style] {
+    max-width: 100%;
+    overflow-wrap: break-word;
+  }
+
+  .property-detail-shell .property-detail-main h2 {
+    line-height: 1.7 !important;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  .property-detail-shell .property-detail-main a,
+  .property-detail-shell .property-detail-side a {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    text-align: center;
+  }
+}
+
+@media (max-width: 390px) {
+  .property-detail-shell .property-detail {
+    width: calc(100% - 24px);
+  }
+
+  .property-detail-shell .property-detail-code {
+    font-size: 0.72rem;
+    line-height: 1.7;
+  }
+
+  .property-detail-shell .property-detail-main > h1 {
+    font-size: 1.48rem;
+  }
+
+  .property-detail-shell .property-address iframe {
+    height: 200px !important;
+  }
+
+  .property-detail-shell .property-detail-main section[style] {
+    padding: 14px !important;
+  }
+}
