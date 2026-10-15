@@ -33,3 +33,19 @@ dist/
 **/*.spec.mjs
 README.md
 AGENTS.md
+
+# Defensive recursive exclusions: generated/build/dependency data must never be
+# uploaded to Liara even if these directories appear below a nested package.
+**/.git/**
+**/node_modules/**
+**/.output/**
+**/dist/**
+**/coverage/**
+**/playwright-report/**
+**/test-results/**
+**/screenshots/**
+**/artifacts/**
+**/.grok/**
+**/.cache/**
+**/tmp/**
+**/temp/**
