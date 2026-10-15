@@ -16,6 +16,7 @@ import {
 import { listPublishedProperties } from "@/lib/properties";
 import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "@/lib/neighborhood-market";
 import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas } from "@/lib/areas";
+import { getAreaGeography } from "@/lib/neighborhood-geo";
 import { breadcrumbJsonLd } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
@@ -96,10 +97,23 @@ function AreaPage() {
     .filter((item) => item.groupTitle === area.groupTitle && item.slug !== area.slug)
     .slice(0, 6);
 
-  const hasCoordinates = area.lat != null && area.lng != null;
-  const mapsUrl = hasCoordinates
-    ? `https://www.google.com/maps/search/?api=1&query=${area.lat},${area.lng}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(area.address ?? `${area.name}، اصفهان`)}`;
+  const geography = getAreaGeography(area.slug);
+  const hasCoordinates = geography !== null;
+  const mapsUrl = geography
+    ? `https://www.google.com/maps/search/?api=1&query=${geography.lat},${geography.lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${area.name}، اصفهان، ایران`)}`;
+  const mapDelta = 0.018;
+  const mapBounds = geography
+    ? [
+        geography.lng - mapDelta,
+        geography.lat - mapDelta,
+        geography.lng + mapDelta,
+        geography.lat + mapDelta,
+      ].map((value) => value.toFixed(5)).join(",")
+    : "";
+  const mapEmbedUrl = geography
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(mapBounds)}&layer=mapnik&marker=${geography.lat}%2C${geography.lng}`
+    : "";
 
   const marketStats = market
     ? [
@@ -160,66 +174,50 @@ function AreaPage() {
                 
               </a>
               <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="area-button area-button-secondary">
-                <MapPinned size={18} aria-hidden="true" /> نمایش روی نقشه
+                <MapPinned size={18} aria-hidden="true" /> {hasCoordinates ? "نمایش موقعیت ثبت‌شده" : "جست‌وجو در نقشه"}
               </a>
             </div>
           </div>
 
-          <div className="area-visual-card" aria-label={`نمای گرافیکی موقعیت ${area.name} در اصفهان`}>
-            <svg className="area-map-illustration" viewBox="0 0 600 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-              <defs>
-                <pattern id="area-map-grid" width="42" height="42" patternUnits="userSpaceOnUse">
-                  <path d="M 42 0 L 0 0 0 42" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="1" />
-                </pattern>
-              </defs>
-              <rect width="600" height="640" fill="url(#area-map-grid)" />
-              <g fill="none" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M-40 148 C100 165 146 105 245 128 S438 213 650 164" stroke="#d9b77d" strokeOpacity=".8" strokeWidth="28" />
-                <path d="M-30 152 C100 169 146 109 245 132 S438 217 640 168" stroke="#fff3d8" strokeOpacity=".62" strokeWidth="3" />
-                <path d="M92 -30 C140 110 100 232 196 324 S336 485 290 690" stroke="#d6e0e2" strokeOpacity=".68" strokeWidth="20" />
-                <path d="M95 -30 C143 110 103 232 199 324 S339 485 293 690" stroke="#fff" strokeOpacity=".52" strokeWidth="2" />
-                <path d="M-30 438 C120 378 266 429 372 368 S526 280 640 306" stroke="#d6e0e2" strokeOpacity=".7" strokeWidth="16" />
-                <path d="M-30 438 C120 378 266 429 372 368 S526 280 640 306" stroke="#fff" strokeOpacity=".52" strokeWidth="2" />
-                <path d="M354 -30 C323 96 410 185 370 263 S473 436 621 497" stroke="#d6e0e2" strokeOpacity=".65" strokeWidth="13" />
-                <path d="M-20 250 L170 225 294 278 445 238 620 260" stroke="rgba(255,255,255,.27)" strokeWidth="6" />
-                <path d="M-20 250 L170 225 294 278 445 238 620 260" stroke="rgba(255,255,255,.48)" strokeWidth="1" />
-                <path d="M-10 546 L126 500 248 530 393 482 622 565" stroke="rgba(255,255,255,.27)" strokeWidth="6" />
-                <path d="M-10 546 L126 500 248 530 393 482 622 565" stroke="rgba(255,255,255,.48)" strokeWidth="1" />
-              </g>
-              <g fill="rgba(231,238,230,.13)" stroke="rgba(255,255,255,.15)" strokeWidth="1.5">
-                <rect x="210" y="48" width="82" height="50" rx="7" />
-                <rect x="300" y="51" width="38" height="48" rx="6" />
-                <rect x="425" y="72" width="94" height="58" rx="8" />
-                <rect x="235" y="177" width="62" height="53" rx="7" />
-                <rect x="310" y="174" width="77" height="58" rx="7" />
-                <rect x="415" y="177" width="50" height="48" rx="6" />
-                <rect x="20" y="286" width="74" height="52" rx="8" />
-                <rect x="115" y="283" width="56" height="55" rx="7" />
-                <rect x="223" y="351" width="80" height="52" rx="8" />
-                <rect x="322" y="337" width="50" height="56" rx="7" />
-                <rect x="414" y="335" width="78" height="53" rx="8" />
-                <rect x="335" y="525" width="90" height="49" rx="8" />
-                <rect x="452" y="514" width="78" height="56" rx="8" />
-              </g>
-              <g fill="rgba(210,180,126,.2)" stroke="rgba(226,192,132,.45)" strokeWidth="1.5">
-                <rect x="31" y="53" width="112" height="64" rx="9" />
-                <rect x="450" y="405" width="90" height="54" rx="8" />
-                <rect x="55" y="561" width="115" height="52" rx="8" />
-              </g>
-            </svg>
-            <span className="area-map-label area-map-label-top">
-              <MapPinned size={15} aria-hidden="true" /> اصفهان · {area.groupTitle}
-            </span>
-            <span className="area-map-pin" aria-hidden="true">
-              <MapPin size={29} />
-            </span>
-            <div className="area-visual-caption">
-              <strong>{area.name}، اصفهان</strong>
-              <p>مشاهدهٔ فایل‌های این محدوده و بررسی موقعیت مکانی</p>
-            </div>
-            <span className="area-map-label area-map-label-bottom">
-              <MapPin size={14} aria-hidden="true" /> موقعیت محله
-            </span>
+          <div
+            className={`area-visual-card ${hasCoordinates ? "area-visual-card-live-map" : "area-visual-card-unverified"}`}
+            aria-label={`نقشهٔ موقعیت ${area.name} در اصفهان`}
+          >
+            {hasCoordinates ? (
+              <>
+                <iframe
+                  className="area-map-iframe"
+                  title={`نقشهٔ ${area.name}، اصفهان`}
+                  src={mapEmbedUrl}
+                  loading="lazy"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+                <span className="area-map-label area-map-label-top">
+                  <MapPinned size={15} aria-hidden="true" /> اصفهان · {area.groupTitle}
+                </span>
+                <div className="area-visual-caption">
+                  <strong>{area.name}، اصفهان</strong>
+                  <p>
+                    نقطهٔ مرجع ثبت‌شده در OpenStreetMap. مرز رسمی محله در دادهٔ مکانیِ قابل تأیید موجود نیست.
+                  </p>
+                  <a href={geography.sourceUrl} target="_blank" rel="noopener noreferrer">
+                    مشاهدهٔ منبع مختصات
+                  </a>
+                </div>
+              </>
+            ) : (
+              <div className="area-map-unverified">
+                <span className="area-map-unverified-icon"><MapPinned size={28} aria-hidden="true" /></span>
+                <strong>موقعیت دقیق هنوز تأیید نشده است</strong>
+                <p>
+                  برای جلوگیری از نمایش نقطه یا مرز اشتباه، مختصات این محله تا زمان تأیید منبع معتبر نمایش داده نمی‌شود.
+                </p>
+                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="area-button area-button-secondary">
+                  جست‌وجوی نام محله در نقشه
+                </a>
+              </div>
+            )}
           </div>
         </section>
 
@@ -379,7 +377,7 @@ function AreaPage() {
               <p>{area.address ?? `${area.name}، اصفهان`}</p>
               <div className="area-sidebar-actions">
                 <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="area-button area-button-secondary">
-                  باز کردن در نقشه 
+                  {hasCoordinates ? "نمایش در گوگل‌مپ" : "جست‌وجو در نقشه"} 
                 </a>
               </div>
               <div className="area-sidebar-list">
