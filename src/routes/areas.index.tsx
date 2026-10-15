@@ -47,7 +47,7 @@ function normalizePersian(value: string) {
     .replace(/[يى]/g, "ی")
     .replace(/ك/g, "ک")
     .replace(/[\u200c\u200f\u202a-\u202e]/g, " ")
-    .replace(/[\-‐‑–—]+/g, " ")
+    .replace(/[-‐‑–—]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -239,7 +239,6 @@ function AreasDirectoryPage() {
               {filteredGroups.map((group) => {
                 const expanded = Boolean(expandedGroups[group.title]);
                 const visibleAreas = isFiltering || expanded ? group.areas : group.areas.slice(0, 12);
-                const remaining = group.areas.length - visibleAreas.length;
 
                 return (
                   <section className="areas-region-card" key={group.title} aria-labelledby={`area-group-${group.number}`}>
