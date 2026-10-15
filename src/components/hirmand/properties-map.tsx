@@ -178,13 +178,8 @@ export function PropertiesMap({
     const params = new URLSearchParams(window.location.search);
     const bounds = normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"));
     if (!bounds) return;
-    const [west, south, east, north] = bounds;
-    setView({
-      latitude: (south + north) / 2,
-      longitude: (west + east) / 2,
-      zoom: 14,
-    });
-  }, []);
+    setView(viewForBounds(bounds, size));
+  }, [size.width, size.height]);
 
   useEffect(() => {
     if (viewportResetVersion === lastViewportResetVersion.current) return;
