@@ -418,6 +418,7 @@ function PropertiesIndexPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<[number, number, number, number] | undefined>();
+  const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
@@ -903,6 +904,10 @@ function PropertiesIndexPage() {
     if (!saved) return;
 
     const params = new URLSearchParams(saved.params);
+    const savedBounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
+    setMapBounds(savedBounds);
+    setMapViewportResetVersion((version) => version + 1);
+    window.history.replaceState(window.history.state, "", params.toString() ? "/properties?" + params.toString() : "/properties");
     setQ(params.get("q") ?? "");
     setTransactionType(validTransaction(params.get("transaction") ?? "") ?? "");
     setPropertyType(validPropertyType(params.get("type") ?? "") ?? "");
@@ -1749,6 +1754,8 @@ function PropertiesIndexPage() {
                         onSelectNeighborhood={setNeighborhood}
                         neighborhoodReady={urlReady}
                         onViewportChange={handleMapViewportChange}
+                        viewportBounds={mapBounds}
+                        viewportResetVersion={mapViewportResetVersion}
                       />
                     </div>
                   </div>
