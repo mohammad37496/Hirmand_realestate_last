@@ -48,7 +48,7 @@ export function areaDirectoryKey(value: string): string {
     .replace(/[يى]/g, "ی")
     .replace(/ك/g, "ک")
     .replace(/[ۀة]/g, "ه")
-    .replace(/[\u200c\u200d\u200e\u200f\u202a-\u202e\u0640]/g, "")
+    .replace(/(?:\u200c|\u200d|\u200e|\u200f|[\u202a-\u202e]|\u0640)/g, "")
     .replace(/\p{White_Space}/gu, "")
     .replace(/\p{P}/gu, "")
     .replace(/\p{Cf}/gu, "")
