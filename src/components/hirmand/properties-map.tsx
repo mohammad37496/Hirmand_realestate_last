@@ -256,6 +256,16 @@ export function PropertiesMap({
 
   const resetMap = useCallback(() => setView(DEFAULT_VIEW), []);
 
+  const selectedNeighborhoodCenter = selectedNeighborhood
+    ? {
+        latitude: selectedNeighborhood.bbox
+          ? (selectedNeighborhood.bbox[1] + selectedNeighborhood.bbox[3]) / 2
+          : selectedNeighborhood.latitude,
+        longitude: selectedNeighborhood.bbox
+          ? (selectedNeighborhood.bbox[0] + selectedNeighborhood.bbox[2]) / 2
+          : selectedNeighborhood.longitude,
+      }
+    : null;
   const openCurrentMap = `https://www.openstreetmap.org/#map=${view.zoom}/${view.latitude.toFixed(6)}/${view.longitude.toFixed(6)}`;
 
   return (
@@ -323,15 +333,15 @@ export function PropertiesMap({
       ) : null}
       <div className="pf-map-floating-head">
         <span
-          title={selectedNeighborhood
-            ? "مرکز تقریبی " + selectedNeighborhood.name + ": " + selectedNeighborhood.latitude.toFixed(6) + ", " + selectedNeighborhood.longitude.toFixed(6)
+          title={selectedNeighborhood && selectedNeighborhoodCenter
+            ? "مرکز تقریبی " + selectedNeighborhood.name + ": " + selectedNeighborhoodCenter.latitude.toFixed(6) + ", " + selectedNeighborhoodCenter.longitude.toFixed(6)
             : "نقشه فایل‌های ملکی اصفهان"}
         >
           <MapPin size={14} /> {selectedNeighborhood?.name ?? "اصفهان"} · {mappedCount.toLocaleString("fa-IR")} فایل دارای موقعیت
         </span>
-        {selectedNeighborhood ? (
+        {selectedNeighborhoodCenter ? (
           <small className="pf-map-coordinate-badge" dir="ltr">
-            {selectedNeighborhood.latitude.toFixed(5)}, {selectedNeighborhood.longitude.toFixed(5)}
+            {selectedNeighborhoodCenter.latitude.toFixed(5)}, {selectedNeighborhoodCenter.longitude.toFixed(5)}
           </small>
         ) : null}
         <a href={openCurrentMap} target="_blank" rel="noopener noreferrer">نقشه بزرگ‌تر</a>
