@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   deploy:
-    if: ${{ github.event.head_commit.message != 'chore: trigger neighborhood catalog sync' }}
+    if: ${{ !contains(github.event.head_commit.message, 'trigger neighborhood catalog sync') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
