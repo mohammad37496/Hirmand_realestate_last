@@ -127,12 +127,14 @@ export function PropertiesMap({
   onSelect,
   selectedNeighborhood,
   onSelectNeighborhood,
+  neighborhoodReady,
 }: {
   properties: MapProperty[];
   selectedPropertyId: string | null;
   onSelect: (id: string) => void;
   selectedNeighborhood: string;
   onSelectNeighborhood: (name: string) => void;
+  neighborhoodReady: boolean;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -177,12 +179,25 @@ export function PropertiesMap({
   }, []);
 
   useEffect(() => {
+    if (!neighborhoodReady) return;
+    const nextNeighborhood = selectedNeighborhood || null;
     if (!initialNeighborhoodHandled.current) {
       initialNeighborhoodHandled.current = true;
-      lastNeighborhoodRef.current = selectedNeighborhood || getNeighborhoodFromUrl();
+      const urlNeighborhood = getNeighborhoodFromUrl();
+      lastNeighborhoodRef.current = nextNeighborhood || urlNeighborhood;
+      const params = new URLSearchParams(window.location.search);
+      const hasUrlBounds = Boolean(normalizeBbox(params.get("map_bbox")) || normalizeBbox(params.get("bbox")));
+      const initialAreaName = nextNeighborhood || urlNeighborhood;
+      const initialArea = initialAreaName ? NEIGHBORHOODS.find((item) => item.name === initialAreaName) : undefined;
+      // A full Divar deep link already has the desired viewport. If only a
+      // neighborhood name/hash was supplied, fit its locally stored bounds.
+      if (initialArea?.divarBbox && (!hasUrlBounds || nextNeighborhood !== urlNeighborhood)) {
+        const nextView = viewForBounds(initialArea.divarBbox, size);
+        setView(nextView);
+        writeMapViewportToUrl(nextView, size, initialArea);
+      }
       return;
     }
-    const nextNeighborhood = selectedNeighborhood || null;
     if (nextNeighborhood === lastNeighborhoodRef.current) return;
     lastNeighborhoodRef.current = nextNeighborhood;
     if (!nextNeighborhood) return;
@@ -193,7 +208,7 @@ export function PropertiesMap({
     setView(nextView);
     setDragOffset({ x: 0, y: 0 });
     writeMapViewportToUrl(nextView, size, chosen);
-  }, [selectedNeighborhood, size.width, size.height]);
+  }, [neighborhoodReady, selectedNeighborhood, size.width, size.height]);
 
   useEffect(() => {
     setFailedTiles(new Set());
@@ -326,8 +341,11 @@ export function PropertiesMap({
   }, [view, size, selectedNeighborhood]);
 
   const resetMap = useCallback(() => {
-    setView(DEFAULT_VIEW);
-    writeMapViewportToUrl(DEFAULT_VIEW, size, NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood));
+    const selectedArea = NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood);
+    const nextView = selectedArea?.divarBbox ? viewForBounds(selectedArea.divarBbox, size) : DEFAULT_VIEW;
+    setView(nextView);
+    setDragOffset({ x: 0, y: 0 });
+    writeMapViewportToUrl(nextView, size, selectedArea);
   }, [size, selectedNeighborhood]);
 
   const openCurrentMap = "https://www.openstreetmap.org/#map=" + view.zoom + "/" + view.latitude.toFixed(6) + "/" + view.longitude.toFixed(6);
@@ -422,7 +440,7 @@ export function PropertiesMap({
       <div className="pf-map-controls" aria-label="کنترل نقشه">
         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => zoomBy(1)} aria-label="بزرگ‌نمایی نقشه"><Plus size={18} /></button>
         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => zoomBy(-1)} aria-label="کوچک‌نمایی نقشه"><Minus size={18} /></button>
-        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={resetMap} aria-label="بازگشت به نمای اصفهان"><LocateFixed size={18} /></button>
+        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={resetMap} aria-label="بازگشت به محدوده فعلی"><LocateFixed size={18} /></button>
       </div>
       <div className="pf-map-attribution">
         نقشه © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
