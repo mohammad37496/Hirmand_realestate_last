@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "city": {
+    "id": "3",
+    "slug": "isfahan"
+  },
+  "sourceUrl": "https://api.divar.ir/v8/places/cities/3/districts",
+  "fetchedAt": null,
+  "districts": []
+}\n
