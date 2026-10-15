@@ -999,3 +999,85 @@
     transition-duration: .01ms !important;
   }
 }
+
+
+/* Verified map embed and honest fallback when neighborhood coordinates are missing. */
+.area-visual-card-live-map {
+  background: #e5e9e8;
+}
+.area-map-iframe {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #e5e9e8;
+}
+.area-visual-card-live-map .area-map-label-top {
+  z-index: 2;
+  pointer-events: none;
+}
+.area-visual-card-live-map .area-visual-caption {
+  z-index: 2;
+  pointer-events: auto;
+}
+.area-visual-caption a {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 7px;
+  color: #f0d29b;
+  font-size: .74rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.area-map-unverified {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 28px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 0%, rgb(212 173 106 / 16%), transparent 38%),
+    linear-gradient(145deg, #183a50 0%, #10293b 62%, #0c2231 100%);
+}
+.area-map-unverified-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid rgb(226 192 132 / 35%);
+  border-radius: 18px;
+  background: rgb(226 192 132 / 13%);
+  color: #e4c58e;
+}
+.area-map-unverified strong {
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1.8;
+}
+.area-map-unverified p {
+  max-width: 34ch;
+  margin: 0;
+  color: rgb(255 255 255 / 74%);
+  font-size: .8rem;
+  line-height: 2;
+}
+.area-map-unverified .area-button {
+  width: auto;
+  max-width: 100%;
+  white-space: normal;
+}
+@media (max-width: 760px) {
+  .area-map-unverified {
+    padding: 22px 17px;
+  }
+  .area-map-unverified p {
+    font-size: .75rem;
+  }
+}
