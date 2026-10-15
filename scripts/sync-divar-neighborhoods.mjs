@@ -112,7 +112,7 @@ async function main() {
     let cached = false;
     try {
       const current = await readFile(target, "utf8");
-      cached = current.includes('source: "Divar"') &&
+      cached = current.includes('"source": "Divar"') &&
         (current.match(/"name":/g) ?? []).length > 25;
     } catch {
       // A first build may have only the checked-in fallback catalog.
