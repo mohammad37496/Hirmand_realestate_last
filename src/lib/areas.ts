@@ -2,13 +2,11 @@ import { NEIGHBORHOOD_GROUPS, type Neighborhood } from "@/lib/site";
 import { SITE } from "@/lib/site";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import type { DivarBbox, DivarNeighborhoodClientItem } from "@/lib/divar-neighborhood-geometry";
+import { mergeAreaDirectory, type DirectoryAreaSource } from "@/lib/area-directory-merge";
 
-export type AreaInfo = Neighborhood & {
+export type AreaInfo = Neighborhood & DirectoryAreaSource & {
   slug: string;
   groupTitle: string;
-  /** Exact source fields are present only when a unique Divar catalog match exists. */
-  divarDistrictId?: string;
-  divarBbox?: DivarBbox;
 };
 
 /** Stable URL slug for Persian neighborhood names. */
@@ -41,78 +39,9 @@ export function allAreas(): AreaInfo[] {
 /** Extra catalog entries are kept as local site data; rendering the directory never calls Divar. */
 export const DIVAR_EXTRA_AREA_GROUP = "سایر محدوده‌های ثبت‌شده از دیوار";
 
-function areaDirectoryKey(value: string): string {
-  return value
-    .normalize("NFKC")
-    .replace(/[يى]/g, "ی")
-    .replace(/ك/g, "ک")
-    .replace(/[ۀة]/g, "ه")
-    .replace(/(?:\u200c|\u200d|\u200e|\u200f|[\u202a-\u202e]|\u0640)/g, "")
-    .replace(/[\s\u00a0‐‑–—_/،,-]+/g, "")
-    .toLocaleLowerCase("fa");
-}
-
-/**
- * Combines Hirmand's manually curated areas with the stored Divar catalog.
- * Each Divar district is represented exactly once: matched names enrich the
- * curated URL with trusted coordinates; additional districts use Divar's
- * stable slug. Catalog entries not found in the snapshot/database are never
- * fabricated here.
- */
+/** Preserve every curated route while attaching verified coordinates for Divar matches. */
 export function mergeAreasWithDivarCatalog(catalogItems: DivarNeighborhoodClientItem[]): AreaInfo[] {
-  const curatedAreas = allAreas();
-  const catalogByName = new Map<string, DivarNeighborhoodClientItem[]>();
-
-  for (const item of catalogItems) {
-    const key = areaDirectoryKey(item.name);
-    const current = catalogByName.get(key) ?? [];
-    current.push(item);
-    catalogByName.set(key, current);
-  }
-
-  const representedDistrictIds = new Set<string>();
-  const mergedCurated = curatedAreas.map((area) => {
-    const matches = catalogByName.get(areaDirectoryKey(area.name)) ?? [];
-    if (matches.length !== 1) return area;
-
-    const source = matches[0];
-    representedDistrictIds.add(source.id);
-    return {
-      ...area,
-      lat: source.defaultLocation.latitude,
-      lng: source.defaultLocation.longitude,
-      divarDistrictId: source.id,
-      divarBbox: source.bbox,
-    };
-  });
-
-  const usedSlugs = new Set(mergedCurated.map((area) => area.slug));
-  const additionalAreas = catalogItems
-    .filter((item) => !representedDistrictIds.has(item.id))
-    .map((item) => {
-      const baseSlug = item.slug || areaSlug(item.name);
-      let slug = baseSlug;
-      let suffix = 0;
-      while (usedSlugs.has(slug)) {
-        suffix += 1;
-        slug = `${baseSlug}-${item.id}-${suffix}`;
-      }
-      usedSlugs.add(slug);
-
-      return {
-        name: item.name,
-        slug,
-        address: `${item.name}، اصفهان`,
-        searchQuery: `${item.name}، اصفهان`,
-        lat: item.defaultLocation.latitude,
-        lng: item.defaultLocation.longitude,
-        groupTitle: DIVAR_EXTRA_AREA_GROUP,
-        divarDistrictId: item.id,
-        divarBbox: item.bbox,
-      };
-    });
-
-  return [...mergedCurated, ...additionalAreas];
+  return mergeAreaDirectory(allAreas(), catalogItems, DIVAR_EXTRA_AREA_GROUP);
 }
 
 export function findAreaBySlug(slug: string): AreaInfo | null {
