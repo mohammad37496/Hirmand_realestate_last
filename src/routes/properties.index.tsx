@@ -26,6 +26,7 @@ import {
   type PropertyOrientation,
 } from "@/lib/properties";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
+import { PropertiesMap } from "@/components/hirmand/properties-map";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { PROPERTY_TYPES, NEIGHBORHOOD_NAMES, SERVICES } from "@/lib/site";
 import {
@@ -333,6 +334,36 @@ function PropertiesPageError({
   );
 }
 
+
+function mapPropertyPriceLabel(property: {
+  transactionType: PropertyTransaction;
+  price: number | string | null;
+  deposit: number | string | null;
+  rent: number | string | null;
+}) {
+  const amount = (value: number | string | null) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  };
+  const shortMoney = (value: number) => {
+    if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toLocaleString("fa-IR", { maximumFractionDigits: 1 })} میلیارد`;
+    if (value >= 1_000_000) return `${(value / 1_000_000).toLocaleString("fa-IR", { maximumFractionDigits: 1 })} میلیون`;
+    return `${value.toLocaleString("fa-IR")} تومان`;
+  };
+  const price = amount(property.price);
+  const deposit = amount(property.deposit);
+  const rent = amount(property.rent);
+  if (property.transactionType === "rent") {
+    if (rent && deposit) return `${shortMoney(rent)} اجاره · ${shortMoney(deposit)} رهن`;
+    if (rent) return `${shortMoney(rent)} اجاره`;
+    if (deposit) return `${shortMoney(deposit)} رهن`;
+  }
+  if (property.transactionType === "mortgage" && deposit) return `رهن ${shortMoney(deposit)}`;
+  if (price) return shortMoney(price);
+  if (deposit) return `رهن ${shortMoney(deposit)}`;
+  return "برای قیمت تماس بگیرید";
+}
+
 function PropertiesIndexPage() {
   const initial = Route.useLoaderData();
   const [properties, setProperties] = useState(initial.properties);
@@ -374,7 +405,7 @@ function PropertiesIndexPage() {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchId, setSavedSearchId] = useState("");
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("list");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const skipInitialFetch = useRef(false);
@@ -457,7 +488,13 @@ function PropertiesIndexPage() {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
     if (pathname !== "/properties") return;
 
+    const currentParams = new URLSearchParams(window.location.search);
     const params = new URLSearchParams();
+    // Keep map viewport/bookmarked neighborhood parameters when ordinary filters change.
+    for (const key of ["bbox", "map_bbox", "map_place_hash"]) {
+      const value = currentParams.get(key);
+      if (value) params.set(key, value);
+    }
     if (q.trim()) params.set("q", q.trim());
     if (transactionType) params.set("transaction", transactionType);
     if (propertyType) params.set("type", propertyType);
@@ -960,9 +997,6 @@ function PropertiesIndexPage() {
   }, [viewMode, properties, selectedPropertyId]);
 
   const selectedProperty = properties.find((property) => property.id === selectedPropertyId) ?? null;
-  const mapUrl = selectedProperty?.latitude != null && selectedProperty?.longitude != null
-    ? `https://www.google.com/maps?q=${selectedProperty.latitude},${selectedProperty.longitude}&z=15&output=embed`
-    : null;
 
   const hasFilters = Boolean(
     q.trim() ||
@@ -1605,49 +1639,56 @@ function PropertiesIndexPage() {
             {properties.length ? (
               <>
                 {viewMode === "split" ? (
-                  <div className="pf-map">
+                  <div className="pf-map pf-map-divar-layout">
                     <div className="pf-map-list" aria-label="فهرست فایل‌های روی نقشه">
+                      <div className="pf-map-list-head">
+                        <strong>فایل‌های ملکی</strong>
+                        <span>{fa(properties.length)} نتیجه</span>
+                      </div>
                       {properties.map((property) => (
-                        <button
-                          key={property.id}
-                          type="button"
-                          className={`pf-map-item${selectedPropertyId === property.id ? " is-active" : ""}`}
-                          onClick={() => {
-                            setSelectedPropertyId(property.id);
-                            if (property.latitude == null || property.longitude == null) {
-                              toast.info("برای این فایل مختصات نقشه ثبت نشده است.");
-                            }
-                          }}
-                        >
-                          <span className="pf-map-item-media">
-                            {property.image ? <img src={property.image} alt="" loading="lazy" /> : <MapIcon size={20} />}
-                          </span>
-                          <span>
-                            <strong>{property.title}</strong>
-                            <small>
-                              {property.neighborhood}
-                              {property.areaM2 ? ` · ${fa(property.areaM2)} متر` : ""}
-                            </small>
-                          </span>
-                          {property.latitude != null && property.longitude != null ? <MapPinned size={15} /> : null}
-                        </button>
+                        <div className={`pf-map-card-row${selectedPropertyId === property.id ? " is-active" : ""}`} key={property.id}>
+                          <button
+                            type="button"
+                            className={`pf-map-item${selectedPropertyId === property.id ? " is-active" : ""}`}
+                            onClick={() => {
+                              setSelectedPropertyId(property.id);
+                              if (property.latitude == null || property.longitude == null) {
+                                toast.info("برای این فایل مختصات دقیق ثبت نشده؛ اطلاعات فایل همچنان قابل مشاهده است.");
+                              }
+                            }}
+                            aria-pressed={selectedPropertyId === property.id}
+                          >
+                            <span className="pf-map-item-media">
+                              {property.image ? <img src={property.image} alt="" loading="lazy" /> : <MapIcon size={20} />}
+                            </span>
+                            <span className="pf-map-item-copy">
+                              <strong>{property.title}</strong>
+                              <small>
+                                {property.neighborhood || "اصفهان"}
+                                {property.areaM2 ? ` · ${fa(property.areaM2)} متر` : ""}
+                                {property.bedrooms != null ? ` · ${fa(property.bedrooms)} خواب` : ""}
+                              </small>
+                              <em className="pf-map-item-price">{mapPropertyPriceLabel(property)}</em>
+                            </span>
+                            {property.latitude != null && property.longitude != null ? <MapPinned size={15} aria-label="موقعیت ثبت شده" /> : null}
+                          </button>
+                          <Link
+                            to="/properties/$slug"
+                            params={{ slug: property.slug.trim() || property.id }}
+                            className="pf-map-item-open"
+                            aria-label={`مشاهده جزئیات ${property.title}`}
+                          >
+                            مشاهده
+                          </Link>
+                        </div>
                       ))}
                     </div>
-                    <div className="pf-map-panel" aria-label="نقشه فایل انتخاب‌شده">
-                      {mapUrl ? (
-                        <iframe
-                          title={selectedProperty ? `نقشه ${selectedProperty.title}` : "نقشه فایل‌ها"}
-                          src={mapUrl}
-                          loading="lazy"
-                          referrerPolicy="no-referrer-when-downgrade"
-                        />
-                      ) : (
-                        <div className="pf-empty">
-                          <MapPinned size={28} />
-                          <strong>برای نمایش نقشه، یک فایل دارای مختصات انتخاب کنید.</strong>
-                          <p>مختصات فایل‌ها از پنل مدیریت قابل ثبت است.</p>
-                        </div>
-                      )}
+                    <div className="pf-map-panel" aria-label="نقشه تعاملی فایل‌های ملکی">
+                      <PropertiesMap
+                        properties={properties}
+                        selectedPropertyId={selectedPropertyId}
+                        onSelect={setSelectedPropertyId}
+                      />
                     </div>
                   </div>
                 ) : (
