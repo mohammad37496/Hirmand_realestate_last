@@ -102,7 +102,7 @@ test("area directory attaches Divar geometry to exact names and vetted Persian s
   assert.equal(dorcheh?.divarDistrictId, "1547");
   assert.equal(dorcheh?.divarSlug, "dorcheh");
   assert.deepEqual([dorcheh?.lat, dorcheh?.lng], [32.613102, 51.5545082]);
-  assert.deepEqual(valiasr?.divarBbox, [51.6511, 32.7292426, 51.6711, 32.7492426]);
+  assert.deepEqual(valiasr?.divarBbox?.map((value) => Number(value.toFixed(7))), [51.6511, 32.7292426, 51.6711, 32.7492426]);
   assert.equal(darbKoosh?.divarDistrictId, "1459");
   assert.equal(pozveh?.divarDistrictId, "1509");
   assert.equal(golNarges?.divarDistrictId, "2408");

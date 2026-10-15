@@ -254,8 +254,21 @@ async function loadStoredDivarCatalog(): Promise<DivarNeighborhoodCatalogResult>
   if (!bundled) {
     throw new Error("نسخهٔ آفلاین کاتالوگ محله‌های اصفهان معتبر نیست.");
   }
+
   const persisted = await databaseResult(bundled.cityId);
-  return persisted ?? bundled;
+  if (!persisted) return bundled;
+
+  // Never let a partial database snapshot hide neighborhoods already present
+  // in the validated bundled catalog. The DB can add newer records, but must
+  // not silently omit known Divar records from the public directory.
+  const persistedIds = new Set(persisted.items.map((item) => item.id));
+  const missingBundledIds = bundled.items.filter((item) => !persistedIds.has(item.id));
+  if (missingBundledIds.length === 0) return persisted;
+
+  console.warn(
+    `[divar-neighborhoods] stored catalog is incomplete (${missingBundledIds.length} bundled districts missing); using complete offline snapshot`,
+  );
+  return bundled;
 }
 
 export const listStoredDivarNeighborhoodCatalog = createServerFn({ method: "GET" }).handler(
