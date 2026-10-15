@@ -240,7 +240,7 @@ function AreaPage() {
             <span className="area-quick-fact-icon"><MapPinned aria-hidden="true" /></span>
             <div>
               <span>نقشه و مسیر</span>
-              <strong>نمایش محدوده در نقشه</strong>
+              <strong>{hasCoordinates ? "نقطهٔ مرجع ثبت‌شده" : "مختصات در انتظار تأیید"}</strong>
             </div>
           </div>
         </section>
