@@ -39,6 +39,34 @@ function normalizeBbox(raw: string | null): [number, number, number, number] | n
   return [west, south, east, north];
 }
 
+type NeighborhoodMapTarget = {
+  name: string;
+  latitude: number;
+  longitude: number;
+  bbox?: [number, number, number, number] | null;
+};
+
+function neighborhoodView(target: NeighborhoodMapTarget | null | undefined, size: MapSize): MapView {
+  if (!target) return DEFAULT_VIEW;
+  if (!target.bbox) return { latitude: target.latitude, longitude: target.longitude, zoom: 14 };
+
+  const [west, south, east, north] = target.bbox;
+  const northwest = project(north, west, 0);
+  const southeast = project(south, east, 0);
+  const boundsWidth = Math.max(0.001, Math.abs(southeast.x - northwest.x));
+  const boundsHeight = Math.max(0.001, Math.abs(southeast.y - northwest.y));
+  const fitScale = Math.min(
+    Math.max(240, size.width - 72) / boundsWidth,
+    Math.max(240, size.height - 128) / boundsHeight,
+  );
+  const zoom = Math.max(10, Math.min(18, Math.floor(Math.log2(Math.max(1, fitScale)))));
+  return {
+    latitude: (south + north) / 2,
+    longitude: (west + east) / 2,
+    zoom,
+  };
+}
+
 function propertyAmountLabel(property: MapProperty): string {
   const amount = (value: number | string | null | undefined) => {
     const parsed = Number(value);
@@ -74,12 +102,7 @@ export function PropertiesMap({
   properties: MapProperty[];
   selectedPropertyId: string | null;
   onSelect: (id: string) => void;
-  selectedNeighborhood?: {
-    name: string;
-    latitude: number;
-    longitude: number;
-    bbox?: [number, number, number, number] | null;
-  } | null;
+  selectedNeighborhood?: NeighborhoodMapTarget | null;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -127,27 +150,7 @@ export function PropertiesMap({
 
   useEffect(() => {
     if (!selectedNeighborhood) return;
-
-    let latitude = selectedNeighborhood.latitude;
-    let longitude = selectedNeighborhood.longitude;
-    let zoom = 14;
-
-    if (selectedNeighborhood.bbox) {
-      const [west, south, east, north] = selectedNeighborhood.bbox;
-      latitude = (south + north) / 2;
-      longitude = (west + east) / 2;
-      const northwest = project(north, west, 0);
-      const southeast = project(south, east, 0);
-      const boundsWidth = Math.max(0.001, Math.abs(southeast.x - northwest.x));
-      const boundsHeight = Math.max(0.001, Math.abs(southeast.y - northwest.y));
-      const fitScale = Math.min(
-        Math.max(240, size.width - 72) / boundsWidth,
-        Math.max(240, size.height - 128) / boundsHeight,
-      );
-      zoom = Math.max(10, Math.min(18, Math.floor(Math.log2(Math.max(1, fitScale)))));
-    }
-
-    setView({ latitude, longitude, zoom });
+    setView(neighborhoodView(selectedNeighborhood, size));
     setDragOffset({ x: 0, y: 0 });
   }, [
     selectedNeighborhood?.name,
@@ -254,7 +257,17 @@ export function PropertiesMap({
     }));
   }, []);
 
-  const resetMap = useCallback(() => setView(DEFAULT_VIEW), []);
+  const resetMap = useCallback(() => {
+    setView(neighborhoodView(selectedNeighborhood, size));
+    setDragOffset({ x: 0, y: 0 });
+  }, [
+    selectedNeighborhood?.name,
+    selectedNeighborhood?.latitude,
+    selectedNeighborhood?.longitude,
+    selectedNeighborhood?.bbox,
+    size.width,
+    size.height,
+  ]);
 
   const selectedNeighborhoodCenter = selectedNeighborhood
     ? {
@@ -349,7 +362,7 @@ export function PropertiesMap({
       <div className="pf-map-controls" aria-label="کنترل نقشه">
         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => zoomBy(1)} aria-label="بزرگ‌نمایی نقشه"><Plus size={18} /></button>
         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => zoomBy(-1)} aria-label="کوچک‌نمایی نقشه"><Minus size={18} /></button>
-        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={resetMap} aria-label="بازگشت به نمای اصفهان"><LocateFixed size={18} /></button>
+        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={resetMap} aria-label={selectedNeighborhood ? "بازگشت به محدوده محله" : "بازگشت به نمای اصفهان"}><LocateFixed size={18} /></button>
       </div>
       <div className="pf-map-attribution">
         نقشه © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
