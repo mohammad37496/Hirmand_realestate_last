@@ -21,17 +21,29 @@ function finite(value) {
 
 function validPoint(point) {
   if (!point || typeof point !== "object") return null;
-  const latitude = finite(point.latitude);
-  const longitude = finite(point.longitude);
+  const latitude = finite(point.latitude ?? point.lat ?? point.lat_e7 ?? point.latE7);
+  const longitude = finite(point.longitude ?? point.lng ?? point.lon ?? point.long ?? point.lng_e7 ?? point.lngE7);
   if (latitude == null || longitude == null) return null;
-  if (latitude < 30 || latitude > 35 || longitude < 49 || longitude > 54) return null;
-  return { latitude, longitude };
+  // Some protobuf endpoints encode coordinates in E7 integers.
+  const normalizedLatitude = Math.abs(latitude) > 1000 ? latitude / 1e7 : latitude;
+  const normalizedLongitude = Math.abs(longitude) > 1000 ? longitude / 1e7 : longitude;
+  if (normalizedLatitude < 30 || normalizedLatitude > 35 || normalizedLongitude < 49 || normalizedLongitude > 54) return null;
+  return { latitude: normalizedLatitude, longitude: normalizedLongitude };
 }
 
 function validBbox(value) {
-  if (!Array.isArray(value) || value.length !== 4) return null;
-  const box = value.map(finite);
+  let raw = value;
+  if (!Array.isArray(raw) && raw && typeof raw === "object") {
+    const west = raw.west ?? raw.minLongitude ?? raw.min_longitude ?? raw.min_lng;
+    const south = raw.south ?? raw.minLatitude ?? raw.min_latitude ?? raw.min_lat;
+    const east = raw.east ?? raw.maxLongitude ?? raw.max_longitude ?? raw.max_lng;
+    const north = raw.north ?? raw.maxLatitude ?? raw.max_latitude ?? raw.max_lat;
+    if ([west, south, east, north].every((part) => part != null)) raw = [west, south, east, north];
+  }
+  if (!Array.isArray(raw) || raw.length !== 4) return null;
+  let box = raw.map(finite);
   if (box.some((part) => part == null)) return null;
+  if (box.some((part) => Math.abs(part) > 1000)) box = box.map((part) => part / 1e7);
   const [west, south, east, north] = box;
   if (west < 49 || east > 54 || south < 30 || north > 35) return null;
   if (west >= east || south >= north) return null;
@@ -40,7 +52,7 @@ function validBbox(value) {
 
 function normalizeDistrict(row) {
   if (!row || typeof row !== "object" || !String(row.name ?? "").trim()) return null;
-  const point = validPoint(row.default_location) ?? validPoint(row.centroid);
+  const point = validPoint(row.default_location ?? row.defaultLocation ?? row.center ?? row.location) ?? validPoint(row.centroid ?? row.center_point);
   const bbox = validBbox(row.bbox);
   const numericId = finite(row.id);
   const tags = Array.isArray(row.tags)
@@ -89,6 +101,16 @@ async function main() {
     const districts = rows.map(normalizeDistrict).filter(Boolean);
     const coordinateCount = districts.filter((district) => district.default_location || district.bbox).length;
     if (districts.length < 25 || coordinateCount < 20) {
+      const sample = rows.slice(0, 5).map((row) => ({
+        keys: row && typeof row === "object" ? Object.keys(row) : [],
+        id: row?.id,
+        name: row?.name,
+        default_location: row?.default_location ?? row?.defaultLocation ?? row?.center ?? row?.location,
+        centroid: row?.centroid ?? row?.center_point,
+        bbox: row?.bbox,
+      }));
+      process.stderr.write("[divar-neighborhood-sync] Catalog diagnostics: " +
+        JSON.stringify({ rowCount: rows.length, normalizedCount: districts.length, coordinateCount, sample }) + "\\n");
       throw new Error("Divar catalog did not contain enough usable neighborhood locations");
     }
 
