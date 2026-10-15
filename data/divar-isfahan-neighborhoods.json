@@ -5,7 +5,7 @@
     "slug": "isfahan"
   },
   "sourceUrl": "https://api.divar.ir/v8/places/cities/3/districts",
-  "fetchedAt": "2026-10-15T12:23:32.033Z",
+  "fetchedAt": "2026-10-15T12:24:32.927Z",
   "districts": [
     {
       "level": "",
@@ -12029,4 +12029,4 @@
       "multi_polygon": []
     }
   ]
-}\n
+}
