@@ -25,11 +25,12 @@ test("npm build does not repeat fallback image downloads", () => {
 });
 
 
+
 test("fallback image downloads bound the full response stream and retry count", () => {
-  assert.match(fallbackGenerator, /AbortSignal\\.timeout\\(timeoutMs\\)/);
+  assert.match(fallbackGenerator, /AbortSignal\.timeout\(timeoutMs\)/);
   assert.match(
     fallbackGenerator,
-    /pipeline\\(response\\.body, createWriteStream\\(temp\\), \\{ signal \\}\\)/,
+    /pipeline\(response\.body, createWriteStream\(temp\), \{ signal \}\)/,
   );
   assert.match(fallbackGenerator, /const maxAttempts = 2;/);
 });
