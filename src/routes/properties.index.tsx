@@ -28,7 +28,7 @@ import {
 import { PropertyCard } from "@/components/hirmand/property-showcase";
 import { PropertiesMap } from "@/components/hirmand/properties-map";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
-import { PROPERTY_TYPES, NEIGHBORHOOD_NAMES, SERVICES } from "@/lib/site";
+import { PROPERTY_TYPES, NEIGHBORHOOD_NAMES, NEIGHBORHOODS, SERVICES } from "@/lib/site";
 import {
   PROPERTY_CABINET_OPTIONS,
   PROPERTY_COOLING_OPTIONS,
@@ -448,7 +448,13 @@ function PropertiesIndexPage() {
     setQ(params.get("q") ?? "");
     setTransactionType(tx ?? "");
     setPropertyType(type ?? "");
-    setNeighborhood(params.get("neighborhood") ?? "");
+    const explicitNeighborhood = params.get("neighborhood");
+    const divarPlaceParts = (params.get("map_place_hash") ?? "").split("|");
+    const divarDistrictId = divarPlaceParts[0] === "4" ? divarPlaceParts[1] : "";
+    const divarNeighborhood = divarDistrictId
+      ? NEIGHBORHOODS.find((item) => item.divarDistrictId === divarDistrictId)?.name
+      : undefined;
+    setNeighborhood(explicitNeighborhood ?? divarNeighborhood ?? "");
     setMinArea(params.get("minArea") ?? "");
     setMaxArea(params.get("maxArea") ?? "");
     setMinPrice(params.get("minPrice") ?? "");
