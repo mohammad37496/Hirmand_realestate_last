@@ -1289,7 +1289,6 @@ function PropertiesIndexPage() {
                         setNeighborhood(item);
                         setNeighborhoodPickerOpen(false);
                         setNeighborhoodSearch("");
-                        trackAnalyticsEvent("property_neighborhood_selected", { neighborhood: item });
                       }}
                     >
                       <span className="pf-neighborhood-option-copy">
