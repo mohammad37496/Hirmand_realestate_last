@@ -1,5 +1,21 @@
+import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, MapPinned, Phone } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  Eye,
+  Home,
+  KeyRound,
+  MapPin,
+  MapPinned,
+  Phone,
+  Search,
+  TrendingDown,
+  Wallet,
+} from "lucide-react";
 import { listPublishedProperties } from "@/lib/properties";
 import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "@/lib/neighborhood-market";
 import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas } from "@/lib/areas";
@@ -7,11 +23,21 @@ import { breadcrumbJsonLd } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
+import "@/area-detail-page.css";
+
+type ListingFilter = "all" | "sale" | "rent";
 
 export const Route = createFileRoute("/areas/$slug")({
   loader: async ({ params }) => {
     const area = findAreaBySlug(params.slug);
-    if (!area) return { area: null, properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>, market: null as NeighborhoodMarketSnapshot | null };
+    if (!area) {
+      return {
+        area: null,
+        properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>,
+        market: null as NeighborhoodMarketSnapshot | null,
+      };
+    }
+
     try {
       const [properties, market] = await Promise.all([
         listPublishedProperties({ data: { neighborhood: area.name } }),
@@ -29,18 +55,36 @@ export const Route = createFileRoute("/areas/$slug")({
 
 function AreaPage() {
   const { area, properties, market } = Route.useLoaderData();
+  const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
+
+  const filteredProperties = useMemo(() => {
+    if (listingFilter === "sale") {
+      return properties.filter((property) => property.transactionType === "buy" || property.transactionType === "sell");
+    }
+    if (listingFilter === "rent") {
+      return properties.filter((property) => property.transactionType === "rent" || property.transactionType === "mortgage");
+    }
+    return properties;
+  }, [properties, listingFilter]);
+
+  const saleCount = properties.filter(
+    (property) => property.transactionType === "buy" || property.transactionType === "sell",
+  ).length;
+  const rentCount = properties.filter(
+    (property) => property.transactionType === "rent" || property.transactionType === "mortgage",
+  ).length;
 
   if (!area) {
     return (
       <SiteChrome className="property-detail-shell">
-        <section className="property-not-found">
-          <MapPinned size={32} />
+        <main className="area-page area-page-not-found">
+          <MapPinned aria-hidden="true" />
           <h1>این محله پیدا نشد</h1>
-          <p>محله درخواستی در فهرست مناطق تحت پوشش هیرمند نیست.</p>
-          <Link to="/" hash="areas" className="btn-gold">
-            مشاهده محله‌ها
+          <p>محلهٔ درخواستی در فهرست مناطق تحت پوشش هیرمند نیست.</p>
+          <Link to="/" hash="areas" className="area-button area-button-primary">
+            <ArrowRight size={17} /> مشاهدهٔ محله‌ها
           </Link>
-        </section>
+        </main>
       </SiteChrome>
     );
   }
@@ -52,10 +96,26 @@ function AreaPage() {
   ]);
 
   const nearby = allAreas()
-    .filter((a) => a.groupTitle === area.groupTitle && a.slug !== area.slug)
-    .slice(0, 8);
+    .filter((item) => item.groupTitle === area.groupTitle && item.slug !== area.slug)
+    .slice(0, 6);
 
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${area.lat},${area.lng}`;
+  const hasCoordinates = area.lat != null && area.lng != null;
+  const mapsUrl = hasCoordinates
+    ? `https://www.google.com/maps/search/?api=1&query=${area.lat},${area.lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(area.address ?? `${area.name}، اصفهان`)}`;
+
+  const marketStats = market
+    ? [
+        { label: "فایل فعال", value: market.activeFiles.toLocaleString("fa-IR"), note: "فایل‌های منتشرشده", icon: Home },
+        { label: "فایل‌های فروش", value: market.saleFiles.toLocaleString("fa-IR"), note: "خرید و فروش ثبت‌شده", icon: Building2 },
+        { label: "رهن و اجاره", value: market.rentFiles.toLocaleString("fa-IR"), note: "گزینه‌های اجاره‌ای", icon: KeyRound },
+        { label: "فایل جدید", value: market.newFiles30d.toLocaleString("fa-IR"), note: "در ۳۰ روز اخیر", icon: CalendarDays },
+        { label: "کاهش قیمت", value: market.priceDropFiles.toLocaleString("fa-IR"), note: "فایل دارای کاهش قیمت", icon: TrendingDown },
+        { label: "بازدید آنلاین", value: market.views30d.toLocaleString("fa-IR"), note: "در ۳۰ روز اخیر", icon: Eye },
+      ]
+    : [];
+
+  const selectFilter = (filter: ListingFilter) => setListingFilter(filter);
 
   return (
     <SiteChrome className="property-detail-shell">
@@ -68,131 +128,232 @@ function AreaPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }}
       />
 
-      <main className="property-detail">
-        <nav
-          aria-label="مسیر صفحه"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 8,
-            marginBottom: 16,
-            fontSize: "0.82rem",
-            color: "var(--subtle)",
-          }}
-        >
-          <Link to="/" style={{ color: "var(--muted)" }}>
-            صفحه اصلی
-          </Link>
-          <span>/</span>
-          <Link to="/" hash="areas" style={{ color: "var(--muted)" }}>
-            محله‌ها
-          </Link>
-          <span>/</span>
-          <span>{area.name}</span>
+      <main className="area-page">
+        <nav className="area-breadcrumbs" aria-label="مسیر صفحه">
+          <Link to="/">صفحهٔ اصلی</Link>
+          <span aria-hidden="true">/</span>
+          <Link to="/" hash="areas">محله‌ها</Link>
+          <span aria-hidden="true">/</span>
+          <span className="area-breadcrumb-current">{area.name}</span>
         </nav>
 
-        <div className="property-detail-top">
-          <Link to="/" hash="areas" className="back-link">
-            <ArrowRight size={17} /> همه محله‌ها
-          </Link>
-          <span className="property-detail-code">{area.groupTitle}</span>
-        </div>
-
-        <div className="property-detail-grid">
-          <div className="property-detail-main">
-            <div className="pcard-meta">
-              <span>اصفهان</span>
-              <span>{area.groupTitle}</span>
-            </div>
-            <h1>املاک {area.name}</h1>
-            <p className="property-detail-description">
-              خرید، فروش، رهن و اجاره ملک در محله <strong>{area.name}</strong> اصفهان با همراهی
-              گروه مشاورین املاک هیرمند. فایل‌های به‌روز این محله را در همین صفحه ببینید یا برای
-              مشاوره اختصاصی با دفتر تماس بگیرید.
+        <section className="area-hero" aria-labelledby="area-title">
+          <div className="area-hero-copy">
+            <span className="area-eyebrow">
+              <MapPin size={15} aria-hidden="true" />
+              راهنمای املاک اصفهان
+              <span aria-hidden="true">·</span>
+              {area.groupTitle}
+            </span>
+            <h1 id="area-title">
+              خرید، فروش و اجاره ملک در <span>{area.name}</span>
+            </h1>
+            <p className="area-hero-description">
+              فایل‌های منتشرشده در {area.name} را یک‌جا بررسی کنید، گزینه‌ها را با هم مقایسه کنید
+              و برای دریافت اطلاعات بیشتر یا هماهنگی بازدید با گروه مشاورین املاک هیرمند در ارتباط باشید.
             </p>
+            <div className="area-hero-highlights" aria-label="خدمات محلی">
+              <span><CheckCircle2 size={15} aria-hidden="true" /> مشاهدهٔ فایل‌های ثبت‌شده</span>
+              <span><MapPinned size={15} aria-hidden="true" /> موقعیت روی نقشه</span>
+              <span><Phone size={15} aria-hidden="true" /> هماهنگی با دفتر</span>
+            </div>
+            <div className="area-hero-actions">
+              <a href="#area-listings" className="area-button area-button-primary">
+                <Search size={18} aria-hidden="true" /> دیدن فایل‌های محله
+                <ArrowLeft size={16} aria-hidden="true" />
+              </a>
+              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="area-button area-button-secondary">
+                <MapPinned size={18} aria-hidden="true" /> نمایش روی نقشه
+              </a>
+            </div>
+          </div>
 
-            <div className="property-address">
-              <MapPinned size={20} />
-              <div>
-                <strong>موقعیت روی نقشه</strong>
-                <p>
-                  {area.name}، اصفهان — مختصات تقریبی{" "}
-                  {area.lat == null || area.lng == null ? "ثبت نشده" :
-                    `${area.lat.toFixed(4)}، ${area.lng.toFixed(4)}`}
-                </p>
-                <a href={mapsUrl} target="_blank" rel="noopener noreferrer">
-                  باز کردن در گوگل‌مپ
-                </a>
+          <div className="area-visual-card" aria-label={`نمای گرافیکی موقعیت ${area.name} در اصفهان`}>
+            <svg className="area-map-illustration" viewBox="0 0 600 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+              <defs>
+                <pattern id="area-map-grid" width="42" height="42" patternUnits="userSpaceOnUse">
+                  <path d="M 42 0 L 0 0 0 42" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="1" />
+                </pattern>
+              </defs>
+              <rect width="600" height="640" fill="url(#area-map-grid)" />
+              <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M-40 148 C100 165 146 105 245 128 S438 213 650 164" stroke="#d9b77d" strokeOpacity=".8" strokeWidth="28" />
+                <path d="M-30 152 C100 169 146 109 245 132 S438 217 640 168" stroke="#fff3d8" strokeOpacity=".62" strokeWidth="3" />
+                <path d="M92 -30 C140 110 100 232 196 324 S336 485 290 690" stroke="#d6e0e2" strokeOpacity=".68" strokeWidth="20" />
+                <path d="M95 -30 C143 110 103 232 199 324 S339 485 293 690" stroke="#fff" strokeOpacity=".52" strokeWidth="2" />
+                <path d="M-30 438 C120 378 266 429 372 368 S526 280 640 306" stroke="#d6e0e2" strokeOpacity=".7" strokeWidth="16" />
+                <path d="M-30 438 C120 378 266 429 372 368 S526 280 640 306" stroke="#fff" strokeOpacity=".52" strokeWidth="2" />
+                <path d="M354 -30 C323 96 410 185 370 263 S473 436 621 497" stroke="#d6e0e2" strokeOpacity=".65" strokeWidth="13" />
+                <path d="M-20 250 L170 225 294 278 445 238 620 260" stroke="rgba(255,255,255,.27)" strokeWidth="6" />
+                <path d="M-20 250 L170 225 294 278 445 238 620 260" stroke="rgba(255,255,255,.48)" strokeWidth="1" />
+                <path d="M-10 546 L126 500 248 530 393 482 622 565" stroke="rgba(255,255,255,.27)" strokeWidth="6" />
+                <path d="M-10 546 L126 500 248 530 393 482 622 565" stroke="rgba(255,255,255,.48)" strokeWidth="1" />
+              </g>
+              <g fill="rgba(231,238,230,.13)" stroke="rgba(255,255,255,.15)" strokeWidth="1.5">
+                <rect x="210" y="48" width="82" height="50" rx="7" />
+                <rect x="300" y="51" width="38" height="48" rx="6" />
+                <rect x="425" y="72" width="94" height="58" rx="8" />
+                <rect x="235" y="177" width="62" height="53" rx="7" />
+                <rect x="310" y="174" width="77" height="58" rx="7" />
+                <rect x="415" y="177" width="50" height="48" rx="6" />
+                <rect x="20" y="286" width="74" height="52" rx="8" />
+                <rect x="115" y="283" width="56" height="55" rx="7" />
+                <rect x="223" y="351" width="80" height="52" rx="8" />
+                <rect x="322" y="337" width="50" height="56" rx="7" />
+                <rect x="414" y="335" width="78" height="53" rx="8" />
+                <rect x="335" y="525" width="90" height="49" rx="8" />
+                <rect x="452" y="514" width="78" height="56" rx="8" />
+              </g>
+              <g fill="rgba(210,180,126,.2)" stroke="rgba(226,192,132,.45)" strokeWidth="1.5">
+                <rect x="31" y="53" width="112" height="64" rx="9" />
+                <rect x="450" y="405" width="90" height="54" rx="8" />
+                <rect x="55" y="561" width="115" height="52" rx="8" />
+              </g>
+            </svg>
+            <span className="area-map-label area-map-label-top">
+              <MapPinned size={15} aria-hidden="true" /> اصفهان · {area.groupTitle}
+            </span>
+            <span className="area-map-pin" aria-hidden="true">
+              <MapPin size={29} />
+            </span>
+            <div className="area-visual-caption">
+              <strong>{area.name}، اصفهان</strong>
+              <p>مشاهدهٔ فایل‌های این محدوده و بررسی موقعیت مکانی</p>
+            </div>
+            <span className="area-map-label area-map-label-bottom">
+              <MapPin size={14} aria-hidden="true" /> موقعیت محله
+            </span>
+          </div>
+        </section>
+
+        <section className="area-quick-facts" aria-label="خلاصهٔ اطلاعات محله">
+          <div className="area-quick-fact">
+            <span className="area-quick-fact-icon"><Building2 aria-hidden="true" /></span>
+            <div>
+              <span>محدودهٔ فعالیت</span>
+              <strong>{area.groupTitle}</strong>
+            </div>
+          </div>
+          <div className="area-quick-fact">
+            <span className="area-quick-fact-icon"><Home aria-hidden="true" /></span>
+            <div>
+              <span>فایل‌های این صفحه</span>
+              <strong>{properties.length.toLocaleString("fa-IR")} فایل</strong>
+            </div>
+          </div>
+          <div className="area-quick-fact">
+            <span className="area-quick-fact-icon"><MapPinned aria-hidden="true" /></span>
+            <div>
+              <span>نقشه و مسیر</span>
+              <strong>نمایش محدوده در نقشه</strong>
+            </div>
+          </div>
+        </section>
+
+        {market ? (
+          <section className="area-market" aria-labelledby="area-market-title">
+            <div className="area-section-heading">
+              <div className="area-section-heading-copy">
+                <span className="area-section-kicker">آمار ثبت‌شده در هیرمند</span>
+                <h2 id="area-market-title">نمای کلی بازار {area.name}</h2>
+                <p>خلاصهٔ فایل‌ها و تعامل‌های ثبت‌شده در سایت؛ نه برآورد قطعی کل بازار محله.</p>
               </div>
+              <span className="area-market-disclaimer">آمار بر پایهٔ اطلاعات موجود و فعالیت ۳۰ روز اخیر سایت است.</span>
             </div>
 
-            {market ? (
-              <section style={{ marginTop: 28, padding: 18, border: "1px solid var(--line)", borderRadius: 20, background: "var(--card)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-                  <div>
-                    <span className="kicker">تصویر بازار داخلی هیرمند</span>
-                    <h2 style={{ fontSize: "1.15rem", margin: "4px 0 0" }}>نبض بازار {area.name}</h2>
-                  </div>
-                  <small style={{ color: "var(--subtle)" }}>فایل‌های منتشرشده و رفتار ۳۰ روز اخیر سایت</small>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, marginTop: 14 }}>
-                  {[
-                    ["فایل فعال", market.activeFiles.toLocaleString("fa-IR")],
-                    ["فروش", market.saleFiles.toLocaleString("fa-IR")],
-                    ["رهن و اجاره", market.rentFiles.toLocaleString("fa-IR")],
-                    ["فایل جدید ۳۰ روزه", market.newFiles30d.toLocaleString("fa-IR")],
-                    ["کاهش قیمت", market.priceDropFiles.toLocaleString("fa-IR")],
-                    ["بازدید ۳۰ روزه", market.views30d.toLocaleString("fa-IR")],
-                  ].map(([label, value]) => (
-                    <div key={label} style={{ padding: 12, borderRadius: 14, background: "var(--card-2)", border: "1px solid var(--line)" }}>
-                      <span style={{ display: "block", color: "var(--subtle)", fontSize: ".72rem" }}>{label}</span>
-                      <strong style={{ display: "block", marginTop: 5, fontSize: "1.02rem", color: "var(--navy-900)" }}>{value}</strong>
+            <div className="area-market-grid">
+              {marketStats.map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <div className="area-market-stat" key={stat.label}>
+                    <div className="area-market-stat-top">
+                      <span>{stat.label}</span>
+                      <span className="area-market-stat-icon"><Icon aria-hidden="true" /></span>
                     </div>
-                  ))}
-                </div>
-                <p style={{ margin: "12px 0 0", color: "var(--muted)", lineHeight: 1.9, fontSize: ".84rem" }}>
-                  {market.saleAvgPerM2 != null ? (
-                    <>میانگین تقریبی قیمت فروش هر متر: <strong>{market.saleAvgPerM2.toLocaleString("fa-IR")} تومان</strong>. </>
-                  ) : null}
-                  {market.rentAvg != null ? (
-                    <>میانگین اجاره ثبت‌شده: <strong>{market.rentAvg.toLocaleString("fa-IR")} تومان</strong>. </>
-                  ) : null}
-                  در ۳۰ روز اخیر {market.favorites30d.toLocaleString("fa-IR")} ذخیره، {market.calls30d.toLocaleString("fa-IR")} تماس/واتساپ و {market.viewingRequests30d.toLocaleString("fa-IR")} درخواست بازدید ثبت شده است.
-                </p>
-              </section>
-            ) : null}
+                    <strong>{stat.value}</strong>
+                    <small>{stat.note}</small>
+                  </div>
+                );
+              })}
+            </div>
 
-            <section style={{ marginTop: 28 }}>
-              <h2 style={{ fontSize: "1.15rem", marginBottom: 12 }}>
-                فایل‌های فعال در {area.name}
-              </h2>
-              {properties.length ? (
+            {(market.saleAvgPerM2 != null || market.rentAvg != null) ? (
+              <p className="area-market-note">
+                {market.saleAvgPerM2 != null ? (
+                  <>میانگین ثبت‌شدهٔ قیمت فروش هر متر مربع: <strong>{Math.round(market.saleAvgPerM2).toLocaleString("fa-IR")} تومان</strong>. </> 
+                ) : null}
+                {market.rentAvg != null ? (
+                  <>میانگین مبلغ اجارهٔ ثبت‌شده: <strong>{Math.round(market.rentAvg).toLocaleString("fa-IR")} تومان</strong>. </> 
+                ) : null}
+                این اعداد از فایل‌های موجود محاسبه شده‌اند و جایگزین ارزیابی تخصصی ملک نیستند.
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
+        <div className="area-listings-layout">
+          <div className="area-main-column">
+            <section className="area-listings" id="area-listings" aria-labelledby="area-listings-title">
+              <div className="area-listings-heading">
+                <div>
+                  <span className="area-section-kicker">انتخاب ملک</span>
+                  <h2 id="area-listings-title">فایل‌های {area.name}</h2>
+                  <p>فایل‌های منتشرشده را ببینید و برای جزئیات هر ملک وارد صفحهٔ آن شوید.</p>
+                </div>
+                <span className="area-listings-count">{filteredProperties.length.toLocaleString("fa-IR")} فایل</span>
+              </div>
+
+              <div className="area-filter-row" role="group" aria-label="فیلتر نوع معامله">
+                <button type="button" className="area-filter-button" aria-pressed={listingFilter === "all"} onClick={() => selectFilter("all")}>
+                  همهٔ فایل‌ها ({properties.length.toLocaleString("fa-IR")})
+                </button>
+                <button type="button" className="area-filter-button" aria-pressed={listingFilter === "sale"} onClick={() => selectFilter("sale")}>
+                  فروش ({saleCount.toLocaleString("fa-IR")})
+                </button>
+                <button type="button" className="area-filter-button" aria-pressed={listingFilter === "rent"} onClick={() => selectFilter("rent")}>
+                  رهن و اجاره ({rentCount.toLocaleString("fa-IR")})
+                </button>
+              </div>
+
+              {filteredProperties.length ? (
                 <div className="property-grid">
-                  {properties.map((property) => (
+                  {filteredProperties.map((property) => (
                     <PropertyCard key={property.id} property={property} />
                   ))}
                 </div>
               ) : (
-                <p style={{ color: "var(--muted)", lineHeight: 1.8 }}>
-                  در حال حاضر فایل منتشرشده‌ای برای این محله ثبت نشده است. برای دریافت فایل‌های
-                  مناسب {area.name} از فرم درخواست یا تماس با مشاوران استفاده کنید.
-                </p>
+                <div className="area-empty-state">
+                  <Home aria-hidden="true" />
+                  <h3>{listingFilter === "all" ? "هنوز فایلی برای نمایش وجود ندارد" : "در این دسته فعلاً فایلی ثبت نشده است"}</h3>
+                  <p>
+                    برای اطلاع از فایل‌های جدید {area.name} می‌توانید درخواست خود را ثبت کنید تا گزینه‌های متناسب با نیازتان بررسی شوند.
+                  </p>
+                  <Link to="/" hash="inquiry" className="area-button area-button-primary">
+                    ثبت درخواست فایل <ArrowLeft size={16} aria-hidden="true" />
+                  </Link>
+                </div>
               )}
             </section>
 
             {nearby.length ? (
-              <section style={{ marginTop: 32 }}>
-                <h2 style={{ fontSize: "1.05rem", marginBottom: 12 }}>محله‌های نزدیک در همین منطقه</h2>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {nearby.map((n) => (
+              <section className="area-nearby-section" aria-labelledby="area-nearby-title">
+                <div className="area-section-heading">
+                  <div className="area-section-heading-copy">
+                    <span className="area-section-kicker">برای بررسی گزینه‌های بیشتر</span>
+                    <h2 id="area-nearby-title">محله‌های دیگر در {area.groupTitle}</h2>
+                    <p>مناطق نزدیک را نیز بررسی کنید تا انتخاب‌های بیشتری داشته باشید.</p>
+                  </div>
+                </div>
+                <div className="area-nearby-grid">
+                  {nearby.map((item) => (
                     <Link
-                      key={n.slug}
+                      key={item.slug}
                       to="/areas/$slug"
-                      params={{ slug: n.slug }}
-                      className="btn-ghost"
-                      style={{ fontSize: "0.85rem", padding: "8px 14px" }}
+                      params={{ slug: item.slug }}
+                      className="area-nearby-link"
                     >
-                      {n.name}
+                      <span>{item.name}</span>
+                      <ArrowLeft aria-hidden="true" />
                     </Link>
                   ))}
                 </div>
@@ -200,22 +361,36 @@ function AreaPage() {
             ) : null}
           </div>
 
-          <aside className="property-detail-side">
-            <div className="property-price-box">
-              <span>منطقه</span>
-              <strong>{area.name}</strong>
-            </div>
-            <div className="property-contact-box">
-              <span className="kicker">مشاوره محلی</span>
-              <h2>گروه مشاورین هیرمند</h2>
-              <p>برای فایل‌های {area.name} و بازدید هماهنگ کنید.</p>
-              <a href={`tel:${SITE.phone.mobile}`} className="btn-gold">
-                <Phone size={17} /> تماس با دفتر
-              </a>
-              <Link to="/" hash="inquiry" className="btn-ghost">
-                فرم درخواست فایل
-              </Link>
-            </div>
+          <aside className="area-sidebar" aria-label="مشاوره و اطلاعات بیشتر">
+            <section className="area-sidebar-card area-sidebar-card-primary">
+              <span className="area-sidebar-icon"><Phone aria-hidden="true" /></span>
+              <h2>برای {area.name} مشاوره می‌خواهید؟</h2>
+              <p>برای بررسی فایل‌ها، دریافت جزئیات و هماهنگی بازدید با دفتر هیرمند در تماس باشید.</p>
+              <div className="area-sidebar-actions">
+                <a href={`tel:${SITE.phone.mobile}`} className="area-button area-button-primary">
+                  <Phone aria-hidden="true" /> تماس با دفتر
+                </a>
+                <Link to="/" hash="inquiry" className="area-button area-button-secondary">
+                  فرم درخواست فایل
+                </Link>
+              </div>
+            </section>
+
+            <section className="area-sidebar-card area-sidebar-card-secondary">
+              <span className="area-sidebar-icon"><MapPinned aria-hidden="true" /></span>
+              <h2>موقعیت محله</h2>
+              <p>{area.address ?? `${area.name}، اصفهان`}</p>
+              <div className="area-sidebar-actions">
+                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="area-button area-button-secondary">
+                  باز کردن در نقشه <ArrowLeft aria-hidden="true" />
+                </a>
+              </div>
+              <div className="area-sidebar-list">
+                <span><CheckCircle2 aria-hidden="true" /> اطلاعات فایل‌ها در یک صفحه</span>
+                <span><CheckCircle2 aria-hidden="true" /> دسترسی مستقیم به جزئیات ملک</span>
+                <span><CheckCircle2 aria-hidden="true" /> امکان ثبت درخواست اختصاصی</span>
+              </div>
+            </section>
           </aside>
         </div>
       </main>
