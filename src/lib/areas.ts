@@ -1,6 +1,7 @@
 import { NEIGHBORHOOD_GROUPS, type Neighborhood } from "@/lib/site";
 import { SITE } from "@/lib/site";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
+import { getAreaGeography } from "@/lib/neighborhood-geo";
 
 export type AreaInfo = Neighborhood & {
   slug: string;
@@ -23,9 +24,12 @@ export function allAreas(): AreaInfo[] {
   const out: AreaInfo[] = [];
   for (const group of NEIGHBORHOOD_GROUPS) {
     for (const item of group.items) {
+      const slug = areaSlug(item.name);
+      const geography = getAreaGeography(slug);
       out.push({
         ...item,
-        slug: areaSlug(item.name),
+        ...(geography ? { lat: geography.lat, lng: geography.lng } : {}),
+        slug,
         groupTitle: group.title,
       });
     }
