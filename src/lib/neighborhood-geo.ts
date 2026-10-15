@@ -23,7 +23,7 @@ export function normalizeNeighborhoodKey(value: string): string {
     .replace(/[يى]/g, "ی")
     .replace(/ك/g, "ک")
     .replace(/[\u064B-\u065F\u0670]/g, "")
-    .replace(/[\u200c\u200d\sـ\-–—_،,.؛:()\[\]{}'" ]/g, "")
+    .replace(/[\u200c\u200d\sـ]/g, "")
     .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
