@@ -595,10 +595,10 @@ function publicPropertyWhereSql() {
     "and ($26::text is null or floor_label = $26)",
     "and ($27::text is null or orientation = $27)",
     "and ($28::boolean is false or convertible = true)",
-    "and ($29::double precision is null or (longitude is not null and longitude >= $29)",
-    "and ($30::double precision is null or (latitude is not null and latitude >= $30)",
-    "and ($31::double precision is null or (longitude is not null and longitude <= $31)",
-    "and ($32::double precision is null or (latitude is not null and latitude <= $32)",
+    "and ($29::double precision is null or (longitude is not null and longitude >= $29))",
+    "and ($30::double precision is null or (latitude is not null and latitude >= $30))",
+    "and ($31::double precision is null or (longitude is not null and longitude <= $31))",
+    "and ($32::double precision is null or (latitude is not null and latitude <= $32))",
   ].join(" ");
 }
 
