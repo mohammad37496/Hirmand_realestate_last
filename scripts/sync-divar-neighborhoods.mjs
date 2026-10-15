@@ -14,7 +14,10 @@ const region = { minLat: 31, maxLat: 34, minLon: 49, maxLon: 54 };
 
 function record(value) { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
 function norm(value) {
-  return String(value ?? "").normalize("NFKC").replace(/ي/g, "ی").replace(/ك/g, "ک")
+  return String(value ?? "").normalize("NFKC")
+    .replace(/ي/g, "ی").replace(/ك/g, "ک")
+    .replaceAll("\u200c", "").replaceAll("\u200d", "").replaceAll("\u200e", "").replaceAll("\u200f", "").replaceAll("\u0640", "")
+    .replace(/[\s\u00a0]+/g, " ").trim().toLowerCase();
     .replace(/[\u200c\u200d\u200e\u200f\u0640]/g, "").replace(/[\s\u00a0]+/g, " ").trim().toLowerCase();
 }
 function cityCandidates(payload, out = [], depth = 0) {
@@ -54,7 +57,7 @@ function coordinate(value, max) {
   }
   return Number.isFinite(number) && Math.abs(number) <= max ? number : null;
 }
-function validateDistricts(payload, cityId) {
+function validateDistricts(payload) {
   const districts = Array.isArray(payload) ? payload : record(payload) && Array.isArray(payload.districts) ? payload.districts : null;
   if (!districts || districts.length < minimumDistricts) {
     throw new Error(`Incomplete Divar catalog: expected >= ${minimumDistricts} districts, got ${districts?.length ?? 0}.`);
@@ -97,10 +100,10 @@ if (matches.size !== 1) {
 const city = [...matches.values()][0];
 const cityId = city.id;
 const sourceUrl = `https://api.divar.ir/v8/places/cities/${encodeURIComponent(cityId)}/districts`;
-const districts = validateDistricts(await getJson(sourceUrl), cityId);
+const districts = validateDistricts(await getJson(sourceUrl));
 
 let previous = null;
-try { previous = JSON.parse(await readFile(outputPath, "utf8")); } catch {}
+try { previous = JSON.parse(await readFile(outputPath, "utf8")); } catch { /* No prior snapshot exists on the first run. */ }
 const unchanged = previous && previous.city?.slug === "isfahan" &&
   String(previous.city?.id) === cityId && previous.sourceUrl === sourceUrl &&
   Array.isArray(previous.districts) && JSON.stringify(previous.districts) === JSON.stringify(districts);
