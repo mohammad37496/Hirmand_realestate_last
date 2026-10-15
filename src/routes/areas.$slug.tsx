@@ -14,7 +14,6 @@ import {
   Phone,
   Search,
   TrendingDown,
-  Wallet,
 } from "lucide-react";
 import { listPublishedProperties } from "@/lib/properties";
 import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "@/lib/neighborhood-market";
