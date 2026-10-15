@@ -12,9 +12,8 @@ import {
 } from "lucide-react";
 import { listPublishedProperties } from "@/lib/properties";
 import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "@/lib/neighborhood-market";
-import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas, type AreaInfo } from "@/lib/areas";
-import { listDivarNeighborhoodCatalog } from "@/lib/divar-neighborhoods";
-import { normalizeDivarNeighborhoodName } from "@/lib/divar-neighborhood-geometry";
+import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas, mergeAreasWithDivarCatalog } from "@/lib/areas";
+import { listStoredDivarNeighborhoodCatalog } from "@/lib/divar-neighborhoods";
 import { breadcrumbJsonLd } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
@@ -22,46 +21,37 @@ import { PropertyCard } from "@/components/hirmand/property-showcase";
 
 export const Route = createFileRoute("/areas/$slug")({
   loader: async ({ params }) => {
-    const foundArea = findAreaBySlug(params.slug);
-    if (!foundArea) return { area: null, properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>, market: null as NeighborhoodMarketSnapshot | null };
-
-    // Do not expose guessed coordinates. Only attach geometry after a unique catalog match.
-    let area: AreaInfo = {
-      ...foundArea,
-      lat: undefined,
-      lng: undefined,
-      divarDistrictId: undefined,
-      divarBbox: undefined,
-    };
+    let directoryAreas = allAreas();
     try {
-      const catalog = await listDivarNeighborhoodCatalog();
-      const key = normalizeDivarNeighborhoodName(foundArea.name);
-      const matches = catalog.items.filter((item) => normalizeDivarNeighborhoodName(item.name) === key);
-      if (matches.length === 1) {
-        const source = matches[0];
-        area = {
-          ...area,
-          lat: source.defaultLocation.latitude,
-          lng: source.defaultLocation.longitude,
-          divarDistrictId: source.id,
-          divarBbox: source.bbox,
-        };
-      } else if (matches.length > 1) {
-        console.warn("[area] ambiguous neighborhood name; withholding coordinates", foundArea.name);
-      }
+      const catalog = await listStoredDivarNeighborhoodCatalog();
+      directoryAreas = mergeAreasWithDivarCatalog(catalog.items);
     } catch (error) {
-      console.warn("[area] neighborhood location unavailable; withholding coordinates", error);
+      console.warn("[area] stored neighborhood catalog unavailable; using Hirmand's local list", error);
     }
 
+    const foundArea = findAreaBySlug(params.slug)
+      ?? directoryAreas.find((candidate) => candidate.slug === params.slug)
+      ?? null;
+
+    if (!foundArea) {
+      return {
+        area: null,
+        directoryAreas,
+        properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>,
+        market: null as NeighborhoodMarketSnapshot | null,
+      };
+    }
+
+    const area = foundArea;
     try {
       const [properties, market] = await Promise.all([
         listPublishedProperties({ data: { neighborhood: area.name } }),
         getNeighborhoodMarketSnapshot({ data: { neighborhood: area.name } }),
       ]);
-      return { area, properties, market };
+      return { area, directoryAreas, properties, market };
     } catch (error) {
       console.error("[area] properties loader failed", error);
-      return { area, properties: [], market: null };
+      return { area, directoryAreas, properties: [], market: null };
     }
   },
   head: ({ loaderData, params }) => areaHead(loaderData?.area ?? null, params.slug),
@@ -69,7 +59,7 @@ export const Route = createFileRoute("/areas/$slug")({
 });
 
 function AreaPage() {
-  const { area, properties, market } = Route.useLoaderData();
+  const { area, directoryAreas, properties, market } = Route.useLoaderData();
 
   if (!area) {
     return (
@@ -80,7 +70,7 @@ function AreaPage() {
             <span className="area-eyebrow">راهنمای محله‌های هیرمند</span>
             <h1>این محله پیدا نشد</h1>
             <p>محله درخواستی در فهرست مناطق تحت پوشش هیرمند نیست.</p>
-            <Link to="/" hash="areas" className="btn-gold">
+            <Link to="/areas" className="btn-gold">
               <ArrowRight size={17} /> مشاهده محله‌ها
             </Link>
           </section>
@@ -95,7 +85,7 @@ function AreaPage() {
     { name: area.name, path: areaPath(area.slug) },
   ]);
 
-  const nearby = allAreas()
+  const nearby = directoryAreas
     .filter((candidate) => candidate.groupTitle === area.groupTitle && candidate.slug !== area.slug)
     .slice(0, 8);
 
@@ -121,7 +111,7 @@ function AreaPage() {
         <nav aria-label="مسیر صفحه" className="area-breadcrumbs">
           <Link to="/">صفحه اصلی</Link>
           <span aria-hidden="true">/</span>
-          <Link to="/" hash="areas">محله‌ها</Link>
+          <Link to="/areas">محله‌ها</Link>
           <span aria-hidden="true">/</span>
           <span aria-current="page">{area.name}</span>
         </nav>

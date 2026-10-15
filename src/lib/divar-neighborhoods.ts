@@ -242,3 +242,29 @@ export const listDivarNeighborhoodCatalog = createServerFn({ method: "GET" }).ha
     return cachedPropertyRead("divar-neighborhood-catalog:isfahan:v2", CACHE_TTL_MS, loadDivarCatalog);
   },
 );
+
+
+/**
+ * Read the persisted Isfahan catalog without contacting Divar.
+ * The bundled, validated snapshot supplies the canonical city ID and is the
+ * offline fallback if the production database is unavailable or incomplete.
+ */
+async function loadStoredDivarCatalog(): Promise<DivarNeighborhoodCatalogResult> {
+  const bundled = snapshotResult();
+  if (!bundled) {
+    throw new Error("نسخهٔ آفلاین کاتالوگ محله‌های اصفهان معتبر نیست.");
+  }
+  const persisted = await databaseResult(bundled.cityId);
+  return persisted ?? bundled;
+}
+
+export const listStoredDivarNeighborhoodCatalog = createServerFn({ method: "GET" }).handler(
+  async (): Promise<DivarNeighborhoodCatalogResult> => {
+    setResponseHeader("cache-control", "public, max-age=300, s-maxage=1800, stale-while-revalidate=3600");
+    return cachedPropertyRead(
+      "divar-neighborhood-catalog:stored-isfahan:v1",
+      CACHE_TTL_MS,
+      loadStoredDivarCatalog,
+    );
+  },
+);

@@ -14,11 +14,20 @@ import {
 } from "lucide-react";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { NEIGHBORHOOD_GROUPS, SITE } from "@/lib/site";
-import { allAreas } from "@/lib/areas";
+import { mergeAreasWithDivarCatalog } from "@/lib/areas";
+import { listStoredDivarNeighborhoodCatalog } from "@/lib/divar-neighborhoods";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import areasDirectoryCss from "../areas-directory.css?url";
 
 export const Route = createFileRoute("/areas/")({
+  loader: async () => {
+    const catalog = await listStoredDivarNeighborhoodCatalog();
+    return {
+      areas: mergeAreasWithDivarCatalog(catalog.items),
+      divarAreaCount: catalog.items.length,
+      catalogSource: catalog.source,
+    };
+  },
   head: () => {
     const title = `راهنمای محله‌های اصفهان | جست‌وجوی مناطق | ${SITE.shortName}`;
     const description =
@@ -53,18 +62,23 @@ function normalizePersian(value: string) {
 }
 
 function AreasDirectoryPage() {
+  const { areas, divarAreaCount, catalogSource } = Route.useLoaderData();
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState("همه");
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const directoryGroups = useMemo(() => {
-    const areas = allAreas();
-    return NEIGHBORHOOD_GROUPS.map((group, index) => ({
-      title: group.title,
+    const curatedTitles = NEIGHBORHOOD_GROUPS.map((group) => group.title);
+    const additionalTitles = [...new Set(areas.map((area) => area.groupTitle))]
+      .filter((title) => !curatedTitles.includes(title));
+    const allTitles = [...curatedTitles, ...additionalTitles];
+
+    return allTitles.map((title, index) => ({
+      title,
       number: String(index + 1).padStart(2, "0"),
-      areas: areas.filter((area) => area.groupTitle === group.title),
+      areas: areas.filter((area) => area.groupTitle === title),
     })).filter((group) => group.areas.length > 0);
-  }, []);
+  }, [areas]);
 
   const normalizedQuery = normalizePersian(query);
   const filteredGroups = useMemo(() => {
@@ -124,16 +138,16 @@ function AreasDirectoryPage() {
             </div>
             <div className="areas-directory-proof">
               <CheckCircle2 size={16} />
-              <span>فهرست داخلی هیرمند؛ بدون وابستگی به در دسترس بودن دیوار</span>
+              <span>فهرست محلی هیرمند همراه با همهٔ محدوده‌های کاتالوگ ذخیره‌شده؛ بدون اتصال زنده به دیوار</span>
             </div>
             <div className="areas-directory-stats" aria-label="خلاصه فهرست محله‌ها">
               <div className="areas-directory-stat">
                 <strong>{totalAreas.toLocaleString("fa-IR")}</strong>
-                <span>محله در فهرست</span>
+                <span>محدوده در فهرست</span>
               </div>
               <div className="areas-directory-stat">
-                <strong>{directoryGroups.length.toLocaleString("fa-IR")}</strong>
-                <span>منطقه برای مرور</span>
+                <strong>{divarAreaCount.toLocaleString("fa-IR")}</strong>
+                <span>محدوده در کاتالوگ دیوار</span>
               </div>
               <div className="areas-directory-stat">
                 <strong>۱</strong>
@@ -175,7 +189,7 @@ function AreasDirectoryPage() {
               <h2 id="areas-explorer-title">از کدام محله شروع کنیم؟</h2>
               <p>نام محله را بنویس یا یکی از مناطق زیر را انتخاب کن.</p>
             </div>
-            <span className="areas-source-note"><CheckCircle2 size={14} /> فهرست قابل توسعهٔ هیرمند</span>
+            <span className="areas-source-note"><CheckCircle2 size={14} /> منبع: {catalogSource === "database" ? "دیتابیس سایت" : "نسخهٔ آفلاین داخلی"}</span>
           </div>
 
           <label className="areas-search-box">
