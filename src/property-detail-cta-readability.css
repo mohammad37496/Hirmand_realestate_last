@@ -1,0 +1,66 @@
+/* HIRMAND — contact CTA text wrapping fix.
+   Keep Persian labels intact and ensure the desktop sidebar cannot squeeze
+   contact buttons into narrow, letter-by-letter columns. */
+
+.property-detail-side,
+.property-detail-page .property-detail-side {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .property-detail-side,
+  .property-detail-page .property-detail-side {
+    min-width: 250px;
+  }
+}
+
+.property-detail-side .property-contact-box,
+.property-detail-page .property-detail-side .property-contact-box,
+.property-detail-page .property-detail-aside,
+.property-detail-page .property-detail-aside-inner,
+.property-detail-page .property-detail-aside .property-contact-card {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.property-detail-side .property-contact-box > .btn-gold,
+.property-detail-side .property-contact-box > .btn-ghost,
+.property-detail-page .property-detail-side .property-contact-box > .btn-gold,
+.property-detail-page .property-detail-side .property-contact-box > .btn-ghost,
+.property-detail-page .property-detail-aside .property-contact-actions > .btn-gold,
+.property-detail-page .property-detail-aside .property-contact-actions > .btn-ghost,
+.property-detail-page .property-contact-actions > .btn-gold,
+.property-detail-page .property-contact-actions > .btn-ghost {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  direction: rtl !important;
+  writing-mode: horizontal-tb !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  text-align: center !important;
+  line-height: 1.6 !important;
+}
+
+.property-detail-side .property-contact-box > .btn-gold svg,
+.property-detail-side .property-contact-box > .btn-ghost svg,
+.property-detail-page .property-detail-aside .property-contact-actions > .btn-gold svg,
+.property-detail-page .property-detail-aside .property-contact-actions > .btn-ghost svg {
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+}
+
+.property-detail-page .property-detail-aside .property-contact-actions {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
