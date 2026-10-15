@@ -23,19 +23,21 @@ export type DirectoryAreaSource = {
  * Only spelling/label variants known to refer to the same local area belong here.
  * Broader/nearby neighborhoods are deliberately not aliased to avoid wrong pins.
  */
-const AREA_NAME_ALIASES: Record<string, string> = {
-  "درب‌کوش": "درب کوشک",
-  "شهزاده ابراهیم": "شاهزاده ابراهیم",
-  "پوزوه": "پزوه",
-  "پنارت": "پینارت",
-  "عسکریه": "عسگریه",
-  "آندوان": "اندوان",
-  "والدان": "ولدان",
-  "کاردالان": "کارلادان",
-  "لادان": "جنیران (لادان)",
-  "اسلامی": "محله اسلامی",
-  "شهید کشوری": "کوی شهید کشوری",
-};
+const AREA_NAME_ALIASES = new Map<string, string>(
+  [
+    ["درب‌کوش", "درب کوشک"],
+    ["شهزاده ابراهیم", "شاهزاده ابراهیم"],
+    ["پوزوه", "پزوه"],
+    ["پنارت", "پینارت"],
+    ["عسکریه", "عسگریه"],
+    ["آندوان", "اندوان"],
+    ["والدان", "ولدان"],
+    ["کاردالان", "کارلادان"],
+    ["لادان", "جنیران (لادان)"],
+    ["اسلامی", "محله اسلامی"],
+    ["شهید کشوری", "کوی شهید کشوری"],
+  ].map(([source, target]) => [areaDirectoryKey(source), target] as [string, string]),
+);
 
 export function areaDirectoryKey(value: string): string {
   return value
@@ -81,7 +83,7 @@ export function mergeAreaDirectory<T extends DirectoryAreaBase>(
   // Pass 2: map known spelling/label aliases only to a unique, not-yet-used record.
   curatedAreas.forEach((area, index) => {
     if (matchedByIndex.has(index)) return;
-    const aliasTarget = AREA_NAME_ALIASES[area.name];
+    const aliasTarget = AREA_NAME_ALIASES.get(areaDirectoryKey(area.name));
     if (!aliasTarget) return;
     const matches = catalogByName.get(areaDirectoryKey(aliasTarget)) ?? [];
     if (matches.length !== 1 || representedDistrictIds.has(matches[0].id)) return;
