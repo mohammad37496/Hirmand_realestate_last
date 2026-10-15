@@ -1,4 +1,5 @@
 name: Synchronize source repository to destination
+# One-time sync for the property-card smoke selector fix.
 # One-time sync for the latest property map redesign.
 # Trigger a one-time synchronization for the property map redesign.
 # Triggered once to apply the latest verified neighborhood catalog.
