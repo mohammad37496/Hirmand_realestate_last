@@ -3,6 +3,7 @@
  * Divar bbox order is [west, south, east, north]. Never manufacture a polygon
  * from bbox: expose only geometry that Divar itself returns.
  */
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 export type GeoCoordinate = { latitude: number; longitude: number };
 export type DivarBbox = [number, number, number, number];
 export type DivarBoundaryType = "polygon" | "bbox";
@@ -18,11 +19,11 @@ export type DivarNeighborhoodItem = {
   centroid: GeoCoordinate | null;
   defaultLocation: GeoCoordinate;
   bbox: DivarBbox;
-  neighbors: unknown[];
-  tags: unknown[];
+  neighbors: JsonValue[];
+  tags: JsonValue[];
   polygonEncoded: string;
-  multiPolygonEncoded: unknown[];
-  multiPolygon: unknown[];
+  multiPolygonEncoded: JsonValue[];
+  multiPolygon: JsonValue[];
   boundaryType: DivarBoundaryType;
   sourcePayload: Record<string, unknown>;
 };
@@ -99,9 +100,9 @@ export function normalizeDivarDistrict(value: unknown, cityId = "3"): DivarNeigh
     level: nonEmptyString(value.level),
     radius: typeof value.radius === "number" && Number.isFinite(value.radius) ? value.radius : null,
     centroid, defaultLocation, bbox,
-    neighbors: Array.isArray(value.neighbors) ? value.neighbors : [],
-    tags: Array.isArray(value.tags) ? value.tags : [],
-    polygonEncoded, multiPolygonEncoded, multiPolygon, boundaryType,
+    neighbors: Array.isArray(value.neighbors) ? value.neighbors as JsonValue[] : [],
+    tags: Array.isArray(value.tags) ? value.tags as JsonValue[] : [],
+    polygonEncoded, multiPolygonEncoded: multiPolygonEncoded as JsonValue[], multiPolygon: multiPolygon as JsonValue[], boundaryType,
     sourcePayload: value,
   };
 }
