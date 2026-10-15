@@ -1007,6 +1007,11 @@ function PropertiesIndexPage() {
     setHasLocationOnly(false);
     setSort("newest");
     setOffset(0);
+    setMapBounds(undefined);
+    const mapParams = new URLSearchParams(window.location.search);
+    for (const key of ["bbox", "map_bbox", "map_place_hash"]) mapParams.delete(key);
+    const mapQuery = mapParams.toString();
+    window.history.replaceState(window.history.state, "", mapQuery ? "/properties?" + mapQuery : "/properties");
   }
 
   async function shareCurrentSearch() {
