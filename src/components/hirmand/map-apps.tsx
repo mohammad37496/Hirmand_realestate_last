@@ -50,40 +50,36 @@ export function MapAppButtons({
 export function MapEmbed({ target, title }: { target: MapTarget; title: string }) {
   const links = mapLinks(target);
   const hasCoordinates = target.lat != null && target.lng != null;
+  const bbox = target.divarBbox;
+  const encodedBbox = bbox?.map((value) => Number(value.toFixed(7))).join(",");
+  const query = encodeURIComponent(target.searchQuery || target.address || `${target.label || "اصفهان"}، اصفهان، ایران`);
+  const embedUrl = hasCoordinates && encodedBbox
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${encodedBbox}&layer=mapnik&marker=${target.lat},${target.lng}`
+    : hasCoordinates
+      ? `https://maps.google.com/maps?q=${target.lat},${target.lng}&z=15&hl=fa&output=embed`
+      : `https://maps.google.com/maps?q=${query}&z=13&hl=fa&output=embed`;
 
   return (
     <div className="map-embed" role="region" aria-label={title}>
-      <div className="map-local-preview">
-        <div className="map-grid" aria-hidden="true" />
-        <div className="map-route map-route-a" aria-hidden="true" />
-        <div className="map-route map-route-b" aria-hidden="true" />
-        <div className="map-route map-route-c" aria-hidden="true" />
-        <div className="map-pin" aria-hidden="true">
-          <MapPinned size={22} strokeWidth={1.9} />
-        </div>
-        <div className="map-local-card">
-          <strong>{target.label}</strong>
-          <span>اصفهان</span>
-          {hasCoordinates ? (
-            <small>{target.lat!.toFixed(6)}، {target.lng!.toFixed(6)}</small>
-          ) : (
-            <small className="map-accuracy-note">مختصات ثابت ذخیره نشده؛ موقعیت از جستجوی مستقیم نقشه انتخاب می‌شود.</small>
-          )}
-          <div className="map-local-actions">
-            <a href={links.neshan} target="_blank" rel="noopener noreferrer">
-              <Navigation size={14} />
-              نشان
-            </a>
-            <a href={links.balad} target="_blank" rel="noopener noreferrer">
-              <Navigation size={14} />
-              بلد
-            </a>
-            <a href={links.google} target="_blank" rel="noopener noreferrer">
-              <MapPinned size={14} />
-              Google Maps
-            </a>
-          </div>
-        </div>
+      <iframe
+        title={title}
+        src={embedUrl}
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+        allowFullScreen
+        style={{ display: "block", width: "100%", height: "340px", border: 0, borderRadius: 16, background: "var(--card)" }}
+      />
+      <p style={{ margin: "9px 2px 0", fontSize: ".82rem", lineHeight: 1.9, color: "var(--subtle)" }}>
+        {hasCoordinates && encodedBbox
+          ? "مرکز و گسترهٔ تقریبی از کاتالوگ ذخیره‌شدهٔ محله‌هاست؛ مرز رسمی چندضلعی در دادهٔ منبع موجود نیست."
+          : hasCoordinates
+            ? "نشانگر بر اساس مختصات ثبت‌شده نمایش داده می‌شود."
+            : "برای این محدوده مختصات ثابت تأییدشده‌ای نداریم؛ نقشه با جستجوی نام باز می‌شود."}
+      </p>
+      <div className="map-local-actions" style={{ marginTop: 10 }}>
+        <a href={links.neshan} target="_blank" rel="noopener noreferrer">نشان</a>
+        <a href={links.balad} target="_blank" rel="noopener noreferrer">بلد</a>
+        <a href={links.google} target="_blank" rel="noopener noreferrer">Google Maps</a>
       </div>
     </div>
   );

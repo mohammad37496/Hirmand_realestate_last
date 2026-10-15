@@ -55,7 +55,15 @@ function AreaPage() {
     .filter((a) => a.groupTitle === area.groupTitle && a.slug !== area.slug)
     .slice(0, 8);
 
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${area.lat},${area.lng}`;
+  const areaQuery = encodeURIComponent(`${area.name}، اصفهان، ایران`);
+  const mapsUrl = area.lat != null && area.lng != null
+    ? `https://www.google.com/maps/search/?api=1&query=${area.lat},${area.lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${areaQuery}`;
+  const mapEmbedUrl = area.lat != null && area.lng != null && area.divarBbox
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${area.divarBbox.map((value) => Number(value.toFixed(7))).join(",")}&layer=mapnik&marker=${area.lat},${area.lng}`
+    : area.lat != null && area.lng != null
+      ? `https://maps.google.com/maps?q=${area.lat},${area.lng}&z=15&hl=fa&output=embed`
+      : `https://maps.google.com/maps?q=${areaQuery}&z=13&hl=fa&output=embed`;
 
   return (
     <SiteChrome className="property-detail-shell">
@@ -116,15 +124,30 @@ function AreaPage() {
               <div>
                 <strong>موقعیت روی نقشه</strong>
                 <p>
-                  {area.name}، اصفهان — مختصات تقریبی{" "}
-                  {area.lat == null || area.lng == null ? "ثبت نشده" :
-                    `${area.lat.toFixed(4)}، ${area.lng.toFixed(4)}`}
+                  {area.name} — {area.lat == null || area.lng == null
+                    ? "مرکز مختصات تأییدشده برای این نام ثبت نشده است."
+                    : `مرکز تقریبی: ${area.lat.toFixed(5)}، ${area.lng.toFixed(5)}`}
                 </p>
                 <a href={mapsUrl} target="_blank" rel="noopener noreferrer">
-                  باز کردن در گوگل‌مپ
+                  {area.lat == null || area.lng == null ? "جستجوی محدوده در گوگل‌مپ" : "باز کردن مرکز محدوده در گوگل‌مپ"}
                 </a>
               </div>
             </div>
+            <section aria-label={`نقشهٔ ${area.name}`} style={{ marginTop: 18 }}>
+              <iframe
+                title={`نقشهٔ ${area.name} در اصفهان`}
+                src={mapEmbedUrl}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+                style={{ display: "block", width: "100%", height: "clamp(280px, 40vw, 430px)", border: "1px solid var(--line)", borderRadius: 18, background: "var(--card)" }}
+              />
+              <p style={{ margin: "9px 2px 0", fontSize: ".82rem", lineHeight: 1.9, color: "var(--subtle)" }}>
+                {area.divarDistrictId && area.divarBbox
+                  ? "مرکز و گسترهٔ تقریبی از کاتالوگ ذخیره‌شدهٔ دیوار آمده است؛ دادهٔ موجود مرز رسمی چندضلعی را ندارد."
+                  : "برای این نام، مختصات ثابت تأییدشده در کاتالوگ نداریم؛ نقشه بر اساس جستجوی نام نمایش داده می‌شود."}
+              </p>
+            </section>
 
             {market ? (
               <section style={{ marginTop: 28, padding: 18, border: "1px solid var(--line)", borderRadius: 20, background: "var(--card)" }}>

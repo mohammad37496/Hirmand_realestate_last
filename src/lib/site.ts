@@ -1,3 +1,6 @@
+import divarNeighborhoodCatalog from "../../data/divar-isfahan-neighborhoods.json";
+import { mergeNeighborhoodGroups } from "@/lib/area-directory-core";
+
 export const SITE = {
   nameFa: "گروه مشاورین املاک هیرمند",
   shortName: "هیرمند",
@@ -79,13 +82,17 @@ export type MapTarget = {
   searchQuery?: string;
   lat?: number;
   lng?: number;
+  divarDistrictId?: string;
+  divarBbox?: [number, number, number, number];
 };
 
 export function mapLinks(target: MapTarget = { label: SITE.shortName, address: SITE.address }) {
   const query = (target.searchQuery || target.address || target.label || SITE.shortName).trim();
   const scopedQuery = query.includes("ایران") ? query : `${query}، اصفهان، ایران`;
   const q = encodeURIComponent(scopedQuery);
-  const googleSearch = `https://www.google.com/maps/search/?api=1&query=${q}`;
+  const googleSearch = target.lat != null && target.lng != null
+    ? `https://www.google.com/maps/search/?api=1&query=${target.lat},${target.lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${q}`;
   const googleDirections = `https://www.google.com/maps/dir/?api=1&destination=${q}`;
   const neshan = `https://neshan.org/maps/search/${q}`;
   const balad = `https://balad.ir/search?query=${q}`;
@@ -200,9 +207,13 @@ export type Neighborhood = {
   lat?: number;
   lng?: number;
   label?: string;
+  divarDistrictId?: string;
+  divarSlug?: string;
+  divarSecondSlug?: string | null;
+  divarBbox?: [number, number, number, number];
 };
 
-export const NEIGHBORHOOD_GROUPS: { title: string; items: Neighborhood[] }[] = [
+const CURATED_NEIGHBORHOOD_GROUPS: { title: string; items: Neighborhood[] }[] = [
   {
     title: "مرکز و بافت تاریخی",
     items: [
@@ -241,6 +252,12 @@ export const NEIGHBORHOOD_GROUPS: { title: string; items: Neighborhood[] }[] = [
     ].map((name) => ({ name, address: `${name}، اصفهان`, searchQuery: `${name}، اصفهان` })),
   },
 ];
+
+// This catalog is bundled locally so neighborhood maps work without a live Divar dependency.
+export const NEIGHBORHOOD_GROUPS = mergeNeighborhoodGroups(
+  CURATED_NEIGHBORHOOD_GROUPS,
+  divarNeighborhoodCatalog.districts,
+);
 export const NEIGHBORHOODS = NEIGHBORHOOD_GROUPS.flatMap((group) => group.items);
 export const NEIGHBORHOOD_NAMES = NEIGHBORHOODS.map((item) => item.name);
 

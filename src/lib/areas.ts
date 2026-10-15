@@ -1,6 +1,7 @@
 import { NEIGHBORHOOD_GROUPS, type Neighborhood } from "@/lib/site";
 import { SITE } from "@/lib/site";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
+import { normalizeAreaDirectoryKey } from "@/lib/area-directory-core";
 
 export type AreaInfo = Neighborhood & {
   slug: string;
@@ -21,21 +22,33 @@ export function areaSlug(name: string): string {
 
 export function allAreas(): AreaInfo[] {
   const out: AreaInfo[] = [];
+  const usedSlugs = new Set<string>();
   for (const group of NEIGHBORHOOD_GROUPS) {
-    for (const item of group.items) {
-      out.push({
-        ...item,
-        slug: areaSlug(item.name),
-        groupTitle: group.title,
-      });
-    }
+    group.items.forEach((item, index) => {
+      const baseSlug = areaSlug(item.name) || `area-${out.length + 1}`;
+      let slug = baseSlug;
+      if (usedSlugs.has(slug)) slug = `${baseSlug}-${item.divarDistrictId ?? out.length + 1}`;
+      let suffix = 2;
+      while (usedSlugs.has(slug)) slug = `${baseSlug}-${item.divarDistrictId ?? index + suffix++}`;
+      usedSlugs.add(slug);
+      out.push({ ...item, slug, groupTitle: group.title });
+    });
   }
   return out;
 }
 
 export function findAreaBySlug(slug: string): AreaInfo | null {
-  const normalized = areaSlug(decodeURIComponent(slug));
-  return allAreas().find((a) => a.slug === normalized) ?? null;
+  let decoded = slug;
+  try { decoded = decodeURIComponent(slug); } catch { /* keep the raw route value */ }
+  const raw = decoded.trim().toLowerCase();
+  const normalizedSlug = areaSlug(raw);
+  const normalizedName = normalizeAreaDirectoryKey(raw);
+  return allAreas().find((area) =>
+    area.slug === normalizedSlug ||
+    Boolean(area.divarSlug && area.divarSlug.toLowerCase() === raw) ||
+    Boolean(area.divarSecondSlug && area.divarSecondSlug.toLowerCase() === raw) ||
+    normalizeAreaDirectoryKey(area.name) === normalizedName
+  ) ?? null;
 }
 
 export function areaPath(nameOrSlug: string): string {
@@ -89,11 +102,13 @@ export function areaJsonLd(area: AreaInfo) {
     "@id": `${url}#place`,
     name: `${area.name}، اصفهان`,
     description: `محله ${area.name} در اصفهان — خدمات املاک هیرمند`,
-    geo: {
-      "@type": "GeoCoordinates",
-      latitude: area.lat,
-      longitude: area.lng,
-    },
+    ...(area.lat != null && area.lng != null ? {
+      geo: {
+        "@type": "GeoCoordinates",
+        latitude: area.lat,
+        longitude: area.lng,
+      },
+    } : {}),
     containedInPlace: {
       "@type": "City",
       name: "اصفهان",
