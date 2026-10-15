@@ -971,7 +971,18 @@
     min-height: 360px;
   }
   .pf-map-coordinate-badge {
-    display: none;
+    display: inline-flex;
+    position: absolute;
+    top: 40px;
+    inset-inline-end: 0;
+    max-width: calc(100% - 4px);
+    min-height: 23px;
+    overflow: hidden;
+    padding: 4px 6px;
+    border-color: rgb(224 231 227 / .94);
+    background: rgb(255 255 255 / .94);
+    font-size: .57rem;
+    text-overflow: ellipsis;
   }
 }
 @media (max-width: 620px) {
