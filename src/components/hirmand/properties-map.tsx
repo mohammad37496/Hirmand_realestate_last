@@ -7,6 +7,12 @@ type MapProperty = PropertyCardData;
 type MapView = { latitude: number; longitude: number; zoom: number };
 type PixelPoint = { x: number; y: number };
 type MapSize = { width: number; height: number };
+type NeighborhoodMapTarget = {
+  name: string;
+  latitude?: number;
+  longitude?: number;
+  bbox?: readonly [number, number, number, number];
+};
 
 const TILE_SIZE = 256;
 const DEFAULT_VIEW: MapView = { latitude: 32.655, longitude: 51.668, zoom: 12 };
@@ -69,10 +75,12 @@ export function PropertiesMap({
   properties,
   selectedPropertyId,
   onSelect,
+  neighborhoodTarget,
 }: {
   properties: MapProperty[];
   selectedPropertyId: string | null;
   onSelect: (id: string) => void;
+  neighborhoodTarget?: NeighborhoodMapTarget | null;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -81,6 +89,13 @@ export function PropertiesMap({
   const [dragOffset, setDragOffset] = useState<PixelPoint>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [failedTiles, setFailedTiles] = useState<Set<string>>(new Set());
+  const neighborhoodName = neighborhoodTarget?.name ?? "";
+  const neighborhoodLatitude = neighborhoodTarget?.latitude;
+  const neighborhoodLongitude = neighborhoodTarget?.longitude;
+  const neighborhoodWest = neighborhoodTarget?.bbox?.[0];
+  const neighborhoodSouth = neighborhoodTarget?.bbox?.[1];
+  const neighborhoodEast = neighborhoodTarget?.bbox?.[2];
+  const neighborhoodNorth = neighborhoodTarget?.bbox?.[3];
 
   useEffect(() => {
     const node = mapRef.current;
@@ -113,6 +128,84 @@ export function PropertiesMap({
       zoom: 14,
     });
   }, []);
+
+  useEffect(() => {
+    if (!neighborhoodName) return;
+
+    const hasBounds =
+      neighborhoodWest != null &&
+      neighborhoodSouth != null &&
+      neighborhoodEast != null &&
+      neighborhoodNorth != null &&
+      Number.isFinite(neighborhoodWest) &&
+      Number.isFinite(neighborhoodSouth) &&
+      Number.isFinite(neighborhoodEast) &&
+      Number.isFinite(neighborhoodNorth) &&
+      neighborhoodWest < neighborhoodEast &&
+      neighborhoodSouth < neighborhoodNorth;
+
+    if (hasBounds) {
+      // Bboxes come from the bundled Divar district catalog. Fit the real
+      // district bounds with a safety margin instead of guessing a pin center.
+      const topLeft = project(neighborhoodNorth, neighborhoodWest, 0);
+      const bottomRight = project(neighborhoodSouth, neighborhoodEast, 0);
+      const usableWidth = Math.max(240, size.width - 72);
+      const usableHeight = Math.max(240, size.height - 128);
+      const zoomX = Math.log2(usableWidth / Math.max(0.0001, bottomRight.x - topLeft.x));
+      const zoomY = Math.log2(usableHeight / Math.max(0.0001, bottomRight.y - topLeft.y));
+      const zoom = Math.max(10, Math.min(17, Math.floor(Math.min(zoomX, zoomY))));
+      setView({
+        latitude: (neighborhoodSouth + neighborhoodNorth) / 2,
+        longitude: (neighborhoodWest + neighborhoodEast) / 2,
+        zoom,
+      });
+      return;
+    }
+
+    if (
+      neighborhoodLatitude != null &&
+      neighborhoodLongitude != null &&
+      Number.isFinite(neighborhoodLatitude) &&
+      Number.isFinite(neighborhoodLongitude)
+    ) {
+      setView({
+        latitude: neighborhoodLatitude,
+        longitude: neighborhoodLongitude,
+        zoom: 15,
+      });
+    }
+  }, [
+    neighborhoodName,
+    neighborhoodLatitude,
+    neighborhoodLongitude,
+    neighborhoodWest,
+    neighborhoodSouth,
+    neighborhoodEast,
+    neighborhoodNorth,
+    size.width,
+    size.height,
+  ]);
+
+  useEffect(() => {
+    const selected = properties.find((property) => property.id === selectedPropertyId);
+    if (!selected || selected.latitude == null || selected.longitude == null) return;
+    const latitude = Number(selected.latitude);
+    const longitude = Number(selected.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    setView((current) => {
+      if (
+        Math.abs(current.latitude - latitude) < 0.0003 &&
+        Math.abs(current.longitude - longitude) < 0.0003 &&
+        current.zoom >= 14
+      ) return current;
+      return {
+        ...current,
+        latitude,
+        longitude,
+        zoom: Math.max(14, current.zoom),
+      };
+    });
+  }, [properties, selectedPropertyId]);
 
   useEffect(() => {
     setFailedTiles(new Set());

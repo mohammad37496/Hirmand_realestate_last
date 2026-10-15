@@ -221,6 +221,10 @@ function buildFilterData(
   maxArea: string,
   minPrice: string,
   maxPrice: string,
+  minDeposit: string,
+  maxDeposit: string,
+  minRent: string,
+  maxRent: string,
   minBedrooms: string,
   minBathrooms: string,
   minFloor: string,
@@ -245,6 +249,8 @@ function buildFilterData(
 ) {
   const [nextMinArea, nextMaxArea] = normalizeBounds(minArea, maxArea);
   const [nextMinPrice, nextMaxPrice] = normalizeBounds(minPrice, maxPrice);
+  const [nextMinDeposit, nextMaxDeposit] = normalizeBounds(minDeposit, maxDeposit);
+  const [nextMinRent, nextMaxRent] = normalizeBounds(minRent, maxRent);
   const [nextMinFloor, nextMaxFloor] = normalizeFloorBounds(minFloor, maxFloor);
   const [nextMinTotalFloors, nextMaxTotalFloors] = normalizeBounds(minTotalFloors, maxTotalFloors);
   const [nextMinBuiltYear, nextMaxBuiltYear] = normalizeBounds(minBuiltYear, maxBuiltYear);
@@ -257,6 +263,10 @@ function buildFilterData(
     maxArea: nextMaxArea,
     minPrice: nextMinPrice,
     maxPrice: nextMaxPrice,
+    minDeposit: nextMinDeposit,
+    maxDeposit: nextMaxDeposit,
+    minRent: nextMinRent,
+    maxRent: nextMaxRent,
     minBedrooms: parseNumber(minBedrooms),
     minBathrooms: parseNumber(minBathrooms),
     minFloor: nextMinFloor,
@@ -377,6 +387,10 @@ function PropertiesIndexPage() {
   const [maxArea, setMaxArea] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [minDeposit, setMinDeposit] = useState("");
+  const [maxDeposit, setMaxDeposit] = useState("");
+  const [minRent, setMinRent] = useState("");
+  const [maxRent, setMaxRent] = useState("");
   const [minBedrooms, setMinBedrooms] = useState("");
   const [minBathrooms, setMinBathrooms] = useState("");
   const [minFloor, setMinFloor] = useState("");
@@ -407,6 +421,8 @@ function PropertiesIndexPage() {
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
+  const [neighborhoodSearch, setNeighborhoodSearch] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
@@ -459,6 +475,10 @@ function PropertiesIndexPage() {
     setMaxArea(params.get("maxArea") ?? "");
     setMinPrice(params.get("minPrice") ?? "");
     setMaxPrice(params.get("maxPrice") ?? "");
+    setMinDeposit(params.get("minDeposit") ?? "");
+    setMaxDeposit(params.get("maxDeposit") ?? "");
+    setMinRent(params.get("minRent") ?? "");
+    setMaxRent(params.get("maxRent") ?? "");
     setMinBedrooms(params.get("bedrooms") ?? "");
     setMinBathrooms(params.get("bathrooms") ?? "");
     setMinFloor(params.get("minFloor") ?? "");
@@ -485,6 +505,18 @@ function PropertiesIndexPage() {
   }, []);
 
   useEffect(() => {
+    if (!neighborhoodPickerOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNeighborhoodPickerOpen(false);
+        setNeighborhoodSearch("");
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [neighborhoodPickerOpen]);
+
+  useEffect(() => {
     if (!urlReady) return;
 
     // Do not let the listing's URL-sync effect overwrite a navigation that is
@@ -496,19 +528,29 @@ function PropertiesIndexPage() {
 
     const currentParams = new URLSearchParams(window.location.search);
     const params = new URLSearchParams();
-    // Keep map viewport/bookmarked neighborhood parameters when ordinary filters change.
-    for (const key of ["bbox", "map_bbox", "map_place_hash"]) {
-      const value = currentParams.get(key);
-      if (value) params.set(key, value);
+    // A selected Divar neighborhood owns the map bounds. Otherwise preserve
+    // an incoming viewport from a shared URL without carrying an old place hash.
+    const selectedArea = neighborhood ? NEIGHBORHOODS.find((item) => item.name === neighborhood) : undefined;
+    if (!neighborhood && !currentParams.get("neighborhood")) {
+      for (const key of ["bbox", "map_bbox"]) {
+        const value = currentParams.get(key);
+        if (value) params.set(key, value);
+      }
     }
     if (q.trim()) params.set("q", q.trim());
     if (transactionType) params.set("transaction", transactionType);
     if (propertyType) params.set("type", propertyType);
     if (neighborhood) params.set("neighborhood", neighborhood);
+    if (selectedArea?.divarBbox) params.set("map_bbox", selectedArea.divarBbox.join(","));
+    if (selectedArea?.divarDistrictId) params.set("map_place_hash", `4|${selectedArea.divarDistrictId}`);
     if (minArea.trim()) params.set("minArea", minArea.trim());
     if (maxArea.trim()) params.set("maxArea", maxArea.trim());
     if (minPrice.trim()) params.set("minPrice", minPrice.trim());
     if (maxPrice.trim()) params.set("maxPrice", maxPrice.trim());
+    if (minDeposit.trim()) params.set("minDeposit", minDeposit.trim());
+    if (maxDeposit.trim()) params.set("maxDeposit", maxDeposit.trim());
+    if (minRent.trim()) params.set("minRent", minRent.trim());
+    if (maxRent.trim()) params.set("maxRent", maxRent.trim());
     if (minBedrooms.trim()) params.set("bedrooms", minBedrooms.trim());
     if (minBathrooms.trim()) params.set("bathrooms", minBathrooms.trim());
     if (minFloor.trim()) params.set("minFloor", minFloor.trim());
@@ -537,7 +579,7 @@ function PropertiesIndexPage() {
       "",
       query ? `/properties?${query}` : "/properties",
     );
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
 
   useEffect(() => {
     if (!urlReady) return;
@@ -562,6 +604,10 @@ function PropertiesIndexPage() {
         maxArea,
         minPrice,
         maxPrice,
+        minDeposit,
+        maxDeposit,
+        minRent,
+        maxRent,
         minBedrooms,
         minBathrooms,
         minFloor,
@@ -620,7 +666,7 @@ function PropertiesIndexPage() {
     }, 320);
 
     return () => window.clearTimeout(timer);
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || properties.length >= total) return;
@@ -638,6 +684,10 @@ function PropertiesIndexPage() {
           maxArea,
           minPrice,
           maxPrice,
+          minDeposit,
+          maxDeposit,
+          minRent,
+          maxRent,
           minBedrooms,
           minBathrooms,
           minFloor,
@@ -694,6 +744,10 @@ function PropertiesIndexPage() {
     maxArea,
     minPrice,
     maxPrice,
+    minDeposit,
+    maxDeposit,
+    minRent,
+    maxRent,
     minBedrooms,
     minBathrooms,
     minFloor,
@@ -741,6 +795,10 @@ function PropertiesIndexPage() {
     if (maxArea.trim()) params.set("maxArea", maxArea.trim());
     if (minPrice.trim()) params.set("minPrice", minPrice.trim());
     if (maxPrice.trim()) params.set("maxPrice", maxPrice.trim());
+    if (minDeposit.trim()) params.set("minDeposit", minDeposit.trim());
+    if (maxDeposit.trim()) params.set("maxDeposit", maxDeposit.trim());
+    if (minRent.trim()) params.set("minRent", minRent.trim());
+    if (maxRent.trim()) params.set("maxRent", maxRent.trim());
     if (minBedrooms.trim()) params.set("bedrooms", minBedrooms.trim());
     if (minBathrooms.trim()) params.set("bathrooms", minBathrooms.trim());
     if (minFloor.trim()) params.set("minFloor", minFloor.trim());
@@ -775,6 +833,10 @@ function PropertiesIndexPage() {
       params.get("maxArea") ?? "",
       params.get("minPrice") ?? "",
       params.get("maxPrice") ?? "",
+      params.get("minDeposit") ?? "",
+      params.get("maxDeposit") ?? "",
+      params.get("minRent") ?? "",
+      params.get("maxRent") ?? "",
       params.get("bedrooms") ?? "",
       params.get("bathrooms") ?? "",
       params.get("minFloor") ?? "",
@@ -871,6 +933,10 @@ function PropertiesIndexPage() {
     setMaxArea(params.get("maxArea") ?? "");
     setMinPrice(params.get("minPrice") ?? "");
     setMaxPrice(params.get("maxPrice") ?? "");
+    setMinDeposit(params.get("minDeposit") ?? "");
+    setMaxDeposit(params.get("maxDeposit") ?? "");
+    setMinRent(params.get("minRent") ?? "");
+    setMaxRent(params.get("maxRent") ?? "");
     setMinBedrooms(params.get("bedrooms") ?? "");
     setMinBathrooms(params.get("bathrooms") ?? "");
     setMinFloor(params.get("minFloor") ?? "");
@@ -935,6 +1001,24 @@ function PropertiesIndexPage() {
     }
   }
 
+  function changeTransactionFilter(next: PropertyTransaction | "") {
+    setTransactionType(next);
+    if (next === "rent") {
+      setMinPrice("");
+      setMaxPrice("");
+    } else if (next === "mortgage") {
+      setMinPrice("");
+      setMaxPrice("");
+      setMinRent("");
+      setMaxRent("");
+    } else {
+      setMinDeposit("");
+      setMaxDeposit("");
+      setMinRent("");
+      setMaxRent("");
+    }
+  }
+
   function resetFilters() {
     setQ("");
     setTransactionType("");
@@ -944,6 +1028,10 @@ function PropertiesIndexPage() {
     setMaxArea("");
     setMinPrice("");
     setMaxPrice("");
+    setMinDeposit("");
+    setMaxDeposit("");
+    setMinRent("");
+    setMaxRent("");
     setMinBedrooms("");
     setMinBathrooms("");
     setMinFloor("");
@@ -1003,6 +1091,19 @@ function PropertiesIndexPage() {
   }, [viewMode, properties, selectedPropertyId]);
 
   const selectedProperty = properties.find((property) => property.id === selectedPropertyId) ?? null;
+  const mapNeighborhood = neighborhood ? NEIGHBORHOODS.find((item) => item.name === neighborhood) : undefined;
+  const normalizedNeighborhoodSearch = neighborhoodSearch.trim().toLocaleLowerCase("fa-IR")
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک");
+  const filteredNeighborhoodOptions = neighborhoodOptions
+    .filter((item) => {
+      if (!normalizedNeighborhoodSearch) return true;
+      return item.toLocaleLowerCase("fa-IR")
+        .replace(/[يى]/g, "ی")
+        .replace(/ك/g, "ک")
+        .includes(normalizedNeighborhoodSearch);
+    })
+    .sort((a, b) => a.localeCompare(b, "fa", { sensitivity: "base", numeric: true }));
 
   const hasFilters = Boolean(
     q.trim() ||
@@ -1013,6 +1114,10 @@ function PropertiesIndexPage() {
     maxArea.trim() ||
     minPrice.trim() ||
     maxPrice.trim() ||
+    minDeposit.trim() ||
+    maxDeposit.trim() ||
+    minRent.trim() ||
+    maxRent.trim() ||
     minBedrooms.trim() ||
     minBathrooms.trim() ||
     minFloor.trim() ||
@@ -1042,6 +1147,8 @@ function PropertiesIndexPage() {
     neighborhood,
     minArea.trim() || maxArea.trim(),
     minPrice.trim() || maxPrice.trim(),
+    minDeposit.trim() || maxDeposit.trim(),
+    minRent.trim() || maxRent.trim(),
     minBedrooms.trim(),
     minBathrooms.trim() || minFloor.trim() || maxFloor.trim() || floorType || orientation || minTotalFloors.trim() || maxTotalFloors.trim() || minBuiltYear.trim() || maxBuiltYear.trim(),
     parkingOnly ? "parking" : "",
@@ -1072,6 +1179,12 @@ function PropertiesIndexPage() {
       : null,
     minPrice.trim() || maxPrice.trim()
       ? { label: `قیمت ${minPrice || "۰"} تا ${maxPrice || "∞"}`, clear: () => { setMinPrice(""); setMaxPrice(""); } }
+      : null,
+    minDeposit.trim() || maxDeposit.trim()
+      ? { label: `ودیعه ${minDeposit || "۰"} تا ${maxDeposit || "∞"} تومان`, clear: () => { setMinDeposit(""); setMaxDeposit(""); } }
+      : null,
+    minRent.trim() || maxRent.trim()
+      ? { label: `اجاره ماهانه ${minRent || "۰"} تا ${maxRent || "∞"} تومان`, clear: () => { setMinRent(""); setMaxRent(""); } }
       : null,
     minBedrooms.trim() ? { label: `${minBedrooms} خواب به بالا`, clear: () => setMinBedrooms("") } : null,
     minBathrooms.trim() ? { label: `${minBathrooms} حمام به بالا`, clear: () => setMinBathrooms("") } : null,
@@ -1178,6 +1291,106 @@ function PropertiesIndexPage() {
           />
         ) : null}
 
+        {neighborhoodPickerOpen ? (
+          <div className="pf-neighborhood-layer">
+            <button
+              type="button"
+              className="pf-neighborhood-backdrop"
+              aria-label="بستن انتخاب محله"
+              onClick={() => {
+                setNeighborhoodPickerOpen(false);
+                setNeighborhoodSearch("");
+              }}
+            />
+            <section className="pf-neighborhood-dialog" role="dialog" aria-modal="true" aria-labelledby="pf-neighborhood-title">
+              <header className="pf-neighborhood-dialog-head">
+                <div>
+                  <strong id="pf-neighborhood-title">انتخاب محله اصفهان</strong>
+                  <small>{fa(filteredNeighborhoodOptions.length)} محله در فهرست</small>
+                </div>
+                <button
+                  type="button"
+                  className="pf-neighborhood-dialog-close"
+                  aria-label="بستن پنجره انتخاب محله"
+                  onClick={() => {
+                    setNeighborhoodPickerOpen(false);
+                    setNeighborhoodSearch("");
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </header>
+              <label className="pf-neighborhood-search">
+                <Search size={17} aria-hidden="true" />
+                <input
+                  type="search"
+                  autoFocus
+                  value={neighborhoodSearch}
+                  onChange={(event) => setNeighborhoodSearch(event.target.value)}
+                  placeholder="جست‌وجوی محله؛ مثلاً مرداویج یا جلفا"
+                  aria-label="جست‌وجو در محله‌های اصفهان"
+                />
+                {neighborhoodSearch ? (
+                  <button type="button" aria-label="پاک کردن جست‌وجوی محله" onClick={() => setNeighborhoodSearch("")}>
+                    <X size={14} />
+                  </button>
+                ) : null}
+              </label>
+              <div className="pf-neighborhood-options" role="listbox" aria-label="محله‌های قابل انتخاب">
+                <button
+                  type="button"
+                  className={"pf-neighborhood-option pf-neighborhood-all" + (!neighborhood ? " is-active" : "")}
+                  onClick={() => {
+                    setNeighborhood("");
+                    setNeighborhoodPickerOpen(false);
+                    setNeighborhoodSearch("");
+                  }}
+                  aria-pressed={!neighborhood}
+                >
+                  <span className="pf-neighborhood-option-copy">
+                    <strong>همه محله‌ها</strong>
+                    <small>نمایش فایل‌های سراسر اصفهان</small>
+                  </span>
+                  {!neighborhood ? <span className="pf-neighborhood-check" aria-hidden="true">✓</span> : null}
+                </button>
+                {filteredNeighborhoodOptions.map((item) => {
+                  const area = NEIGHBORHOODS.find((candidate) => candidate.name === item);
+                  const hasMapBounds = Boolean(area?.divarBbox);
+                  const hasCoordinates = area?.lat != null && area?.lng != null;
+                  const isSelected = neighborhood === item;
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className={"pf-neighborhood-option" + (isSelected ? " is-active" : "")}
+                      onClick={() => {
+                        setNeighborhood(item);
+                        setNeighborhoodPickerOpen(false);
+                        setNeighborhoodSearch("");
+                      }}
+                    >
+                      <span className="pf-neighborhood-option-copy">
+                        <strong>{item}</strong>
+                        <small>{hasMapBounds ? "محدوده نقشه ثبت‌شده" : hasCoordinates ? "مختصات ثبت‌شده" : "فهرست محله"}</small>
+                      </span>
+                      {isSelected ? <span className="pf-neighborhood-check" aria-hidden="true">✓</span> : null}
+                    </button>
+                  );
+                })}
+                {!filteredNeighborhoodOptions.length ? (
+                  <p className="pf-neighborhood-no-results">محله‌ای با این نام پیدا نشد. نام را کوتاه‌تر وارد کنید.</p>
+                ) : null}
+              </div>
+              <footer className="pf-neighborhood-dialog-foot">
+                <span>{neighborhood ? `انتخاب فعلی: ${neighborhood}` : "با انتخاب محله، نقشه روی محدوده آن متمرکز می‌شود."}</span>
+                <button type="button" onClick={() => setNeighborhoodPickerOpen(false)}>تمام</button>
+              </footer>
+            </section>
+          </div>
+        ) : null}
+
         <div className="pf-layout">
           <aside
             className={`pf-sidebar${mobileFiltersOpen ? " is-open" : ""}`}
@@ -1214,7 +1427,7 @@ function PropertiesIndexPage() {
                   <button
                     type="button"
                     className={"pf-chip" + (transactionType ? "" : " is-active")}
-                    onClick={() => setTransactionType("")}
+                    onClick={() => changeTransactionFilter("")}
                   >
                     همه
                   </button>
@@ -1223,7 +1436,7 @@ function PropertiesIndexPage() {
                       key={item.id}
                       type="button"
                       className={"pf-chip" + (transactionType === item.id ? " is-active" : "")}
-                      onClick={() => setTransactionType(transactionType === item.id ? "" : (item.id as PropertyTransaction))}
+                      onClick={() => changeTransactionFilter(transactionType === item.id ? "" : (item.id as PropertyTransaction))}
                     >
                       {item.title}
                     </button>
@@ -1254,15 +1467,26 @@ function PropertiesIndexPage() {
               </FilterGroup>
 
               <FilterGroup title="محله" hint={fa(NEIGHBORHOOD_NAMES.length) + " محله"}>
-                <label className="pf-field">
-                  <span className="sr-only">انتخاب محله</span>
-                  <select className="pf-select" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)}>
-                    <option value="">همه محله‌ها</option>
-                    {neighborhoodOptions.map((item) => (
-                      <option key={item} value={item}>{item}</option>
-                    ))}
-                  </select>
-                </label>
+                <button
+                  type="button"
+                  className="pf-neighborhood-trigger"
+                  onClick={() => {
+                    setNeighborhoodSearch("");
+                    setNeighborhoodPickerOpen(true);
+                  }}
+                  aria-haspopup="dialog"
+                  aria-expanded={neighborhoodPickerOpen}
+                  aria-label={neighborhood ? `محله انتخاب‌شده: ${neighborhood}؛ تغییر محله` : "انتخاب محله"}
+                >
+                  <span className="pf-neighborhood-trigger-value">
+                    <strong>{neighborhood || "همه محله‌ها"}</strong>
+                    <small>{neighborhood ? "برای تغییر، انتخاب کنید" : "انتخاب محله از فهرست اصفهان"}</small>
+                  </span>
+                  <span className="pf-neighborhood-trigger-action">
+                    <MapPinned size={16} aria-hidden="true" />
+                    انتخاب
+                  </span>
+                </button>
               </FilterGroup>
 
               <div className="pf-compact-ranges">
@@ -1280,19 +1504,52 @@ function PropertiesIndexPage() {
                   </div>
                 </FilterGroup>
 
-                <FilterGroup title="قیمت" hint="تومان">
-                  <div className="pf-range">
-                    <label className="pf-field">
-                      <span>از</span>
-                      <input inputMode="numeric" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="۰" />
-                    </label>
-                    <i aria-hidden="true">—</i>
-                    <label className="pf-field">
-                      <span>تا</span>
-                      <input inputMode="numeric" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="نامحدود" />
-                    </label>
-                  </div>
-                </FilterGroup>
+                {transactionType === "rent" || transactionType === "mortgage" ? (
+                  <>
+                    <FilterGroup title="ودیعه (رهن)" hint="تومان">
+                      <div className="pf-range">
+                        <label className="pf-field">
+                          <span>حداقل ودیعه</span>
+                          <input inputMode="numeric" value={minDeposit} onChange={(e) => setMinDeposit(e.target.value)} placeholder="۵۰۰۰۰۰۰۰۰" />
+                        </label>
+                        <i aria-hidden="true">—</i>
+                        <label className="pf-field">
+                          <span>حداکثر ودیعه</span>
+                          <input inputMode="numeric" value={maxDeposit} onChange={(e) => setMaxDeposit(e.target.value)} placeholder="بدون سقف" />
+                        </label>
+                      </div>
+                    </FilterGroup>
+                    {transactionType === "rent" ? (
+                      <FilterGroup title="اجاره ماهانه" hint="تومان در ماه">
+                        <div className="pf-range">
+                          <label className="pf-field">
+                            <span>حداقل اجاره</span>
+                            <input inputMode="numeric" value={minRent} onChange={(e) => setMinRent(e.target.value)} placeholder="۱۰۰۰۰۰۰۰" />
+                          </label>
+                          <i aria-hidden="true">—</i>
+                          <label className="pf-field">
+                            <span>حداکثر اجاره</span>
+                            <input inputMode="numeric" value={maxRent} onChange={(e) => setMaxRent(e.target.value)} placeholder="بدون سقف" />
+                          </label>
+                        </div>
+                      </FilterGroup>
+                    ) : null}
+                  </>
+                ) : (
+                  <FilterGroup title="قیمت" hint="تومان">
+                    <div className="pf-range">
+                      <label className="pf-field">
+                        <span>از</span>
+                        <input inputMode="numeric" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="۰" />
+                      </label>
+                      <i aria-hidden="true">—</i>
+                      <label className="pf-field">
+                        <span>تا</span>
+                        <input inputMode="numeric" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="نامحدود" />
+                      </label>
+                    </div>
+                  </FilterGroup>
+                )}
               </div>
             </div>
 
@@ -1502,7 +1759,7 @@ function PropertiesIndexPage() {
                   key={item.id}
                   type="button"
                   className={`pf-chip${transactionType === item.id ? " is-active" : ""}`}
-                  onClick={() => setTransactionType(transactionType === item.id ? "" : (item.id as PropertyTransaction))}
+                  onClick={() => changeTransactionFilter(transactionType === item.id ? "" : (item.id as PropertyTransaction))}
                 >
                   {item.title}
                 </button>
@@ -1696,6 +1953,12 @@ function PropertiesIndexPage() {
                         properties={properties}
                         selectedPropertyId={selectedPropertyId}
                         onSelect={setSelectedPropertyId}
+                        neighborhoodTarget={mapNeighborhood ? {
+                          name: mapNeighborhood.name,
+                          latitude: mapNeighborhood.lat,
+                          longitude: mapNeighborhood.lng,
+                          bbox: mapNeighborhood.divarBbox,
+                        } : null}
                       />
                     </div>
                   </div>
