@@ -30,7 +30,9 @@ import { Route as SmartSearchRouteImport } from './routes/smart-search'
 import { Route as SubmitPropertyRouteImport } from './routes/submit-property'
 import { Route as TrackingRouteImport } from './routes/tracking'
 import { Route as ValuationRouteImport } from './routes/valuation'
+import { Route as AreasRouteImport } from './routes/areas'
 import { Route as AreasSlugRouteImport } from './routes/areas.$slug'
+import { Route as AreasIndexRouteImport } from './routes/areas.index'
 import { Route as ConsultantsIndexRouteImport } from './routes/consultants.index'
 import { Route as ConsultantsIdRouteImport } from './routes/consultants.$id'
 import { Route as FileIdRouteImport } from './routes/file.$id'
@@ -148,10 +150,20 @@ const ValuationRoute = ValuationRouteImport.update({
   path: '/valuation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AreasSlugRoute = AreasSlugRouteImport.update({
-  id: '/areas/$slug',
-  path: '/areas/$slug',
+const AreasRoute = AreasRouteImport.update({
+  id: '/areas',
+  path: '/areas',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AreasSlugRoute = AreasSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => AreasRoute,
+} as any)
+const AreasIndexRoute = AreasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AreasRoute,
 } as any)
 const ConsultantsIndexRoute = ConsultantsIndexRouteImport.update({
   id: '/',
@@ -231,7 +243,9 @@ export interface FileRoutesByFullPath {
   '/submit-property': typeof SubmitPropertyRoute
   '/tracking': typeof TrackingRoute
   '/valuation': typeof ValuationRoute
+  '/areas': typeof AreasRouteWithChildren
   '/areas/$slug': typeof AreasSlugRoute
+  '/areas/': typeof AreasIndexRoute
   '/consultants/$id': typeof ConsultantsIdRoute
   '/file/$id': typeof FileIdRoute
   '/properties/$slug': typeof PropertiesSlugRoute
@@ -262,6 +276,7 @@ export interface FileRoutesByTo {
   '/submit-property': typeof SubmitPropertyRoute
   '/tracking': typeof TrackingRoute
   '/valuation': typeof ValuationRoute
+  '/areas': typeof AreasIndexRoute
   '/areas/$slug': typeof AreasSlugRoute
   '/consultants/$id': typeof ConsultantsIdRoute
   '/file/$id': typeof FileIdRoute
@@ -298,7 +313,9 @@ export interface FileRoutesById {
   '/submit-property': typeof SubmitPropertyRoute
   '/tracking': typeof TrackingRoute
   '/valuation': typeof ValuationRoute
+  '/areas': typeof AreasRouteWithChildren
   '/areas/$slug': typeof AreasSlugRoute
+  '/areas/': typeof AreasIndexRoute
   '/consultants/$id': typeof ConsultantsIdRoute
   '/file/$id': typeof FileIdRoute
   '/properties/$slug': typeof PropertiesSlugRoute
@@ -335,7 +352,9 @@ export interface FileRouteTypes {
     | '/submit-property'
     | '/tracking'
     | '/valuation'
+    | '/areas'
     | '/areas/$slug'
+    | '/areas/'
     | '/consultants/$id'
     | '/file/$id'
     | '/properties/$slug'
@@ -368,6 +387,7 @@ export interface FileRouteTypes {
     | '/submit-property'
     | '/tracking'
     | '/valuation'
+    | '/areas'
     | '/areas/$slug'
     | '/consultants/$id'
     | '/file/$id'
@@ -402,7 +422,9 @@ export interface FileRouteTypes {
     | '/submit-property'
     | '/tracking'
     | '/valuation'
+    | '/areas'
     | '/areas/$slug'
+    | '/areas/'
     | '/consultants/$id'
     | '/file/$id'
     | '/properties/$slug'
@@ -438,7 +460,7 @@ export interface RootRouteChildren {
   SubmitPropertyRoute: typeof SubmitPropertyRoute
   TrackingRoute: typeof TrackingRoute
   ValuationRoute: typeof ValuationRoute
-  AreasSlugRoute: typeof AreasSlugRoute
+  AreasRoute: typeof AreasRouteWithChildren
   FileIdRoute: typeof FileIdRoute
   ToolsCommissionRoute: typeof ToolsCommissionRoute
   ToolsDepositRoute: typeof ToolsDepositRoute
@@ -597,12 +619,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ValuationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/areas': {
+      id: '/areas'
+      path: '/areas'
+      fullPath: '/areas'
+      preLoaderRoute: typeof AreasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/areas/': {
+      id: '/areas/'
+      path: '/'
+      fullPath: '/areas/'
+      preLoaderRoute: typeof AreasIndexRouteImport
+      parentRoute: typeof AreasRoute
+    }
     '/areas/$slug': {
       id: '/areas/$slug'
-      path: '/areas/$slug'
+      path: '/$slug'
       fullPath: '/areas/$slug'
       preLoaderRoute: typeof AreasSlugRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AreasRoute
     }
     '/consultants/': {
       id: '/consultants/'
@@ -684,6 +720,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AreasRouteChildren {
+  AreasSlugRoute: typeof AreasSlugRoute
+  AreasIndexRoute: typeof AreasIndexRoute
+}
+
+const AreasRouteChildren: AreasRouteChildren = {
+  AreasSlugRoute: AreasSlugRoute,
+  AreasIndexRoute: AreasIndexRoute,
+}
+
+const AreasRouteWithChildren = AreasRoute._addFileChildren(
+  AreasRouteChildren,
+)
+
 interface ConsultantsRouteChildren {
   ConsultantsIdRoute: typeof ConsultantsIdRoute
   ConsultantsIndexRoute: typeof ConsultantsIndexRoute
@@ -734,7 +784,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubmitPropertyRoute: SubmitPropertyRoute,
   TrackingRoute: TrackingRoute,
   ValuationRoute: ValuationRoute,
-  AreasSlugRoute: AreasSlugRoute,
+  AreasRoute: AreasRouteWithChildren,
   FileIdRoute: FileIdRoute,
   ToolsCommissionRoute: ToolsCommissionRoute,
   ToolsDepositRoute: ToolsDepositRoute,
