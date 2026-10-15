@@ -544,11 +544,11 @@ function publicFilterParams(data: z.infer<typeof publicFiltersSchema>) {
     data.floorType ?? null,
     data.orientation ?? null,
     data.convertibleOnly ?? false,
-    data.offset ?? 0,
     data.minDeposit ?? null,
     data.maxDeposit ?? null,
     data.minRent ?? null,
     data.maxRent ?? null,
+    data.offset ?? 0,
   ];
 }
 
@@ -597,10 +597,10 @@ function publicPropertyWhereSql() {
     "and ($26::text is null or floor_label = $26)",
     "and ($27::text is null or orientation = $27)",
     "and ($28::boolean is false or convertible = true)",
-    "and ($30::numeric is null or deposit >= $30)",
-    "and ($31::numeric is null or deposit <= $31)",
-    "and ($32::numeric is null or rent >= $32)",
-    "and ($33::numeric is null or rent <= $33)",
+    "and ($29::numeric is null or deposit >= $29)",
+    "and ($30::numeric is null or deposit <= $30)",
+    "and ($31::numeric is null or rent >= $31)",
+    "and ($32::numeric is null or rent <= $32)",
   ].join(" ");
 }
 
@@ -625,7 +625,7 @@ export const listPublishedPropertyCards = createServerFn({ method: "GET" })
             "case when $34::text = 'area_asc' then area_m2 end asc nulls last,",
             "case when $34::text = 'area_desc' then area_m2 end desc nulls last,",
             "published_at desc nulls last, created_at desc",
-            "limit 48 offset $29",
+            "limit 48 offset $33",
           ].join(" "),
           [...params, data.sort],
         );
@@ -650,7 +650,7 @@ export const listPublishedProperties = createServerFn({ method: "GET" })
         "case when $34::text = 'area_asc' then area_m2 end asc nulls last,",
         "case when $34::text = 'area_desc' then area_m2 end desc nulls last,",
         "published_at desc nulls last, created_at desc",
-        "limit 48 offset $29",
+        "limit 48 offset $33",
       ].join(" "),
       [...params, data.sort],
     );
@@ -667,7 +667,7 @@ export const countPublishedProperties = createServerFn({ method: "GET" })
       20_000,
       async () => {
         const sql = await getSql();
-        const params = publicFilterParams(data);
+        const params = publicFilterParams(data).slice(0, 32);
         const rows = await sql.query<{ count: number }>(
           "select count(*)::int as count from properties where " + publicPropertyWhereSql(),
           params,
