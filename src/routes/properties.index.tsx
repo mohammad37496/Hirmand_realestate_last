@@ -1001,6 +1001,24 @@ function PropertiesIndexPage() {
     }
   }
 
+  function changeTransactionFilter(next: PropertyTransaction | "") {
+    setTransactionType(next);
+    if (next === "rent") {
+      setMinPrice("");
+      setMaxPrice("");
+    } else if (next === "mortgage") {
+      setMinPrice("");
+      setMaxPrice("");
+      setMinRent("");
+      setMaxRent("");
+    } else {
+      setMinDeposit("");
+      setMaxDeposit("");
+      setMinRent("");
+      setMaxRent("");
+    }
+  }
+
   function resetFilters() {
     setQ("");
     setTransactionType("");
@@ -1409,7 +1427,7 @@ function PropertiesIndexPage() {
                   <button
                     type="button"
                     className={"pf-chip" + (transactionType ? "" : " is-active")}
-                    onClick={() => setTransactionType("")}
+                    onClick={() => changeTransactionFilter("")
                   >
                     همه
                   </button>
@@ -1418,7 +1436,7 @@ function PropertiesIndexPage() {
                       key={item.id}
                       type="button"
                       className={"pf-chip" + (transactionType === item.id ? " is-active" : "")}
-                      onClick={() => setTransactionType(transactionType === item.id ? "" : (item.id as PropertyTransaction))}
+                      onClick={() => changeTransactionFilter(transactionType === item.id ? "" : (item.id as PropertyTransaction))}
                     >
                       {item.title}
                     </button>
@@ -1486,19 +1504,52 @@ function PropertiesIndexPage() {
                   </div>
                 </FilterGroup>
 
-                <FilterGroup title="قیمت" hint="تومان">
-                  <div className="pf-range">
-                    <label className="pf-field">
-                      <span>از</span>
-                      <input inputMode="numeric" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="۰" />
-                    </label>
-                    <i aria-hidden="true">—</i>
-                    <label className="pf-field">
-                      <span>تا</span>
-                      <input inputMode="numeric" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="نامحدود" />
-                    </label>
-                  </div>
-                </FilterGroup>
+                {transactionType === "rent" || transactionType === "mortgage" ? (
+                  <>
+                    <FilterGroup title="ودیعه (رهن)" hint="تومان">
+                      <div className="pf-range">
+                        <label className="pf-field">
+                          <span>حداقل ودیعه</span>
+                          <input inputMode="numeric" value={minDeposit} onChange={(e) => setMinDeposit(e.target.value)} placeholder="مثلاً ۵۰۰ میلیون" />
+                        </label>
+                        <i aria-hidden="true">—</i>
+                        <label className="pf-field">
+                          <span>حداکثر ودیعه</span>
+                          <input inputMode="numeric" value={maxDeposit} onChange={(e) => setMaxDeposit(e.target.value)} placeholder="بدون سقف" />
+                        </label>
+                      </div>
+                    </FilterGroup>
+                    {transactionType === "rent" ? (
+                      <FilterGroup title="اجاره ماهانه" hint="تومان در ماه">
+                        <div className="pf-range">
+                          <label className="pf-field">
+                            <span>حداقل اجاره</span>
+                            <input inputMode="numeric" value={minRent} onChange={(e) => setMinRent(e.target.value)} placeholder="مثلاً ۱۰ میلیون" />
+                          </label>
+                          <i aria-hidden="true">—</i>
+                          <label className="pf-field">
+                            <span>حداکثر اجاره</span>
+                            <input inputMode="numeric" value={maxRent} onChange={(e) => setMaxRent(e.target.value)} placeholder="بدون سقف" />
+                          </label>
+                        </div>
+                      </FilterGroup>
+                    ) : null}
+                  </>
+                ) : (
+                  <FilterGroup title="قیمت" hint="تومان">
+                    <div className="pf-range">
+                      <label className="pf-field">
+                        <span>از</span>
+                        <input inputMode="numeric" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} placeholder="۰" />
+                      </label>
+                      <i aria-hidden="true">—</i>
+                      <label className="pf-field">
+                        <span>تا</span>
+                        <input inputMode="numeric" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="نامحدود" />
+                      </label>
+                    </div>
+                  </FilterGroup>
+                )}
               </div>
             </div>
 
@@ -1708,7 +1759,7 @@ function PropertiesIndexPage() {
                   key={item.id}
                   type="button"
                   className={`pf-chip${transactionType === item.id ? " is-active" : ""}`}
-                  onClick={() => setTransactionType(transactionType === item.id ? "" : (item.id as PropertyTransaction))}
+                  onClick={() => changeTransactionFilter(transactionType === item.id ? "" : (item.id as PropertyTransaction))}
                 >
                   {item.title}
                 </button>
