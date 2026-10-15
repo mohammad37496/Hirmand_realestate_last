@@ -1073,6 +1073,7 @@ function PropertiesIndexPage() {
     featuredOnly ||
     hasImagesOnly ||
     hasLocationOnly ||
+    mapBounds ||
     sort !== "newest",
   );
 
@@ -1094,6 +1095,7 @@ function PropertiesIndexPage() {
     featuredOnly ? "featured" : "",
     hasImagesOnly ? "images" : "",
     hasLocationOnly ? "location" : "",
+    mapBounds ? "mapBounds" : "",
   ].filter(Boolean).length;
 
   const transactionLabel = transactionType
