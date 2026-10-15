@@ -82,10 +82,10 @@ function visibleBounds(view: MapView, size: MapSize): Bounds {
   return [topLeft.longitude, bottomRight.latitude, bottomRight.longitude, topLeft.latitude];
 }
 
-function writeMapViewportToUrl(view: MapView, size: MapSize, neighborhood?: Neighborhood) {
-  if (typeof window === "undefined") return;
-  const params = new URLSearchParams(window.location.search);
+function writeMapViewportToUrl(view: MapView, size: MapSize, neighborhood?: Neighborhood): Bounds {
   const bounds = visibleBounds(view, size);
+  if (typeof window === "undefined") return bounds;
+  const params = new URLSearchParams(window.location.search);
   const encoded = bounds.map((value) => value.toFixed(7)).join(",");
   params.set("bbox", encoded);
   params.set("map_bbox", encoded);
@@ -95,6 +95,7 @@ function writeMapViewportToUrl(view: MapView, size: MapSize, neighborhood?: Neig
   const query = params.toString();
   const nextUrl = window.location.pathname + (query ? "?" + query : "") + window.location.hash;
   window.history.replaceState(window.history.state, "", nextUrl);
+  return bounds;
 }
 
 function propertyAmountLabel(property: MapProperty): string {
@@ -128,6 +129,7 @@ export function PropertiesMap({
   selectedNeighborhood,
   onSelectNeighborhood,
   neighborhoodReady,
+  onViewportChange,
 }: {
   properties: MapProperty[];
   selectedPropertyId: string | null;
@@ -135,6 +137,7 @@ export function PropertiesMap({
   selectedNeighborhood: string;
   onSelectNeighborhood: (name: string) => void;
   neighborhoodReady: boolean;
+  onViewportChange: (bounds: Bounds) => void;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -194,7 +197,7 @@ export function PropertiesMap({
       if (initialArea?.divarBbox && (!hasUrlBounds || nextNeighborhood !== urlNeighborhood)) {
         const nextView = viewForBounds(initialArea.divarBbox, size);
         setView(nextView);
-        writeMapViewportToUrl(nextView, size, initialArea);
+        onViewportChange(writeMapViewportToUrl(nextView, size, initialArea));
       }
       return;
     }
@@ -207,8 +210,8 @@ export function PropertiesMap({
     const nextView = viewForBounds(chosen.divarBbox, size);
     setView(nextView);
     setDragOffset({ x: 0, y: 0 });
-    writeMapViewportToUrl(nextView, size, chosen);
-  }, [neighborhoodReady, selectedNeighborhood, size.width, size.height]);
+    onViewportChange(writeMapViewportToUrl(nextView, size, chosen));
+  }, [neighborhoodReady, selectedNeighborhood, size.width, size.height, onViewportChange]);
 
   useEffect(() => {
     setFailedTiles(new Set());
@@ -329,24 +332,24 @@ export function PropertiesMap({
       const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
       const nextView = { ...view, ...nextCenter };
       setView(nextView);
-      writeMapViewportToUrl(nextView, size, NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood));
+      onViewportChange(writeMapViewportToUrl(nextView, size, NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood)));
     }
     setDragOffset({ x: 0, y: 0 });
-  }, [centerWorld.x, centerWorld.y, view.zoom, view, size, selectedNeighborhood]);
+  }, [centerWorld.x, centerWorld.y, view.zoom, view, size, selectedNeighborhood, onViewportChange]);
 
   const zoomBy = useCallback((amount: number) => {
     const nextView = { ...view, zoom: Math.max(10, Math.min(18, view.zoom + amount)) };
     setView(nextView);
-    writeMapViewportToUrl(nextView, size, NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood));
-  }, [view, size, selectedNeighborhood]);
+    onViewportChange(writeMapViewportToUrl(nextView, size, NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood)));
+  }, [view, size, selectedNeighborhood, onViewportChange]);
 
   const resetMap = useCallback(() => {
     const selectedArea = NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood);
     const nextView = selectedArea?.divarBbox ? viewForBounds(selectedArea.divarBbox, size) : DEFAULT_VIEW;
     setView(nextView);
     setDragOffset({ x: 0, y: 0 });
-    writeMapViewportToUrl(nextView, size, selectedArea);
-  }, [size, selectedNeighborhood]);
+    onViewportChange(writeMapViewportToUrl(nextView, size, selectedArea));
+  }, [size, selectedNeighborhood, onViewportChange]);
 
   const openCurrentMap = "https://www.openstreetmap.org/#map=" + view.zoom + "/" + view.latitude.toFixed(6) + "/" + view.longitude.toFixed(6);
 
