@@ -69,10 +69,17 @@ export function PropertiesMap({
   properties,
   selectedPropertyId,
   onSelect,
+  selectedNeighborhood,
 }: {
   properties: MapProperty[];
   selectedPropertyId: string | null;
   onSelect: (id: string) => void;
+  selectedNeighborhood?: {
+    name: string;
+    latitude: number;
+    longitude: number;
+    bbox?: [number, number, number, number] | null;
+  } | null;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -117,6 +124,39 @@ export function PropertiesMap({
   useEffect(() => {
     setFailedTiles(new Set());
   }, [view.latitude, view.longitude, view.zoom]);
+
+  useEffect(() => {
+    if (!selectedNeighborhood) return;
+
+    let latitude = selectedNeighborhood.latitude;
+    let longitude = selectedNeighborhood.longitude;
+    let zoom = 14;
+
+    if (selectedNeighborhood.bbox) {
+      const [west, south, east, north] = selectedNeighborhood.bbox;
+      latitude = (south + north) / 2;
+      longitude = (west + east) / 2;
+      const northwest = project(north, west, 0);
+      const southeast = project(south, east, 0);
+      const boundsWidth = Math.max(0.001, Math.abs(southeast.x - northwest.x));
+      const boundsHeight = Math.max(0.001, Math.abs(southeast.y - northwest.y));
+      const fitScale = Math.min(
+        Math.max(240, size.width - 72) / boundsWidth,
+        Math.max(240, size.height - 128) / boundsHeight,
+      );
+      zoom = Math.max(10, Math.min(18, Math.floor(Math.log2(Math.max(1, fitScale)))));
+    }
+
+    setView({ latitude, longitude, zoom });
+    setDragOffset({ x: 0, y: 0 });
+  }, [
+    selectedNeighborhood?.name,
+    selectedNeighborhood?.latitude,
+    selectedNeighborhood?.longitude,
+    selectedNeighborhood?.bbox,
+    size.width,
+    size.height,
+  ]);
 
   const centerWorld = useMemo(() => project(view.latitude, view.longitude, view.zoom), [view.latitude, view.longitude, view.zoom]);
   const visualCenter = {
@@ -282,7 +322,18 @@ export function PropertiesMap({
         </div>
       ) : null}
       <div className="pf-map-floating-head">
-        <span><MapPin size={14} /> اصفهان · {mappedCount.toLocaleString("fa-IR")} فایل دارای موقعیت</span>
+        <span
+          title={selectedNeighborhood
+            ? "مرکز تقریبی " + selectedNeighborhood.name + ": " + selectedNeighborhood.latitude.toFixed(6) + ", " + selectedNeighborhood.longitude.toFixed(6)
+            : "نقشه فایل‌های ملکی اصفهان"}
+        >
+          <MapPin size={14} /> {selectedNeighborhood?.name ?? "اصفهان"} · {mappedCount.toLocaleString("fa-IR")} فایل دارای موقعیت
+        </span>
+        {selectedNeighborhood ? (
+          <small className="pf-map-coordinate-badge" dir="ltr">
+            {selectedNeighborhood.latitude.toFixed(5)}, {selectedNeighborhood.longitude.toFixed(5)}
+          </small>
+        ) : null}
         <a href={openCurrentMap} target="_blank" rel="noopener noreferrer">نقشه بزرگ‌تر</a>
       </div>
       <div className="pf-map-controls" aria-label="کنترل نقشه">
