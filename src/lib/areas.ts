@@ -25,10 +25,16 @@ export function allAreas(): AreaInfo[] {
   for (const group of NEIGHBORHOOD_GROUPS) {
     for (const item of group.items) {
       const slug = areaSlug(item.name);
-      const geography = getAreaGeography(slug);
+      const geography = getAreaGeography(slug, item.name);
       out.push({
         ...item,
-        ...(geography ? { lat: geography.lat, lng: geography.lng } : {}),
+        ...(geography ? {
+          lat: geography.lat,
+          lng: geography.lng,
+          ...(geography.bbox ? { bbox: geography.bbox } : {}),
+          ...(geography.divarId != null ? { divarDistrictId: geography.divarId } : {}),
+          mapSource: geography.source,
+        } : {}),
         slug,
         groupTitle: group.title,
       });

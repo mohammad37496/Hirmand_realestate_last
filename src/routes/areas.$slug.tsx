@@ -97,23 +97,36 @@ function AreaPage() {
     .filter((item) => item.groupTitle === area.groupTitle && item.slug !== area.slug)
     .slice(0, 6);
 
-  const geography = getAreaGeography(area.slug);
+  const geography = getAreaGeography(area.slug, area.name);
   const hasCoordinates = geography !== null;
   const mapsUrl = geography
     ? `https://www.google.com/maps/search/?api=1&query=${geography.lat},${geography.lng}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${area.name}، اصفهان، ایران`)}`;
-  const mapDelta = 0.018;
   const mapBounds = geography
-    ? [
-        geography.lng - mapDelta,
-        geography.lat - mapDelta,
-        geography.lng + mapDelta,
-        geography.lat + mapDelta,
-      ].map((value) => value.toFixed(5)).join(",")
+    ? (() => {
+        const box = geography.bbox ?? [
+          geography.lng - 0.008,
+          geography.lat - 0.008,
+          geography.lng + 0.008,
+          geography.lat + 0.008,
+        ];
+        const [west, south, east, north] = box;
+        const horizontalPadding = Math.max((east - west) * 0.08, 0.001);
+        const verticalPadding = Math.max((north - south) * 0.08, 0.001);
+        return [
+          west - horizontalPadding,
+          south - verticalPadding,
+          east + horizontalPadding,
+          north + verticalPadding,
+        ].map((value) => value.toFixed(6)).join(",");
+      })()
     : "";
   const mapEmbedUrl = geography
     ? `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(mapBounds)}&layer=mapnik&marker=${geography.lat}%2C${geography.lng}`
     : "";
+  const mapSourceCaption = geography?.source === "Divar"
+    ? "نقطهٔ مرکزی و کادر محدوده از کاتالوگ محله‌های دیوار؛ کادر، مرز رسمی یا حقوقی محله نیست."
+    : "نقطهٔ مرجع نقشه؛ مرز دقیق محله در دادهٔ مکانیِ قابل تأیید موجود نیست.";
 
   const marketStats = market
     ? [
@@ -199,10 +212,10 @@ function AreaPage() {
                 <div className="area-visual-caption">
                   <strong>{area.name}، اصفهان</strong>
                   <p>
-                    نقطهٔ مرجع ثبت‌شده در OpenStreetMap. مرز رسمی محله در دادهٔ مکانیِ قابل تأیید موجود نیست.
+                    {mapSourceCaption}
                   </p>
                   <a href={geography.sourceUrl} target="_blank" rel="noopener noreferrer">
-                    مشاهدهٔ منبع مختصات
+                    {geography.source === "Divar" ? "منبع: کاتالوگ محله‌های دیوار" : "مشاهدهٔ نقطهٔ مرجع نقشه"}
                   </a>
                 </div>
               </>
