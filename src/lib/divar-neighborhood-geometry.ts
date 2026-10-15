@@ -131,3 +131,29 @@ export function normalizeDivarDistrictCatalog(
 export function divarDistrictsToClientItems(items: DivarNeighborhoodItem[]): DivarNeighborhoodClientItem[] {
   return items.map(({ sourcePayload: _sourcePayload, ...item }) => item);
 }
+
+
+/**
+ * Fail-closed sanity check that catches city-ID mismatches.
+ * These broad bounds are a source-validation fence only; they are never used
+ * to compute coordinates, assign districts, or manufacture neighborhood
+ * boundaries. The geometry itself always comes from Divar.
+ */
+export function assertIsfahanDistricts(
+  items: DivarNeighborhoodItem[],
+  minimumInRegionRatio = 0.95,
+): void {
+  if (!items.length) throw new Error("Divar Isfahan catalog is empty.");
+  const inIsfahanRegion = items.filter(({ defaultLocation }) =>
+    defaultLocation.latitude >= 31 &&
+    defaultLocation.latitude <= 34 &&
+    defaultLocation.longitude >= 49 &&
+    defaultLocation.longitude <= 54
+  ).length;
+  const ratio = inIsfahanRegion / items.length;
+  if (ratio < minimumInRegionRatio) {
+    throw new Error(
+      `Divar city-ID mismatch suspected: only ${Math.round(ratio * 100)}% of ${items.length} district centers fall in the broad Isfahan validation region; refusing to label this data as Isfahan.`,
+    );
+  }
+}

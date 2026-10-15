@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalizeDivarDistrictCatalog, normalizeDivarNeighborhoodName } from "./divar-neighborhood-geometry.ts";
+import { assertIsfahanDistricts, normalizeDivarDistrictCatalog, normalizeDivarNeighborhoodName } from "./divar-neighborhood-geometry.ts";
 
 const sample = (overrides = {}) => ({
   id: 123, name: "شهرک ولی‌عصر", slug: "shahrak-valiasr", second_slug: "shahrak-vali-asr",
@@ -37,4 +37,11 @@ test("missing source geometry fails closed", () => {
 
 test("Persian ZWNJ spelling variants match the same Divar name", () => {
   assert.equal(normalizeDivarNeighborhoodName("شهرک ولی عصر"), normalizeDivarNeighborhoodName("شهرک ولی‌عصر"));
+});
+
+test("a city-ID mismatch is rejected before coordinates are advertised as Isfahan", () => {
+  const [mashhadLike] = normalizeDivarDistrictCatalog({
+    districts: [sample({ default_location: { latitude: 36.3, longitude: 59.5 }, bbox: [59.4, 36.2, 59.6, 36.4] })],
+  });
+  assert.throws(() => assertIsfahanDistricts([mashhadLike]), /city-ID mismatch/u);
 });
