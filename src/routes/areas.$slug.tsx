@@ -29,8 +29,10 @@ export const Route = createFileRoute("/areas/$slug")({
       console.warn("[area] stored neighborhood catalog unavailable; using Hirmand's local list", error);
     }
 
-    const foundArea = findAreaBySlug(params.slug)
-      ?? directoryAreas.find((candidate) => candidate.slug === params.slug)
+    // Prefer the catalog-enriched entry first: the curated list may have the same
+    // slug but lacks Divar coordinates and bbox, which would hide the map.
+    const foundArea = directoryAreas.find((candidate) => candidate.slug === params.slug)
+      ?? findAreaBySlug(params.slug)
       ?? null;
 
     if (!foundArea) {
