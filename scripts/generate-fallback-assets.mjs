@@ -12,6 +12,14 @@ const manifestPath = join(root, "scripts", "fallback-source-images.json");
 const sources = JSON.parse(await readFile(manifestPath, "utf8"));
 const forceRefresh = process.env.FORCE_FALLBACK_IMAGE_REFRESH === "1";
 
+// Cap the whole request (headers + streamed body), not just response headers.
+// A stalled image host must not hold a Liara build open until its build timeout.
+const configuredTimeout = Number(process.env.HIRMAND_FALLBACK_IMAGE_TIMEOUT_MS);
+const timeoutMs =
+  Number.isInteger(configuredTimeout) && configuredTimeout >= 1_000 && configuredTimeout <= 30_000
+    ? configuredTimeout
+    : 12_000;
+
 function hasRasterMagic(bytes) {
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return true;
   if (
@@ -39,19 +47,20 @@ function isUsableFile(output) {
 async function download(url, output) {
   const temp = output + ".part";
   try {
+    const signal = AbortSignal.timeout(timeoutMs);
     const response = await fetch(url, {
       headers: {
         "user-agent": "Hirmand-Real-Estate-fallback-assets/3.1",
         accept: "image/jpeg,image/webp,image/avif,image/*;q=0.8",
       },
-      signal: AbortSignal.timeout(30_000),
+      signal,
     });
 
     if (!response.ok || !response.body) {
       throw new Error("HTTP " + response.status + " while downloading " + url);
     }
 
-    await pipeline(response.body, createWriteStream(temp));
+    await pipeline(response.body, createWriteStream(temp), { signal });
     const bytes = await readFile(temp);
     if (bytes.length <= 1024 || !hasRasterMagic(bytes.subarray(0, 32))) {
       throw new Error("downloaded response is not a valid raster image");
@@ -75,7 +84,7 @@ async function main() {
     urls.map((url, index) => ({ type, url, index })),
   );
   const concurrency = 4;
-  const maxAttempts = 3;
+  const maxAttempts = 2;
   let cursor = 0;
   let success = 0;
   let skipped = 0;
