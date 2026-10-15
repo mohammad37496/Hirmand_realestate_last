@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
-  ArrowLeft,
-  ArrowRight,
   Building2,
   CalendarDays,
   CheckCircle2,
@@ -81,7 +79,7 @@ function AreaPage() {
           <h1>این محله پیدا نشد</h1>
           <p>محلهٔ درخواستی در فهرست مناطق تحت پوشش هیرمند نیست.</p>
           <Link to="/" hash="areas" className="area-button area-button-primary">
-            <ArrowRight size={17} /> مشاهدهٔ محله‌ها
+            مشاهدهٔ محله‌ها
           </Link>
         </main>
       </SiteChrome>
@@ -159,7 +157,7 @@ function AreaPage() {
             <div className="area-hero-actions">
               <a href="#area-listings" className="area-button area-button-primary">
                 <Search size={18} aria-hidden="true" /> دیدن فایل‌های محله
-                <ArrowLeft size={16} aria-hidden="true" />
+                
               </a>
               <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="area-button area-button-secondary">
                 <MapPinned size={18} aria-hidden="true" /> نمایش روی نقشه
@@ -328,7 +326,7 @@ function AreaPage() {
                     برای اطلاع از فایل‌های جدید {area.name} می‌توانید درخواست خود را ثبت کنید تا گزینه‌های متناسب با نیازتان بررسی شوند.
                   </p>
                   <Link to="/" hash="inquiry" className="area-button area-button-primary">
-                    ثبت درخواست فایل <ArrowLeft size={16} aria-hidden="true" />
+                    ثبت درخواست فایل 
                   </Link>
                 </div>
               )}
@@ -352,7 +350,7 @@ function AreaPage() {
                       className="area-nearby-link"
                     >
                       <span>{item.name}</span>
-                      <ArrowLeft aria-hidden="true" />
+                      
                     </Link>
                   ))}
                 </div>
@@ -381,7 +379,7 @@ function AreaPage() {
               <p>{area.address ?? `${area.name}، اصفهان`}</p>
               <div className="area-sidebar-actions">
                 <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="area-button area-button-secondary">
-                  باز کردن در نقشه <ArrowLeft aria-hidden="true" />
+                  باز کردن در نقشه 
                 </a>
               </div>
               <div className="area-sidebar-list">
