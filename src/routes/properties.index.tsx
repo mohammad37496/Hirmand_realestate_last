@@ -4,10 +4,12 @@ import {
   ArrowLeftRight,
   BellDot,
   Bookmark,
+  Check,
   Heart,
   LayoutGrid,
   List,
   Map as MapIcon,
+  MapPin,
   MapPinned,
   RotateCcw,
   Search,
@@ -373,6 +375,9 @@ function PropertiesIndexPage() {
   const [propertyType, setPropertyType] = useState<PropertyType | "">("");
   const [neighborhood, setNeighborhood] = useState("");
   const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>(NEIGHBORHOOD_NAMES);
+  const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
+  const [neighborhoodMenuOpen, setNeighborhoodMenuOpen] = useState(false);
+  const neighborhoodPickerRef = useRef<HTMLDivElement | null>(null);
   const [minArea, setMinArea] = useState("");
   const [maxArea, setMaxArea] = useState("");
   const [minPrice, setMinPrice] = useState("");
@@ -424,6 +429,21 @@ function PropertiesIndexPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 979px)").matches) setViewMode("list");
+  }, []);
+
+  useEffect(() => {
+    if (!neighborhoodMenuOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!neighborhoodPickerRef.current?.contains(event.target as Node)) {
+        setNeighborhoodMenuOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [neighborhoodMenuOpen]);
 
   useEffect(() => {
     const storedSearches = readSavedSearches();
@@ -1109,6 +1129,20 @@ function PropertiesIndexPage() {
     );
   }
 
+  const selectedNeighborhoodMetadata = NEIGHBORHOODS.find((item) => item.name === neighborhood);
+  const selectedNeighborhoodForMap =
+    selectedNeighborhoodMetadata?.lat != null && selectedNeighborhoodMetadata.lng != null
+      ? {
+          name: selectedNeighborhoodMetadata.name,
+          latitude: selectedNeighborhoodMetadata.lat,
+          longitude: selectedNeighborhoodMetadata.lng,
+          bbox: selectedNeighborhoodMetadata.divarBbox ?? null,
+        }
+      : null;
+  const normalizedNeighborhoodQuery = neighborhoodQuery.trim().toLocaleLowerCase();
+  const filteredNeighborhoodOptions = neighborhoodOptions.filter((item) =>
+    item.toLocaleLowerCase().includes(normalizedNeighborhoodQuery),
+  );
   const fa = (value: number) => value.toLocaleString("fa-IR");
 
   return (
@@ -1253,16 +1287,111 @@ function PropertiesIndexPage() {
                 </div>
               </FilterGroup>
 
-              <FilterGroup title="محله" hint={fa(NEIGHBORHOOD_NAMES.length) + " محله"}>
-                <label className="pf-field">
-                  <span className="sr-only">انتخاب محله</span>
-                  <select className="pf-select" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)}>
-                    <option value="">همه محله‌ها</option>
-                    {neighborhoodOptions.map((item) => (
-                      <option key={item} value={item}>{item}</option>
-                    ))}
-                  </select>
-                </label>
+              <FilterGroup title="محله" hint={fa(neighborhoodOptions.length) + " محله"}>
+                <div className="pf-neighborhood-picker" ref={neighborhoodPickerRef}>
+                  <label className="pf-field">
+                    <span className="sr-only">جست‌وجو و انتخاب محله</span>
+                    <div className="pf-neighborhood-input-wrap">
+                      <MapPin size={16} aria-hidden="true" />
+                      <input
+                        value={neighborhoodMenuOpen ? neighborhoodQuery : neighborhood}
+                        onFocus={(event) => {
+                          setNeighborhoodQuery(neighborhood);
+                          setNeighborhoodMenuOpen(true);
+                          event.currentTarget.select();
+                        }}
+                        onChange={(event) => {
+                          setNeighborhoodQuery(event.target.value);
+                          setNeighborhood("");
+                          setNeighborhoodMenuOpen(true);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") setNeighborhoodMenuOpen(false);
+                          if (event.key === "Enter" && filteredNeighborhoodOptions[0]) {
+                            event.preventDefault();
+                            const first = filteredNeighborhoodOptions[0];
+                            setNeighborhood(first);
+                            setNeighborhoodQuery(first);
+                            setNeighborhoodMenuOpen(false);
+                          }
+                        }}
+                        role="combobox"
+                        aria-autocomplete="list"
+                        aria-expanded={neighborhoodMenuOpen}
+                        aria-controls="pf-neighborhood-options"
+                        aria-label="جست‌وجو و انتخاب محله"
+                        autoComplete="off"
+                        placeholder="جست‌وجوی نام محله…"
+                      />
+                      {neighborhood ? (
+                        <button
+                          type="button"
+                          className="pf-neighborhood-clear"
+                          aria-label="حذف محله انتخاب‌شده"
+                          onClick={() => {
+                            setNeighborhood("");
+                            setNeighborhoodQuery("");
+                            setNeighborhoodMenuOpen(true);
+                          }}
+                        >
+                          <X size={14} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </label>
+                  {neighborhoodMenuOpen ? (
+                    <div className="pf-neighborhood-dropdown">
+                      <div className="pf-neighborhood-dropdown-head">
+                        <strong>{normalizedNeighborhoodQuery ? "نتایج محله‌ها" : "محله‌های اصفهان"}</strong>
+                        <span>{fa(filteredNeighborhoodOptions.length)} مورد</span>
+                      </div>
+                      <div id="pf-neighborhood-options" className="pf-neighborhood-options" role="listbox" aria-label="محله‌های اصفهان">
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={!neighborhood}
+                          className={"pf-neighborhood-option" + (!neighborhood ? " is-active" : "")}
+                          onClick={() => {
+                            setNeighborhood("");
+                            setNeighborhoodQuery("");
+                            setNeighborhoodMenuOpen(false);
+                          }}
+                        >
+                          <span className="pf-neighborhood-option-name"><MapPin size={14} /> همه محله‌ها</span>
+                          {!neighborhood ? <Check size={15} /> : null}
+                        </button>
+                        {filteredNeighborhoodOptions.map((item) => {
+                          const metadata = NEIGHBORHOODS.find((entry) => entry.name === item);
+                          const hasCoordinates = metadata?.lat != null && metadata.lng != null;
+                          const active = neighborhood === item;
+                          return (
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={active}
+                              className={"pf-neighborhood-option" + (active ? " is-active" : "")}
+                              key={item}
+                              onClick={() => {
+                                setNeighborhood(item);
+                                setNeighborhoodQuery(item);
+                                setNeighborhoodMenuOpen(false);
+                              }}
+                            >
+                              <span className="pf-neighborhood-option-name"><MapPin size={14} /> {item}</span>
+                              <span className="pf-neighborhood-option-meta">
+                                {active ? <Check size={15} /> : hasCoordinates ? "نقشه‌دار" : ""}
+                              </span>
+                            </button>
+                          );
+                        })}
+                        {filteredNeighborhoodOptions.length === 0 ? (
+                          <p className="pf-neighborhood-no-results">محله‌ای با این نام پیدا نشد. عبارت کوتاه‌تری بنویسید.</p>
+                        ) : null}
+                      </div>
+                      <div className="pf-neighborhood-dropdown-foot">انتخاب محله، فایل‌ها و نمای نقشه را با هم هماهنگ می‌کند.</div>
+                    </div>
+                  ) : null}
+                </div>
               </FilterGroup>
 
               <div className="pf-compact-ranges">
@@ -1696,6 +1825,7 @@ function PropertiesIndexPage() {
                         properties={properties}
                         selectedPropertyId={selectedPropertyId}
                         onSelect={setSelectedPropertyId}
+                        selectedNeighborhood={selectedNeighborhoodForMap}
                       />
                     </div>
                   </div>
