@@ -1,12 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { LocateFixed, MapPin, Minus, Plus } from "lucide-react";
 import type { PropertyCardData } from "@/lib/properties";
+import { NEIGHBORHOODS, type Neighborhood } from "@/lib/site";
 
 type MapProperty = PropertyCardData;
-
 type MapView = { latitude: number; longitude: number; zoom: number };
 type PixelPoint = { x: number; y: number };
 type MapSize = { width: number; height: number };
+type Bounds = [number, number, number, number];
+type Tile = { key: string; url: string; left: number; top: number };
+type VisibleNeighborhoodBox = {
+  key: string;
+  name: string;
+  neighborhood: Neighborhood;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  selected: boolean;
+  showLabel: boolean;
+};
 
 const TILE_SIZE = 256;
 const DEFAULT_VIEW: MapView = { latitude: 32.655, longitude: 51.668, zoom: 12 };
@@ -30,13 +43,58 @@ function unproject(point: PixelPoint, zoom: number): Pick<MapView, "latitude" | 
   };
 }
 
-function normalizeBbox(raw: string | null): [number, number, number, number] | null {
+function normalizeBbox(raw: string | null): Bounds | null {
   if (!raw) return null;
   const values = raw.split(",").map((value) => Number(value.trim()));
   if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return null;
   const [west, south, east, north] = values;
   if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) return null;
   return [west, south, east, north];
+}
+
+function getNeighborhoodFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  const parts = (new URLSearchParams(window.location.search).get("map_place_hash") || "").split("|");
+  if (parts[0] !== "4" || !parts[1]) return null;
+  return NEIGHBORHOODS.find((item) => item.divarDistrictId === parts[1])?.name ?? null;
+}
+
+function viewForBounds(bounds: Bounds, size: MapSize): MapView {
+  const [west, south, east, north] = bounds;
+  const topLeft = project(north, west, 0);
+  const bottomRight = project(south, east, 0);
+  const spanX = Math.max(0.000001, bottomRight.x - topLeft.x);
+  const spanY = Math.max(0.000001, bottomRight.y - topLeft.y);
+  const zoomX = Math.log2(Math.max(220, size.width * 0.78) / spanX);
+  const zoomY = Math.log2(Math.max(220, size.height * 0.76) / spanY);
+  const zoom = Math.max(10, Math.min(17, Math.floor(Math.min(zoomX, zoomY))));
+  return {
+    latitude: (south + north) / 2,
+    longitude: (west + east) / 2,
+    zoom,
+  };
+}
+
+function visibleBounds(view: MapView, size: MapSize): Bounds {
+  const center = project(view.latitude, view.longitude, view.zoom);
+  const topLeft = unproject({ x: center.x - size.width / 2, y: center.y - size.height / 2 }, view.zoom);
+  const bottomRight = unproject({ x: center.x + size.width / 2, y: center.y + size.height / 2 }, view.zoom);
+  return [topLeft.longitude, bottomRight.latitude, bottomRight.longitude, topLeft.latitude];
+}
+
+function writeMapViewportToUrl(view: MapView, size: MapSize, neighborhood?: Neighborhood) {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams(window.location.search);
+  const bounds = visibleBounds(view, size);
+  const encoded = bounds.map((value) => value.toFixed(7)).join(",");
+  params.set("bbox", encoded);
+  params.set("map_bbox", encoded);
+  if (neighborhood?.divarDistrictId) {
+    params.set("map_place_hash", "4|" + neighborhood.divarDistrictId + "|real-estate||");
+  }
+  const query = params.toString();
+  const nextUrl = window.location.pathname + (query ? "?" + query : "") + window.location.hash;
+  window.history.replaceState(window.history.state, "", nextUrl);
 }
 
 function propertyAmountLabel(property: MapProperty): string {
@@ -63,19 +121,23 @@ function propertyAmountLabel(property: MapProperty): string {
   return "تماس";
 }
 
-type Tile = { key: string; url: string; left: number; top: number };
-
 export function PropertiesMap({
   properties,
   selectedPropertyId,
   onSelect,
+  selectedNeighborhood,
+  onSelectNeighborhood,
 }: {
   properties: MapProperty[];
   selectedPropertyId: string | null;
   onSelect: (id: string) => void;
+  selectedNeighborhood: string;
+  onSelectNeighborhood: (name: string) => void;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const initialNeighborhoodHandled = useRef(false);
+  const lastNeighborhoodRef = useRef<string | null>(null);
   const [view, setView] = useState<MapView>(DEFAULT_VIEW);
   const [size, setSize] = useState<MapSize>({ width: 920, height: 640 });
   const [dragOffset, setDragOffset] = useState<PixelPoint>({ x: 0, y: 0 });
@@ -115,6 +177,25 @@ export function PropertiesMap({
   }, []);
 
   useEffect(() => {
+    if (!initialNeighborhoodHandled.current) {
+      initialNeighborhoodHandled.current = true;
+      lastNeighborhoodRef.current = selectedNeighborhood || getNeighborhoodFromUrl();
+      return;
+    }
+    const nextNeighborhood = selectedNeighborhood || null;
+    if (nextNeighborhood === lastNeighborhoodRef.current) return;
+    lastNeighborhoodRef.current = nextNeighborhood;
+    if (!nextNeighborhood) return;
+
+    const chosen = NEIGHBORHOODS.find((item) => item.name === nextNeighborhood);
+    if (!chosen?.divarBbox) return;
+    const nextView = viewForBounds(chosen.divarBbox, size);
+    setView(nextView);
+    setDragOffset({ x: 0, y: 0 });
+    writeMapViewportToUrl(nextView, size, chosen);
+  }, [selectedNeighborhood, size.width, size.height]);
+
+  useEffect(() => {
     setFailedTiles(new Set());
   }, [view.latitude, view.longitude, view.zoom]);
 
@@ -138,8 +219,8 @@ export function PropertiesMap({
       for (let rawX = startX; rawX <= endX; rawX += 1) {
         const x = ((rawX % totalTiles) + totalTiles) % totalTiles;
         result.push({
-          key: `${view.zoom}/${x}/${rawY}`,
-          url: `https://tile.openstreetmap.org/${view.zoom}/${x}/${rawY}.png`,
+          key: view.zoom + "/" + x + "/" + rawY,
+          url: "https://tile.openstreetmap.org/" + view.zoom + "/" + x + "/" + rawY + ".png",
           left: rawX * TILE_SIZE - worldLeft,
           top: rawY * TILE_SIZE - worldTop,
         });
@@ -147,6 +228,35 @@ export function PropertiesMap({
     }
     return result;
   }, [view.zoom, worldLeft, worldTop, size.width, size.height]);
+
+  const neighborhoodBoxes = useMemo<VisibleNeighborhoodBox[]>(() => {
+    if (view.zoom < 12) return [];
+    return NEIGHBORHOODS.flatMap((neighborhood) => {
+      const bounds = neighborhood.divarBbox;
+      if (!bounds) return [];
+      const [west, south, east, north] = bounds;
+      const northWest = project(north, west, view.zoom);
+      const southEast = project(south, east, view.zoom);
+      const left = northWest.x - worldLeft;
+      const top = northWest.y - worldTop;
+      const width = southEast.x - northWest.x;
+      const height = southEast.y - northWest.y;
+      const selected = neighborhood.name === selectedNeighborhood;
+      if (left + width < -24 || top + height < -24 || left > size.width + 24 || top > size.height + 24) return [];
+      if (!selected && (view.zoom < 13 || width < 26 || height < 18)) return [];
+      return [{
+        key: neighborhood.divarDistrictId || neighborhood.name,
+        name: neighborhood.name,
+        neighborhood,
+        left,
+        top,
+        width,
+        height,
+        selected,
+        showLabel: selected || (width >= 76 && height >= 26),
+      }];
+    });
+  }, [view.zoom, worldLeft, worldTop, size.width, size.height, selectedNeighborhood]);
 
   const markers = useMemo(() => {
     const groups = new Map<string, { x: number; y: number; items: MapProperty[] }>();
@@ -159,7 +269,7 @@ export function PropertiesMap({
       const x = point.x - worldLeft;
       const y = point.y - worldTop;
       if (x < -60 || y < -60 || x > size.width + 60 || y > size.height + 60) continue;
-      const key = `${Math.floor(x / 56)}:${Math.floor(y / 56)}`;
+      const key = Math.floor(x / 56) + ":" + Math.floor(y / 56);
       const group = groups.get(key);
       if (group) {
         group.x = (group.x * group.items.length + x) / (group.items.length + 1);
@@ -202,25 +312,29 @@ export function PropertiesMap({
     setDragging(false);
     if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
       const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
-      setView((current) => ({ ...current, ...nextCenter }));
+      const nextView = { ...view, ...nextCenter };
+      setView(nextView);
+      writeMapViewportToUrl(nextView, size, NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood));
     }
     setDragOffset({ x: 0, y: 0 });
-  }, [centerWorld.x, centerWorld.y, view.zoom]);
+  }, [centerWorld.x, centerWorld.y, view.zoom, view, size, selectedNeighborhood]);
 
   const zoomBy = useCallback((amount: number) => {
-    setView((current) => ({
-      ...current,
-      zoom: Math.max(10, Math.min(18, current.zoom + amount)),
-    }));
-  }, []);
+    const nextView = { ...view, zoom: Math.max(10, Math.min(18, view.zoom + amount)) };
+    setView(nextView);
+    writeMapViewportToUrl(nextView, size, NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood));
+  }, [view, size, selectedNeighborhood]);
 
-  const resetMap = useCallback(() => setView(DEFAULT_VIEW), []);
+  const resetMap = useCallback(() => {
+    setView(DEFAULT_VIEW);
+    writeMapViewportToUrl(DEFAULT_VIEW, size, NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood));
+  }, [size, selectedNeighborhood]);
 
-  const openCurrentMap = `https://www.openstreetmap.org/#map=${view.zoom}/${view.latitude.toFixed(6)}/${view.longitude.toFixed(6)}`;
+  const openCurrentMap = "https://www.openstreetmap.org/#map=" + view.zoom + "/" + view.latitude.toFixed(6) + "/" + view.longitude.toFixed(6);
 
   return (
     <div
-      className={`pf-map-canvas${dragging ? " is-dragging" : ""}`}
+      className={"pf-map-canvas" + (dragging ? " is-dragging" : "")}
       ref={mapRef}
       role="region"
       aria-label="نقشه تعاملی موقعیت فایل‌های ملکی در اصفهان"
@@ -249,22 +363,39 @@ export function PropertiesMap({
         ))}
       </div>
       <div className="pf-map-wash" aria-hidden="true" />
+      <div className="pf-map-neighborhood-layer" aria-label="محدوده محله‌های اصفهان">
+        {neighborhoodBoxes.map((box) => (
+          <button
+            key={box.key}
+            type="button"
+            className={"pf-neighborhood-box" + (box.selected ? " is-selected" : "")}
+            style={{ left: box.left, top: box.top, width: Math.max(box.width, 14), height: Math.max(box.height, 12) }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => onSelectNeighborhood(box.selected ? "" : box.name)}
+            title={box.name + " — انتخاب محدوده محله"}
+            aria-label={"انتخاب محدوده محله " + box.name}
+            aria-pressed={box.selected}
+          >
+            {box.showLabel ? <span>{box.name}</span> : null}
+          </button>
+        ))}
+      </div>
       {markers.map((marker) => {
         const active = marker.items.some((item) => item.id === selectedPropertyId);
         const property = marker.items.find((item) => item.id === selectedPropertyId) ?? marker.items[0];
         const label = marker.items.length > 1
-          ? `${marker.items.length.toLocaleString("fa-IR")} فایل`
+          ? marker.items.length.toLocaleString("fa-IR") + " فایل"
           : propertyAmountLabel(property);
         return (
           <button
             type="button"
             key={marker.items.map((item) => item.id).sort().join(":")}
-            className={`pf-map-marker${active ? " is-active" : ""}${marker.items.length > 1 ? " is-cluster" : ""}`}
+            className={"pf-map-marker" + (active ? " is-active" : "") + (marker.items.length > 1 ? " is-cluster" : "")}
             style={{ left: marker.x, top: marker.y }}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => onSelect(property.id)}
-            title={marker.items.length > 1 ? `${marker.items.length.toLocaleString("fa-IR")} فایل در این محدوده` : property.title}
-            aria-label={marker.items.length > 1 ? `${marker.items.length} فایل در این محدوده` : `انتخاب فایل ${property.title}`}
+            title={marker.items.length > 1 ? marker.items.length.toLocaleString("fa-IR") + " فایل در این محدوده" : property.title}
+            aria-label={marker.items.length > 1 ? marker.items.length + " فایل در این محدوده" : "انتخاب فایل " + property.title}
           >
             {label}
           </button>
@@ -276,13 +407,16 @@ export function PropertiesMap({
           <span>برای این جست‌وجو هنوز مختصات فایل ثبت نشده است؛ فهرست فایل‌ها همچنان در دسترس است.</span>
         </div>
       ) : null}
+      {view.zoom < 13 && !selectedNeighborhood ? (
+        <div className="pf-map-zoom-hint" role="status">برای دیدن محدوده‌های محله، نقشه را بزرگ‌نمایی کنید.</div>
+      ) : null}
       {failedTiles.size >= 4 ? (
         <div className="pf-map-offline-note" role="status">
           نقشه پایه در این اتصال بارگذاری نمی‌شود؛ فهرست و فیلترهای فایل فعال هستند.
         </div>
       ) : null}
       <div className="pf-map-floating-head">
-        <span><MapPin size={14} /> اصفهان · {mappedCount.toLocaleString("fa-IR")} فایل دارای موقعیت</span>
+        <span><MapPin size={14} /> {selectedNeighborhood || "اصفهان"} · {mappedCount.toLocaleString("fa-IR")} فایل دارای موقعیت</span>
         <a href={openCurrentMap} target="_blank" rel="noopener noreferrer">نقشه بزرگ‌تر</a>
       </div>
       <div className="pf-map-controls" aria-label="کنترل نقشه">
