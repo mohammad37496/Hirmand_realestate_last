@@ -36,6 +36,9 @@ const AREA_NAME_ALIASES = new Map<string, string>(
     ["لادان", "جنیران (لادان)"],
     ["اسلامی", "محله اسلامی"],
     ["شهید کشوری", "کوی شهید کشوری"],
+    ["گل‌نرگس", "شهرک گل نرگس"],
+    ["جوان", "جاوان"],
+    ["قلعه تبرک", "قلعه طبره"],
   ].map(([source, target]) => [areaDirectoryKey(source), target] as [string, string]),
 );
 
