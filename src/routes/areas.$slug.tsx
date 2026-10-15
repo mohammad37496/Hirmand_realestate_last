@@ -29,11 +29,13 @@ export const Route = createFileRoute("/areas/$slug")({
       console.warn("[area] stored neighborhood catalog unavailable; using Hirmand's local list", error);
     }
 
-    // Prefer the catalog-enriched entry first: the curated list may have the same
-    // slug but lacks Divar coordinates and bbox, which would hide the map.
-    const foundArea = directoryAreas.find((candidate) => candidate.slug === params.slug)
-      ?? findAreaBySlug(params.slug)
-      ?? null;
+    // Match the enriched record before the static list, and accept both Hirmand's
+    // canonical slug and Divar's own slugs for the same geographic record.
+    const foundArea = directoryAreas.find((candidate) =>
+      candidate.slug === params.slug
+      || candidate.divarSlug === params.slug
+      || candidate.divarSecondSlug === params.slug
+    ) ?? findAreaBySlug(params.slug) ?? null;
 
     if (!foundArea) {
       return {
