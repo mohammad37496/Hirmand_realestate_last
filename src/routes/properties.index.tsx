@@ -412,6 +412,7 @@ function PropertiesIndexPage() {
   const requestId = useRef(0);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
+  const previousNeighborhoodRef = useRef("");
 
   useEffect(() => {
     let cancelled = false;
@@ -496,15 +497,37 @@ function PropertiesIndexPage() {
 
     const currentParams = new URLSearchParams(window.location.search);
     const params = new URLSearchParams();
-    // Keep map viewport/bookmarked neighborhood parameters when ordinary filters change.
-    for (const key of ["bbox", "map_bbox", "map_place_hash"]) {
+    // Preserve the current viewport when ordinary filters change. A newly
+    // selected Divar-backed neighborhood receives its canonical box and hash.
+    for (const key of ["bbox", "map_bbox"]) {
       const value = currentParams.get(key);
       if (value) params.set(key, value);
     }
+    const currentPlaceParts = (currentParams.get("map_place_hash") ?? "").split("|");
+    const currentDistrictId = currentPlaceParts[0] === "4" ? currentPlaceParts[1] : "";
+    if (currentDistrictId) params.set("map_place_hash", currentParams.get("map_place_hash")!);
+    const selectedArea = neighborhood ? NEIGHBORHOODS.find((item) => item.name === neighborhood) : undefined;
+    if (neighborhood) {
+      params.set("neighborhood", neighborhood);
+      if (
+        selectedArea?.divarBbox &&
+        selectedArea.divarDistrictId &&
+        (currentDistrictId !== selectedArea.divarDistrictId || (!currentParams.get("bbox") && !currentParams.get("map_bbox")))
+      ) {
+        const encodedBounds = selectedArea.divarBbox.join(",");
+        params.set("bbox", encodedBounds);
+        params.set("map_bbox", encodedBounds);
+        params.set("map_place_hash", "4|" + selectedArea.divarDistrictId + "|real-estate||");
+      } else if (!selectedArea?.divarDistrictId) {
+        params.delete("map_place_hash");
+      }
+    } else if (previousNeighborhoodRef.current) {
+      params.delete("map_place_hash");
+    }
+    previousNeighborhoodRef.current = neighborhood;
     if (q.trim()) params.set("q", q.trim());
     if (transactionType) params.set("transaction", transactionType);
     if (propertyType) params.set("type", propertyType);
-    if (neighborhood) params.set("neighborhood", neighborhood);
     if (minArea.trim()) params.set("minArea", minArea.trim());
     if (maxArea.trim()) params.set("maxArea", maxArea.trim());
     if (minPrice.trim()) params.set("minPrice", minPrice.trim());
@@ -1696,6 +1719,9 @@ function PropertiesIndexPage() {
                         properties={properties}
                         selectedPropertyId={selectedPropertyId}
                         onSelect={setSelectedPropertyId}
+                        selectedNeighborhood={neighborhood}
+                        onSelectNeighborhood={setNeighborhood}
+                        neighborhoodReady={urlReady}
                       />
                     </div>
                   </div>
