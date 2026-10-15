@@ -106,7 +106,7 @@ export function mergeAreaDirectory<T extends DirectoryAreaBase>(
       divarSlug: source.slug,
       divarSecondSlug: source.secondSlug,
     };
-  }) as Array<T & DirectoryAreaSource>;
+  }) as Array<T & DirectoryAreaBase & DirectoryAreaSource>;
 
   const usedSlugs = new Set(mergedCurated.map((area) => area.slug));
   const additionalAreas = catalogItems
@@ -133,7 +133,7 @@ export function mergeAreaDirectory<T extends DirectoryAreaBase>(
         divarBbox: item.bbox,
         divarSlug: item.slug,
         divarSecondSlug: item.secondSlug,
-      } as T & DirectoryAreaSource;
+      } as T & DirectoryAreaBase & DirectoryAreaSource;
     });
 
   return [...mergedCurated, ...additionalAreas];
