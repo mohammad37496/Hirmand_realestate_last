@@ -1,7 +1,7 @@
 import { NEIGHBORHOOD_GROUPS, type Neighborhood } from "@/lib/site";
 import { SITE } from "@/lib/site";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
-import type { DivarBbox, DivarNeighborhoodClientItem } from "@/lib/divar-neighborhood-geometry";
+import type { DivarNeighborhoodClientItem } from "@/lib/divar-neighborhood-geometry";
 import { mergeAreaDirectory, type DirectoryAreaSource } from "@/lib/area-directory-merge";
 
 export type AreaInfo = Neighborhood & DirectoryAreaSource & {
