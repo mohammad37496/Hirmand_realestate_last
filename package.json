@@ -27,7 +27,8 @@
   },
   "scripts": {
     "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
-    "build": "node scripts/validate-deploy-env.mjs && node scripts/sync-divar-neighborhoods.mjs && node scripts/with-app-env.mjs vite build",
+    "build": "node scripts/validate-deploy-env.mjs && node scripts/with-app-env.mjs vite build",
+    "sync:divar-neighborhoods": "node scripts/sync-divar-neighborhoods.mjs",
     "build:deploy": "npm run build && npm prune --omit=dev --ignore-scripts",
     "db:migrate": "node scripts/prestart-migrate.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
