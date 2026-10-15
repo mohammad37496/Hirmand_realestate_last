@@ -198,6 +198,15 @@ function normalizeBounds(a: string, b: string) {
   return [second, first] as const;
 }
 
+function parseCoordinateBounds(raw: string | null): [number, number, number, number] | undefined {
+  if (!raw) return undefined;
+  const values = raw.split(",").map((value) => Number(value.trim()));
+  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return undefined;
+  const [west, south, east, north] = values;
+  if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) return undefined;
+  return [west, south, east, north];
+}
+
 function parseFloorNumber(raw: string) {
   const cleaned = toEnglishDigits(raw).replace(/[^\d.-]/g, "");
   if (!cleaned) return undefined;
@@ -408,6 +417,7 @@ function PropertiesIndexPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [mapBounds, setMapBounds] = useState<[number, number, number, number] | undefined>();
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
@@ -435,6 +445,7 @@ function PropertiesIndexPage() {
       void refreshSavedSearchAlerts(current);
     }, 120_000);
     const params = new URLSearchParams(window.location.search);
+    setMapBounds(parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox")));
     const tx = validTransaction(params.get("transaction") ?? "");
     const type = validPropertyType(params.get("type") ?? "");
     const sortParam = params.get("sort");
@@ -560,7 +571,7 @@ function PropertiesIndexPage() {
       "",
       query ? `/properties?${query}` : "/properties",
     );
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
 
   useEffect(() => {
     if (!urlReady) return;
@@ -576,7 +587,7 @@ function PropertiesIndexPage() {
       setLoading(true);
       setOffset(0);
 
-      const data = buildFilterData(
+      const data = { ...buildFilterData(
         q,
         transactionType,
         propertyType,
@@ -606,7 +617,7 @@ function PropertiesIndexPage() {
         hasLocationOnly,
         sort,
         0,
-      );
+      ), mapBounds };
       const cacheKey = new URLSearchParams(
         Object.entries(data)
           .filter(([, value]) => value !== undefined)
@@ -652,7 +663,7 @@ function PropertiesIndexPage() {
     setLoadingMore(true);
     try {
       const rows = await listPublishedPropertyCards({
-        data: buildFilterData(
+        data: { ...buildFilterData(
           q,
           transactionType,
           propertyType,
@@ -682,7 +693,7 @@ function PropertiesIndexPage() {
           hasLocationOnly,
           sort,
           nextOffset,
-        ),
+        ), mapBounds },
       });
 
       // A filter change can finish while this older page is still in flight.
@@ -1133,6 +1144,7 @@ function PropertiesIndexPage() {
   }
 
   const fa = (value: number) => value.toLocaleString("fa-IR");
+  const handleMapViewportChange = useCallback((bounds: [number, number, number, number]) => setMapBounds(bounds), []);
 
   return (
     <SiteChrome>
@@ -1722,6 +1734,7 @@ function PropertiesIndexPage() {
                         selectedNeighborhood={neighborhood}
                         onSelectNeighborhood={setNeighborhood}
                         neighborhoodReady={urlReady}
+                        onViewportChange={handleMapViewportChange}
                       />
                     </div>
                   </div>
