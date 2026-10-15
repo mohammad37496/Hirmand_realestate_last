@@ -149,7 +149,20 @@ export function PropertiesMap({
   }, [view.latitude, view.longitude, view.zoom]);
 
   useEffect(() => {
-    if (!selectedNeighborhood) return;
+    if (!selectedNeighborhood) {
+      // If the neighborhood filter is cleared, return to the saved map viewport
+      // when present, otherwise fall back to the city view.
+      const params = new URLSearchParams(window.location.search);
+      const bounds = normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"));
+      if (bounds) {
+        const [west, south, east, north] = bounds;
+        setView({ latitude: (south + north) / 2, longitude: (west + east) / 2, zoom: 14 });
+      } else {
+        setView(DEFAULT_VIEW);
+      }
+      setDragOffset({ x: 0, y: 0 });
+      return;
+    }
     setView(neighborhoodView(selectedNeighborhood, size));
     setDragOffset({ x: 0, y: 0 });
   }, [
