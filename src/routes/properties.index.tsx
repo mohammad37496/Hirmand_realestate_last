@@ -221,6 +221,10 @@ function buildFilterData(
   maxArea: string,
   minPrice: string,
   maxPrice: string,
+  minDeposit: string,
+  maxDeposit: string,
+  minRent: string,
+  maxRent: string,
   minBedrooms: string,
   minBathrooms: string,
   minFloor: string,
@@ -245,6 +249,8 @@ function buildFilterData(
 ) {
   const [nextMinArea, nextMaxArea] = normalizeBounds(minArea, maxArea);
   const [nextMinPrice, nextMaxPrice] = normalizeBounds(minPrice, maxPrice);
+  const [nextMinDeposit, nextMaxDeposit] = normalizeBounds(minDeposit, maxDeposit);
+  const [nextMinRent, nextMaxRent] = normalizeBounds(minRent, maxRent);
   const [nextMinFloor, nextMaxFloor] = normalizeFloorBounds(minFloor, maxFloor);
   const [nextMinTotalFloors, nextMaxTotalFloors] = normalizeBounds(minTotalFloors, maxTotalFloors);
   const [nextMinBuiltYear, nextMaxBuiltYear] = normalizeBounds(minBuiltYear, maxBuiltYear);
@@ -257,6 +263,10 @@ function buildFilterData(
     maxArea: nextMaxArea,
     minPrice: nextMinPrice,
     maxPrice: nextMaxPrice,
+    minDeposit: nextMinDeposit,
+    maxDeposit: nextMaxDeposit,
+    minRent: nextMinRent,
+    maxRent: nextMaxRent,
     minBedrooms: parseNumber(minBedrooms),
     minBathrooms: parseNumber(minBathrooms),
     minFloor: nextMinFloor,
@@ -377,6 +387,10 @@ function PropertiesIndexPage() {
   const [maxArea, setMaxArea] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [minDeposit, setMinDeposit] = useState("");
+  const [maxDeposit, setMaxDeposit] = useState("");
+  const [minRent, setMinRent] = useState("");
+  const [maxRent, setMaxRent] = useState("");
   const [minBedrooms, setMinBedrooms] = useState("");
   const [minBathrooms, setMinBathrooms] = useState("");
   const [minFloor, setMinFloor] = useState("");
@@ -461,6 +475,10 @@ function PropertiesIndexPage() {
     setMaxArea(params.get("maxArea") ?? "");
     setMinPrice(params.get("minPrice") ?? "");
     setMaxPrice(params.get("maxPrice") ?? "");
+    setMinDeposit(params.get("minDeposit") ?? "");
+    setMaxDeposit(params.get("maxDeposit") ?? "");
+    setMinRent(params.get("minRent") ?? "");
+    setMaxRent(params.get("maxRent") ?? "");
     setMinBedrooms(params.get("bedrooms") ?? "");
     setMinBathrooms(params.get("bathrooms") ?? "");
     setMinFloor(params.get("minFloor") ?? "");
@@ -529,6 +547,10 @@ function PropertiesIndexPage() {
     if (maxArea.trim()) params.set("maxArea", maxArea.trim());
     if (minPrice.trim()) params.set("minPrice", minPrice.trim());
     if (maxPrice.trim()) params.set("maxPrice", maxPrice.trim());
+    if (minDeposit.trim()) params.set("minDeposit", minDeposit.trim());
+    if (maxDeposit.trim()) params.set("maxDeposit", maxDeposit.trim());
+    if (minRent.trim()) params.set("minRent", minRent.trim());
+    if (maxRent.trim()) params.set("maxRent", maxRent.trim());
     if (minBedrooms.trim()) params.set("bedrooms", minBedrooms.trim());
     if (minBathrooms.trim()) params.set("bathrooms", minBathrooms.trim());
     if (minFloor.trim()) params.set("minFloor", minFloor.trim());
@@ -557,7 +579,7 @@ function PropertiesIndexPage() {
       "",
       query ? `/properties?${query}` : "/properties",
     );
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
 
   useEffect(() => {
     if (!urlReady) return;
@@ -582,6 +604,10 @@ function PropertiesIndexPage() {
         maxArea,
         minPrice,
         maxPrice,
+        minDeposit,
+        maxDeposit,
+        minRent,
+        maxRent,
         minBedrooms,
         minBathrooms,
         minFloor,
@@ -640,7 +666,7 @@ function PropertiesIndexPage() {
     }, 320);
 
     return () => window.clearTimeout(timer);
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || properties.length >= total) return;
@@ -658,6 +684,10 @@ function PropertiesIndexPage() {
           maxArea,
           minPrice,
           maxPrice,
+          minDeposit,
+          maxDeposit,
+          minRent,
+          maxRent,
           minBedrooms,
           minBathrooms,
           minFloor,
@@ -714,6 +744,10 @@ function PropertiesIndexPage() {
     maxArea,
     minPrice,
     maxPrice,
+    minDeposit,
+    maxDeposit,
+    minRent,
+    maxRent,
     minBedrooms,
     minBathrooms,
     minFloor,
@@ -761,6 +795,10 @@ function PropertiesIndexPage() {
     if (maxArea.trim()) params.set("maxArea", maxArea.trim());
     if (minPrice.trim()) params.set("minPrice", minPrice.trim());
     if (maxPrice.trim()) params.set("maxPrice", maxPrice.trim());
+    if (minDeposit.trim()) params.set("minDeposit", minDeposit.trim());
+    if (maxDeposit.trim()) params.set("maxDeposit", maxDeposit.trim());
+    if (minRent.trim()) params.set("minRent", minRent.trim());
+    if (maxRent.trim()) params.set("maxRent", maxRent.trim());
     if (minBedrooms.trim()) params.set("bedrooms", minBedrooms.trim());
     if (minBathrooms.trim()) params.set("bathrooms", minBathrooms.trim());
     if (minFloor.trim()) params.set("minFloor", minFloor.trim());
@@ -795,6 +833,10 @@ function PropertiesIndexPage() {
       params.get("maxArea") ?? "",
       params.get("minPrice") ?? "",
       params.get("maxPrice") ?? "",
+      params.get("minDeposit") ?? "",
+      params.get("maxDeposit") ?? "",
+      params.get("minRent") ?? "",
+      params.get("maxRent") ?? "",
       params.get("bedrooms") ?? "",
       params.get("bathrooms") ?? "",
       params.get("minFloor") ?? "",
@@ -891,6 +933,10 @@ function PropertiesIndexPage() {
     setMaxArea(params.get("maxArea") ?? "");
     setMinPrice(params.get("minPrice") ?? "");
     setMaxPrice(params.get("maxPrice") ?? "");
+    setMinDeposit(params.get("minDeposit") ?? "");
+    setMaxDeposit(params.get("maxDeposit") ?? "");
+    setMinRent(params.get("minRent") ?? "");
+    setMaxRent(params.get("maxRent") ?? "");
     setMinBedrooms(params.get("bedrooms") ?? "");
     setMinBathrooms(params.get("bathrooms") ?? "");
     setMinFloor(params.get("minFloor") ?? "");
@@ -964,6 +1010,10 @@ function PropertiesIndexPage() {
     setMaxArea("");
     setMinPrice("");
     setMaxPrice("");
+    setMinDeposit("");
+    setMaxDeposit("");
+    setMinRent("");
+    setMaxRent("");
     setMinBedrooms("");
     setMinBathrooms("");
     setMinFloor("");
@@ -1046,6 +1096,10 @@ function PropertiesIndexPage() {
     maxArea.trim() ||
     minPrice.trim() ||
     maxPrice.trim() ||
+    minDeposit.trim() ||
+    maxDeposit.trim() ||
+    minRent.trim() ||
+    maxRent.trim() ||
     minBedrooms.trim() ||
     minBathrooms.trim() ||
     minFloor.trim() ||
@@ -1075,6 +1129,8 @@ function PropertiesIndexPage() {
     neighborhood,
     minArea.trim() || maxArea.trim(),
     minPrice.trim() || maxPrice.trim(),
+    minDeposit.trim() || maxDeposit.trim(),
+    minRent.trim() || maxRent.trim(),
     minBedrooms.trim(),
     minBathrooms.trim() || minFloor.trim() || maxFloor.trim() || floorType || orientation || minTotalFloors.trim() || maxTotalFloors.trim() || minBuiltYear.trim() || maxBuiltYear.trim(),
     parkingOnly ? "parking" : "",
@@ -1105,6 +1161,12 @@ function PropertiesIndexPage() {
       : null,
     minPrice.trim() || maxPrice.trim()
       ? { label: `قیمت ${minPrice || "۰"} تا ${maxPrice || "∞"}`, clear: () => { setMinPrice(""); setMaxPrice(""); } }
+      : null,
+    minDeposit.trim() || maxDeposit.trim()
+      ? { label: `ودیعه ${minDeposit || "۰"} تا ${maxDeposit || "∞"} تومان`, clear: () => { setMinDeposit(""); setMaxDeposit(""); } }
+      : null,
+    minRent.trim() || maxRent.trim()
+      ? { label: `اجاره ماهانه ${minRent || "۰"} تا ${maxRent || "∞"} تومان`, clear: () => { setMinRent(""); setMaxRent(""); } }
       : null,
     minBedrooms.trim() ? { label: `${minBedrooms} خواب به بالا`, clear: () => setMinBedrooms("") } : null,
     minBathrooms.trim() ? { label: `${minBathrooms} حمام به بالا`, clear: () => setMinBathrooms("") } : null,
