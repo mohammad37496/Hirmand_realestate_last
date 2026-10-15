@@ -1,5 +1,3 @@
-import { getAreaGeography, listDivarNeighborhoods, normalizeNeighborhoodKey } from "@/lib/neighborhood-geo";
-
 export const SITE = {
   nameFa: "گروه مشاورین املاک هیرمند",
   shortName: "هیرمند",
@@ -202,12 +200,9 @@ export type Neighborhood = {
   lat?: number;
   lng?: number;
   label?: string;
-  divarDistrictId?: number;
-  bbox?: [number, number, number, number];
-  mapSource?: "Divar" | "OpenStreetMap";
 };
 
-const RAW_NEIGHBORHOOD_GROUPS: { title: string; items: Neighborhood[] }[] = [
+export const NEIGHBORHOOD_GROUPS: { title: string; items: Neighborhood[] }[] = [
   {
     title: "مرکز و بافت تاریخی",
     items: [
@@ -245,48 +240,6 @@ const RAW_NEIGHBORHOOD_GROUPS: { title: string; items: Neighborhood[] }[] = [
       "فردوان","کوهانستان",
     ].map((name) => ({ name, address: `${name}، اصفهان`, searchQuery: `${name}، اصفهان` })),
   },
-];
-
-function enrichNeighborhood(item: Neighborhood): Neighborhood {
-  const geography = getAreaGeography("", item.name);
-  if (!geography) return item;
-  return {
-    ...item,
-    lat: geography.lat,
-    lng: geography.lng,
-    ...(geography.bbox ? { bbox: geography.bbox } : {}),
-    ...(geography.divarId != null ? { divarDistrictId: geography.divarId } : {}),
-    mapSource: geography.source,
-  };
-}
-
-const enrichedGroups = RAW_NEIGHBORHOOD_GROUPS.map((group) => ({
-  ...group,
-  items: group.items.map(enrichNeighborhood),
-}));
-const listedNeighborhoodKeys = new Set(
-  enrichedGroups.flatMap((group) => group.items.map((item) => normalizeNeighborhoodKey(item.name))),
-);
-const additionalDivarNeighborhoods: Neighborhood[] = listDivarNeighborhoods()
-  .filter((item) => item.name && !listedNeighborhoodKeys.has(normalizeNeighborhoodKey(item.name)))
-  .map((item) => {
-    const geography = getAreaGeography("", item.name);
-    return {
-      name: item.name,
-      address: `${item.name}، اصفهان`,
-      searchQuery: `${item.name}، اصفهان`,
-      label: item.name,
-      ...(geography ? { lat: geography.lat, lng: geography.lng, mapSource: geography.source } : {}),
-      ...(geography?.bbox ? { bbox: geography.bbox } : {}),
-      ...(geography?.divarId != null ? { divarDistrictId: geography.divarId } : {}),
-    };
-  });
-
-export const NEIGHBORHOOD_GROUPS: { title: string; items: Neighborhood[] }[] = [
-  ...enrichedGroups,
-  ...(additionalDivarNeighborhoods.length
-    ? [{ title: "سایر محله‌های اصفهان", items: additionalDivarNeighborhoods }]
-    : []),
 ];
 export const NEIGHBORHOODS = NEIGHBORHOOD_GROUPS.flatMap((group) => group.items);
 export const NEIGHBORHOOD_NAMES = NEIGHBORHOODS.map((item) => item.name);

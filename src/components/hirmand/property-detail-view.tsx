@@ -159,7 +159,6 @@ import { isPermanentlyWatermarkedMediaUrl, isPermanentlyWatermarkedVideoUrl } fr
 import { getPropertyFallbackImage, getPropertyFallbackImages, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { areaSlug } from "@/lib/areas";
 import { SITE } from "@/lib/site";
-import { getAreaGeography } from "@/lib/neighborhood-geo";
 import { propertyPath } from "@/lib/property-path";
 import { useConsultants } from "@/components/hirmand/consultants-context";
 import { getPublishedPropertyPriceHistory, isFeaturedActive, type PropertyPriceHistoryItem } from "@/lib/properties";
@@ -384,21 +383,14 @@ function mapsLink(latitude: number | null, longitude: number | null, neighborhoo
   if (latitude != null && longitude != null) {
     return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
   }
-  const neighborhoodGeography = getAreaGeography("", neighborhood);
-  if (neighborhoodGeography) {
-    return `https://www.google.com/maps/search/?api=1&query=${neighborhoodGeography.lat},${neighborhoodGeography.lng}`;
-  }
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`اصفهان ${neighborhood}`)}`;
 }
 function openDirectionsFromHere(latitude: number | null, longitude: number | null, neighborhood: string) {
   if (typeof window === "undefined") return;
   const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
-  const neighborhoodGeography = getAreaGeography("", neighborhood);
   const destination = latitude != null && longitude != null
     ? `${latitude},${longitude}`
-    : neighborhoodGeography
-      ? `${neighborhoodGeography.lat},${neighborhoodGeography.lng}`
-      : `اصفهان ${neighborhood}`;
+    : `اصفهان ${neighborhood}`;
 
   if (!navigator.geolocation) {
     const href = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving`;
