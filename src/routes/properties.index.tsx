@@ -27,7 +27,7 @@ import {
 } from "@/lib/properties";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
-import { PROPERTY_TYPES, SERVICES } from "@/lib/site";
+import { PROPERTY_TYPES, NEIGHBORHOOD_NAMES, SERVICES } from "@/lib/site";
 import {
   PROPERTY_CABINET_OPTIONS,
   PROPERTY_COOLING_OPTIONS,
@@ -341,7 +341,7 @@ function PropertiesIndexPage() {
   const [transactionType, setTransactionType] = useState<PropertyTransaction | "">("");
   const [propertyType, setPropertyType] = useState<PropertyType | "">("");
   const [neighborhood, setNeighborhood] = useState("");
-  const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>([]);
+  const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>(NEIGHBORHOOD_NAMES);
   const [minArea, setMinArea] = useState("");
   const [maxArea, setMaxArea] = useState("");
   const [minPrice, setMinPrice] = useState("");
@@ -1091,7 +1091,7 @@ function PropertiesIndexPage() {
               </div>
               <div>
                 <dt>محله اصفهان</dt>
-                <dd>{fa(neighborhoodOptions.length)}+</dd>
+                <dd>{fa(NEIGHBORHOOD_NAMES.length)}+</dd>
               </div>
               <div>
                 <dt>نوع معامله</dt>
@@ -1213,7 +1213,7 @@ function PropertiesIndexPage() {
                 </div>
               </FilterGroup>
 
-              <FilterGroup title="محله" hint={fa(neighborhoodOptions.length) + " محله"}>
+              <FilterGroup title="محله" hint={fa(NEIGHBORHOOD_NAMES.length) + " محله"}>
                 <label className="pf-field">
                   <span className="sr-only">انتخاب محله</span>
                   <select className="pf-select" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)}>

@@ -1,10 +1,8 @@
 import { NEIGHBORHOOD_GROUPS, type Neighborhood } from "@/lib/site";
 import { SITE } from "@/lib/site";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
-import type { DivarNeighborhoodClientItem } from "@/lib/divar-neighborhood-geometry";
-import { mergeAreaDirectory, type DirectoryAreaSource } from "@/lib/area-directory-merge";
 
-export type AreaInfo = Neighborhood & DirectoryAreaSource & {
+export type AreaInfo = Neighborhood & {
   slug: string;
   groupTitle: string;
 };
@@ -33,15 +31,6 @@ export function allAreas(): AreaInfo[] {
     }
   }
   return out;
-}
-
-
-/** Extra catalog entries are kept as local site data; rendering the directory never calls Divar. */
-export const DIVAR_EXTRA_AREA_GROUP = "سایر محدوده‌های ثبت‌شده از دیوار";
-
-/** Preserve every curated route while attaching verified coordinates for Divar matches. */
-export function mergeAreasWithDivarCatalog(catalogItems: DivarNeighborhoodClientItem[]): AreaInfo[] {
-  return mergeAreaDirectory(allAreas(), catalogItems, DIVAR_EXTRA_AREA_GROUP);
 }
 
 export function findAreaBySlug(slug: string): AreaInfo | null {
