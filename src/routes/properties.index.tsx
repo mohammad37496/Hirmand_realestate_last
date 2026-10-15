@@ -748,6 +748,7 @@ function PropertiesIndexPage() {
     hasLocationOnly,
     convertibleOnly,
     sort,
+    mapBounds,
   ]);
 
   useEffect(() => {
@@ -767,6 +768,11 @@ function PropertiesIndexPage() {
 
   function currentFilterParams() {
     const params = new URLSearchParams();
+    const currentMapParams = new URLSearchParams(window.location.search);
+    for (const key of ["bbox", "map_bbox", "map_place_hash"]) {
+      const value = currentMapParams.get(key);
+      if (value) params.set(key, value);
+    }
     if (q.trim()) params.set("q", q.trim());
     if (transactionType) params.set("transaction", transactionType);
     if (propertyType) params.set("type", propertyType);
@@ -800,7 +806,7 @@ function PropertiesIndexPage() {
 
   function filtersFromSavedSearch(searchParams: string) {
     const params = new URLSearchParams(searchParams);
-    return buildFilterData(
+    return { ...buildFilterData(
       params.get("q") ?? "",
       validTransaction(params.get("transaction") ?? "") ?? "",
       validPropertyType(params.get("type") ?? "") ?? "",
@@ -830,7 +836,7 @@ function PropertiesIndexPage() {
       params.get("location") === "1",
       "newest",
       0,
-    );
+    ), mapBounds: parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox")) };
   }
 
   async function refreshSavedSearchAlerts(entries: SavedSearch[]) {
@@ -901,6 +907,7 @@ function PropertiesIndexPage() {
     setTransactionType(validTransaction(params.get("transaction") ?? "") ?? "");
     setPropertyType(validPropertyType(params.get("type") ?? "") ?? "");
     setNeighborhood(params.get("neighborhood") ?? "");
+    setMapBounds(parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox")));
     setMinArea(params.get("minArea") ?? "");
     setMaxArea(params.get("maxArea") ?? "");
     setMinPrice(params.get("minPrice") ?? "");
