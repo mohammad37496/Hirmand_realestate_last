@@ -130,6 +130,8 @@ export function PropertiesMap({
   onSelectNeighborhood,
   neighborhoodReady,
   onViewportChange,
+  viewportBounds,
+  viewportResetVersion,
 }: {
   properties: MapProperty[];
   selectedPropertyId: string | null;
@@ -138,11 +140,14 @@ export function PropertiesMap({
   onSelectNeighborhood: (name: string) => void;
   neighborhoodReady: boolean;
   onViewportChange: (bounds: Bounds) => void;
+  viewportBounds: Bounds | undefined;
+  viewportResetVersion: number;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const initialNeighborhoodHandled = useRef(false);
   const lastNeighborhoodRef = useRef<string | null>(null);
+  const lastViewportResetVersion = useRef(0);
   const [view, setView] = useState<MapView>(DEFAULT_VIEW);
   const [size, setSize] = useState<MapSize>({ width: 920, height: 640 });
   const [dragOffset, setDragOffset] = useState<PixelPoint>({ x: 0, y: 0 });
@@ -180,6 +185,20 @@ export function PropertiesMap({
       zoom: 14,
     });
   }, []);
+
+  useEffect(() => {
+    if (viewportResetVersion === lastViewportResetVersion.current) return;
+    lastViewportResetVersion.current = viewportResetVersion;
+    if (viewportBounds) {
+      const nextView = viewForBounds(viewportBounds, size);
+      setView(nextView);
+      setDragOffset({ x: 0, y: 0 });
+      onViewportChange(writeMapViewportToUrl(nextView, size, NEIGHBORHOODS.find((item) => item.name === selectedNeighborhood)));
+    } else {
+      setView(DEFAULT_VIEW);
+      setDragOffset({ x: 0, y: 0 });
+    }
+  }, [viewportResetVersion, viewportBounds, size.width, size.height, selectedNeighborhood, onViewportChange]);
 
   useEffect(() => {
     if (!neighborhoodReady) return;
