@@ -63,7 +63,7 @@ export function mergeAreaDirectory<T extends DirectoryAreaBase>(
   curatedAreas: T[],
   catalogItems: DivarNeighborhoodClientItem[],
   extraGroupTitle: string,
-): Array<T & DirectoryAreaSource> {
+): Array<T & DirectoryAreaBase & DirectoryAreaSource> {
   const catalogByName = new Map<string, DivarNeighborhoodClientItem[]>();
   for (const item of catalogItems) {
     const key = areaDirectoryKey(item.name);
