@@ -531,7 +531,7 @@ function PropertiesIndexPage() {
     // A selected Divar neighborhood owns the map bounds. Otherwise preserve
     // an incoming viewport from a shared URL without carrying an old place hash.
     const selectedArea = neighborhood ? NEIGHBORHOODS.find((item) => item.name === neighborhood) : undefined;
-    if (!neighborhood) {
+    if (!neighborhood && !currentParams.get("neighborhood")) {
       for (const key of ["bbox", "map_bbox"]) {
         const value = currentParams.get(key);
         if (value) params.set(key, value);
@@ -1427,7 +1427,7 @@ function PropertiesIndexPage() {
                   <button
                     type="button"
                     className={"pf-chip" + (transactionType ? "" : " is-active")}
-                    onClick={() => changeTransactionFilter("")
+                    onClick={() => changeTransactionFilter("")}
                   >
                     همه
                   </button>
@@ -1510,7 +1510,7 @@ function PropertiesIndexPage() {
                       <div className="pf-range">
                         <label className="pf-field">
                           <span>حداقل ودیعه</span>
-                          <input inputMode="numeric" value={minDeposit} onChange={(e) => setMinDeposit(e.target.value)} placeholder="مثلاً ۵۰۰ میلیون" />
+                          <input inputMode="numeric" value={minDeposit} onChange={(e) => setMinDeposit(e.target.value)} placeholder="۵۰۰۰۰۰۰۰۰" />
                         </label>
                         <i aria-hidden="true">—</i>
                         <label className="pf-field">
@@ -1524,7 +1524,7 @@ function PropertiesIndexPage() {
                         <div className="pf-range">
                           <label className="pf-field">
                             <span>حداقل اجاره</span>
-                            <input inputMode="numeric" value={minRent} onChange={(e) => setMinRent(e.target.value)} placeholder="مثلاً ۱۰ میلیون" />
+                            <input inputMode="numeric" value={minRent} onChange={(e) => setMinRent(e.target.value)} placeholder="۱۰۰۰۰۰۰۰" />
                           </label>
                           <i aria-hidden="true">—</i>
                           <label className="pf-field">
