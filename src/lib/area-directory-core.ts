@@ -43,7 +43,7 @@ function nameKeys(value: string): string[] {
 
 function safeBbox(value: readonly number[] | undefined): CoordinateBounds | undefined {
   if (!isValidCoordinateBounds(value)) return undefined;
-  return [...value];
+  return [...value] as CoordinateBounds;
 }
 
 /** Carefully reviewed spelling aliases: only names known to refer to the same area. */
