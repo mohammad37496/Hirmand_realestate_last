@@ -12,13 +12,17 @@ body,
   min-width: 0;
 }
 
-html {
-  overflow-x: hidden !important;
+/* Do not clip page overflow here. Responsive tests must be able to reveal
+   elements wider than the viewport so their layout can be corrected at source. */
+html,
+body {
+  max-width: 100%;
+  min-width: 0;
 }
 
 body {
-  overflow-x: hidden !important;
-  overflow-wrap: anywhere;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 img,
@@ -41,7 +45,8 @@ strong,
 span,
 a {
   min-width: 0;
-  overflow-wrap: anywhere;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 pre,
@@ -131,9 +136,9 @@ table {
   .contact-card small,
   .contact-card strong,
   .team-card h3,
-  .team-role,
-  .team-phone {
-    overflow-wrap: anywhere !important;
+.team-role,
+.team-phone {
+    overflow-wrap: break-word !important;
     word-break: normal !important;
   }
 
@@ -237,7 +242,8 @@ table {
 
   .property-detail-page .property-spec-amenities-title strong {
     white-space: normal !important;
-    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
   }
 
   .property-detail-page .property-spec-amenities-toggle {
