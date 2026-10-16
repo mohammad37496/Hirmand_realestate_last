@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   List,
   Map as MapIcon,
+  MapPin,
   MapPinned,
   RotateCcw,
   Search,
