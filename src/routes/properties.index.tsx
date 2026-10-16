@@ -173,7 +173,7 @@ function normalizeNeighborhoodSearch(raw: string) {
     .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
-remove duplicate coordinate parserconst ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
+const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
   { value: "north", label: "شمالی" },
   { value: "south", label: "جنوبی" },
   { value: "east", label: "شرقی" },
