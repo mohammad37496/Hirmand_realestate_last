@@ -102,7 +102,7 @@ export default defineEventHandler(async (event) => {
 
   const unassigned = await sql.query<Record<string, unknown>>(
     "select id,name,phone,deal,property_type,neighborhood,created_at from leads where trim(coalesce(consultant,''))='' and status not in ('closed','spam') order by created_at desc limit 24",
-  ).catch(() => []);
+  );
 
   const sorted = [...loads].sort((a, b) => a.score - b.score || a.activeLeads - b.activeLeads || a.name.localeCompare(b.name, "fa"));
   return {
