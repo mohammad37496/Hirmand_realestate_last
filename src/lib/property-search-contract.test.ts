@@ -28,7 +28,7 @@ test("public filter contract rejects negative, fractional, excessive and unsafe 
     { minArea: 100001 },
     { minBedrooms: 31 },
     { minRent: 10.5 },
-    { maxDeposit: 9999999999999999 },
+    { maxDeposit: Number.MAX_SAFE_INTEGER },
     { offset: -1 },
   ]) {
     assert.equal(publicPropertyFiltersSchema.safeParse(data).success, false, JSON.stringify(data));
