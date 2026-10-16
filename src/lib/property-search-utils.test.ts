@@ -55,7 +55,7 @@ test("validates all supported listing numeric filters without dropping bad value
     minBedrooms: "۳٫۵",
     minRent: "NaN",
     minBuiltYear: "۱۴۰",
-  }), ["حداقل متراژ", "حداکثر قیمت", "حداقل اتاق", "حداقل اجاره", "سال ساخت از"]);
+  }), ["حداقل متراژ", "حداکثر قیمت", "حداقل اجاره", "حداقل اتاق", "سال ساخت از"]);
   assert.deepEqual(validatePropertySearchNumbers({ minArea: "۱۲۰", maxArea: "۸۰" }), ["بازهٔ متراژ"]);
   assert.deepEqual(validatePropertySearchNumbers({ minFloor: "۵", maxFloor: "۲" }), ["بازهٔ طبقه"]);
 });
