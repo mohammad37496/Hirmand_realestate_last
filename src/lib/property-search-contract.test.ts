@@ -43,6 +43,7 @@ test("public filter contract rejects inverted ranges and malformed map bounds", 
 
 test("public filter contract rejects symbol-only search text but permits an empty search", () => {
   assert.equal(publicPropertyFiltersSchema.safeParse({ search: "!!!" }).success, false);
+  assert.equal(publicPropertyFiltersSchema.safeParse({ neighborhood: "%%%" }).success, false);
   assert.equal(publicPropertyFiltersSchema.safeParse({ search: "" }).success, true);
   assert.equal(publicPropertyFiltersSchema.safeParse({ featureSearch: "؟؟؟" }).success, false);
 });
