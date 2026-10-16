@@ -31,11 +31,12 @@ test("map viewport restore and neighborhood focus are fitted to measured screen 
   assert.match(map, /setViewportMeasured\(true\)/);
 });
 
-test("invalid stored property coordinates are excluded from markers and mapped counts", () => {
+test("invalid stored property coordinates are excluded from markers and location-only listings", () => {
   assert.match(map, /isValidGeoPoint\(latitude, longitude\)/);
   assert.match(map, /typeof latitude !== "number"/);
   assert.match(map, /typeof longitude !== "number"/);
   assert.match(map, /properties\.filter\(\(property\) => isValidGeoPoint\(property\.latitude, property\.longitude\)\)/);
+  assert.match(properties, /latitude between -90 and 90 and longitude is not null and longitude between -180 and 180/);
 });
 
 test("viewport bounds are ANDed with neighborhood and all ordinary property filters in the SQL contract", () => {
