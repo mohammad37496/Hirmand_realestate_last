@@ -9,6 +9,7 @@ const propertyDetailCss = fs.readFileSync(new URL("../src/property-detail-pro.cs
 const propertyDetailRedesignCss = fs.readFileSync(new URL("../src/property-detail-redesign.css", import.meta.url), "utf8");
 const propertyDetailLightCss = fs.readFileSync(new URL("../src/property-detail-light-theme.css", import.meta.url), "utf8");
 const propertyFiltersCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
+const adminMatchingCss = fs.readFileSync(new URL("../src/admin-matching.css", import.meta.url), "utf8");
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
@@ -60,6 +61,16 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   assert.doesNotMatch(filterOptionRule, /overflow-wrap\s*:\s*anywhere/i);
   assert.match(filterOptionRule, /overflow-wrap\s*:\s*break-word/i);
   assert.match(filterOptionRule, /word-break\s*:\s*normal/i);
+  const adminRequestTextRule = adminMatchingCss.match(/\.admin-matching-request-grid strong\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(adminRequestTextRule, "admin matching request text rule should exist");
+  assert.doesNotMatch(adminRequestTextRule, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(adminRequestTextRule, /overflow-wrap\s*:\s*break-word/i);
+  assert.match(adminRequestTextRule, /word-break\s*:\s*normal/i);
+  const adminDetailTextRule = adminMatchingCss.match(/\.admin-matching-detail-grid strong\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(adminDetailTextRule, "admin matching detail text rule should exist");
+  assert.doesNotMatch(adminDetailTextRule, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(adminDetailTextRule, /overflow-wrap\s*:\s*break-word/i);
+  assert.match(adminDetailTextRule, /word-break\s*:\s*normal/i);
 });
 
 testRunner.test("responsive guardrails load after the older global styles", () => {
