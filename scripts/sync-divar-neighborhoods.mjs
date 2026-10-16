@@ -80,8 +80,17 @@ function validateDistricts(payload) {
       throw new Error(`District "${name}" has no exact four-number Divar bbox; refusing to invent a boundary.`);
     }
     const [west, south, east, north] = d.bbox;
-    if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) {
+    if (
+      west < -180 || west > 180 || east < -180 || east > 180 ||
+      south < -90 || south > 90 || north < -90 || north > 90 ||
+      west >= east || south >= north
+    ) {
       throw new Error(`District "${name}" has invalid bbox bounds.`);
+    }
+    const centerLat = coordinate(loc.latitude ?? loc.lat, 90);
+    const centerLon = coordinate(loc.longitude ?? loc.lon ?? loc.lng, 180);
+    if (centerLon < west || centerLon > east || centerLat < south || centerLat > north) {
+      throw new Error(`District "${name}" center is outside its Divar bbox; snapshot not written.`);
     }
   }
   const ratio = regionCount / districts.length;
