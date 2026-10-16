@@ -50,6 +50,7 @@ const screenshotRoutes = new Set([
   "/properties",
   "/areas",
   "/areas/شهرک-ولیعصر",
+  "/budget-match",
   "/submit-property",
   "/tools/commission",
   "/tools/rahn-rent",
@@ -168,6 +169,7 @@ try {
             const style = getComputedStyle(element);
             if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
             if (element.closest(".leaflet-container, .maplibregl-map, .table-responsive, .overflow-x-auto, code, pre")) continue;
+            if (element.closest('[aria-hidden="true"], [hidden], .sr-only, .visually-hidden, .screen-reader-only')) continue;
             const rect = element.getBoundingClientRect();
             if (rect.width > 62 || rect.height < 1) continue;
             const range = document.createRange();
@@ -177,6 +179,7 @@ try {
               .filter((top, index, list) => list.indexOf(top) === index);
             if (lineTops.length >= 4 || style.wordBreak === "break-all") {
               brokenWords.push({
+                element: element.tagName.toLowerCase() + (typeof element.className === "string" && element.className.trim() ? "." + element.className.trim().split(/\s+/).slice(0, 3).join(".") : ""),
                 text: text.replace(/\s+/g, " ").slice(0, 70),
                 width: Math.round(rect.width),
                 lines: lineTops.length,

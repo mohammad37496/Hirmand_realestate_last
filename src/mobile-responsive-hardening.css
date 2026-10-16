@@ -231,6 +231,86 @@ svg {
   }
 }
 
+/* Correct fixed/min-content tracks found by the Playwright responsive matrix. */
+@media (max-width: 767px) {
+  .property-detail-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 18px !important;
+  }
+
+  .property-detail-grid > *,
+  .property-detail-main,
+  .property-detail-side {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .property-detail-side {
+    position: static !important;
+    top: auto !important;
+  }
+
+  .property-address > div {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  /* The desktop commission/rahn widget reserves a 240px side column. */
+  .commission-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .commission-layout > * {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .commission-rows li {
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .commission-rows li > span {
+    flex: 1 1 130px;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  .commission-rows li > strong {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+}
+
+@media (max-width: 800px) {
+  /* On tablets, the 180px brand column leaves too little room for Persian copy. */
+  .budget-matcher .budget-matcher-hero {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (min-width: 1081px) {
+  /* Restore fixed sizing: the later .action-menu rule otherwise overrides this. */
+  .action-menu.floating-call-menu {
+    position: fixed !important;
+    width: max-content !important;
+    max-width: calc(100vw - 44px) !important;
+    left: auto !important;
+    right: max(22px, env(safe-area-inset-right)) !important;
+    bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

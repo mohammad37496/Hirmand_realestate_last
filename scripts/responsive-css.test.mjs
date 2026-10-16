@@ -47,6 +47,14 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   );
   assert.match(responsiveCss, /word-break:\s*normal;/);
   assert.match(responsiveCss, /letter-spacing:\s*normal;/);
+  assert.match(responsiveCss, /\.property-detail-grid\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+    "the neighborhood detail grid must collapse to one column on mobile");
+  assert.match(responsiveCss, /\.commission-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+    "finance widgets must not keep a 240px desktop side column on phones");
+  assert.match(responsiveCss, /\.budget-matcher\s+\.budget-matcher-hero\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+    "the budget hero must keep a readable Persian text column at tablet widths");
+  assert.match(responsiveCss, /\.action-menu\.floating-call-menu\s*\{[^}]*position:\s*fixed\s*!important/is,
+    "the desktop floating contact menu must not stretch as a relative action menu");
   assert.doesNotMatch(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*overflow-wrap\s*:\s*anywhere/is,
     "property titles must not allow arbitrary character-level wrapping");
   assert.match(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*overflow-wrap\s*:\s*break-word/is);
@@ -126,6 +134,11 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
+  assert.match(browserSmoke, /"\/budget-match"/, "responsive screenshots should include the tablet budget hero");
+  assert.match(browserSmoke, /\.sr-only, \.visually-hidden, \.screen-reader-only/,
+    "screen-reader-only text must not be misreported as visible letter-by-letter wrapping");
+  assert.match(browserSmoke, /element: element\.tagName\.toLowerCase\(\)/,
+    "text wrapping diagnostics should identify the affected selector");
   const responsiveStepIndex = verifyWorkflow.indexOf("node scripts/responsive-layout-smoke.mjs");
   const legacySmokeIndex = verifyWorkflow.indexOf("node scripts/browser-smoke.mjs");
   assert.ok(responsiveStepIndex >= 0 && legacySmokeIndex >= 0 && responsiveStepIndex < legacySmokeIndex,
