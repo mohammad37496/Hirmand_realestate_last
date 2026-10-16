@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت CRM برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { templates: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده قالب‌های پیام در دسترس نیست." });
 
   const sql = await getSql();
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
