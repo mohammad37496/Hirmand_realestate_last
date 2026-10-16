@@ -216,6 +216,7 @@ test("controlled fixture: Persian spelling variants, city and street text find t
     assert.deepEqual(await searchIds(db, { search: "شهرک ولیعصر" }), ["sale-a", "sale-b"]);
     assert.deepEqual(await searchIds(db, { search: "اصفهان خیابان آزادی" }), ["sale-a"]);
     assert.deepEqual(await searchIds(db, { search: "خیابان آزادی" }), ["sale-a"]);
+    assert.deepEqual(await searchIds(db, { search: "آپارتمان ۲ خواب" }), ["sale-a"]);
   } finally {
     await db.close();
   }
