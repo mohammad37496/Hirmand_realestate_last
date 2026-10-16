@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { DIVAR_EXTRA_AREA_GROUP, mergeNeighborhoodGroups, normalizeAreaDirectoryKey } from "./area-directory-core.ts";
+import { isValidCoordinateBounds, isValidGeoPoint, pointWithinBounds } from "./map-geometry.ts";
 
 const catalog = JSON.parse(await readFile(new URL("../../data/divar-isfahan-neighborhoods.json", import.meta.url), "utf8"));
 
@@ -11,10 +12,12 @@ test("bundled Divar Isfahan snapshot has complete, valid neighborhood geometry",
   assert.equal(new Set(catalog.districts.map((item: {id: number|string}) => String(item.id))).size, catalog.districts.length);
   for (const item of catalog.districts) {
     assert.ok(item.name && item.slug);
-    assert.ok(Number.isFinite(item.default_location?.latitude));
-    assert.ok(Number.isFinite(item.default_location?.longitude));
-    assert.ok(Array.isArray(item.bbox) && item.bbox.length === 4);
-    assert.ok(item.bbox.every((coordinate: number) => Number.isFinite(coordinate)));
+    assert.ok(isValidGeoPoint(item.default_location?.latitude, item.default_location?.longitude));
+    assert.ok(isValidCoordinateBounds(item.bbox));
+    assert.ok(
+      pointWithinBounds(item.default_location.latitude, item.default_location.longitude, item.bbox),
+      `center must fall within Divar bbox: ${item.name} (${item.id})`,
+    );
   }
 });
 
