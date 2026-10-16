@@ -441,7 +441,7 @@ function PropertiesIndexPage() {
   const searchValidationErrors = useMemo(() => {
     const numeric = validatePropertySearchNumbers({
       minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent,
-      minBedrooms, minBathrooms, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear,
+      minBedrooms, minBathrooms, minFloor, maxFloor, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear,
     });
     const text: string[] = [];
     if (q.trim() && compactSearchText(q).length === 0) text.push("عبارت جست‌وجو باید شامل حرف یا عدد باشد");
@@ -449,7 +449,7 @@ function PropertiesIndexPage() {
     if (compactSearchText(featureSearch).length > 80) text.push("جست‌وجوی ویژگی باید حداکثر ۸۰ نویسه باشد");
     if (neighborhood.trim().length > 80) text.push("نام محله بیش از حد طولانی است");
     return [...numeric, ...text];
-  }, [q, featureSearch, neighborhood, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear]);
+  }, [q, featureSearch, neighborhood, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minFloor, maxFloor, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear]);
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
