@@ -859,3 +859,18 @@
   .pf-neighborhood-dialog-foot > span { font-size: .67rem; }
   .pf-map-bounds-note { bottom: 29px; font-size: .58rem; }
 }
+
+
+/* Empty viewport results keep the map reachable so users can pan into another area. */
+.pf-map-list-empty {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding: 30px 22px;
+  color: var(--hr-muted);
+  text-align: center;
+  line-height: 1.8;
+}
+.pf-map-list-empty > svg { color: var(--hr-gold); }
+.pf-map-list-empty > strong { color: var(--hr-ink); font-size: .86rem; }
+.pf-map-list-empty > p { margin: 0; font-size: .77rem; }
