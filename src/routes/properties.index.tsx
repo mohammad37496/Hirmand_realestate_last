@@ -1247,7 +1247,13 @@ function PropertiesIndexPage() {
 
   return (
     <SiteChrome>
-      <main className="page-shell pf-page">
+      <main
+        className="page-shell pf-page"
+        data-active-map-bounds={mapBounds?.join(",") ?? ""}
+        data-active-neighborhood={neighborhood}
+        data-list-loading={loading ? "true" : "false"}
+        data-list-result-count={properties.length}
+      >
         <header className="pf-hero">
           <span className="pf-kicker">فایل‌های هیرمند</span>
           <div className="pf-hero-row">
