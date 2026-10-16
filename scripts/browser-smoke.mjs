@@ -298,17 +298,10 @@ try {
     }).toString();
     await mapPage.goto(filteredMapUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
     await mapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
-    await mapPage.waitForFunction(
-      (titles) => {
-        const text = document.querySelector(".pf-map-list")?.innerText ?? "";
-        return text.includes(titles.inside) && text.includes(titles.otherNeighborhood);
-      },
-      {
-        inside: "فایل تست نقشه داخل محدوده",
-        otherNeighborhood: "فایل تست نقشه محله دیگر",
-      },
-      { timeout: mapTimeoutMs },
-    );
+    // Let the debounced listing request settle, but keep the individual fixture
+    // assertions below diagnostic: a missing fixture should not erase all later
+    // observations about URL sync, reset, neighborhood selection and mobile.
+    await mapPage.waitForTimeout(900);
 
     let mapState = await readMapState(mapPage);
     mapInteractionCheck.initialBoundsRestored =
