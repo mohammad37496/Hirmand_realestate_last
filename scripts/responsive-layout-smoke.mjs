@@ -31,6 +31,10 @@ const routes = [
   "/tracking",
   "/request-tracking",
   "/staff-agreement",
+  "/staff",
+  "/areas/درچه",
+  "/consultants/responsive-smoke-consultant",
+  "/admin-mobile-management/responsive-smoke-employee",
   "/admin",
   "/admin-mobile-management",
   `/properties/${encodeURIComponent(propertySlug)}`,
@@ -82,6 +86,33 @@ try {
         failures.push(`${route}: HTTP ${response.status()} during navigation`);
       }
       await page.waitForTimeout(180);
+
+      // Exercise the mobile filter drawer and neighborhood picker at 320px.
+      if (route === "/properties") {
+        const filterButton = page.locator(".pf-filter-btn").first();
+        if (await filterButton.isVisible().catch(() => false)) {
+          await filterButton.click();
+          const drawer = page.locator(".pf-sidebar.is-open[role=dialog]").first();
+          await drawer.waitFor({ state: "visible", timeout: 8_000 });
+          const neighborhoodTrigger = page.locator(".pf-neighborhood-trigger").first();
+          if (await neighborhoodTrigger.isVisible().catch(() => false)) {
+            await neighborhoodTrigger.click();
+            const neighborhoodDialog = page.locator(".pf-neighborhood-dialog[role=dialog]").first();
+            await neighborhoodDialog.waitFor({ state: "visible", timeout: 8_000 });
+            const dialogOverflow = await page.evaluate(() => Math.max(
+              document.documentElement.scrollWidth,
+              document.body.scrollWidth,
+            ) - window.innerWidth);
+            if (dialogOverflow > 1) {
+              failures.push("/properties @ 320px while neighborhood modal is open: horizontal overflow " + dialogOverflow + "px");
+            }
+            const closeNeighborhood = page.getByRole("button", { name: "بستن انتخاب محله" }).first();
+            if (await closeNeighborhood.isVisible().catch(() => false)) await closeNeighborhood.click();
+          }
+          const closeFilters = page.locator(".pf-close").first();
+          if (await closeFilters.isVisible().catch(() => false)) await closeFilters.click();
+        }
+      }
 
       for (const width of viewportWidths) {
         await page.setViewportSize({ width, height: 900 });
@@ -188,7 +219,7 @@ try {
           failures.push(`${route} @ ${width}px: text appears split letter-by-letter; elements=${JSON.stringify(metrics.brokenWords)}`);
         }
 
-        if (screenshotRoutes.has(route) && screenshotWidths.has(width)) {
+        if ((screenshotRoutes.has(route) || route.startsWith("/properties/") || route.startsWith("/file/")) && screenshotWidths.has(width)) {
           const fileName = `${routeFileName(route)}-${width}.png`;
           await page.screenshot({
             path: path.join(outputDir, fileName),
