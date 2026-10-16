@@ -163,7 +163,7 @@ function normalizeNeighborhoodSearch(raw: string) {
     .replace(/[يى]/g, "ی")
     .replace(/ك/g, "ک")
     .toLocaleLowerCase("fa")
-    .replace(/[^\\p{L}\\p{N}]/gu, "");
+    .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 function parseCoordinateBounds(raw: string | null): [number, number, number, number] | undefined {
@@ -435,6 +435,7 @@ function PropertiesIndexPage() {
   const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<[number, number, number, number] | undefined>(undefined);
+  const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
@@ -912,6 +913,10 @@ function PropertiesIndexPage() {
     if (!saved) return;
 
     const params = new URLSearchParams(saved.params);
+    const savedBounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
+    setMapBounds(savedBounds);
+    setMapViewportResetVersion((version) => version + 1);
+    window.history.replaceState(window.history.state, "", params.toString() ? `/properties?${params.toString()}` : "/properties");
     setQ(params.get("q") ?? "");
     setTransactionType(validTransaction(params.get("transaction") ?? "") ?? "");
     setPropertyType(validPropertyType(params.get("type") ?? "") ?? "");
@@ -1073,8 +1078,10 @@ function PropertiesIndexPage() {
   const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
     if (pathname !== "/properties") return;
+    const rounded = bounds.map((number) => Number(number.toFixed(7))) as [number, number, number, number];
+    setMapBounds((current) => current && current.every((value, index) => value === rounded[index]) ? current : rounded);
     const params = new URLSearchParams(window.location.search);
-    const value = bounds.map((number) => Number(number.toFixed(7))).join(",");
+    const value = rounded.join(",");
     params.set("bbox", value);
     params.set("map_bbox", value);
     const query = params.toString();
@@ -1187,19 +1194,6 @@ function PropertiesIndexPage() {
   }
 
   const fa = (value: number) => value.toLocaleString("fa-IR");
-  const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
-    const pathname = window.location.pathname.replace(/\\/+$/, "") || "/";
-    if (pathname !== "/properties") return;
-    const rounded = bounds.map((number) => Number(number.toFixed(7))) as [number, number, number, number];
-    setMapBounds((current) => current && current.every((value, index) => value === rounded[index]) ? current : rounded);
-    const params = new URLSearchParams(window.location.search);
-    const value = rounded.join(",");
-    params.set("bbox", value);
-    params.set("map_bbox", value);
-    const query = params.toString();
-    window.history.replaceState(window.history.state, "", query ? `/properties?${query}` : "/properties");
-  }, []);
-
   useEffect(() => {
     if (!neighborhoodPickerOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1820,6 +1814,8 @@ function PropertiesIndexPage() {
                           setMobileFiltersOpen(false);
                         }}
                         onViewportChange={syncMapBoundsToUrl}
+                        viewportResetBounds={mapBounds}
+                        viewportResetVersion={mapViewportResetVersion}
                       />
                     </div>
                   </div>
