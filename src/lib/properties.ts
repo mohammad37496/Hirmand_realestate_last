@@ -1828,7 +1828,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         $15::smallint, $16::boolean, $17::boolean, $18::boolean, $19::text, $20::text, $21::text,
         $22::text, $23::text, $24::jsonb, $25::numeric, $26::numeric, $27::numeric, $28::text,
         $29::jsonb, $30::jsonb, $31::text, $32::text, $33::timestamptz, $34::timestamptz,
-        $35::double precision, $36::double precision, $37::text, $38::text, $39::boolean, $40::boolean, $41::boolean, $42::text,
+        $35::double precision, $36::double precision, $37::text, $34::text, $39::boolean, $40::boolean, $41::boolean, $42::text,
         $43::text, $44::text, $45::text, $46::text, $47::text, $48::text, $49::text
       )
       on conflict (id) do update set
