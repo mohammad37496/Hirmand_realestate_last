@@ -50,7 +50,7 @@ test("extractDivarMediaUrls does not mistake a normal Divar listing URL for an i
   assert.deepEqual(urls, ["https://divar.ir/images/sample.jpg"]);
 });
 
-test("Divar coordinates support scaled E7 keys and underscore-separated variants", () => {
+test("Divar coordinates support decimal, unlabelled E6/E7 and named scaled fields without swapping axes", () => {
   assert.deepEqual(
     findDivarCoordinates({
       map: { latitude_e7: 326123456, longitude_e7: 516123456 },
@@ -58,9 +58,19 @@ test("Divar coordinates support scaled E7 keys and underscore-separated variants
     { latitude: 32.6123456, longitude: 51.6123456 },
   );
   assert.deepEqual(
+    findDivarCoordinates({ latitude: 326123456, longitude: 516123456 }),
+    { latitude: 32.6123456, longitude: 51.6123456 },
+  );
+  assert.deepEqual(
+    findDivarCoordinates({ lat: 32612345, lng: 51612345 }),
+    { latitude: 32.612345, longitude: 51.612345 },
+  );
+  assert.deepEqual(
     findDivarCoordinates({ latitude: 32.7, longitude: 51.6 }),
     { latitude: 32.7, longitude: 51.6 },
   );
+  assert.equal(findDivarCoordinates({ latitude: null, longitude: 51.6 }), null);
+  assert.equal(findDivarCoordinates({ latitude: 326123456, longitude: null }), null);
 });
 
 test("partial Divar syncs are not labelled fully successful", () => {
