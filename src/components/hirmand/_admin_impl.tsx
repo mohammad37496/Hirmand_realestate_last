@@ -466,7 +466,9 @@ function propertyToForm(property: Property): FormState {
     propertyType: property.propertyType,
     neighborhood: property.neighborhood,
     address: property.address ?? "",
-    areaM2: property.areaM2 != null ? String(property.areaM2) : "",
+    // Older imports may contain zero as an unknown area. Treat that as
+    // an empty optional field so those records remain editable after validation.
+    areaM2: property.areaM2 != null && property.areaM2 > 0 ? String(property.areaM2) : "",
     bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
     bathrooms: property.bathrooms != null ? String(property.bathrooms) : "",
     floor: property.floor != null ? String(property.floor) : "",
