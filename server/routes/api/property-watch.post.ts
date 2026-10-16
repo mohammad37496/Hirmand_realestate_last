@@ -55,7 +55,9 @@ function formatAmount(value: number | null) {
 export default defineEventHandler(async (event) => {
   const parsed = inputSchema.safeParse(await readBody(event));
   if (!parsed.success) throw createError({ statusCode: 422, statusMessage: "درخواست پیگیری فایل نامعتبر است." });
-  if (dbSource === "unconfigured") return { ok: true, enabled: false, alerts: [], subscriptions: [] };
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "پیگیری تغییرات فایل به‌دلیل در دسترس نبودن پایگاه داده انجام نشد." });
+  }
 
   let visitorId = getCookie(event, COOKIE_NAME);
   if (!validVisitorId(visitorId)) {

@@ -1,6 +1,6 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { z } from "zod";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 
@@ -183,16 +183,19 @@ export default defineEventHandler(async (event) => {
   const leadId = crypto.randomUUID();
   void getCookie(event, VISITOR_COOKIE);
 
-  const existing = await sql.query<{ id:string; public_tracking_token:string|null }>(
-    "select id, public_tracking_token from customer_property_submissions where owner_phone=$1 and created_at > current_timestamp - interval '30 minutes' and status='pending' limit 1",
-    [parsed.data.ownerPhone],
-  );
-  if (existing[0]) {
-    return { success:true, duplicate:true, trackingToken: existing[0].public_tracking_token || trackingToken };
-  }
+  return withSqlTransaction(async (tx) => {
+    // Serialize duplicate checks for the same owner phone. The lock is released
+    // automatically at commit/rollback; related records are inserted atomically.
+    await tx.query("select pg_advisory_xact_lock(hashtext($1)::bigint)", [parsed.data.ownerPhone]);
+    const existing = await tx.query<{ id: string; public_tracking_token: string | null }>(
+      "select id, public_tracking_token from customer_property_submissions where owner_phone=$1 and created_at > current_timestamp - interval '30 minutes' and status='pending' limit 1",
+      [parsed.data.ownerPhone],
+    );
+    if (existing[0]) {
+      return { success: true, duplicate: true, trackingToken: existing[0].public_tracking_token || trackingToken };
+    }
 
-  try {
-    await sql.query(
+    await tx.query(
       "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,follow_up_at,public_tracking_token) values ($1,$2,$3,1,$4,$5,$6,$7,'',$8,'website',current_timestamp + interval '2 hours',$9)",
       [
         leadId,
@@ -206,7 +209,7 @@ export default defineEventHandler(async (event) => {
         trackingToken,
       ],
     );
-    await sql.query(
+    await tx.query(
       "insert into customer_property_submissions (id,lead_id,public_tracking_token,status,owner_name,owner_phone,property_data,queue_started_at) values ($1,$2,$3,'pending',$4,$5,$6::jsonb,current_timestamp)",
       [
         submissionId,
@@ -217,7 +220,7 @@ export default defineEventHandler(async (event) => {
         JSON.stringify(parsed.data),
       ],
     );
-    await sql.query(
+    await tx.query(
       "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'follow_up',$2,$3,$4::jsonb)",
       [
         leadId,
@@ -225,29 +228,26 @@ export default defineEventHandler(async (event) => {
         "ملک جدید برای بررسی و انتشار ارسال شده است.",
         JSON.stringify({ submissionId, mediaCount: parsed.data.images.length }),
       ],
-    ).catch(() => {});
-  } catch (error) {
-    await sql.query("delete from leads where id=$1", [leadId]).catch(() => {});
-    throw error;
-  }
+    );
 
-  const normalizedTitle = parsed.data.title.trim().toLowerCase();
-  const duplicateRows = await sql.query<{ id: string; public_tracking_token: string; owner_name: string; owner_phone: string }>(
-    "select id,public_tracking_token,owner_name,owner_phone from customer_property_submissions where status in ('pending','approved') and (owner_phone=$1 or ((property_data->>'neighborhood')=$2 and (property_data->>'areaM2')=$3 and lower(coalesce(property_data->>'title',''))=$4)) order by created_at desc limit 3",
-    [parsed.data.ownerPhone, parsed.data.neighborhood, String(parsed.data.areaM2), normalizedTitle],
-  );
+    const normalizedTitle = parsed.data.title.trim().toLowerCase();
+    const duplicateRows = await tx.query<{ id: string; public_tracking_token: string; owner_name: string; owner_phone: string }>(
+      "select id,public_tracking_token,owner_name,owner_phone from customer_property_submissions where status in ('pending','approved') and (owner_phone=$1 or ((property_data->>'neighborhood')=$2 and (property_data->>'areaM2')=$3 and lower(coalesce(property_data->>'title',''))=$4)) order by created_at desc limit 3",
+      [parsed.data.ownerPhone, parsed.data.neighborhood, String(parsed.data.areaM2), normalizedTitle],
+    );
 
-  await sql.query(
-    "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'created',$3,$4::jsonb)",
-    [crypto.randomUUID(), submissionId, "ثبت ملک جدید توسط مشتری و ورود به صف بررسی.", JSON.stringify({ trackingToken, possibleDuplicate: duplicateRows.length > 0 })],
-  ).catch(() => {});
-  return {
-    success:true,
-    duplicate:false,
-    possibleDuplicate: duplicateRows.length > 0,
-    possibleDuplicateCount: duplicateRows.length,
-    submissionId,
-    trackingToken,
-    message:"ملک شما با موفقیت برای بررسی کارشناسان هیرمند ارسال شد.",
-  };
+    await tx.query(
+      "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'created',$3,$4::jsonb)",
+      [crypto.randomUUID(), submissionId, "ثبت ملک جدید توسط مشتری و ورود به صف بررسی.", JSON.stringify({ trackingToken, possibleDuplicate: duplicateRows.length > 0 })],
+    );
+    return {
+      success: true,
+      duplicate: false,
+      possibleDuplicate: duplicateRows.length > 0,
+      possibleDuplicateCount: duplicateRows.length,
+      submissionId,
+      trackingToken,
+      message: "ملک شما با موفقیت برای بررسی کارشناسان هیرمند ارسال شد.",
+    };
+  });
 });

@@ -105,11 +105,11 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
       ") activity order by created_at desc limit 36"
     ),
     Promise.all([
-      sql.query("select count(*)::int as count from properties").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from leads").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from consultants").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from media_objects").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from admin_tasks").catch(() => [{ count: null }]),
+      sql.query("select count(*)::int as count from properties"),
+      sql.query("select count(*)::int as count from leads"),
+      sql.query("select count(*)::int as count from consultants"),
+      sql.query("select count(*)::int as count from media_objects"),
+      sql.query("select count(*)::int as count from admin_tasks"),
     ]),
   ]);
 
@@ -198,14 +198,7 @@ export default defineEventHandler(async (event) => {
     entityId?: string | null;
   };
 
-  if (dbSource === "unconfigured") {
-    return {
-      tasks: { open: 0, overdue: 0, today: 0, next7: 0, items: [] },
-      propertyHealth: { total: 0, published: 0, withoutImages: 0, incomplete: 0, stale: 0, expiredFeatured: 0 },
-      staleProperties: [], expiredFeatured: [], duplicateGroups: [], recentActivity: [],
-      system: { database: "unconfigured", counts: {}, generatedAt: new Date().toISOString() },
-    };
-  }
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده گزارش بهره‌وری در دسترس نیست." });
 
   const sql = await getSql();
   const action = body.action ?? "summary";

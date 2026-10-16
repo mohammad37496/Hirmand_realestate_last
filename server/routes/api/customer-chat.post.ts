@@ -1,7 +1,7 @@
 import { createError, defineEventHandler, readBody } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { assertSameOrigin, clientFingerprint } from "@/lib/admin-rate-limit.server";
+import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 
 const codeSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
 
@@ -13,6 +13,8 @@ const schema = z.object({
 
 export default defineEventHandler(async (event) => {
   assertSameOrigin(event);
+  const attempt = await consumeAdminAttempt("customer-chat-send:" + clientFingerprint(event));
+  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
   const body = schema.safeParse(await readBody(event).catch(() => null));
   if (!body.success) {
     throw createError({ statusCode: 400, statusMessage: body.error.issues[0]?.message || "اطلاعات پیام نامعتبر است." });
@@ -38,10 +40,6 @@ export default defineEventHandler(async (event) => {
   if (latest[0] && Date.now() - new Date(latest[0].createdAt).getTime() < 12_000) {
     throw createError({ statusCode: 429, statusMessage: "برای جلوگیری از پیام‌های تکراری، چند ثانیه صبر کنید." });
   }
-
-  // Keep a small audit breadcrumb without storing IP or user agent in the message.
-  const fingerprint = clientFingerprint(event).slice(0, 180);
-  void fingerprint;
 
   const id = crypto.randomUUID();
   await sql.query(

@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
   if (dbSource === "unconfigured") {
-    return { groups: [], total: 0 };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده بررسی درخواست‌های تکراری CRM در دسترس نیست." });
   }
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
@@ -63,10 +63,7 @@ export default defineEventHandler(async (event) => {
       order by greatest(a_created_at,b_created_at) desc
       limit 60`,
       [DIGIT_TRANSLATION],
-    ).catch((error) => {
-      console.error("[admin-lead-dedupe] query unavailable", error);
-      return [];
-    });
+    );
 
     return {
       total: rows.length,

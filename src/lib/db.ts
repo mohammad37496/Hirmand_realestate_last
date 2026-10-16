@@ -60,6 +60,7 @@ export interface Sql {
 
 const globalRef = globalThis as typeof globalThis & {
   __pgSqlPromise__?: Promise<Sql>;
+  __pgTransaction__?: TransactionRunner;
   __pgliteInstance__?: Promise<import("@electric-sql/pglite").PGlite>;
   __pgliteMigrateChain__?: Promise<void>;
 };
@@ -70,6 +71,7 @@ const OID_INTERVAL = 1186;
 const identity = (v: string) => v;
 
 type Run = <T>(text: string, params: unknown[]) => Promise<T[]>;
+type TransactionRunner = <T>(callback: (transactionSql: Sql) => Promise<T>) => Promise<T>;
 
 function toSql(run: Run): Sql {
   const sql = (async <T = Record<string, unknown>>(
@@ -103,14 +105,34 @@ function createPostgresSql(): Promise<Sql> {
       application_name: "hirmand-real-estate",
     });
     pool.on("error", (err) => {
-      console.error("[db] idle client error", err.message);
+      // Driver error messages can include connection details; do not log them verbatim.
+      console.error("[db] idle client error", (err as { code?: string }).code ?? "unknown");
     });
+    globalRef.__pgTransaction__ = async <T>(callback: (transactionSql: Sql) => Promise<T>) => {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const transactionSql = toSql(async <U>(text: string, params: unknown[]) => {
+          const result = await client.query(text, params);
+          return result.rows as U[];
+        });
+        const result = await callback(transactionSql);
+        await client.query("COMMIT");
+        return result;
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => undefined);
+        throw error;
+      } finally {
+        client.release();
+      }
+    };
     return toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
       return res.rows as T[];
     });
   })().catch((err) => {
     globalRef.__pgSqlPromise__ = undefined;
+    globalRef.__pgTransaction__ = undefined;
     throw err;
   });
   return globalRef.__pgSqlPromise__;
@@ -215,6 +237,33 @@ export function getSql(): Promise<Sql> {
     throw err;
   });
   return sqlPromise;
+}
+
+/**
+ * Executes a group of database writes on one transaction.
+ * Callers must use only the supplied transactionSql inside the callback.
+ */
+export async function withSqlTransaction<T>(
+  callback: (transactionSql: Sql) => Promise<T>,
+): Promise<T> {
+  await getSql();
+  if (dbSource === "postgres") {
+    const transaction = globalRef.__pgTransaction__;
+    if (!transaction) throw new Error("PostgreSQL transaction runner is not initialized");
+    return transaction(callback);
+  }
+  if (dbSource === "pglite") {
+    const pg = await globalRef.__pgliteInstance__;
+    if (!pg) throw new Error("PGlite instance failed to initialize");
+    return pg.transaction(async (tx) => {
+      const transactionSql = toSql(async <U>(text: string, params: unknown[]) => {
+        const result = await tx.query<U>(text, params);
+        return result.rows;
+      });
+      return callback(transactionSql);
+    });
+  }
+  throw new Error("Database transactions require a configured database");
 }
 
 export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite> {

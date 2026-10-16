@@ -266,7 +266,7 @@ export default defineEventHandler(async (event) => {
   };
 
   if (dbSource === "unconfigured") {
-    return body.action === "match" ? { lead: null, matches: [] } : { leads: [] };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده تطبیق فایل با مشتری در دسترس نیست." });
   }
 
   const sql = await getSql();

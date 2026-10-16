@@ -19,7 +19,7 @@ const validStatus=(v:unknown)=>["pending","approved","paid","cancelled"].include
 export default defineEventHandler(async event=>{
   setResponseHeader(event,"cache-control","no-store");
   const claims=await requireAdmin(event);
-  if(dbSource==="unconfigured") return {settlements:[],deals:[],summary:{pending:0,approved:0,paid:0,total:0,consultants:[]}};
+  if(dbSource==="unconfigured") throw createError({statusCode:503,statusMessage:"پایگاه داده کمیسیون‌ها در دسترس نیست؛ تسویه‌ها قابل بازیابی نیستند."});
   const sql=await getSql();
   const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>;
   const action=clean(body.action,30)||"list";

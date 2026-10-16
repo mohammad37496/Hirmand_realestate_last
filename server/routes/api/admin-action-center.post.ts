@@ -37,7 +37,7 @@ function iso(value: unknown) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { summary: { urgent: 0, high: 0, total: 0 }, items: [] as ActionItem[] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده مرکز پیگیری‌ها در دسترس نیست." });
 
   const body = (await readBody(event).catch(() => ({}))) as { action?: "list" | "completeTask"; id?: string };
   const sql = await getSql();

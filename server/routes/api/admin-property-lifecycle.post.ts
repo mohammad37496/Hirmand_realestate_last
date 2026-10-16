@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     action?: "list" | "createTasks";
   };
 
-  if (dbSource === "unconfigured") return { items: [], createdTasks: 0 };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده چرخه عمر فایل‌های ملک در دسترس نیست." });
 
   const sql = await getSql();
   const staleDays = 14;

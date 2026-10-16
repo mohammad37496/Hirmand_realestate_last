@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "reports.view")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش قیف فروش برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { days: 30, statuses: [], sources: [], aging: [], conversions: {} };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده قیف فروش در دسترس نیست." });
 
   const query = getQuery(event);
   const rawDays = Number(query.days);
