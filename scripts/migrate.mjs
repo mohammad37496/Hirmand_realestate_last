@@ -34,8 +34,12 @@ async function readMigrationFiles() {
 async function main() {
   const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
   const client = await pool.connect();
+  let migrationLockAcquired = false;
 
   try {
+    // A session-level lock serializes deploy hooks and concurrent app starts.
+    await client.query("SELECT pg_advisory_lock(741206510::bigint)");
+    migrationLockAcquired = true;
     await client.query(
       "CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
     );
@@ -61,7 +65,7 @@ async function main() {
         await client.query("ROLLBACK").catch(() => undefined);
         console.error("[migrate] failed " + name);
         if (error && typeof error === "object") {
-          for (const key of ["code", "detail", "hint", "position", "routine", "severity"]) {
+          for (const key of ["code", "severity"]) {
             const value = error[key];
             if (value != null) console.error("[migrate]   " + key + ": " + value);
           }
@@ -72,6 +76,9 @@ async function main() {
 
     console.log("[migrate] database is up to date.");
   } finally {
+    if (migrationLockAcquired) {
+      await client.query("SELECT pg_advisory_unlock(741206510::bigint)").catch(() => undefined);
+    }
     client.release();
     await pool.end();
   }
