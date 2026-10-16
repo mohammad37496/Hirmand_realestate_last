@@ -4,7 +4,7 @@ import { cachedPropertyRead, clearPropertyReadCache } from "@/lib/property-read-
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
-import { compactSearchText } from "@/lib/property-search-utils";
+import { buildPublicPropertyFilterParams, buildPublicPropertyWhereSql, PRICE_EXPR } from "@/lib/property-search-sql";
 import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
@@ -520,112 +520,10 @@ const DETAIL_COLUMNS = `
   last_verified_at, last_verified_by
 `;
 
-function publicFilterParams(data: z.infer<typeof publicFiltersSchema>) {
-  const neighborhood = data.neighborhood?.trim() || null;
-  const exactNeighborhood = Boolean(
-    neighborhood && neighborhood.length >= 2 && !neighborhood.includes("%"),
-  );
-  return [
-    data.transactionType ?? null,
-    data.propertyType ?? null,
-    neighborhood,
-    data.featuredOnly ?? false,
-    exactNeighborhood,
-    (data.search ? compactSearchText(data.search) : "") || null,
-    data.minArea ?? null,
-    data.maxArea ?? null,
-    data.minPrice ?? null,
-    data.maxPrice ?? null,
-    data.minBedrooms ?? null,
-    data.minBathrooms ?? null,
-    data.minFloor ?? null,
-    data.maxFloor ?? null,
-    data.minTotalFloors ?? null,
-    data.maxTotalFloors ?? null,
-    data.minBuiltYear ?? null,
-    data.maxBuiltYear ?? null,
-    data.parkingOnly ?? false,
-    data.elevatorOnly ?? false,
-    data.storageOnly ?? false,
-    data.specFilters?.length ? data.specFilters : null,
-    (data.featureSearch ? compactSearchText(data.featureSearch) : "") || null,
-    data.hasImagesOnly ?? false,
-    data.hasLocationOnly ?? false,
-    data.floorType ?? null,
-    data.orientation ?? null,
-    data.convertibleOnly ?? false,
-    ...(data.mapBounds ?? [null, null, null, null]),
-    data.minDeposit ?? null,
-    data.maxDeposit ?? null,
-    data.minRent ?? null,
-    data.maxRent ?? null,
-    data.offset ?? 0,
-  ];
-}
-
 const PUBLIC_PUBLICATION_WHERE =
   "(deleted_at is null) and (" +
   "status = 'published' or (status = 'draft' and publish_at is not null and publish_at <= current_timestamp)" +
   ") and (unpublish_at is null or unpublish_at > current_timestamp)";
-
-const PRICE_EXPR =
-  "case when transaction_type = 'rent' then coalesce(rent, deposit) " +
-  "when transaction_type = 'mortgage' then deposit else price end";
-
-// SQL-side counterpart of compactSearchText: canonicalize Arabic/Persian
-// yeh/kaf variants, remove joiners, spaces and punctuation, then compare compact
-// forms so spelling differences do not silently hide otherwise matching listings.
-function normalizedTextSql(expression: string): string {
-  const canonical = `replace(replace(replace(replace(lower(coalesce(${expression}, '')), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), chr(8204), '')`;
-  return `regexp_replace(${canonical}, '[[:space:][:punct:]]+', '', 'g')`;
-}
-
-function publicPropertyWhereSql() {
-  return [
-    PUBLIC_PUBLICATION_WHERE,
-    "and ($1::text is null or transaction_type = $1)",
-    "and ($2::text is null or property_type = $2)",
-    `and ($3::text is null or ($5::boolean is true and ${normalizedTextSql("neighborhood")} = ${normalizedTextSql("$3::text")}) or ($5::boolean is false and ${normalizedTextSql("neighborhood")} like '%' || ${normalizedTextSql("$3::text")} || '%'))`,
-    "and ($4::boolean is false or (featured = true and (featured_until is null or featured_until >= current_timestamp)))",
-    `and ($6::text is null or ${normalizedTextSql("concat_ws(' ', title, city, neighborhood, address, description, features::text)")} like '%' || ${normalizedTextSql("$6::text")} || '%')`,
-    "and ($7::int is null or area_m2 >= $7)",
-    "and ($8::int is null or area_m2 <= $8)",
-    "and ($9::numeric is null or " + PRICE_EXPR + " >= $9)",
-    "and ($10::numeric is null or " + PRICE_EXPR + " <= $10)",
-    "and ($11::int is null or bedrooms >= $11)",
-    "and ($12::int is null or bathrooms >= $12)",
-    "and ($13::int is null or floor >= $13)",
-    "and ($14::int is null or floor <= $14)",
-    "and ($15::int is null or total_floors >= $15)",
-    "and ($16::int is null or total_floors <= $16)",
-    "and ($17::int is null or built_year >= $17)",
-    "and ($18::int is null or built_year <= $18)",
-    "and ($19::boolean is false or parking = true)",
-    "and ($20::boolean is false or elevator = true)",
-    "and ($21::boolean is false or storage = true)",
-    "and ($22::text[] is null or cardinality($22::text[]) = 0 or exists (select 1 from unnest($22::text[]) as selected(value) where " +
-      "(selected.value like 'cabinet:%' and cabinet_type = substring(selected.value from 9)) or " +
-      "(selected.value like 'flooring:%' and flooring_type = substring(selected.value from 10)) or " +
-      "(selected.value like 'cooling:%' and cooling_system = substring(selected.value from 9)) or " +
-      "(selected.value like 'heating:%' and heating_system = substring(selected.value from 9)) or " +
-      "(selected.value like 'closet:%' and wall_closet_type = substring(selected.value from 8)) or " +
-      "coalesce(other_amenities, '[]'::jsonb) ? selected.value))",
-    "and ($23::text is null or exists (select 1 from jsonb_array_elements_text(coalesce(features, '[]'::jsonb)) as feature(value) where feature.value ilike '%' || $23 || '%'))",
-    "and ($24::boolean is false or (jsonb_typeof(coalesce(images, '[]'::jsonb)) = 'array' and jsonb_array_length(coalesce(images, '[]'::jsonb)) > 0))",
-    "and ($25::boolean is false or (latitude is not null and longitude is not null))",
-    "and ($26::text is null or floor_label = $26)",
-    "and ($27::text is null or orientation = $27)",
-    "and ($28::boolean is false or convertible = true)",
-    "and ($29::double precision is null or (longitude is not null and longitude >= $29))",
-    "and ($30::double precision is null or (latitude is not null and latitude >= $30))",
-    "and ($31::double precision is null or (longitude is not null and longitude <= $31))",
-    "and ($32::double precision is null or (latitude is not null and latitude <= $32))",
-    "and ($33::numeric is null or deposit >= $33)",
-    "and ($34::numeric is null or deposit <= $34)",
-    "and ($35::numeric is null or rent >= $35)",
-    "and ($36::numeric is null or rent <= $36)",
-  ].join(" ");
-}
 
 export const listPublishedPropertyCards = createServerFn({ method: "GET" })
   .validator(publicFiltersSchema)
@@ -637,11 +535,11 @@ export const listPublishedPropertyCards = createServerFn({ method: "GET" })
       15_000,
       async () => {
         const sql = await getSql();
-        const params = publicFilterParams(data);
+        const params = buildPublicPropertyFilterParams(data);
         const rows = await sql.query<Record<string, unknown>>(
           [
             "select " + CARD_COLUMNS,
-            "from properties where " + publicPropertyWhereSql(),
+            "from properties where " + buildPublicPropertyWhereSql(),
             "order by case when $38::text = 'newest' then case when featured and (featured_until is null or featured_until >= current_timestamp) then 0 else 1 end else 0 end,",
             "case when $38::text = 'price_asc' then " + PRICE_EXPR + " end asc nulls last,",
             "case when $38::text = 'price_desc' then " + PRICE_EXPR + " end desc nulls last,",
@@ -662,11 +560,11 @@ export const listPublishedProperties = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     if (dbSource === "unconfigured") return [];
     const sql = await getSql();
-    const params = publicFilterParams(data);
+    const params = buildPublicPropertyFilterParams(data);
     const rows = await sql.query<Record<string, unknown>>(
       [
         "select " + LIST_COLUMNS,
-        "from properties where " + publicPropertyWhereSql(),
+        "from properties where " + buildPublicPropertyWhereSql(),
         "order by case when $38::text = 'newest' then case when featured then 0 else 1 end else 0 end,",
         "case when $38::text = 'price_asc' then " + PRICE_EXPR + " end asc nulls last,",
         "case when $38::text = 'price_desc' then " + PRICE_EXPR + " end desc nulls last,",
@@ -690,9 +588,9 @@ export const countPublishedProperties = createServerFn({ method: "GET" })
       20_000,
       async () => {
         const sql = await getSql();
-        const params = publicFilterParams(data).slice(0, 36);
+        const params = buildPublicPropertyFilterParams(data).slice(0, 36);
         const rows = await sql.query<{ count: number }>(
-          "select count(*)::int as count from properties where " + publicPropertyWhereSql(),
+          "select count(*)::int as count from properties where " + buildPublicPropertyWhereSql(),
           params,
         );
         return Number(rows[0]?.count) || 0;
