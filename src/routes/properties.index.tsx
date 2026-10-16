@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeftRight,
   BellDot,
@@ -8,6 +8,7 @@ import {
   LayoutGrid,
   List,
   Map as MapIcon,
+  MapPin,
   MapPinned,
   RotateCcw,
   Search,
@@ -28,7 +29,7 @@ import {
 import { PropertyCard } from "@/components/hirmand/property-showcase";
 import { PropertiesMap } from "@/components/hirmand/properties-map";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
-import { PROPERTY_TYPES, NEIGHBORHOOD_NAMES, NEIGHBORHOODS, SERVICES } from "@/lib/site";
+import { PROPERTY_TYPES, NEIGHBORHOOD_NAMES, NEIGHBORHOODS, NEIGHBORHOOD_GROUPS, SERVICES } from "@/lib/site";
 import {
   PROPERTY_CABINET_OPTIONS,
   PROPERTY_COOLING_OPTIONS,
@@ -157,6 +158,28 @@ function parseNumber(raw: string) {
   return Number.isFinite(value) && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
+function normalizeNeighborhoodSearch(raw: string) {
+  return raw
+    .normalize("NFKC")
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک")
+    .toLocaleLowerCase("fa")
+    .replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+function parseCoordinateBounds(raw: string | null): [number, number, number, number] | undefined {
+  if (!raw) return undefined;
+  const values = raw.split(",").map((value) => Number(value.trim()));
+  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return undefined;
+  const [west, south, east, north] = values;
+  if (
+    west < -180 || west > 180 || east < -180 || east > 180 ||
+    south < -90 || south > 90 || north < -90 || north > 90 ||
+    west >= east || south >= north
+  ) return undefined;
+  return [west, south, east, north];
+}
+
 const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
   { value: "north", label: "شمالی" },
   { value: "south", label: "جنوبی" },
@@ -240,6 +263,7 @@ function buildFilterData(
   featuredOnly: boolean,
   hasImagesOnly: boolean,
   hasLocationOnly: boolean,
+  mapBounds: [number, number, number, number] | undefined,
   sort: PropertySort,
   offset: number,
 ) {
@@ -276,6 +300,7 @@ function buildFilterData(
     featuredOnly,
     hasImagesOnly,
     hasLocationOnly,
+    mapBounds,
     sort,
     offset,
   };
@@ -407,11 +432,24 @@ function PropertiesIndexPage() {
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [desktopFilterViewport, setDesktopFilterViewport] = useState(false);
+  const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
+  const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [mapBounds, setMapBounds] = useState<[number, number, number, number] | undefined>(undefined);
+  const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 980px)");
+    const updateViewport = () => setDesktopFilterViewport(media.matches);
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -434,6 +472,7 @@ function PropertiesIndexPage() {
       void refreshSavedSearchAlerts(current);
     }, 120_000);
     const params = new URLSearchParams(window.location.search);
+    setMapBounds(parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox")));
     const tx = validTransaction(params.get("transaction") ?? "");
     const type = validPropertyType(params.get("type") ?? "");
     const sortParam = params.get("sort");
@@ -494,12 +533,24 @@ function PropertiesIndexPage() {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
     if (pathname !== "/properties") return;
 
-    const currentParams = new URLSearchParams(window.location.search);
     const params = new URLSearchParams();
-    // Keep map viewport/bookmarked neighborhood parameters when ordinary filters change.
-    for (const key of ["bbox", "map_bbox", "map_place_hash"]) {
-      const value = currentParams.get(key);
-      if (value) params.set(key, value);
+    // The viewport is part of the actual property query, not just a bookmark.
+    // Build both aliases from state so stale URL bounds cannot constrain a new area.
+    if (mapBounds) {
+      const boundsValue = mapBounds.map((number) => Number(number.toFixed(7))).join(",");
+      params.set("bbox", boundsValue);
+      params.set("map_bbox", boundsValue);
+    }
+    if (neighborhood) {
+      params.set("neighborhood", neighborhood);
+      const selectedArea = NEIGHBORHOODS.find((item) => item.name === neighborhood);
+      if (selectedArea?.divarDistrictId) {
+        params.set("map_place_hash", `4|${selectedArea.divarDistrictId}|real-estate||`);
+      } else {
+        params.delete("map_place_hash");
+      }
+    } else {
+      params.delete("map_place_hash");
     }
     if (q.trim()) params.set("q", q.trim());
     if (transactionType) params.set("transaction", transactionType);
@@ -537,7 +588,7 @@ function PropertiesIndexPage() {
       "",
       query ? `/properties?${query}` : "/properties",
     );
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
 
   useEffect(() => {
     if (!urlReady) return;
@@ -581,6 +632,7 @@ function PropertiesIndexPage() {
         featuredOnly,
         hasImagesOnly,
         hasLocationOnly,
+        mapBounds,
         sort,
         0,
       );
@@ -620,7 +672,7 @@ function PropertiesIndexPage() {
     }, 320);
 
     return () => window.clearTimeout(timer);
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || properties.length >= total) return;
@@ -657,6 +709,7 @@ function PropertiesIndexPage() {
           featuredOnly,
           hasImagesOnly,
           hasLocationOnly,
+          mapBounds,
           sort,
           nextOffset,
         ),
@@ -714,6 +767,7 @@ function PropertiesIndexPage() {
     hasLocationOnly,
     convertibleOnly,
     sort,
+    mapBounds,
   ]);
 
   useEffect(() => {
@@ -733,6 +787,11 @@ function PropertiesIndexPage() {
 
   function currentFilterParams() {
     const params = new URLSearchParams();
+    const currentMapParams = new URLSearchParams(window.location.search);
+    for (const key of ["bbox", "map_bbox", "map_place_hash"]) {
+      const value = currentMapParams.get(key);
+      if (value) params.set(key, value);
+    }
     if (q.trim()) params.set("q", q.trim());
     if (transactionType) params.set("transaction", transactionType);
     if (propertyType) params.set("type", propertyType);
@@ -794,6 +853,7 @@ function PropertiesIndexPage() {
       params.get("featured") === "1",
       params.get("images") === "1",
       params.get("location") === "1",
+      parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox")),
       "newest",
       0,
     );
@@ -863,6 +923,10 @@ function PropertiesIndexPage() {
     if (!saved) return;
 
     const params = new URLSearchParams(saved.params);
+    const savedBounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
+    setMapBounds(savedBounds);
+    setMapViewportResetVersion((version) => version + 1);
+    window.history.replaceState(window.history.state, "", params.toString() ? `/properties?${params.toString()}` : "/properties");
     setQ(params.get("q") ?? "");
     setTransactionType(validTransaction(params.get("transaction") ?? "") ?? "");
     setPropertyType(validPropertyType(params.get("type") ?? "") ?? "");
@@ -966,6 +1030,8 @@ function PropertiesIndexPage() {
     setHasLocationOnly(false);
     setSort("newest");
     setOffset(0);
+    // Keep the map viewport: clearing property filters should not unexpectedly
+    // jump the user to a different area or trigger an unbounded intermediate query.
   }
 
   async function shareCurrentSearch() {
@@ -1004,7 +1070,50 @@ function PropertiesIndexPage() {
 
   const selectedProperty = properties.find((property) => property.id === selectedPropertyId) ?? null;
 
+  const neighborhoodGroupsForPicker = useMemo(() => {
+    const baseGroups = NEIGHBORHOOD_GROUPS.map((group) => ({
+      title: group.title,
+      items: group.items.map((item) => item.name),
+    }));
+    const bundledNames = new Set(baseGroups.flatMap((group) => group.items));
+    const extraNames = neighborhoodOptions.filter((name) => !bundledNames.has(name));
+    const groups = extraNames.length ? [...baseGroups, { title: "سایر محله‌های ذخیره‌شده", items: extraNames }] : baseGroups;
+    const query = normalizeNeighborhoodSearch(neighborhoodQuery);
+    return groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((name) => !query || normalizeNeighborhoodSearch(name).includes(query)),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [neighborhoodOptions, neighborhoodQuery]);
+
+  function chooseNeighborhood(name: string) {
+    setNeighborhood(name);
+    setNeighborhoodPickerOpen(false);
+    setMobileFiltersOpen(false);
+    if (!name) return;
+    const area = NEIGHBORHOODS.find((item) => item.name === name);
+    const bounds = area?.divarBbox;
+    // A new neighborhood without trusted geometry should not inherit an unrelated old viewport.
+    setMapBounds(bounds ? [...bounds] as [number, number, number, number] : undefined);
+    setMapViewportResetVersion((version) => version + 1);
+  }
+
+  const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
+    const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (pathname !== "/properties") return;
+    const rounded = bounds.map((number) => Number(number.toFixed(7))) as [number, number, number, number];
+    setMapBounds((current) => current && current.every((value, index) => value === rounded[index]) ? current : rounded);
+    const params = new URLSearchParams(window.location.search);
+    const value = rounded.join(",");
+    params.set("bbox", value);
+    params.set("map_bbox", value);
+    const query = params.toString();
+    window.history.replaceState(window.history.state, "", query ? `/properties?${query}` : "/properties");
+  }, []);
+
   const hasFilters = Boolean(
+    mapBounds ||
     q.trim() ||
     transactionType ||
     propertyType ||
@@ -1110,6 +1219,14 @@ function PropertiesIndexPage() {
   }
 
   const fa = (value: number) => value.toLocaleString("fa-IR");
+  useEffect(() => {
+    if (!neighborhoodPickerOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNeighborhoodPickerOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [neighborhoodPickerOpen]);
 
   return (
     <SiteChrome>
@@ -1253,16 +1370,28 @@ function PropertiesIndexPage() {
                 </div>
               </FilterGroup>
 
-              <FilterGroup title="محله" hint={fa(NEIGHBORHOOD_NAMES.length) + " محله"}>
-                <label className="pf-field">
-                  <span className="sr-only">انتخاب محله</span>
-                  <select className="pf-select" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)}>
-                    <option value="">همه محله‌ها</option>
-                    {neighborhoodOptions.map((item) => (
-                      <option key={item} value={item}>{item}</option>
-                    ))}
-                  </select>
-                </label>
+              <FilterGroup title="محله" hint={fa(neighborhoodOptions.length) + " محله"}>
+                <button
+                  type="button"
+                  className="pf-neighborhood-trigger"
+                  onClick={() => { setNeighborhoodQuery(""); setNeighborhoodPickerOpen(true); }}
+                  aria-haspopup="dialog"
+                  aria-expanded={neighborhoodPickerOpen}
+                >
+                  <span className="pf-neighborhood-trigger-copy">
+                    <MapPinned size={18} aria-hidden="true" />
+                    <span>
+                      <strong>{neighborhood || "همهٔ محله‌ها"}</strong>
+                      <small>{neighborhood ? "برای تغییر، فهرست محله‌ها را باز کنید" : "جست‌وجو کنید یا محدوده را روی نقشه انتخاب کنید"}</small>
+                    </span>
+                  </span>
+                  <Search size={17} aria-hidden="true" />
+                </button>
+                {neighborhood ? (
+                  <button type="button" className="pf-neighborhood-clear" onClick={() => setNeighborhood("")}>
+                    نمایش همهٔ محله‌ها
+                  </button>
+                ) : null}
               </FilterGroup>
 
               <div className="pf-compact-ranges">
@@ -1445,9 +1574,9 @@ function PropertiesIndexPage() {
                   const selectedCount = allOptions.filter((item) => specFilters.includes(item.value)).length;
                   return (
                     <details
-                      className={"pf-spec-subgroup" + (selectedCount ? " has-selection" : "")}
+                      className={"pf-spec-subgroup" + (selectedCount ? " has-selection" : "") + (group === "امکانات دیگر" ? " pf-spec-subgroup--amenities" : "")}
                       key={group}
-                      open={Boolean(query) || selectedCount > 0}
+                      open={Boolean(query) || selectedCount > 0 || (desktopFilterViewport && group === "امکانات دیگر")}
                     >
                       <summary className="pf-spec-subgroup-summary">
                         <span className="pf-spec-subgroup-head">
@@ -1642,7 +1771,7 @@ function PropertiesIndexPage() {
               </Link>
             </div>
 
-            {properties.length ? (
+            {properties.length || viewMode === "split" ? (
               <>
                 {viewMode === "split" ? (
                   <div className="pf-map pf-map-divar-layout">
@@ -1651,7 +1780,13 @@ function PropertiesIndexPage() {
                         <strong>فایل‌های ملکی</strong>
                         <span>{fa(properties.length)} نتیجه</span>
                       </div>
-                      {properties.map((property) => (
+                      {properties.length === 0 ? (
+                        <div className="pf-map-list-empty" role="status">
+                          <MapPin size={22} />
+                          <strong>در این محدوده فایلی پیدا نشد.</strong>
+                          <p>نقشه را جابه‌جا کنید یا محدودهٔ جست‌وجو را بزرگ‌تر کنید.</p>
+                        </div>
+                      ) : properties.map((property) => (
                         <div className={`pf-map-card-row${selectedPropertyId === property.id ? " is-active" : ""}`} key={property.id}>
                           <button
                             type="button"
@@ -1694,8 +1829,14 @@ function PropertiesIndexPage() {
                     <div className="pf-map-panel" aria-label="نقشه تعاملی فایل‌های ملکی">
                       <PropertiesMap
                         properties={properties}
+                        neighborhoods={NEIGHBORHOODS}
+                        selectedNeighborhood={neighborhood}
                         selectedPropertyId={selectedPropertyId}
                         onSelect={setSelectedPropertyId}
+                        onSelectNeighborhood={chooseNeighborhood}
+                        onViewportChange={syncMapBoundsToUrl}
+                        viewportResetBounds={mapBounds}
+                        viewportResetVersion={mapViewportResetVersion}
                       />
                     </div>
                   </div>
@@ -1760,6 +1901,69 @@ function PropertiesIndexPage() {
             )}
           </div>
         </div>
+        {neighborhoodPickerOpen ? (
+          <div
+            className="pf-neighborhood-dialog-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setNeighborhoodPickerOpen(false);
+            }}
+          >
+            <section className="pf-neighborhood-dialog" role="dialog" aria-modal="true" aria-labelledby="pf-neighborhood-dialog-title">
+              <header className="pf-neighborhood-dialog-head">
+                <div>
+                  <span className="pf-neighborhood-dialog-kicker"><MapPinned size={15} /> انتخاب محدوده</span>
+                  <h2 id="pf-neighborhood-dialog-title">محلهٔ موردنظر را انتخاب کنید</h2>
+                  <p>فهرست از کاتالوگ محلی هیرمند می‌آید؛ برای نمایش فایل‌ها نیازی به اتصال دیوار نیست.</p>
+                </div>
+                <button type="button" aria-label="بستن انتخاب محله" onClick={() => setNeighborhoodPickerOpen(false)}><X size={20} /></button>
+              </header>
+              <label className="pf-neighborhood-dialog-search">
+                <Search size={18} aria-hidden="true" />
+                <input
+                  autoFocus
+                  type="search"
+                  value={neighborhoodQuery}
+                  onChange={(event) => setNeighborhoodQuery(event.target.value)}
+                  placeholder="نام محله را جست‌وجو کنید؛ مثلاً درچه، جلفا، مرداویج…"
+                  aria-label="جست‌وجوی محله‌ها"
+                />
+                {neighborhoodQuery ? <button type="button" aria-label="پاک کردن جست‌وجوی محله" onClick={() => setNeighborhoodQuery("")}><X size={15} /></button> : null}
+              </label>
+              <div className="pf-neighborhood-dialog-toolbar">
+                <span>{fa(neighborhoodGroupsForPicker.reduce((count, group) => count + group.items.length, 0))} محله در فهرست</span>
+                <button type="button" className={!neighborhood ? "is-selected" : ""} onClick={() => { setNeighborhood(""); setNeighborhoodPickerOpen(false); }}>همهٔ محله‌ها</button>
+              </div>
+              <div className="pf-neighborhood-dialog-results">
+                {neighborhoodGroupsForPicker.length ? neighborhoodGroupsForPicker.map((group) => (
+                  <section className="pf-neighborhood-result-group" key={group.title}>
+                    <h3>{group.title}<span>{fa(group.items.length)}</span></h3>
+                    <div>
+                      {group.items.map((name) => (
+                        <button
+                          type="button"
+                          key={name}
+                          className={neighborhood === name ? "is-selected" : ""}
+                          aria-pressed={neighborhood === name}
+                          onClick={() => { chooseNeighborhood(name); setNeighborhoodQuery(""); }}
+                        >
+                          <span>{name}</span>
+                          {neighborhood === name ? <span className="pf-neighborhood-check" aria-hidden="true">✓</span> : <span className="pf-neighborhood-select-mark" aria-hidden="true" />}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )) : (
+                  <div className="pf-neighborhood-no-results"><Search size={22} /><strong>محله‌ای پیدا نشد</strong><p>املای نام را کوتاه‌تر کنید یا عبارت دیگری بنویسید.</p></div>
+                )}
+              </div>
+              <footer className="pf-neighborhood-dialog-foot">
+                <span>{neighborhood ? `محلهٔ انتخاب‌شده: ${neighborhood}` : "هنوز محله‌ای انتخاب نشده است"}</span>
+                <button type="button" onClick={() => setNeighborhoodPickerOpen(false)}>انجام شد</button>
+              </footer>
+            </section>
+          </div>
+        ) : null}
       </main>
     </SiteChrome>
   );
