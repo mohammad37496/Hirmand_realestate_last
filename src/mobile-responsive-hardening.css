@@ -1,0 +1,244 @@
+/* Responsive layout guardrails for the full RTL site.
+   Keep this stylesheet last in the root document so it can correct shared
+   defaults without changing the design tokens or hiding horizontal overflow. */
+
+html,
+body,
+#root {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body {
+  direction: rtl;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+html[lang="fa"] h1,
+html[lang="fa"] h2,
+html[lang="fa"] h3,
+html[lang="fa"] h4,
+html[lang="fa"] h5,
+html[lang="fa"] h6 {
+  letter-spacing: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+html[lang="fa"] :where(p, li, label, small, strong, span, a, button, legend, dt, dd) {
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+}
+
+img,
+video,
+iframe,
+canvas,
+svg {
+  max-inline-size: 100%;
+}
+
+:where(
+  .page,
+  .section,
+  .site-home,
+  .site-nav-inner,
+  .nav-brand,
+  .nav-actions,
+  .property-grid,
+  .property-showcase,
+  .property-card,
+  .property-detail-page,
+  .property-detail-content,
+  .property-detail-tools-row,
+  .pf-page,
+  .pf-layout,
+  .pf-grid,
+  .pf-main,
+  .pf-sidebar,
+  .pf-map-divar-layout,
+  .pf-map-list,
+  .pf-map-panel,
+  .areas-directory-page,
+  .areas-directory-grid,
+  .consultants-directory-page,
+  .consultants-grid,
+  .tools-layout,
+  .finance-tools-hub,
+  .finance-tools-hub-grid,
+  .budget-match-page,
+  .budget-matcher-main,
+  .budget-matcher-side,
+  .inquiry-section,
+  .inquiry-layout,
+  .inquiry-form,
+  .contact-grid,
+  .social-row,
+  .service-grid,
+  .step-grid,
+  .type-grid,
+  .location-card,
+  .location-body
+) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+:where(
+  .property-grid,
+  .service-grid,
+  .step-grid,
+  .type-grid,
+  .areas-directory-grid,
+  .consultants-grid,
+  .pf-layout,
+  .pf-grid,
+  .pf-map-divar-layout,
+  .finance-tools-hub-grid
+) > * {
+  min-width: 0;
+}
+
+:where(input, select, textarea, button) {
+  max-inline-size: 100%;
+}
+
+:where(input, select, textarea) {
+  min-width: 0;
+}
+
+:where([role="dialog"], [role="alertdialog"], [data-radix-dialog-content]) {
+  box-sizing: border-box;
+  max-inline-size: calc(100vw - 24px);
+}
+
+.table-responsive,
+.overflow-x-auto {
+  max-inline-size: 100%;
+  overscroll-behavior-inline: contain;
+}
+
+@media (max-width: 767px) {
+  .section,
+  .footer {
+    width: min(calc(100% - 28px), var(--wrap));
+  }
+
+  .section {
+    margin-top: 56px;
+  }
+
+  .hero-inner {
+    width: min(calc(100% - 28px), 860px);
+    padding-block: 80px 48px;
+  }
+
+  .hero-search {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .hero-search > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .about-grid,
+  .inquiry-layout,
+  .location-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inquiry-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contact-grid,
+  .social-row,
+  .service-grid,
+  .step-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pf-layout,
+  .pf-grid,
+  .pf-map-divar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pf-sort {
+    flex-wrap: wrap;
+  }
+
+  .pf-sort .pf-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .pf-map-panel {
+    min-width: 0;
+    min-height: 260px;
+    max-width: 100%;
+  }
+
+  .property-detail-tools-row,
+  .property-detail-meta,
+  .property-actions,
+  .property-primary-contact {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  :where(.property-actions, .property-primary-contact) > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  :where(.property-detail-tools-row, .form-actions, .property-report-actions) > a,
+  :where(.property-detail-tools-row, .form-actions, .property-report-actions) > button {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  :where([role="dialog"], [role="alertdialog"], [data-radix-dialog-content]) {
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+}
+
+@media (max-width: 420px) {
+  .type-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .inquiry-section {
+    width: calc(100% - 20px);
+    padding: 24px 14px;
+  }
+
+  .hero-inner {
+    padding-block: 68px 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
