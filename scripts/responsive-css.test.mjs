@@ -10,6 +10,11 @@ const propertyDetailRedesignCss = fs.readFileSync(new URL("../src/property-detai
 const propertyDetailLightCss = fs.readFileSync(new URL("../src/property-detail-light-theme.css", import.meta.url), "utf8");
 const propertyFiltersCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
 const adminMatchingCss = fs.readFileSync(new URL("../src/admin-matching.css", import.meta.url), "utf8");
+const adminMobileManagementCss = fs.readFileSync(new URL("../src/admin-mobile-management.css", import.meta.url), "utf8");
+const adminPropertyQualityCss = fs.readFileSync(new URL("../src/admin-property-quality.css", import.meta.url), "utf8");
+const areasDirectoryCss = fs.readFileSync(new URL("../src/areas-directory.css", import.meta.url), "utf8");
+const propertiesDivarCss = fs.readFileSync(new URL("../src/properties-divar-redesign.css", import.meta.url), "utf8");
+const propertyExpertRequestsCss = fs.readFileSync(new URL("../src/property-expert-requests.css", import.meta.url), "utf8");
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
@@ -71,6 +76,27 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   assert.doesNotMatch(adminDetailTextRule, /overflow-wrap\s*:\s*anywhere/i);
   assert.match(adminDetailTextRule, /overflow-wrap\s*:\s*break-word/i);
   assert.match(adminDetailTextRule, /word-break\s*:\s*normal/i);
+  assert.doesNotMatch(adminMobileManagementCss, /overflow-wrap\s*:\s*anywhere/i,
+    "mobile admin text and metadata must prefer natural word wrapping");
+  assert.match(adminMobileManagementCss, /overflow-wrap\s*:\s*break-word/i);
+  assert.doesNotMatch(adminPropertyQualityCss, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(adminPropertyQualityCss, /overflow-wrap\s*:\s*break-word/i);
+  const neighborhoodNameRule = areasDirectoryCss.match(/\.areas-neighborhood-name\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(neighborhoodNameRule, "neighborhood names should have a scoped text-wrap rule");
+  assert.doesNotMatch(neighborhoodNameRule, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(neighborhoodNameRule, /overflow-wrap\s*:\s*break-word/i);
+  const mapPopupTitleRule = propertiesDivarCss.match(/\.pf-map-popup\s*>\s*strong\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(mapPopupTitleRule, "map popup title rule should exist");
+  assert.doesNotMatch(mapPopupTitleRule, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(mapPopupTitleRule, /overflow-wrap\s*:\s*break-word/i);
+  const validationMessageRule = propertiesDivarCss.match(/\.pf-filter-validation-error span\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(validationMessageRule, "validation message rule should exist");
+  assert.doesNotMatch(validationMessageRule, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(validationMessageRule, /overflow-wrap\s*:\s*break-word/i);
+  const modalDescriptionRule = propertyExpertRequestsCss.match(/\.property-expert-request-dialog-head p\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(modalDescriptionRule, "expert request modal description rule should exist");
+  assert.doesNotMatch(modalDescriptionRule, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(modalDescriptionRule, /overflow-wrap\s*:\s*break-word/i);
 });
 
 testRunner.test("responsive guardrails load after the older global styles", () => {

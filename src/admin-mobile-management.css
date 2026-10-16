@@ -369,7 +369,7 @@
   text-decoration: none;
   font-size: .86rem;
   font-weight: 800;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-device-person:hover,
@@ -441,7 +441,7 @@
 
 .admin-mobile-fleet-meta span {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-fleet-meta b {
@@ -597,7 +597,7 @@
   color: var(--admin-mobile-muted);
   font-size: .66rem;
   line-height: 1.75;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-alert-link,
@@ -651,7 +651,7 @@
   color: var(--admin-mobile-muted);
   font-size: .63rem;
   line-height: 1.65;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-policy-card em {
@@ -746,13 +746,13 @@
 
 .admin-mobile-employee-copy strong {
   font-size: .76rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-employee-copy > span:last-child {
   color: var(--admin-mobile-muted);
   font-size: .62rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-card-arrow {
@@ -882,14 +882,14 @@
 
 .admin-mobile-security-row strong {
   font-size: .68rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-security-row span {
   color: var(--admin-mobile-muted);
   font-size: .59rem;
   line-height: 1.65;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-security-row.is-critical .admin-mobile-alert-icon { color: var(--admin-mobile-danger); }
@@ -947,7 +947,7 @@
 .admin-mobile-health-version-row span {
   color: var(--admin-mobile-muted);
   font-size: .61rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-health-detail-row strong,
@@ -981,7 +981,7 @@
 
 .admin-mobile-health-device-name strong,
 .admin-mobile-health-device-name small {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-health-device-name strong {
@@ -1068,7 +1068,7 @@
 .admin-mobile-command-target span {
   color: var(--admin-mobile-muted);
   font-size: .58rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-command-grid {
@@ -1299,7 +1299,7 @@
   margin: 0;
   color: var(--admin-mobile-muted);
   font-size: .66rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-tabs {
@@ -1373,7 +1373,7 @@
   display: block;
   margin-top: 3px;
   font-size: .88rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-summary-stat small {
@@ -1447,7 +1447,7 @@
   max-width: 65%;
   text-align: left;
   font-size: .68rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-ltr {
@@ -1494,7 +1494,7 @@
 
 .admin-mobile-permission-card strong {
   font-size: .69rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-permission-card span {
@@ -1543,7 +1543,7 @@
 
 .admin-mobile-location-card strong {
   font-size: .73rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-location-status {
@@ -1578,7 +1578,7 @@
   background: rgba(0,0,0,.18);
   color: rgb(247 245 239 / .44);
   font-size: .58rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   white-space: pre-wrap;
 }
 
@@ -1769,7 +1769,7 @@
   color: var(--admin-mobile-muted);
   font-size: .59rem;
   line-height: 1.6;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .admin-mobile-enrollment-card {

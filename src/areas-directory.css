@@ -704,7 +704,8 @@
 
 .areas-neighborhood-name {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .areas-neighborhood-arrow {

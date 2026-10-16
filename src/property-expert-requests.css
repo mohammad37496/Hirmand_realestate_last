@@ -25,7 +25,8 @@
 .property-expert-request-dialog-head{display:flex;align-items:flex-start;gap:12px;padding-inline-end:40px}
 .property-expert-request-dialog-head>svg{margin-top:4px;color:var(--brass-700,var(--brass));flex:0 0 auto}
 .property-expert-request-dialog-head h3{margin:2px 0 4px;font-size:1.1rem}
-.property-expert-request-dialog-head p{margin:0;color:var(--muted);font-size:.74rem;line-height:1.7;overflow-wrap:anywhere}
+.property-expert-request-dialog-head p{margin:0;color:var(--muted);font-size:.74rem;line-height:1.7;overflow-wrap: break-word;
+  word-break: normal;}
 .property-expert-request-form{display:grid;gap:12px;margin-top:20px}
 .property-expert-request-form .field{display:grid;gap:6px}
 .property-expert-request-form .field>span{font-size:.74rem;font-weight:800;color:var(--fg)}
