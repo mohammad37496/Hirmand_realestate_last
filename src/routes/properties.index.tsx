@@ -40,7 +40,7 @@ import {
 } from "@/lib/property-options";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
-import { parseCoordinateBounds } from "@/lib/map-geometry";
+import { isValidCoordinateBounds, parseCoordinateBounds } from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
 const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
@@ -632,6 +632,9 @@ function PropertiesIndexPage() {
 
       const cached = queryCache.current.get(cacheKey);
       if (cached) {
+        // A cache hit is still asynchronous work relative to the user's filter
+        // state. Never allow a stale timer to overwrite newer query results.
+        if (requestId.current !== currentRequest) return;
         setProperties(cached.rows);
         setTotal(cached.count);
         setLoading(false);
@@ -1091,11 +1094,23 @@ function PropertiesIndexPage() {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
     if (pathname !== "/properties") return;
     const rounded = bounds.map((number) => Number(number.toFixed(7))) as [number, number, number, number];
-    setMapBounds((current) => current && current.every((value, index) => value === rounded[index]) ? current : rounded);
+    const validBounds = isValidCoordinateBounds(rounded) ? rounded : undefined;
+    setMapBounds((current) => {
+      if (!validBounds) return undefined;
+      return current && current.every((value, index) => value === validBounds[index]) ? current : validBounds;
+    });
+
     const params = new URLSearchParams(window.location.search);
-    const value = rounded.join(",");
-    params.set("bbox", value);
-    params.set("map_bbox", value);
+    if (validBounds) {
+      const value = validBounds.join(",");
+      params.set("bbox", value);
+      params.set("map_bbox", value);
+    } else {
+      // A viewport crossing invalid geographic ranges must not poison URL state
+      // or make the server reject every subsequent property query.
+      params.delete("bbox");
+      params.delete("map_bbox");
+    }
     const query = params.toString();
     window.history.replaceState(window.history.state, "", query ? `/properties?${query}` : "/properties");
   }, []);
