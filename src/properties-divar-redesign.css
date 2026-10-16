@@ -785,8 +785,8 @@
   border-radius: 5px;
   background: rgb(197 160 91 / .12);
   color: #263a35;
-  cursor: pointer;
-  pointer-events: auto;
+  cursor: default;
+  pointer-events: none;
   transition: border-color .12s ease, background .12s ease, box-shadow .12s ease;
 }
 .pf-map-neighborhood-box:hover {
