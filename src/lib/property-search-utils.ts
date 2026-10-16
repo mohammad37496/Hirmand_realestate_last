@@ -13,7 +13,7 @@ export function normalizeSearchText(value: unknown): string {
   return toLatinDigits(value)
     .replace(/[يى]/g, "ی")
     .replace(/ك/g, "ک")
-    .replace(/[\u200c\u200d\u200e\u200f\uFEFF]/g, "")
+    .replaceAll("\u200c", "").replaceAll("\u200d", "").replaceAll("\u200e", "").replaceAll("\u200f", "").replaceAll("\uFEFF", "")
     .replace(/[\u064B-\u065F\u0670]/g, "")
     .replace(/\s+/g, " ")
     .trim()
