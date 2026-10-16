@@ -172,6 +172,11 @@ export function PropertiesMap({
   const worldLeft = visualCenter.x - size.width / 2;
   const worldTop = visualCenter.y - size.height / 2;
 
+  const viewportBounds = useMemo(
+    () => viewportBoundsFromView(view, size.width, size.height),
+    [view.latitude, view.longitude, view.zoom, size.width, size.height],
+  );
+
   const tiles = useMemo<Tile[]>(() => {
     const totalTiles = 2 ** view.zoom;
     const startX = Math.floor(worldLeft / TILE_SIZE);
