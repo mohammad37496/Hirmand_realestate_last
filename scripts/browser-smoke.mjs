@@ -461,6 +461,42 @@ try {
       mapInteractionCheck.propertyMarkerSelection = await mapPage.locator(".pf-map-marker.is-active").count() > 0;
     }
 
+    // Tap a visible neighborhood extent away from the selected bbox. The
+    // overlay is pointer-transparent so this exercises the map's hit-test path,
+    // not a click handler attached to a blocking rectangle.
+    const mapBoxTapTarget = await mapPage.evaluate(() => {
+      const active = document.querySelector(".pf-map-neighborhood-box.is-active")?.getBoundingClientRect();
+      const candidates = [...document.querySelectorAll(".pf-map-neighborhood-box:not(.is-active)")].map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          name: element.getAttribute("data-neighborhood-name") ?? "",
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+          width: rect.width,
+          height: rect.height,
+        };
+      }).filter((candidate) =>
+        candidate.name && candidate.width > 10 && candidate.height > 10 &&
+        (!active || candidate.x < active.left || candidate.x > active.right || candidate.y < active.top || candidate.y > active.bottom),
+      ).sort((a, b) => a.width * a.height - b.width * b.height);
+      return candidates[0] ?? null;
+    });
+    const priorTapNeighborhood = mapState.neighborhood;
+    if (mapBoxTapTarget) {
+      await mapPage.mouse.click(mapBoxTapTarget.x, mapBoxTapTarget.y);
+      await mapPage.waitForFunction(
+        (previous) => {
+          const selected = new URLSearchParams(window.location.search).get("neighborhood");
+          return Boolean(selected) && selected !== previous;
+        },
+        priorTapNeighborhood,
+        { timeout: mapTimeoutMs },
+      ).catch(() => undefined);
+      mapState = await readMapState(mapPage);
+      mapInteractionCheck.neighborhoodTap =
+        Boolean(mapState.neighborhood) && mapState.neighborhood !== priorTapNeighborhood;
+    }
+
     mobileMapPage = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const mobileUrl = new URL("/properties", url);
     mobileUrl.search = new URLSearchParams({
@@ -527,6 +563,7 @@ try {
     mapInteractionCheck.resetClearedBounds &&
     mapInteractionCheck.neighborhoodSelection &&
     mapInteractionCheck.propertyMarkerSelection &&
+    mapInteractionCheck.neighborhoodTap &&
     mapInteractionCheck.mobileRefreshAndPan;
 
   const apiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
