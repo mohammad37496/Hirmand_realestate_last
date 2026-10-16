@@ -350,6 +350,9 @@ export function PropertiesMap({
   // that deliver touch events but fail to synthesize pointer capture; otherwise
   // the visible map may pan while the bbox in the shared URL stays stale.
   const onMapTouchStart = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    // Markers, map controls and outbound links own their own touch interaction;
+    // do not turn a simple tap on one into a map gesture or neighborhood hit-test.
+    if ((event.target as HTMLElement).closest("button, a")) return;
     const touch = event.touches[0];
     if (!touch) return;
     // A touch sequence may emit pointerdown without a reliable pointerup in
