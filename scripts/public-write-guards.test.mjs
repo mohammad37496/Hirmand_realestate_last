@@ -55,6 +55,18 @@ const ownerPropertyStatusRoute = await readFile(
   new URL("../server/routes/api/owner-property-status.post.ts", import.meta.url),
   "utf8",
 );
+const customerChatGetRoute = await readFile(
+  new URL("../server/routes/api/customer-chat.get.ts", import.meta.url),
+  "utf8",
+);
+const customerChatPostRoute = await readFile(
+  new URL("../server/routes/api/customer-chat.post.ts", import.meta.url),
+  "utf8",
+);
+const publicLeadTrackingRoute = await readFile(
+  new URL("../server/routes/api/public-lead-tracking.get.ts", import.meta.url),
+  "utf8",
+);
 
 test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
@@ -117,4 +129,18 @@ test("admin dashboard and data-health checks do not turn SQL failures into fake 
   assert.match(adminDataHealthRoute, /statusCode\s*:\s*503/);
   assert.doesNotMatch(adminDataHealthRoute, /\.catch\(\(\)\s*=>\s*\[\s*\]\)/);
   assert.doesNotMatch(adminDataHealthRoute, /summary\s*:\s*\{\s*critical\s*:\s*0,\s*warning\s*:\s*0,\s*info\s*:\s*0,\s*open\s*:\s*0/);
+});
+
+
+test("public customer tracking endpoints normalize codes and rate-limit access", () => {
+  assert.match(customerChatGetRoute, /replace\(\/\\s\+\/g/);
+  for (const [name, source] of [
+    ["customer chat GET", customerChatGetRoute],
+    ["customer chat POST", customerChatPostRoute],
+    ["public lead tracking", publicLeadTrackingRoute],
+  ]) {
+    assert.match(source, /consumeAdminAttempt\(/, name + " must rate-limit requests");
+    assert.match(source, /tooManyAttemptsError\(/, name + " must return a throttling error");
+  }
+  assert.match(customerChatGetRoute, /cache-control", "no-store"/);
 });
