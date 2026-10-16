@@ -1637,6 +1637,43 @@ export const saveProperty = createServerFn({ method: "POST" })
       [id],
     );
     const existing = existingRows[0] ?? null;
+    // The UI's duplicate warning is advisory; enforce exact duplicate prevention
+    // at the save boundary as well, including repeated submissions from a stale tab.
+    if (!existing && (data.status === "draft" || data.status === "published")) {
+      const duplicateRows = await sql.query<Record<string, unknown>>(
+        `select id, title
+         from properties
+         where deleted_at is null
+           and status in ('draft','published')
+           and id <> $1
+           and lower(trim(title)) = lower(trim($2))
+           and transaction_type = $3
+           and property_type = $4
+           and lower(trim(neighborhood)) = lower(trim($5))
+           and area_m2 is not distinct from $6::integer
+           and price is not distinct from $7::numeric
+           and deposit is not distinct from $8::numeric
+           and rent is not distinct from $9::numeric
+         order by updated_at desc
+         limit 1`,
+        [
+          id,
+          data.title,
+          data.transactionType,
+          data.propertyType,
+          data.neighborhood,
+          data.areaM2 ?? null,
+          data.price ?? null,
+          data.deposit ?? null,
+          data.rent ?? null,
+        ],
+      );
+      if (duplicateRows[0]) {
+        throw new Error(
+          `این فایل با «${String(duplicateRows[0].title ?? data.title)}» (کد ${String(duplicateRows[0].id)}) از قبل ثبت شده است. برای جلوگیری از تکرار، فایل موجود را ویرایش کنید.`,
+        );
+      }
+    }
     if (data.status === "published" && (!existing || existing.status !== "published")) {
       const readiness = getPublishReadiness({
         transactionType: data.transactionType,
