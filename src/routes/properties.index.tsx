@@ -118,7 +118,12 @@ function readSavedSearches(): SavedSearch[] {
 }
 
 export const Route = createFileRoute("/properties/")({
-  loader: async () => {
+  loader: async ({ location }) => {
+    // Never render the unfiltered server-loader rows for a deep link. The page
+    // reads the query string and fetches its matching result set after hydration.
+    if (new URLSearchParams(location.searchStr).size > 0) {
+      return { properties: [], total: 0 };
+    }
     const [properties, total] = await Promise.all([
       listPublishedPropertyCards({ data: {} }),
       countPublishedProperties({ data: {} }),
