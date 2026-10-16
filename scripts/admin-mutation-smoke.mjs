@@ -6,7 +6,7 @@ const adminKey = process.env.HIRMAND_ADMIN_KEY?.trim();
 const databaseUrl = process.env.DATABASE_URL?.trim();
 const title = (process.env.ADMIN_SMOKE_PROPERTY_TITLE?.trim() || "فایل تست mutation ادمین هیرمند") + " " + Date.now();
 const editedTitle = title + " — ویرایش‌شده";
-const smokeLeadId = "admin-business-workflow-smoke-" + Date.now();
+let smokeLeadId = "";
 const smokePhone = "0913" + String(Date.now()).slice(-7);
 const price = process.env.ADMIN_SMOKE_PROPERTY_PRICE?.trim() || "12345678901";
 
@@ -155,14 +155,38 @@ try {
 
       // Seed a single real CRM request fixture; the API under test performs
       // matching and must explain the requested area interval in its reasons.
-      await client.query(
-        `insert into leads
-          (id,name,phone,deal,property_type,neighborhood,note,source,
-           requested_area_min,requested_area_max,budget_purchase_min,budget_purchase_max)
-         values ($1,$2,$3,'خرید','apartment','مرکز شهر',$4,'website',$5,$6,$7,$8)`,
-        [smokeLeadId, "مشتری تست فرایند هیرمند", smokePhone,
-          "درخواست آزمایشی برای سنجش تطبیق متراژ", 95, 115, Number(price), Number(price)],
+      const leadResponse = await context.request.post(baseUrl + "/api/leads", {
+        headers: { origin: baseUrl, referer: baseUrl + "/" },
+        data: {
+          name: "مشتری تست فرایند هیرمند",
+          phone: smokePhone,
+          deal: "خرید",
+          propertyType: "apartment",
+          neighborhood: "مرکز شهر",
+          note: "درخواست آزمایشی برای سنجش تطبیق متراژ",
+          requestedAreaMin: 95,
+          requestedAreaMax: 115,
+          budgetPurchaseMin: Number(price),
+          budgetPurchaseMax: Number(price),
+        },
+      });
+      if (!leadResponse.ok()) {
+        const responseText = await leadResponse.text().catch(() => "");
+        throw new Error("Customer request intake returned HTTP " + leadResponse.status() + ": " + responseText);
+      }
+      const leadResult = await leadResponse.json();
+      if (!leadResult?.success || !leadResult?.id) {
+        throw new Error("Customer intake did not return a saved lead ID.");
+      }
+      smokeLeadId = String(leadResult.id);
+      const savedArea = await client.query(
+        "select requested_area_min, requested_area_max from leads where id = $1 limit 1",
+        [smokeLeadId],
       );
+      if (Number(savedArea.rows[0]?.requested_area_min) !== 95 || Number(savedArea.rows[0]?.requested_area_max) !== 115) {
+        throw new Error("Customer area preferences were not persisted by the lead intake endpoint.");
+      }
+
       const matchResponse = await context.request.post(baseUrl + "/api/admin-match", {
         data: { action: "match", leadId: smokeLeadId, mode: "smart", limit: 30 },
       });
@@ -210,6 +234,9 @@ try {
       if (Number(duplicateCount.rows[0]?.count) !== 1) {
         throw new Error("Duplicate-prevention check left multiple active records with the same title.");
       }
+      if (await duplicateForm.getByLabel("عنوان", { exact: true }).inputValue() !== editedTitle) {
+        throw new Error("The property form lost its values after a rejected duplicate submission.");
+      }
 
       console.log(JSON.stringify({
         ok: true,
@@ -227,8 +254,11 @@ try {
         duplicateRejected: true,
       }, null, 2));
     } finally {
-      await client.query("delete from lead_activities where lead_id = $1", [smokeLeadId]).catch(() => {});
-      await client.query("delete from leads where id = $1", [smokeLeadId]).catch(() => {});
+      if (smokeLeadId) {
+        await client.query("delete from admin_tasks where entity_type = 'lead' and entity_id = $1", [smokeLeadId]).catch(() => {});
+        await client.query("delete from lead_activities where lead_id = $1", [smokeLeadId]).catch(() => {});
+        await client.query("delete from leads where id = $1", [smokeLeadId]).catch(() => {});
+      }
       await client.query("delete from properties where title = any($1::text[])", [[title, editedTitle]]).catch(() => {});
       client.release();
     }
