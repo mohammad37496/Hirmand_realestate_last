@@ -90,6 +90,40 @@ const fixtures: Fixture[] = [
     longitude: 51.58,
     features: ["سند تک‌برگ"],
   },
+  {
+    id: "mortgage-e",
+    transaction_type: "mortgage",
+    property_type: "apartment",
+    title: "رهن کامل خانه",
+    neighborhood: "جلفا",
+    address: "خیابان حکیم",
+    area_m2: 95,
+    price: null,
+    deposit: 1_100_000_000,
+    rent: null,
+    bedrooms: 2,
+    parking: true,
+    latitude: 32.641,
+    longitude: 51.652,
+    features: ["انباری"],
+  },
+  {
+    id: "sell-f",
+    transaction_type: "sell",
+    property_type: "apartment",
+    title: "فروش واحد اداری",
+    neighborhood: "احمدآباد",
+    address: "خیابان بزرگمهر",
+    area_m2: 70,
+    price: 1_600_000_000,
+    deposit: null,
+    rent: null,
+    bedrooms: 1,
+    parking: false,
+    latitude: 32.655,
+    longitude: 51.67,
+    features: ["سند اداری"],
+  },
 ];
 
 async function createFixtureDb() {
@@ -184,7 +218,7 @@ async function searchIds(db: PGlite, filters: Record<string, unknown>, order = "
 test("controlled database fixture: no filters returns every published property", async () => {
   const db = await createFixtureDb();
   try {
-    assert.deepEqual(await searchIds(db, {}), ["land-d", "rent-c", "sale-a", "sale-b"]);
+    assert.deepEqual(await searchIds(db, {}), ["land-d", "mortgage-e", "rent-c", "sale-a", "sale-b", "sell-f"]);
   } finally {
     await db.close();
   }
@@ -194,6 +228,8 @@ test("controlled fixture: a single transaction filter narrows results", async ()
   const db = await createFixtureDb();
   try {
     assert.deepEqual(await searchIds(db, { transactionType: "rent" }), ["rent-c"]);
+    assert.deepEqual(await searchIds(db, { transactionType: "mortgage" }), ["mortgage-e"]);
+    assert.deepEqual(await searchIds(db, { transactionType: "sell" }), ["sell-f"]);
   } finally {
     await db.close();
   }
