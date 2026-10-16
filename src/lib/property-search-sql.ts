@@ -41,8 +41,10 @@ export const PRICE_EXPR =
   "when transaction_type = 'mortgage' then deposit else price end";
 
 function normalizedTextSql(expression: string): string {
-  const canonical = `replace(replace(replace(replace(lower(coalesce(${expression}, '')), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), chr(8204), '')`;
-  return `regexp_replace(${canonical}, '[[:space:][:punct:]]+', '', 'g')`;
+  const canonical = `replace(replace(replace(replace(replace(replace(replace(replace(lower(coalesce(${expression}, '')), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), chr(8204), ''), chr(8205), ''), chr(8206), ''), chr(8207), '')`;
+  const latinDigits = `translate(${canonical}, '۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')`;
+  const withoutDiacritics = `translate(${latinDigits}, 'ًٌٍَُِّْٰٕٔ', '')`;
+  return `regexp_replace(${withoutDiacritics}, '[[:space:][:punct:]]+', '', 'g')`;
 }
 
 export function buildPublicPropertyWhereSql(): string {
@@ -75,7 +77,7 @@ export function buildPublicPropertyWhereSql(): string {
       "(selected.value like 'heating:%' and heating_system = substring(selected.value from 9)) or " +
       "(selected.value like 'closet:%' and wall_closet_type = substring(selected.value from 8)) or " +
       "coalesce(other_amenities, '[]'::jsonb) ? selected.value))",
-    "and ($23::text is null or exists (select 1 from jsonb_array_elements_text(coalesce(features, '[]'::jsonb)) as feature(value) where feature.value ilike '%' || $23 || '%'))",
+    `and ($23::text is null or exists (select 1 from jsonb_array_elements_text(coalesce(features, '[]'::jsonb)) as feature(value) where ${normalizedTextSql("feature.value")} like '%' || ${normalizedTextSql("$23::text")} || '%'))`,
     "and ($24::boolean is false or (jsonb_typeof(coalesce(images, '[]'::jsonb)) = 'array' and jsonb_array_length(coalesce(images, '[]'::jsonb)) > 0))",
     "and ($25::boolean is false or (latitude is not null and longitude is not null))",
     "and ($26::text is null or floor_label = $26)",
