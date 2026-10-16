@@ -74,7 +74,7 @@ export function PropertiesMap({
   neighborhoods: Neighborhood[];
   selectedNeighborhood: string;
   selectedPropertyId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
   onSelectNeighborhood: (name: string) => void;
   onViewportChange?: (bounds: CoordinateBounds) => void;
   onResetMap: () => void;
@@ -286,6 +286,23 @@ export function PropertiesMap({
     [properties],
   );
 
+  const selectedMarker = useMemo(
+    () => markers.find((marker) => marker.items.some((property) => property.id === selectedPropertyId)) ?? null,
+    [markers, selectedPropertyId],
+  );
+  const selectedMapProperty =
+    selectedMarker?.items.find((property) => property.id === selectedPropertyId) ?? null;
+  const propertyPopupPosition = useMemo(() => {
+    if (!selectedMarker) return null;
+    const popupWidth = Math.min(252, size.width - 16);
+    const left = Math.max(8, Math.min(selectedMarker.x - popupWidth / 2, size.width - popupWidth - 8));
+    const above = selectedMarker.y > 150;
+    const top = above
+      ? Math.max(118, Math.min(selectedMarker.y - 10, size.height - 8))
+      : Math.max(8, Math.min(selectedMarker.y + 18, size.height - 118));
+    return { left, top, above };
+  }, [selectedMarker, size.width, size.height]);
+
   const onMapPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target as HTMLElement).closest("button, a")) return;
     dragOrigin.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
@@ -480,6 +497,38 @@ export function PropertiesMap({
           </button>
         );
       })}
+      {selectedMapProperty && propertyPopupPosition ? (
+        <section
+          className={`pf-map-property-popup${propertyPopupPosition.above ? " is-above" : " is-below"}`}
+          style={{ left: propertyPopupPosition.left, top: propertyPopupPosition.top }}
+          role="status"
+          aria-live="polite"
+          aria-label={`جزئیات فایل ${selectedMapProperty.title}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="pf-map-property-popup-close"
+            aria-label="بستن جزئیات فایل انتخاب‌شده"
+            onClick={() => onSelect(null)}
+          >×</button>
+          {selectedMapProperty.image ? (
+            <img src={selectedMapProperty.image} alt="" loading="lazy" />
+          ) : null}
+          <div className="pf-map-property-popup-copy">
+            <strong>{selectedMapProperty.title}</strong>
+            <small>
+              {selectedMapProperty.neighborhood || "اصفهان"}
+              {selectedMapProperty.areaM2 ? ` · ${selectedMapProperty.areaM2.toLocaleString("fa-IR")} متر` : ""}
+            </small>
+            <b>{propertyAmountLabel(selectedMapProperty)}</b>
+            <a href={`/properties/${encodeURIComponent(selectedMapProperty.slug)}`}>
+              مشاهدهٔ فایل
+            </a>
+          </div>
+        </section>
+      ) : null}
       {mappedCount === 0 ? (
         <div className="pf-map-empty-note">
           <MapPin size={18} />
