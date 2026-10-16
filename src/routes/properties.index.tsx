@@ -434,6 +434,8 @@ function PropertiesIndexPage() {
   const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
+  const filterAbortController = useRef<AbortController | null>(null);
+  const loadMoreAbortController = useRef<AbortController | null>(null);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
 
@@ -592,6 +594,13 @@ function PropertiesIndexPage() {
     // Invalidate older requests immediately, not only after the debounce fires;
     // otherwise a slow page request can append stale rows during the 320ms gap.
     const currentRequest = ++requestId.current;
+    // Cancel transports for the previous viewport/filter as soon as inputs
+    // change; requestId still guards against a server response racing the abort.
+    filterAbortController.current?.abort();
+    filterAbortController.current = null;
+    loadMoreAbortController.current?.abort();
+    loadMoreAbortController.current = null;
+    setLoadingMore(false);
     // Invalid spatial input must never degrade to an unbounded listing query.
     if (invalidMapBounds) {
       setProperties([]);
@@ -604,6 +613,8 @@ function PropertiesIndexPage() {
       return;
     }
 
+    const abortController = new AbortController();
+    filterAbortController.current = abortController;
     const timer = window.setTimeout(async () => {
       setLoading(true);
       setOffset(0);
@@ -656,8 +667,8 @@ function PropertiesIndexPage() {
 
       try {
         const [rows, count] = await Promise.all([
-          listPublishedPropertyCards({ data }),
-          countPublishedProperties({ data }),
+          listPublishedPropertyCards({ data, signal: abortController.signal }),
+          countPublishedProperties({ data, signal: abortController.signal }),
         ]);
         if (requestId.current !== currentRequest) return;
         const result = { rows, count };
@@ -669,9 +680,9 @@ function PropertiesIndexPage() {
         setProperties(rows);
         setTotal(count);
       } catch {
-        // The old rows may belong to a broader query. Never leave them visible
-        // under a URL whose current filters failed to load.
-        if (requestId.current === currentRequest) {
+        // A canceled request is expected when the user changes map/filter state.
+        // Only surface genuine failures for the still-active query.
+        if (!abortController.signal.aborted && requestId.current === currentRequest) {
           setProperties([]);
           setTotal(0);
           toast.error("جستجوی فایل‌ها انجام نشد. اتصال اینترنت یا سرویس فایل‌ها را بررسی کنید.");
@@ -681,16 +692,27 @@ function PropertiesIndexPage() {
       }
     }, 320);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      if (requestId.current === currentRequest) requestId.current += 1;
+      abortController.abort();
+      if (filterAbortController.current === abortController) filterAbortController.current = null;
+      loadMoreAbortController.current?.abort();
+      loadMoreAbortController.current = null;
+    };
   }, [urlReady, invalidMapBounds, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || properties.length >= total) return;
     const nextOffset = offset + PAGE_SIZE;
     const queryVersion = requestId.current;
+    const abortController = new AbortController();
+    loadMoreAbortController.current?.abort();
+    loadMoreAbortController.current = abortController;
     setLoadingMore(true);
     try {
       const rows = await listPublishedPropertyCards({
+        signal: abortController.signal,
         data: buildFilterData(
           q,
           transactionType,
@@ -739,9 +761,12 @@ function PropertiesIndexPage() {
       setProperties((current) => [...current, ...rows]);
       setOffset(nextOffset);
     } catch {
-      // Keep current page visible.
+      // Keep current page visible; aborts are expected after a filter/viewport change.
     } finally {
-      setLoadingMore(false);
+      if (loadMoreAbortController.current === abortController) {
+        loadMoreAbortController.current = null;
+      }
+      if (requestId.current === queryVersion) setLoadingMore(false);
     }
   }, [
     loading,
