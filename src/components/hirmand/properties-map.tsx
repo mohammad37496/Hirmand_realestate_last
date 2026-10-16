@@ -84,6 +84,7 @@ export function PropertiesMap({
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const appliedViewportResetVersion = useRef(0);
+  const lastMeasuredSizeRef = useRef<MapSize | null>(null);
   const initialBoundsRef = useRef<CoordinateBounds | null>(null);
   const userChangedViewRef = useRef(false);
   const neighborhoodBoxesRef = useRef<NeighborhoodBox[]>([]);
@@ -179,6 +180,22 @@ export function PropertiesMap({
     [view.latitude, view.longitude, view.zoom, size.width, size.height],
   );
 
+  // A user-adjusted viewport is an active property filter. If device rotation
+  // or responsive layout changes the map dimensions, update the URL bounds to
+  // match the newly visible area rather than leaving the query on the old size.
+  useEffect(() => {
+    if (!sizeReady) return;
+    const previous = lastMeasuredSizeRef.current;
+    lastMeasuredSizeRef.current = { width: size.width, height: size.height };
+    if (
+      !previous ||
+      (previous.width === size.width && previous.height === size.height) ||
+      !userChangedViewRef.current
+    ) return;
+    const resizedBounds = viewportBoundsFromView(view, size.width, size.height);
+    if (resizedBounds) onViewportChange?.(resizedBounds);
+  }, [sizeReady, size.width, size.height, view.latitude, view.longitude, view.zoom, onViewportChange]);
+
   const tiles = useMemo<Tile[]>(() => {
     const totalTiles = 2 ** view.zoom;
     const startX = Math.floor(worldLeft / TILE_SIZE);
@@ -191,7 +208,9 @@ export function PropertiesMap({
       for (let rawX = startX; rawX <= endX; rawX += 1) {
         const x = ((rawX % totalTiles) + totalTiles) % totalTiles;
         result.push({
-          key: `${view.zoom}/${x}/${rawY}`,
+          // Use unwrapped world indices for React identity. At zoom 0 or 1,
+          // several visible world copies can share the same wrapped tile URL.
+          key: `${view.zoom}/${rawX}/${rawY}`,
           url: `https://tile.openstreetmap.org/${view.zoom}/${x}/${rawY}.png`,
           left: rawX * TILE_SIZE - worldLeft,
           top: rawY * TILE_SIZE - worldTop,
