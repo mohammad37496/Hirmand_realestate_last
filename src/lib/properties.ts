@@ -5,6 +5,7 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
 import { buildPublicPropertyFilterParams, buildPublicPropertyWhereSql, PRICE_EXPR } from "@/lib/property-search-sql";
+import { publicPropertyFiltersSchema } from "@/lib/property-search-contract";
 import { compactSearchText } from "@/lib/property-search-utils";
 import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -186,52 +187,6 @@ export type PropertyFilters = {
   sort?: PropertySort;
   offset?: number;
 };
-
-const publicFiltersSchema = z.object({
-  transactionType: z.enum(["buy", "sell", "rent", "mortgage"]).optional(),
-  propertyType: z
-    .enum(["apartment", "villa", "office", "heritage", "land", "commercial"])
-    .optional(),
-  neighborhood: z.string().trim().max(80).optional(),
-  mapBounds: z.tuple([
-    z.number().min(-180).max(180),
-    z.number().min(-90).max(90),
-    z.number().min(-180).max(180),
-    z.number().min(-90).max(90),
-  ]).refine(([west, south, east, north]) => west < east && south < north, {
-    message: "محدوده نقشه نامعتبر است.",
-  }).optional(),
-  featuredOnly: z.boolean().optional(),
-  search: z.string().trim().max(80).optional(),
-  minArea: z.number().int().min(0).max(100000).optional(),
-  maxArea: z.number().int().min(0).max(100000).optional(),
-  minPrice: z.number().int().min(0).max(999999999999999).optional(),
-  maxPrice: z.number().int().min(0).max(999999999999999).optional(),
-  minDeposit: z.number().int().min(0).max(999999999999999).optional(),
-  maxDeposit: z.number().int().min(0).max(999999999999999).optional(),
-  minRent: z.number().int().min(0).max(999999999999999).optional(),
-  maxRent: z.number().int().min(0).max(999999999999999).optional(),
-  minBedrooms: z.number().int().min(0).max(30).optional(),
-  minBathrooms: z.number().int().min(0).max(30).optional(),
-  minFloor: z.number().int().min(-60).max(200).optional(),
-  maxFloor: z.number().int().min(-60).max(200).optional(),
-  floorType: z.literal("suite").optional(),
-  orientation: z.enum(["north","south","east","west","northeast","northwest","southeast","southwest","two_fronts","three_fronts","four_fronts","other"]).optional(),
-  convertibleOnly: z.boolean().optional(),
-  minTotalFloors: z.number().int().min(0).max(200).optional(),
-  maxTotalFloors: z.number().int().min(0).max(200).optional(),
-  minBuiltYear: z.number().int().min(1200).max(2500).optional(),
-  maxBuiltYear: z.number().int().min(1200).max(2500).optional(),
-  parkingOnly: z.boolean().optional(),
-  elevatorOnly: z.boolean().optional(),
-  storageOnly: z.boolean().optional(),
-  specFilters: z.array(z.string().trim().min(1).max(100)).max(120).optional(),
-  featureSearch: z.string().trim().max(80).optional(),
-  hasImagesOnly: z.boolean().optional(),
-  hasLocationOnly: z.boolean().optional(),
-  sort: z.enum(["newest", "price_asc", "price_desc", "area_asc", "area_desc"]).optional().default("newest"),
-  offset: z.number().int().min(0).max(100000).optional().default(0),
-});
 
 const nullableMoneyField = nullableMoneyFieldSchema;
 
@@ -527,7 +482,7 @@ const PUBLIC_PUBLICATION_WHERE =
   ") and (unpublish_at is null or unpublish_at > current_timestamp)";
 
 export const listPublishedPropertyCards = createServerFn({ method: "GET" })
-  .validator(publicFiltersSchema)
+  .validator(publicPropertyFiltersSchema)
   .handler(async ({ data }) => {
     if (dbSource === "unconfigured") return [];
     setResponseHeader("cache-control", "public, max-age=15, s-maxage=60, stale-while-revalidate=300");
@@ -557,7 +512,7 @@ export const listPublishedPropertyCards = createServerFn({ method: "GET" })
   });
 
 export const listPublishedProperties = createServerFn({ method: "GET" })
-  .validator(publicFiltersSchema)
+  .validator(publicPropertyFiltersSchema)
   .handler(async ({ data }) => {
     if (dbSource === "unconfigured") return [];
     const sql = await getSql();
@@ -580,7 +535,7 @@ export const listPublishedProperties = createServerFn({ method: "GET" })
   });
 
 export const countPublishedProperties = createServerFn({ method: "GET" })
-  .validator(publicFiltersSchema)
+  .validator(publicPropertyFiltersSchema)
   .handler(async ({ data }) => {
     if (dbSource === "unconfigured") return 0;
     setResponseHeader("cache-control", "public, max-age=15, s-maxage=60, stale-while-revalidate=300");
