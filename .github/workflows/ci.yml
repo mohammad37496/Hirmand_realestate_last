@@ -3,6 +3,7 @@ name: CI
 # Final homepage hierarchy pass verification
 
 on:
+  workflow_dispatch:
   push:
     branches: ["main"]
   pull_request:
