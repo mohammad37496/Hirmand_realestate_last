@@ -238,6 +238,21 @@ try {
   bounds = parseCoordinateBounds(state.mapBounds);
   check("All neighborhoods clears the neighborhood filter without corrupting map bounds", !state.neighborhood && isValidCoordinateBounds(bounds), state);
 
+  // The map's reset control is separate from clearing listing filters: it should
+  // reset the viewport to the Isfahan default when no neighborhood is selected.
+  const beforeMapReset = bounds;
+  await page.getByRole("button", { name: "بازگشت به نمای اصفهان یا محله انتخاب‌شده" }).click();
+  await waitForValidViewportUrl(page).catch(() => undefined);
+  await waitForSearch(page);
+  state = await readUrlState(page);
+  bounds = parseCoordinateBounds(state.mapBounds);
+  check(
+    "map reset control changes the viewport while keeping it valid",
+    isValidCoordinateBounds(beforeMapReset) && isValidCoordinateBounds(bounds) &&
+      beforeMapReset.some((value, index) => Math.abs(value - bounds[index]) > 0.000001),
+    state,
+  );
+
   // 4. Invalid URL bounds must fail closed and never remain as bad query parameters.
   const invalidPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const invalidErrors = [];
