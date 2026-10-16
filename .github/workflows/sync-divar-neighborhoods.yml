@@ -11,7 +11,9 @@ on:
       - ".github/workflows/sync-divar-neighborhoods.yml"
 
 permissions:
+  actions: write
   contents: write
+  pull-requests: write
 
 concurrency:
   group: divar-neighborhood-catalog-sync
@@ -20,26 +22,73 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           persist-credentials: true
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - name: Fetch and validate Divar catalog
         run: node scripts/sync-divar-neighborhoods.mjs
-      - name: Commit changed snapshot
+
+      - name: Propose catalog changes for review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          if git diff --quiet -- data/divar-isfahan-neighborhoods.json; then
+          set -euo pipefail
+          catalog_path="data/divar-isfahan-neighborhoods.json"
+          branch="automation/divar-isfahan-neighborhood-catalog"
+          title="chore: sync Divar Isfahan neighborhood geometry"
+          body="$(cat <<'EOF'
+          Automated update of the locally stored Isfahan neighborhood snapshot from Divar's city and district APIs.
+
+          This change is proposed as a pull request instead of writing directly to main. CI and production-preview browser verification are dispatched against the automation branch; deployment happens only after the pull request is merged.
+          EOF
+          )"
+
+          if git diff --quiet -- "$catalog_path"; then
             echo "The authoritative Divar snapshot is unchanged."
             exit 0
           fi
+
+          snapshot="$(mktemp)"
+          cp "$catalog_path" "$snapshot"
+          git restore -- "$catalog_path"
+
+          git fetch origin main
+          git fetch origin "refs/heads/${branch}:refs/remotes/origin/${branch}" || true
+          git checkout -B "$branch" origin/main
+          cp "$snapshot" "$catalog_path"
+          rm -f "$snapshot"
+
+          if git diff --quiet -- "$catalog_path"; then
+            echo "The generated snapshot is identical to the latest main revision."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/divar-isfahan-neighborhoods.json
-          git commit -m "chore: sync Divar Isfahan neighborhood geometry"
-          git push
+          git add "$catalog_path"
+          git commit -m "$title"
+          git push --force-with-lease origin "HEAD:refs/heads/${branch}"
+
+          pr_number="$(gh pr list --base main --head "$branch" --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$pr_number" ]]; then
+            gh pr edit "$pr_number" --title "$title" --body "$body"
+          else
+            gh pr create --base main --head "$branch" --title "$title" --body "$body"
+          fi
+
+          # A GITHUB_TOKEN-created pull request does not trigger pull_request
+          # workflows by itself. Explicitly dispatch the two required gates
+          # against the exact automation branch instead of silently skipping CI.
+          gh workflow run ci.yml --ref "$branch"
+          gh workflow run verify.yml --ref "$branch"
