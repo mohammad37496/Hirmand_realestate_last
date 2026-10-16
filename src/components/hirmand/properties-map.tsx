@@ -74,7 +74,6 @@ type NeighborhoodBox = {
   height: number;
   centerLatitude: number;
   centerLongitude: number;
-  bounds: [number, number, number, number];
   selected: boolean;
 };
 
@@ -86,6 +85,8 @@ export function PropertiesMap({
   onSelect,
   onSelectNeighborhood,
   onViewportChange,
+  viewportResetBounds,
+  viewportResetVersion,
 }: {
   properties: MapProperty[];
   neighborhoods: Neighborhood[];
@@ -94,9 +95,12 @@ export function PropertiesMap({
   onSelect: (id: string) => void;
   onSelectNeighborhood: (name: string) => void;
   onViewportChange?: (bounds: [number, number, number, number]) => void;
+  viewportResetBounds: [number, number, number, number] | undefined;
+  viewportResetVersion: number;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const appliedViewportResetVersion = useRef(0);
   const [view, setView] = useState<MapView>(DEFAULT_VIEW);
   const [size, setSize] = useState<MapSize>({ width: 920, height: 640 });
   const [dragOffset, setDragOffset] = useState<PixelPoint>({ x: 0, y: 0 });
@@ -144,12 +148,27 @@ export function PropertiesMap({
     const area = neighborhoods.find((item) => item.name === selectedNeighborhood);
     if (!area?.divarBbox) return;
     const [west, south, east, north] = area.divarBbox;
+    setView((current) => ({
+      latitude: (south + north) / 2,
+      longitude: (west + east) / 2,
+      zoom: Math.max(14, current.zoom),
+    }));
+  }, [selectedNeighborhood, neighborhoods]);
+
+  useEffect(() => {
+    if (appliedViewportResetVersion.current === viewportResetVersion) return;
+    appliedViewportResetVersion.current = viewportResetVersion;
+    if (!viewportResetBounds) {
+      setView(DEFAULT_VIEW);
+      return;
+    }
+    const [west, south, east, north] = viewportResetBounds;
     setView({
       latitude: (south + north) / 2,
       longitude: (west + east) / 2,
       zoom: 14,
     });
-  }, [selectedNeighborhood, neighborhoods]);
+  }, [viewportResetBounds, viewportResetVersion]);
 
   useEffect(() => {
     setFailedTiles(new Set());
@@ -224,11 +243,11 @@ export function PropertiesMap({
         height,
         centerLatitude: (south + north) / 2,
         centerLongitude: (west + east) / 2,
-        bounds: [west, south, east, north],
         selected,
       }];
     });
-    return boxes.sort((a, b) => Number(a.selected) - Number(b.selected)).slice(0, 180);
+    // Keep the selected extent inside the capped list, even when many neighborhood boxes overlap.
+    return boxes.sort((a, b) => Number(b.selected) - Number(a.selected)).slice(0, 180);
   }, [neighborhoods, selectedNeighborhood, showNeighborhoodBounds, view.zoom, worldLeft, worldTop, size.width, size.height]);
 
   const markers = useMemo(() => {
