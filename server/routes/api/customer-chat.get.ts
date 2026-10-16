@@ -6,7 +6,7 @@ import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/
 const codeSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
 
 export default defineEventHandler(async (event) => {
-  const rawCode = String((getQuery(event).code ?? "")).trim().toUpperCase().replace(/\\s+/g, "");
+  const rawCode = String((getQuery(event).code ?? "")).trim().toUpperCase().replace(/\s+/g, "");
   const trackingCode = codeSchema.safeParse(rawCode);
   if (!trackingCode.success) {
     throw createError({ statusCode: 400, statusMessage: "کد رهگیری نامعتبر است." });
