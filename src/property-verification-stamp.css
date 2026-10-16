@@ -35,7 +35,8 @@
   color:#57646e;
   font-size:.76rem;
   line-height:1.9;
-  overflow-wrap:anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .property-verification-stamp-copy small{
   display:block;

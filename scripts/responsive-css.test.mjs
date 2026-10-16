@@ -15,6 +15,8 @@ const adminPropertyQualityCss = fs.readFileSync(new URL("../src/admin-property-q
 const areasDirectoryCss = fs.readFileSync(new URL("../src/areas-directory.css", import.meta.url), "utf8");
 const propertiesDivarCss = fs.readFileSync(new URL("../src/properties-divar-redesign.css", import.meta.url), "utf8");
 const propertyExpertRequestsCss = fs.readFileSync(new URL("../src/property-expert-requests.css", import.meta.url), "utf8");
+const propertyPriceHistoryCss = fs.readFileSync(new URL("../src/property-price-history.css", import.meta.url), "utf8");
+const propertyVerificationStampCss = fs.readFileSync(new URL("../src/property-verification-stamp.css", import.meta.url), "utf8");
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
@@ -98,6 +100,14 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   assert.ok(modalDescriptionRule, "expert request modal description rule should exist");
   assert.doesNotMatch(modalDescriptionRule, /overflow-wrap\s*:\s*anywhere/i);
   assert.match(modalDescriptionRule, /overflow-wrap\s*:\s*break-word/i);
+  const historyChangeRule = propertyPriceHistoryCss.match(/\.property-price-history-change strong\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(historyChangeRule, "property price history value rule should exist");
+  assert.doesNotMatch(historyChangeRule, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(historyChangeRule, /overflow-wrap\s*:\s*break-word/i);
+  const verificationCopyRule = propertyVerificationStampCss.match(/\.property-verification-stamp-copy p\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(verificationCopyRule, "property verification text rule should exist");
+  assert.doesNotMatch(verificationCopyRule, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(verificationCopyRule, /overflow-wrap\s*:\s*break-word/i);
 });
 
 testRunner.test("responsive guardrails load after the older global styles", () => {
