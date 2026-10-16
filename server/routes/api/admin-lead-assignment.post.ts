@@ -32,7 +32,7 @@ function workScore(load: Pick<ConsultantLoad, "activeLeads" | "overdue" | "viewi
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { consultants: [], recommendations: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده تخصیص لید به مشاوران در دسترس نیست." });
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const action = typeof body.action === "string" ? body.action : "recommend";
