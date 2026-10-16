@@ -524,7 +524,6 @@ function PropertiesIndexPage() {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
     if (pathname !== "/properties") return;
 
-    const currentParams = new URLSearchParams(window.location.search);
     const params = new URLSearchParams();
     // The viewport is part of the actual property query, not just a bookmark.
     // Build both aliases from state so stale URL bounds cannot constrain a new area.
