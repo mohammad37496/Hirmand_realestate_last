@@ -2,13 +2,33 @@
 
 export type DivarCoordinates = { latitude: number; longitude: number };
 
-function normalizeCoordinate(value: unknown, max: number, integerScale = 1_000_000): number | null {
+function normalizeCoordinate(value: unknown, max: number, integerScale?: number): number | null {
   if (typeof value !== "number" && typeof value !== "string") return null;
-  const raw = String(value).replace(/,/g, "").trim();
+  const raw = String(value).trim();
+  if (!raw) return null;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return null;
-  const normalized = Math.abs(parsed) > max ? parsed / integerScale : parsed;
-  return Number.isFinite(normalized) && Math.abs(normalized) <= max ? normalized : null;
+
+  const magnitude = Math.abs(parsed);
+  if (magnitude <= max) return parsed;
+
+  // Do not scale an arbitrary out-of-range degree value such as 999 into a
+  // tiny valid-looking point. Encoded coordinate integers are at least E6.
+  if (magnitude < 1_000_000) return null;
+
+  const primaryScale = integerScale ??
+    (magnitude >= 100_000_000 ? 10_000_000 : 1_000_000);
+  const normalized = parsed / primaryScale;
+  if (Number.isFinite(normalized) && Math.abs(normalized) <= max) return normalized;
+
+  // Some older Divar payloads used a generic lat/lng key for E7 integers.
+  // Retry E7 only when the E6 interpretation is outside the latitude or
+  // longitude domain. Explicit *_e6 and *_e7 fields always keep their key scale.
+  if (integerScale === undefined && primaryScale === 1_000_000 && magnitude >= 100_000_000) {
+    const e7 = parsed / 10_000_000;
+    if (Number.isFinite(e7) && Math.abs(e7) <= max) return e7;
+  }
+  return null;
 }
 
 /**
