@@ -40,6 +40,7 @@ import {
 } from "@/lib/property-options";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
+import { compactSearchText, parseIntegerFilter, toLatinDigits, validatePropertySearchNumbers } from "@/lib/property-search-utils";
 import { parseCoordinateBounds } from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
@@ -147,25 +148,15 @@ export const Route = createFileRoute("/properties/")({
 });
 
 function toEnglishDigits(raw: string) {
-  return raw
-    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+  return toLatinDigits(raw);
 }
 
 function parseNumber(raw: string) {
-  const cleaned = toEnglishDigits(raw).replace(/[^\d.-]/g, "");
-  if (!cleaned) return undefined;
-  const value = Number(cleaned);
-  return Number.isFinite(value) && Number.isInteger(value) && value >= 0 ? value : undefined;
+  return parseIntegerFilter(raw, { min: 0, max: Number.MAX_SAFE_INTEGER }).value;
 }
 
 function normalizeNeighborhoodSearch(raw: string) {
-  return raw
-    .normalize("NFKC")
-    .replace(/[يى]/g, "ی")
-    .replace(/ك/g, "ک")
-    .toLocaleLowerCase("fa")
-    .replace(/[^\p{L}\p{N}]/gu, "");
+  return compactSearchText(raw);
 }
 
 const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
@@ -210,10 +201,7 @@ function normalizeBounds(a: string, b: string) {
 }
 
 function parseFloorNumber(raw: string) {
-  const cleaned = toEnglishDigits(raw).replace(/[^\d.-]/g, "");
-  if (!cleaned) return undefined;
-  const value = Number(cleaned);
-  return Number.isFinite(value) && Number.isInteger(value) && value >= -60 && value <= 200 ? value : undefined;
+  return parseIntegerFilter(raw, { min: -60, max: 200, allowNegative: true }).value;
 }
 
 function normalizeFloorBounds(a: string, b: string) {
@@ -232,6 +220,10 @@ function buildFilterData(
   maxArea: string,
   minPrice: string,
   maxPrice: string,
+  minDeposit: string,
+  maxDeposit: string,
+  minRent: string,
+  maxRent: string,
   minBedrooms: string,
   minBathrooms: string,
   minFloor: string,
@@ -257,6 +249,8 @@ function buildFilterData(
 ) {
   const [nextMinArea, nextMaxArea] = normalizeBounds(minArea, maxArea);
   const [nextMinPrice, nextMaxPrice] = normalizeBounds(minPrice, maxPrice);
+  const [nextMinDeposit, nextMaxDeposit] = normalizeBounds(minDeposit, maxDeposit);
+  const [nextMinRent, nextMaxRent] = normalizeBounds(minRent, maxRent);
   const [nextMinFloor, nextMaxFloor] = normalizeFloorBounds(minFloor, maxFloor);
   const [nextMinTotalFloors, nextMaxTotalFloors] = normalizeBounds(minTotalFloors, maxTotalFloors);
   const [nextMinBuiltYear, nextMaxBuiltYear] = normalizeBounds(minBuiltYear, maxBuiltYear);
@@ -269,6 +263,10 @@ function buildFilterData(
     maxArea: nextMaxArea,
     minPrice: nextMinPrice,
     maxPrice: nextMaxPrice,
+    minDeposit: nextMinDeposit,
+    maxDeposit: nextMaxDeposit,
+    minRent: nextMinRent,
+    maxRent: nextMaxRent,
     minBedrooms: parseNumber(minBedrooms),
     minBathrooms: parseNumber(minBathrooms),
     minFloor: nextMinFloor,
@@ -390,6 +388,10 @@ function PropertiesIndexPage() {
   const [maxArea, setMaxArea] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [minDeposit, setMinDeposit] = useState("");
+  const [maxDeposit, setMaxDeposit] = useState("");
+  const [minRent, setMinRent] = useState("");
+  const [maxRent, setMaxRent] = useState("");
   const [minBedrooms, setMinBedrooms] = useState("");
   const [minBathrooms, setMinBathrooms] = useState("");
   const [minFloor, setMinFloor] = useState("");
@@ -428,7 +430,20 @@ function PropertiesIndexPage() {
   const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
-  const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
+  const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number; timestamp: number }>());
+
+  const searchValidationErrors = useMemo(() => {
+    const numeric = validatePropertySearchNumbers({
+      minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent,
+      minBedrooms, minBathrooms, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear,
+    });
+    const text: string[] = [];
+    if (q.trim() && compactSearchText(q).length === 0) text.push("عبارت جست‌وجو باید شامل حرف یا عدد باشد");
+    if (compactSearchText(q).length > 80) text.push("عبارت جست‌وجو باید حداکثر ۸۰ نویسه باشد");
+    if (compactSearchText(featureSearch).length > 80) text.push("جست‌وجوی ویژگی باید حداکثر ۸۰ نویسه باشد");
+    if (neighborhood.trim().length > 80) text.push("نام محله بیش از حد طولانی است");
+    return [...numeric, ...text];
+  }, [q, featureSearch, neighborhood, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear]);
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -486,6 +501,10 @@ function PropertiesIndexPage() {
     setMaxArea(params.get("maxArea") ?? "");
     setMinPrice(params.get("minPrice") ?? "");
     setMaxPrice(params.get("maxPrice") ?? "");
+    setMinDeposit(params.get("minDeposit") ?? "");
+    setMaxDeposit(params.get("maxDeposit") ?? "");
+    setMinRent(params.get("minRent") ?? "");
+    setMaxRent(params.get("maxRent") ?? "");
     setMinBedrooms(params.get("bedrooms") ?? "");
     setMinBathrooms(params.get("bathrooms") ?? "");
     setMinFloor(params.get("minFloor") ?? "");
@@ -548,6 +567,10 @@ function PropertiesIndexPage() {
     if (maxArea.trim()) params.set("maxArea", maxArea.trim());
     if (minPrice.trim()) params.set("minPrice", minPrice.trim());
     if (maxPrice.trim()) params.set("maxPrice", maxPrice.trim());
+    if (minDeposit.trim()) params.set("minDeposit", minDeposit.trim());
+    if (maxDeposit.trim()) params.set("maxDeposit", maxDeposit.trim());
+    if (minRent.trim()) params.set("minRent", minRent.trim());
+    if (maxRent.trim()) params.set("maxRent", maxRent.trim());
     if (minBedrooms.trim()) params.set("bedrooms", minBedrooms.trim());
     if (minBathrooms.trim()) params.set("bathrooms", minBathrooms.trim());
     if (minFloor.trim()) params.set("minFloor", minFloor.trim());
@@ -576,7 +599,7 @@ function PropertiesIndexPage() {
       "",
       query ? `/properties?${query}` : "/properties",
     );
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds, searchValidationErrors]);
 
   useEffect(() => {
     if (!urlReady) return;
@@ -588,9 +611,20 @@ function PropertiesIndexPage() {
       return;
     }
 
-    const timer = window.setTimeout(async () => {
-      setLoading(true);
+    if (searchValidationErrors.length) {
+      setProperties([]);
+      setTotal(0);
       setOffset(0);
+      setLoading(false);
+      setLoadingMore(false);
+      return;
+    }
+
+    setLoading(true);
+    setProperties([]);
+    setTotal(0);
+    setOffset(0);
+    const timer = window.setTimeout(async () => {
 
       const data = buildFilterData(
         q,
@@ -601,6 +635,10 @@ function PropertiesIndexPage() {
         maxArea,
         minPrice,
         maxPrice,
+        minDeposit,
+        maxDeposit,
+        minRent,
+        maxRent,
         minBedrooms,
         minBathrooms,
         minFloor,
@@ -631,12 +669,14 @@ function PropertiesIndexPage() {
       ).toString();
 
       const cached = queryCache.current.get(cacheKey);
-      if (cached) {
+      if (cached && Date.now() - cached.timestamp < 15_000) {
+        if (requestId.current !== currentRequest) return;
         setProperties(cached.rows);
         setTotal(cached.count);
         setLoading(false);
         return;
       }
+      if (cached) queryCache.current.delete(cacheKey);
 
       try {
         const [rows, count] = await Promise.all([
@@ -644,7 +684,7 @@ function PropertiesIndexPage() {
           countPublishedProperties({ data }),
         ]);
         if (requestId.current !== currentRequest) return;
-        const result = { rows, count };
+        const result = { rows, count, timestamp: Date.now() };
         queryCache.current.set(cacheKey, result);
         if (queryCache.current.size > 24) {
           const firstKey = queryCache.current.keys().next().value;
@@ -653,6 +693,9 @@ function PropertiesIndexPage() {
         setProperties(rows);
         setTotal(count);
       } catch {
+        if (requestId.current !== currentRequest) return;
+        setProperties([]);
+        setTotal(0);
         toast.error("جستجوی فایل‌ها انجام نشد. اتصال اینترنت یا سرویس فایل‌ها را بررسی کنید.");
       } finally {
         if (requestId.current === currentRequest) setLoading(false);
@@ -660,7 +703,7 @@ function PropertiesIndexPage() {
     }, 320);
 
     return () => window.clearTimeout(timer);
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds, searchValidationErrors]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || properties.length >= total) return;
@@ -678,6 +721,10 @@ function PropertiesIndexPage() {
           maxArea,
           minPrice,
           maxPrice,
+          minDeposit,
+          maxDeposit,
+          minRent,
+          maxRent,
           minBedrooms,
           minBathrooms,
           minFloor,
@@ -735,6 +782,10 @@ function PropertiesIndexPage() {
     maxArea,
     minPrice,
     maxPrice,
+    minDeposit,
+    maxDeposit,
+    minRent,
+    maxRent,
     minBedrooms,
     minBathrooms,
     minFloor,
@@ -788,6 +839,10 @@ function PropertiesIndexPage() {
     if (maxArea.trim()) params.set("maxArea", maxArea.trim());
     if (minPrice.trim()) params.set("minPrice", minPrice.trim());
     if (maxPrice.trim()) params.set("maxPrice", maxPrice.trim());
+    if (minDeposit.trim()) params.set("minDeposit", minDeposit.trim());
+    if (maxDeposit.trim()) params.set("maxDeposit", maxDeposit.trim());
+    if (minRent.trim()) params.set("minRent", minRent.trim());
+    if (maxRent.trim()) params.set("maxRent", maxRent.trim());
     if (minBedrooms.trim()) params.set("bedrooms", minBedrooms.trim());
     if (minBathrooms.trim()) params.set("bathrooms", minBathrooms.trim());
     if (minFloor.trim()) params.set("minFloor", minFloor.trim());
@@ -822,6 +877,10 @@ function PropertiesIndexPage() {
       params.get("maxArea") ?? "",
       params.get("minPrice") ?? "",
       params.get("maxPrice") ?? "",
+      params.get("minDeposit") ?? "",
+      params.get("maxDeposit") ?? "",
+      params.get("minRent") ?? "",
+      params.get("maxRent") ?? "",
       params.get("bedrooms") ?? "",
       params.get("bathrooms") ?? "",
       params.get("minFloor") ?? "",
@@ -923,6 +982,10 @@ function PropertiesIndexPage() {
     setMaxArea(params.get("maxArea") ?? "");
     setMinPrice(params.get("minPrice") ?? "");
     setMaxPrice(params.get("maxPrice") ?? "");
+    setMinDeposit(params.get("minDeposit") ?? "");
+    setMaxDeposit(params.get("maxDeposit") ?? "");
+    setMinRent(params.get("minRent") ?? "");
+    setMaxRent(params.get("maxRent") ?? "");
     setMinBedrooms(params.get("bedrooms") ?? "");
     setMinBathrooms(params.get("bathrooms") ?? "");
     setMinFloor(params.get("minFloor") ?? "");
@@ -996,6 +1059,10 @@ function PropertiesIndexPage() {
     setMaxArea("");
     setMinPrice("");
     setMaxPrice("");
+    setMinDeposit("");
+    setMaxDeposit("");
+    setMinRent("");
+    setMaxRent("");
     setMinBedrooms("");
     setMinBathrooms("");
     setMinFloor("");
@@ -1110,6 +1177,10 @@ function PropertiesIndexPage() {
     maxArea.trim() ||
     minPrice.trim() ||
     maxPrice.trim() ||
+    minDeposit.trim() ||
+    maxDeposit.trim() ||
+    minRent.trim() ||
+    maxRent.trim() ||
     minBedrooms.trim() ||
     minBathrooms.trim() ||
     minFloor.trim() ||
@@ -1139,6 +1210,7 @@ function PropertiesIndexPage() {
     neighborhood,
     minArea.trim() || maxArea.trim(),
     minPrice.trim() || maxPrice.trim(),
+    minDeposit.trim() || maxDeposit.trim() || minRent.trim() || maxRent.trim(),
     minBedrooms.trim(),
     minBathrooms.trim() || minFloor.trim() || maxFloor.trim() || floorType || orientation || minTotalFloors.trim() || maxTotalFloors.trim() || minBuiltYear.trim() || maxBuiltYear.trim(),
     parkingOnly ? "parking" : "",
@@ -1169,6 +1241,12 @@ function PropertiesIndexPage() {
       : null,
     minPrice.trim() || maxPrice.trim()
       ? { label: `قیمت ${minPrice || "۰"} تا ${maxPrice || "∞"}`, clear: () => { setMinPrice(""); setMaxPrice(""); } }
+      : null,
+    minDeposit.trim() || maxDeposit.trim()
+      ? { label: `ودیعه ${minDeposit || "۰"} تا ${maxDeposit || "∞"}`, clear: () => { setMinDeposit(""); setMaxDeposit(""); } }
+      : null,
+    minRent.trim() || maxRent.trim()
+      ? { label: `اجاره ${minRent || "۰"} تا ${maxRent || "∞"}`, clear: () => { setMinRent(""); setMaxRent(""); } }
       : null,
     minBedrooms.trim() ? { label: `${minBedrooms} خواب به بالا`, clear: () => setMinBedrooms("") } : null,
     minBathrooms.trim() ? { label: `${minBathrooms} حمام به بالا`, clear: () => setMinBathrooms("") } : null,
@@ -1411,6 +1489,37 @@ function PropertiesIndexPage() {
                   </div>
                 </FilterGroup>
               </div>
+
+              <FilterDisclosure
+                title="ودیعه و اجاره مستقل"
+                hint="تومان؛ در کنار فیلتر قیمت قابل ترکیب است"
+                count={(minDeposit || maxDeposit || minRent || maxRent) ? "فعال" : "انتخاب"}
+              >
+                <div className="pf-fold-grid">
+                  <div className="pf-range">
+                    <label className="pf-field">
+                      <span>ودیعه از</span>
+                      <input inputMode="numeric" value={minDeposit} onChange={(e) => setMinDeposit(e.target.value)} placeholder="۰" />
+                    </label>
+                    <i aria-hidden="true">—</i>
+                    <label className="pf-field">
+                      <span>ودیعه تا</span>
+                      <input inputMode="numeric" value={maxDeposit} onChange={(e) => setMaxDeposit(e.target.value)} placeholder="نامحدود" />
+                    </label>
+                  </div>
+                  <div className="pf-range">
+                    <label className="pf-field">
+                      <span>اجاره ماهانه از</span>
+                      <input inputMode="numeric" value={minRent} onChange={(e) => setMinRent(e.target.value)} placeholder="۰" />
+                    </label>
+                    <i aria-hidden="true">—</i>
+                    <label className="pf-field">
+                      <span>اجاره ماهانه تا</span>
+                      <input inputMode="numeric" value={maxRent} onChange={(e) => setMaxRent(e.target.value)} placeholder="نامحدود" />
+                    </label>
+                  </div>
+                </div>
+              </FilterDisclosure>
             </div>
 
             <FilterDisclosure
@@ -1648,6 +1757,13 @@ function PropertiesIndexPage() {
                 <button type="button" className="pf-chip" onClick={resetFilters}>
                   پاک کردن همه
                 </button>
+              </div>
+            ) : null}
+
+            {searchValidationErrors.length ? (
+              <div className="pf-filter-validation-error" role="alert">
+                <strong>ورودی فیلتر نامعتبر است.</strong>
+                <span>{searchValidationErrors.join("، ")} را اصلاح کنید؛ تا آن زمان نتیجهٔ قدیمی نمایش داده نمی‌شود.</span>
               </div>
             ) : null}
 
