@@ -271,7 +271,7 @@ try {
   const expectedMapBounds = [51.64, 32.73, 51.68, 32.745];
   const selectedNeighborhoodBounds = (() => {
     const catalog = JSON.parse(readFileSync(new URL("../data/divar-isfahan-neighborhoods.json", import.meta.url), "utf8"));
-    const key = (value) => String(value ?? "").normalize("NFKC").replace(/[\\s\\u200c\\u200d]+/g, "");
+    const key = (value) => String(value ?? "").normalize("NFKC").replace(/[\s\u200c\u200d]+/g, "");
     const district = catalog.districts.find((item) => key(item.name) === key("شهرک ولی‌عصر"));
     return Array.isArray(district?.bbox) && district.bbox.length === 4 ? district.bbox : null;
   })();
@@ -605,11 +605,6 @@ try {
       transaction: "sell",
     }).toString();
     await emptyBoundsPage.goto(emptyBoundsUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
-    await emptyBoundsPage.waitForFunction(
-      () => document.querySelector(".pf-page")?.getAttribute("data-list-loading") === "true",
-      null,
-      { timeout: mapTimeoutMs },
-    );
     await emptyBoundsPage.waitForFunction(
       () => document.querySelector(".pf-page")?.getAttribute("data-list-loading") === "false" &&
         document.querySelector(".pf-page")?.getAttribute("data-list-result-count") === "0",
