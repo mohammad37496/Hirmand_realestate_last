@@ -95,3 +95,20 @@ test("invalid or null coordinates are omitted instead of silently becoming zero"
   assert.equal("lat" in fromExtras, false);
   assert.equal("lng" in fromExtras, false);
 });
+
+
+test("empty or unavailable Divar catalog preserves curated names without inventing coordinates", () => {
+  const curated = [
+    { name: "محلهٔ آزمایشی بدون داده دیوار" },
+    { name: "محلهٔ دوم بدون داده دیوار" },
+  ];
+  const groups = mergeNeighborhoodGroups([{ title: "آزمایشی", items: curated }], []);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0]?.items.map((item) => item.name), curated.map((item) => item.name));
+  for (const item of groups[0]?.items ?? []) {
+    assert.equal("lat" in item, false);
+    assert.equal("lng" in item, false);
+    assert.equal("divarBbox" in item, false);
+    assert.equal("divarDistrictId" in item, false);
+  }
+});
