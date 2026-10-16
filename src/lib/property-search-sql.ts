@@ -1,4 +1,4 @@
-import { compactSearchText } from "./property-search-utils.ts";
+import { compactSearchText, normalizeSearchText } from "./property-search-utils.ts";
 
 export type PublicPropertySearchFilterInput = {
   transactionType?: string;
@@ -54,7 +54,7 @@ export function buildPublicPropertyWhereSql(): string {
     "and ($2::text is null or property_type = $2)",
     `and ($3::text is null or ($5::boolean is true and ${normalizedTextSql("neighborhood")} = ${normalizedTextSql("$3::text")}) or ($5::boolean is false and ${normalizedTextSql("neighborhood")} like '%' || ${normalizedTextSql("$3::text")} || '%'))`,
     "and ($4::boolean is false or (featured = true and (featured_until is null or featured_until >= current_timestamp)))",
-    `and ($6::text is null or ${normalizedTextSql("concat_ws(' ', title, city, neighborhood, address, description, features::text)")} like '%' || ${normalizedTextSql("$6::text")} || '%')`,
+    `and ($6::text is null or (select bool_and(${normalizedTextSql("concat_ws(' ', title, city, neighborhood, address, description, features::text)")} like '%' || ${normalizedTextSql("search_term")} || '%') from unnest(regexp_split_to_array(trim($6::text), '[[:space:]]+')) as terms(search_term)))`,
     "and ($7::int is null or area_m2 >= $7)",
     "and ($8::int is null or area_m2 <= $8)",
     "and ($9::numeric is null or " + PRICE_EXPR + " >= $9)",
@@ -106,7 +106,7 @@ export function buildPublicPropertyFilterParams(data: PublicPropertySearchFilter
     neighborhood,
     data.featuredOnly ?? false,
     exactNeighborhood,
-    (data.search ? compactSearchText(data.search) : "") || null,
+    (data.search ? normalizeSearchText(data.search) : "") || null,
     data.minArea ?? null,
     data.maxArea ?? null,
     data.minPrice ?? null,
