@@ -4,6 +4,8 @@ import type { PropertyCardData } from "@/lib/properties";
 import type { Neighborhood } from "@/lib/site";
 import {
   DEFAULT_MAP_VIEW,
+  MAX_MAP_ZOOM,
+  MIN_MAP_ZOOM,
   TILE_SIZE,
   fitBoundsToView,
   isValidWgs84Point,
@@ -372,7 +374,7 @@ export function PropertiesMap({
     userChangedViewRef.current = true;
     const nextView = {
       ...view,
-      zoom: Math.max(10, Math.min(18, view.zoom + amount)),
+      zoom: Math.max(MIN_MAP_ZOOM, Math.min(MAX_MAP_ZOOM, view.zoom + amount)),
     };
     setView(nextView);
     const nextBounds = viewportBoundsFromView(nextView, size.width, size.height);
