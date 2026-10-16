@@ -341,3 +341,57 @@ svg {
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Portal the neighborhood picker above the fixed header and filter drawer. */
+@media (max-width: 979px) {
+  .pf-neighborhood-dialog-backdrop {
+    z-index: 13000;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  }
+  .pf-neighborhood-dialog {
+    width: min(900px, 100%);
+    max-height: calc(100dvh - 24px);
+  }
+  .pf-neighborhood-dialog-head {
+    gap: 10px;
+    padding: 14px;
+  }
+  .pf-neighborhood-dialog-head > button {
+    width: 44px;
+    height: 44px;
+  }
+  .pf-neighborhood-dialog-search {
+    min-width: 0;
+    margin: 12px;
+  }
+  .pf-neighborhood-dialog-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 12px 10px;
+  }
+  .pf-neighborhood-dialog-results {
+    min-width: 0;
+    padding: 0 12px 12px;
+  }
+  .pf-neighborhood-dialog-foot {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 420px) {
+  .pf-neighborhood-dialog-head h2 {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  .pf-neighborhood-dialog-head p {
+    font-size: 0.72rem;
+  }
+  .pf-neighborhood-dialog-results {
+    padding-inline: 10px;
+  }
+  .pf-neighborhood-dialog-search {
+    margin: 10px;
+  }
+}
