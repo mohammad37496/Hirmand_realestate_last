@@ -453,9 +453,11 @@ body:has(.property-detail-page) .page {
   color: var(--hr-navy) !important;
   font-size: clamp(1.45rem, 1.12rem + .75vw, 2.05rem) !important;
   line-height: 1.55 !important;
-  letter-spacing: -.015em !important;
+  letter-spacing: normal !important;
   text-wrap: balance !important;
-  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  hyphens: none !important;
 }
 
 .property-detail-page .property-detail-meta {
