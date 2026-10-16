@@ -280,6 +280,18 @@ try {
   const closeBounds = (left, right, tolerance = 1e-6) =>
     Array.isArray(left) && Array.isArray(right) && left.length === 4 && right.length === 4 &&
     left.every((value, index) => Number.isFinite(value) && Math.abs(value - right[index]) <= tolerance);
+  const boundsContain = (outer, inner, tolerance = 1e-7) =>
+    Array.isArray(outer) && Array.isArray(inner) && outer.length === 4 && inner.length === 4 &&
+    outer.every(Number.isFinite) && inner.every(Number.isFinite) &&
+    outer[0] <= inner[0] + tolerance &&
+    outer[1] <= inner[1] + tolerance &&
+    outer[2] >= inner[2] - tolerance &&
+    outer[3] >= inner[3] - tolerance;
+  const parseBoundsAttribute = (value) => {
+    if (typeof value !== "string" || !value.trim()) return null;
+    const bounds = value.split(",").map((part) => Number(part.trim()));
+    return bounds.length === 4 && bounds.every(Number.isFinite) ? bounds : null;
+  };
   const readMapState = (page) => page.evaluate(() => {
     const current = new URL(window.location.href);
     const params = current.searchParams;
@@ -530,9 +542,25 @@ try {
     await mobileMapPage.goto(mobileUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
     await mobileMapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
     await mobileMapPage.waitForTimeout(300);
+    await mobileMapPage.waitForFunction(
+      (expected) => {
+        const raw = document.querySelector(".pf-map-canvas")?.getAttribute("data-map-viewport-bounds");
+        if (!raw) return false;
+        const values = raw.split(",").map((part) => Number(part.trim()));
+        return values.length === 4 && values.every(Number.isFinite) &&
+          values[0] <= expected[0] + 1e-7 && values[1] <= expected[1] + 1e-7 &&
+          values[2] >= expected[2] - 1e-7 && values[3] >= expected[3] - 1e-7;
+      },
+      expectedMapBounds,
+      { timeout: mapTimeoutMs },
+    ).catch(() => undefined);
     let mobileState = await readMapState(mobileMapPage);
     const mobileNoOverflow = !mobileState.horizontalOverflow;
     const mobileBboxSaved = closeBounds(mobileState.bounds, expectedMapBounds);
+    const mobileViewportContainsSavedBounds = boundsContain(
+      parseBoundsAttribute(mobileState.mapCanvas?.viewportBounds),
+      expectedMapBounds,
+    );
     await mobileMapPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
     await mobileMapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
     await mobileMapPage.waitForTimeout(300);
@@ -605,20 +633,50 @@ try {
       ).catch(() => undefined);
       const afterPan = await readMapState(mobileMapPage);
       mobilePanChangedBounds = !closeBounds(afterPan.bounds, priorBounds, 1e-10);
+      let mobileResizeSync = false;
+      const boundsBeforeResize = afterPan.bounds;
+      await mobileMapPage.setViewportSize({ width: 430, height: 844 });
+      await mobileMapPage.waitForFunction(
+        (previous) => {
+          const params = new URLSearchParams(window.location.search);
+          const raw = params.get("map_bbox") || params.get("bbox");
+          if (!raw) return false;
+          const next = raw.split(",").map((part) => Number(part.trim()));
+          return next.length === 4 && next.every(Number.isFinite) &&
+            next.some((value, index) => Math.abs(value - previous[index]) > 1e-5);
+        },
+        boundsBeforeResize,
+        { timeout: mapTimeoutMs },
+      ).catch(() => undefined);
+      const afterResize = await readMapState(mobileMapPage);
+      mobileResizeSync =
+        !closeBounds(afterResize.bounds, boundsBeforeResize, 1e-5) &&
+        closeBounds(afterResize.bounds, parseBoundsAttribute(afterResize.mapCanvas?.viewportBounds), 1e-6) &&
+        !afterResize.horizontalOverflow;
+
       mapInteractionCheck.mobileDetails = {
         mobileNoOverflow,
         mobileBboxSaved,
+        mobileViewportContainsSavedBounds,
         mobileRefreshPreserved,
         mobilePanChangedBounds,
+        mobileResizeSync,
         rect: { x: mobileRect.x, y: mobileRect.y, width: mobileRect.width, height: mobileRect.height },
         hitTarget,
         beforeBounds: priorBounds,
         afterBounds: afterPan.bounds,
+        afterResizeBounds: afterResize.bounds,
         afterCanvas: afterPan.mapCanvas,
+        resizedCanvas: afterResize.mapCanvas,
       };
     }
     mapInteractionCheck.mobileRefreshAndPan =
-      mobileNoOverflow && mobileBboxSaved && mobileRefreshPreserved && mobilePanChangedBounds;
+      mobileNoOverflow &&
+      mobileBboxSaved &&
+      mobileViewportContainsSavedBounds &&
+      mobileRefreshPreserved &&
+      mobilePanChangedBounds &&
+      mapInteractionCheck.mobileDetails?.mobileResizeSync === true;
 
     // Invalid URL bounds must fail closed, not silently become an unbounded query.
     invalidBoundsPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
