@@ -28,7 +28,7 @@ import {
 import { PropertyCard } from "@/components/hirmand/property-showcase";
 import { PropertiesMap } from "@/components/hirmand/properties-map";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
-import { PROPERTY_TYPES, NEIGHBORHOOD_NAMES, NEIGHBORHOODS, SERVICES } from "@/lib/site";
+import { PROPERTY_TYPES, NEIGHBORHOOD_NAMES, NEIGHBORHOODS, NEIGHBORHOOD_GROUPS, SERVICES } from "@/lib/site";
 import {
   PROPERTY_CABINET_OPTIONS,
   PROPERTY_COOLING_OPTIONS,
@@ -155,6 +155,17 @@ function parseNumber(raw: string) {
   if (!cleaned) return undefined;
   const value = Number(cleaned);
   return Number.isFinite(value) && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+function normalizeNeighborhoodSearch(raw: string) {
+  return raw
+    .normalize("NFKC")
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/[\u200c\u200f\u202a-\u202e]/g, "")
+    .replace(/[\s\-‐‑–—]+/g, " ")
+    .trim()
+    .toLocaleLowerCase("fa");
 }
 
 const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
@@ -407,6 +418,8 @@ function PropertiesIndexPage() {
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
+  const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
@@ -1004,6 +1017,34 @@ function PropertiesIndexPage() {
 
   const selectedProperty = properties.find((property) => property.id === selectedPropertyId) ?? null;
 
+  const neighborhoodGroupsForPicker = useMemo(() => {
+    const baseGroups = NEIGHBORHOOD_GROUPS.map((group) => ({
+      title: group.title,
+      items: group.items.map((item) => item.name),
+    }));
+    const bundledNames = new Set(baseGroups.flatMap((group) => group.items));
+    const extraNames = neighborhoodOptions.filter((name) => !bundledNames.has(name));
+    const groups = extraNames.length ? [...baseGroups, { title: "سایر محله‌های ذخیره‌شده", items: extraNames }] : baseGroups;
+    const query = normalizeNeighborhoodSearch(neighborhoodQuery);
+    return groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((name) => !query || normalizeNeighborhoodSearch(name).includes(query)),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [neighborhoodOptions, neighborhoodQuery]);
+
+  const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
+    const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (pathname !== "/properties") return;
+    const params = new URLSearchParams(window.location.search);
+    const value = bounds.map((number) => Number(number.toFixed(7))).join(",");
+    params.set("bbox", value);
+    params.set("map_bbox", value);
+    const query = params.toString();
+    window.history.replaceState(window.history.state, "", query ? `/properties?${query}` : "/properties");
+  }, []);
+
   const hasFilters = Boolean(
     q.trim() ||
     transactionType ||
@@ -1253,16 +1294,28 @@ function PropertiesIndexPage() {
                 </div>
               </FilterGroup>
 
-              <FilterGroup title="محله" hint={fa(NEIGHBORHOOD_NAMES.length) + " محله"}>
-                <label className="pf-field">
-                  <span className="sr-only">انتخاب محله</span>
-                  <select className="pf-select" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)}>
-                    <option value="">همه محله‌ها</option>
-                    {neighborhoodOptions.map((item) => (
-                      <option key={item} value={item}>{item}</option>
-                    ))}
-                  </select>
-                </label>
+              <FilterGroup title="محله" hint={fa(neighborhoodOptions.length) + " محله"}>
+                <button
+                  type="button"
+                  className="pf-neighborhood-trigger"
+                  onClick={() => { setNeighborhoodQuery(""); setNeighborhoodPickerOpen(true); }}
+                  aria-haspopup="dialog"
+                  aria-expanded={neighborhoodPickerOpen}
+                >
+                  <span className="pf-neighborhood-trigger-copy">
+                    <MapPinned size={18} aria-hidden="true" />
+                    <span>
+                      <strong>{neighborhood || "همهٔ محله‌ها"}</strong>
+                      <small>{neighborhood ? "برای تغییر، فهرست محله‌ها را باز کنید" : "جست‌وجو کنید یا محدوده را روی نقشه انتخاب کنید"}</small>
+                    </span>
+                  </span>
+                  <Search size={17} aria-hidden="true" />
+                </button>
+                {neighborhood ? (
+                  <button type="button" className="pf-neighborhood-clear" onClick={() => setNeighborhood("")}>
+                    نمایش همهٔ محله‌ها
+                  </button>
+                ) : null}
               </FilterGroup>
 
               <div className="pf-compact-ranges">
@@ -1694,8 +1747,16 @@ function PropertiesIndexPage() {
                     <div className="pf-map-panel" aria-label="نقشه تعاملی فایل‌های ملکی">
                       <PropertiesMap
                         properties={properties}
+                        neighborhoods={NEIGHBORHOODS}
+                        selectedNeighborhood={neighborhood}
                         selectedPropertyId={selectedPropertyId}
                         onSelect={setSelectedPropertyId}
+                        onSelectNeighborhood={(name) => {
+                          setNeighborhood(name);
+                          setNeighborhoodPickerOpen(false);
+                          setMobileFiltersOpen(false);
+                        }}
+                        onViewportChange={syncMapBoundsToUrl}
                       />
                     </div>
                   </div>
@@ -1760,6 +1821,69 @@ function PropertiesIndexPage() {
             )}
           </div>
         </div>
+        {neighborhoodPickerOpen ? (
+          <div
+            className="pf-neighborhood-dialog-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setNeighborhoodPickerOpen(false);
+            }}
+          >
+            <section className="pf-neighborhood-dialog" role="dialog" aria-modal="true" aria-labelledby="pf-neighborhood-dialog-title">
+              <header className="pf-neighborhood-dialog-head">
+                <div>
+                  <span className="pf-neighborhood-dialog-kicker"><MapPinned size={15} /> انتخاب محدوده</span>
+                  <h2 id="pf-neighborhood-dialog-title">محلهٔ موردنظر را انتخاب کنید</h2>
+                  <p>فهرست از کاتالوگ محلی هیرمند می‌آید؛ برای نمایش فایل‌ها نیازی به اتصال دیوار نیست.</p>
+                </div>
+                <button type="button" aria-label="بستن انتخاب محله" onClick={() => setNeighborhoodPickerOpen(false)}><X size={20} /></button>
+              </header>
+              <label className="pf-neighborhood-dialog-search">
+                <Search size={18} aria-hidden="true" />
+                <input
+                  autoFocus
+                  type="search"
+                  value={neighborhoodQuery}
+                  onChange={(event) => setNeighborhoodQuery(event.target.value)}
+                  placeholder="نام محله را جست‌وجو کنید؛ مثلاً درچه، جلفا، مرداویج…"
+                  aria-label="جست‌وجوی محله‌ها"
+                />
+                {neighborhoodQuery ? <button type="button" aria-label="پاک کردن جست‌وجوی محله" onClick={() => setNeighborhoodQuery("")}><X size={15} /></button> : null}
+              </label>
+              <div className="pf-neighborhood-dialog-toolbar">
+                <span>{fa(neighborhoodGroupsForPicker.reduce((count, group) => count + group.items.length, 0))} محله در فهرست</span>
+                <button type="button" className={!neighborhood ? "is-selected" : ""} onClick={() => { setNeighborhood(""); setNeighborhoodPickerOpen(false); }}>همهٔ محله‌ها</button>
+              </div>
+              <div className="pf-neighborhood-dialog-results">
+                {neighborhoodGroupsForPicker.length ? neighborhoodGroupsForPicker.map((group) => (
+                  <section className="pf-neighborhood-result-group" key={group.title}>
+                    <h3>{group.title}<span>{fa(group.items.length)}</span></h3>
+                    <div>
+                      {group.items.map((name) => (
+                        <button
+                          type="button"
+                          key={name}
+                          className={neighborhood === name ? "is-selected" : ""}
+                          aria-pressed={neighborhood === name}
+                          onClick={() => { setNeighborhood(name); setNeighborhoodPickerOpen(false); setNeighborhoodQuery(""); }}
+                        >
+                          <span>{name}</span>
+                          {neighborhood === name ? <span className="pf-neighborhood-check" aria-hidden="true">✓</span> : <span className="pf-neighborhood-select-mark" aria-hidden="true" />}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )) : (
+                  <div className="pf-neighborhood-no-results"><Search size={22} /><strong>محله‌ای پیدا نشد</strong><p>املای نام را کوتاه‌تر کنید یا عبارت دیگری بنویسید.</p></div>
+                )}
+              </div>
+              <footer className="pf-neighborhood-dialog-foot">
+                <span>{neighborhood ? `محلهٔ انتخاب‌شده: ${neighborhood}` : "هنوز محله‌ای انتخاب نشده است"}</span>
+                <button type="button" onClick={() => setNeighborhoodPickerOpen(false)}>انجام شد</button>
+              </footer>
+            </section>
+          </div>
+        ) : null}
       </main>
     </SiteChrome>
   );
