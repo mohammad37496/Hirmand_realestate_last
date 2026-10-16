@@ -430,6 +430,7 @@ function PropertiesIndexPage() {
   const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<CoordinateBounds | undefined>(undefined);
+  const [invalidMapBounds, setInvalidMapBounds] = useState(false);
   const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
@@ -465,7 +466,10 @@ function PropertiesIndexPage() {
       void refreshSavedSearchAlerts(current);
     }, 120_000);
     const params = new URLSearchParams(window.location.search);
-    setMapBounds(parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox")));
+    const rawMapBounds = params.get("map_bbox") ?? params.get("bbox");
+    const parsedMapBounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
+    setMapBounds(parsedMapBounds);
+    setInvalidMapBounds(Boolean(rawMapBounds) && !parsedMapBounds);
     const tx = validTransaction(params.get("transaction") ?? "");
     const type = validPropertyType(params.get("type") ?? "");
     const sortParam = params.get("sort");
@@ -588,6 +592,13 @@ function PropertiesIndexPage() {
     // Invalidate older requests immediately, not only after the debounce fires;
     // otherwise a slow page request can append stale rows during the 320ms gap.
     const currentRequest = ++requestId.current;
+    // Invalid spatial input must never degrade to an unbounded listing query.
+    if (invalidMapBounds) {
+      setProperties([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
     if (skipInitialFetch.current) {
       skipInitialFetch.current = false;
       return;
@@ -658,14 +669,20 @@ function PropertiesIndexPage() {
         setProperties(rows);
         setTotal(count);
       } catch {
-        toast.error("جستجوی فایل‌ها انجام نشد. اتصال اینترنت یا سرویس فایل‌ها را بررسی کنید.");
+        // The old rows may belong to a broader query. Never leave them visible
+        // under a URL whose current filters failed to load.
+        if (requestId.current === currentRequest) {
+          setProperties([]);
+          setTotal(0);
+          toast.error("جستجوی فایل‌ها انجام نشد. اتصال اینترنت یا سرویس فایل‌ها را بررسی کنید.");
+        }
       } finally {
         if (requestId.current === currentRequest) setLoading(false);
       }
     }, 320);
 
     return () => window.clearTimeout(timer);
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
+  }, [urlReady, invalidMapBounds, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || properties.length >= total) return;
@@ -916,8 +933,10 @@ function PropertiesIndexPage() {
     if (!saved) return;
 
     const params = new URLSearchParams(saved.params);
+    const rawSavedBounds = params.get("map_bbox") ?? params.get("bbox");
     const savedBounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
     setMapBounds(savedBounds);
+    setInvalidMapBounds(Boolean(rawSavedBounds) && !savedBounds);
     setMapViewportResetVersion((version) => version + 1);
     window.history.replaceState(window.history.state, "", params.toString() ? `/properties?${params.toString()}` : "/properties");
     setQ(params.get("q") ?? "");
@@ -1024,6 +1043,7 @@ function PropertiesIndexPage() {
     setSort("newest");
     setOffset(0);
     setMapBounds(undefined);
+    setInvalidMapBounds(false);
     setMapViewportResetVersion((version) => version + 1);
     setNeighborhoodPickerOpen(false);
   }
@@ -1088,6 +1108,7 @@ function PropertiesIndexPage() {
     setNeighborhood("");
     setNeighborhoodPickerOpen(false);
     if (mapWasStillOnTheAreaBounds) {
+      setInvalidMapBounds(false);
       // Do not leave the selected neighborhood's bbox active after clearing it.
       // Keep a separately panned/zoomed viewport filter if the user made one.
       setMapBounds(undefined);
@@ -1097,6 +1118,7 @@ function PropertiesIndexPage() {
 
   function chooseNeighborhood(name: string) {
     setNeighborhood(name);
+    setInvalidMapBounds(false);
     setNeighborhoodPickerOpen(false);
     setMobileFiltersOpen(false);
     if (!name) return;
@@ -1112,6 +1134,7 @@ function PropertiesIndexPage() {
     const selectedArea = NEIGHBORHOODS.find((item) => item.name === neighborhood);
     const bounds = normalizeCoordinateBounds(selectedArea?.divarBbox);
     setMapBounds(bounds);
+    setInvalidMapBounds(false);
     setMapViewportResetVersion((version) => version + 1);
   }, [neighborhood]);
 
@@ -1120,6 +1143,7 @@ function PropertiesIndexPage() {
     if (pathname !== "/properties") return;
     const rounded = normalizeCoordinateBounds(bounds.map((number) => Number(number.toFixed(7))));
     if (!rounded) return;
+    setInvalidMapBounds(false);
     setMapBounds((current) => boundsEqual(current, rounded) ? current : rounded);
     const params = new URLSearchParams(window.location.search);
     const value = rounded.join(",");
@@ -1254,6 +1278,13 @@ function PropertiesIndexPage() {
         data-list-loading={loading ? "true" : "false"}
         data-list-result-count={properties.length}
       >
+        {invalidMapBounds ? (
+          <div className="pf-empty pf-map-bounds-error" data-map-bounds-error="invalid" role="alert">
+            <strong>محدودهٔ جغرافیایی این لینک معتبر نیست.</strong>
+            <p>برای جلوگیری از نمایش فایل‌های خارج از محدوده، فهرست خالی نگه داشته شده است.</p>
+            <button type="button" onClick={resetFilters}>پاک‌کردن فیلترها و بازنشانی نقشه</button>
+          </div>
+        ) : null}
         <header className="pf-hero">
           <span className="pf-kicker">فایل‌های هیرمند</span>
           <div className="pf-hero-row">
