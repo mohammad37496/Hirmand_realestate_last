@@ -939,3 +939,22 @@
 @media (max-width: 620px) {
   .pf-map-popup { width: 224px; padding: 11px 12px; }
 }
+
+
+/* Inline validation feedback for property search input constraints. */
+.pf-filter-validation-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin: 10px 0;
+  padding: 11px 13px;
+  border: 1px solid #d8b6a7;
+  border-radius: 10px;
+  background: #fff8f4;
+  color: #763d2a;
+  font-size: .78rem;
+  line-height: 1.7;
+}
+.pf-filter-validation-error strong { font-weight: 900; }
+.pf-filter-validation-error span { min-width: 0; overflow-wrap: anywhere; }
