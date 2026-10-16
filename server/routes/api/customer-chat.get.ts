@@ -6,6 +6,9 @@ import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/
 const codeSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
 
 export default defineEventHandler(async (event) => {
+  setResponseHeader(event, "cache-control", "no-store");
+  const attempt = await consumeAdminAttempt("customer-chat-read:" + clientFingerprint(event));
+  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
   const rawCode = String((getQuery(event).code ?? "")).trim().toUpperCase().replace(/\s+/g, "");
   const trackingCode = codeSchema.safeParse(rawCode);
   if (!trackingCode.success) {
