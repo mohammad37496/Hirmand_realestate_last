@@ -2564,7 +2564,8 @@
 
 .pf-spec-option > span:last-child {
   min-width: 0;
-  overflow-wrap: anywhere;
+  /* Persian filter labels should wrap at word boundaries, not letter-by-letter. */
+  overflow-wrap: break-word;
   word-break: normal;
 }
 
