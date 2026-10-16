@@ -125,6 +125,7 @@ jobs:
           node scripts/browser-smoke.mjs http://127.0.0.1:8081/ /workspace/screenshots/hirmand-preview.png
           node scripts/property-search-browser-smoke.mjs http://127.0.0.1:8081
           node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081
+          node scripts/responsive-layout-smoke.mjs http://127.0.0.1:8081
 
       - name: Cleanup property-detail fixture
         if: always() && steps.migrate_database.outcome == 'success'
