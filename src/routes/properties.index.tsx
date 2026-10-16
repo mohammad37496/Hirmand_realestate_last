@@ -466,10 +466,10 @@ function PropertiesIndexPage() {
       void refreshSavedSearchAlerts(current);
     }, 120_000);
     const params = new URLSearchParams(window.location.search);
-    const rawMapBounds = params.get("map_bbox") ?? params.get("bbox");
+    const hasMapBoundsParam = params.has("map_bbox") || params.has("bbox");
     const parsedMapBounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
     setMapBounds(parsedMapBounds);
-    setInvalidMapBounds(Boolean(rawMapBounds) && !parsedMapBounds);
+    setInvalidMapBounds(hasMapBoundsParam && !parsedMapBounds);
     const tx = validTransaction(params.get("transaction") ?? "");
     const type = validPropertyType(params.get("type") ?? "");
     const sortParam = params.get("sort");
@@ -933,10 +933,10 @@ function PropertiesIndexPage() {
     if (!saved) return;
 
     const params = new URLSearchParams(saved.params);
-    const rawSavedBounds = params.get("map_bbox") ?? params.get("bbox");
+    const hasSavedBoundsParam = params.has("map_bbox") || params.has("bbox");
     const savedBounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
     setMapBounds(savedBounds);
-    setInvalidMapBounds(Boolean(rawSavedBounds) && !savedBounds);
+    setInvalidMapBounds(hasSavedBoundsParam && !savedBounds);
     setMapViewportResetVersion((version) => version + 1);
     window.history.replaceState(window.history.state, "", params.toString() ? `/properties?${params.toString()}` : "/properties");
     setQ(params.get("q") ?? "");
