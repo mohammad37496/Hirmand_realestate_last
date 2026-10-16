@@ -32,7 +32,13 @@ async function readMigrationFiles() {
 }
 
 async function main() {
-  const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+  const pool = new pg.Pool({
+    connectionString: databaseUrl,
+    max: 1,
+    connectionTimeoutMillis: Number(process.env.DB_MIGRATION_CONNECT_TIMEOUT_MS ?? 5000),
+    idleTimeoutMillis: Number(process.env.DB_MIGRATION_IDLE_TIMEOUT_MS ?? 10000),
+    application_name: "hirmand-migrations",
+  });
   const client = await pool.connect();
   let migrationLockAcquired = false;
 
