@@ -741,7 +741,7 @@ body:has(.property-detail-page) .page {
   font-size: .75rem !important;
   line-height: 1.7 !important;
   font-weight: 800 !important;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
   font-variant-numeric: tabular-nums !important;
 }
 
@@ -906,7 +906,7 @@ body:has(.property-detail-page) .page {
   font-size: .82rem !important;
   font-weight: 800 !important;
   line-height: 1.7 !important;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
   font-variant-numeric: tabular-nums !important;
 }
 
@@ -968,7 +968,7 @@ body:has(.property-detail-page) .page {
   color: var(--hr-navy) !important;
   font-size: var(--fs-ui) !important;
   font-weight: 800 !important;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
 }
 
 .property-detail-page .property-spec-amenities-toggle {
@@ -1033,7 +1033,7 @@ body:has(.property-detail-page) .page {
   color: var(--hr-ink) !important;
   font-size: .68rem !important;
   line-height: 1.7 !important;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -1330,7 +1330,7 @@ body:has(.property-detail-page) .page {
   color: var(--hr-navy) !important;
   font-size: .94rem !important;
   font-weight: 800 !important;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
 }
 
 .property-detail-page .property-consultant-role {
@@ -1502,7 +1502,7 @@ body:has(.property-detail-page) .page {
   font-size: .68rem !important;
   font-weight: 800 !important;
   text-align: left !important;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -2395,7 +2395,7 @@ body:has(.property-detail-page) .floating-call-menu {
   font-weight: 800;
   line-height: 1.5;
   color: var(--hr-ink);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 /* Price is the second-most important thing on the page after the photo, so it
@@ -3000,7 +3000,7 @@ body:has(.property-detail-page) .floating-call-menu {
   .property-detail-page .property-divar-specs .property-spec-grid .property-spec-item strong {
     font-size: .82rem !important;
     line-height: 1.4 !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
   }
 
   .property-detail-page .property-spec-group-title {
@@ -3034,7 +3034,7 @@ body:has(.property-detail-page) .floating-call-menu {
   .property-detail-page .property-spec-amenity-item strong {
     font-size: .78rem !important;
     line-height: 1.4 !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
   }
 
   /* -- 06 · Accordions ---------------------------------------------------- */
@@ -3063,7 +3063,7 @@ body:has(.property-detail-page) .floating-call-menu {
   .property-detail-page .property-specs-accordion-body,
   .property-detail-page .property-spec-amenities-body {
     min-width: 0 !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
   }
 
   /* -- 07 · Description --------------------------------------------------- */
