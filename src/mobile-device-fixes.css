@@ -1,8 +1,8 @@
 /* --------------------------------------------------------------------------
    Narrow Android / legacy mobile hardening
    Target: ~320–390px CSS viewports (Galaxy J7 Pro class devices)
-   Keep this file loaded last so older, more specific mobile rules cannot
-   re-introduce horizontal clipping or unreadable compressed rows.
+   Keep these focused fixes local; the responsive guardrail stylesheet is
+   loaded last and checks for overflow instead of masking it.
    -------------------------------------------------------------------------- */
 
 html,
@@ -12,14 +12,7 @@ body,
   min-width: 0;
 }
 
-/* Do not clip page overflow here. Responsive tests must be able to reveal
-   elements wider than the viewport so their layout can be corrected at source. */
-html,
-body {
-  max-width: 100%;
-  min-width: 0;
-}
-
+/* Keep normal word boundaries for ordinary Persian UI text. */
 body {
   word-break: normal;
   overflow-wrap: normal;
@@ -44,7 +37,6 @@ small,
 strong,
 span,
 a {
-  min-width: 0;
   word-break: normal;
   overflow-wrap: break-word;
 }
@@ -67,13 +59,7 @@ table {
 
   .page,
   .site-home,
-  main,
-  section,
-  article,
-  aside,
-  header,
-  footer,
-  .section,
+    .section,
   .inquiry-section,
   .property-detail-page,
   .property-detail-top,
