@@ -4,6 +4,8 @@ import testRunner from "node:test";
 
 const mobileFixes = fs.readFileSync(new URL("../src/mobile-device-fixes.css", import.meta.url), "utf8");
 const uiClarityCss = fs.readFileSync(new URL("../src/ui-clarity.css", import.meta.url), "utf8");
+const themeProCss = fs.readFileSync(new URL("../src/theme-pro.css", import.meta.url), "utf8");
+const propertyDetailCss = fs.readFileSync(new URL("../src/property-detail-pro.css", import.meta.url), "utf8");
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
@@ -18,6 +20,10 @@ testRunner.test("shared mobile styles do not hide root-level horizontal overflow
     "the page body must not mask horizontal overflow on mobile");
   assert.doesNotMatch(uiClarityCss, /\.site-home\s*\{\s*overflow\s*:\s*clip/is,
     "the home page wrapper must not clip descendants to conceal layout overflow");
+  assert.doesNotMatch(themeProCss, /html\s*\{[^}]*overflow-x\s*:\s*(?:hidden|clip)/is,
+    "html must expose root-level horizontal overflow for diagnosis");
+  assert.doesNotMatch(themeProCss, /body\s*\{[^}]*overflow-x\s*:\s*(?:hidden|clip)/is,
+    "body must expose root-level horizontal overflow for diagnosis");
 });
 
 testRunner.test("ordinary Persian text is not subject to global anywhere wrapping", () => {
@@ -29,6 +35,11 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   );
   assert.match(responsiveCss, /word-break:\s*normal;/);
   assert.match(responsiveCss, /letter-spacing:\s*normal;/);
+  assert.doesNotMatch(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*overflow-wrap\s*:\s*anywhere/is,
+    "property titles must not allow arbitrary character-level wrapping");
+  assert.match(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*overflow-wrap\s*:\s*break-word/is);
+  assert.match(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*word-break\s*:\s*normal/is);
+  assert.match(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*letter-spacing\s*:\s*normal/is);
 });
 
 testRunner.test("responsive guardrails load after the older global styles", () => {
