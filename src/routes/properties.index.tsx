@@ -1093,26 +1093,20 @@ function PropertiesIndexPage() {
   const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
     if (pathname !== "/properties") return;
+
     const rounded = bounds.map((number) => Number(number.toFixed(7))) as [number, number, number, number];
     const validBounds = isValidCoordinateBounds(rounded) ? rounded : undefined;
+
+    // Keep one writer for the query string: the state-to-URL effect above
+    // serializes map bounds and every active property filter together. Writing
+    // bbox here as well created a race where a viewport callback could replace
+    // a just-updated transaction/price filter using an older search string.
+    // Invalid bounds clear the spatial state; the same effect then removes both
+    // URL aliases and avoids sending malformed geometry to the property query.
     setMapBounds((current) => {
       if (!validBounds) return undefined;
       return current && current.every((value, index) => value === validBounds[index]) ? current : validBounds;
     });
-
-    const params = new URLSearchParams(window.location.search);
-    if (validBounds) {
-      const value = validBounds.join(",");
-      params.set("bbox", value);
-      params.set("map_bbox", value);
-    } else {
-      // A viewport crossing invalid geographic ranges must not poison URL state
-      // or make the server reject every subsequent property query.
-      params.delete("bbox");
-      params.delete("map_bbox");
-    }
-    const query = params.toString();
-    window.history.replaceState(window.history.state, "", query ? `/properties?${query}` : "/properties");
   }, []);
 
   const hasFilters = Boolean(
