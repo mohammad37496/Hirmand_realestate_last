@@ -1,4 +1,4 @@
-import { isValidCoordinateBounds, type CoordinateBounds } from "./map-geometry.ts";
+import { isValidCoordinateBounds, isValidGeoPoint, type CoordinateBounds } from "./map-geometry.ts";
 
 export type DivarCatalogEntry = {
   id: string | number;
@@ -112,11 +112,12 @@ export function mergeNeighborhoodGroups(
     items: group.items.map((item) => {
       const match = matchedByIndex.get(flatIndex++);
       if (!match) return { ...item };
-      const lat = Number(match.default_location?.latitude);
-      const lng = Number(match.default_location?.longitude);
+      const lat = match.default_location?.latitude;
+      const lng = match.default_location?.longitude;
       const bbox = safeBbox(match.bbox);
-      const hasCoordinates = Number.isFinite(lat) && Math.abs(lat) <= 90 &&
-        Number.isFinite(lng) && Math.abs(lng) <= 180;
+      // Do not coerce null to zero: Number(null) would create a fake [0, 0]
+      // coordinate and put an unmapped area in the Gulf of Guinea.
+      const hasCoordinates = isValidGeoPoint(lat, lng);
       return {
         ...item,
         ...(hasCoordinates ? { lat, lng } : {}),
@@ -132,11 +133,11 @@ export function mergeNeighborhoodGroups(
   const extras = catalog.filter((district) => !usedIds.has(String(district.id)))
     .sort((a, b) => a.name.localeCompare(b.name, "fa", { sensitivity: "base", numeric: true }))
     .map((district): DirectoryNeighborhood => {
-      const lat = Number(district.default_location?.latitude);
-      const lng = Number(district.default_location?.longitude);
+      const lat = district.default_location?.latitude;
+      const lng = district.default_location?.longitude;
       const bbox = safeBbox(district.bbox);
-      const hasCoordinates = Number.isFinite(lat) && Math.abs(lat) <= 90 &&
-        Number.isFinite(lng) && Math.abs(lng) <= 180;
+      // Keep the same strict policy for extra records and curated matches.
+      const hasCoordinates = isValidGeoPoint(lat, lng);
       let slug = district.slug || normalizeAreaDirectoryKey(district.name);
       if (slugs.has(slug)) slug = slug + "-" + district.id;
       slugs.add(slug);
