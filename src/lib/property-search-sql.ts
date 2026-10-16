@@ -41,7 +41,7 @@ export const PRICE_EXPR =
   "when transaction_type = 'mortgage' then deposit else price end";
 
 function normalizedTextSql(expression: string): string {
-  const canonical = `replace(replace(replace(replace(replace(replace(replace(replace(lower(coalesce(${expression}, '')), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), chr(8204), ''), chr(8205), ''), chr(8206), ''), chr(8207), '')`;
+  const canonical = `replace(replace(replace(replace(replace(replace(replace(lower(coalesce(${expression}, '')), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), chr(8204), ''), chr(8205), ''), chr(8206), ''), chr(8207), '')`;
   const latinDigits = `translate(${canonical}, '۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')`;
   const withoutDiacritics = `translate(${latinDigits}, 'ًٌٍَُِّْٰٕٔ', '')`;
   return `regexp_replace(${withoutDiacritics}, '[[:space:][:punct:]]+', '', 'g')`;
