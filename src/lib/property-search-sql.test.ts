@@ -26,7 +26,7 @@ const fixtures: Fixture[] = [
     id: "sale-a",
     transaction_type: "buy",
     property_type: "apartment",
-    title: "فروش آپارتمان دو خواب",
+    title: "فروش آپارتمان ۲ خواب",
     neighborhood: "شهرک ولی‌عصر",
     address: "خیابان آزادی",
     area_m2: 120,
@@ -265,7 +265,7 @@ test("controlled fixture: result count and pagination use the same WHERE contrac
       params.slice(0, 36),
     );
     assert.equal(count.rows[0]?.count, 3);
-    assert.deepEqual(page.rows.map((row) => row.id), ["sale-a"]);
+    assert.deepEqual(page.rows.map((row) => row.id), ["sale-b"]);
   } finally {
     await db.close();
   }
