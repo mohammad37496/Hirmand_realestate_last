@@ -1,7 +1,22 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
-import { parseCoordinateBounds, isValidCoordinateBounds } from "../src/lib/map-geometry.ts";
+
+function isValidCoordinateBounds(value) {
+  if (!Array.isArray(value) || value.length !== 4 || !value.every(Number.isFinite)) return false;
+  const [west, south, east, north] = value;
+  return west >= -180 && west <= 180 && east >= -180 && east <= 180 &&
+    south >= -90 && south <= 90 && north >= -90 && north <= 90 &&
+    west < east && south < north;
+}
+
+function parseCoordinateBounds(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return undefined;
+  const parts = raw.split(",");
+  if (parts.length !== 4 || parts.some((part) => !part.trim())) return undefined;
+  const values = parts.map((part) => Number(part.trim()));
+  return isValidCoordinateBounds(values) ? values : undefined;
+}
 
 const base = (process.argv[2] || "http://127.0.0.1:8081").replace(/\/+$/, "");
 const expectedTitle = process.env.BROWSER_SMOKE_PROPERTY_TITLE?.trim() || "فایل تست ناوبری جزئیات هیرمند";
