@@ -806,7 +806,8 @@ body:has(.property-detail-page) {
   font-size: .7rem !important;
   line-height: 1.7 !important;
   font-weight: 850 !important;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
 }
 
 /* Amenities */
