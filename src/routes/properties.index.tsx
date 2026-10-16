@@ -121,7 +121,8 @@ export const Route = createFileRoute("/properties/")({
   loader: async ({ location }) => {
     // Never render the unfiltered server-loader rows for a deep link. The page
     // reads the query string and fetches its matching result set after hydration.
-    if (new URLSearchParams(location.searchStr).size > 0) {
+    const rawSearch = typeof location.searchStr === "string" ? location.searchStr.replace(/^\?/, "") : "";
+    if (new URLSearchParams(rawSearch).size > 0) {
       return { properties: [], total: 0 };
     }
     const [properties, total] = await Promise.all([
@@ -769,7 +770,10 @@ function PropertiesIndexPage() {
       setProperties((current) => [...current, ...rows]);
       setOffset(nextOffset);
     } catch {
-      // Keep current page visible.
+      // A failed request must not resurrect rows from an older filter selection.
+      if (requestId.current === queryVersion) {
+        toast.error("بارگذاری صفحهٔ بعد انجام نشد. اتصال اینترنت را بررسی و دوباره تلاش کنید.");
+      }
     } finally {
       setLoadingMore(false);
     }
