@@ -256,9 +256,12 @@ try {
     neighborhoodSelection: false,
     neighborhoodTap: false,
     mobileRefreshAndPan: false,
+    spatialFilterDetails: null,
+    urlAfterZoomClick: null,
     errors: [],
   };
   const expectedMapBounds = [51.6557426, 32.7353516, 51.6666031, 32.7431221];
+  const mapTimeoutMs = Math.min(timeoutMs, 10_000);
   const closeBounds = (left, right, tolerance = 1e-6) =>
     Array.isArray(left) && Array.isArray(right) && left.length === 4 && right.length === 4 &&
     left.every((value, index) => Number.isFinite(value) && Math.abs(value - right[index]) <= tolerance);
@@ -304,7 +307,7 @@ try {
         inside: "فایل تست نقشه داخل محدوده",
         otherNeighborhood: "فایل تست نقشه محله دیگر",
       },
-      { timeout: timeoutMs },
+      { timeout: mapTimeoutMs },
     );
 
     let mapState = await readMapState(mapPage);
@@ -319,6 +322,14 @@ try {
     const noCoordinatesHidden = !mapState.mapListText.includes("فایل تست نقشه بدون مختصات");
     mapInteractionCheck.spatialFilterComposition =
       insideShown && otherNeighborhoodShownBeforeAreaFilter && outsideBboxHidden && noCoordinatesHidden;
+    mapInteractionCheck.spatialFilterDetails = {
+      insideShown,
+      otherNeighborhoodShownBeforeAreaFilter,
+      outsideBboxHidden,
+      noCoordinatesHidden,
+      titles: ["فایل تست نقشه داخل محدوده", "فایل تست نقشه خارج محدوده", "فایل تست نقشه محله دیگر", "فایل تست نقشه بدون مختصات"]
+        .filter((title) => mapState.mapListText.includes(title)),
+    };
 
     await mapPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
     await mapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
@@ -332,6 +343,7 @@ try {
 
     const beforeZoom = mapState.bounds;
     await mapPage.locator('.pf-map-controls button[aria-label="بزرگ‌نمایی نقشه"]').click();
+    mapInteractionCheck.urlAfterZoomClick = await readMapState(mapPage);
     await mapPage.waitForFunction(
       (previous) => {
         const params = new URLSearchParams(window.location.search);
@@ -342,7 +354,7 @@ try {
           next.some((value, index) => Math.abs(value - previous[index]) > 1e-5);
       },
       beforeZoom,
-      { timeout: timeoutMs },
+      { timeout: mapTimeoutMs },
     );
     mapState = await readMapState(mapPage);
     mapInteractionCheck.zoomPreservedOtherFilters =
@@ -551,7 +563,7 @@ try {
       if (href) {
         propertyNavigationCheck.attempted = true;
         const propertyId = await link.getAttribute("data-property-id").catch(() => null);
-        const propertiesUrl = new URL("/properties", url);
+        const propertiesUrl = new URL("/properties", url).toString();
         const canonicalUrl = new URL(href, propertiesUrl);
         const pathParts = canonicalUrl.pathname.split("/").filter(Boolean);
         const canonicalSlug = pathParts[pathParts.length - 1]
