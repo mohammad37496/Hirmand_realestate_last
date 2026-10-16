@@ -140,7 +140,6 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
-  overflow-x: clip;
   scrollbar-color: rgb(11 26 43 / 28%) transparent;
 }
 
@@ -158,7 +157,6 @@ body {
   line-height: 1.85;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: clip;
 }
 
 /* Weight discipline: the whole build was asking for 850/900/950, which
