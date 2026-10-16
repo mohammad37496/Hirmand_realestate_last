@@ -11,11 +11,13 @@ const catalog = JSON.parse(
   await readFile(new URL("../data/divar-isfahan-neighborhoods.json", import.meta.url), "utf8"),
 );
 
-test("map_bbox and bbox URL aliases share strict W,S,E,N validation on restore", () => {
+test("map_bbox and bbox URL aliases share strict W,S,E,N validation and one URL writer", () => {
   assert.match(listing, /parseCoordinateBounds\(params\.get\("map_bbox"\)\)\s*\?\?\s*parseCoordinateBounds\(params\.get\("bbox"\)\)/);
   assert.match(listing, /isValidCoordinateBounds\(rounded\)/);
-  assert.match(listing, /params\.delete\("bbox"\)/);
-  assert.match(listing, /params\.delete\("map_bbox"\)/);
+  assert.match(listing, /if \(mapBounds\) \{[\s\S]*params\.set\("bbox", boundsValue\)[\s\S]*params\.set\("map_bbox", boundsValue\)/);
+  const mapBoundsCallback = listing.match(/const syncMapBoundsToUrl = useCallback\(\(bounds:.*?\n  \}, \[\]\);/s)?.[0] ?? "";
+  assert.ok(mapBoundsCallback, "map viewport callback exists");
+  assert.doesNotMatch(mapBoundsCallback, /window\.history\.replaceState/, "URL writes are centralized to avoid filter/viewport races");
 });
 
 test("map viewport restore and neighborhood focus are fitted to measured screen dimensions", () => {
