@@ -3,6 +3,7 @@ import fs from "node:fs";
 import testRunner from "node:test";
 
 const mobileFixes = fs.readFileSync(new URL("../src/mobile-device-fixes.css", import.meta.url), "utf8");
+const uiClarityCss = fs.readFileSync(new URL("../src/ui-clarity.css", import.meta.url), "utf8");
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
@@ -13,6 +14,10 @@ testRunner.test("shared mobile styles do not hide root-level horizontal overflow
   assert.doesNotMatch(globalCss, /body\s*\{[^}]*overflow-x\s*:\s*(?:hidden|clip)/is);
   assert.doesNotMatch(mobileFixes, /html\s*\{[^}]*overflow-x\s*:\s*hidden/is);
   assert.doesNotMatch(mobileFixes, /body\s*\{[^}]*overflow-x\s*:\s*hidden/is);
+  assert.doesNotMatch(uiClarityCss, /body\s*\{[^}]*overflow-x\s*:\s*(?:hidden|clip)/is,
+    "the page body must not mask horizontal overflow on mobile");
+  assert.doesNotMatch(uiClarityCss, /\.site-home\s*\{\s*overflow\s*:\s*clip/is,
+    "the home page wrapper must not clip descendants to conceal layout overflow");
 });
 
 testRunner.test("ordinary Persian text is not subject to global anywhere wrapping", () => {
@@ -39,6 +44,9 @@ testRunner.test("responsive guardrails load after the older global styles", () =
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
   assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 414, 768, 1024, 1440\]/);
+  assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
+  assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
+  assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
   for (const route of [
     '"/"',
     '"/properties"',
