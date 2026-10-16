@@ -21,6 +21,7 @@ async function waitForSearch(page) {
   await page.waitForTimeout(450);
   await page.waitForFunction(
     () => !document.querySelector(".pf-count em"),
+    undefined,
     { timeout: 10_000 },
   );
 }
