@@ -42,8 +42,24 @@ function nameKeys(value: string): string[] {
 function safeBbox(value: readonly number[] | undefined): [number, number, number, number] | undefined {
   if (!value || value.length !== 4 || !value.every(Number.isFinite)) return undefined;
   const [west, south, east, north] = value;
-  if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) return undefined;
+  if (west < -180 || west > 180 || east < -180 || east > 180 || south < -90 || south > 90 || north < -90 || north > 90 || west >= east || south >= north) return undefined;
   return [west, south, east, north];
+}
+
+function safePoint(value: unknown): { lat: number; lng: number } | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const point = value as Record<string, unknown>;
+  const toNumber = (raw: unknown) => {
+    if (raw === null || raw === undefined || raw === "") return null;
+    if (typeof raw !== "number" && typeof raw !== "string") return null;
+    if (typeof raw === "string" && !raw.trim()) return null;
+    const number = Number(raw);
+    return Number.isFinite(number) ? number : null;
+  };
+  const lat = toNumber(point.latitude);
+  const lng = toNumber(point.longitude);
+  if (lat === null || lng === null || lat < -90 || lat > 90 || lng < -180 || lng > 180) return undefined;
+  return { lat, lng };
 }
 
 /** Carefully reviewed spelling aliases: only names known to refer to the same area. */
@@ -112,14 +128,11 @@ export function mergeNeighborhoodGroups(
     items: group.items.map((item) => {
       const match = matchedByIndex.get(flatIndex++);
       if (!match) return { ...item };
-      const lat = Number(match.default_location?.latitude);
-      const lng = Number(match.default_location?.longitude);
+      const point = safePoint(match.default_location);
       const bbox = safeBbox(match.bbox);
-      const hasCoordinates = Number.isFinite(lat) && Math.abs(lat) <= 90 &&
-        Number.isFinite(lng) && Math.abs(lng) <= 180;
       return {
         ...item,
-        ...(hasCoordinates ? { lat, lng } : {}),
+        ...(point ? { lat: point.lat, lng: point.lng } : {}),
         divarDistrictId: String(match.id),
         divarSlug: match.slug,
         divarSecondSlug: match.second_slug ?? null,
@@ -132,11 +145,8 @@ export function mergeNeighborhoodGroups(
   const extras = catalog.filter((district) => !usedIds.has(String(district.id)))
     .sort((a, b) => a.name.localeCompare(b.name, "fa", { sensitivity: "base", numeric: true }))
     .map((district): DirectoryNeighborhood => {
-      const lat = Number(district.default_location?.latitude);
-      const lng = Number(district.default_location?.longitude);
+      const point = safePoint(district.default_location);
       const bbox = safeBbox(district.bbox);
-      const hasCoordinates = Number.isFinite(lat) && Math.abs(lat) <= 90 &&
-        Number.isFinite(lng) && Math.abs(lng) <= 180;
       let slug = district.slug || normalizeAreaDirectoryKey(district.name);
       if (slugs.has(slug)) slug = slug + "-" + district.id;
       slugs.add(slug);
@@ -146,7 +156,7 @@ export function mergeNeighborhoodGroups(
         address: district.name + "، اصفهان",
         searchQuery: district.name + "، اصفهان، ایران",
         label: district.name,
-        ...(hasCoordinates ? { lat, lng } : {}),
+        ...(point ? { lat: point.lat, lng: point.lng } : {}),
         divarDistrictId: String(district.id),
         divarSlug: district.slug,
         divarSecondSlug: district.second_slug ?? null,
