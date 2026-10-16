@@ -256,8 +256,12 @@ try {
     neighborhoodSelection: false,
     neighborhoodTap: false,
     mobileRefreshAndPan: false,
+    zoomCanvasChanged: false,
+    zoomBoundsChanged: false,
+    propertyMarkerSelection: false,
     spatialFilterDetails: null,
     urlAfterZoomClick: null,
+    browserErrors: [],
     errors: [],
   };
   const expectedMapBounds = [51.6557426, 32.7353516, 51.6666031, 32.7431221];
@@ -280,6 +284,26 @@ try {
       minPrice: params.get("minPrice"),
       maxArea: params.get("maxArea"),
       mapListText: document.querySelector(".pf-map-list")?.innerText ?? "",
+      mapCanvas: (() => {
+        const element = document.querySelector(".pf-map-canvas");
+        return element ? {
+          zoom: Number(element.getAttribute("data-map-zoom")),
+          centerLatitude: Number(element.getAttribute("data-map-center-latitude")),
+          centerLongitude: Number(element.getAttribute("data-map-center-longitude")),
+          viewportBounds: element.getAttribute("data-map-viewport-bounds"),
+        } : null;
+      })(),
+      listingState: (() => {
+        const element = document.querySelector("main.page-shell.pf-page");
+        return element ? {
+          bounds: element.getAttribute("data-active-map-bounds"),
+          neighborhood: element.getAttribute("data-active-neighborhood"),
+          loading: element.getAttribute("data-list-loading"),
+          resultCount: element.getAttribute("data-list-result-count"),
+        } : null;
+      })(),
+      filterErrorVisible: document.body.innerText.includes("جستجوی فایل‌ها انجام نشد"),
+      mapLinkHref: document.querySelector(".pf-map-floating-head a")?.href ?? "",
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
     };
   });
@@ -287,6 +311,18 @@ try {
   let mobileMapPage = null;
   try {
     mapPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    mapPage.on("console", (message) => {
+      if (message.type() === "error") mapInteractionCheck.browserErrors.push("console: " + message.text());
+    });
+    mapPage.on("pageerror", (error) => mapInteractionCheck.browserErrors.push("page: " + String(error?.message || error)));
+    mapPage.on("response", (response) => {
+      if (response.status() < 400) return;
+      try {
+        if (new URL(response.url()).origin === new URL(url).origin) {
+          mapInteractionCheck.browserErrors.push("http " + response.status() + ": " + response.url());
+        }
+      } catch { /* Ignore non-URL responses. */ }
+    });
     const boundsString = expectedMapBounds.join(",");
     const filteredMapUrl = new URL("/properties", url);
     filteredMapUrl.search = new URLSearchParams({
@@ -301,7 +337,14 @@ try {
     // Let the debounced listing request settle, but keep the individual fixture
     // assertions below diagnostic: a missing fixture should not erase all later
     // observations about URL sync, reset, neighborhood selection and mobile.
-    await mapPage.waitForTimeout(900);
+    await mapPage.waitForTimeout(1200);
+    // Wait for the first debounced query to finish when the loading state is
+    // observable; otherwise retain a diagnostic snapshot instead of aborting.
+    await mapPage.waitForFunction(
+      () => document.querySelector("main.page-shell.pf-page")?.getAttribute("data-list-loading") === "false",
+      null,
+      { timeout: mapTimeoutMs },
+    ).catch(() => undefined);
 
     let mapState = await readMapState(mapPage);
     mapInteractionCheck.initialBoundsRestored =
@@ -322,6 +365,9 @@ try {
       noCoordinatesHidden,
       titles: ["فایل تست نقشه داخل محدوده", "فایل تست نقشه خارج محدوده", "فایل تست نقشه محله دیگر", "فایل تست نقشه بدون مختصات"]
         .filter((title) => mapState.mapListText.includes(title)),
+      listingState: mapState.listingState,
+      filterErrorVisible: mapState.filterErrorVisible,
+      browserErrors: mapInteractionCheck.browserErrors,
     };
 
     await mapPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
@@ -335,22 +381,24 @@ try {
       mapState.maxArea === "120";
 
     const beforeZoom = mapState.bounds;
+    const beforeCanvasZoom = mapState.mapCanvas?.zoom;
     await mapPage.locator('.pf-map-controls button[aria-label="بزرگ‌نمایی نقشه"]').click();
-    mapInteractionCheck.urlAfterZoomClick = await readMapState(mapPage);
     await mapPage.waitForFunction(
-      (previous) => {
-        const params = new URLSearchParams(window.location.search);
-        const raw = params.get("map_bbox") || params.get("bbox");
-        if (!raw) return false;
-        const next = raw.split(",").map((value) => Number(value.trim()));
-        return next.length === 4 && next.every(Number.isFinite) &&
-          next.some((value, index) => Math.abs(value - previous[index]) > 1e-5);
+      (previousZoom) => {
+        const element = document.querySelector(".pf-map-canvas");
+        return Boolean(element) && Number(element.getAttribute("data-map-zoom")) !== previousZoom;
       },
-      beforeZoom,
+      beforeCanvasZoom,
       { timeout: mapTimeoutMs },
-    );
+    ).catch(() => undefined);
     mapState = await readMapState(mapPage);
+    mapInteractionCheck.zoomCanvasChanged = mapState.mapCanvas?.zoom !== beforeCanvasZoom;
+    mapInteractionCheck.zoomBoundsChanged =
+      Array.isArray(beforeZoom) && Array.isArray(mapState.bounds) && !closeBounds(mapState.bounds, beforeZoom, 1e-5);
+    mapInteractionCheck.urlAfterZoomClick = mapState;
     mapInteractionCheck.zoomPreservedOtherFilters =
+      mapInteractionCheck.zoomCanvasChanged &&
+      mapInteractionCheck.zoomBoundsChanged &&
       mapState.transaction === "sell" &&
       mapState.minPrice === "5000000000" &&
       mapState.maxArea === "120";
@@ -360,8 +408,11 @@ try {
       const params = new URLSearchParams(window.location.search);
       return !params.has("map_bbox") && !params.has("bbox") &&
         !params.has("transaction") && !params.has("minPrice") && !params.has("maxArea");
-    }, null, { timeout: timeoutMs });
-    mapInteractionCheck.resetClearedBounds = true;
+    }, null, { timeout: mapTimeoutMs }).catch(() => undefined);
+    mapState = await readMapState(mapPage);
+    mapInteractionCheck.resetClearedBounds =
+      !mapState.mapBbox && !mapState.bbox &&
+      !mapState.transaction && !mapState.minPrice && !mapState.maxArea;
 
     await mapPage.locator(".pf-neighborhood-trigger").click();
     const neighborhoodDialog = mapPage.getByRole("dialog");
@@ -370,8 +421,8 @@ try {
     await mapPage.waitForFunction(
       (name) => new URLSearchParams(window.location.search).get("neighborhood") === name,
       "شهرک ولی‌عصر",
-      { timeout: timeoutMs },
-    );
+      { timeout: mapTimeoutMs },
+    ).catch(() => undefined);
     await mapPage.waitForFunction(
       (expected) => {
         const params = new URLSearchParams(window.location.search);
@@ -382,19 +433,9 @@ try {
           bounds.every((value, index) => Math.abs(value - expected[index]) <= 1e-6);
       },
       expectedMapBounds,
-      { timeout: timeoutMs },
-    );
-    await mapPage.waitForFunction(
-      () => {
-        const text = document.querySelector(".pf-map-list")?.innerText ?? "";
-        return text.includes("فایل تست نقشه داخل محدوده") &&
-          !text.includes("فایل تست نقشه خارج محدوده") &&
-          !text.includes("فایل تست نقشه محله دیگر") &&
-          !text.includes("فایل تست نقشه بدون مختصات");
-      },
-      null,
-      { timeout: timeoutMs },
-    );
+      { timeout: mapTimeoutMs },
+    ).catch(() => undefined);
+    await mapPage.waitForTimeout(600);
     mapState = await readMapState(mapPage);
     mapInteractionCheck.neighborhoodSelection =
       mapState.neighborhood === "شهرک ولی‌عصر" &&
@@ -407,8 +448,8 @@ try {
     const propertyMarker = mapPage.locator(".pf-map-marker").first();
     if (await propertyMarker.count()) {
       await propertyMarker.click();
-      await mapPage.locator(".pf-map-marker.is-active").first().waitFor({ state: "visible", timeout: timeoutMs });
-      mapInteractionCheck.neighborhoodTap = true;
+      await mapPage.locator(".pf-map-marker.is-active").first().waitFor({ state: "visible", timeout: mapTimeoutMs }).catch(() => undefined);
+      mapInteractionCheck.propertyMarkerSelection = await mapPage.locator(".pf-map-marker.is-active").count() > 0;
     }
 
     mobileMapPage = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
@@ -475,7 +516,7 @@ try {
     mapInteractionCheck.zoomPreservedOtherFilters &&
     mapInteractionCheck.resetClearedBounds &&
     mapInteractionCheck.neighborhoodSelection &&
-    mapInteractionCheck.neighborhoodTap &&
+    mapInteractionCheck.propertyMarkerSelection &&
     mapInteractionCheck.mobileRefreshAndPan;
 
   const apiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
