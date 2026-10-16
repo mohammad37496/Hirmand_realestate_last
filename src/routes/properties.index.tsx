@@ -432,6 +432,7 @@ function PropertiesIndexPage() {
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [desktopFilterViewport, setDesktopFilterViewport] = useState(false);
   const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
   const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
@@ -441,6 +442,14 @@ function PropertiesIndexPage() {
   const requestId = useRef(0);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 980px)");
+    const updateViewport = () => setDesktopFilterViewport(media.matches);
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1565,9 +1574,9 @@ function PropertiesIndexPage() {
                   const selectedCount = allOptions.filter((item) => specFilters.includes(item.value)).length;
                   return (
                     <details
-                      className={"pf-spec-subgroup" + (selectedCount ? " has-selection" : "")}
+                      className={"pf-spec-subgroup" + (selectedCount ? " has-selection" : "") + (group === "امکانات دیگر" ? " pf-spec-subgroup--amenities" : "")}
                       key={group}
-                      open={Boolean(query) || selectedCount > 0}
+                      open={Boolean(query) || selectedCount > 0 || (desktopFilterViewport && group === "امکانات دیگر")}
                     >
                       <summary className="pf-spec-subgroup-summary">
                         <span className="pf-spec-subgroup-head">
