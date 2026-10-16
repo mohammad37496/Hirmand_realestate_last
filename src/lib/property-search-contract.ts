@@ -4,7 +4,9 @@ import { compactSearchText } from "./property-search-utils.ts";
 export const publicPropertyFiltersSchema = z.object({
   transactionType: z.enum(["buy", "sell", "rent", "mortgage"]).optional(),
   propertyType: z.enum(["apartment", "villa", "office", "heritage", "land", "commercial"]).optional(),
-  neighborhood: z.string().trim().max(80).optional(),
+  neighborhood: z.string().trim().max(80).refine((value) => !value || compactSearchText(value).length > 0, {
+    message: "نام محله نامعتبر است.",
+  }).optional(),
   mapBounds: z.tuple([
     z.number().min(-180).max(180),
     z.number().min(-90).max(90),
