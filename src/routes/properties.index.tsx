@@ -41,6 +41,7 @@ import {
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { compactSearchText, normalizeSearchText, parseIntegerFilter, toLatinDigits, validatePropertySearchNumbers } from "@/lib/property-search-utils";
+import { getOrCreateInFlight } from "@/lib/in-flight-query";
 import { parseCoordinateBounds } from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
@@ -437,6 +438,7 @@ function PropertiesIndexPage() {
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number; timestamp: number }>());
+  const inFlightQueries = useRef(new Map<string, Promise<{ rows: typeof initial.properties; count: number; timestamp: number }>>());
 
   const searchValidationErrors = useMemo(() => {
     const numeric = validatePropertySearchNumbers({
@@ -685,19 +687,25 @@ function PropertiesIndexPage() {
       if (cached) queryCache.current.delete(cacheKey);
 
       try {
-        const [rows, count] = await Promise.all([
-          listPublishedPropertyCards({ data }),
-          countPublishedProperties({ data }),
-        ]);
+        // If the user returns to a filter set while its request is still
+        // running, reuse that pending list/count pair instead of issuing both
+        // server calls a second time.
+        const result = await getOrCreateInFlight(inFlightQueries.current, cacheKey, async () => {
+          const [rows, count] = await Promise.all([
+            listPublishedPropertyCards({ data }),
+            countPublishedProperties({ data }),
+          ]);
+          const resolved = { rows, count, timestamp: Date.now() };
+          queryCache.current.set(cacheKey, resolved);
+          if (queryCache.current.size > 24) {
+            const firstKey = queryCache.current.keys().next().value;
+            if (firstKey) queryCache.current.delete(firstKey);
+          }
+          return resolved;
+        });
         if (requestId.current !== currentRequest) return;
-        const result = { rows, count, timestamp: Date.now() };
-        queryCache.current.set(cacheKey, result);
-        if (queryCache.current.size > 24) {
-          const firstKey = queryCache.current.keys().next().value;
-          if (firstKey) queryCache.current.delete(firstKey);
-        }
-        setProperties(rows);
-        setTotal(count);
+        setProperties(result.rows);
+        setTotal(result.count);
       } catch {
         if (requestId.current !== currentRequest) return;
         setProperties([]);
