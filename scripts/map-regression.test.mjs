@@ -15,7 +15,12 @@ test("map_bbox and bbox URL aliases share strict W,S,E,N validation and one URL 
   assert.match(listing, /parseCoordinateBounds\(params\.get\("map_bbox"\)\)\s*\?\?\s*parseCoordinateBounds\(params\.get\("bbox"\)\)/);
   assert.match(listing, /isValidCoordinateBounds\(rounded\)/);
   assert.match(listing, /if \(mapBounds\) \{[\s\S]*params\.set\("bbox", boundsValue\)[\s\S]*params\.set\("map_bbox", boundsValue\)/);
-  const mapBoundsCallback = listing.match(/const syncMapBoundsToUrl = useCallback\(\(bounds:.*?\n  \}, \[\]\);/s)?.[0] ?? "";
+  const callbackStart = listing.indexOf("const syncMapBoundsToUrl = useCallback(");
+  const callbackEnd = listing.indexOf("\n  const hasFilters", callbackStart);
+  const mapBoundsCallback =
+    callbackStart >= 0 && callbackEnd > callbackStart
+      ? listing.slice(callbackStart, callbackEnd)
+      : "";
   assert.ok(mapBoundsCallback, "map viewport callback exists");
   assert.doesNotMatch(mapBoundsCallback, /window\.history\.replaceState/, "URL writes are centralized to avoid filter/viewport races");
 });
