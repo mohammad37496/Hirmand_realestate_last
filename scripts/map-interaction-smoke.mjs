@@ -141,8 +141,30 @@ try {
   const emptyNoteVisible = await page.locator(".pf-map-list-empty").isVisible().catch(() => false);
   check("restrictive combined filter hides the non-matching property and shows empty-state feedback", !restrictiveRowVisible && emptyNoteVisible);
 
-  // Restore the price and exercise zoom, which changes the viewport query.
+  // Restore the price, then pan the map to select a custom viewport area.
   await ranges.filter({ hasText: "قیمت" }).locator("input").last().fill("13000000000");
+  await waitForSearch(page);
+  const beforePanState = await readUrlState(page);
+  const beforePan = parseCoordinateBounds(beforePanState.mapBounds);
+  const mapBox = await page.locator(".pf-map-canvas").boundingBox();
+  if (mapBox) {
+    const startX = mapBox.x + mapBox.width / 2;
+    const startY = mapBox.y + mapBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + 60, startY + 28, { steps: 4 });
+    await page.mouse.up();
+    await page.waitForTimeout(450);
+  }
+  const afterPan = parseCoordinateBounds((await readUrlState(page)).mapBounds);
+  check(
+    "panning selects a custom region and updates valid URL bounds",
+    Boolean(mapBox) && isValidCoordinateBounds(beforePan) && isValidCoordinateBounds(afterPan) &&
+      afterPan.some((value, index) => Math.abs(value - beforePan[index]) > 0.000001),
+  );
+
+  // Exercise zoom as a second way to change the custom viewport query.
+
   await waitForSearch(page);
   const beforeZoom = parseCoordinateBounds((await readUrlState(page)).mapBounds);
   await page.getByRole("button", { name: "بزرگ‌نمایی نقشه" }).click();
