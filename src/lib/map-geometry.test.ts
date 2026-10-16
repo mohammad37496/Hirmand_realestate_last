@@ -83,12 +83,18 @@ test("project/unproject round-trip keeps the latitude and longitude axes separat
   assert.ok(Math.abs(restored.longitude - point.longitude) < 1e-8);
 });
 
-test("WGS84 point validation rejects nulls, infinities, NaN and out-of-range coordinates", () => {
+test("WGS84 point validation rejects nulls, blank strings, nonnumbers and out-of-range coordinates", () => {
   assert.equal(isValidWgs84Point(32.6, 51.6), true);
   assert.equal(isValidWgs84Point("32.6", "51.6"), true);
   assert.equal(isValidWgs84Point(null, 51.6), false);
   assert.equal(isValidWgs84Point("", 51.6), false);
+  assert.equal(isValidWgs84Point("   ", 51.6), false);
+  assert.equal(isValidWgs84Point("\\t", 51.6), false);
+  assert.equal(isValidWgs84Point(true, 51.6), false);
+  assert.equal(isValidWgs84Point([], 51.6), false);
+  assert.equal(isValidWgs84Point({}, 51.6), false);
   assert.equal(isValidWgs84Point(Number.NaN, 51.6), false);
+  assert.equal(isValidWgs84Point(Number.POSITIVE_INFINITY, 51.6), false);
   assert.equal(isValidWgs84Point(91, 51.6), false);
   assert.equal(isValidWgs84Point(32.6, 181), false);
 });
