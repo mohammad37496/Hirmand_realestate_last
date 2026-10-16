@@ -207,7 +207,18 @@
   color:#1d2e3b;
   font-size:.78rem;
   line-height:1.7;
+}
+
+.admin-matching-request-grid strong{
+  min-width:0;
+  overflow-wrap:break-word;
+  word-break:normal;
+}
+
+.admin-matching-request-grid a{
+  min-width:0;
   overflow-wrap:anywhere;
+  word-break:normal;
 }
 
 .admin-matching-request-grid-secondary{
@@ -517,10 +528,12 @@
 }
 
 .admin-matching-detail-grid strong{
+  min-width:0;
   color:#273846;
   font-size:.7rem;
   line-height:1.7;
-  overflow-wrap:anywhere;
+  overflow-wrap:break-word;
+  word-break:normal;
 }
 
 .admin-matching-full-section{
