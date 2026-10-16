@@ -25,7 +25,9 @@ test("map viewport restore and neighborhood focus are fitted to measured screen 
 });
 
 test("invalid stored property coordinates are excluded from markers and mapped counts", () => {
-  assert.match(map, /if \(!isValidGeoPoint\(latitude, longitude\)\) continue/);
+  assert.match(map, /isValidGeoPoint\(latitude, longitude\)/);
+  assert.match(map, /typeof latitude !== "number"/);
+  assert.match(map, /typeof longitude !== "number"/);
   assert.match(map, /properties\.filter\(\(property\) => isValidGeoPoint\(property\.latitude, property\.longitude\)\)/);
 });
 
@@ -40,7 +42,9 @@ test("viewport bounds are ANDed with neighborhood and all ordinary property filt
   assert.match(where, /transaction_type = \$1/);
   assert.match(where, /property_type = \$2/);
   assert.match(where, /area_m2 >= \$7/);
-  assert.match(where, /PRICE_EXPR \+ " >= \$9"/);
+  assert.match(where, /\$9::numeric is null/);
+  assert.match(properties, /const PRICE_EXPR =/);
+  assert.match(properties, /PRICE_EXPR/);
   assert.match(where, /longitude >= \$29/);
   assert.match(where, /latitude >= \$30/);
   assert.match(where, /longitude <= \$31/);
@@ -59,6 +63,6 @@ test("the stored Divar bounding box is the only neighborhood geometry; smoke fix
   assert.equal(pointWithinBounds(32.610733, 51.6701584, mardavij.bbox), true);
   assert.match(seed, /'مرداویج'/);
   assert.match(seed, /32\.610733, 51\.6701584/);
-  assert.match(map, /کادر تقریبی محله/);
+  assert.match(map, /کادر تقریبی محدوده محله/);
   assert.equal(catalog.districts.some((item) => item.multi_polygon || item.multi_polygon_encoded || item.polygon_encoded), false);
 });
