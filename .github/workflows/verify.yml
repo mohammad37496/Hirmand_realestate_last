@@ -124,8 +124,10 @@ jobs:
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
           node scripts/browser-smoke.mjs http://127.0.0.1:8081/ /workspace/screenshots/hirmand-preview.png
           node scripts/property-search-browser-smoke.mjs http://127.0.0.1:8081
-          node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081
+          # Run the responsive matrix before admin mutation smoke so an
+          # unrelated admin failure cannot prevent mobile layout diagnostics.
           node scripts/responsive-layout-smoke.mjs http://127.0.0.1:8081
+          node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081
 
       - name: Cleanup property-detail fixture
         if: always() && steps.migrate_database.outcome == 'success'
