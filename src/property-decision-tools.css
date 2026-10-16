@@ -28,6 +28,6 @@
 .property-completeness-bar{height:9px;margin-top:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;}
 .property-completeness-bar span{display:block;height:100%;border-radius:inherit;background:var(--gold);}
 .property-completeness p{margin-top:8px;color:var(--muted);font-size:.74rem;line-height:1.7;}
-@media (max-width:1400px){.property-decision-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media (max-width:1600px){.property-decision-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
 @media (max-width:1000px){.property-decision-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media (max-width:720px){.property-decision-grid{grid-template-columns:1fr;}.property-decision-card{padding:18px;}}

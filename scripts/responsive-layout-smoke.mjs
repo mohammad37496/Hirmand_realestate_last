@@ -91,15 +91,33 @@ try {
       } else if (response.status() >= 500) {
         failures.push(`${route}: HTTP ${response.status()} during navigation`);
       }
-      await page.waitForTimeout(180);
+      // Give the client enough time to hydrate before interacting with React controls.
+      await page.waitForTimeout(500);
 
       // Exercise the mobile filter drawer and neighborhood picker at 320px.
       if (route === "/properties") {
         const filterButton = page.locator(".pf-filter-btn").first();
         if (await filterButton.isVisible().catch(() => false)) {
-          await filterButton.click();
+          await filterButton.waitFor({ state: "visible" });
+          let drawerOpened = false;
+          for (let attempt = 0; attempt < 2 && !drawerOpened; attempt += 1) {
+            await filterButton.click();
+            try {
+              await page.waitForFunction(
+                () => document.querySelector(".pf-filter-btn")?.getAttribute("aria-expanded") === "true",
+                null,
+                { timeout: 2_000 },
+              );
+              drawerOpened = true;
+            } catch {
+              if (attempt === 0) await page.waitForTimeout(500);
+            }
+          }
+          if (!drawerOpened) {
+            failures.push("/properties @ 320px: mobile filter button did not open the drawer");
+          }
           const drawer = page.locator(".pf-sidebar.is-open[role=dialog]").first();
-          await drawer.waitFor({ state: "visible", timeout: 8_000 });
+          await drawer.waitFor({ state: "visible", timeout: 3_000 });
           const neighborhoodTrigger = page.locator(".pf-neighborhood-trigger").first();
           if (await neighborhoodTrigger.isVisible().catch(() => false)) {
             await neighborhoodTrigger.click();

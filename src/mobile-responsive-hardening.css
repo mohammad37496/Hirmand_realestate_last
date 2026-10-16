@@ -311,6 +311,25 @@ svg {
   }
 }
 
+@media (max-width: 767px) {
+  .customer-property-draft-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+  }
+
+  .customer-property-draft-status > button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 9px 12px;
+    line-height: 1.5;
+    white-space: normal;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

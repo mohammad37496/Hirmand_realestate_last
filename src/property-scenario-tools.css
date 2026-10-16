@@ -40,4 +40,4 @@
 .property-outcome-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
 .property-outcome-save{background:var(--navy-900);color:#fff;border-color:var(--navy-900);}
 @media(max-width:900px){.property-scenario-layout{grid-template-columns:1fr;}.property-score-row{grid-template-columns:1fr auto;}.property-score-row>strong{grid-column:2;grid-row:1;}.property-outcome-fields{grid-template-columns:1fr;}}
-@media(max-width:620px){.property-scenario-results{grid-template-columns:1fr;}.property-scenario-results .is-total,.property-scenario-note{grid-column:auto;}.property-scenario-tool,.property-score-tool,.property-outcome-tool{padding:18px;}}
+@media(max-width:620px){.property-score-stars{gap:2px}.property-score-stars button{width:40px;height:40px;min-width:40px;min-height:40px;flex:0 0 40px}.property-scenario-results{grid-template-columns:1fr;.property-scenario-results .is-total,.property-scenario-note{grid-column:auto;}.property-scenario-tool,.property-score-tool,.property-outcome-tool{padding:18px;}}

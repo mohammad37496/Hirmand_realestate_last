@@ -17,6 +17,8 @@ const propertiesDivarCss = fs.readFileSync(new URL("../src/properties-divar-rede
 const propertyExpertRequestsCss = fs.readFileSync(new URL("../src/property-expert-requests.css", import.meta.url), "utf8");
 const propertyPriceHistoryCss = fs.readFileSync(new URL("../src/property-price-history.css", import.meta.url), "utf8");
 const propertyVerificationStampCss = fs.readFileSync(new URL("../src/property-verification-stamp.css", import.meta.url), "utf8");
+const propertyDecisionToolsCss = fs.readFileSync(new URL("../src/property-decision-tools.css", import.meta.url), "utf8");
+const propertyScenarioToolsCss = fs.readFileSync(new URL("../src/property-scenario-tools.css", import.meta.url), "utf8");
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
@@ -55,6 +57,14 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
     "the budget hero must keep a readable Persian text column at tablet widths");
   assert.match(responsiveCss, /\.action-menu\.floating-call-menu\s*\{[^}]*position:\s*fixed\s*!important/is,
     "the desktop floating contact menu must not stretch as a relative action menu");
+
+  assert.match(propertyDecisionToolsCss, /@media\s*\(max-width:1600px\)\s*\{[^}]*\.property-decision-grid\s*\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/is,
+    "financial decision cards must not remain in six narrow columns at desktop widths");
+  assert.match(propertyScenarioToolsCss, /\.property-score-stars button\s*\{[^}]*width:40px;[^}]*height:40px;[^}]*min-width:40px;[^}]*min-height:40px/is,
+    "five-star scoring buttons need accessible mobile touch targets");
+  assert.match(responsiveCss, /\.customer-property-draft-status\s*>\s*button\s*\{[^}]*min-height:\s*40px/is,
+    "clearing a saved draft must be a usable touch target");
+
   assert.doesNotMatch(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*overflow-wrap\s*:\s*anywhere/is,
     "property titles must not allow arbitrary character-level wrapping");
   assert.match(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*overflow-wrap\s*:\s*break-word/is);
@@ -135,6 +145,8 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
   assert.match(browserSmoke, /"\/budget-match"/, "responsive screenshots should include the tablet budget hero");
+  assert.match(browserSmoke, /await page\.waitForTimeout\(500\)/, "React filter drawer checks must allow hydration before clicking");
+  assert.match(browserSmoke, /aria-expanded.*true/, "mobile filter smoke should verify that the button opened the drawer");
   assert.match(browserSmoke, /\.sr-only, \.visually-hidden, \.screen-reader-only/,
     "screen-reader-only text must not be misreported as visible letter-by-letter wrapping");
   assert.match(browserSmoke, /element: element\.tagName\.toLowerCase\(\)/,
