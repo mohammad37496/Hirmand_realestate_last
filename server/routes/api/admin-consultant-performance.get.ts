@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش مشاوران برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { days: 90, consultants: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده گزارش عملکرد مشاوران در دسترس نیست." });
 
   const query = getQuery(event);
   const rawDays = Number(query.days);
