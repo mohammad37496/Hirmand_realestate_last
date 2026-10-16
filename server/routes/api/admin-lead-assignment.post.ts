@@ -57,10 +57,7 @@ export default defineEventHandler(async (event) => {
      where c.is_active = true
      group by c.name, c.phone, c.sort_order
      order by c.sort_order asc, c.name asc`,
-  ).catch((error) => {
-    console.error("[admin-lead-assignment] consultant query unavailable", error);
-    return [];
-  });
+  );
 
   const loads: ConsultantLoad[] = consultants.map((row) => {
     const base = {
