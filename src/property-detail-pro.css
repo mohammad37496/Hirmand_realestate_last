@@ -3029,9 +3029,13 @@ body:has(.property-detail-page) {
   font-size:clamp(1.8rem,1.35rem + 1.35vw,2.7rem)!important;
   font-weight:950!important;
   line-height:1.48!important;
-  letter-spacing:-.04em!important;
+  /* Persian headings should wrap at natural word boundaries. Anywhere
+     wrapping here turned long property titles into narrow vertical stacks. */
+  letter-spacing:normal!important;
   text-wrap:pretty!important;
-  overflow-wrap:anywhere!important;
+  word-break:normal!important;
+  overflow-wrap:break-word!important;
+  hyphens:none!important;
 }
 .property-detail-summary-head h1::after{
   content:""!important;
