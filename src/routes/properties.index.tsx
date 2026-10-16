@@ -43,6 +43,7 @@ import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { isValidCoordinateBounds, parseCoordinateBounds } from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
+const PROPERTY_QUERY_CACHE_TTL_MS = 15_000;
 const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
 const MAX_SAVED_SEARCHES = 10;
 
@@ -428,7 +429,11 @@ function PropertiesIndexPage() {
   const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
-  const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
+  const queryCache = useRef(new Map<string, {
+    rows: typeof initial.properties;
+    count: number;
+    cachedAt: number;
+  }>());
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -631,7 +636,7 @@ function PropertiesIndexPage() {
       ).toString();
 
       const cached = queryCache.current.get(cacheKey);
-      if (cached) {
+      if (cached && Date.now() - cached.cachedAt <= PROPERTY_QUERY_CACHE_TTL_MS) {
         // A cache hit is still asynchronous work relative to the user's filter
         // state. Never allow a stale timer to overwrite newer query results.
         if (requestId.current !== currentRequest) return;
@@ -640,6 +645,7 @@ function PropertiesIndexPage() {
         setLoading(false);
         return;
       }
+      if (cached) queryCache.current.delete(cacheKey);
 
       try {
         const [rows, count] = await Promise.all([
@@ -647,7 +653,7 @@ function PropertiesIndexPage() {
           countPublishedProperties({ data }),
         ]);
         if (requestId.current !== currentRequest) return;
-        const result = { rows, count };
+        const result = { rows, count, cachedAt: Date.now() };
         queryCache.current.set(cacheKey, result);
         if (queryCache.current.size > 24) {
           const firstKey = queryCache.current.keys().next().value;
