@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from "react";
 import { LocateFixed, MapPin, MapPinned, Minus, Plus } from "lucide-react";
 import type { PropertyCardData } from "@/lib/properties";
 import type { Neighborhood } from "@/lib/site";
@@ -281,20 +281,20 @@ export function PropertiesMap({
     });
   }, []);
 
-  const onMapPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    const origin = dragOrigin.current;
-    if (!origin || origin.pointerId !== event.pointerId) return;
-    const deltaX = event.clientX - origin.x;
-    const deltaY = event.clientY - origin.y;
-    dragOrigin.current = null;
+  const completeMapGesture = useCallback((
+    deltaX: number,
+    deltaY: number,
+    clientX: number,
+    clientY: number,
+  ) => {
     setDragging(false);
     if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
       userChangedViewRef.current = true;
       const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
       const nextView = { ...view, ...nextCenter };
       setView(nextView);
-      // Commit the same bounds as the state transition, instead of relying on a
-      // follow-up render effect that can be interleaved with reset/restore state.
+      // Persist the exact viewport produced by the same gesture that changed
+      // the camera. Do not depend on a later effect to infer the user's action.
       const nextBounds = viewportBoundsFromView(nextView, size.width, size.height);
       if (nextBounds) onViewportChange?.(nextBounds);
     } else {
@@ -302,8 +302,8 @@ export function PropertiesMap({
       // resolve a tap to the smallest visible bbox so map dragging remains available.
       const rect = mapRef.current?.getBoundingClientRect();
       if (rect) {
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
         const hit = neighborhoodBoxesRef.current
           .filter((area) => x >= area.left && x <= area.left + area.width && y >= area.top && y <= area.top + area.height)
           .sort((a, b) => a.width * a.height - b.width * b.height)[0];
@@ -312,6 +312,59 @@ export function PropertiesMap({
     }
     setDragOffset({ x: 0, y: 0 });
   }, [centerWorld.x, centerWorld.y, view, size.width, size.height, onViewportChange, onSelectNeighborhood]);
+
+  const onMapPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const origin = dragOrigin.current;
+    if (!origin || origin.pointerId !== event.pointerId) return;
+    dragOrigin.current = null;
+    completeMapGesture(
+      event.clientX - origin.x,
+      event.clientY - origin.y,
+      event.clientX,
+      event.clientY,
+    );
+  }, [completeMapGesture]);
+
+  // Pointer events are the primary path. Keep a touch fallback for WebViews
+  // that deliver touch events but fail to synthesize pointer capture; otherwise
+  // the visible map may pan while the bbox in the shared URL stays stale.
+  const onMapTouchStart = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    if (dragOrigin.current) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    dragOrigin.current = { x: touch.clientX, y: touch.clientY, pointerId: -1 };
+    setDragOffset({ x: 0, y: 0 });
+    setDragging(true);
+  }, []);
+
+  const onMapTouchMove = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    if (dragOrigin.current?.pointerId !== -1) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    setDragOffset({
+      x: touch.clientX - dragOrigin.current.x,
+      y: touch.clientY - dragOrigin.current.y,
+    });
+  }, []);
+
+  const onMapTouchEnd = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    const origin = dragOrigin.current;
+    if (!origin || origin.pointerId !== -1) return;
+    const touch = event.changedTouches[0];
+    if (!touch) {
+      dragOrigin.current = null;
+      setDragging(false);
+      setDragOffset({ x: 0, y: 0 });
+      return;
+    }
+    dragOrigin.current = null;
+    completeMapGesture(
+      touch.clientX - origin.x,
+      touch.clientY - origin.y,
+      touch.clientX,
+      touch.clientY,
+    );
+  }, [completeMapGesture]);
 
   const zoomBy = useCallback((amount: number) => {
     userChangedViewRef.current = true;
@@ -344,6 +397,10 @@ export function PropertiesMap({
       onPointerMove={onMapPointerMove}
       onPointerUp={onMapPointerUp}
       onPointerCancel={onMapPointerUp}
+      onTouchStart={onMapTouchStart}
+      onTouchMove={onMapTouchMove}
+      onTouchEnd={onMapTouchEnd}
+      onTouchCancel={onMapTouchEnd}
     >
       <div className="pf-map-tiles" aria-hidden="true">
         {tiles.map((tile) => (
