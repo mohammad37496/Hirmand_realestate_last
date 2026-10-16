@@ -40,7 +40,7 @@ import {
 } from "@/lib/property-options";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
-import { compactSearchText, parseIntegerFilter, toLatinDigits, validatePropertySearchNumbers } from "@/lib/property-search-utils";
+import { compactSearchText, normalizeSearchText, parseIntegerFilter, toLatinDigits, validatePropertySearchNumbers } from "@/lib/property-search-utils";
 import { parseCoordinateBounds } from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
@@ -445,7 +445,7 @@ function PropertiesIndexPage() {
     });
     const text: string[] = [];
     if (q.trim() && compactSearchText(q).length === 0) text.push("عبارت جست‌وجو باید شامل حرف یا عدد باشد");
-    if (compactSearchText(q).length > 80) text.push("عبارت جست‌وجو باید حداکثر ۸۰ نویسه باشد");
+    if (normalizeSearchText(q).length > 80) text.push("عبارت جست‌وجو باید حداکثر ۸۰ نویسه باشد");
     if (compactSearchText(featureSearch).length > 80) text.push("جست‌وجوی ویژگی باید حداکثر ۸۰ نویسه باشد");
     if (neighborhood.trim().length > 80) text.push("نام محله بیش از حد طولانی است");
     return [...numeric, ...text];
