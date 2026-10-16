@@ -761,9 +761,11 @@ function PropertiesIndexPage() {
       if (requestId.current !== queryVersion) return;
 
       if (!rows.length) {
-        // Prevent the intersection sentinel from hammering the same empty page.
-        setOffset(nextOffset);
-        setTotal((currentTotal) => Math.min(currentTotal, nextOffset));
+        // Stop the sentinel after a genuinely empty page. Clamping to nextOffset
+        // could leave total above the number of loaded rows and trigger endless
+        // empty-page requests when the count and listing drift during concurrent writes.
+        setOffset(properties.length);
+        setTotal(properties.length);
         return;
       }
 
