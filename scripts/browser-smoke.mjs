@@ -856,6 +856,30 @@ try {
           }
         }
 
+        // The optional second-card check navigates away from the primary
+        // fixture. Restore the original detail URL before testing hard refresh;
+        // otherwise the smoke compares the second URL against the first URL.
+        if (propertyNavigationCheck.ok) {
+          const currentPath = await propertyPage.evaluate(() => window.location.pathname);
+          if (currentPath !== propertyNavigationCheck.status) {
+            await propertyPage.goto(new URL(propertyNavigationCheck.status, url).toString(), {
+              waitUntil: "domcontentloaded",
+              timeout: timeoutMs,
+            });
+            await propertyPage.waitForTimeout(400);
+            const primaryDetail = await readDetailState();
+            const primaryHeadingMatches = !expectedPropertyTitle ||
+              normalizeBodyText(primaryDetail.heading) === normalizeBodyText(expectedPropertyTitle);
+            if (!primaryDetail.rendered || !primaryHeadingMatches) {
+              propertyNavigationCheck.ok = false;
+              propertyNavigationCheck.error =
+                "primary detail URL did not restore the expected fixture after the second-card navigation";
+            } else {
+              propertyNavigationCheck.detailHeading = primaryDetail.heading;
+            }
+          }
+        }
+
         if (propertyNavigationCheck.ok) {
           await propertyPage.reload({ waitUntil: "domcontentloaded" });
           const refreshPath = await propertyPage.evaluate(() => window.location.pathname);
