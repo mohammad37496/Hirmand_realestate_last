@@ -489,7 +489,7 @@ export default defineEventHandler(async (event) => {
       entityType: "lead",
       entityId: String(existing.id),
       entityTitle: "درخواست مشتری",
-      actor: currentRole,
+      actor: claims?.displayName || claims?.accountId || currentRole,
       metadata: {
         deal: String(existing.deal ?? ""),
         status: String(existing.status ?? ""),
