@@ -1021,12 +1021,8 @@ function PropertiesIndexPage() {
     setHasLocationOnly(false);
     setSort("newest");
     setOffset(0);
-    setMapBounds(undefined);
-    setMapViewportResetVersion((version) => version + 1);
-    const resetParams = new URLSearchParams(window.location.search);
-    for (const key of ["bbox", "map_bbox", "map_place_hash"]) resetParams.delete(key);
-    const resetQuery = resetParams.toString();
-    window.history.replaceState(window.history.state, "", resetQuery ? `/properties?${resetQuery}` : "/properties");
+    // Keep the map viewport: clearing property filters should not unexpectedly
+    // jump the user to a different area or trigger an unbounded intermediate query.
   }
 
   async function shareCurrentSearch() {
