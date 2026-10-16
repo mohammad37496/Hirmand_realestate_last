@@ -457,18 +457,26 @@ export default defineEventHandler(async (event) => {
 
   if (action === "reject") {
     const reviewNote = typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0, 1200) : "";
-    await sql.query(
-      "update customer_property_submissions set status='rejected', review_note=$2, reviewed_at=current_timestamp, updated_at=current_timestamp where id=$1",
-      [body.id, reviewNote],
-    );
-    if (submission.lead_id) {
-      await sql.query("update leads set status='closed', updated_at=current_timestamp where id=$1", [submission.lead_id]).catch(() => {});
-      await sql.query(
-        "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
-        [submission.lead_id, "ثبت ملک رد شد", reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.", JSON.stringify({ submissionId: body.id })],
-      ).catch(() => {});
-    }
-    await logReviewEvent(sql, body.id, "reject", reviewNote || "درخواست ثبت ملک رد شد.");
+    await withSqlTransaction(async (tx) => {
+      const updated = await tx.query<{ id: string }>(
+        "update customer_property_submissions set status='rejected', review_note=$2, reviewed_at=current_timestamp, updated_at=current_timestamp where id=$1 and status='pending' returning id",
+        [body.id, reviewNote],
+      );
+      if (!updated[0]) {
+        throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان بررسی شده است؛ صفحه را تازه‌سازی کنید." });
+      }
+      if (submission.lead_id) {
+        await tx.query("update leads set status='closed', updated_at=current_timestamp where id=$1", [submission.lead_id]);
+        await tx.query(
+          "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
+          [submission.lead_id, "ثبت ملک رد شد", reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.", JSON.stringify({ submissionId: body.id })],
+        );
+      }
+      await tx.query(
+        "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'reject',$3,$4::jsonb)",
+        [crypto.randomUUID(), body.id, (reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.").slice(0, 1200), JSON.stringify({})],
+      );
+    });
     return { success: true, status: "rejected" };
   }
 
