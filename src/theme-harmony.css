@@ -1477,8 +1477,9 @@
   letter-spacing: 0 !important;
   text-align: right !important;
   text-wrap: pretty;
-  overflow-wrap: anywhere;
-}
+  overflow-wrap: break-word;
+
+  word-break: normal !important;}
 
 .property-detail-page .property-detail-body .property-features {
   border-top-color: #e4dccc !important;
@@ -1594,8 +1595,9 @@
   font-size: .98rem !important;
   font-weight: 900 !important;
   line-height: 1.65 !important;
-  overflow-wrap: anywhere !important;
-}
+  overflow-wrap: break-word !important;
+
+  word-break: normal !important;}
 
 .property-detail-page .property-divar-specs .property-spec-amenities {
   margin-top: 14px !important;
@@ -1911,8 +1913,9 @@
   font-size: .82rem !important;
   font-weight: 600 !important;
   line-height: 1.8 !important;
-  overflow-wrap: anywhere !important;
-}
+  overflow-wrap: break-word !important;
+
+  word-break: normal !important;}
 
 .property-detail-page .property-location-section .property-location-fallback .btn-ghost {
   min-height: 44px !important;
@@ -2245,9 +2248,10 @@
   font-size: .88rem !important;
   font-weight: 750 !important;
   line-height: 1.8 !important;
-  overflow-wrap: anywhere !important;
+  overflow-wrap: break-word !important;
   text-shadow: none !important;
-}
+
+  word-break: normal !important;}
 
 .property-detail-page .property-detail-body .property-features li:hover {
   background: #fffaf1 !important;
