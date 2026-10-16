@@ -59,7 +59,10 @@ test("viewport bounds are ANDed with neighborhood and all ordinary property filt
   assert.match(where, /latitude <= \$32/);
 });
 
-test("map query cache hits reject stale request generations", () => {
+test("map query cache is short-lived and cache hits reject stale request generations", () => {
+  assert.match(listing, /PROPERTY_QUERY_CACHE_TTL_MS = 15_000/);
+  assert.match(listing, /Date\.now\(\) - cached\.cachedAt <= PROPERTY_QUERY_CACHE_TTL_MS/);
+  assert.match(listing, /if \(cached\) queryCache\.current\.delete\(cacheKey\)/);
   assert.match(listing, /if \(requestId\.current !== currentRequest\) return;[\s\S]*setProperties\(cached\.rows\)/);
 });
 
