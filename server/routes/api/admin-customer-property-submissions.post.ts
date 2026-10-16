@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
@@ -122,11 +122,11 @@ export default defineEventHandler(async (event) => {
     const total = Number(totalRows[0]?.count) || 0;
     const workloadRows = await sql.query<{ assigned_consultant_phone: string | null; count: number }>(
       "select assigned_consultant_phone,count(*)::int as count from customer_property_submissions where status='pending' group by assigned_consultant_phone",
-    ).catch(() => [] as { assigned_consultant_phone: string | null; count: number }[]);
+    );
     const workloadByPhone = new Map(workloadRows.map((row) => [String(row.assigned_consultant_phone ?? ""), Number(row.count) || 0]));
     const slaRows = await sql.query<{ overdue: number; high_priority: number; unassigned: number; average_age_hours: number | null }>(
       "select count(*) filter (where coalesce(queue_started_at,created_at) < current_timestamp - interval '24 hours')::int as overdue, count(*) filter (where priority='high')::int as high_priority, count(*) filter (where assigned_consultant_phone is null or assigned_consultant_phone='')::int as unassigned, avg(extract(epoch from (current_timestamp-coalesce(queue_started_at,created_at)))/3600)::float8 as average_age_hours from customer_property_submissions where status='pending'",
-    ).catch(() => [{ overdue: 0, high_priority: 0, unassigned: 0, average_age_hours: 0 }]);
+    );
     const sla = slaRows[0] ?? { overdue: 0, high_priority: 0, unassigned: 0, average_age_hours: 0 };
     return {
       total,
@@ -305,7 +305,7 @@ export default defineEventHandler(async (event) => {
     const events = await sql.query<Record<string, unknown>>(
       "select id,action,note,metadata,created_at from customer_property_submission_events where submission_id=$1 order by created_at desc limit 50",
       [body.id],
-    ).catch(() => [] as Record<string, unknown>[]);
+    );
     return {
       success: true,
       events: events.map((row) => ({
@@ -562,37 +562,46 @@ export default defineEventHandler(async (event) => {
     const slug = slugify(validated.data.title) + "-" + propertyId.slice(0, 8);
     const d = validated.data;
     const savedFloor = d.floorLabel === "suite" ? null : d.floor;
-    await sql.query(
-      "insert into properties (id,slug,status,featured,title,transaction_type,property_type,city,neighborhood,address,area_m2,bedrooms,bathrooms,floor,total_floors,built_year,parking,elevator,storage,cabinet_type,flooring_type,cooling_system,heating_system,wall_closet_type,other_amenities,price,deposit,rent,description,features,images,contact_name,contact_phone,published_at,featured_until,latitude,longitude,floor_label,painted,wallpaper,convertible,orientation,owner_name,owner_phone,owner_info,availability_status,internal_priority,internal_note) values ($1,$2,'published',false,$3,$4,$5,'اصفهان',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26,$27::jsonb,$28::jsonb,$29,$30,current_timestamp,null,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,'available','normal',$41)",
-      [
-        d.id, slug, d.title, d.transactionType, d.propertyType, d.neighborhood, d.address || null,
-        d.areaM2 ?? null, d.bedrooms ?? null, d.bathrooms ?? null, savedFloor, d.totalFloors ?? null, d.builtYear ?? null,
-        d.parking, d.elevator, d.storage, d.cabinetType, d.flooringType, d.coolingSystem, d.heatingSystem, d.wallClosetType,
-        JSON.stringify(d.otherAmenities), d.price, d.deposit, d.rent, d.description, JSON.stringify(d.features), JSON.stringify(d.images),
-        d.contactName, d.contactPhone, d.latitude ?? null, d.longitude ?? null, d.floorLabel === "suite" ? "suite" : null,
-        d.painted, d.wallpaper, d.convertible, d.orientation, d.ownerName ?? "", d.ownerPhone ?? "", d.ownerInfo ?? "",
-        d.internalNote,
-      ],
-    );
+    await withSqlTransaction(async (tx) => {
+      await tx.query(
+        "insert into properties (id,slug,status,featured,title,transaction_type,property_type,city,neighborhood,address,area_m2,bedrooms,bathrooms,floor,total_floors,built_year,parking,elevator,storage,cabinet_type,flooring_type,cooling_system,heating_system,wall_closet_type,other_amenities,price,deposit,rent,description,features,images,contact_name,contact_phone,published_at,featured_until,latitude,longitude,floor_label,painted,wallpaper,convertible,orientation,owner_name,owner_phone,owner_info,availability_status,internal_priority,internal_note) values ($1,$2,'published',false,$3,$4,$5,'اصفهان',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26,$27::jsonb,$28::jsonb,$29,$30,current_timestamp,null,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,'available','normal',$41)",
+        [
+          d.id, slug, d.title, d.transactionType, d.propertyType, d.neighborhood, d.address || null,
+          d.areaM2 ?? null, d.bedrooms ?? null, d.bathrooms ?? null, savedFloor, d.totalFloors ?? null, d.builtYear ?? null,
+          d.parking, d.elevator, d.storage, d.cabinetType, d.flooringType, d.coolingSystem, d.heatingSystem, d.wallClosetType,
+          JSON.stringify(d.otherAmenities), d.price, d.deposit, d.rent, d.description, JSON.stringify(d.features), JSON.stringify(d.images),
+          d.contactName, d.contactPhone, d.latitude ?? null, d.longitude ?? null, d.floorLabel === "suite" ? "suite" : null,
+          d.painted, d.wallpaper, d.convertible, d.orientation, d.ownerName ?? "", d.ownerPhone ?? "", d.ownerInfo ?? "",
+          d.internalNote,
+        ],
+      );
 
-    await sql.query(
-      "insert into property_change_history (property_id,action,before_state,after_state) values ($1,'created',null,$2::jsonb)",
-      [propertyId, JSON.stringify({ title:d.title, status:"published", source:"customer_property_submission", submissionId:body.id })],
-    ).catch(() => {});
+      await tx.query(
+        "insert into property_change_history (property_id,action,before_state,after_state) values ($1,'created',null,$2::jsonb)",
+        [propertyId, JSON.stringify({ title:d.title, status:"published", source:"customer_property_submission", submissionId:body.id })],
+      );
 
-    await sql.query(
-      "update customer_property_submissions set status='approved', property_id=$2, review_note=$3, reviewed_at=current_timestamp, updated_at=current_timestamp where id=$1",
-      [body.id, propertyId, typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0,1200) : "تأیید و انتشار شد."],
-    );
-    await logReviewEvent(sql, body.id, "approve", typeof body.reviewNote === "string" ? body.reviewNote.trim() : "تأیید و انتشار شد.", { propertyId, propertySlug: slug, consultant: consultant.name });
+      const updated = await tx.query<{ id: string }>(
+        "update customer_property_submissions set status='approved', property_id=$2, review_note=$3, reviewed_at=current_timestamp, updated_at=current_timestamp where id=$1 and status='pending' returning id",
+        [body.id, propertyId, typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0,1200) : "تأیید و انتشار شد."],
+      );
+      if (!updated[0]) {
+        throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان بررسی شده است؛ صفحه را تازه‌سازی کنید." });
+      }
 
-    if (submission.lead_id) {
-      await sql.query("update leads set status='contacted', updated_at=current_timestamp where id=$1", [submission.lead_id]).catch(() => {});
-      await sql.query(
-        "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
-        [submission.lead_id, "ملک مشتری تأیید و منتشر شد", "فایل با موفقیت در سایت منتشر شد.", JSON.stringify({ submissionId:body.id, propertyId, propertySlug:slug })],
-      ).catch(() => {});
-    }
+      await tx.query(
+        "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,$3,$4,$5::jsonb)",
+        [crypto.randomUUID(), body.id, "approve", (typeof body.reviewNote === "string" ? body.reviewNote.trim() : "تأیید و انتشار شد.").slice(0,1200), JSON.stringify({ propertyId, propertySlug: slug, consultant: consultant.name })],
+      );
+
+      if (submission.lead_id) {
+        await tx.query("update leads set status='contacted', updated_at=current_timestamp where id=$1", [submission.lead_id]);
+        await tx.query(
+          "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
+          [submission.lead_id, "ملک مشتری تأیید و منتشر شد", "فایل با موفقیت در سایت منتشر شد.", JSON.stringify({ submissionId:body.id, propertyId, propertySlug:slug })],
+        );
+      }
+    });
     clearPropertyReadCache();
     return { success:true, status:"approved", propertyId, slug };
   }
