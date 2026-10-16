@@ -337,11 +337,14 @@ try {
     // Let the debounced listing request settle, but keep the individual fixture
     // assertions below diagnostic: a missing fixture should not erase all later
     // observations about URL sync, reset, neighborhood selection and mobile.
-    await mapPage.waitForTimeout(1200);
-    // Wait for the first debounced query to finish when the loading state is
-    // observable; otherwise retain a diagnostic snapshot instead of aborting.
+    // In the disposable database, exactly two records should survive the
+    // combined bbox + sale + minimum price + maximum area query.
     await mapPage.waitForFunction(
-      () => document.querySelector("main.page-shell.pf-page")?.getAttribute("data-list-loading") === "false",
+      () => {
+        const root = document.querySelector("main.page-shell.pf-page");
+        return root?.getAttribute("data-list-result-count") === "2" ||
+          document.body.innerText.includes("جستجوی فایل‌ها انجام نشد");
+      },
       null,
       { timeout: mapTimeoutMs },
     ).catch(() => undefined);
@@ -357,7 +360,8 @@ try {
     const outsideBboxHidden = !mapState.mapListText.includes("فایل تست نقشه خارج محدوده");
     const noCoordinatesHidden = !mapState.mapListText.includes("فایل تست نقشه بدون مختصات");
     mapInteractionCheck.spatialFilterComposition =
-      insideShown && otherNeighborhoodShownBeforeAreaFilter && outsideBboxHidden && noCoordinatesHidden;
+      insideShown && otherNeighborhoodShownBeforeAreaFilter && outsideBboxHidden && noCoordinatesHidden &&
+      mapState.listingState?.resultCount === "2" && mapState.listingState?.loading === "false";
     mapInteractionCheck.spatialFilterDetails = {
       insideShown,
       otherNeighborhoodShownBeforeAreaFilter,
@@ -372,7 +376,12 @@ try {
 
     await mapPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
     await mapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
-    await mapPage.waitForTimeout(350);
+    await mapPage.waitForFunction(
+      () => document.querySelector("main.page-shell.pf-page")?.getAttribute("data-list-result-count") === "2" ||
+        document.body.innerText.includes("جستجوی فایل‌ها انجام نشد"),
+      null,
+      { timeout: mapTimeoutMs },
+    ).catch(() => undefined);
     mapState = await readMapState(mapPage);
     mapInteractionCheck.refreshPreservedBounds =
       closeBounds(mapState.bounds, expectedMapBounds) &&
@@ -510,6 +519,7 @@ try {
   }
   mapInteractionCheck.ok =
     mapInteractionCheck.ok &&
+    mapInteractionCheck.browserErrors.length === 0 &&
     mapInteractionCheck.initialBoundsRestored &&
     mapInteractionCheck.refreshPreservedBounds &&
     mapInteractionCheck.spatialFilterComposition &&
@@ -590,7 +600,21 @@ try {
     await propertyPage.waitForTimeout(500);
     const cards = propertyPage.locator('[data-property-link="true"]');
     if (await cards.count()) {
-      const link = cards.first();
+      const expectedPropertyId = expectedPropertySlug
+        ? await cards.evaluateAll((elements, wantedSlug) => {
+            for (const element of elements) {
+              const href = element.getAttribute("href");
+              if (!href) continue;
+              const pathname = new URL(href, window.location.href).pathname;
+              const slug = decodeURIComponent(pathname.split("/").filter(Boolean).pop() ?? "");
+              if (slug === wantedSlug) return element.getAttribute("data-property-id");
+            }
+            return null;
+          }, expectedPropertySlug)
+        : null;
+      const link = expectedPropertyId
+        ? propertyPage.locator(`[data-property-link="true"][data-property-id="${expectedPropertyId}"]`).first()
+        : cards.first();
       const href = await link.getAttribute("href").catch(() => null);
       propertyNavigationCheck.href = href;
 
