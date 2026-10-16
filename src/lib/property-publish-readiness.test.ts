@@ -61,3 +61,17 @@ test("buy requests do not require a sale price", () => {
   });
   assert.equal(result.ready, true);
 });
+
+
+test("publication readiness rejects zero and malformed required sale prices", () => {
+  for (const price of ["0", "۰۰۰", "12.5", "abc", "  "]) {
+    const result = getPublishReadiness({ ...base, price });
+    assert.equal(result.ready, false, `price ${JSON.stringify(price)} must not publish`);
+    assert.ok(result.blockers.some((item) => item.includes("قیمت")));
+  }
+});
+
+test("publication readiness accepts a positive Persian-digit price", () => {
+  const result = getPublishReadiness({ ...base, price: "۳٬۸۰۰٬۰۰۰٬۰۰۰" });
+  assert.equal(result.ready, true);
+});
