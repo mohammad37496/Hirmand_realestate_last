@@ -2,43 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { LocateFixed, MapPin, MapPinned, Minus, Plus } from "lucide-react";
 import type { PropertyCardData } from "@/lib/properties";
 import type { Neighborhood } from "@/lib/site";
+import {
+  DEFAULT_MAP_VIEW,
+  fitBoundsToView,
+  isValidWgs84Point,
+  normalizeCoordinateBounds,
+  parseCoordinateBounds,
+  project,
+  unproject,
+  viewportBoundsFromView,
+  type CoordinateBounds,
+  type MapView,
+  type PixelPoint,
+} from "@/lib/map-geometry";
 
 type MapProperty = PropertyCardData;
 
-type MapView = { latitude: number; longitude: number; zoom: number };
-type PixelPoint = { x: number; y: number };
 type MapSize = { width: number; height: number };
-
-const TILE_SIZE = 256;
-const DEFAULT_VIEW: MapView = { latitude: 32.655, longitude: 51.668, zoom: 12 };
-
-function project(latitude: number, longitude: number, zoom: number): PixelPoint {
-  const scale = TILE_SIZE * 2 ** zoom;
-  const safeLatitude = Math.max(-85.05112878, Math.min(85.05112878, latitude));
-  const sin = Math.sin((safeLatitude * Math.PI) / 180);
-  return {
-    x: ((longitude + 180) / 360) * scale,
-    y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale,
-  };
-}
-
-function unproject(point: PixelPoint, zoom: number): Pick<MapView, "latitude" | "longitude"> {
-  const scale = TILE_SIZE * 2 ** zoom;
-  const n = Math.PI - (2 * Math.PI * point.y) / scale;
-  return {
-    longitude: (point.x / scale) * 360 - 180,
-    latitude: (180 / Math.PI) * Math.atan(Math.sinh(n)),
-  };
-}
-
-function normalizeBbox(raw: string | null): [number, number, number, number] | null {
-  if (!raw) return null;
-  const values = raw.split(",").map((value) => Number(value.trim()));
-  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return null;
-  const [west, south, east, north] = values;
-  if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) return null;
-  return [west, south, east, north];
-}
 
 function propertyAmountLabel(property: MapProperty): string {
   const amount = (value: number | string | null | undefined) => {
@@ -85,6 +65,7 @@ export function PropertiesMap({
   onSelect,
   onSelectNeighborhood,
   onViewportChange,
+  onResetMap,
   viewportResetBounds,
   viewportResetVersion,
 }: {
@@ -94,15 +75,19 @@ export function PropertiesMap({
   selectedPropertyId: string | null;
   onSelect: (id: string) => void;
   onSelectNeighborhood: (name: string) => void;
-  onViewportChange?: (bounds: [number, number, number, number]) => void;
-  viewportResetBounds: [number, number, number, number] | undefined;
+  onViewportChange?: (bounds: CoordinateBounds) => void;
+  onResetMap: () => void;
+  viewportResetBounds: CoordinateBounds | undefined;
   viewportResetVersion: number;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const appliedViewportResetVersion = useRef(0);
-  const [view, setView] = useState<MapView>(DEFAULT_VIEW);
+  const initialBoundsRef = useRef<CoordinateBounds | null>(null);
+  const userChangedViewRef = useRef(false);
+  const [view, setView] = useState<MapView>(DEFAULT_MAP_VIEW);
   const [size, setSize] = useState<MapSize>({ width: 920, height: 640 });
+  const [sizeReady, setSizeReady] = useState(false);
   const [dragOffset, setDragOffset] = useState<PixelPoint>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [failedTiles, setFailedTiles] = useState<Set<string>>(new Set());
@@ -118,6 +103,7 @@ export function PropertiesMap({
         width: Math.max(320, Math.round(rect.width)),
         height: Math.max(340, Math.round(rect.height)),
       });
+      setSizeReady(true);
     };
     measure();
     if (typeof ResizeObserver === "undefined") {
@@ -131,48 +117,48 @@ export function PropertiesMap({
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const bounds = normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"));
-    if (bounds) {
-      const [west, south, east, north] = bounds;
-      setView({
-        latitude: (south + north) / 2,
-        longitude: (west + east) / 2,
-        zoom: 14,
-      });
-    }
+    initialBoundsRef.current =
+      parseCoordinateBounds(params.get("map_bbox")) ??
+      parseCoordinateBounds(params.get("bbox")) ??
+      null;
     setViewportReady(true);
   }, []);
 
+  // A direct neighborhood URL without map_bbox opens at its stored Divar extent.
+  // A saved viewport always takes precedence over a neighborhood bounding box.
   useEffect(() => {
-    if (!selectedNeighborhood) return;
-    // A saved map_bbox is the user's actual viewport and must win on refresh.
-    // The parent explicitly increments viewportResetVersion when a new area is selected.
     const params = new URLSearchParams(window.location.search);
-    if (normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"))) return;
+    const savedBounds =
+      parseCoordinateBounds(params.get("map_bbox")) ??
+      parseCoordinateBounds(params.get("bbox"));
+    if (savedBounds || !selectedNeighborhood) return;
     const area = neighborhoods.find((item) => item.name === selectedNeighborhood);
-    if (!area?.divarBbox) return;
-    const [west, south, east, north] = area.divarBbox;
-    setView((current) => ({
-      latitude: (south + north) / 2,
-      longitude: (west + east) / 2,
-      zoom: Math.max(14, current.zoom),
-    }));
+    const areaBounds = normalizeCoordinateBounds(area?.divarBbox);
+    if (areaBounds) initialBoundsRef.current = areaBounds;
   }, [selectedNeighborhood, neighborhoods]);
+
+  // Wait until the real viewport is measured, then fit the whole rectangle.
+  // Initial restore/resize is presentation only and must not mutate the URL filter.
+  useEffect(() => {
+    if (!viewportReady || !sizeReady || userChangedViewRef.current) return;
+    const bounds = initialBoundsRef.current;
+    if (!bounds) return;
+    const fitted = fitBoundsToView(bounds, size.width, size.height);
+    if (fitted) setView(fitted);
+  }, [viewportReady, sizeReady, size.width, size.height, selectedNeighborhood, neighborhoods]);
 
   useEffect(() => {
     if (appliedViewportResetVersion.current === viewportResetVersion) return;
     appliedViewportResetVersion.current = viewportResetVersion;
+    initialBoundsRef.current = normalizeCoordinateBounds(viewportResetBounds) ?? null;
+    userChangedViewRef.current = false;
     if (!viewportResetBounds) {
-      setView(DEFAULT_VIEW);
+      setView(DEFAULT_MAP_VIEW);
       return;
     }
-    const [west, south, east, north] = viewportResetBounds;
-    setView({
-      latitude: (south + north) / 2,
-      longitude: (west + east) / 2,
-      zoom: 14,
-    });
-  }, [viewportResetBounds, viewportResetVersion]);
+    const fitted = fitBoundsToView(viewportResetBounds, size.width, size.height);
+    setView(fitted ?? DEFAULT_MAP_VIEW);
+  }, [viewportResetBounds, viewportResetVersion, size.width, size.height]);
 
   useEffect(() => {
     setFailedTiles(new Set());
@@ -186,16 +172,17 @@ export function PropertiesMap({
   const worldLeft = visualCenter.x - size.width / 2;
   const worldTop = visualCenter.y - size.height / 2;
 
-  const viewportBounds = useMemo<[number, number, number, number]>(() => {
-    const topLeft = unproject({ x: centerWorld.x - size.width / 2, y: centerWorld.y - size.height / 2 }, view.zoom);
-    const bottomRight = unproject({ x: centerWorld.x + size.width / 2, y: centerWorld.y + size.height / 2 }, view.zoom);
-    return [topLeft.longitude, bottomRight.latitude, bottomRight.longitude, topLeft.latitude];
-  }, [centerWorld.x, centerWorld.y, size.width, size.height, view.zoom]);
+  const viewportBounds = useMemo(
+    () => viewportBoundsFromView(view, size.width, size.height),
+    [view, size.width, size.height],
+  );
 
   useEffect(() => {
-    if (!viewportReady) return;
+    // Only explicit pan/zoom creates a new map-area filter. Initial fit, resize,
+    // and resets must not replace a saved neighborhood bbox with the screen extent.
+    if (!viewportReady || !sizeReady || !userChangedViewRef.current || !viewportBounds) return;
     onViewportChange?.(viewportBounds);
-  }, [viewportReady, viewportBounds, onViewportChange]);
+  }, [viewportReady, sizeReady, viewportBounds, onViewportChange]);
 
   const tiles = useMemo<Tile[]>(() => {
     const totalTiles = 2 ** view.zoom;
@@ -224,8 +211,9 @@ export function PropertiesMap({
     const boxes = neighborhoods.flatMap((area): NeighborhoodBox[] => {
       const bounds = area.divarBbox;
       if (!bounds) return [];
-      const [west, south, east, north] = bounds;
-      if (![west, south, east, north].every(Number.isFinite) || west >= east || south >= north) return [];
+      const validBounds = normalizeCoordinateBounds(bounds);
+      if (!validBounds) return [];
+      const [west, south, east, north] = validBounds;
       const upperLeft = project(north, west, view.zoom);
       const lowerRight = project(south, east, view.zoom);
       const left = upperLeft.x - worldLeft;
@@ -257,10 +245,9 @@ export function PropertiesMap({
   const markers = useMemo(() => {
     const groups = new Map<string, { x: number; y: number; items: MapProperty[] }>();
     for (const property of properties) {
-      if (property.latitude == null || property.longitude == null) continue;
+      if (!isValidWgs84Point(property.latitude, property.longitude)) continue;
       const latitude = Number(property.latitude);
       const longitude = Number(property.longitude);
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
       const point = project(latitude, longitude, view.zoom);
       const x = point.x - worldLeft;
       const y = point.y - worldTop;
@@ -279,7 +266,7 @@ export function PropertiesMap({
   }, [properties, view.zoom, worldLeft, worldTop, size.width, size.height]);
 
   const mappedCount = useMemo(
-    () => properties.filter((property) => property.latitude != null && property.longitude != null).length,
+    () => properties.filter((property) => isValidWgs84Point(property.latitude, property.longitude)).length,
     [properties],
   );
 
@@ -307,6 +294,7 @@ export function PropertiesMap({
     dragOrigin.current = null;
     setDragging(false);
     if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      userChangedViewRef.current = true;
       const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
       setView((current) => ({ ...current, ...nextCenter }));
     }
@@ -314,6 +302,7 @@ export function PropertiesMap({
   }, [centerWorld.x, centerWorld.y, view.zoom]);
 
   const zoomBy = useCallback((amount: number) => {
+    userChangedViewRef.current = true;
     setView((current) => ({
       ...current,
       zoom: Math.max(10, Math.min(18, current.zoom + amount)),
@@ -321,14 +310,8 @@ export function PropertiesMap({
   }, []);
 
   const resetMap = useCallback(() => {
-    const selected = neighborhoods.find((item) => item.name === selectedNeighborhood);
-    if (selected?.divarBbox) {
-      const [west, south, east, north] = selected.divarBbox;
-      setView({ latitude: (south + north) / 2, longitude: (west + east) / 2, zoom: 14 });
-      return;
-    }
-    setView(DEFAULT_VIEW);
-  }, [neighborhoods, selectedNeighborhood]);
+    onResetMap();
+  }, [onResetMap]);
 
   const openCurrentMap = `https://www.openstreetmap.org/#map=${view.zoom}/${view.latitude.toFixed(6)}/${view.longitude.toFixed(6)}`;
 
@@ -375,11 +358,6 @@ export function PropertiesMap({
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => {
             onSelectNeighborhood(area.name);
-            setView((current) => ({
-              latitude: area.centerLatitude,
-              longitude: area.centerLongitude,
-              zoom: Math.max(14, current.zoom),
-            }));
           }}
         >
           {area.width >= 72 && area.height >= 25 ? <span>{area.name}</span> : null}
