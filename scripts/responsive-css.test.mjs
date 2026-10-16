@@ -6,6 +6,9 @@ const mobileFixes = fs.readFileSync(new URL("../src/mobile-device-fixes.css", im
 const uiClarityCss = fs.readFileSync(new URL("../src/ui-clarity.css", import.meta.url), "utf8");
 const themeProCss = fs.readFileSync(new URL("../src/theme-pro.css", import.meta.url), "utf8");
 const propertyDetailCss = fs.readFileSync(new URL("../src/property-detail-pro.css", import.meta.url), "utf8");
+const propertyDetailRedesignCss = fs.readFileSync(new URL("../src/property-detail-redesign.css", import.meta.url), "utf8");
+const propertyDetailLightCss = fs.readFileSync(new URL("../src/property-detail-light-theme.css", import.meta.url), "utf8");
+const propertyFiltersCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
@@ -40,6 +43,23 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   assert.match(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*overflow-wrap\s*:\s*break-word/is);
   assert.match(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*word-break\s*:\s*normal/is);
   assert.match(propertyDetailCss, /\.property-detail-summary-head h1\s*\{[^}]*letter-spacing\s*:\s*normal/is);
+  for (const [file, name] of [
+    [propertyDetailRedesignCss, "property-detail-redesign.css"],
+    [propertyDetailLightCss, "property-detail-light-theme.css"],
+  ]) {
+    const titleRule = file.match(/\.property-detail-page\s+\.property-detail-title-block h1\s*\{[^}]*\}/is)?.[0] ?? "";
+    assert.ok(titleRule, `${name} should define the property title rule`);
+    assert.doesNotMatch(titleRule, /overflow-wrap\s*:\s*anywhere/i,
+      `${name} must not split Persian titles between arbitrary characters`);
+    assert.match(titleRule, /overflow-wrap\s*:\s*break-word/i);
+    assert.match(titleRule, /word-break\s*:\s*normal/i);
+    assert.match(titleRule, /letter-spacing\s*:\s*normal/i);
+  }
+  const filterOptionRule = propertyFiltersCss.match(/\.pf-spec-option\s*>\s*span:last-child\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(filterOptionRule, "the property filter option label rule should exist");
+  assert.doesNotMatch(filterOptionRule, /overflow-wrap\s*:\s*anywhere/i);
+  assert.match(filterOptionRule, /overflow-wrap\s*:\s*break-word/i);
+  assert.match(filterOptionRule, /word-break\s*:\s*normal/i);
 });
 
 testRunner.test("responsive guardrails load after the older global styles", () => {
