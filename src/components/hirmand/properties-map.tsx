@@ -4,6 +4,7 @@ import type { PropertyCardData } from "@/lib/properties";
 import type { Neighborhood } from "@/lib/site";
 import {
   DEFAULT_MAP_VIEW,
+  TILE_SIZE,
   fitBoundsToView,
   isValidWgs84Point,
   normalizeCoordinateBounds,
@@ -52,8 +53,6 @@ type NeighborhoodBox = {
   top: number;
   width: number;
   height: number;
-  centerLatitude: number;
-  centerLongitude: number;
   selected: boolean;
 };
 
@@ -233,8 +232,6 @@ export function PropertiesMap({
         top,
         width,
         height,
-        centerLatitude: (south + north) / 2,
-        centerLongitude: (west + east) / 2,
         selected,
       }];
     });
@@ -297,9 +294,21 @@ export function PropertiesMap({
       userChangedViewRef.current = true;
       const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
       setView((current) => ({ ...current, ...nextCenter }));
+    } else {
+      // Neighborhood extents are visual bbox overlays, not interactive layers:
+      // resolve a tap to the smallest visible bbox so map dragging remains available.
+      const rect = mapRef.current?.getBoundingClientRect();
+      if (rect) {
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const hit = neighborhoodBoxes
+          .filter((area) => x >= area.left && x <= area.left + area.width && y >= area.top && y <= area.top + area.height)
+          .sort((a, b) => a.width * a.height - b.width * b.height)[0];
+        if (hit) onSelectNeighborhood(hit.name);
+      }
     }
     setDragOffset({ x: 0, y: 0 });
-  }, [centerWorld.x, centerWorld.y, view.zoom]);
+  }, [centerWorld.x, centerWorld.y, view.zoom, neighborhoodBoxes, onSelectNeighborhood]);
 
   const zoomBy = useCallback((amount: number) => {
     userChangedViewRef.current = true;
@@ -347,21 +356,14 @@ export function PropertiesMap({
       </div>
       <div className="pf-map-wash" aria-hidden="true" />
       {neighborhoodBoxes.map((area) => (
-        <button
+        <div
           key={area.key}
-          type="button"
           className={`pf-map-neighborhood-box${area.selected ? " is-active" : ""}`}
           style={{ left: area.left, top: area.top, width: area.width, height: area.height }}
-          title={`${area.name} — کادر تقریبی محدوده محله`}
-          aria-label={`انتخاب محله ${area.name}؛ کادر محدوده تقریبی است`}
-          aria-pressed={area.selected}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => {
-            onSelectNeighborhood(area.name);
-          }}
+          aria-hidden="true"
         >
           {area.width >= 72 && area.height >= 25 ? <span>{area.name}</span> : null}
-        </button>
+        </div>
       ))}
       {markers.map((marker) => {
         const active = marker.items.some((item) => item.id === selectedPropertyId);
