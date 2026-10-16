@@ -1,4 +1,4 @@
-import { compactSearchText } from "@/lib/property-search-utils";
+import { compactSearchText } from "./property-search-utils.ts";
 
 export type PublicPropertySearchFilterInput = {
   transactionType?: string;
