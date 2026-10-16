@@ -84,6 +84,7 @@ export function PropertiesMap({
   const appliedViewportResetVersion = useRef(0);
   const initialBoundsRef = useRef<CoordinateBounds | null>(null);
   const userChangedViewRef = useRef(false);
+  const neighborhoodBoxesRef = useRef<NeighborhoodBox[]>([]);
   const [view, setView] = useState<MapView>(DEFAULT_MAP_VIEW);
   const [size, setSize] = useState<MapSize>({ width: 920, height: 640 });
   const [sizeReady, setSizeReady] = useState(false);
@@ -239,6 +240,10 @@ export function PropertiesMap({
     return boxes.sort((a, b) => Number(b.selected) - Number(a.selected)).slice(0, 180);
   }, [neighborhoods, selectedNeighborhood, showNeighborhoodBounds, view.zoom, worldLeft, worldTop, size.width, size.height]);
 
+  // The pointer callback is declared above the memo; keep the latest boxes in a ref
+  // so the callback never closes over a later const binding (TDZ) and stays stable.
+  neighborhoodBoxesRef.current = neighborhoodBoxes;
+
   const markers = useMemo(() => {
     const groups = new Map<string, { x: number; y: number; items: MapProperty[] }>();
     for (const property of properties) {
@@ -301,14 +306,14 @@ export function PropertiesMap({
       if (rect) {
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
-        const hit = neighborhoodBoxes
+        const hit = neighborhoodBoxesRef.current
           .filter((area) => x >= area.left && x <= area.left + area.width && y >= area.top && y <= area.top + area.height)
           .sort((a, b) => a.width * a.height - b.width * b.height)[0];
         if (hit) onSelectNeighborhood(hit.name);
       }
     }
     setDragOffset({ x: 0, y: 0 });
-  }, [centerWorld.x, centerWorld.y, view.zoom, neighborhoodBoxes, onSelectNeighborhood]);
+  }, [centerWorld.x, centerWorld.y, view.zoom, onSelectNeighborhood]);
 
   const zoomBy = useCallback((amount: number) => {
     userChangedViewRef.current = true;
