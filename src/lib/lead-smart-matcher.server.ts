@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
+import { isMatchableProperty, MATCHABLE_PROPERTY_SQL } from "@/lib/property-matchability";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 type SqlClient = Awaited<ReturnType<typeof getSql>>;
@@ -14,7 +15,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const PROPERTY_COLUMNS = `
-  id, slug, title, transaction_type, property_type, neighborhood,
+  id, slug, status, availability_status, title, transaction_type, property_type, neighborhood,
   area_m2, bedrooms, bathrooms, floor, floor_label, total_floors,
   built_year, parking, elevator, storage, painted, wallpaper, convertible,
   cabinet_type, flooring_type, cooling_system, heating_system, wall_closet_type,
@@ -383,7 +384,7 @@ export async function autoMatchLead(
   const candidateRows = await sql.query<Record<string, unknown>>(
     `select ${PROPERTY_COLUMNS}
      from properties
-     where status = 'published'
+     where ${MATCHABLE_PROPERTY_SQL}
        and (
          $1::text = ''
          or property_type = $1
@@ -395,6 +396,7 @@ export async function autoMatchLead(
   );
 
   const scored = candidateRows
+    .filter(isMatchableProperty)
     .map((row) => ({ row, scored: scoreProperty(row, lead, mode, learned) }))
     .filter((item) => item.scored.hasMeaningfulSignal)
     .sort((a, b) =>

@@ -220,7 +220,7 @@ export const propertyInputSchema = z.object({
   propertyType: z.enum(["apartment", "villa", "office", "heritage", "land", "commercial"]),
   neighborhood: z.string().trim().min(2).max(80),
   address: z.string().trim().max(240).optional().default(""),
-  areaM2: z.number().int().min(0).max(100000).nullable().optional(),
+  areaM2: z.number().int().min(1).max(100000).nullable().optional(),
   bedrooms: z.number().int().min(0).max(30).nullable().optional(),
   bathrooms: z.number().int().min(0).max(30).nullable().optional(),
   floor: z.number().int().min(-60).max(200).nullable().optional(),
@@ -263,7 +263,7 @@ export const propertyInputSchema = z.object({
   ownerInfo: z.string().trim().max(2000).optional().default(""),
   internalPriority: z.enum(["low","normal","high","urgent"]).default("normal"),
   internalNote: z.string().trim().max(3000).default(""),
-  status: z.enum(["draft", "published", "archived"]).default("published"),
+  status: z.enum(["draft", "published", "archived"]).default("draft"),
   availabilityStatus: z.enum(["available","reserved","sold","rented","unavailable"]).default("available"),
   featured: z.boolean().default(false),
   featuredUntil: z.string().trim().max(80).nullable().optional().default(null),
@@ -1623,10 +1623,16 @@ export const saveProperty = createServerFn({ method: "POST" })
 
     const id = data.id ?? crypto.randomUUID();
     const existingRows = await sql.query<Record<string, unknown>>(
-      `select ${DETAIL_COLUMNS} from properties where id = $1 and deleted_at is null limit 1`,
+      `select ${DETAIL_COLUMNS} from properties where id = $1 limit 1`,
       [id],
     );
     const existing = existingRows[0] ?? null;
+    if (data.id && !existing) {
+      throw new Error("فایل برای ویرایش پیدا نشد؛ فهرست فایل‌ها را تازه‌سازی کنید.");
+    }
+    if (existing?.deleted_at != null) {
+      throw new Error("این فایل در سطل زباله است؛ پیش از ویرایش، آن را بازیابی کنید.");
+    }
     if (data.status === "published" && (!existing || existing.status !== "published")) {
       const readiness = getPublishReadiness({
         transactionType: data.transactionType,
@@ -1682,7 +1688,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         $15::smallint, $16::boolean, $17::boolean, $18::boolean, $19::text, $20::text, $21::text,
         $22::text, $23::text, $24::jsonb, $25::numeric, $26::numeric, $27::numeric, $28::text,
         $29::jsonb, $30::jsonb, $31::text, $32::text, $33::timestamptz, $34::timestamptz,
-        $35::double precision, $36::double precision, $37::text, $34::text, $39::boolean, $40::boolean, $41::boolean, $42::text,
+        $35::double precision, $36::double precision, $37::text, $38::text, $39::boolean, $40::boolean, $41::boolean, $42::text,
         $43::text, $44::text, $45::text, $46::text, $47::text, $48::text, $49::text
       )
       on conflict (id) do update set

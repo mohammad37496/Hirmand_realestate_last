@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
+import { isMatchableProperty, MATCHABLE_PROPERTY_SQL } from "@/lib/property-matchability";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -32,7 +33,7 @@ const PROPERTY_TX_LABELS: Record<string, string> = {
 };
 
 const PROPERTY_COLUMNS = `
-  id, slug, status, featured, featured_until, title, transaction_type, property_type, city,
+  id, slug, status, availability_status, featured, featured_until, title, transaction_type, property_type, city,
   neighborhood, address, area_m2, bedrooms, bathrooms, floor, floor_label, total_floors,
   built_year, parking, elevator, storage, painted, wallpaper, convertible,
   cabinet_type, flooring_type, cooling_system, heating_system, wall_closet_type,
@@ -332,7 +333,7 @@ export default defineEventHandler(async (event) => {
   const candidateRows = await sql.query<Record<string, unknown>>(
     `select ${PROPERTY_COLUMNS}
      from properties
-     where status = 'published'
+     where ${MATCHABLE_PROPERTY_SQL}
        and (
          $1::text = ''
          or property_type = $1
@@ -350,6 +351,7 @@ export default defineEventHandler(async (event) => {
   );
 
   const scored = candidateRows
+    .filter(isMatchableProperty)
     .map((row) => {
       const amenities = propertyAmenitySet(row);
       const coveredAmenities = requestedAmenities.filter((value) => amenities.has(value)).length;
