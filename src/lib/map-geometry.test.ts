@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   boundsEqual,
+  MAX_MAP_ZOOM,
+  MIN_MAP_ZOOM,
   fitBoundsToView,
   isValidWgs84Point,
   normalizeCoordinateBounds,
@@ -50,8 +52,28 @@ test("fit-to-bounds and viewport conversion preserve the full requested area on 
     assert.ok(visible[1] <= bounds[1] + 1e-7, `south edge cropped at ${width}px`);
     assert.ok(visible[2] >= bounds[2] - 1e-7, `east edge cropped at ${width}px`);
     assert.ok(visible[3] >= bounds[3] - 1e-7, `north edge cropped at ${width}px`);
-    assert.ok(view.zoom >= 10 && view.zoom <= 18);
+    assert.ok(view.zoom >= MIN_MAP_ZOOM && view.zoom <= MAX_MAP_ZOOM);
   }
+});
+
+test("a desktop-saved viewport is fully visible after restoring on a narrow mobile viewport", () => {
+  const desktopBounds = viewportBoundsFromView(
+    { latitude: 32.655, longitude: 51.668, zoom: 10 },
+    1280,
+    800,
+  );
+  assert.ok(desktopBounds, "desktop viewport should produce valid URL bounds");
+
+  const mobileView = fitBoundsToView(desktopBounds, 390, 420);
+  assert.ok(mobileView, "mobile viewport should fit the saved bounds");
+  assert.ok(mobileView.zoom < 10, "mobile must zoom out instead of cropping desktop bounds");
+
+  const visibleOnMobile = viewportBoundsFromView(mobileView, 390, 420);
+  assert.ok(visibleOnMobile);
+  assert.ok(visibleOnMobile[0] <= desktopBounds[0] + 1e-7, "west edge remains visible");
+  assert.ok(visibleOnMobile[1] <= desktopBounds[1] + 1e-7, "south edge remains visible");
+  assert.ok(visibleOnMobile[2] >= desktopBounds[2] - 1e-7, "east edge remains visible");
+  assert.ok(visibleOnMobile[3] >= desktopBounds[3] - 1e-7, "north edge remains visible");
 });
 
 test("project/unproject round-trip keeps the latitude and longitude axes separate", () => {
