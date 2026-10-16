@@ -61,6 +61,8 @@ const schema = z.object({
   neighborhood: z.string().trim().max(80).default(""),
   floorPreference: z.string().trim().max(40).default(""),
   requestedBedrooms: z.number().int().min(0).max(20).optional(),
+  requestedAreaMin: z.number().int().min(1).max(100000).optional(),
+  requestedAreaMax: z.number().int().min(1).max(100000).optional(),
   requestedAmenities: z.array(z.string().trim().min(1).max(80)).max(30).optional().default([]),
   consultant: z.string().trim().max(80).default(""),
   note: z.string().trim().max(1500).default(""),
@@ -152,6 +154,9 @@ const schema = z.object({
   }
   if ((value.budgetSaleMin ?? 0) > (value.budgetSaleMax ?? value.budgetSaleMin ?? 0)) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["budgetSaleMin"], message: "حداقل فروش نمی‌تواند بیشتر از حداکثر فروش باشد." });
+  }
+  if (value.requestedAreaMin != null && value.requestedAreaMax != null && value.requestedAreaMin > value.requestedAreaMax) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["requestedAreaMin"], message: "حداقل متراژ نمی‌تواند از حداکثر متراژ بیشتر باشد." });
   }
 });
 
@@ -251,7 +256,8 @@ export default defineEventHandler(async (event) => {
              budget_equivalent=$16, budget_bedrooms=$17, matched_properties=$18::jsonb,
              match_count=$19, floor_preference=$25, budget_deposit_min=$26, budget_deposit_max=$27,
              budget_rent_min=$28, budget_rent_max=$29, budget_purchase_min=$30, budget_purchase_max=$31,
-             budget_sale_min=$32, budget_sale_max=$33, requested_amenities=$34::jsonb, requested_bedrooms=$35, updated_at=current_timestamp
+             budget_sale_min=$32, budget_sale_max=$33, requested_amenities=$34::jsonb, requested_bedrooms=$35,
+             requested_area_min=$36, requested_area_max=$37, updated_at=current_timestamp
          where id=$1`,
         [
           existing[0].id,
@@ -289,6 +295,8 @@ export default defineEventHandler(async (event) => {
           budgetSale || null,
           JSON.stringify(parsed.data.requestedAmenities),
           parsed.data.requestedBedrooms ?? null,
+          parsed.data.requestedAreaMin ?? null,
+          parsed.data.requestedAreaMax ?? null,
         ],
       );
       try {
@@ -686,9 +694,9 @@ export default defineEventHandler(async (event) => {
       floor_preference, matched_properties, match_count,
       budget_deposit_min, budget_deposit_max, budget_rent_min, budget_rent_max,
       budget_purchase_min, budget_purchase_max, budget_sale_min, budget_sale_max,
-      requested_amenities, requested_bedrooms, public_tracking_token
+      requested_amenities, requested_bedrooms, requested_area_min, requested_area_max, public_tracking_token
     )
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,current_timestamp + interval '24 hours',$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36::jsonb,$37,$38)
+    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,current_timestamp + interval '24 hours',$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36::jsonb,$37,$38,$39,$40)
     returning id`,
     [
       crypto.randomUUID(),
@@ -728,6 +736,8 @@ export default defineEventHandler(async (event) => {
       budgetSale || null,
       JSON.stringify(parsed.data.requestedAmenities),
       parsed.data.requestedBedrooms ?? null,
+      parsed.data.requestedAreaMin ?? null,
+      parsed.data.requestedAreaMax ?? null,
       trackingToken,
     ],
   );
