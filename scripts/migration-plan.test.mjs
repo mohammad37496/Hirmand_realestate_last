@@ -106,3 +106,33 @@ test("the copy check reads both files and catches an edit", () => {
   const drifted = authSchemaCopy(root);
   assert.notEqual(drifted.copy, drifted.source);
 });
+
+
+test("PostgreSQL migration runners serialize concurrent starts with the same advisory lock", () => {
+  const deployRunner = readFileSync(join(projectRoot(), "scripts", "migrate.mjs"), "utf8");
+  const startupRunner = readFileSync(join(projectRoot(), "scripts", "prestart-migrate.mjs"), "utf8");
+  for (const source of [deployRunner, startupRunner]) {
+    assert.match(source, /pg_advisory_lock\(.*741206510/);
+    assert.match(source, /pg_advisory_unlock\(.*741206510/);
+    assert.match(source, /BEGIN/);
+    assert.match(source, /ROLLBACK/);
+  }
+});
+
+test("production startup refuses to serve a schema after migration failure", () => {
+  const source = readFileSync(join(projectRoot(), "scripts", "prestart.mjs"), "utf8");
+  assert.match(source, /DB_MIGRATION_TIMEOUT_MS/);
+  assert.match(source, /clearTimeout\(timeout\)/);
+  assert.match(source, /refusing to start because database migrations did not complete/);
+  assert.match(source, /process\.exit\(1\)/);
+  assert.doesNotMatch(source, /database migrations were not completed before startup/);
+});
+
+test("migration error logging avoids row details and hints that may contain private data", () => {
+  const deployRunner = readFileSync(join(projectRoot(), "scripts", "migrate.mjs"), "utf8");
+  const startupRunner = readFileSync(join(projectRoot(), "scripts", "prestart-migrate.mjs"), "utf8");
+  for (const source of [deployRunner, startupRunner]) {
+    assert.match(source, /\["code",\s*"severity"\]/);
+    assert.doesNotMatch(source, /\["code",\s*"detail",\s*"hint"/);
+  }
+});
