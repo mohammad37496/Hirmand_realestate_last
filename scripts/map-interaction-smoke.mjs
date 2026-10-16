@@ -69,6 +69,20 @@ async function waitForValidViewportUrl(page, timeout = 8_000) {
   }, undefined, { timeout });
 }
 
+async function waitForChangedViewport(page, previousBounds, timeout = 8_000) {
+  return page.waitForFunction((previous) => {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("map_bbox") || params.get("bbox");
+    if (!raw) return false;
+    const next = raw.split(",").map((part) => Number(part.trim()));
+    if (next.length !== 4 || next.some((value) => !Number.isFinite(value))) return false;
+    const [west, south, east, north] = next;
+    if (!(west >= -180 && west <= 180 && east >= -180 && east <= 180 &&
+      south >= -90 && south <= 90 && north >= -90 && north <= 90 && west < east && south < north)) return false;
+    return Array.isArray(previous) && next.some((value, index) => Math.abs(value - previous[index]) > 0.000001);
+  }, previousBounds, { timeout });
+}
+
 async function waitForFilterUrl(page, timeout = 8_000) {
   return page.waitForFunction(() => {
     const params = new URLSearchParams(window.location.search);
@@ -182,7 +196,7 @@ try {
     await page.mouse.down();
     await page.mouse.move(startX + 60, startY + 28, { steps: 4 });
     await page.mouse.up();
-    await page.waitForTimeout(450);
+    await waitForChangedViewport(page, beforePan).catch(() => undefined);
   }
   const afterPan = parseCoordinateBounds((await readUrlState(page)).mapBounds);
   check(
@@ -196,7 +210,7 @@ try {
   await waitForSearch(page);
   const beforeZoom = parseCoordinateBounds((await readUrlState(page)).mapBounds);
   await page.getByRole("button", { name: "بزرگ‌نمایی نقشه" }).click();
-  await page.waitForFunction(() => Boolean(new URLSearchParams(window.location.search).get("map_bbox")), { timeout: 8_000 });
+  await waitForChangedViewport(page, beforeZoom).catch(() => undefined);
   await waitForSearch(page);
   const afterZoom = parseCoordinateBounds((await readUrlState(page)).mapBounds);
   check(
@@ -242,7 +256,7 @@ try {
   // reset the viewport to the Isfahan default when no neighborhood is selected.
   const beforeMapReset = bounds;
   await page.getByRole("button", { name: "بازگشت به نمای اصفهان یا محله انتخاب‌شده" }).click();
-  await waitForValidViewportUrl(page).catch(() => undefined);
+  await waitForChangedViewport(page, beforeMapReset).catch(() => undefined);
   await waitForSearch(page);
   state = await readUrlState(page);
   bounds = parseCoordinateBounds(state.mapBounds);
@@ -287,17 +301,7 @@ try {
   check("mobile map displays without horizontal page overflow", Boolean(response && response.status() < 400) && mobileLayout.scrollWidth <= mobileLayout.clientWidth + 1, mobileLayout);
   const mobileBefore = parseCoordinateBounds((await readUrlState(mobile)).mapBounds);
   await mobile.getByRole("button", { name: "بزرگ‌نمایی نقشه" }).tap();
-  await mobile.waitForFunction((previousBounds) => {
-    const params = new URLSearchParams(window.location.search);
-    const raw = params.get("map_bbox") || params.get("bbox");
-    if (!raw) return false;
-    const next = raw.split(",").map((part) => Number(part.trim()));
-    if (next.length !== 4 || next.some((value) => !Number.isFinite(value))) return false;
-    const [west, south, east, north] = next;
-    if (!(west >= -180 && west <= 180 && east >= -180 && east <= 180 &&
-      south >= -90 && south <= 90 && north >= -90 && north <= 90 && west < east && south < north)) return false;
-    return Array.isArray(previousBounds) && next.some((value, index) => Math.abs(value - previousBounds[index]) > 0.000001);
-  }, mobileBefore ?? null, { timeout: 8_000 }).catch(() => undefined);
+  await waitForChangedViewport(mobile, mobileBefore).catch(() => undefined);
   const mobileAfter = parseCoordinateBounds((await readUrlState(mobile)).mapBounds);
   check("mobile map zoom/tap updates a valid viewport", isValidCoordinateBounds(mobileBefore) && isValidCoordinateBounds(mobileAfter) && mobileAfter.some((value, index) => Math.abs(value - mobileBefore[index]) > 0.000001), { mobileBefore, mobileAfter });
   check("desktop and mobile map interactions raised no uncaught client errors", pageErrors.length === 0 && mobileErrors.length === 0, [...pageErrors, ...mobileErrors]);
