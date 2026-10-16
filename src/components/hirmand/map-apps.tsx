@@ -1,5 +1,6 @@
 import { MapPinned, Navigation } from "lucide-react";
 import { mapLinks, type MapTarget } from "@/lib/site";
+import { isValidCoordinateBounds, isValidGeoPoint } from "@/lib/map-geometry";
 
 export function MapAppButtons({
   target,
@@ -49,14 +50,19 @@ export function MapAppButtons({
 
 export function MapEmbed({ target, title }: { target: MapTarget; title: string }) {
   const links = mapLinks(target);
-  const hasCoordinates = target.lat != null && target.lng != null;
-  const bbox = target.divarBbox;
+  const latitude = target.lat;
+  const longitude = target.lng;
+  const hasCoordinates =
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    isValidGeoPoint(latitude, longitude);
+  const bbox = isValidCoordinateBounds(target.divarBbox) ? target.divarBbox : undefined;
   const encodedBbox = bbox?.map((value) => Number(value.toFixed(7))).join(",");
   const query = encodeURIComponent(target.searchQuery || target.address || `${target.label || "اصفهان"}، اصفهان، ایران`);
   const embedUrl = hasCoordinates && encodedBbox
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${encodedBbox}&layer=mapnik&marker=${target.lat},${target.lng}`
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${encodedBbox}&layer=mapnik&marker=${latitude},${longitude}`
     : hasCoordinates
-      ? `https://maps.google.com/maps?q=${target.lat},${target.lng}&z=15&hl=fa&output=embed`
+      ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&hl=fa&output=embed`
       : `https://maps.google.com/maps?q=${query}&z=13&hl=fa&output=embed`;
 
   return (
