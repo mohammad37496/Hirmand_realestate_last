@@ -264,7 +264,15 @@ try {
     browserErrors: [],
     errors: [],
   };
-  const expectedMapBounds = [51.6557426, 32.7353516, 51.6666031, 32.7431221];
+  // A broad custom viewport includes both inside fixtures while excluding the
+  // outside fixture, and fits below max zoom so the zoom control must change it.
+  const expectedMapBounds = [51.64, 32.73, 51.68, 32.745];
+  const selectedNeighborhoodBounds = (() => {
+    const catalog = JSON.parse(readFileSync(new URL("../data/divar-isfahan-neighborhoods.json", import.meta.url), "utf8"));
+    const key = (value) => String(value ?? "").normalize("NFKC").replace(/[\\s\\u200c\\u200d]+/g, "");
+    const district = catalog.districts.find((item) => key(item.name) === key("شهرک ولی‌عصر"));
+    return Array.isArray(district?.bbox) && district.bbox.length === 4 ? district.bbox : null;
+  })();
   const mapTimeoutMs = Math.min(timeoutMs, 10_000);
   const closeBounds = (left, right, tolerance = 1e-6) =>
     Array.isArray(left) && Array.isArray(right) && left.length === 4 && right.length === 4 &&
@@ -294,7 +302,7 @@ try {
         } : null;
       })(),
       listingState: (() => {
-        const element = document.querySelector("main.page-shell.pf-page");
+        const element = document.querySelector(".properties-page.pf-page");
         return element ? {
           bounds: element.getAttribute("data-active-map-bounds"),
           neighborhood: element.getAttribute("data-active-neighborhood"),
@@ -315,6 +323,13 @@ try {
       if (message.type() === "error") mapInteractionCheck.browserErrors.push("console: " + message.text());
     });
     mapPage.on("pageerror", (error) => mapInteractionCheck.browserErrors.push("page: " + String(error?.message || error)));
+    mapPage.on("requestfailed", (request) => {
+      try {
+        if (new URL(request.url()).origin === new URL(url).origin) {
+          mapInteractionCheck.browserErrors.push("request failed: " + request.url() + " (" + (request.failure()?.errorText ?? "unknown") + ")");
+        }
+      } catch { /* Ignore non-URL request entries. */ }
+    });
     mapPage.on("response", (response) => {
       if (response.status() < 400) return;
       try {
@@ -341,7 +356,7 @@ try {
     // combined bbox + sale + minimum price + maximum area query.
     await mapPage.waitForFunction(
       () => {
-        const root = document.querySelector("main.page-shell.pf-page");
+        const root = document.querySelector(".properties-page.pf-page");
         return root?.getAttribute("data-list-result-count") === "2" ||
           document.body.innerText.includes("جستجوی فایل‌ها انجام نشد");
       },
@@ -377,7 +392,7 @@ try {
     await mapPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
     await mapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
     await mapPage.waitForFunction(
-      () => document.querySelector("main.page-shell.pf-page")?.getAttribute("data-list-result-count") === "2" ||
+      () => document.querySelector(".properties-page.pf-page")?.getAttribute("data-list-result-count") === "2" ||
         document.body.innerText.includes("جستجوی فایل‌ها انجام نشد"),
       null,
       { timeout: mapTimeoutMs },
@@ -432,6 +447,9 @@ try {
       "شهرک ولی‌عصر",
       { timeout: mapTimeoutMs },
     ).catch(() => undefined);
+    if (!selectedNeighborhoodBounds) {
+      throw new Error("Divar catalog has no validated bbox for the selected neighborhood.");
+    }
     await mapPage.waitForFunction(
       (expected) => {
         const params = new URLSearchParams(window.location.search);
@@ -441,7 +459,7 @@ try {
         return bounds.length === 4 && bounds.every(Number.isFinite) &&
           bounds.every((value, index) => Math.abs(value - expected[index]) <= 1e-6);
       },
-      expectedMapBounds,
+      selectedNeighborhoodBounds,
       { timeout: mapTimeoutMs },
     ).catch(() => undefined);
     await mapPage.waitForTimeout(600);
