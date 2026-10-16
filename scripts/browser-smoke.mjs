@@ -243,6 +243,235 @@ try {
     });
   }
 
+  // Dedicated map regression: URL bounds survive restore/reload, and the real
+  // property query composes bbox, transaction, price, area and exact neighborhood.
+  const mapInteractionCheck = {
+    attempted: true,
+    ok: true,
+    initialBoundsRestored: false,
+    refreshPreservedBounds: false,
+    spatialFilterComposition: false,
+    zoomPreservedOtherFilters: false,
+    resetClearedBounds: false,
+    neighborhoodSelection: false,
+    neighborhoodTap: false,
+    mobileRefreshAndPan: false,
+    errors: [],
+  };
+  const expectedMapBounds = [51.6557426, 32.7353516, 51.6666031, 32.7431221];
+  const closeBounds = (left, right, tolerance = 1e-6) =>
+    Array.isArray(left) && Array.isArray(right) && left.length === 4 && right.length === 4 &&
+    left.every((value, index) => Number.isFinite(value) && Math.abs(value - right[index]) <= tolerance);
+  const readMapState = (page) => page.evaluate(() => {
+    const current = new URL(window.location.href);
+    const params = current.searchParams;
+    const rawBounds = params.get("map_bbox") || params.get("bbox");
+    const bounds = rawBounds ? rawBounds.split(",").map((value) => Number(value.trim())) : null;
+    return {
+      href: current.href,
+      bounds: bounds && bounds.length === 4 && bounds.every(Number.isFinite) ? bounds : null,
+      mapBbox: params.get("map_bbox"),
+      bbox: params.get("bbox"),
+      neighborhood: params.get("neighborhood"),
+      transaction: params.get("transaction"),
+      minPrice: params.get("minPrice"),
+      maxArea: params.get("maxArea"),
+      mapListText: document.querySelector(".pf-map-list")?.innerText ?? "",
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    };
+  });
+  let mapPage = null;
+  let mobileMapPage = null;
+  try {
+    mapPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const boundsString = expectedMapBounds.join(",");
+    const filteredMapUrl = new URL("/properties", url);
+    filteredMapUrl.search = new URLSearchParams({
+      map_bbox: boundsString,
+      bbox: boundsString,
+      transaction: "sell",
+      minPrice: "5000000000",
+      maxArea: "120",
+    }).toString();
+    await mapPage.goto(filteredMapUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await mapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
+    await mapPage.waitForFunction(
+      (titles) => {
+        const text = document.querySelector(".pf-map-list")?.innerText ?? "";
+        return text.includes(titles.inside) && text.includes(titles.otherNeighborhood);
+      },
+      {
+        inside: "فایل تست نقشه داخل محدوده",
+        otherNeighborhood: "فایل تست نقشه محله دیگر",
+      },
+      { timeout: timeoutMs },
+    );
+
+    let mapState = await readMapState(mapPage);
+    mapInteractionCheck.initialBoundsRestored =
+      closeBounds(mapState.bounds, expectedMapBounds) &&
+      mapState.transaction === "sell" &&
+      mapState.minPrice === "5000000000" &&
+      mapState.maxArea === "120";
+    const insideShown = mapState.mapListText.includes("فایل تست نقشه داخل محدوده");
+    const otherNeighborhoodShownBeforeAreaFilter = mapState.mapListText.includes("فایل تست نقشه محله دیگر");
+    const outsideBboxHidden = !mapState.mapListText.includes("فایل تست نقشه خارج محدوده");
+    const noCoordinatesHidden = !mapState.mapListText.includes("فایل تست نقشه بدون مختصات");
+    mapInteractionCheck.spatialFilterComposition =
+      insideShown && otherNeighborhoodShownBeforeAreaFilter && outsideBboxHidden && noCoordinatesHidden;
+
+    await mapPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await mapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
+    await mapPage.waitForTimeout(350);
+    mapState = await readMapState(mapPage);
+    mapInteractionCheck.refreshPreservedBounds =
+      closeBounds(mapState.bounds, expectedMapBounds) &&
+      mapState.transaction === "sell" &&
+      mapState.minPrice === "5000000000" &&
+      mapState.maxArea === "120";
+
+    const beforeZoom = mapState.bounds;
+    await mapPage.locator('.pf-map-controls button[aria-label="بزرگ‌نمایی نقشه"]').click();
+    await mapPage.waitForFunction(
+      (previous) => {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get("map_bbox") || params.get("bbox");
+        if (!raw) return false;
+        const next = raw.split(",").map((value) => Number(value.trim()));
+        return next.length === 4 && next.every(Number.isFinite) &&
+          next.some((value, index) => Math.abs(value - previous[index]) > 1e-5);
+      },
+      beforeZoom,
+      { timeout: timeoutMs },
+    );
+    mapState = await readMapState(mapPage);
+    mapInteractionCheck.zoomPreservedOtherFilters =
+      mapState.transaction === "sell" &&
+      mapState.minPrice === "5000000000" &&
+      mapState.maxArea === "120";
+
+    await mapPage.getByRole("button", { name: "پاک‌کردن همه", exact: true }).first().click();
+    await mapPage.waitForFunction(() => {
+      const params = new URLSearchParams(window.location.search);
+      return !params.has("map_bbox") && !params.has("bbox") &&
+        !params.has("transaction") && !params.has("minPrice") && !params.has("maxArea");
+    }, null, { timeout: timeoutMs });
+    mapInteractionCheck.resetClearedBounds = true;
+
+    await mapPage.locator(".pf-neighborhood-trigger").click();
+    const neighborhoodDialog = mapPage.getByRole("dialog");
+    await neighborhoodDialog.getByRole("searchbox", { name: "جست‌وجوی محله‌ها" }).fill("شهرک ولی‌عصر");
+    await neighborhoodDialog.getByRole("button", { name: /شهرک ولی.?عصر/ }).first().click();
+    await mapPage.waitForFunction(
+      (name) => new URLSearchParams(window.location.search).get("neighborhood") === name,
+      "شهرک ولی‌عصر",
+      { timeout: timeoutMs },
+    );
+    await mapPage.waitForFunction(
+      (expected) => {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get("map_bbox") || params.get("bbox");
+        if (!raw) return false;
+        const bounds = raw.split(",").map((value) => Number(value.trim()));
+        return bounds.length === 4 && bounds.every(Number.isFinite) &&
+          bounds.every((value, index) => Math.abs(value - expected[index]) <= 1e-6);
+      },
+      expectedMapBounds,
+      { timeout: timeoutMs },
+    );
+    await mapPage.waitForFunction(
+      () => {
+        const text = document.querySelector(".pf-map-list")?.innerText ?? "";
+        return text.includes("فایل تست نقشه داخل محدوده");
+      },
+      null,
+      { timeout: timeoutMs },
+    );
+    mapState = await readMapState(mapPage);
+    mapInteractionCheck.neighborhoodSelection =
+      mapState.neighborhood === "شهرک ولی‌عصر" &&
+      mapState.mapListText.includes("فایل تست نقشه داخل محدوده") &&
+      !mapState.mapListText.includes("فایل تست نقشه خارج محدوده") &&
+      !mapState.mapListText.includes("فایل تست نقشه محله دیگر") &&
+      !mapState.mapListText.includes("فایل تست نقشه بدون مختصات");
+
+    const activeBbox = mapPage.locator(".pf-map-neighborhood-box.is-active").first();
+    if (await activeBbox.count()) {
+      const rect = await activeBbox.boundingBox();
+      if (rect && rect.width > 4 && rect.height > 4) {
+        await mapPage.mouse.click(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        await mapPage.waitForFunction(() => {
+          const params = new URLSearchParams(window.location.search);
+          return Boolean(params.get("neighborhood")) && Boolean(params.get("map_bbox") || params.get("bbox"));
+        }, null, { timeout: timeoutMs });
+        mapInteractionCheck.neighborhoodTap = true;
+      }
+    }
+
+    mobileMapPage = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const mobileUrl = new URL("/properties", url);
+    mobileUrl.search = new URLSearchParams({
+      map_bbox: boundsString,
+      bbox: boundsString,
+      neighborhood: "شهرک ولی‌عصر",
+    }).toString();
+    await mobileMapPage.goto(mobileUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await mobileMapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
+    await mobileMapPage.waitForTimeout(300);
+    let mobileState = await readMapState(mobileMapPage);
+    const mobileNoOverflow = !mobileState.horizontalOverflow;
+    const mobileBboxSaved = closeBounds(mobileState.bounds, expectedMapBounds);
+    await mobileMapPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await mobileMapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
+    await mobileMapPage.waitForTimeout(300);
+    mobileState = await readMapState(mobileMapPage);
+    const mobileRefreshPreserved = closeBounds(mobileState.bounds, expectedMapBounds) && !mobileState.horizontalOverflow;
+    const mobileCanvas = mobileMapPage.locator(".pf-map-canvas");
+    const mobileRect = await mobileCanvas.boundingBox();
+    let mobilePanChangedBounds = false;
+    if (mobileRect && mobileRect.width > 100 && mobileRect.height > 100 && Array.isArray(mobileState.bounds)) {
+      const x = mobileRect.x + mobileRect.width / 2;
+      const y = mobileRect.y + mobileRect.height / 2;
+      const priorBounds = mobileState.bounds;
+      await mobileMapPage.mouse.move(x, y);
+      await mobileMapPage.mouse.down();
+      await mobileMapPage.mouse.move(x + 24, y + 18, { steps: 4 });
+      await mobileMapPage.mouse.up();
+      await mobileMapPage.waitForFunction(
+        (previous) => {
+          const params = new URLSearchParams(window.location.search);
+          const raw = params.get("map_bbox") || params.get("bbox");
+          if (!raw) return false;
+          const next = raw.split(",").map((value) => Number(value.trim()));
+          return next.length === 4 && next.every(Number.isFinite) &&
+            next.some((value, index) => Math.abs(value - previous[index]) > 1e-5);
+        },
+        priorBounds,
+        { timeout: timeoutMs },
+      ).catch(() => undefined);
+      const afterPan = await readMapState(mobileMapPage);
+      mobilePanChangedBounds = !closeBounds(afterPan.bounds, priorBounds, 1e-10);
+    }
+    mapInteractionCheck.mobileRefreshAndPan =
+      mobileNoOverflow && mobileBboxSaved && mobileRefreshPreserved && mobilePanChangedBounds;
+  } catch (error) {
+    mapInteractionCheck.ok = false;
+    mapInteractionCheck.errors.push(String(error?.message || error));
+  } finally {
+    await mapPage?.close().catch(() => undefined);
+    await mobileMapPage?.close().catch(() => undefined);
+  }
+  mapInteractionCheck.ok =
+    mapInteractionCheck.ok &&
+    mapInteractionCheck.initialBoundsRestored &&
+    mapInteractionCheck.refreshPreservedBounds &&
+    mapInteractionCheck.spatialFilterComposition &&
+    mapInteractionCheck.zoomPreservedOtherFilters &&
+    mapInteractionCheck.resetClearedBounds &&
+    mapInteractionCheck.neighborhoodSelection &&
+    mapInteractionCheck.neighborhoodTap &&
+    mapInteractionCheck.mobileRefreshAndPan;
+
   const apiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   let musicApiCheck;
   try {
@@ -474,6 +703,11 @@ try {
       ...routeFailures.map((item) => `route smoke failed: ${item.url} [${item.status}]`),
     );
   }
+  if (!mapInteractionCheck.ok) {
+    viewports["desktop-1280"].pageErrors.push(
+      `map interaction smoke failed: ${mapInteractionCheck.errors.join("; ") || "one or more assertions failed"}`,
+    );
+  }
   if (!musicApiCheck.ok) {
     viewports["desktop-1280"].pageErrors.push(`music API smoke failed: [${musicApiCheck.status}]`);
   }
@@ -498,7 +732,7 @@ try {
       buildAuthEnabled: buildAuthEnabled(),
     }),
   );
-  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, musicApiCheck, brandWarnings, authWarnings, verdictFile: outJson };
+  const verdict = { url, viewports, routeChecks, mapInteractionCheck, propertyNavigationCheck, musicApiCheck, brandWarnings, authWarnings, verdictFile: outJson };
   if (baselineRequested) {
     const { divergesFromBaseline, reasons } = compareAgainstBaseline(verdict);
     verdict.divergesFromBaseline = divergesFromBaseline;
