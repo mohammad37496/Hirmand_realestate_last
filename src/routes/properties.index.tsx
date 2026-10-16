@@ -162,10 +162,21 @@ function normalizeNeighborhoodSearch(raw: string) {
     .normalize("NFKC")
     .replace(/[يى]/g, "ی")
     .replace(/ك/g, "ک")
-    .replace(/[\u200c\u200f\u202a-\u202e]/g, "")
-    .replace(/[\s\-‐‑–—]+/g, " ")
-    .trim()
-    .toLocaleLowerCase("fa");
+    .toLocaleLowerCase("fa")
+    .replace(/[^\\p{L}\\p{N}]/gu, "");
+}
+
+function parseCoordinateBounds(raw: string | null): [number, number, number, number] | undefined {
+  if (!raw) return undefined;
+  const values = raw.split(",").map((value) => Number(value.trim()));
+  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return undefined;
+  const [west, south, east, north] = values;
+  if (
+    west < -180 || west > 180 || east < -180 || east > 180 ||
+    south < -90 || south > 90 || north < -90 || north > 90 ||
+    west >= east || south >= north
+  ) return undefined;
+  return [west, south, east, north];
 }
 
 const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
@@ -251,6 +262,7 @@ function buildFilterData(
   featuredOnly: boolean,
   hasImagesOnly: boolean,
   hasLocationOnly: boolean,
+  mapBounds: [number, number, number, number] | undefined,
   sort: PropertySort,
   offset: number,
 ) {
@@ -287,6 +299,7 @@ function buildFilterData(
     featuredOnly,
     hasImagesOnly,
     hasLocationOnly,
+    mapBounds,
     sort,
     offset,
   };
@@ -421,6 +434,7 @@ function PropertiesIndexPage() {
   const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
   const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [mapBounds, setMapBounds] = useState<[number, number, number, number] | undefined>(undefined);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
@@ -447,6 +461,7 @@ function PropertiesIndexPage() {
       void refreshSavedSearchAlerts(current);
     }, 120_000);
     const params = new URLSearchParams(window.location.search);
+    setMapBounds(parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox")));
     const tx = validTransaction(params.get("transaction") ?? "");
     const type = validPropertyType(params.get("type") ?? "");
     const sortParam = params.get("sort");
@@ -509,10 +524,22 @@ function PropertiesIndexPage() {
 
     const currentParams = new URLSearchParams(window.location.search);
     const params = new URLSearchParams();
-    // Keep map viewport/bookmarked neighborhood parameters when ordinary filters change.
-    for (const key of ["bbox", "map_bbox", "map_place_hash"]) {
+    // Keep the current viewport while ordinary filters change, but never retain
+    // a stale neighborhood hash after the user clears or changes the area.
+    for (const key of ["bbox", "map_bbox"]) {
       const value = currentParams.get(key);
       if (value) params.set(key, value);
+    }
+    if (neighborhood) {
+      params.set("neighborhood", neighborhood);
+      const selectedArea = NEIGHBORHOODS.find((item) => item.name === neighborhood);
+      if (selectedArea?.divarDistrictId) {
+        params.set("map_place_hash", `4|${selectedArea.divarDistrictId}|real-estate||`);
+      } else {
+        params.delete("map_place_hash");
+      }
+    } else {
+      params.delete("map_place_hash");
     }
     if (q.trim()) params.set("q", q.trim());
     if (transactionType) params.set("transaction", transactionType);
@@ -594,6 +621,7 @@ function PropertiesIndexPage() {
         featuredOnly,
         hasImagesOnly,
         hasLocationOnly,
+        mapBounds,
         sort,
         0,
       );
@@ -633,7 +661,7 @@ function PropertiesIndexPage() {
     }, 320);
 
     return () => window.clearTimeout(timer);
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || properties.length >= total) return;
@@ -670,6 +698,7 @@ function PropertiesIndexPage() {
           featuredOnly,
           hasImagesOnly,
           hasLocationOnly,
+          mapBounds,
           sort,
           nextOffset,
         ),
@@ -727,6 +756,7 @@ function PropertiesIndexPage() {
     hasLocationOnly,
     convertibleOnly,
     sort,
+    mapBounds,
   ]);
 
   useEffect(() => {
@@ -746,6 +776,11 @@ function PropertiesIndexPage() {
 
   function currentFilterParams() {
     const params = new URLSearchParams();
+    const currentMapParams = new URLSearchParams(window.location.search);
+    for (const key of ["bbox", "map_bbox", "map_place_hash"]) {
+      const value = currentMapParams.get(key);
+      if (value) params.set(key, value);
+    }
     if (q.trim()) params.set("q", q.trim());
     if (transactionType) params.set("transaction", transactionType);
     if (propertyType) params.set("type", propertyType);
@@ -807,6 +842,7 @@ function PropertiesIndexPage() {
       params.get("featured") === "1",
       params.get("images") === "1",
       params.get("location") === "1",
+      parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox")),
       "newest",
       0,
     );
@@ -1151,6 +1187,27 @@ function PropertiesIndexPage() {
   }
 
   const fa = (value: number) => value.toLocaleString("fa-IR");
+  const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
+    const pathname = window.location.pathname.replace(/\\/+$/, "") || "/";
+    if (pathname !== "/properties") return;
+    const rounded = bounds.map((number) => Number(number.toFixed(7))) as [number, number, number, number];
+    setMapBounds((current) => current && current.every((value, index) => value === rounded[index]) ? current : rounded);
+    const params = new URLSearchParams(window.location.search);
+    const value = rounded.join(",");
+    params.set("bbox", value);
+    params.set("map_bbox", value);
+    const query = params.toString();
+    window.history.replaceState(window.history.state, "", query ? `/properties?${query}` : "/properties");
+  }, []);
+
+  useEffect(() => {
+    if (!neighborhoodPickerOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNeighborhoodPickerOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [neighborhoodPickerOpen]);
 
   return (
     <SiteChrome>
@@ -1695,7 +1752,7 @@ function PropertiesIndexPage() {
               </Link>
             </div>
 
-            {properties.length ? (
+            {properties.length || viewMode === "split" ? (
               <>
                 {viewMode === "split" ? (
                   <div className="pf-map pf-map-divar-layout">
@@ -1704,7 +1761,13 @@ function PropertiesIndexPage() {
                         <strong>فایل‌های ملکی</strong>
                         <span>{fa(properties.length)} نتیجه</span>
                       </div>
-                      {properties.map((property) => (
+                      {properties.length === 0 ? (
+                        <div className="pf-map-list-empty" role="status">
+                          <MapPin size={22} />
+                          <strong>در این محدوده فایلی پیدا نشد.</strong>
+                          <p>نقشه را جابه‌جا کنید یا محدودهٔ جست‌وجو را بزرگ‌تر کنید.</p>
+                        </div>
+                      ) : properties.map((property) => (
                         <div className={`pf-map-card-row${selectedPropertyId === property.id ? " is-active" : ""}`} key={property.id}>
                           <button
                             type="button"
