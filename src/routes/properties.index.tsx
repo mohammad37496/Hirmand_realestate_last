@@ -40,6 +40,7 @@ import {
 } from "@/lib/property-options";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
+import { parseCoordinateBounds } from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
 const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
@@ -165,19 +166,6 @@ function normalizeNeighborhoodSearch(raw: string) {
     .replace(/ك/g, "ک")
     .toLocaleLowerCase("fa")
     .replace(/[^\p{L}\p{N}]/gu, "");
-}
-
-function parseCoordinateBounds(raw: string | null): [number, number, number, number] | undefined {
-  if (!raw) return undefined;
-  const values = raw.split(",").map((value) => Number(value.trim()));
-  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return undefined;
-  const [west, south, east, north] = values;
-  if (
-    west < -180 || west > 180 || east < -180 || east > 180 ||
-    south < -90 || south > 90 || north < -90 || north > 90 ||
-    west >= east || south >= north
-  ) return undefined;
-  return [west, south, east, north];
 }
 
 const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
