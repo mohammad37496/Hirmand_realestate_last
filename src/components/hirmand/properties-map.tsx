@@ -329,10 +329,6 @@ export function PropertiesMap({
   }, [onResetMap]);
 
   const openCurrentMap = `https://www.openstreetmap.org/#map=${view.zoom}/${view.latitude.toFixed(6)}/${view.longitude.toFixed(6)}`;
-  const viewportBounds = useMemo(
-    () => viewportBoundsFromView(view, size.width, size.height),
-    [view, size.width, size.height],
-  );
 
   return (
     <div
