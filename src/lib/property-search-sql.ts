@@ -52,9 +52,9 @@ export function buildPublicPropertyWhereSql(): string {
     "(deleted_at is null) and (status = 'published' or (status = 'draft' and publish_at is not null and publish_at <= current_timestamp)) and (unpublish_at is null or unpublish_at > current_timestamp)",
     "and ($1::text is null or transaction_type = $1)",
     "and ($2::text is null or property_type = $2)",
-    `and ($3::text is null or ($5::boolean is true and ${normalizedTextSql("neighborhood")} = ${normalizedTextSql("$3::text")}) or ($5::boolean is false and ${normalizedTextSql("neighborhood")} like '%' || ${normalizedTextSql("$3::text")} || '%'))`,
+    `and ($3::text is null or ($5::boolean is true and ${normalizedTextSql("neighborhood")} = ${normalizedTextSql("$3::text")}) or ($5::boolean is false and strpos(${normalizedTextSql("neighborhood")}, ${normalizedTextSql("$3::text")}) > 0))`,
     "and ($4::boolean is false or (featured = true and (featured_until is null or featured_until >= current_timestamp)))",
-    `and ($6::text is null or (select bool_and(${normalizedTextSql("concat_ws(' ', title, city, neighborhood, address, description, features::text)")} like '%' || ${normalizedTextSql("search_term")} || '%') from unnest(regexp_split_to_array(trim($6::text), '[[:space:]]+')) as terms(search_term)))`,
+    `and ($6::text is null or (select bool_and(strpos(${normalizedTextSql("concat_ws(' ', title, city, neighborhood, address, description, features::text)")}, ${normalizedTextSql("search_term")}) > 0) from unnest(regexp_split_to_array(trim($6::text), '[[:space:]]+')) as terms(search_term)))`,
     "and ($7::int is null or area_m2 >= $7)",
     "and ($8::int is null or area_m2 <= $8)",
     "and ($9::numeric is null or " + PRICE_EXPR + " >= $9)",
@@ -77,7 +77,7 @@ export function buildPublicPropertyWhereSql(): string {
       "(selected.value like 'heating:%' and heating_system = substring(selected.value from 9)) or " +
       "(selected.value like 'closet:%' and wall_closet_type = substring(selected.value from 8)) or " +
       "coalesce(other_amenities, '[]'::jsonb) ? selected.value))",
-    `and ($23::text is null or exists (select 1 from jsonb_array_elements_text(coalesce(features, '[]'::jsonb)) as feature(value) where ${normalizedTextSql("feature.value")} like '%' || ${normalizedTextSql("$23::text")} || '%'))`,
+    `and ($23::text is null or exists (select 1 from jsonb_array_elements_text(coalesce(features, '[]'::jsonb)) as feature(value) where strpos(${normalizedTextSql("feature.value")}, ${normalizedTextSql("$23::text")}) > 0))`,
     "and ($24::boolean is false or (jsonb_typeof(coalesce(images, '[]'::jsonb)) = 'array' and jsonb_array_length(coalesce(images, '[]'::jsonb)) > 0))",
     "and ($25::boolean is false or (latitude is not null and longitude is not null))",
     "and ($26::text is null or floor_label = $26)",
