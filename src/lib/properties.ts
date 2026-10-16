@@ -4,6 +4,7 @@ import { cachedPropertyRead, clearPropertyReadCache } from "@/lib/property-read-
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
+import { compactSearchText } from "@/lib/property-search-utils";
 import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
@@ -159,6 +160,10 @@ export type PropertyFilters = {
   maxArea?: number;
   minPrice?: number;
   maxPrice?: number;
+  minDeposit?: number;
+  maxDeposit?: number;
+  minRent?: number;
+  maxRent?: number;
   minBedrooms?: number;
   minBathrooms?: number;
   minFloor?: number;
@@ -201,6 +206,10 @@ const publicFiltersSchema = z.object({
   maxArea: z.number().int().min(0).max(100000).optional(),
   minPrice: z.number().int().min(0).max(999999999999999).optional(),
   maxPrice: z.number().int().min(0).max(999999999999999).optional(),
+  minDeposit: z.number().int().min(0).max(999999999999999).optional(),
+  maxDeposit: z.number().int().min(0).max(999999999999999).optional(),
+  minRent: z.number().int().min(0).max(999999999999999).optional(),
+  maxRent: z.number().int().min(0).max(999999999999999).optional(),
   minBedrooms: z.number().int().min(0).max(30).optional(),
   minBathrooms: z.number().int().min(0).max(30).optional(),
   minFloor: z.number().int().min(-60).max(200).optional(),
@@ -522,7 +531,7 @@ function publicFilterParams(data: z.infer<typeof publicFiltersSchema>) {
     neighborhood,
     data.featuredOnly ?? false,
     exactNeighborhood,
-    data.search?.trim() || null,
+    (data.search ? compactSearchText(data.search) : "") || null,
     data.minArea ?? null,
     data.maxArea ?? null,
     data.minPrice ?? null,
@@ -539,13 +548,17 @@ function publicFilterParams(data: z.infer<typeof publicFiltersSchema>) {
     data.elevatorOnly ?? false,
     data.storageOnly ?? false,
     data.specFilters?.length ? data.specFilters : null,
-    data.featureSearch?.trim() || null,
+    (data.featureSearch ? compactSearchText(data.featureSearch) : "") || null,
     data.hasImagesOnly ?? false,
     data.hasLocationOnly ?? false,
     data.floorType ?? null,
     data.orientation ?? null,
     data.convertibleOnly ?? false,
     ...(data.mapBounds ?? [null, null, null, null]),
+    data.minDeposit ?? null,
+    data.maxDeposit ?? null,
+    data.minRent ?? null,
+    data.maxRent ?? null,
     data.offset ?? 0,
   ];
 }
@@ -559,14 +572,22 @@ const PRICE_EXPR =
   "case when transaction_type = 'rent' then coalesce(rent, deposit) " +
   "when transaction_type = 'mortgage' then deposit else price end";
 
+// SQL-side counterpart of compactSearchText: canonicalize Arabic/Persian
+// yeh/kaf variants, remove joiners, spaces and punctuation, then compare compact
+// forms so spelling differences do not silently hide otherwise matching listings.
+function normalizedTextSql(expression: string): string {
+  const canonical = `replace(replace(replace(replace(lower(coalesce(${expression}, '')), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), chr(8204), '')`;
+  return `regexp_replace(${canonical}, '[[:space:][:punct:]]+', '', 'g')`;
+}
+
 function publicPropertyWhereSql() {
   return [
     PUBLIC_PUBLICATION_WHERE,
     "and ($1::text is null or transaction_type = $1)",
     "and ($2::text is null or property_type = $2)",
-    "and ($3::text is null or ($5::boolean is true and neighborhood = $3) or ($5::boolean is false and neighborhood ilike '%' || $3 || '%'))",
+    `and ($3::text is null or ($5::boolean is true and ${normalizedTextSql("neighborhood")} = ${normalizedTextSql("$3::text")}) or ($5::boolean is false and ${normalizedTextSql("neighborhood")} like '%' || ${normalizedTextSql("$3::text")} || '%'))`,
     "and ($4::boolean is false or (featured = true and (featured_until is null or featured_until >= current_timestamp)))",
-    "and ($6::text is null or title ilike '%' || $6 || '%' or neighborhood ilike '%' || $6 || '%' or address ilike '%' || $6 || '%')",
+    `and ($6::text is null or ${normalizedTextSql("concat_ws(' ', title, city, neighborhood, address, description, features::text)")} like '%' || ${normalizedTextSql("$6::text")} || '%')`,
     "and ($7::int is null or area_m2 >= $7)",
     "and ($8::int is null or area_m2 <= $8)",
     "and ($9::numeric is null or " + PRICE_EXPR + " >= $9)",
@@ -599,6 +620,10 @@ function publicPropertyWhereSql() {
     "and ($30::double precision is null or (latitude is not null and latitude >= $30))",
     "and ($31::double precision is null or (longitude is not null and longitude <= $31))",
     "and ($32::double precision is null or (latitude is not null and latitude <= $32))",
+    "and ($33::numeric is null or deposit >= $33)",
+    "and ($34::numeric is null or deposit <= $34)",
+    "and ($35::numeric is null or rent >= $35)",
+    "and ($36::numeric is null or rent <= $36)",
   ].join(" ");
 }
 
@@ -617,13 +642,13 @@ export const listPublishedPropertyCards = createServerFn({ method: "GET" })
           [
             "select " + CARD_COLUMNS,
             "from properties where " + publicPropertyWhereSql(),
-            "order by case when $34::text = 'newest' then case when featured and (featured_until is null or featured_until >= current_timestamp) then 0 else 1 end else 0 end,",
-            "case when $34::text = 'price_asc' then " + PRICE_EXPR + " end asc nulls last,",
-            "case when $34::text = 'price_desc' then " + PRICE_EXPR + " end desc nulls last,",
-            "case when $34::text = 'area_asc' then area_m2 end asc nulls last,",
-            "case when $34::text = 'area_desc' then area_m2 end desc nulls last,",
+            "order by case when $38::text = 'newest' then case when featured and (featured_until is null or featured_until >= current_timestamp) then 0 else 1 end else 0 end,",
+            "case when $38::text = 'price_asc' then " + PRICE_EXPR + " end asc nulls last,",
+            "case when $38::text = 'price_desc' then " + PRICE_EXPR + " end desc nulls last,",
+            "case when $38::text = 'area_asc' then area_m2 end asc nulls last,",
+            "case when $38::text = 'area_desc' then area_m2 end desc nulls last,",
             "published_at desc nulls last, created_at desc",
-            "limit 48 offset $33",
+            "limit 48 offset $37",
           ].join(" "),
           [...params, data.sort],
         );
@@ -642,13 +667,13 @@ export const listPublishedProperties = createServerFn({ method: "GET" })
       [
         "select " + LIST_COLUMNS,
         "from properties where " + publicPropertyWhereSql(),
-        "order by case when $34::text = 'newest' then case when featured then 0 else 1 end else 0 end,",
-        "case when $34::text = 'price_asc' then " + PRICE_EXPR + " end asc nulls last,",
-        "case when $34::text = 'price_desc' then " + PRICE_EXPR + " end desc nulls last,",
-        "case when $34::text = 'area_asc' then area_m2 end asc nulls last,",
-        "case when $34::text = 'area_desc' then area_m2 end desc nulls last,",
+        "order by case when $38::text = 'newest' then case when featured then 0 else 1 end else 0 end,",
+        "case when $38::text = 'price_asc' then " + PRICE_EXPR + " end asc nulls last,",
+        "case when $38::text = 'price_desc' then " + PRICE_EXPR + " end desc nulls last,",
+        "case when $38::text = 'area_asc' then area_m2 end asc nulls last,",
+        "case when $38::text = 'area_desc' then area_m2 end desc nulls last,",
         "published_at desc nulls last, created_at desc",
-        "limit 48 offset $33",
+        "limit 48 offset $37",
       ].join(" "),
       [...params, data.sort],
     );
@@ -665,7 +690,7 @@ export const countPublishedProperties = createServerFn({ method: "GET" })
       20_000,
       async () => {
         const sql = await getSql();
-        const params = publicFilterParams(data).slice(0, 32);
+        const params = publicFilterParams(data).slice(0, 36);
         const rows = await sql.query<{ count: number }>(
           "select count(*)::int as count from properties where " + publicPropertyWhereSql(),
           params,
@@ -1079,7 +1104,7 @@ function adminFilterParams(data: z.infer<typeof adminListSchema>) {
     data.propertyType ?? null,
     data.neighborhood?.trim() || null,
     data.featuredOnly ?? false,
-    data.search?.trim() || null,
+    (data.search ? compactSearchText(data.search) : "") || null,
     data.hasImages ?? null,
     data.minPrice ?? null,
     data.maxPrice ?? null,
