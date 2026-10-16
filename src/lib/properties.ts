@@ -5,6 +5,7 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
 import { buildPublicPropertyFilterParams, buildPublicPropertyWhereSql, PRICE_EXPR } from "@/lib/property-search-sql";
+import { compactSearchText } from "@/lib/property-search-utils";
 import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
@@ -1002,7 +1003,7 @@ function adminFilterParams(data: z.infer<typeof adminListSchema>) {
     data.propertyType ?? null,
     data.neighborhood?.trim() || null,
     data.featuredOnly ?? false,
-    (data.search ? compactSearchText(data.search) : "") || null,
+    data.search?.trim() || null,
     data.hasImages ?? null,
     data.minPrice ?? null,
     data.maxPrice ?? null,
