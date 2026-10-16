@@ -1674,7 +1674,22 @@ export const saveProperty = createServerFn({ method: "POST" })
         );
       }
     }
-    if (data.status === "published" && (!existing || existing.status !== "published")) {
+    // Validate all transitions into publication and any edits that can affect
+    // publication readiness. Previously, changing the price on an already-published
+    // listing bypassed this check because the status itself had not changed.
+    const publicationCriticalFieldsChanged =
+      !existing ||
+      existing.status !== "published" ||
+      String(existing.title ?? "") !== data.title ||
+      String(existing.neighborhood ?? "") !== data.neighborhood ||
+      String(existing.description ?? "") !== data.description ||
+      String(existing.contact_name ?? "") !== data.contactName ||
+      String(existing.contact_phone ?? "") !== data.contactPhone ||
+      String(existing.price ?? "") !== String(data.price ?? "") ||
+      String(existing.deposit ?? "") !== String(data.deposit ?? "") ||
+      String(existing.rent ?? "") !== String(data.rent ?? "");
+
+    if (data.status === "published" && publicationCriticalFieldsChanged) {
       const readiness = getPublishReadiness({
         transactionType: data.transactionType,
         title: data.title,
