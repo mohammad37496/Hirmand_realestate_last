@@ -40,8 +40,10 @@ import {
 } from "@/lib/property-options";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
+import { isValidCoordinateBounds, parseCoordinateBounds } from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
+const PROPERTY_QUERY_CACHE_TTL_MS = 15_000;
 const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
 const MAX_SAVED_SEARCHES = 10;
 
@@ -165,19 +167,6 @@ function normalizeNeighborhoodSearch(raw: string) {
     .replace(/ك/g, "ک")
     .toLocaleLowerCase("fa")
     .replace(/[^\p{L}\p{N}]/gu, "");
-}
-
-function parseCoordinateBounds(raw: string | null): [number, number, number, number] | undefined {
-  if (!raw) return undefined;
-  const values = raw.split(",").map((value) => Number(value.trim()));
-  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return undefined;
-  const [west, south, east, north] = values;
-  if (
-    west < -180 || west > 180 || east < -180 || east > 180 ||
-    south < -90 || south > 90 || north < -90 || north > 90 ||
-    west >= east || south >= north
-  ) return undefined;
-  return [west, south, east, north];
 }
 
 const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
@@ -440,7 +429,11 @@ function PropertiesIndexPage() {
   const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
-  const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
+  const queryCache = useRef(new Map<string, {
+    rows: typeof initial.properties;
+    count: number;
+    cachedAt: number;
+  }>());
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -643,12 +636,16 @@ function PropertiesIndexPage() {
       ).toString();
 
       const cached = queryCache.current.get(cacheKey);
-      if (cached) {
+      if (cached && Date.now() - cached.cachedAt <= PROPERTY_QUERY_CACHE_TTL_MS) {
+        // A cache hit is still asynchronous work relative to the user's filter
+        // state. Never allow a stale timer to overwrite newer query results.
+        if (requestId.current !== currentRequest) return;
         setProperties(cached.rows);
         setTotal(cached.count);
         setLoading(false);
         return;
       }
+      if (cached) queryCache.current.delete(cacheKey);
 
       try {
         const [rows, count] = await Promise.all([
@@ -656,7 +653,7 @@ function PropertiesIndexPage() {
           countPublishedProperties({ data }),
         ]);
         if (requestId.current !== currentRequest) return;
-        const result = { rows, count };
+        const result = { rows, count, cachedAt: Date.now() };
         queryCache.current.set(cacheKey, result);
         if (queryCache.current.size > 24) {
           const firstKey = queryCache.current.keys().next().value;
@@ -1102,14 +1099,20 @@ function PropertiesIndexPage() {
   const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
     if (pathname !== "/properties") return;
+
     const rounded = bounds.map((number) => Number(number.toFixed(7))) as [number, number, number, number];
-    setMapBounds((current) => current && current.every((value, index) => value === rounded[index]) ? current : rounded);
-    const params = new URLSearchParams(window.location.search);
-    const value = rounded.join(",");
-    params.set("bbox", value);
-    params.set("map_bbox", value);
-    const query = params.toString();
-    window.history.replaceState(window.history.state, "", query ? `/properties?${query}` : "/properties");
+    const validBounds = isValidCoordinateBounds(rounded) ? rounded : undefined;
+
+    // Keep one writer for the query string: the state-to-URL effect above
+    // serializes map bounds and every active property filter together. Writing
+    // bbox here as well created a race where a viewport callback could replace
+    // a just-updated transaction/price filter using an older search string.
+    // Invalid bounds clear the spatial state; the same effect then removes both
+    // URL aliases and avoids sending malformed geometry to the property query.
+    setMapBounds((current) => {
+      if (!validBounds) return undefined;
+      return current && current.every((value, index) => value === validBounds[index]) ? current : validBounds;
+    });
   }, []);
 
   const hasFilters = Boolean(

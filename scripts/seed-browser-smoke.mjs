@@ -27,19 +27,21 @@ try {
           id, slug, status, featured, title, transaction_type, property_type, city,
           neighborhood, address, area_m2, bedrooms, bathrooms, floor, total_floors,
           built_year, parking, elevator, storage, price, description, features, images,
-          contact_name, contact_phone, published_at
+          contact_name, contact_phone, published_at, latitude, longitude
         ) values (
           $1, $2, 'published', false, $3, 'sell', 'apartment', 'اصفهان',
-          'مرکز شهر', 'خیابان تست', 123, 2, 2, 4, 8,
+          'مرداویج', 'خیابان تست', 123, 2, 2, 4, 8,
           1405, true, true, false, 12300000000,
           $4, $5::jsonb, $6::jsonb,
-          'مشاور تست', '09120000000', current_timestamp
+          'مشاور تست', '09120000000', current_timestamp, 32.610733, 51.6701584
         )
         on conflict (id) do update set
           slug = excluded.slug,
           status = excluded.status,
           title = excluded.title,
           neighborhood = excluded.neighborhood,
+          latitude = excluded.latitude,
+          longitude = excluded.longitude,
           address = excluded.address,
           area_m2 = excluded.area_m2,
           bedrooms = excluded.bedrooms,

@@ -1,5 +1,6 @@
 import divarNeighborhoodCatalog from "../../data/divar-isfahan-neighborhoods.json";
 import { mergeNeighborhoodGroups } from "@/lib/area-directory-core";
+import { isValidGeoPoint } from "@/lib/map-geometry";
 
 export const SITE = {
   nameFa: "گروه مشاورین املاک هیرمند",
@@ -90,14 +91,20 @@ export function mapLinks(target: MapTarget = { label: SITE.shortName, address: S
   const query = (target.searchQuery || target.address || target.label || SITE.shortName).trim();
   const scopedQuery = query.includes("ایران") ? query : `${query}، اصفهان، ایران`;
   const q = encodeURIComponent(scopedQuery);
-  const googleSearch = target.lat != null && target.lng != null
-    ? `https://www.google.com/maps/search/?api=1&query=${target.lat},${target.lng}`
+  const latitude = target.lat;
+  const longitude = target.lng;
+  const hasCoordinates =
+    typeof latitude === "number" &&
+    typeof longitude === "number" &&
+    isValidGeoPoint(latitude, longitude);
+  const googleSearch = hasCoordinates
+    ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
     : `https://www.google.com/maps/search/?api=1&query=${q}`;
   const googleDirections = `https://www.google.com/maps/dir/?api=1&destination=${q}`;
   const neshan = `https://neshan.org/maps/search/${q}`;
   const balad = `https://balad.ir/search?query=${q}`;
-  const googleEmbed = target.lat != null && target.lng != null
-    ? `https://maps.google.com/maps?q=${target.lat},${target.lng}&z=16&hl=fa&output=embed`
+  const googleEmbed = hasCoordinates
+    ? `https://maps.google.com/maps?q=${latitude},${longitude}&z=16&hl=fa&output=embed`
     : null;
   return {
     google: googleSearch,

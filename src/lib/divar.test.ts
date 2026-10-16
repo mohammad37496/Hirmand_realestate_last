@@ -63,6 +63,27 @@ test("Divar coordinates support scaled E7 keys and underscore-separated variants
   );
 });
 
+test("generic Divar lat/lng fields correctly distinguish decimal, E6 and E7 values", () => {
+  assert.deepEqual(
+    findDivarCoordinates({ lat: 32.612345, lng: 51.612345 }),
+    { latitude: 32.612345, longitude: 51.612345 },
+  );
+  assert.deepEqual(
+    findDivarCoordinates({ lat: 32612345, lng: 51612345 }),
+    { latitude: 32.612345, longitude: 51.612345 },
+  );
+  assert.deepEqual(
+    findDivarCoordinates({ lat: 326123456, lng: 516123456 }),
+    { latitude: 32.6123456, longitude: 51.6123456 },
+  );
+});
+
+test("Divar coordinate parser rejects null and arbitrary out-of-range values instead of manufacturing near-zero pins", () => {
+  assert.equal(findDivarCoordinates({ latitude: null, longitude: null }), null);
+  assert.equal(findDivarCoordinates({ lat: 999, lng: 999 }), null);
+  assert.equal(findDivarCoordinates({ lat: NaN, lng: Infinity }), null);
+});
+
 test("partial Divar syncs are not labelled fully successful", () => {
   assert.deepEqual(
     syncRunBadge({
