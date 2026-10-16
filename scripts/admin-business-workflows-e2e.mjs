@@ -28,13 +28,26 @@ let client;
 let propertyId = null;
 let leadId = null;
 
-async function assertMatchResponse(response, label) {
-  const bodyText = await response.text();
-  if (!response.ok()) throw new Error(label + " failed: HTTP " + response.status() + " · " + bodyText.slice(0, 500));
+async function postAdminJsonFromPage(page, endpoint, payload, label) {
+  // Use the live browser page so secure/session cookies and same-origin checks
+  // behave exactly as they do when an admin uses the CRM UI.
+  const result = await page.evaluate(async ({ endpoint, payload }) => {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return { status: response.status, bodyText: await response.text() };
+  }, { endpoint, payload });
+
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error(label + " failed: HTTP " + result.status + " · " + result.bodyText.slice(0, 500));
+  }
   try {
-    return JSON.parse(bodyText);
+    return JSON.parse(result.bodyText);
   } catch {
-    throw new Error(label + " returned invalid JSON: " + bodyText.slice(0, 500));
+    throw new Error(label + " returned invalid JSON: " + result.bodyText.slice(0, 500));
   }
 }
 
@@ -127,20 +140,24 @@ try {
     [leadId, "مشتری آزمایشی گردش کار", "09129999999", "خرید", "آپارتمان", "مرکز شهر", editedPrice, minBudget, maxBudget],
   );
 
-  let matchHttp = await context.request.post(baseUrl + "/api/admin-match", {
-    data: { action: "match", leadId, mode: "smart", limit: 24 },
-  });
-  let matchResult = await assertMatchResponse(matchHttp, "Available-property CRM matching");
+  let matchResult = await postAdminJsonFromPage(
+    page,
+    "/api/admin-match",
+    { action: "match", leadId, mode: "smart", limit: 24 },
+    "Available-property CRM matching",
+  );
   if (!Array.isArray(matchResult.matches) || !matchResult.matches.some((item) => String(item.id) === propertyId)) {
     throw new Error("CRM matching did not return the published, available property for the matching lead.");
   }
 
   // Regression: a still-published listing marked sold must not be recommended.
   await client.query("update properties set availability_status='sold', updated_at=current_timestamp where id=$1", [propertyId]);
-  matchHttp = await context.request.post(baseUrl + "/api/admin-match", {
-    data: { action: "match", leadId, mode: "smart", limit: 24 },
-  });
-  matchResult = await assertMatchResponse(matchHttp, "Unavailable-property CRM matching");
+  matchResult = await postAdminJsonFromPage(
+    page,
+    "/api/admin-match",
+    { action: "match", leadId, mode: "smart", limit: 24 },
+    "Unavailable-property CRM matching",
+  );
   if (Array.isArray(matchResult.matches) && matchResult.matches.some((item) => String(item.id) === propertyId)) {
     throw new Error("CRM matching incorrectly included a sold/unavailable property.");
   }
