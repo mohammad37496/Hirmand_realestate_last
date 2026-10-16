@@ -91,6 +91,67 @@ const publicLeadTrackingRoute = await readFile(
   new URL("../server/routes/api/public-lead-tracking.get.ts", import.meta.url),
   "utf8",
 );
+const adminActionCenterRoute = await readFile(
+  new URL("../server/routes/api/admin-action-center.post.ts", import.meta.url),
+  "utf8",
+);
+const adminAgendaRoute = await readFile(
+  new URL("../server/routes/api/admin-agenda.post.ts", import.meta.url),
+  "utf8",
+);
+const adminFinanceInsightsRoute = await readFile(
+  new URL("../server/routes/api/admin-finance-insights.get.ts", import.meta.url),
+  "utf8",
+);
+const adminKpiSnapshotRoute = await readFile(
+  new URL("../server/routes/api/admin-kpi-snapshot.post.ts", import.meta.url),
+  "utf8",
+);
+const adminManagementReportRoute = await readFile(
+  new URL("../server/routes/api/admin-management-report.get.ts", import.meta.url),
+  "utf8",
+);
+const adminOperationsRoute = await readFile(
+  new URL("../server/routes/api/admin-operations.post.ts", import.meta.url),
+  "utf8",
+);
+const adminPhoneBridgeRoute = await readFile(
+  new URL("../server/routes/api/admin-phone-bridge.post.ts", import.meta.url),
+  "utf8",
+);
+const adminProductivityRoute = await readFile(
+  new URL("../server/routes/api/admin-productivity.post.ts", import.meta.url),
+  "utf8",
+);
+const adminSalesFunnelRoute = await readFile(
+  new URL("../server/routes/api/admin-sales-funnel.get.ts", import.meta.url),
+  "utf8",
+);
+const adminSalesControlCenterRoute = await readFile(
+  new URL("../server/routes/api/admin-sales-control-center.post.ts", import.meta.url),
+  "utf8",
+);
+const adminWatermarkRoute = await readFile(
+  new URL("../server/routes/api/admin-watermark.post.ts", import.meta.url),
+  "utf8",
+);
+const customerPropertySubmissionRoute = await readFile(
+  new URL("../server/routes/api/customer-property-submissions.post.ts", import.meta.url),
+  "utf8",
+);
+const adminCustomerPropertySubmissionRoute = await readFile(
+  new URL("../server/routes/api/admin-customer-property-submissions.post.ts", import.meta.url),
+  "utf8",
+);
+const musicRoute = await readFile(
+  new URL("../server/routes/api/music.get.ts", import.meta.url),
+  "utf8",
+);
+const musicAdminRoute = await readFile(
+  new URL("../server/routes/api/music-admin.post.ts", import.meta.url),
+  "utf8",
+);
+const dbHelper = await readFile(new URL("../src/lib/db.ts", import.meta.url), "utf8");
 
 test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
@@ -173,4 +234,39 @@ test("public customer tracking endpoints normalize codes and rate-limit access",
     assert.match(source, /tooManyAttemptsError\(/, name + " must return a throttling error");
   }
   assert.match(customerChatGetRoute, /cache-control", "no-store"/);
+});
+
+
+test("admin reporting endpoints do not present fake empty/zero data when the database is not configured", () => {
+  for (const [name, source] of [
+    ["action center", adminActionCenterRoute],
+    ["agenda", adminAgendaRoute],
+    ["finance insights", adminFinanceInsightsRoute],
+    ["KPI snapshots", adminKpiSnapshotRoute],
+    ["management report", adminManagementReportRoute],
+    ["operations dashboard", adminOperationsRoute],
+    ["Phone Bridge admin", adminPhoneBridgeRoute],
+    ["productivity report", adminProductivityRoute],
+    ["sales funnel", adminSalesFunnelRoute],
+    ["sales control center", adminSalesControlCenterRoute],
+    ["watermark admin", adminWatermarkRoute],
+    ["music GET", musicRoute],
+    ["music admin", musicAdminRoute],
+  ]) {
+    assert.match(source, /statusCode\s*:\s*503/, name + " should report DB unavailability as HTTP 503");
+  }
+  assert.doesNotMatch(adminProductivityRoute, /\.catch\(\(\)\s*=>\s*\[\s*\{\s*count\s*:\s*null\s*\}\s*\]\)/);
+  assert.doesNotMatch(adminSalesControlCenterRoute, /consultant query unavailable/);
+});
+
+test("customer property creation and publication use transactions for related records", () => {
+  assert.match(dbHelper, /export async function withSqlTransaction/);
+  assert.match(dbHelper, /client\.query\("BEGIN"\)/);
+  assert.match(dbHelper, /client\.query\("COMMIT"\)/);
+  assert.match(dbHelper, /client\.query\("ROLLBACK"\)/);
+  assert.match(customerPropertySubmissionRoute, /withSqlTransaction\(async \(tx\)/);
+  assert.match(customerPropertySubmissionRoute, /pg_advisory_xact_lock/);
+  assert.match(adminCustomerPropertySubmissionRoute, /withSqlTransaction\(async \(tx\)/);
+  assert.match(adminCustomerPropertySubmissionRoute, /status='pending' returning id/);
+  assert.doesNotMatch(adminCustomerPropertySubmissionRoute, /events = await sql\.query[\s\S]{0,300}\.catch\(\(\) => \[\]/);
 });
