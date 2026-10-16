@@ -1,3 +1,5 @@
+import { isValidCoordinateBounds, type CoordinateBounds } from "./map-geometry.ts";
+
 export type DivarCatalogEntry = {
   id: string | number;
   name: string;
@@ -39,11 +41,9 @@ function nameKeys(value: string): string[] {
   return [...new Set(String(value ?? "").split(/[،؛|]/).flatMap((part) => part.split("/")).map(normalizeAreaDirectoryKey).filter(Boolean))];
 }
 
-function safeBbox(value: readonly number[] | undefined): [number, number, number, number] | undefined {
-  if (!value || value.length !== 4 || !value.every(Number.isFinite)) return undefined;
-  const [west, south, east, north] = value;
-  if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) return undefined;
-  return [west, south, east, north];
+function safeBbox(value: readonly number[] | undefined): CoordinateBounds | undefined {
+  if (!isValidCoordinateBounds(value)) return undefined;
+  return [...value];
 }
 
 /** Carefully reviewed spelling aliases: only names known to refer to the same area. */
