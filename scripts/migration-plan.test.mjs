@@ -111,9 +111,12 @@ test("the copy check reads both files and catches an edit", () => {
 test("PostgreSQL migration runners serialize concurrent starts with the same advisory lock", () => {
   const deployRunner = readFileSync(join(projectRoot(), "scripts", "migrate.mjs"), "utf8");
   const startupRunner = readFileSync(join(projectRoot(), "scripts", "prestart-migrate.mjs"), "utf8");
+  assert.match(deployRunner, /pg_advisory_lock\(741206510::bigint\)/);
+  assert.match(deployRunner, /pg_advisory_unlock\(741206510::bigint\)/);
+  assert.match(startupRunner, /MIGRATION_LOCK_KEY\s*=\s*741206510n/);
+  assert.match(startupRunner, /pg_advisory_lock\(\$1::bigint/);
+  assert.match(startupRunner, /pg_advisory_unlock\(\$1::bigint/);
   for (const source of [deployRunner, startupRunner]) {
-    assert.match(source, /pg_advisory_lock\(.*741206510/);
-    assert.match(source, /pg_advisory_unlock\(.*741206510/);
     assert.match(source, /BEGIN/);
     assert.match(source, /ROLLBACK/);
   }
