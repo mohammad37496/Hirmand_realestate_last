@@ -63,10 +63,7 @@ export default defineEventHandler(async (event) => {
       order by greatest(a_created_at,b_created_at) desc
       limit 60`,
       [DIGIT_TRANSLATION],
-    ).catch((error) => {
-      console.error("[admin-lead-dedupe] query unavailable", error);
-      return [];
-    });
+    );
 
     return {
       total: rows.length,
