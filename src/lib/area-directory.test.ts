@@ -45,3 +45,70 @@ test("matches all reviewed alternate spellings and preserves every Divar ID", ()
   assert.equal(items.length, catalog.districts.length, "known aliases should not cause duplicate areas");
   assert.ok(groups.some((group: {title: string}) => group.title === DIVAR_EXTRA_AREA_GROUP));
 });
+
+
+test("Divar bounding boxes use west,south,east,north order and contain each recorded center", () => {
+  for (const item of catalog.districts) {
+    const [west, south, east, north] = item.bbox as [number, number, number, number];
+    const latitude = item.default_location.latitude;
+    const longitude = item.default_location.longitude;
+    assert.ok(west >= -180 && east <= 180 && south >= -90 && north <= 90, item.name + ": bbox out of range");
+    assert.ok(west < east && south < north, item.name + ": bbox edges reversed");
+    assert.ok(longitude >= west && longitude <= east, item.name + ": longitude not inside bbox");
+    assert.ok(latitude >= south && latitude <= north, item.name + ": latitude not inside bbox");
+  }
+});
+
+test("bundled Divar snapshot has bbox extents, not polygon boundaries", () => {
+  assert.equal(
+    catalog.districts.some((item: Record<string, unknown>) =>
+      ["polygon", "polygon_encoded", "multi_polygon", "multi_polygon_encoded", "boundary", "geometry"].some((key) => key in item),
+    ),
+    false,
+    "If Divar adds polygon data, update the geometry pipeline instead of treating bbox as a polygon.",
+  );
+});
+
+test("invalid or null coordinates are omitted instead of silently becoming zero", () => {
+  const invalidDistrict = {
+    id: "null-center",
+    name: "محلهٔ آزمایشی با مرکز نامعتبر",
+    slug: "invalid-center",
+    default_location: { latitude: null, longitude: 51.6 },
+    bbox: [51.5, 32.5, 51.7, 32.7],
+  };
+  const fromCurated = mergeNeighborhoodGroups(
+    [{ title: "آزمایشی", items: [{ name: invalidDistrict.name }] }],
+    [invalidDistrict as unknown as (typeof catalog.districts)[number]],
+  ).flatMap((group: { items: Array<Record<string, unknown>> }) => group.items)
+   .find((item: Record<string, unknown>) => item.name === invalidDistrict.name);
+  assert.ok(fromCurated);
+  assert.equal("lat" in fromCurated, false);
+  assert.equal("lng" in fromCurated, false);
+  assert.deepEqual(fromCurated.divarBbox, invalidDistrict.bbox);
+
+  const fromExtras = mergeNeighborhoodGroups(
+    [{ title: "آزمایشی", items: [] }],
+    [invalidDistrict as unknown as (typeof catalog.districts)[number]],
+  ).flatMap((group: { items: Array<Record<string, unknown>> }) => group.items)[0];
+  assert.ok(fromExtras);
+  assert.equal("lat" in fromExtras, false);
+  assert.equal("lng" in fromExtras, false);
+});
+
+
+test("empty or unavailable Divar catalog preserves curated names without inventing coordinates", () => {
+  const curated = [
+    { name: "محلهٔ آزمایشی بدون داده دیوار" },
+    { name: "محلهٔ دوم بدون داده دیوار" },
+  ];
+  const groups = mergeNeighborhoodGroups([{ title: "آزمایشی", items: curated }], []);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0]?.items.map((item) => item.name), curated.map((item) => item.name));
+  for (const item of groups[0]?.items ?? []) {
+    assert.equal("lat" in item, false);
+    assert.equal("lng" in item, false);
+    assert.equal("divarBbox" in item, false);
+    assert.equal("divarDistrictId" in item, false);
+  }
+});

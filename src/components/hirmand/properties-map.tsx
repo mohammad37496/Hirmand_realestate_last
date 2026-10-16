@@ -1,44 +1,27 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type TouchEvent as ReactTouchEvent } from "react";
 import { LocateFixed, MapPin, MapPinned, Minus, Plus } from "lucide-react";
 import type { PropertyCardData } from "@/lib/properties";
 import type { Neighborhood } from "@/lib/site";
+import {
+  DEFAULT_MAP_VIEW,
+  MAX_MAP_ZOOM,
+  MIN_MAP_ZOOM,
+  TILE_SIZE,
+  fitBoundsToView,
+  isValidWgs84Point,
+  normalizeCoordinateBounds,
+  parseCoordinateBounds,
+  project,
+  unproject,
+  viewportBoundsFromView,
+  type CoordinateBounds,
+  type MapView,
+  type PixelPoint,
+} from "@/lib/map-geometry";
 
 type MapProperty = PropertyCardData;
 
-type MapView = { latitude: number; longitude: number; zoom: number };
-type PixelPoint = { x: number; y: number };
 type MapSize = { width: number; height: number };
-
-const TILE_SIZE = 256;
-const DEFAULT_VIEW: MapView = { latitude: 32.655, longitude: 51.668, zoom: 12 };
-
-function project(latitude: number, longitude: number, zoom: number): PixelPoint {
-  const scale = TILE_SIZE * 2 ** zoom;
-  const safeLatitude = Math.max(-85.05112878, Math.min(85.05112878, latitude));
-  const sin = Math.sin((safeLatitude * Math.PI) / 180);
-  return {
-    x: ((longitude + 180) / 360) * scale,
-    y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale,
-  };
-}
-
-function unproject(point: PixelPoint, zoom: number): Pick<MapView, "latitude" | "longitude"> {
-  const scale = TILE_SIZE * 2 ** zoom;
-  const n = Math.PI - (2 * Math.PI * point.y) / scale;
-  return {
-    longitude: (point.x / scale) * 360 - 180,
-    latitude: (180 / Math.PI) * Math.atan(Math.sinh(n)),
-  };
-}
-
-function normalizeBbox(raw: string | null): [number, number, number, number] | null {
-  if (!raw) return null;
-  const values = raw.split(",").map((value) => Number(value.trim()));
-  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return null;
-  const [west, south, east, north] = values;
-  if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) return null;
-  return [west, south, east, north];
-}
 
 function propertyAmountLabel(property: MapProperty): string {
   const amount = (value: number | string | null | undefined) => {
@@ -72,8 +55,6 @@ type NeighborhoodBox = {
   top: number;
   width: number;
   height: number;
-  centerLatitude: number;
-  centerLongitude: number;
   selected: boolean;
 };
 
@@ -85,6 +66,7 @@ export function PropertiesMap({
   onSelect,
   onSelectNeighborhood,
   onViewportChange,
+  onResetMap,
   viewportResetBounds,
   viewportResetVersion,
 }: {
@@ -92,17 +74,23 @@ export function PropertiesMap({
   neighborhoods: Neighborhood[];
   selectedNeighborhood: string;
   selectedPropertyId: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (id: string | null) => void;
   onSelectNeighborhood: (name: string) => void;
-  onViewportChange?: (bounds: [number, number, number, number]) => void;
-  viewportResetBounds: [number, number, number, number] | undefined;
+  onViewportChange?: (bounds: CoordinateBounds) => void;
+  onResetMap: () => void;
+  viewportResetBounds: CoordinateBounds | undefined;
   viewportResetVersion: number;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const appliedViewportResetVersion = useRef(0);
-  const [view, setView] = useState<MapView>(DEFAULT_VIEW);
+  const lastMeasuredSizeRef = useRef<MapSize | null>(null);
+  const initialBoundsRef = useRef<CoordinateBounds | null>(null);
+  const userChangedViewRef = useRef(false);
+  const neighborhoodBoxesRef = useRef<NeighborhoodBox[]>([]);
+  const [view, setView] = useState<MapView>(DEFAULT_MAP_VIEW);
   const [size, setSize] = useState<MapSize>({ width: 920, height: 640 });
+  const [sizeReady, setSizeReady] = useState(false);
   const [dragOffset, setDragOffset] = useState<PixelPoint>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [failedTiles, setFailedTiles] = useState<Set<string>>(new Set());
@@ -118,6 +106,7 @@ export function PropertiesMap({
         width: Math.max(320, Math.round(rect.width)),
         height: Math.max(340, Math.round(rect.height)),
       });
+      setSizeReady(true);
     };
     measure();
     if (typeof ResizeObserver === "undefined") {
@@ -131,48 +120,48 @@ export function PropertiesMap({
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const bounds = normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"));
-    if (bounds) {
-      const [west, south, east, north] = bounds;
-      setView({
-        latitude: (south + north) / 2,
-        longitude: (west + east) / 2,
-        zoom: 14,
-      });
-    }
+    initialBoundsRef.current =
+      parseCoordinateBounds(params.get("map_bbox")) ??
+      parseCoordinateBounds(params.get("bbox")) ??
+      null;
     setViewportReady(true);
   }, []);
 
+  // A direct neighborhood URL without map_bbox opens at its stored Divar extent.
+  // A saved viewport always takes precedence over a neighborhood bounding box.
   useEffect(() => {
-    if (!selectedNeighborhood) return;
-    // A saved map_bbox is the user's actual viewport and must win on refresh.
-    // The parent explicitly increments viewportResetVersion when a new area is selected.
     const params = new URLSearchParams(window.location.search);
-    if (normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"))) return;
+    const savedBounds =
+      parseCoordinateBounds(params.get("map_bbox")) ??
+      parseCoordinateBounds(params.get("bbox"));
+    if (savedBounds || !selectedNeighborhood) return;
     const area = neighborhoods.find((item) => item.name === selectedNeighborhood);
-    if (!area?.divarBbox) return;
-    const [west, south, east, north] = area.divarBbox;
-    setView((current) => ({
-      latitude: (south + north) / 2,
-      longitude: (west + east) / 2,
-      zoom: Math.max(14, current.zoom),
-    }));
+    const areaBounds = normalizeCoordinateBounds(area?.divarBbox);
+    if (areaBounds) initialBoundsRef.current = areaBounds;
   }, [selectedNeighborhood, neighborhoods]);
+
+  // Wait until the real viewport is measured, then fit the whole rectangle.
+  // Initial restore/resize is presentation only and must not mutate the URL filter.
+  useEffect(() => {
+    if (!viewportReady || !sizeReady || userChangedViewRef.current) return;
+    const bounds = initialBoundsRef.current;
+    if (!bounds) return;
+    const fitted = fitBoundsToView(bounds, size.width, size.height);
+    if (fitted) setView(fitted);
+  }, [viewportReady, sizeReady, size.width, size.height, selectedNeighborhood, neighborhoods]);
 
   useEffect(() => {
     if (appliedViewportResetVersion.current === viewportResetVersion) return;
     appliedViewportResetVersion.current = viewportResetVersion;
+    initialBoundsRef.current = normalizeCoordinateBounds(viewportResetBounds) ?? null;
+    userChangedViewRef.current = false;
     if (!viewportResetBounds) {
-      setView(DEFAULT_VIEW);
+      setView(DEFAULT_MAP_VIEW);
       return;
     }
-    const [west, south, east, north] = viewportResetBounds;
-    setView({
-      latitude: (south + north) / 2,
-      longitude: (west + east) / 2,
-      zoom: 14,
-    });
-  }, [viewportResetBounds, viewportResetVersion]);
+    const fitted = fitBoundsToView(viewportResetBounds, size.width, size.height);
+    setView(fitted ?? DEFAULT_MAP_VIEW);
+  }, [viewportResetBounds, viewportResetVersion, size.width, size.height]);
 
   useEffect(() => {
     setFailedTiles(new Set());
@@ -186,16 +175,26 @@ export function PropertiesMap({
   const worldLeft = visualCenter.x - size.width / 2;
   const worldTop = visualCenter.y - size.height / 2;
 
-  const viewportBounds = useMemo<[number, number, number, number]>(() => {
-    const topLeft = unproject({ x: centerWorld.x - size.width / 2, y: centerWorld.y - size.height / 2 }, view.zoom);
-    const bottomRight = unproject({ x: centerWorld.x + size.width / 2, y: centerWorld.y + size.height / 2 }, view.zoom);
-    return [topLeft.longitude, bottomRight.latitude, bottomRight.longitude, topLeft.latitude];
-  }, [centerWorld.x, centerWorld.y, size.width, size.height, view.zoom]);
+  const viewportBounds = useMemo(
+    () => viewportBoundsFromView(view, size.width, size.height),
+    [view.latitude, view.longitude, view.zoom, size.width, size.height],
+  );
 
+  // A user-adjusted viewport is an active property filter. If device rotation
+  // or responsive layout changes the map dimensions, update the URL bounds to
+  // match the newly visible area rather than leaving the query on the old size.
   useEffect(() => {
-    if (!viewportReady) return;
-    onViewportChange?.(viewportBounds);
-  }, [viewportReady, viewportBounds, onViewportChange]);
+    if (!sizeReady) return;
+    const previous = lastMeasuredSizeRef.current;
+    lastMeasuredSizeRef.current = { width: size.width, height: size.height };
+    if (
+      !previous ||
+      (previous.width === size.width && previous.height === size.height) ||
+      !userChangedViewRef.current
+    ) return;
+    const resizedBounds = viewportBoundsFromView(view, size.width, size.height);
+    if (resizedBounds) onViewportChange?.(resizedBounds);
+  }, [sizeReady, size.width, size.height, view.latitude, view.longitude, view.zoom, onViewportChange]);
 
   const tiles = useMemo<Tile[]>(() => {
     const totalTiles = 2 ** view.zoom;
@@ -209,7 +208,9 @@ export function PropertiesMap({
       for (let rawX = startX; rawX <= endX; rawX += 1) {
         const x = ((rawX % totalTiles) + totalTiles) % totalTiles;
         result.push({
-          key: `${view.zoom}/${x}/${rawY}`,
+          // Use unwrapped world indices for React identity. At zoom 0 or 1,
+          // several visible world copies can share the same wrapped tile URL.
+          key: `${view.zoom}/${rawX}/${rawY}`,
           url: `https://tile.openstreetmap.org/${view.zoom}/${x}/${rawY}.png`,
           left: rawX * TILE_SIZE - worldLeft,
           top: rawY * TILE_SIZE - worldTop,
@@ -224,8 +225,9 @@ export function PropertiesMap({
     const boxes = neighborhoods.flatMap((area): NeighborhoodBox[] => {
       const bounds = area.divarBbox;
       if (!bounds) return [];
-      const [west, south, east, north] = bounds;
-      if (![west, south, east, north].every(Number.isFinite) || west >= east || south >= north) return [];
+      const validBounds = normalizeCoordinateBounds(bounds);
+      if (!validBounds) return [];
+      const [west, south, east, north] = validBounds;
       const upperLeft = project(north, west, view.zoom);
       const lowerRight = project(south, east, view.zoom);
       const left = upperLeft.x - worldLeft;
@@ -245,8 +247,6 @@ export function PropertiesMap({
         top,
         width,
         height,
-        centerLatitude: (south + north) / 2,
-        centerLongitude: (west + east) / 2,
         selected,
       }];
     });
@@ -254,13 +254,16 @@ export function PropertiesMap({
     return boxes.sort((a, b) => Number(b.selected) - Number(a.selected)).slice(0, 180);
   }, [neighborhoods, selectedNeighborhood, showNeighborhoodBounds, view.zoom, worldLeft, worldTop, size.width, size.height]);
 
+  // The pointer callback is declared above the memo; keep the latest boxes in a ref
+  // so the callback never closes over a later const binding (TDZ) and stays stable.
+  neighborhoodBoxesRef.current = neighborhoodBoxes;
+
   const markers = useMemo(() => {
     const groups = new Map<string, { x: number; y: number; items: MapProperty[] }>();
     for (const property of properties) {
-      if (property.latitude == null || property.longitude == null) continue;
+      if (!isValidWgs84Point(property.latitude, property.longitude)) continue;
       const latitude = Number(property.latitude);
       const longitude = Number(property.longitude);
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
       const point = project(latitude, longitude, view.zoom);
       const x = point.x - worldLeft;
       const y = point.y - worldTop;
@@ -279,9 +282,26 @@ export function PropertiesMap({
   }, [properties, view.zoom, worldLeft, worldTop, size.width, size.height]);
 
   const mappedCount = useMemo(
-    () => properties.filter((property) => property.latitude != null && property.longitude != null).length,
+    () => properties.filter((property) => isValidWgs84Point(property.latitude, property.longitude)).length,
     [properties],
   );
+
+  const selectedMarker = useMemo(
+    () => markers.find((marker) => marker.items.some((property) => property.id === selectedPropertyId)) ?? null,
+    [markers, selectedPropertyId],
+  );
+  const selectedMapProperty =
+    selectedMarker?.items.find((property) => property.id === selectedPropertyId) ?? null;
+  const propertyPopupPosition = useMemo(() => {
+    if (!selectedMarker) return null;
+    const popupWidth = Math.min(252, size.width - 16);
+    const left = Math.max(8, Math.min(selectedMarker.x - popupWidth / 2, size.width - popupWidth - 8));
+    const above = selectedMarker.y > 150;
+    const top = above
+      ? Math.max(118, Math.min(selectedMarker.y - 10, size.height - 8))
+      : Math.max(8, Math.min(selectedMarker.y + 18, size.height - 118));
+    return { left, top, above };
+  }, [selectedMarker, size.width, size.height]);
 
   const onMapPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target as HTMLElement).closest("button, a")) return;
@@ -299,36 +319,110 @@ export function PropertiesMap({
     });
   }, []);
 
+  const completeMapGesture = useCallback((
+    deltaX: number,
+    deltaY: number,
+    clientX: number,
+    clientY: number,
+  ) => {
+    setDragging(false);
+    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      userChangedViewRef.current = true;
+      const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
+      const nextView = { ...view, ...nextCenter };
+      setView(nextView);
+      // Persist the exact viewport produced by the same gesture that changed
+      // the camera. Do not depend on a later effect to infer the user's action.
+      const nextBounds = viewportBoundsFromView(nextView, size.width, size.height);
+      if (nextBounds) onViewportChange?.(nextBounds);
+    } else {
+      // Neighborhood extents are visual bbox overlays, not interactive layers:
+      // resolve a tap to the smallest visible bbox so map dragging remains available.
+      const rect = mapRef.current?.getBoundingClientRect();
+      if (rect) {
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        const hit = neighborhoodBoxesRef.current
+          .filter((area) => x >= area.left && x <= area.left + area.width && y >= area.top && y <= area.top + area.height)
+          .sort((a, b) => a.width * a.height - b.width * b.height)[0];
+        if (hit) onSelectNeighborhood(hit.name);
+      }
+    }
+    setDragOffset({ x: 0, y: 0 });
+  }, [centerWorld.x, centerWorld.y, view, size.width, size.height, onViewportChange, onSelectNeighborhood]);
+
   const onMapPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     const origin = dragOrigin.current;
     if (!origin || origin.pointerId !== event.pointerId) return;
-    const deltaX = event.clientX - origin.x;
-    const deltaY = event.clientY - origin.y;
     dragOrigin.current = null;
-    setDragging(false);
-    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
-      const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
-      setView((current) => ({ ...current, ...nextCenter }));
-    }
-    setDragOffset({ x: 0, y: 0 });
-  }, [centerWorld.x, centerWorld.y, view.zoom]);
+    completeMapGesture(
+      event.clientX - origin.x,
+      event.clientY - origin.y,
+      event.clientX,
+      event.clientY,
+    );
+  }, [completeMapGesture]);
 
-  const zoomBy = useCallback((amount: number) => {
-    setView((current) => ({
-      ...current,
-      zoom: Math.max(10, Math.min(18, current.zoom + amount)),
-    }));
+  // Pointer events are the primary path. Keep a touch fallback for WebViews
+  // that deliver touch events but fail to synthesize pointer capture; otherwise
+  // the visible map may pan while the bbox in the shared URL stays stale.
+  const onMapTouchStart = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    // Markers, map controls and outbound links own their own touch interaction;
+    // do not turn a simple tap on one into a map gesture or neighborhood hit-test.
+    if ((event.target as HTMLElement).closest("button, a")) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    // A touch sequence may emit pointerdown without a reliable pointerup in
+    // embedded browsers. Let the native touch lifecycle own this gesture so
+    // touchmove/touchend can always commit the viewport and its URL bounds.
+    dragOrigin.current = { x: touch.clientX, y: touch.clientY, pointerId: -1 };
+    setDragOffset({ x: 0, y: 0 });
+    setDragging(true);
   }, []);
 
-  const resetMap = useCallback(() => {
-    const selected = neighborhoods.find((item) => item.name === selectedNeighborhood);
-    if (selected?.divarBbox) {
-      const [west, south, east, north] = selected.divarBbox;
-      setView({ latitude: (south + north) / 2, longitude: (west + east) / 2, zoom: 14 });
+  const onMapTouchMove = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    if (dragOrigin.current?.pointerId !== -1) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    setDragOffset({
+      x: touch.clientX - dragOrigin.current.x,
+      y: touch.clientY - dragOrigin.current.y,
+    });
+  }, []);
+
+  const onMapTouchEnd = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
+    const origin = dragOrigin.current;
+    if (!origin || origin.pointerId !== -1) return;
+    const touch = event.changedTouches[0];
+    if (!touch) {
+      dragOrigin.current = null;
+      setDragging(false);
+      setDragOffset({ x: 0, y: 0 });
       return;
     }
-    setView(DEFAULT_VIEW);
-  }, [neighborhoods, selectedNeighborhood]);
+    dragOrigin.current = null;
+    completeMapGesture(
+      touch.clientX - origin.x,
+      touch.clientY - origin.y,
+      touch.clientX,
+      touch.clientY,
+    );
+  }, [completeMapGesture]);
+
+  const zoomBy = useCallback((amount: number) => {
+    userChangedViewRef.current = true;
+    const nextView = {
+      ...view,
+      zoom: Math.max(MIN_MAP_ZOOM, Math.min(MAX_MAP_ZOOM, view.zoom + amount)),
+    };
+    setView(nextView);
+    const nextBounds = viewportBoundsFromView(nextView, size.width, size.height);
+    if (nextBounds) onViewportChange?.(nextBounds);
+  }, [view, size.width, size.height, onViewportChange]);
+
+  const resetMap = useCallback(() => {
+    onResetMap();
+  }, [onResetMap]);
 
   const openCurrentMap = `https://www.openstreetmap.org/#map=${view.zoom}/${view.latitude.toFixed(6)}/${view.longitude.toFixed(6)}`;
 
@@ -338,10 +432,18 @@ export function PropertiesMap({
       ref={mapRef}
       role="region"
       aria-label="نقشه تعاملی موقعیت فایل‌های ملکی در اصفهان"
+      data-map-zoom={view.zoom}
+      data-map-center-latitude={view.latitude}
+      data-map-center-longitude={view.longitude}
+      data-map-viewport-bounds={viewportBounds?.join(",") ?? ""}
       onPointerDown={onMapPointerDown}
       onPointerMove={onMapPointerMove}
       onPointerUp={onMapPointerUp}
       onPointerCancel={onMapPointerUp}
+      onTouchStart={onMapTouchStart}
+      onTouchMove={onMapTouchMove}
+      onTouchEnd={onMapTouchEnd}
+      onTouchCancel={onMapTouchEnd}
     >
       <div className="pf-map-tiles" aria-hidden="true">
         {tiles.map((tile) => (
@@ -364,26 +466,15 @@ export function PropertiesMap({
       </div>
       <div className="pf-map-wash" aria-hidden="true" />
       {neighborhoodBoxes.map((area) => (
-        <button
+        <div
           key={area.key}
-          type="button"
           className={`pf-map-neighborhood-box${area.selected ? " is-active" : ""}`}
           style={{ left: area.left, top: area.top, width: area.width, height: area.height }}
-          title={`${area.name} — کادر تقریبی محدوده محله`}
-          aria-label={`انتخاب محله ${area.name}؛ کادر محدوده تقریبی است`}
-          aria-pressed={area.selected}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => {
-            onSelectNeighborhood(area.name);
-            setView((current) => ({
-              latitude: area.centerLatitude,
-              longitude: area.centerLongitude,
-              zoom: Math.max(14, current.zoom),
-            }));
-          }}
+          data-neighborhood-name={area.name}
+          aria-hidden="true"
         >
           {area.width >= 72 && area.height >= 25 ? <span>{area.name}</span> : null}
-        </button>
+        </div>
       ))}
       {markers.map((marker) => {
         const active = marker.items.some((item) => item.id === selectedPropertyId);
@@ -406,6 +497,38 @@ export function PropertiesMap({
           </button>
         );
       })}
+      {selectedMapProperty && propertyPopupPosition ? (
+        <section
+          className={`pf-map-property-popup${propertyPopupPosition.above ? " is-above" : " is-below"}`}
+          style={{ left: propertyPopupPosition.left, top: propertyPopupPosition.top }}
+          role="status"
+          aria-live="polite"
+          aria-label={`جزئیات فایل ${selectedMapProperty.title}`}
+          onPointerDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="pf-map-property-popup-close"
+            aria-label="بستن جزئیات فایل انتخاب‌شده"
+            onClick={() => onSelect(null)}
+          >×</button>
+          {selectedMapProperty.image ? (
+            <img src={selectedMapProperty.image} alt="" loading="lazy" />
+          ) : null}
+          <div className="pf-map-property-popup-copy">
+            <strong>{selectedMapProperty.title}</strong>
+            <small>
+              {selectedMapProperty.neighborhood || "اصفهان"}
+              {selectedMapProperty.areaM2 ? ` · ${selectedMapProperty.areaM2.toLocaleString("fa-IR")} متر` : ""}
+            </small>
+            <b>{propertyAmountLabel(selectedMapProperty)}</b>
+            <a href={`/properties/${encodeURIComponent(selectedMapProperty.slug)}`}>
+              مشاهدهٔ فایل
+            </a>
+          </div>
+        </section>
+      ) : null}
       {mappedCount === 0 ? (
         <div className="pf-map-empty-note">
           <MapPin size={18} />

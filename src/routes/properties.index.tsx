@@ -40,6 +40,12 @@ import {
 } from "@/lib/property-options";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
+import {
+  boundsEqual,
+  normalizeCoordinateBounds,
+  parseCoordinateBounds,
+  type CoordinateBounds,
+} from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
 const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
@@ -165,19 +171,6 @@ function normalizeNeighborhoodSearch(raw: string) {
     .replace(/ك/g, "ک")
     .toLocaleLowerCase("fa")
     .replace(/[^\p{L}\p{N}]/gu, "");
-}
-
-function parseCoordinateBounds(raw: string | null): [number, number, number, number] | undefined {
-  if (!raw) return undefined;
-  const values = raw.split(",").map((value) => Number(value.trim()));
-  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return undefined;
-  const [west, south, east, north] = values;
-  if (
-    west < -180 || west > 180 || east < -180 || east > 180 ||
-    south < -90 || south > 90 || north < -90 || north > 90 ||
-    west >= east || south >= north
-  ) return undefined;
-  return [west, south, east, north];
 }
 
 const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
@@ -436,10 +429,13 @@ function PropertiesIndexPage() {
   const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
   const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
-  const [mapBounds, setMapBounds] = useState<[number, number, number, number] | undefined>(undefined);
+  const [mapBounds, setMapBounds] = useState<CoordinateBounds | undefined>(undefined);
+  const [invalidMapBounds, setInvalidMapBounds] = useState(false);
   const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
+  const filterAbortController = useRef<AbortController | null>(null);
+  const loadMoreAbortController = useRef<AbortController | null>(null);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number }>());
   const loadMoreSentinel = useRef<HTMLDivElement | null>(null);
 
@@ -472,7 +468,10 @@ function PropertiesIndexPage() {
       void refreshSavedSearchAlerts(current);
     }, 120_000);
     const params = new URLSearchParams(window.location.search);
-    setMapBounds(parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox")));
+    const hasMapBoundsParam = params.has("map_bbox") || params.has("bbox");
+    const parsedMapBounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
+    setMapBounds(parsedMapBounds);
+    setInvalidMapBounds(hasMapBoundsParam && !parsedMapBounds);
     const tx = validTransaction(params.get("transaction") ?? "");
     const type = validPropertyType(params.get("type") ?? "");
     const sortParam = params.get("sort");
@@ -595,11 +594,27 @@ function PropertiesIndexPage() {
     // Invalidate older requests immediately, not only after the debounce fires;
     // otherwise a slow page request can append stale rows during the 320ms gap.
     const currentRequest = ++requestId.current;
+    // Cancel transports for the previous viewport/filter as soon as inputs
+    // change; requestId still guards against a server response racing the abort.
+    filterAbortController.current?.abort();
+    filterAbortController.current = null;
+    loadMoreAbortController.current?.abort();
+    loadMoreAbortController.current = null;
+    setLoadingMore(false);
+    // Invalid spatial input must never degrade to an unbounded listing query.
+    if (invalidMapBounds) {
+      setProperties([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
     if (skipInitialFetch.current) {
       skipInitialFetch.current = false;
       return;
     }
 
+    const abortController = new AbortController();
+    filterAbortController.current = abortController;
     const timer = window.setTimeout(async () => {
       setLoading(true);
       setOffset(0);
@@ -652,8 +667,8 @@ function PropertiesIndexPage() {
 
       try {
         const [rows, count] = await Promise.all([
-          listPublishedPropertyCards({ data }),
-          countPublishedProperties({ data }),
+          listPublishedPropertyCards({ data, signal: abortController.signal }),
+          countPublishedProperties({ data, signal: abortController.signal }),
         ]);
         if (requestId.current !== currentRequest) return;
         const result = { rows, count };
@@ -665,22 +680,39 @@ function PropertiesIndexPage() {
         setProperties(rows);
         setTotal(count);
       } catch {
-        toast.error("جستجوی فایل‌ها انجام نشد. اتصال اینترنت یا سرویس فایل‌ها را بررسی کنید.");
+        // A canceled request is expected when the user changes map/filter state.
+        // Only surface genuine failures for the still-active query.
+        if (!abortController.signal.aborted && requestId.current === currentRequest) {
+          setProperties([]);
+          setTotal(0);
+          toast.error("جستجوی فایل‌ها انجام نشد. اتصال اینترنت یا سرویس فایل‌ها را بررسی کنید.");
+        }
       } finally {
         if (requestId.current === currentRequest) setLoading(false);
       }
     }, 320);
 
-    return () => window.clearTimeout(timer);
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
+    return () => {
+      window.clearTimeout(timer);
+      if (requestId.current === currentRequest) requestId.current += 1;
+      abortController.abort();
+      if (filterAbortController.current === abortController) filterAbortController.current = null;
+      loadMoreAbortController.current?.abort();
+      loadMoreAbortController.current = null;
+    };
+  }, [urlReady, invalidMapBounds, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || properties.length >= total) return;
     const nextOffset = offset + PAGE_SIZE;
     const queryVersion = requestId.current;
+    const abortController = new AbortController();
+    loadMoreAbortController.current?.abort();
+    loadMoreAbortController.current = abortController;
     setLoadingMore(true);
     try {
       const rows = await listPublishedPropertyCards({
+        signal: abortController.signal,
         data: buildFilterData(
           q,
           transactionType,
@@ -729,9 +761,12 @@ function PropertiesIndexPage() {
       setProperties((current) => [...current, ...rows]);
       setOffset(nextOffset);
     } catch {
-      // Keep current page visible.
+      // Keep current page visible; aborts are expected after a filter/viewport change.
     } finally {
-      setLoadingMore(false);
+      if (loadMoreAbortController.current === abortController) {
+        loadMoreAbortController.current = null;
+      }
+      if (requestId.current === queryVersion) setLoadingMore(false);
     }
   }, [
     loading,
@@ -923,8 +958,10 @@ function PropertiesIndexPage() {
     if (!saved) return;
 
     const params = new URLSearchParams(saved.params);
+    const hasSavedBoundsParam = params.has("map_bbox") || params.has("bbox");
     const savedBounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
     setMapBounds(savedBounds);
+    setInvalidMapBounds(hasSavedBoundsParam && !savedBounds);
     setMapViewportResetVersion((version) => version + 1);
     window.history.replaceState(window.history.state, "", params.toString() ? `/properties?${params.toString()}` : "/properties");
     setQ(params.get("q") ?? "");
@@ -1030,8 +1067,10 @@ function PropertiesIndexPage() {
     setHasLocationOnly(false);
     setSort("newest");
     setOffset(0);
-    // Keep the map viewport: clearing property filters should not unexpectedly
-    // jump the user to a different area or trigger an unbounded intermediate query.
+    setMapBounds(undefined);
+    setInvalidMapBounds(false);
+    setMapViewportResetVersion((version) => version + 1);
+    setNeighborhoodPickerOpen(false);
   }
 
   async function shareCurrentSearch() {
@@ -1087,23 +1126,50 @@ function PropertiesIndexPage() {
       .filter((group) => group.items.length > 0);
   }, [neighborhoodOptions, neighborhoodQuery]);
 
+  function clearNeighborhood() {
+    const selectedArea = NEIGHBORHOODS.find((item) => item.name === neighborhood);
+    const selectedBounds = normalizeCoordinateBounds(selectedArea?.divarBbox);
+    const mapWasStillOnTheAreaBounds = !mapBounds || boundsEqual(mapBounds, selectedBounds);
+    setNeighborhood("");
+    setNeighborhoodPickerOpen(false);
+    if (mapWasStillOnTheAreaBounds) {
+      setInvalidMapBounds(false);
+      // Do not leave the selected neighborhood's bbox active after clearing it.
+      // Keep a separately panned/zoomed viewport filter if the user made one.
+      setMapBounds(undefined);
+      setMapViewportResetVersion((version) => version + 1);
+    }
+  }
+
   function chooseNeighborhood(name: string) {
     setNeighborhood(name);
+    setInvalidMapBounds(false);
     setNeighborhoodPickerOpen(false);
     setMobileFiltersOpen(false);
     if (!name) return;
     const area = NEIGHBORHOODS.find((item) => item.name === name);
-    const bounds = area?.divarBbox;
-    // A new neighborhood without trusted geometry should not inherit an unrelated old viewport.
-    setMapBounds(bounds ? [...bounds] as [number, number, number, number] : undefined);
+    const bounds = normalizeCoordinateBounds(area?.divarBbox);
+    // Divar provides a center and bbox, not the polygon boundary of the area.
+    // Keep the bbox as an explicitly approximate neighborhood extent.
+    setMapBounds(bounds);
     setMapViewportResetVersion((version) => version + 1);
   }
 
-  const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
+  const resetMapViewport = useCallback(() => {
+    const selectedArea = NEIGHBORHOODS.find((item) => item.name === neighborhood);
+    const bounds = normalizeCoordinateBounds(selectedArea?.divarBbox);
+    setMapBounds(bounds);
+    setInvalidMapBounds(false);
+    setMapViewportResetVersion((version) => version + 1);
+  }, [neighborhood]);
+
+  const syncMapBoundsToUrl = useCallback((bounds: CoordinateBounds) => {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
     if (pathname !== "/properties") return;
-    const rounded = bounds.map((number) => Number(number.toFixed(7))) as [number, number, number, number];
-    setMapBounds((current) => current && current.every((value, index) => value === rounded[index]) ? current : rounded);
+    const rounded = normalizeCoordinateBounds(bounds.map((number) => Number(number.toFixed(7))));
+    if (!rounded) return;
+    setInvalidMapBounds(false);
+    setMapBounds((current) => boundsEqual(current, rounded) ? current : rounded);
     const params = new URLSearchParams(window.location.search);
     const value = rounded.join(",");
     params.set("bbox", value);
@@ -1175,7 +1241,7 @@ function PropertiesIndexPage() {
     q.trim() ? { label: `جستجو: ${q.trim()}`, clear: () => setQ("") } : null,
     transactionType ? { label: transactionLabel, clear: () => setTransactionType("") } : null,
     propertyType ? { label: propertyTypeLabel, clear: () => setPropertyType("") } : null,
-    neighborhood ? { label: neighborhood, clear: () => setNeighborhood("") } : null,
+    neighborhood ? { label: neighborhood, clear: clearNeighborhood } : null,
     minArea.trim() || maxArea.trim()
       ? { label: `متراژ ${minArea || "۰"} تا ${maxArea || "∞"} متر`, clear: () => { setMinArea(""); setMaxArea(""); } }
       : null,
@@ -1230,7 +1296,20 @@ function PropertiesIndexPage() {
 
   return (
     <SiteChrome>
-      <main className="page-shell pf-page">
+      <main
+        className="page-shell pf-page"
+        data-active-map-bounds={mapBounds?.join(",") ?? ""}
+        data-active-neighborhood={neighborhood}
+        data-list-loading={loading ? "true" : "false"}
+        data-list-result-count={properties.length}
+      >
+        {invalidMapBounds ? (
+          <div className="pf-empty pf-map-bounds-error" data-map-bounds-error="invalid" role="alert">
+            <strong>محدودهٔ جغرافیایی این لینک معتبر نیست.</strong>
+            <p>برای جلوگیری از نمایش فایل‌های خارج از محدوده، فهرست خالی نگه داشته شده است.</p>
+            <button type="button" onClick={resetFilters}>پاک‌کردن فیلترها و بازنشانی نقشه</button>
+          </div>
+        ) : null}
         <header className="pf-hero">
           <span className="pf-kicker">فایل‌های هیرمند</span>
           <div className="pf-hero-row">
@@ -1388,7 +1467,7 @@ function PropertiesIndexPage() {
                   <Search size={17} aria-hidden="true" />
                 </button>
                 {neighborhood ? (
-                  <button type="button" className="pf-neighborhood-clear" onClick={() => setNeighborhood("")}>
+                  <button type="button" className="pf-neighborhood-clear" onClick={clearNeighborhood}>
                     نمایش همهٔ محله‌ها
                   </button>
                 ) : null}
@@ -1835,6 +1914,7 @@ function PropertiesIndexPage() {
                         onSelect={setSelectedPropertyId}
                         onSelectNeighborhood={chooseNeighborhood}
                         onViewportChange={syncMapBoundsToUrl}
+                        onResetMap={resetMapViewport}
                         viewportResetBounds={mapBounds}
                         viewportResetVersion={mapViewportResetVersion}
                       />
@@ -1932,7 +2012,7 @@ function PropertiesIndexPage() {
               </label>
               <div className="pf-neighborhood-dialog-toolbar">
                 <span>{fa(neighborhoodGroupsForPicker.reduce((count, group) => count + group.items.length, 0))} محله در فهرست</span>
-                <button type="button" className={!neighborhood ? "is-selected" : ""} onClick={() => { setNeighborhood(""); setNeighborhoodPickerOpen(false); }}>همهٔ محله‌ها</button>
+                <button type="button" className={!neighborhood ? "is-selected" : ""} onClick={clearNeighborhood}>همهٔ محله‌ها</button>
               </div>
               <div className="pf-neighborhood-dialog-results">
                 {neighborhoodGroupsForPicker.length ? neighborhoodGroupsForPicker.map((group) => (

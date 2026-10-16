@@ -2,12 +2,20 @@
 
 export type DivarCoordinates = { latitude: number; longitude: number };
 
-function normalizeCoordinate(value: unknown, max: number, integerScale = 1_000_000): number | null {
+function normalizeCoordinate(value: unknown, max: number, integerScale?: number): number | null {
   if (typeof value !== "number" && typeof value !== "string") return null;
+  if (typeof value === "string" && !value.trim()) return null;
   const raw = String(value).replace(/,/g, "").trim();
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return null;
-  const normalized = Math.abs(parsed) > max ? parsed / integerScale : parsed;
+  const magnitude = Math.abs(parsed);
+  if (magnitude <= max) return parsed;
+
+  // Unlabelled coordinate fields have appeared as E6 and E7 integers. Infer
+  // scale by magnitude: E7 values are >= 100M for Iran; E6 values are >= 10M.
+  const scale = integerScale ?? (magnitude >= 100_000_000 ? 10_000_000 : magnitude >= 10_000_000 ? 1_000_000 : null);
+  if (scale === null) return null;
+  const normalized = parsed / scale;
   return Number.isFinite(normalized) && Math.abs(normalized) <= max ? normalized : null;
 }
 
