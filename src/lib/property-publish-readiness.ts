@@ -22,8 +22,14 @@ export type PublishReadiness = {
   ready: boolean;
 };
 
-function hasMoney(value: string) {
-  return value.trim().replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٬،,\s]/g, "").length > 0;
+function hasPositiveMoney(value: string) {
+  const normalized = value
+    .trim()
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[٬،,\s]/g, "");
+  if (!/^\d+$/.test(normalized)) return false;
+  return BigInt(normalized) > 0n;
 }
 
 export function getPublishReadiness(input: PublishReadinessInput): PublishReadiness {
@@ -49,11 +55,11 @@ export function getPublishReadiness(input: PublishReadinessInput): PublishReadin
 
   const pricingOk =
     input.transactionType === "sell"
-      ? hasMoney(input.price)
+      ? hasPositiveMoney(input.price)
       : input.transactionType === "rent"
-        ? hasMoney(input.deposit) || hasMoney(input.rent)
+        ? hasPositiveMoney(input.deposit) || hasPositiveMoney(input.rent)
         : input.transactionType === "mortgage"
-          ? hasMoney(input.deposit)
+          ? hasPositiveMoney(input.deposit)
           : true;
   checks.push({ key: "pricing", label: "قیمت و شرایط مالی", state: pricingOk ? "ok" : "blocker" });
   if (!pricingOk) blockers.push("قیمت یا شرایط مالی متناسب با نوع معامله را وارد کنید.");
