@@ -19,6 +19,7 @@ const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url),
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
+const verifyWorkflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
 
 testRunner.test("shared mobile styles do not hide root-level horizontal overflow", () => {
   assert.doesNotMatch(globalCss, /html\s*\{[^}]*overflow-x\s*:\s*(?:hidden|clip)/is);
@@ -115,6 +116,10 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
+  const responsiveStepIndex = verifyWorkflow.indexOf("node scripts/responsive-layout-smoke.mjs");
+  const legacySmokeIndex = verifyWorkflow.indexOf("node scripts/browser-smoke.mjs");
+  assert.ok(responsiveStepIndex >= 0 && legacySmokeIndex >= 0 && responsiveStepIndex < legacySmokeIndex,
+    "responsive diagnostics should run before legacy browser smoke can fail");
   for (const route of [
     '"/"',
     '"/properties"',
