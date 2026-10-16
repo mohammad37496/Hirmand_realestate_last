@@ -591,7 +591,7 @@ function publicPropertyWhereSql() {
       "coalesce(other_amenities, '[]'::jsonb) ? selected.value))",
     "and ($23::text is null or exists (select 1 from jsonb_array_elements_text(coalesce(features, '[]'::jsonb)) as feature(value) where feature.value ilike '%' || $23 || '%'))",
     "and ($24::boolean is false or (jsonb_typeof(coalesce(images, '[]'::jsonb)) = 'array' and jsonb_array_length(coalesce(images, '[]'::jsonb)) > 0))",
-    "and ($25::boolean is false or (latitude is not null and longitude is not null))",
+    "and ($25::boolean is false or (latitude is not null and latitude between -90 and 90 and longitude is not null and longitude between -180 and 180))",
     "and ($26::text is null or floor_label = $26)",
     "and ($27::text is null or orientation = $27)",
     "and ($28::boolean is false or convertible = true)",
