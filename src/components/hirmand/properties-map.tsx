@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { LocateFixed, MapPin, MapPinned, Minus, Plus } from "lucide-react";
 import type { PropertyCardData } from "@/lib/properties";
 import type { Neighborhood } from "@/lib/site";
+import {
+  fitCoordinateBounds,
+  isValidCoordinateBounds,
+  isValidMapCoordinate,
+  parseCoordinateBounds,
+} from "@/lib/map-geometry";
 
 type MapProperty = PropertyCardData;
 
@@ -29,15 +35,6 @@ function unproject(point: PixelPoint, zoom: number): Pick<MapView, "latitude" | 
     longitude: (point.x / scale) * 360 - 180,
     latitude: (180 / Math.PI) * Math.atan(Math.sinh(n)),
   };
-}
-
-function normalizeBbox(raw: string | null): [number, number, number, number] | null {
-  if (!raw) return null;
-  const values = raw.split(",").map((value) => Number(value.trim()));
-  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return null;
-  const [west, south, east, north] = values;
-  if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) return null;
-  return [west, south, east, north];
 }
 
 function propertyAmountLabel(property: MapProperty): string {
@@ -108,6 +105,11 @@ export function PropertiesMap({
   const [failedTiles, setFailedTiles] = useState<Set<string>>(new Set());
   const [showNeighborhoodBounds, setShowNeighborhoodBounds] = useState(true);
   const [viewportReady, setViewportReady] = useState(false);
+  const [popupDismissed, setPopupDismissed] = useState(false);
+
+  useEffect(() => {
+    setPopupDismissed(false);
+  }, [selectedPropertyId]);
 
   useEffect(() => {
     const node = mapRef.current;
@@ -131,14 +133,11 @@ export function PropertiesMap({
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const bounds = normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"));
+    const bounds = parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"));
     if (bounds) {
-      const [west, south, east, north] = bounds;
-      setView({
-        latitude: (south + north) / 2,
-        longitude: (west + east) / 2,
-        zoom: 14,
-      });
+      const rect = mapRef.current?.getBoundingClientRect();
+      const fitted = fitCoordinateBounds(bounds, rect?.width ?? 920, rect?.height ?? 640);
+      if (fitted) setView(fitted);
     }
     setViewportReady(true);
   }, []);
@@ -148,15 +147,12 @@ export function PropertiesMap({
     // A saved map_bbox is the user's actual viewport and must win on refresh.
     // The parent explicitly increments viewportResetVersion when a new area is selected.
     const params = new URLSearchParams(window.location.search);
-    if (normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"))) return;
+    if (parseCoordinateBounds(params.get("map_bbox")) ?? parseCoordinateBounds(params.get("bbox"))) return;
     const area = neighborhoods.find((item) => item.name === selectedNeighborhood);
     if (!area?.divarBbox) return;
-    const [west, south, east, north] = area.divarBbox;
-    setView((current) => ({
-      latitude: (south + north) / 2,
-      longitude: (west + east) / 2,
-      zoom: Math.max(14, current.zoom),
-    }));
+    const rect = mapRef.current?.getBoundingClientRect();
+    const fitted = fitCoordinateBounds(area.divarBbox, rect?.width ?? 920, rect?.height ?? 640);
+    if (fitted) setView(fitted);
   }, [selectedNeighborhood, neighborhoods]);
 
   useEffect(() => {
@@ -166,12 +162,9 @@ export function PropertiesMap({
       setView(DEFAULT_VIEW);
       return;
     }
-    const [west, south, east, north] = viewportResetBounds;
-    setView({
-      latitude: (south + north) / 2,
-      longitude: (west + east) / 2,
-      zoom: 14,
-    });
+    const rect = mapRef.current?.getBoundingClientRect();
+    const fitted = fitCoordinateBounds(viewportResetBounds, rect?.width ?? 920, rect?.height ?? 640);
+    if (fitted) setView(fitted);
   }, [viewportResetBounds, viewportResetVersion]);
 
   useEffect(() => {
@@ -223,9 +216,8 @@ export function PropertiesMap({
     if (!showNeighborhoodBounds) return [];
     const boxes = neighborhoods.flatMap((area): NeighborhoodBox[] => {
       const bounds = area.divarBbox;
-      if (!bounds) return [];
+      if (!isValidCoordinateBounds(bounds)) return [];
       const [west, south, east, north] = bounds;
-      if (![west, south, east, north].every(Number.isFinite) || west >= east || south >= north) return [];
       const upperLeft = project(north, west, view.zoom);
       const lowerRight = project(south, east, view.zoom);
       const left = upperLeft.x - worldLeft;
@@ -257,10 +249,9 @@ export function PropertiesMap({
   const markers = useMemo(() => {
     const groups = new Map<string, { x: number; y: number; items: MapProperty[] }>();
     for (const property of properties) {
-      if (property.latitude == null || property.longitude == null) continue;
+      if (!isValidMapCoordinate(property.latitude, property.longitude)) continue;
       const latitude = Number(property.latitude);
       const longitude = Number(property.longitude);
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
       const point = project(latitude, longitude, view.zoom);
       const x = point.x - worldLeft;
       const y = point.y - worldTop;
@@ -279,9 +270,21 @@ export function PropertiesMap({
   }, [properties, view.zoom, worldLeft, worldTop, size.width, size.height]);
 
   const mappedCount = useMemo(
-    () => properties.filter((property) => property.latitude != null && property.longitude != null).length,
+    () => properties.filter((property) => isValidMapCoordinate(property.latitude, property.longitude)).length,
     [properties],
   );
+
+  const selectedMapMarker = useMemo(
+    () => selectedPropertyId ? markers.find((marker) => marker.items.some((item) => item.id === selectedPropertyId)) ?? null : null,
+    [markers, selectedPropertyId],
+  );
+  const popupProperty = selectedMapMarker?.items.find((item) => item.id === selectedPropertyId) ?? null;
+  const popupLeft = selectedMapMarker ? Math.max(8, Math.min(selectedMapMarker.x - 130, size.width - 268)) : 8;
+  const popupTop = selectedMapMarker
+    ? selectedMapMarker.y > size.height - 165
+      ? Math.max(52, selectedMapMarker.y - 126)
+      : Math.min(size.height - 150, selectedMapMarker.y + 18)
+    : 52;
 
   const onMapPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target as HTMLElement).closest("button, a")) return;
@@ -322,13 +325,16 @@ export function PropertiesMap({
 
   const resetMap = useCallback(() => {
     const selected = neighborhoods.find((item) => item.name === selectedNeighborhood);
-    if (selected?.divarBbox) {
-      const [west, south, east, north] = selected.divarBbox;
-      setView({ latitude: (south + north) / 2, longitude: (west + east) / 2, zoom: 14 });
-      return;
+    if (selected?.divarBbox && isValidCoordinateBounds(selected.divarBbox)) {
+      const rect = mapRef.current?.getBoundingClientRect();
+      const fitted = fitCoordinateBounds(selected.divarBbox, rect?.width ?? size.width, rect?.height ?? size.height);
+      if (fitted) {
+        setView(fitted);
+        return;
+      }
     }
     setView(DEFAULT_VIEW);
-  }, [neighborhoods, selectedNeighborhood]);
+  }, [neighborhoods, selectedNeighborhood, size.width, size.height]);
 
   const openCurrentMap = `https://www.openstreetmap.org/#map=${view.zoom}/${view.latitude.toFixed(6)}/${view.longitude.toFixed(6)}`;
 
@@ -406,6 +412,20 @@ export function PropertiesMap({
           </button>
         );
       })}
+      {!popupDismissed && selectedMapMarker && popupProperty ? (
+        <div
+          className="pf-map-popup"
+          style={{ left: popupLeft, top: popupTop }}
+          role="dialog"
+          aria-label="اطلاعات فایل انتخاب‌شده روی نقشه"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button type="button" className="pf-map-popup-close" onClick={() => setPopupDismissed(true)} aria-label="بستن اطلاعات فایل">×</button>
+          <strong>{popupProperty.title}</strong>
+          <span>{popupProperty.neighborhood || "اصفهان"} · {propertyAmountLabel(popupProperty)}</span>
+          <a href={`/properties/${encodeURIComponent(popupProperty.slug.trim() || popupProperty.id)}`}>مشاهده جزئیات فایل</a>
+        </div>
+      ) : null}
       {mappedCount === 0 ? (
         <div className="pf-map-empty-note">
           <MapPin size={18} />
