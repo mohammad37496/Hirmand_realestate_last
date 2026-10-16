@@ -23,7 +23,12 @@ export type PublishReadiness = {
 };
 
 function hasMoney(value: string) {
-  return value.trim().replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٬،,\s]/g, "").length > 0;
+  const normalized = value
+    .trim()
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/[,_٬،\s]/g, "");
+  return /^\d{1,20}$/.test(normalized) && /[1-9]/.test(normalized);
 }
 
 export function getPublishReadiness(input: PublishReadinessInput): PublishReadiness {
