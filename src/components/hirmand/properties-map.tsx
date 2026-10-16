@@ -276,7 +276,11 @@ export function PropertiesMap({
     for (const property of properties) {
       const latitude = property.latitude;
       const longitude = property.longitude;
-      if (!isValidGeoPoint(latitude, longitude)) continue;
+      if (
+        !isValidGeoPoint(latitude, longitude) ||
+        typeof latitude !== "number" ||
+        typeof longitude !== "number"
+      ) continue;
       const point = project(latitude, longitude, view.zoom);
       const x = point.x - worldLeft;
       const y = point.y - worldTop;
