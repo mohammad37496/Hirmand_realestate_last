@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { LocateFixed, MapPin, Minus, Plus } from "lucide-react";
+import { LocateFixed, MapPin, MapPinned, Minus, Plus } from "lucide-react";
 import type { PropertyCardData } from "@/lib/properties";
+import type { Neighborhood } from "@/lib/site";
 
 type MapProperty = PropertyCardData;
 
@@ -64,15 +65,35 @@ function propertyAmountLabel(property: MapProperty): string {
 }
 
 type Tile = { key: string; url: string; left: number; top: number };
+type NeighborhoodBox = {
+  key: string;
+  name: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  centerLatitude: number;
+  centerLongitude: number;
+  bounds: [number, number, number, number];
+  selected: boolean;
+};
 
 export function PropertiesMap({
   properties,
+  neighborhoods,
+  selectedNeighborhood,
   selectedPropertyId,
   onSelect,
+  onSelectNeighborhood,
+  onViewportChange,
 }: {
   properties: MapProperty[];
+  neighborhoods: Neighborhood[];
+  selectedNeighborhood: string;
   selectedPropertyId: string | null;
   onSelect: (id: string) => void;
+  onSelectNeighborhood: (name: string) => void;
+  onViewportChange?: (bounds: [number, number, number, number]) => void;
 }) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
@@ -81,6 +102,8 @@ export function PropertiesMap({
   const [dragOffset, setDragOffset] = useState<PixelPoint>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [failedTiles, setFailedTiles] = useState<Set<string>>(new Set());
+  const [showNeighborhoodBounds, setShowNeighborhoodBounds] = useState(true);
+  const [viewportReady, setViewportReady] = useState(false);
 
   useEffect(() => {
     const node = mapRef.current;
@@ -105,14 +128,28 @@ export function PropertiesMap({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const bounds = normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"));
-    if (!bounds) return;
-    const [west, south, east, north] = bounds;
+    if (bounds) {
+      const [west, south, east, north] = bounds;
+      setView({
+        latitude: (south + north) / 2,
+        longitude: (west + east) / 2,
+        zoom: 14,
+      });
+    }
+    setViewportReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedNeighborhood) return;
+    const area = neighborhoods.find((item) => item.name === selectedNeighborhood);
+    if (!area?.divarBbox) return;
+    const [west, south, east, north] = area.divarBbox;
     setView({
       latitude: (south + north) / 2,
       longitude: (west + east) / 2,
       zoom: 14,
     });
-  }, []);
+  }, [selectedNeighborhood, neighborhoods]);
 
   useEffect(() => {
     setFailedTiles(new Set());
@@ -125,6 +162,17 @@ export function PropertiesMap({
   };
   const worldLeft = visualCenter.x - size.width / 2;
   const worldTop = visualCenter.y - size.height / 2;
+
+  const viewportBounds = useMemo<[number, number, number, number]>(() => {
+    const topLeft = unproject({ x: centerWorld.x - size.width / 2, y: centerWorld.y - size.height / 2 }, view.zoom);
+    const bottomRight = unproject({ x: centerWorld.x + size.width / 2, y: centerWorld.y + size.height / 2 }, view.zoom);
+    return [topLeft.longitude, bottomRight.latitude, bottomRight.longitude, topLeft.latitude];
+  }, [centerWorld.x, centerWorld.y, size.width, size.height, view.zoom]);
+
+  useEffect(() => {
+    if (!viewportReady) return;
+    onViewportChange?.(viewportBounds);
+  }, [viewportReady, viewportBounds, onViewportChange]);
 
   const tiles = useMemo<Tile[]>(() => {
     const totalTiles = 2 ** view.zoom;
@@ -147,6 +195,41 @@ export function PropertiesMap({
     }
     return result;
   }, [view.zoom, worldLeft, worldTop, size.width, size.height]);
+
+  const neighborhoodBoxes = useMemo<NeighborhoodBox[]>(() => {
+    if (!showNeighborhoodBounds) return [];
+    const boxes = neighborhoods.flatMap((area): NeighborhoodBox[] => {
+      const bounds = area.divarBbox;
+      if (!bounds) return [];
+      const [west, south, east, north] = bounds;
+      if (![west, south, east, north].every(Number.isFinite) || west >= east || south >= north) return [];
+      const upperLeft = project(north, west, view.zoom);
+      const lowerRight = project(south, east, view.zoom);
+      const left = upperLeft.x - worldLeft;
+      const top = upperLeft.y - worldTop;
+      const width = lowerRight.x - upperLeft.x;
+      const height = lowerRight.y - upperLeft.y;
+      const selected = area.name === selectedNeighborhood;
+      if (left + width < 0 || top + height < 0 || left > size.width || top > size.height) return [];
+      // At city scale, tiny boxes overlap heavily. Reveal them as users zoom in;
+      // always retain the selected neighborhood so its approximate extent remains visible.
+      if (!selected && view.zoom < 13) return [];
+      if (!selected && (width < 15 || height < 13)) return [];
+      return [{
+        key: `${area.name}:${area.divarDistrictId ?? "local"}`,
+        name: area.name,
+        left,
+        top,
+        width,
+        height,
+        centerLatitude: (south + north) / 2,
+        centerLongitude: (west + east) / 2,
+        bounds: [west, south, east, north],
+        selected,
+      }];
+    });
+    return boxes.sort((a, b) => Number(a.selected) - Number(b.selected)).slice(0, 180);
+  }, [neighborhoods, selectedNeighborhood, showNeighborhoodBounds, view.zoom, worldLeft, worldTop, size.width, size.height]);
 
   const markers = useMemo(() => {
     const groups = new Map<string, { x: number; y: number; items: MapProperty[] }>();
@@ -214,7 +297,15 @@ export function PropertiesMap({
     }));
   }, []);
 
-  const resetMap = useCallback(() => setView(DEFAULT_VIEW), []);
+  const resetMap = useCallback(() => {
+    const selected = neighborhoods.find((item) => item.name === selectedNeighborhood);
+    if (selected?.divarBbox) {
+      const [west, south, east, north] = selected.divarBbox;
+      setView({ latitude: (south + north) / 2, longitude: (west + east) / 2, zoom: 14 });
+      return;
+    }
+    setView(DEFAULT_VIEW);
+  }, [neighborhoods, selectedNeighborhood]);
 
   const openCurrentMap = `https://www.openstreetmap.org/#map=${view.zoom}/${view.latitude.toFixed(6)}/${view.longitude.toFixed(6)}`;
 
@@ -249,6 +340,28 @@ export function PropertiesMap({
         ))}
       </div>
       <div className="pf-map-wash" aria-hidden="true" />
+      {neighborhoodBoxes.map((area) => (
+        <button
+          key={area.key}
+          type="button"
+          className={`pf-map-neighborhood-box${area.selected ? " is-active" : ""}`}
+          style={{ left: area.left, top: area.top, width: area.width, height: area.height }}
+          title={`${area.name} — کادر تقریبی محدوده محله`}
+          aria-label={`انتخاب محله ${area.name}؛ کادر محدوده تقریبی است`}
+          aria-pressed={area.selected}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => {
+            onSelectNeighborhood(area.name);
+            setView((current) => ({
+              latitude: area.centerLatitude,
+              longitude: area.centerLongitude,
+              zoom: Math.max(14, current.zoom),
+            }));
+          }}
+        >
+          {area.width >= 72 && area.height >= 25 ? <span>{area.name}</span> : null}
+        </button>
+      ))}
       {markers.map((marker) => {
         const active = marker.items.some((item) => item.id === selectedPropertyId);
         const property = marker.items.find((item) => item.id === selectedPropertyId) ?? marker.items[0];
@@ -288,8 +401,18 @@ export function PropertiesMap({
       <div className="pf-map-controls" aria-label="کنترل نقشه">
         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => zoomBy(1)} aria-label="بزرگ‌نمایی نقشه"><Plus size={18} /></button>
         <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => zoomBy(-1)} aria-label="کوچک‌نمایی نقشه"><Minus size={18} /></button>
-        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={resetMap} aria-label="بازگشت به نمای اصفهان"><LocateFixed size={18} /></button>
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => setShowNeighborhoodBounds((value) => !value)}
+          aria-label={showNeighborhoodBounds ? "پنهان کردن محدوده محله‌ها" : "نمایش محدوده محله‌ها"}
+          aria-pressed={showNeighborhoodBounds}
+          title={showNeighborhoodBounds ? "پنهان کردن کادر محله‌ها" : "نمایش کادر محله‌ها"}
+          className={showNeighborhoodBounds ? "is-active" : ""}
+        ><MapPinned size={17} /></button>
+        <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={resetMap} aria-label="بازگشت به نمای اصفهان یا محله انتخاب‌شده"><LocateFixed size={18} /></button>
       </div>
+      {showNeighborhoodBounds ? <div className="pf-map-bounds-note">کادر محله‌ها تقریبی است، نه مرز رسمی ثبتی</div> : null}
       <div className="pf-map-attribution">
         نقشه © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>
       </div>
