@@ -2,12 +2,25 @@
 
 export type DivarCoordinates = { latitude: number; longitude: number };
 
-function normalizeCoordinate(value: unknown, max: number, integerScale = 1_000_000): number | null {
+function normalizeCoordinate(value: unknown, max: number, scaleHint?: number): number | null {
   if (typeof value !== "number" && typeof value !== "string") return null;
   const raw = String(value).replace(/,/g, "").trim();
+  if (!raw) return null;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return null;
-  const normalized = Math.abs(parsed) > max ? parsed / integerScale : parsed;
+  if (Math.abs(parsed) <= max) return parsed;
+
+  // Generic latitude/longitude keys also occur with scaled integers. Infer only
+  // the two known Divar encodings; never turn an arbitrary bad value like 9123
+  // into a plausible coordinate by dividing it blindly.
+  const magnitude = Math.abs(parsed);
+  const scale = scaleHint ?? (
+    magnitude >= 100_000_000 ? 10_000_000 :
+    magnitude >= 10_000_000 ? 1_000_000 :
+    0
+  );
+  if (!scale) return null;
+  const normalized = parsed / scale;
   return Number.isFinite(normalized) && Math.abs(normalized) <= max ? normalized : null;
 }
 
