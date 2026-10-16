@@ -220,7 +220,7 @@ export const propertyInputSchema = z.object({
   propertyType: z.enum(["apartment", "villa", "office", "heritage", "land", "commercial"]),
   neighborhood: z.string().trim().min(2).max(80),
   address: z.string().trim().max(240).optional().default(""),
-  areaM2: z.number().int().min(0).max(100000).nullable().optional(),
+  areaM2: z.number().int().min(1).max(100000).nullable().optional(),
   bedrooms: z.number().int().min(0).max(30).nullable().optional(),
   bathrooms: z.number().int().min(0).max(30).nullable().optional(),
   floor: z.number().int().min(-60).max(200).nullable().optional(),
@@ -288,11 +288,17 @@ const budgetMatchSchema = z
       .optional(),
     neighborhood: z.string().trim().max(80).optional(),
     bedrooms: z.number().int().min(1).max(30).optional(),
+    minAreaM2: z.number().int().min(1).max(100000).optional(),
+    maxAreaM2: z.number().int().min(1).max(100000).optional(),
     limit: z.number().int().min(1).max(24).optional().default(12),
   })
   .refine((value) => value.depositBudget > 0 || value.rentBudget > 0, {
     message: "حداقل یکی از مبالغ بودجه باید بیشتر از صفر باشد.",
-  });
+  })
+  .refine(
+    (value) => value.minAreaM2 == null || value.maxAreaM2 == null || value.minAreaM2 <= value.maxAreaM2,
+    { message: "حداقل متراژ نمی‌تواند از حداکثر متراژ بیشتر باشد.", path: ["minAreaM2"] },
+  );
 
 const adminKeySchema = z.object({});
 
@@ -857,6 +863,8 @@ export const matchPublishedPropertiesByBudget = createServerFn({ method: "GET" }
           "and ($5::text is null or property_type = $5)",
           "and ($6::text is null or neighborhood = $6 or neighborhood ilike '%' || $6 || '%')",
           "and ($7::int is null or bedrooms >= $7)",
+          "and ($9::int is null or area_m2 >= $9)",
+          "and ($10::int is null or area_m2 <= $10)",
           "and " + totalExpr + " <= $4::numeric * 1.15",
           "order by",
           "case",
@@ -878,6 +886,8 @@ export const matchPublishedPropertiesByBudget = createServerFn({ method: "GET" }
           data.neighborhood?.trim() || null,
           data.bedrooms ?? null,
           data.limit,
+          data.minAreaM2 ?? null,
+          data.maxAreaM2 ?? null,
         ],
       );
 
@@ -1627,7 +1637,59 @@ export const saveProperty = createServerFn({ method: "POST" })
       [id],
     );
     const existing = existingRows[0] ?? null;
-    if (data.status === "published" && (!existing || existing.status !== "published")) {
+    // The UI's duplicate warning is advisory; enforce exact duplicate prevention
+    // at the save boundary as well, including repeated submissions from a stale tab.
+    if (!existing && (data.status === "draft" || data.status === "published")) {
+      const duplicateRows = await sql.query<Record<string, unknown>>(
+        `select id, title
+         from properties
+         where deleted_at is null
+           and status in ('draft','published')
+           and id <> $1
+           and lower(trim(title)) = lower(trim($2))
+           and transaction_type = $3
+           and property_type = $4
+           and lower(trim(neighborhood)) = lower(trim($5))
+           and area_m2 is not distinct from $6::integer
+           and price is not distinct from $7::numeric
+           and deposit is not distinct from $8::numeric
+           and rent is not distinct from $9::numeric
+         order by updated_at desc
+         limit 1`,
+        [
+          id,
+          data.title,
+          data.transactionType,
+          data.propertyType,
+          data.neighborhood,
+          data.areaM2 ?? null,
+          data.price ?? null,
+          data.deposit ?? null,
+          data.rent ?? null,
+        ],
+      );
+      if (duplicateRows[0]) {
+        throw new Error(
+          `این فایل با «${String(duplicateRows[0].title ?? data.title)}» (کد ${String(duplicateRows[0].id)}) از قبل ثبت شده است. برای جلوگیری از تکرار، فایل موجود را ویرایش کنید.`,
+        );
+      }
+    }
+    // Validate all transitions into publication and any edits that can affect
+    // publication readiness. Previously, changing the price on an already-published
+    // listing bypassed this check because the status itself had not changed.
+    const publicationCriticalFieldsChanged =
+      !existing ||
+      existing.status !== "published" ||
+      String(existing.title ?? "") !== data.title ||
+      String(existing.neighborhood ?? "") !== data.neighborhood ||
+      String(existing.description ?? "") !== data.description ||
+      String(existing.contact_name ?? "") !== data.contactName ||
+      String(existing.contact_phone ?? "") !== data.contactPhone ||
+      String(existing.price ?? "") !== String(data.price ?? "") ||
+      String(existing.deposit ?? "") !== String(data.deposit ?? "") ||
+      String(existing.rent ?? "") !== String(data.rent ?? "");
+
+    if (data.status === "published" && publicationCriticalFieldsChanged) {
       const readiness = getPublishReadiness({
         transactionType: data.transactionType,
         title: data.title,

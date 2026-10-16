@@ -70,6 +70,8 @@ type Lead = {
   budgetSaleMin: number | null;
   budgetSaleMax: number | null;
   requestedBedrooms: number | null;
+  requestedAreaMin: number | null;
+  requestedAreaMax: number | null;
   budgetEquivalent: number | null;
   budgetBedrooms: number | null;
   budgetRate: number | null;
@@ -374,6 +376,9 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
       lead.requestedBedrooms != null
         ? "تعداد خواب موردنظر: " + (lead.requestedBedrooms === 0 ? "بدون خواب / استودیو" : lead.requestedBedrooms >= 6 ? "۶ خواب و بیشتر" : lead.requestedBedrooms.toLocaleString("fa-IR") + " خواب")
         : "",
+      lead.requestedAreaMin != null || lead.requestedAreaMax != null
+        ? "متراژ موردنظر: " + (lead.requestedAreaMin == null ? "تا " + Number(lead.requestedAreaMax).toLocaleString("fa-IR") : lead.requestedAreaMax == null ? "از " + lead.requestedAreaMin.toLocaleString("fa-IR") : lead.requestedAreaMin.toLocaleString("fa-IR") + " تا " + lead.requestedAreaMax.toLocaleString("fa-IR")) + " مترمربع"
+        : "",
       lead.budgetBedrooms ? "حداقل خواب بودجه‌یابی: " + lead.budgetBedrooms : "",
       "",
       "فایل‌های پیشنهادی:",
@@ -566,6 +571,7 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
                     {lead.neighborhood ? " · " + lead.neighborhood : ""}
                     {lead.floorPreference ? " · طبقه: " + lead.floorPreference : ""}
                     {lead.requestedBedrooms != null ? " · خواب: " + (lead.requestedBedrooms === 0 ? "بدون خواب" : lead.requestedBedrooms >= 6 ? "۶+" : lead.requestedBedrooms.toLocaleString("fa-IR")) : ""}
+                    {lead.requestedAreaMin != null || lead.requestedAreaMax != null ? " · متراژ: " + (lead.requestedAreaMin == null ? "تا " + Number(lead.requestedAreaMax).toLocaleString("fa-IR") : lead.requestedAreaMax == null ? "از " + lead.requestedAreaMin.toLocaleString("fa-IR") : lead.requestedAreaMin.toLocaleString("fa-IR") + " تا " + lead.requestedAreaMax.toLocaleString("fa-IR")) + " مترمربع" : ""}
                     {lead.requestedAmenities.length ? " · " + lead.requestedAmenities.length.toLocaleString("fa-IR") + " امکان انتخابی" : ""}
                     {lead.consultant ? " · مشاور: " + lead.consultant : ""}
                   </p>

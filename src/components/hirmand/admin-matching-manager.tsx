@@ -32,6 +32,8 @@ type Lead = {
   neighborhood: string;
   floorPreference: string;
   requestedBedrooms: number | null;
+  requestedAreaMin: number | null;
+  requestedAreaMax: number | null;
   requestedAmenities: string[];
   consultant: string;
   note: string;
@@ -440,6 +442,7 @@ export function AdminMatchingManager() {
                   <div><small>تعداد نفرات</small><strong>{fa(selectedLead.peopleCount)}</strong></div>
                   <div><small>شغل</small><strong>{selectedLead.job || "—"}</strong></div>
                   <div><small>خواب موردنظر</small><strong>{selectedLead.requestedBedrooms == null ? "فرقی ندارد" : selectedLead.requestedBedrooms === 0 ? "بدون خواب" : fa(selectedLead.requestedBedrooms) + " خواب"}</strong></div>
+                  <div><small>متراژ موردنظر</small><strong>{selectedLead.requestedAreaMin == null && selectedLead.requestedAreaMax == null ? "فرقی ندارد" : (selectedLead.requestedAreaMin == null ? "تا " + fa(selectedLead.requestedAreaMax) : selectedLead.requestedAreaMax == null ? "از " + fa(selectedLead.requestedAreaMin) : fa(selectedLead.requestedAreaMin) + " تا " + fa(selectedLead.requestedAreaMax)) + " مترمربع"}</strong></div>
                   <div><small>طبقه</small><strong>{selectedLead.floorPreference || "فرقی ندارد"}</strong></div>
                 </div>
 

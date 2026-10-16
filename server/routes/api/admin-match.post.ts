@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
+import { normalizeMatchLabel, scoreAreaMatch } from "@/lib/admin-match-utils";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -216,6 +217,8 @@ function mapLead(row: Record<string, unknown>) {
     neighborhood: String(row.neighborhood ?? ""),
     floorPreference: String(row.floor_preference ?? ""),
     requestedBedrooms: num(row.requested_bedrooms),
+    requestedAreaMin: num(row.requested_area_min),
+    requestedAreaMax: num(row.requested_area_max),
     requestedAmenities: jsonArray(row.requested_amenities),
     consultant: String(row.consultant ?? ""),
     note: String(row.note ?? ""),
@@ -244,7 +247,7 @@ function mapLead(row: Record<string, unknown>) {
 
 const LEAD_COLUMNS = `
   id,name,phone,people_count,job,deal,property_type,neighborhood,floor_preference,
-  requested_bedrooms,requested_amenities,consultant,note,status,source,
+  requested_bedrooms,requested_area_min,requested_area_max,requested_amenities,consultant,note,status,source,
   lease_deadline,budget_deposit,budget_rent,budget_purchase,budget_sale,
   budget_deposit_min,budget_deposit_max,budget_rent_min,budget_rent_max,
   budget_purchase_min,budget_purchase_max,budget_sale_min,budget_sale_max,
@@ -327,6 +330,8 @@ export default defineEventHandler(async (event) => {
   const range = requestedPriceRange(lead);
   const requestedAmenities = jsonArray(lead.requested_amenities);
   const requestedBedrooms = num(lead.requested_bedrooms);
+  const requestedAreaMin = positive(lead.requested_area_min) || null;
+  const requestedAreaMax = positive(lead.requested_area_max) || null;
   const neighborhood = String(lead.neighborhood ?? "").trim();
 
   const candidateRows = await sql.query<Record<string, unknown>>(
@@ -355,7 +360,10 @@ export default defineEventHandler(async (event) => {
       const coveredAmenities = requestedAmenities.filter((value) => amenities.has(value)).length;
       const amenityCoverage = requestedAmenities.length ? safeMatchCount(coveredAmenities, requestedAmenities.length) : null;
       const price = priceScore(propertyComparableValue(row), range);
-      const sameNeighborhood = neighborhood ? String(row.neighborhood).trim() === neighborhood : null;
+      const sameNeighborhood = neighborhood
+        ? normalizeMatchLabel(row.neighborhood) === normalizeMatchLabel(neighborhood)
+        : null;
+      const areaMatch = scoreAreaMatch(row.area_m2, requestedAreaMin, requestedAreaMax);
       const sameBedrooms =
         requestedBedrooms == null || num(row.bedrooms) == null
           ? null
@@ -390,6 +398,11 @@ export default defineEventHandler(async (event) => {
         reasons.push("تعداد خواب مناسب");
       }
 
+      if (areaMatch) {
+        score += areaMatch.score * (mode === "price" ? 0.08 : mode === "amenities" ? 0.1 : mode === "both" ? 0.12 : 0.15);
+        reasons.push(areaMatch.reason);
+      }
+
       if (String(row.transaction_type) === "mortgage" && (deal === "رهن" || deal === "اجاره")) {
         score += 3;
       }
@@ -410,7 +423,8 @@ export default defineEventHandler(async (event) => {
         price != null ||
         (amenityCoverage != null && amenityCoverage > 0) ||
         sameNeighborhood === true ||
-        sameBedrooms === true;
+        sameBedrooms === true ||
+        (areaMatch != null && areaMatch.score > 0);
 
       return {
         row,
