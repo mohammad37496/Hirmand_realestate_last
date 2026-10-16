@@ -36,6 +36,10 @@ import {
   storeAssembledUpload,
   type StoredMedia,
 } from "@/lib/media-store.server";
+import {
+  matchesUploadSessionScope,
+  uploadSessionScopePrefix,
+} from "@/lib/upload-session-scope";
 
 export const DEFAULT_CHUNK_SIZE = 2 * 1024 * 1024;
 
@@ -149,6 +153,7 @@ export async function handleChunkedUpload(
   config: ChunkedUploadConfig,
 ): Promise<unknown> {
   setResponseHeader(event, "cache-control", "no-store");
+  const sessionPathPrefix = uploadSessionScopePrefix(config.pathPrefix);
 
   const adminAccess = config.access !== "public";
   if (adminAccess && !await verifyAdminSessionToken(getCookie(event, ADMIN_SESSION_COOKIE))) {
@@ -179,6 +184,9 @@ export async function handleChunkedUpload(
     if (!session) {
       throw httpError("نشست آپلود پیدا نشد یا منقضی شده است. دوباره تلاش کنید.", 404);
     }
+    if (!matchesUploadSessionScope(session, config.kind, config.pathPrefix)) {
+      throw httpError("نشست آپلود پیدا نشد یا منقضی شده است. دوباره تلاش کنید.", 404);
+    }
     if (String(session.completion_state ?? "pending") !== "pending") {
       throw httpError("این آپلود در مرحله نهایی‌سازی است و قطعه جدیدی نمی‌پذیرد.", 409);
     }
@@ -194,12 +202,28 @@ export async function handleChunkedUpload(
     }
 
     const sql = await getSql();
-    await sql.query(
-      `insert into media_upload_chunks (session_id, chunk_index, data)
-       values ($1, $2, $3)
-       on conflict (session_id, chunk_index) do update set data = excluded.data`,
-      [uploadIdHeader, index, bytes],
+    // Lock the session row while storing the chunk. Completion takes the same
+    // row lock, so it cannot count chunks between validation and this write.
+    const savedChunk = await sql.query<{ session_id: string }>(
+      `with upload_session as (
+         select id from media_upload_sessions
+         where id = $1
+           and kind = $4
+           and left(pathname, length($5)) = $5
+           and completion_state = 'pending'
+         for update
+       ), saved_chunk as (
+         insert into media_upload_chunks (session_id, chunk_index, data)
+         select id, $2, $3 from upload_session
+         on conflict (session_id, chunk_index) do update set data = excluded.data
+         returning session_id
+       )
+       select session_id from saved_chunk limit 1`,
+      [uploadIdHeader, index, bytes, config.kind, sessionPathPrefix],
     );
+    if (!savedChunk[0]) {
+      throw httpError("این آپلود در مرحله نهایی‌سازی است یا نشست آن معتبر نیست.", 409);
+    }
 
     const counters = await sql.query<SessionRow>(
       `update media_upload_sessions
@@ -305,6 +329,8 @@ export async function handleChunkedUpload(
       `update media_upload_sessions
        set completion_state = 'completing', completion_started_at = current_timestamp
        where id = $1
+         and kind = $2
+         and left(pathname, length($3)) = $3
          and (
            completion_state = 'pending'
            or (
@@ -313,7 +339,7 @@ export async function handleChunkedUpload(
            )
          )
        returning *`,
-      [uploadId],
+      [uploadId, config.kind, sessionPathPrefix],
     );
     const session = claimed[0];
     if (!session) {
@@ -322,7 +348,10 @@ export async function handleChunkedUpload(
 
     if (session.completion_result && typeof session.completion_result === "object") {
       const result = session.completion_result as Record<string, unknown>;
-      await sql.query("delete from media_upload_sessions where id = $1", [uploadId]);
+      await sql.query(
+        "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3",
+        [uploadId, config.kind, sessionPathPrefix],
+      );
       return {
         ...result,
         storage: String(session.stored_storage ?? "database"),
@@ -343,8 +372,8 @@ export async function handleChunkedUpload(
       await sql.query(
         `update media_upload_sessions
          set completion_state = 'pending', completion_started_at = null
-         where id = $1`,
-        [uploadId],
+         where id = $1 and kind = $2 and left(pathname, length($3)) = $3`,
+        [uploadId, config.kind, sessionPathPrefix],
       );
       throw httpError(
         `فایل کامل دریافت نشد (${receivedChunks.toLocaleString("fa-IR")} از ${totalChunks.toLocaleString("fa-IR")} قطعه). دوباره آپلود کنید.`,
@@ -392,10 +421,13 @@ export async function handleChunkedUpload(
       await sql.query(
         `update media_upload_sessions
          set completion_result = $2::jsonb
-         where id = $1`,
-        [uploadId, JSON.stringify(resultObject)],
+         where id = $1 and kind = $3 and left(pathname, length($4)) = $4`,
+        [uploadId, JSON.stringify(resultObject), config.kind, sessionPathPrefix],
       );
-      await sql.query("delete from media_upload_sessions where id = $1", [uploadId]);
+      await sql.query(
+        "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3",
+        [uploadId, config.kind, sessionPathPrefix],
+      );
       return { ...resultObject, storage: stored.storage };
     } catch (error) {
       if (isSignatureRejection(error)) {
@@ -403,7 +435,10 @@ export async function handleChunkedUpload(
         // leave an orphan file nothing will ever reference.
         await deleteStoredMedia(stored?.url).catch(() => undefined);
         await sql
-          .query("delete from media_upload_sessions where id = $1", [uploadId])
+          .query(
+            "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3",
+            [uploadId, config.kind, sessionPathPrefix],
+          )
           .catch(() => undefined);
         console.warn(
           `[upload] rejected ${session.kind} upload ${uploadId}: content does not match declared type`,
@@ -432,8 +467,8 @@ export async function handleChunkedUpload(
     if (uploadId) {
       const sql = await getSql();
       await sql.query(
-        "delete from media_upload_sessions where id = $1 and completion_state = 'pending'",
-        [uploadId],
+        "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3 and completion_state = 'pending'",
+        [uploadId, config.kind, sessionPathPrefix],
       );
     }
     return { aborted: true };
