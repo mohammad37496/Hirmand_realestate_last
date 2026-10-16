@@ -19,7 +19,9 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   const claims = await requireReportAccess(event);
   const role = normalizeAdminRole(claims?.role);
-  if (dbSource === "unconfigured") return { scannedAt: new Date().toISOString(), summary: { critical: 0, warning: 0, info: 0, open: 0 }, findings: [] };
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "بررسی سلامت داده‌ها بدون اتصال پایگاه داده ممکن نیست." });
+  }
   const body = (await readBody(event).catch(() => ({}))) as { action?: "scan" | "resolve"; findingId?: number };
   const sql = await getSql();
 
@@ -35,19 +37,19 @@ export default defineEventHandler(async (event) => {
   const checks = await Promise.all([
     sql.query<Record<string, unknown>>(
       "select l.id,l.name,l.property_id from leads l left join properties p on p.id=l.property_id where l.property_id is not null and p.id is null limit 50",
-    ).catch(() => []),
+    ),
     sql.query<Record<string, unknown>>(
       "select l.id,l.name,l.consultant from leads l left join consultants c on lower(trim(c.name))=lower(trim(l.consultant)) where trim(coalesce(l.consultant,''))<>'' and c.id is null limit 50",
-    ).catch(() => []),
+    ),
     sql.query<Record<string, unknown>>(
       "select id,title,slug from properties where deleted_at is null and status='published' and (trim(coalesce(title,''))='' or trim(coalesce(neighborhood,''))='') limit 50",
-    ).catch(() => []),
+    ),
     sql.query<Record<string, unknown>>(
       "select phone,count(*)::int as count from leads where trim(coalesce(phone,''))<>'' group by phone having count(*) > 1 order by count desc limit 30",
-    ).catch(() => []),
+    ),
     sql.query<Record<string, unknown>>(
       "select id,title,latitude,longitude from properties where deleted_at is null and ((latitude is null) <> (longitude is null)) limit 50",
-    ).catch(() => []),
+    ),
   ]);
 
   const findings: Array<{sourceKey:string;kind:string;severity:"info"|"warning"|"critical";title:string;detail:string;entityType?:string;entityId?:string}> = [];
