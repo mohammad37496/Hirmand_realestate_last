@@ -874,3 +874,68 @@
 .pf-map-list-empty > svg { color: var(--hr-gold); }
 .pf-map-list-empty > strong { color: var(--hr-ink); font-size: .86rem; }
 .pf-map-list-empty > p { margin: 0; font-size: .77rem; }
+
+
+/* Accessible details popup for the currently selected map marker. */
+.pf-map-popup {
+  position: absolute;
+  z-index: 12;
+  display: grid;
+  gap: 7px;
+  width: 252px;
+  max-width: calc(100% - 16px);
+  padding: 13px 14px 12px;
+  border: 1px solid rgb(32 52 45 / .16);
+  border-radius: 12px;
+  background: #fff;
+  color: #263a35;
+  box-shadow: 0 8px 26px rgb(20 38 32 / .22);
+  direction: rtl;
+  user-select: text;
+}
+.pf-map-popup > strong {
+  padding-inline-end: 22px;
+  overflow-wrap: anywhere;
+  font-size: .78rem;
+  font-weight: 900;
+  line-height: 1.55;
+}
+.pf-map-popup > span {
+  color: #66736d;
+  font-size: .7rem;
+  line-height: 1.5;
+}
+.pf-map-popup > a {
+  justify-self: start;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: #f4f0e6;
+  color: #594722;
+  font-size: .7rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+.pf-map-popup-close {
+  position: absolute;
+  inset-block-start: 6px;
+  inset-inline-end: 7px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: #f3f4f1;
+  color: #43534c;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.pf-map-popup-close:hover { background: #e8ece7; }
+@media (max-width: 620px) {
+  .pf-map-popup { width: 224px; padding: 11px 12px; }
+}
