@@ -526,11 +526,12 @@ function PropertiesIndexPage() {
 
     const currentParams = new URLSearchParams(window.location.search);
     const params = new URLSearchParams();
-    // Keep the current viewport while ordinary filters change, but never retain
-    // a stale neighborhood hash after the user clears or changes the area.
-    for (const key of ["bbox", "map_bbox"]) {
-      const value = currentParams.get(key);
-      if (value) params.set(key, value);
+    // The viewport is part of the actual property query, not just a bookmark.
+    // Build both aliases from state so stale URL bounds cannot constrain a new area.
+    if (mapBounds) {
+      const boundsValue = mapBounds.map((number) => Number(number.toFixed(7))).join(",");
+      params.set("bbox", boundsValue);
+      params.set("map_bbox", boundsValue);
     }
     if (neighborhood) {
       params.set("neighborhood", neighborhood);
@@ -579,7 +580,7 @@ function PropertiesIndexPage() {
       "",
       query ? `/properties?${query}` : "/properties",
     );
-  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, minArea, maxArea, minPrice, maxPrice, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds]);
 
   useEffect(() => {
     if (!urlReady) return;
@@ -1021,6 +1022,12 @@ function PropertiesIndexPage() {
     setHasLocationOnly(false);
     setSort("newest");
     setOffset(0);
+    setMapBounds(undefined);
+    setMapViewportResetVersion((version) => version + 1);
+    const resetParams = new URLSearchParams(window.location.search);
+    for (const key of ["bbox", "map_bbox", "map_place_hash"]) resetParams.delete(key);
+    const resetQuery = resetParams.toString();
+    window.history.replaceState(window.history.state, "", resetQuery ? `/properties?${resetQuery}` : "/properties");
   }
 
   async function shareCurrentSearch() {
@@ -1075,6 +1082,18 @@ function PropertiesIndexPage() {
       }))
       .filter((group) => group.items.length > 0);
   }, [neighborhoodOptions, neighborhoodQuery]);
+
+  function chooseNeighborhood(name: string) {
+    setNeighborhood(name);
+    setNeighborhoodPickerOpen(false);
+    setMobileFiltersOpen(false);
+    if (!name) return;
+    const area = NEIGHBORHOODS.find((item) => item.name === name);
+    const bounds = area?.divarBbox;
+    // A new neighborhood without trusted geometry should not inherit an unrelated old viewport.
+    setMapBounds(bounds ? [...bounds] as [number, number, number, number] : undefined);
+    setMapViewportResetVersion((version) => version + 1);
+  }
 
   const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
@@ -1809,11 +1828,7 @@ function PropertiesIndexPage() {
                         selectedNeighborhood={neighborhood}
                         selectedPropertyId={selectedPropertyId}
                         onSelect={setSelectedPropertyId}
-                        onSelectNeighborhood={(name) => {
-                          setNeighborhood(name);
-                          setNeighborhoodPickerOpen(false);
-                          setMobileFiltersOpen(false);
-                        }}
+                        onSelectNeighborhood={chooseNeighborhood}
                         onViewportChange={syncMapBoundsToUrl}
                         viewportResetBounds={mapBounds}
                         viewportResetVersion={mapViewportResetVersion}
@@ -1925,7 +1940,7 @@ function PropertiesIndexPage() {
                           key={name}
                           className={neighborhood === name ? "is-selected" : ""}
                           aria-pressed={neighborhood === name}
-                          onClick={() => { setNeighborhood(name); setNeighborhoodPickerOpen(false); setNeighborhoodQuery(""); }}
+                          onClick={() => { chooseNeighborhood(name); setNeighborhoodQuery(""); }}
                         >
                           <span>{name}</span>
                           {neighborhood === name ? <span className="pf-neighborhood-check" aria-hidden="true">✓</span> : <span className="pf-neighborhood-select-mark" aria-hidden="true" />}
