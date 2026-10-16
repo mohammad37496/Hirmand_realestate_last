@@ -96,9 +96,29 @@ export function validatePropertySearchNumbers(values: Record<string, unknown>): 
     { key: "maxRent", label: "حداکثر اجاره", value: values.maxRent, max: 999_999_999_999_999 },
     { key: "minBedrooms", label: "حداقل اتاق", value: values.minBedrooms, max: 30 },
     { key: "minBathrooms", label: "حداقل حمام", value: values.minBathrooms, max: 30 },
+    { key: "minFloor", label: "طبقه از", value: values.minFloor, min: -60, max: 200, allowNegative: true },
+    { key: "maxFloor", label: "طبقه تا", value: values.maxFloor, min: -60, max: 200, allowNegative: true },
     { key: "minTotalFloors", label: "حداقل تعداد طبقات", value: values.minTotalFloors, max: 200 },
     { key: "maxTotalFloors", label: "حداکثر تعداد طبقات", value: values.maxTotalFloors, max: 200 },
     { key: "minBuiltYear", label: "سال ساخت از", value: values.minBuiltYear, min: 1200, max: 2500 },
     { key: "maxBuiltYear", label: "سال ساخت تا", value: values.maxBuiltYear, min: 1200, max: 2500 },
   ]);
+
+  const ranges = [
+    ["minArea", "maxArea", "متراژ", { min: 0, max: 100_000 }],
+    ["minPrice", "maxPrice", "قیمت", { min: 0, max: 999_999_999_999_999 }],
+    ["minDeposit", "maxDeposit", "ودیعه", { min: 0, max: 999_999_999_999_999 }],
+    ["minRent", "maxRent", "اجاره", { min: 0, max: 999_999_999_999_999 }],
+    ["minFloor", "maxFloor", "طبقه", { min: -60, max: 200, allowNegative: true }],
+    ["minTotalFloors", "maxTotalFloors", "تعداد طبقات", { min: 0, max: 200 }],
+    ["minBuiltYear", "maxBuiltYear", "سال ساخت", { min: 1200, max: 2500 }],
+  ] as const;
+  for (const [minKey, maxKey, label, options] of ranges) {
+    const minimum = parseIntegerFilter(values[minKey], options);
+    const maximum = parseIntegerFilter(values[maxKey], options);
+    if (minimum.valid && maximum.valid && minimum.value !== undefined && maximum.value !== undefined && minimum.value > maximum.value) {
+      errors.push(`بازهٔ ${label}`);
+    }
+  }
+  return errors;
 }
