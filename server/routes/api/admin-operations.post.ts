@@ -22,7 +22,7 @@ export default defineEventHandler(async(event)=>{
   const claims = await requireAdmin(event);
   const role = normalizeAdminRole(claims?.role);
   const canViewFinance = hasAdminPermission(role, "finance.manage");
-  if(dbSource==="unconfigured") return {dueLeads:[],dueCount:0,next7Count:0,staleProperties:0,finance:{income:0,expense:0,balance:0}};
+  if(dbSource==="unconfigured") throw createError({statusCode:503,statusMessage:"پایگاه داده مرکز عملیات در دسترس نیست؛ آمار عملیات قابل بازیابی نیست."});
   const sql=await getSql();
   const [due,next7,stale] = await Promise.all([
     sql.query<Record<string,unknown>>(
