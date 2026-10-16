@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import assert from "node:assert/strict";
 import { chromium } from "playwright";
 
 function isValidCoordinateBounds(value) {
@@ -54,6 +53,30 @@ async function selectNeighborhood(page, name) {
     { timeout: 8_000 },
   );
   await waitForSearch(page);
+}
+
+async function waitForValidViewportUrl(page, timeout = 8_000) {
+  return page.waitForFunction(() => {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("map_bbox") || params.get("bbox");
+    if (!raw) return false;
+    const values = raw.split(",").map((part) => Number(part.trim()));
+    if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return false;
+    const [west, south, east, north] = values;
+    return west >= -180 && west <= 180 && east >= -180 && east <= 180 &&
+      south >= -90 && south <= 90 && north >= -90 && north <= 90 &&
+      west < east && south < north;
+  }, undefined, { timeout });
+}
+
+async function waitForFilterUrl(page, timeout = 8_000) {
+  return page.waitForFunction(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("transaction") === "sell" &&
+      params.get("type") === "apartment" &&
+      params.get("minArea") === "100" &&
+      params.get("maxPrice") === "13000000000";
+  }, undefined, { timeout });
 }
 
 async function readUrlState(page) {
@@ -124,6 +147,7 @@ try {
   await ranges.filter({ hasText: "متراژ" }).locator("input").first().fill("100");
   await ranges.filter({ hasText: "قیمت" }).locator("input").last().fill("13000000000");
   await waitForSearch(page);
+  await waitForFilterUrl(page).catch(() => undefined);
   state = await readUrlState(page);
   bounds = parseCoordinateBounds(state.mapBounds);
   check(
@@ -144,12 +168,16 @@ try {
   // Restore the price, then pan the map to select a custom viewport area.
   await ranges.filter({ hasText: "قیمت" }).locator("input").last().fill("13000000000");
   await waitForSearch(page);
+  await waitForFilterUrl(page).catch(() => undefined);
+  await page.locator(".pf-map-canvas").scrollIntoViewIfNeeded();
   const beforePanState = await readUrlState(page);
   const beforePan = parseCoordinateBounds(beforePanState.mapBounds);
   const mapBox = await page.locator(".pf-map-canvas").boundingBox();
   if (mapBox) {
-    const startX = mapBox.x + mapBox.width / 2;
-    const startY = mapBox.y + mapBox.height / 2;
+    // Avoid markers, neighborhood buttons, and map controls: those intentionally
+    // stop pointer propagation so a click cannot accidentally start a pan.
+    const startX = mapBox.x + 34;
+    const startY = mapBox.y + mapBox.height - 58;
     await page.mouse.move(startX, startY);
     await page.mouse.down();
     await page.mouse.move(startX + 60, startY + 28, { steps: 4 });
@@ -220,6 +248,7 @@ try {
   );
   await invalidPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: 15_000 });
   await waitForSearch(invalidPage);
+  await waitForValidViewportUrl(invalidPage).catch(() => undefined);
   const invalidState = await readUrlState(invalidPage);
   const invalidBounds = parseCoordinateBounds(invalidState.mapBounds);
   check("invalid URL coordinates are rejected and app remains usable", Boolean(response && response.status() < 400) && isValidCoordinateBounds(invalidBounds) && invalidErrors.length === 0, { state: invalidState, errors: invalidErrors });
@@ -235,6 +264,7 @@ try {
   });
   await mobile.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: 15_000 });
   await waitForSearch(mobile);
+  await waitForValidViewportUrl(mobile).catch(() => undefined);
   const mobileLayout = await mobile.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -242,7 +272,17 @@ try {
   check("mobile map displays without horizontal page overflow", Boolean(response && response.status() < 400) && mobileLayout.scrollWidth <= mobileLayout.clientWidth + 1, mobileLayout);
   const mobileBefore = parseCoordinateBounds((await readUrlState(mobile)).mapBounds);
   await mobile.getByRole("button", { name: "بزرگ‌نمایی نقشه" }).tap();
-  await mobile.waitForTimeout(450);
+  await mobile.waitForFunction((previousBounds) => {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("map_bbox") || params.get("bbox");
+    if (!raw) return false;
+    const next = raw.split(",").map((part) => Number(part.trim()));
+    if (next.length !== 4 || next.some((value) => !Number.isFinite(value))) return false;
+    const [west, south, east, north] = next;
+    if (!(west >= -180 && west <= 180 && east >= -180 && east <= 180 &&
+      south >= -90 && south <= 90 && north >= -90 && north <= 90 && west < east && south < north)) return false;
+    return Array.isArray(previousBounds) && next.some((value, index) => Math.abs(value - previousBounds[index]) > 0.000001);
+  }, mobileBefore ?? null, { timeout: 8_000 }).catch(() => undefined);
   const mobileAfter = parseCoordinateBounds((await readUrlState(mobile)).mapBounds);
   check("mobile map zoom/tap updates a valid viewport", isValidCoordinateBounds(mobileBefore) && isValidCoordinateBounds(mobileAfter) && mobileAfter.some((value, index) => Math.abs(value - mobileBefore[index]) > 0.000001), { mobileBefore, mobileAfter });
   check("desktop and mobile map interactions raised no uncaught client errors", pageErrors.length === 0 && mobileErrors.length === 0, [...pageErrors, ...mobileErrors]);
