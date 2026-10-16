@@ -488,12 +488,20 @@ try {
       !mapState.mapListText.includes("فایل تست نقشه محله دیگر") &&
       !mapState.mapListText.includes("فایل تست نقشه بدون مختصات");
 
-    // Clicking a property marker should select it instead of starting a pan.
+    // Selecting a marker opens a compact details popup, with a working route to the listing.
     const propertyMarker = mapPage.locator(".pf-map-marker").first();
     if (await propertyMarker.count()) {
       await propertyMarker.click();
       await mapPage.locator(".pf-map-marker.is-active").first().waitFor({ state: "visible", timeout: mapTimeoutMs }).catch(() => undefined);
-      mapInteractionCheck.propertyMarkerSelection = await mapPage.locator(".pf-map-marker.is-active").count() > 0;
+      const propertyPopup = mapPage.locator(".pf-map-property-popup");
+      await propertyPopup.waitFor({ state: "visible", timeout: mapTimeoutMs }).catch(() => undefined);
+      const popupVisible = await propertyPopup.isVisible().catch(() => false);
+      const detailLinkVisible = await propertyPopup.locator('a[href^="/properties/"]').count() > 0;
+      await propertyPopup.getByRole("button", { name: "بستن جزئیات فایل انتخاب‌شده" }).click().catch(() => undefined);
+      const popupClosed = await propertyPopup.count() === 0;
+      mapInteractionCheck.propertyMarkerSelection =
+        await mapPage.locator(".pf-map-marker.is-active").count() > 0 &&
+        popupVisible && detailLinkVisible && popupClosed;
     }
 
     // Tap a visible neighborhood extent away from the selected bbox. The
@@ -566,6 +574,18 @@ try {
     await mobileMapPage.waitForTimeout(300);
     mobileState = await readMapState(mobileMapPage);
     const mobileRefreshPreserved = closeBounds(mobileState.bounds, expectedMapBounds) && !mobileState.horizontalOverflow;
+    let mobilePopupInteraction = false;
+    const mobileMarker = mobileMapPage.locator(".pf-map-marker").first();
+    if (await mobileMarker.count()) {
+      await mobileMarker.tap().catch(() => undefined);
+      const mobilePopup = mobileMapPage.locator(".pf-map-property-popup");
+      await mobilePopup.waitFor({ state: "visible", timeout: mapTimeoutMs }).catch(() => undefined);
+      const popupVisible = await mobilePopup.isVisible().catch(() => false);
+      const detailLinkVisible = await mobilePopup.locator('a[href^="/properties/"]').count() > 0;
+      await mobilePopup.getByRole("button", { name: "بستن جزئیات فایل انتخاب‌شده" }).tap().catch(() => undefined);
+      const popupClosed = await mobilePopup.count() === 0;
+      mobilePopupInteraction = popupVisible && detailLinkVisible && popupClosed;
+    }
     const mobileCanvas = mobileMapPage.locator(".pf-map-canvas");
     await mobileCanvas.scrollIntoViewIfNeeded();
     const mobileRect = await mobileCanvas.boundingBox();
@@ -659,6 +679,7 @@ try {
         mobileBboxSaved,
         mobileViewportContainsSavedBounds,
         mobileRefreshPreserved,
+        mobilePopupInteraction,
         mobilePanChangedBounds,
         mobileResizeSync,
         rect: { x: mobileRect.x, y: mobileRect.y, width: mobileRect.width, height: mobileRect.height },
@@ -675,6 +696,7 @@ try {
       mobileBboxSaved &&
       mobileViewportContainsSavedBounds &&
       mobileRefreshPreserved &&
+      mobilePopupInteraction &&
       mobilePanChangedBounds &&
       mapInteractionCheck.mobileDetails?.mobileResizeSync === true;
 
