@@ -18,14 +18,17 @@ export const MAX_MAP_ZOOM = 18;
 export const WEB_MERCATOR_MAX_LATITUDE = 85.0511287798066;
 export const DEFAULT_MAP_VIEW: MapView = { latitude: 32.655, longitude: 51.668, zoom: 12 };
 
+function finiteCoordinate(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = Number(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function isValidWgs84Point(latitude: unknown, longitude: unknown): boolean {
-  if (
-    latitude === null || latitude === undefined || latitude === "" ||
-    longitude === null || longitude === undefined || longitude === ""
-  ) return false;
-  const lat = typeof latitude === "number" ? latitude : Number(latitude);
-  const lng = typeof longitude === "number" ? longitude : Number(longitude);
-  return Number.isFinite(lat) && Number.isFinite(lng) &&
+  const lat = finiteCoordinate(latitude);
+  const lng = finiteCoordinate(longitude);
+  return lat !== null && lng !== null &&
     lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
 }
 
