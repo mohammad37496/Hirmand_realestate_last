@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeftRight,
@@ -2024,7 +2025,8 @@ function PropertiesIndexPage() {
             )}
           </div>
         </div>
-        {neighborhoodPickerOpen ? (
+        {neighborhoodPickerOpen && typeof document !== "undefined"
+          ? createPortal(
           <div
             className="pf-neighborhood-dialog-backdrop"
             role="presentation"
@@ -2085,8 +2087,10 @@ function PropertiesIndexPage() {
                 <button type="button" onClick={() => setNeighborhoodPickerOpen(false)}>انجام شد</button>
               </footer>
             </section>
-          </div>
-        ) : null}
+          </div>,
+          document.body,
+        )
+          : null}
       </main>
     </SiteChrome>
   );
