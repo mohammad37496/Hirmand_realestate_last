@@ -152,6 +152,38 @@ const musicAdminRoute = await readFile(
   "utf8",
 );
 const dbHelper = await readFile(new URL("../src/lib/db.ts", import.meta.url), "utf8");
+const adminConsultantTargetsRoute = await readFile(
+  new URL("../server/routes/api/admin-consultant-targets.post.ts", import.meta.url),
+  "utf8",
+);
+const adminPropertyPerformanceRoute = await readFile(
+  new URL("../server/routes/api/admin-property-performance.post.ts", import.meta.url),
+  "utf8",
+);
+const adminCampaignPerformanceRoute = await readFile(
+  new URL("../server/routes/api/admin-campaign-performance.post.ts", import.meta.url),
+  "utf8",
+);
+const adminConsultantPerformanceRoute = await readFile(
+  new URL("../server/routes/api/admin-consultant-performance.get.ts", import.meta.url),
+  "utf8",
+);
+const adminNeighborhoodDemandRoute = await readFile(
+  new URL("../server/routes/api/admin-neighborhood-demand.post.ts", import.meta.url),
+  "utf8",
+);
+const adminLeadAssignmentRoute = await readFile(
+  new URL("../server/routes/api/admin-lead-assignment.post.ts", import.meta.url),
+  "utf8",
+);
+const adminLeadDedupeRoute = await readFile(
+  new URL("../server/routes/api/admin-lead-dedupe.post.ts", import.meta.url),
+  "utf8",
+);
+const adminPropertyPriceHistoryRoute = await readFile(
+  new URL("../server/routes/api/admin-property-price-history.post.ts", import.meta.url),
+  "utf8",
+);
 
 test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
@@ -269,4 +301,23 @@ test("customer property creation and publication use transactions for related re
   assert.match(adminCustomerPropertySubmissionRoute, /withSqlTransaction\(async \(tx\)/);
   assert.match(adminCustomerPropertySubmissionRoute, /status='pending' returning id/);
   assert.doesNotMatch(adminCustomerPropertySubmissionRoute, /events = await sql\.query[\s\S]{0,300}\.catch\(\(\) => \[\]/);
+});
+
+
+test("additional property, sales, CRM, and consultant reports do not return fake empty data on DB outage", () => {
+  for (const [name, source] of [
+    ["consultant targets", adminConsultantTargetsRoute],
+    ["property performance", adminPropertyPerformanceRoute],
+    ["campaign performance", adminCampaignPerformanceRoute],
+    ["consultant performance", adminConsultantPerformanceRoute],
+    ["neighborhood demand", adminNeighborhoodDemandRoute],
+    ["lead assignment", adminLeadAssignmentRoute],
+    ["lead dedupe", adminLeadDedupeRoute],
+    ["property price history", adminPropertyPriceHistoryRoute],
+  ]) {
+    assert.match(source, /statusCode\s*:\s*503/, name + " should return 503 while database data is unavailable");
+  }
+  assert.doesNotMatch(adminLeadAssignmentRoute, /consultant query unavailable/);
+  assert.doesNotMatch(adminLeadDedupeRoute, /query unavailable", error\)/);
+  assert.doesNotMatch(adminCampaignPerformanceRoute, /quality query unavailable/);
 });
