@@ -27,6 +27,30 @@ const adminFinanceRoute = await readFile(
   new URL("../server/routes/api/admin-finance.post.ts", import.meta.url),
   "utf8",
 );
+const adminDealsRoute = await readFile(
+  new URL("../server/routes/api/admin-deals.post.ts", import.meta.url),
+  "utf8",
+);
+const adminPropertyLifecycleRoute = await readFile(
+  new URL("../server/routes/api/admin-property-lifecycle.post.ts", import.meta.url),
+  "utf8",
+);
+const adminPropertyExpiryRoute = await readFile(
+  new URL("../server/routes/api/admin-property-expiry.post.ts", import.meta.url),
+  "utf8",
+);
+const adminVisitFeedbackRoute = await readFile(
+  new URL("../server/routes/api/admin-visit-feedback.post.ts", import.meta.url),
+  "utf8",
+);
+const propertyQuestionsRoute = await readFile(
+  new URL("../server/routes/api/property-questions.post.ts", import.meta.url),
+  "utf8",
+);
+const propertyWatchTargetRoute = await readFile(
+  new URL("../server/routes/api/property-watch-target.post.ts", import.meta.url),
+  "utf8",
+);
 const propertyViewingSlotsRoute = await readFile(
   new URL("../server/routes/api/property-viewing-slots.get.ts", import.meta.url),
   "utf8",
@@ -109,6 +133,12 @@ test("database-backed CRM, finance, workspace, and property APIs fail explicitly
   for (const [name, source] of [
     ["leads-admin", leadsAdminRoute],
     ["admin-finance", adminFinanceRoute],
+    ["admin deals", adminDealsRoute],
+    ["property lifecycle", adminPropertyLifecycleRoute],
+    ["property expiry", adminPropertyExpiryRoute],
+    ["visit feedback", adminVisitFeedbackRoute],
+    ["property questions", propertyQuestionsRoute],
+    ["property watch target", propertyWatchTargetRoute],
     ["workspace GET", customerWorkspaceGetRoute],
     ["workspace POST", customerWorkspacePostRoute],
     ["property viewing slots", propertyViewingSlotsRoute],
