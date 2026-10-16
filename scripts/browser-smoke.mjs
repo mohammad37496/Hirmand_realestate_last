@@ -259,6 +259,8 @@ try {
     zoomCanvasChanged: false,
     zoomBoundsChanged: false,
     propertyMarkerSelection: false,
+    invalidBoundsFailClosed: false,
+    emptySpatialFilterHandled: false,
     spatialFilterDetails: null,
     urlAfterZoomClick: null,
     browserErrors: [],
@@ -302,7 +304,7 @@ try {
         } : null;
       })(),
       listingState: (() => {
-        const element = document.querySelector(".properties-page.pf-page");
+        const element = document.querySelector(".pf-page");
         return element ? {
           bounds: element.getAttribute("data-active-map-bounds"),
           neighborhood: element.getAttribute("data-active-neighborhood"),
@@ -317,6 +319,8 @@ try {
   });
   let mapPage = null;
   let mobileMapPage = null;
+  let invalidBoundsPage = null;
+  let emptyBoundsPage = null;
   try {
     mapPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     mapPage.on("console", (message) => {
@@ -356,7 +360,7 @@ try {
     // combined bbox + sale + minimum price + maximum area query.
     await mapPage.waitForFunction(
       () => {
-        const root = document.querySelector(".properties-page.pf-page");
+        const root = document.querySelector(".pf-page");
         return root?.getAttribute("data-list-result-count") === "2" ||
           document.body.innerText.includes("جستجوی فایل‌ها انجام نشد");
       },
@@ -392,7 +396,7 @@ try {
     await mapPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
     await mapPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
     await mapPage.waitForFunction(
-      () => document.querySelector(".properties-page.pf-page")?.getAttribute("data-list-result-count") === "2" ||
+      () => document.querySelector(".pf-page")?.getAttribute("data-list-result-count") === "2" ||
         document.body.innerText.includes("جستجوی فایل‌ها انجام نشد"),
       null,
       { timeout: mapTimeoutMs },
@@ -564,12 +568,72 @@ try {
     }
     mapInteractionCheck.mobileRefreshAndPan =
       mobileNoOverflow && mobileBboxSaved && mobileRefreshPreserved && mobilePanChangedBounds;
+
+    // Invalid URL bounds must fail closed, not silently become an unbounded query.
+    invalidBoundsPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const invalidBoundsUrl = new URL("/properties", url);
+    invalidBoundsUrl.search = new URLSearchParams({
+      map_bbox: "51.7,32.7,51.6,32.8",
+      bbox: "51.7,32.7,51.6,32.8",
+      transaction: "sell",
+    }).toString();
+    await invalidBoundsPage.goto(invalidBoundsUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await invalidBoundsPage.locator('[data-map-bounds-error="invalid"]').waitFor({ state: "visible", timeout: mapTimeoutMs });
+    await invalidBoundsPage.waitForFunction(
+      () => document.querySelector(".pf-page")?.getAttribute("data-list-result-count") === "0",
+      null,
+      { timeout: mapTimeoutMs },
+    );
+    const invalidBoundsState = await invalidBoundsPage.evaluate(() => ({
+      count: document.querySelector(".pf-page")?.getAttribute("data-list-result-count"),
+      alert: Boolean(document.querySelector('[data-map-bounds-error="invalid"]')),
+      text: document.querySelector(".pf-map-list")?.innerText ?? "",
+    }));
+    mapInteractionCheck.invalidBoundsFailClosed =
+      invalidBoundsState.count === "0" &&
+      invalidBoundsState.alert &&
+      !invalidBoundsState.text.includes("فایل تست نقشه داخل محدوده") &&
+      !invalidBoundsState.text.includes("فایل تست نقشه خارج محدوده");
+
+    // A valid but empty viewport must return zero rows after the server query,
+    // rather than leave the prior/unfiltered list rendered.
+    emptyBoundsPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const emptyBoundsUrl = new URL("/properties", url);
+    emptyBoundsUrl.search = new URLSearchParams({
+      map_bbox: "49.1,29.1,49.2,29.2",
+      bbox: "49.1,29.1,49.2,29.2",
+      transaction: "sell",
+    }).toString();
+    await emptyBoundsPage.goto(emptyBoundsUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await emptyBoundsPage.waitForFunction(
+      () => document.querySelector(".pf-page")?.getAttribute("data-list-loading") === "true",
+      null,
+      { timeout: mapTimeoutMs },
+    );
+    await emptyBoundsPage.waitForFunction(
+      () => document.querySelector(".pf-page")?.getAttribute("data-list-loading") === "false" &&
+        document.querySelector(".pf-page")?.getAttribute("data-list-result-count") === "0",
+      null,
+      { timeout: mapTimeoutMs },
+    );
+    const emptyBoundsState = await emptyBoundsPage.evaluate(() => ({
+      count: document.querySelector(".pf-page")?.getAttribute("data-list-result-count"),
+      text: document.querySelector(".pf-map-list")?.innerText ?? "",
+      filterError: document.body.innerText.includes("جستجوی فایل‌ها انجام نشد"),
+    }));
+    mapInteractionCheck.emptySpatialFilterHandled =
+      emptyBoundsState.count === "0" &&
+      !emptyBoundsState.filterError &&
+      !emptyBoundsState.text.includes("فایل تست نقشه داخل محدوده") &&
+      !emptyBoundsState.text.includes("فایل تست نقشه خارج محدوده");
   } catch (error) {
     mapInteractionCheck.ok = false;
     mapInteractionCheck.errors.push(String(error?.message || error));
   } finally {
     await mapPage?.close().catch(() => undefined);
     await mobileMapPage?.close().catch(() => undefined);
+    await invalidBoundsPage?.close().catch(() => undefined);
+    await emptyBoundsPage?.close().catch(() => undefined);
   }
   mapInteractionCheck.ok =
     mapInteractionCheck.ok &&
@@ -582,7 +646,9 @@ try {
     mapInteractionCheck.neighborhoodSelection &&
     mapInteractionCheck.propertyMarkerSelection &&
     mapInteractionCheck.neighborhoodTap &&
-    mapInteractionCheck.mobileRefreshAndPan;
+    mapInteractionCheck.mobileRefreshAndPan &&
+    mapInteractionCheck.invalidBoundsFailClosed &&
+    mapInteractionCheck.emptySpatialFilterHandled;
 
   const apiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   let musicApiCheck;
