@@ -365,6 +365,7 @@ export function PropertiesMap({
           key={area.key}
           className={`pf-map-neighborhood-box${area.selected ? " is-active" : ""}`}
           style={{ left: area.left, top: area.top, width: area.width, height: area.height }}
+          data-neighborhood-name={area.name}
           aria-hidden="true"
         >
           {area.width >= 72 && area.height >= 25 ? <span>{area.name}</span> : null}
