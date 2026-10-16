@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
   if (dbSource === "unconfigured") {
-    return { groups: [], total: 0 };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده بررسی درخواست‌های تکراری CRM در دسترس نیست." });
   }
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
