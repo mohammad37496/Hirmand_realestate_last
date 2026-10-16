@@ -7,13 +7,16 @@ export function getOrCreateInFlight<K, V>(
   const existing = requests.get(key);
   if (existing) return existing;
 
-  let request!: Promise<V>;
-  request = Promise.resolve()
-    .then(create)
-    .finally(() => {
-      // Do not delete a newer request if the same key was replaced meanwhile.
-      if (requests.get(key) === request) requests.delete(key);
-    });
+  const request = Promise.resolve().then(create);
   requests.set(key, request);
+
+  // Attach cleanup without replacing the promise shared by all callers.
+  // The extra catch handles the promise returned by finally when request rejects.
+  void request
+    .finally(() => {
+      if (requests.get(key) === request) requests.delete(key);
+    })
+    .catch(() => undefined);
+
   return request;
 }
