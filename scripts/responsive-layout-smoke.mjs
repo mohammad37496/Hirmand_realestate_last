@@ -17,6 +17,10 @@ const routes = [
   "/guides",
   "/valuation",
   "/tools",
+  "/tools/commission",
+  "/tools/deposit",
+  "/tools/loan",
+  "/tools/rahn-rent",
   "/budget-match",
   "/smart-search",
   "/consultants",
@@ -47,6 +51,8 @@ const screenshotRoutes = new Set([
   "/areas",
   "/areas/شهرک-ولیعصر",
   "/submit-property",
+  "/tools/commission",
+  "/tools/rahn-rent",
   "/admin",
 ]);
 const screenshotWidths = new Set([320, 390, 768, 1024]);
