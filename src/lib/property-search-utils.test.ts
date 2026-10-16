@@ -16,7 +16,7 @@ test("normalizes Persian, Arabic and English digits and grouping separators", ()
 
 test("canonicalizes Persian/Arabic letter variants, diacritics and ZWNJ", () => {
   assert.equal(normalizeSearchText("كوى ولي‌عصر"), "کوی ولیعصر");
-  assert.equal(normalizeSearchText("محلهٔ يزدآباد"), "محلهٔ یزدآباد");
+  assert.equal(normalizeSearchText("محلهٔ يزدآباد"), "محله یزدآباد");
   assert.equal(compactSearchText("شهرک ولی‌عصر"), compactSearchText("شهرک ولیعصر"));
   assert.equal(compactSearchText("خيابان آزادی"), compactSearchText("خیابان آزادی"));
 });
