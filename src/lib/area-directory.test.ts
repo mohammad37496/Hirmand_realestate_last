@@ -21,6 +21,42 @@ test("bundled Divar Isfahan snapshot has complete, valid neighborhood geometry",
   }
 });
 
+test("null or malformed Divar centers are omitted rather than coerced to (0, 0)", () => {
+  const groups = mergeNeighborhoodGroups(
+    [{ title: "Known", items: [{ name: "محله آزمایشی" }] }],
+    [
+      {
+        id: 9001,
+        name: "محله آزمایشی",
+        slug: "sample-neighborhood",
+        default_location: {
+          latitude: null as unknown as number,
+          longitude: null as unknown as number,
+        },
+        bbox: [51.6, 32.5, 51.8, 32.7],
+      },
+      {
+        id: 9002,
+        name: "محله اضافی آزمایشی",
+        slug: "extra-sample",
+        default_location: {
+          latitude: NaN,
+          longitude: Infinity,
+        },
+        bbox: [51.6, 32.5, 51.8, 32.7],
+      },
+    ],
+  );
+  const matched = groups.flatMap((group) => group.items).find((item) => item.name === "محله آزمایشی");
+  const extra = groups.flatMap((group) => group.items).find((item) => item.name === "محله اضافی آزمایشی");
+  assert.ok(matched?.divarDistrictId, "known neighborhood remains linked to its source district");
+  assert.equal(matched?.lat, undefined);
+  assert.equal(matched?.lng, undefined);
+  assert.ok(extra?.divarDistrictId, "extra neighborhood remains selectable by ID");
+  assert.equal(extra?.lat, undefined);
+  assert.equal(extra?.lng, undefined);
+});
+
 test("Persian name normalization handles ZWNJ and Arabic letter variants", () => {
   assert.equal(normalizeAreaDirectoryKey("شهرک ولی‌عصر"), normalizeAreaDirectoryKey("شهرک ولیعصر"));
   assert.equal(normalizeAreaDirectoryKey("كوى"), normalizeAreaDirectoryKey("کوی"));
