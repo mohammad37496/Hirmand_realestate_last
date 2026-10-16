@@ -19,6 +19,43 @@ const publicLeadActionsRoute = await readFile(
   "utf8",
 );
 
+const leadsAdminRoute = await readFile(
+  new URL("../server/routes/api/leads-admin.post.ts", import.meta.url),
+  "utf8",
+);
+const adminFinanceRoute = await readFile(
+  new URL("../server/routes/api/admin-finance.post.ts", import.meta.url),
+  "utf8",
+);
+const propertyViewingSlotsRoute = await readFile(
+  new URL("../server/routes/api/property-viewing-slots.get.ts", import.meta.url),
+  "utf8",
+);
+const propertyWatchRoute = await readFile(
+  new URL("../server/routes/api/property-watch.post.ts", import.meta.url),
+  "utf8",
+);
+const adminDashboardRoute = await readFile(
+  new URL("../server/routes/api/admin-dashboard.post.ts", import.meta.url),
+  "utf8",
+);
+const adminDataHealthRoute = await readFile(
+  new URL("../server/routes/api/admin-data-health.post.ts", import.meta.url),
+  "utf8",
+);
+const customerWorkspaceGetRoute = await readFile(
+  new URL("../server/routes/api/customer-workspace.get.ts", import.meta.url),
+  "utf8",
+);
+const customerWorkspacePostRoute = await readFile(
+  new URL("../server/routes/api/customer-workspace.post.ts", import.meta.url),
+  "utf8",
+);
+const ownerPropertyStatusRoute = await readFile(
+  new URL("../server/routes/api/owner-property-status.post.ts", import.meta.url),
+  "utf8",
+);
+
 test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
   assert.match(leadsRoute, /consumeAdminAttempt\(["']public-lead:["']\s*\+\s*clientFingerprint\(event\)\)/);
@@ -53,4 +90,31 @@ test("public lead actions check origin and rate-limit capability-token operation
   const throttleIndex = publicLeadActionsRoute.indexOf('consumeAdminAttempt("public-lead-action:"');
   const databaseCheckIndex = publicLeadActionsRoute.indexOf('dbSource === "unconfigured"');
   assert.ok(throttleIndex >= 0 && databaseCheckIndex > throttleIndex);
+});
+
+
+test("database-backed CRM, finance, workspace, and property APIs fail explicitly without a database", () => {
+  for (const [name, source] of [
+    ["leads-admin", leadsAdminRoute],
+    ["admin-finance", adminFinanceRoute],
+    ["workspace GET", customerWorkspaceGetRoute],
+    ["workspace POST", customerWorkspacePostRoute],
+    ["property viewing slots", propertyViewingSlotsRoute],
+    ["property watch", propertyWatchRoute],
+    ["owner property status", ownerPropertyStatusRoute],
+  ]) {
+    assert.match(source, /statusCode\s*:\s*503/, name + " must use HTTP 503");
+  }
+  assert.doesNotMatch(leadsAdminRoute, /if\s*\(dbSource\s*===\s*["']unconfigured["']\)\s*return\s*\{\s*leads\s*:\s*\[\]/);
+  assert.doesNotMatch(adminFinanceRoute, /summary\s*:\s*\{\s*income\s*:\s*0,\s*expense\s*:\s*0,\s*balance\s*:\s*0/);
+  assert.doesNotMatch(propertyViewingSlotsRoute, /success\s*:\s*true,\s*occupiedTimes\s*:\s*\[\]/);
+});
+
+test("admin dashboard and data-health checks do not turn SQL failures into fake empty/healthy results", () => {
+  assert.match(adminDashboardRoute, /statusCode\s*:\s*503/);
+  assert.doesNotMatch(adminDashboardRoute, /return\s*\[\s*\{\s*\}\s*\]/);
+  assert.doesNotMatch(adminDashboardRoute, /visitor stats unavailable/);
+  assert.match(adminDataHealthRoute, /statusCode\s*:\s*503/);
+  assert.doesNotMatch(adminDataHealthRoute, /\.catch\(\(\)\s*=>\s*\[\s*\]\)/);
+  assert.doesNotMatch(adminDataHealthRoute, /summary\s*:\s*\{\s*critical\s*:\s*0,\s*warning\s*:\s*0,\s*info\s*:\s*0,\s*open\s*:\s*0/);
 });
