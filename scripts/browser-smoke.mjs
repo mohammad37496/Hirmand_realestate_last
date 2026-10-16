@@ -256,6 +256,7 @@ try {
     neighborhoodSelection: false,
     neighborhoodTap: false,
     mobileRefreshAndPan: false,
+    mobileDetails: null,
     zoomCanvasChanged: false,
     zoomBoundsChanged: false,
     propertyMarkerSelection: false,
@@ -547,10 +548,49 @@ try {
       const x = mobileRect.x + mobileRect.width * 0.25;
       const y = mobileRect.y + mobileRect.height * 0.72;
       const priorBounds = mobileState.bounds;
-      await mobileMapPage.mouse.move(x, y);
-      await mobileMapPage.mouse.down();
-      await mobileMapPage.mouse.move(x + 24, y + 18, { steps: 4 });
-      await mobileMapPage.mouse.up();
+      const hitTarget = await mobileMapPage.evaluate(({ x, y }) => {
+        const element = document.elementFromPoint(x, y);
+        return element ? {
+          tag: element.tagName.toLowerCase(),
+          className: typeof element.className === "string" ? element.className : "",
+          insideCanvas: Boolean(element.closest(".pf-map-canvas")),
+        } : null;
+      }, { x, y });
+
+      // Dispatch a real Chromium touch gesture instead of a mouse drag on a
+      // mobile-emulated page. This exercises the same pointer path as a finger.
+      const touchSession = await mobileMapPage.context().newCDPSession(mobileMapPage);
+      const touchPoint = (tx, ty) => ({
+        id: 1,
+        x: Math.round(tx),
+        y: Math.round(ty),
+        radiusX: 3,
+        radiusY: 3,
+        force: 1,
+      });
+      try {
+        await touchSession.send("Input.dispatchTouchEvent", {
+          type: "touchStart",
+          touchPoints: [touchPoint(x, y)],
+          modifiers: 0,
+        });
+        for (let step = 1; step <= 4; step += 1) {
+          await touchSession.send("Input.dispatchTouchEvent", {
+            type: "touchMove",
+            touchPoints: [touchPoint(x + 40 * step / 4, y + 28 * step / 4)],
+            modifiers: 0,
+          });
+          await mobileMapPage.waitForTimeout(35);
+        }
+        await touchSession.send("Input.dispatchTouchEvent", {
+          type: "touchEnd",
+          touchPoints: [],
+          modifiers: 0,
+        });
+      } finally {
+        await touchSession.detach().catch(() => undefined);
+      }
+
       await mobileMapPage.waitForFunction(
         (previous) => {
           const params = new URLSearchParams(window.location.search);
@@ -561,10 +601,21 @@ try {
             next.some((value, index) => Math.abs(value - previous[index]) > 1e-5);
         },
         priorBounds,
-        { timeout: timeoutMs },
+        { timeout: mapTimeoutMs },
       ).catch(() => undefined);
       const afterPan = await readMapState(mobileMapPage);
       mobilePanChangedBounds = !closeBounds(afterPan.bounds, priorBounds, 1e-10);
+      mapInteractionCheck.mobileDetails = {
+        mobileNoOverflow,
+        mobileBboxSaved,
+        mobileRefreshPreserved,
+        mobilePanChangedBounds,
+        rect: { x: mobileRect.x, y: mobileRect.y, width: mobileRect.width, height: mobileRect.height },
+        hitTarget,
+        beforeBounds: priorBounds,
+        afterBounds: afterPan.bounds,
+        afterCanvas: afterPan.mapCanvas,
+      };
     }
     mapInteractionCheck.mobileRefreshAndPan =
       mobileNoOverflow && mobileBboxSaved && mobileRefreshPreserved && mobilePanChangedBounds;
