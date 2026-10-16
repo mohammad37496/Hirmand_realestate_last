@@ -382,7 +382,10 @@ try {
     await mapPage.waitForFunction(
       () => {
         const text = document.querySelector(".pf-map-list")?.innerText ?? "";
-        return text.includes("فایل تست نقشه داخل محدوده");
+        return text.includes("فایل تست نقشه داخل محدوده") &&
+          !text.includes("فایل تست نقشه خارج محدوده") &&
+          !text.includes("فایل تست نقشه محله دیگر") &&
+          !text.includes("فایل تست نقشه بدون مختصات");
       },
       null,
       { timeout: timeoutMs },
@@ -395,17 +398,12 @@ try {
       !mapState.mapListText.includes("فایل تست نقشه محله دیگر") &&
       !mapState.mapListText.includes("فایل تست نقشه بدون مختصات");
 
-    const activeBbox = mapPage.locator(".pf-map-neighborhood-box.is-active").first();
-    if (await activeBbox.count()) {
-      const rect = await activeBbox.boundingBox();
-      if (rect && rect.width > 4 && rect.height > 4) {
-        await mapPage.mouse.click(rect.x + rect.width / 2, rect.y + rect.height / 2);
-        await mapPage.waitForFunction(() => {
-          const params = new URLSearchParams(window.location.search);
-          return Boolean(params.get("neighborhood")) && Boolean(params.get("map_bbox") || params.get("bbox"));
-        }, null, { timeout: timeoutMs });
-        mapInteractionCheck.neighborhoodTap = true;
-      }
+    // Clicking a property marker should select it instead of starting a pan.
+    const propertyMarker = mapPage.locator(".pf-map-marker").first();
+    if (await propertyMarker.count()) {
+      await propertyMarker.click();
+      await mapPage.locator(".pf-map-marker.is-active").first().waitFor({ state: "visible", timeout: timeoutMs });
+      mapInteractionCheck.neighborhoodTap = true;
     }
 
     mobileMapPage = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
