@@ -425,11 +425,14 @@ try {
     mobileState = await readMapState(mobileMapPage);
     const mobileRefreshPreserved = closeBounds(mobileState.bounds, expectedMapBounds) && !mobileState.horizontalOverflow;
     const mobileCanvas = mobileMapPage.locator(".pf-map-canvas");
+    await mobileCanvas.scrollIntoViewIfNeeded();
     const mobileRect = await mobileCanvas.boundingBox();
     let mobilePanChangedBounds = false;
     if (mobileRect && mobileRect.width > 100 && mobileRect.height > 100 && Array.isArray(mobileState.bounds)) {
-      const x = mobileRect.x + mobileRect.width / 2;
-      const y = mobileRect.y + mobileRect.height / 2;
+      // Start away from the center marker and the floating map controls, so the
+      // pointer sequence targets the map surface on both touch-sized layouts.
+      const x = mobileRect.x + mobileRect.width * 0.25;
+      const y = mobileRect.y + mobileRect.height * 0.72;
       const priorBounds = mobileState.bounds;
       await mobileMapPage.mouse.move(x, y);
       await mobileMapPage.mouse.down();
