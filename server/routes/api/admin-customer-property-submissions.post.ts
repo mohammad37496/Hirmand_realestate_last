@@ -213,26 +213,34 @@ export default defineEventHandler(async (event) => {
     }
 
     const reviewNote = typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0, 1200) : "";
-    const targets = await sql.query<{ id: string; lead_id: string | null }>(
-      "select id,lead_id from customer_property_submissions where id = any($1::text[]) and status='pending'",
-      [ids],
-    );
-    if (!targets.length) return { success: true, updatedCount: 0 };
-    await sql.query(
-      "update customer_property_submissions set status='rejected', review_note=$2, reviewed_at=current_timestamp, updated_at=current_timestamp where id = any($1::text[]) and status='pending'",
-      [ids, reviewNote],
-    );
-    for (const target of targets) {
-      if (target.lead_id) {
-        await sql.query("update leads set status='closed', updated_at=current_timestamp where id=$1", [target.lead_id]).catch(() => {});
-        await sql.query(
-          "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
-          [target.lead_id, "ثبت ملک رد شد", reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.", JSON.stringify({ submissionId: target.id, bulk: true })],
-        ).catch(() => {});
+    const updatedCount = await withSqlTransaction(async (tx) => {
+      const targets = await tx.query<{ id: string; lead_id: string | null }>(
+        "select id,lead_id from customer_property_submissions where id = any($1::text[]) and status='pending' for update",
+        [ids],
+      );
+      if (!targets.length) return 0;
+      const updated = await tx.query<{ id: string }>(
+        "update customer_property_submissions set status='rejected', review_note=$2, reviewed_at=current_timestamp, updated_at=current_timestamp where id = any($1::text[]) and status='pending' returning id",
+        [targets.map((target) => target.id), reviewNote],
+      );
+      const updatedIds = new Set(updated.map((row) => String(row.id)));
+      const changed = targets.filter((target) => updatedIds.has(String(target.id)));
+      for (const target of changed) {
+        if (target.lead_id) {
+          await tx.query("update leads set status='closed', updated_at=current_timestamp where id=$1", [target.lead_id]);
+          await tx.query(
+            "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
+            [target.lead_id, "ثبت ملک رد شد", reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.", JSON.stringify({ submissionId: target.id, bulk: true })],
+          );
+        }
+        await tx.query(
+          "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'reject',$3,$4::jsonb)",
+          [crypto.randomUUID(), target.id, (reviewNote || "درخواست ثبت ملک رد شد.").slice(0, 1200), JSON.stringify({ bulk: true })],
+        );
       }
-      await logReviewEvent(sql, target.id, "reject", reviewNote || "درخواست ثبت ملک رد شد.", { bulk: true });
-    }
-    return { success: true, updatedCount: targets.length, status: "rejected" };
+      return changed.length;
+    });
+    return { success: true, updatedCount, status: "rejected" };
   }
 
   if (action === "export") {
