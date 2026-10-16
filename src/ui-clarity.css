@@ -1346,13 +1346,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
     text-rendering:optimizeLegibility!important;
     -webkit-text-size-adjust:100%!important;
   }
+  /* Keep the real document overflow measurable. Do not hide layout bugs at
+     the body or page-wrapper level; clip only the visual element that needs it. */
   body{
-    overflow-x:hidden!important;
-    overscroll-behavior-x:none!important;
     background:var(--paper)!important;
-  }
-  .site-home{
-    overflow:clip!important;
   }
 
   /* First screen: less empty hero height, stronger search focus. */
