@@ -59,7 +59,12 @@ export function pointWithinBounds(
   longitude: unknown,
   bounds: unknown,
 ): boolean {
-  if (!isValidGeoPoint(latitude, longitude) || !isValidCoordinateBounds(bounds)) return false;
+  if (
+    !isValidGeoPoint(latitude, longitude) ||
+    typeof latitude !== "number" ||
+    typeof longitude !== "number" ||
+    !isValidCoordinateBounds(bounds)
+  ) return false;
   const [west, south, east, north] = bounds;
   return longitude >= west && longitude <= east && latitude >= south && latitude <= north;
 }
