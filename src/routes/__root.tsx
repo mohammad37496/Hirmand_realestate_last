@@ -32,6 +32,7 @@ import propertyDetailPolishCss from "../property-detail-polish.css?url";
 import homepagePolishCss from "../components/hirmand/homepage-polish.css?url";
 import propertiesDivarRedesignCss from "../properties-divar-redesign.css?url";
 import propertiesFiltersRedesignCss from "../properties-filters-redesign.css?url";
+import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -84,6 +85,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: homepagePolishCss },
       { rel: "stylesheet", href: propertiesDivarRedesignCss },
       { rel: "stylesheet", href: propertiesFiltersRedesignCss },
+      { rel: "stylesheet", href: responsiveHardeningCss },
     ],
   }),
   component: RootDocument,
