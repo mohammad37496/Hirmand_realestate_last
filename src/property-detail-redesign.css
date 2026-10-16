@@ -480,9 +480,11 @@ body:has(.property-detail-page) {
   color: var(--fg) !important;
   font-size: clamp(1.35rem, 1.08rem + .7vw, 1.92rem) !important;
   line-height: 1.55 !important;
-  letter-spacing: -.025em !important;
+  letter-spacing: normal !important;
   font-weight: 850 !important;
-  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  hyphens: none !important;
 }
 
 .property-detail-page .property-detail-meta {
