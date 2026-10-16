@@ -172,18 +172,6 @@ export function PropertiesMap({
   const worldLeft = visualCenter.x - size.width / 2;
   const worldTop = visualCenter.y - size.height / 2;
 
-  const viewportBounds = useMemo(
-    () => viewportBoundsFromView(view, size.width, size.height),
-    [view, size.width, size.height],
-  );
-
-  useEffect(() => {
-    // Only explicit pan/zoom creates a new map-area filter. Initial fit, resize,
-    // and resets must not replace a saved neighborhood bbox with the screen extent.
-    if (!viewportReady || !sizeReady || !userChangedViewRef.current || !viewportBounds) return;
-    onViewportChange?.(viewportBounds);
-  }, [viewportReady, sizeReady, viewportBounds, onViewportChange]);
-
   const tiles = useMemo<Tile[]>(() => {
     const totalTiles = 2 ** view.zoom;
     const startX = Math.floor(worldLeft / TILE_SIZE);
@@ -298,7 +286,12 @@ export function PropertiesMap({
     if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
       userChangedViewRef.current = true;
       const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
-      setView((current) => ({ ...current, ...nextCenter }));
+      const nextView = { ...view, ...nextCenter };
+      setView(nextView);
+      // Commit the same bounds as the state transition, instead of relying on a
+      // follow-up render effect that can be interleaved with reset/restore state.
+      const nextBounds = viewportBoundsFromView(nextView, size.width, size.height);
+      if (nextBounds) onViewportChange?.(nextBounds);
     } else {
       // Neighborhood extents are visual bbox overlays, not interactive layers:
       // resolve a tap to the smallest visible bbox so map dragging remains available.
@@ -313,15 +306,18 @@ export function PropertiesMap({
       }
     }
     setDragOffset({ x: 0, y: 0 });
-  }, [centerWorld.x, centerWorld.y, view.zoom, onSelectNeighborhood]);
+  }, [centerWorld.x, centerWorld.y, view, size.width, size.height, onViewportChange, onSelectNeighborhood]);
 
   const zoomBy = useCallback((amount: number) => {
     userChangedViewRef.current = true;
-    setView((current) => ({
-      ...current,
-      zoom: Math.max(10, Math.min(18, current.zoom + amount)),
-    }));
-  }, []);
+    const nextView = {
+      ...view,
+      zoom: Math.max(10, Math.min(18, view.zoom + amount)),
+    };
+    setView(nextView);
+    const nextBounds = viewportBoundsFromView(nextView, size.width, size.height);
+    if (nextBounds) onViewportChange?.(nextBounds);
+  }, [view, size.width, size.height, onViewportChange]);
 
   const resetMap = useCallback(() => {
     onResetMap();
