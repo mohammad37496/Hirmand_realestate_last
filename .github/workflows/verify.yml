@@ -123,6 +123,7 @@ jobs:
           npx playwright install --with-deps chromium
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
           node scripts/browser-smoke.mjs http://127.0.0.1:8081/ /workspace/screenshots/hirmand-preview.png
+          node scripts/map-interaction-smoke.mjs http://127.0.0.1:8081
           node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081
 
       - name: Cleanup property-detail fixture
