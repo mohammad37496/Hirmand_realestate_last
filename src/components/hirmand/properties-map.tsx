@@ -331,6 +331,10 @@ export function PropertiesMap({
       ref={mapRef}
       role="region"
       aria-label="نقشه تعاملی موقعیت فایل‌های ملکی در اصفهان"
+      data-map-zoom={view.zoom}
+      data-map-center-latitude={view.latitude}
+      data-map-center-longitude={view.longitude}
+      data-map-viewport-bounds={viewportBounds?.join(",") ?? ""}
       onPointerDown={onMapPointerDown}
       onPointerMove={onMapPointerMove}
       onPointerUp={onMapPointerUp}
