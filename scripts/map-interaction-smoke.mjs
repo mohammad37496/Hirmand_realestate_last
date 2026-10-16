@@ -41,8 +41,21 @@ async function waitForSearch(page) {
 }
 
 async function selectNeighborhood(page, name) {
-  await page.locator(".pf-neighborhood-trigger").click();
-  const search = page.locator('input[aria-label="جست‌وجوی محله‌ها"]');
+  const trigger = page.locator(".pf-neighborhood-trigger");
+  await trigger.waitFor({ state: "visible", timeout: 10_000 });
+  // This page is server-rendered. Wait for the click handler to be hydrated
+  // before trying to interact with the controlled dialog input.
+  await page.waitForTimeout(500);
+  await trigger.click();
+  await page.waitForFunction(
+    () => document.querySelector(".pf-neighborhood-trigger")?.getAttribute("aria-expanded") === "true",
+    undefined,
+    { timeout: 8_000 },
+  );
+  const dialog = page.locator(".pf-neighborhood-dialog");
+  await dialog.waitFor({ state: "visible", timeout: 8_000 });
+  const search = dialog.locator('input[type="search"]');
+  await search.waitFor({ state: "visible", timeout: 8_000 });
   await search.fill(name);
   const option = page.locator(".pf-neighborhood-dialog-results button").filter({ hasText: name }).first();
   await option.waitFor({ state: "visible", timeout: 8_000 });
@@ -50,6 +63,7 @@ async function selectNeighborhood(page, name) {
   await page.waitForFunction(
     () => new URLSearchParams(window.location.search).has("map_bbox") ||
       new URLSearchParams(window.location.search).has("bbox"),
+    undefined,
     { timeout: 8_000 },
   );
   await waitForSearch(page);
