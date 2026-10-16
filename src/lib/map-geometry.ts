@@ -13,6 +13,8 @@ export type PixelPoint = { x: number; y: number };
 export type MapView = GeoPoint & { zoom: number };
 
 export const TILE_SIZE = 256;
+export const MIN_MAP_ZOOM = 0;
+export const MAX_MAP_ZOOM = 18;
 export const WEB_MERCATOR_MAX_LATITUDE = 85.0511287798066;
 export const DEFAULT_MAP_VIEW: MapView = { latitude: 32.655, longitude: 51.668, zoom: 12 };
 
@@ -101,8 +103,11 @@ export function fitBoundsToView(
   const spanX = Math.max(1e-9, bottomRight.x - topLeft.x);
   const spanY = Math.max(1e-9, bottomRight.y - topLeft.y);
   const idealZoom = Math.floor(Math.log2(Math.min(availableWidth / spanX, availableHeight / spanY)));
-  const minZoom = options.minZoom ?? 10;
-  const maxZoom = options.maxZoom ?? 18;
+  // A saved viewport can have been created on a much larger desktop. Allow
+  // fitting below city-scale zoom on narrow mobile screens; forcing zoom >= 10
+  // crops the visible map even though the property query still uses the full URL bbox.
+  const minZoom = options.minZoom ?? MIN_MAP_ZOOM;
+  const maxZoom = options.maxZoom ?? MAX_MAP_ZOOM;
   const zoom = Math.max(minZoom, Math.min(maxZoom, idealZoom));
   const center = unproject({
     x: (topLeft.x + bottomRight.x) / 2,
