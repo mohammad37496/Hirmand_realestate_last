@@ -329,9 +329,11 @@ export function PropertiesMap({
   // that deliver touch events but fail to synthesize pointer capture; otherwise
   // the visible map may pan while the bbox in the shared URL stays stale.
   const onMapTouchStart = useCallback((event: ReactTouchEvent<HTMLDivElement>) => {
-    if (dragOrigin.current) return;
     const touch = event.touches[0];
     if (!touch) return;
+    // A touch sequence may emit pointerdown without a reliable pointerup in
+    // embedded browsers. Let the native touch lifecycle own this gesture so
+    // touchmove/touchend can always commit the viewport and its URL bounds.
     dragOrigin.current = { x: touch.clientX, y: touch.clientY, pointerId: -1 };
     setDragOffset({ x: 0, y: 0 });
     setDragging(true);
