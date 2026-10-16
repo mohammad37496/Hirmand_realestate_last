@@ -85,7 +85,7 @@ export function validateIntegerFilterFields(fields: IntegerFilterField[]): strin
 
 /** Match the supported public filter contract for numeric inputs in the UI. */
 export function validatePropertySearchNumbers(values: Record<string, unknown>): string[] {
-  return validateIntegerFilterFields([
+  const errors = validateIntegerFilterFields([
     { key: "minArea", label: "حداقل متراژ", value: values.minArea, max: 100_000 },
     { key: "maxArea", label: "حداکثر متراژ", value: values.maxArea, max: 100_000 },
     { key: "minPrice", label: "حداقل قیمت", value: values.minPrice, max: 999_999_999_999_999 },
