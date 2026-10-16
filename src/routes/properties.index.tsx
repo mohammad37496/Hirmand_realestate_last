@@ -40,6 +40,12 @@ import {
 } from "@/lib/property-options";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
+import {
+  boundsEqual,
+  normalizeCoordinateBounds,
+  parseCoordinateBounds,
+  type CoordinateBounds,
+} from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
 const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
@@ -167,20 +173,7 @@ function normalizeNeighborhoodSearch(raw: string) {
     .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
-function parseCoordinateBounds(raw: string | null): [number, number, number, number] | undefined {
-  if (!raw) return undefined;
-  const values = raw.split(",").map((value) => Number(value.trim()));
-  if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) return undefined;
-  const [west, south, east, north] = values;
-  if (
-    west < -180 || west > 180 || east < -180 || east > 180 ||
-    south < -90 || south > 90 || north < -90 || north > 90 ||
-    west >= east || south >= north
-  ) return undefined;
-  return [west, south, east, north];
-}
-
-const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
+remove duplicate coordinate parserconst ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
   { value: "north", label: "شمالی" },
   { value: "south", label: "جنوبی" },
   { value: "east", label: "شرقی" },
@@ -436,7 +429,7 @@ function PropertiesIndexPage() {
   const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
   const [neighborhoodQuery, setNeighborhoodQuery] = useState("");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
-  const [mapBounds, setMapBounds] = useState<[number, number, number, number] | undefined>(undefined);
+  const [mapBounds, setMapBounds] = useState<CoordinateBounds | undefined>(undefined);
   const [mapViewportResetVersion, setMapViewportResetVersion] = useState(0);
   const skipInitialFetch = useRef(false);
   const requestId = useRef(0);
@@ -1030,8 +1023,9 @@ function PropertiesIndexPage() {
     setHasLocationOnly(false);
     setSort("newest");
     setOffset(0);
-    // Keep the map viewport: clearing property filters should not unexpectedly
-    // jump the user to a different area or trigger an unbounded intermediate query.
+    setMapBounds(undefined);
+    setMapViewportResetVersion((version) => version + 1);
+    setNeighborhoodPickerOpen(false);
   }
 
   async function shareCurrentSearch() {
@@ -1087,23 +1081,46 @@ function PropertiesIndexPage() {
       .filter((group) => group.items.length > 0);
   }, [neighborhoodOptions, neighborhoodQuery]);
 
+  function clearNeighborhood() {
+    const selectedArea = NEIGHBORHOODS.find((item) => item.name === neighborhood);
+    const selectedBounds = normalizeCoordinateBounds(selectedArea?.divarBbox);
+    const mapWasStillOnTheAreaBounds = !mapBounds || boundsEqual(mapBounds, selectedBounds);
+    setNeighborhood("");
+    setNeighborhoodPickerOpen(false);
+    if (mapWasStillOnTheAreaBounds) {
+      // Do not leave the selected neighborhood's bbox active after clearing it.
+      // Keep a separately panned/zoomed viewport filter if the user made one.
+      setMapBounds(undefined);
+      setMapViewportResetVersion((version) => version + 1);
+    }
+  }
+
   function chooseNeighborhood(name: string) {
     setNeighborhood(name);
     setNeighborhoodPickerOpen(false);
     setMobileFiltersOpen(false);
     if (!name) return;
     const area = NEIGHBORHOODS.find((item) => item.name === name);
-    const bounds = area?.divarBbox;
-    // A new neighborhood without trusted geometry should not inherit an unrelated old viewport.
-    setMapBounds(bounds ? [...bounds] as [number, number, number, number] : undefined);
+    const bounds = normalizeCoordinateBounds(area?.divarBbox);
+    // Divar provides a center and bbox, not the polygon boundary of the area.
+    // Keep the bbox as an explicitly approximate neighborhood extent.
+    setMapBounds(bounds);
     setMapViewportResetVersion((version) => version + 1);
   }
 
-  const syncMapBoundsToUrl = useCallback((bounds: [number, number, number, number]) => {
+  const resetMapViewport = useCallback(() => {
+    const selectedArea = NEIGHBORHOODS.find((item) => item.name === neighborhood);
+    const bounds = normalizeCoordinateBounds(selectedArea?.divarBbox);
+    setMapBounds(bounds);
+    setMapViewportResetVersion((version) => version + 1);
+  }, [neighborhood]);
+
+  const syncMapBoundsToUrl = useCallback((bounds: CoordinateBounds) => {
     const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
     if (pathname !== "/properties") return;
-    const rounded = bounds.map((number) => Number(number.toFixed(7))) as [number, number, number, number];
-    setMapBounds((current) => current && current.every((value, index) => value === rounded[index]) ? current : rounded);
+    const rounded = normalizeCoordinateBounds(bounds.map((number) => Number(number.toFixed(7))));
+    if (!rounded) return;
+    setMapBounds((current) => boundsEqual(current, rounded) ? current : rounded);
     const params = new URLSearchParams(window.location.search);
     const value = rounded.join(",");
     params.set("bbox", value);
@@ -1175,7 +1192,7 @@ function PropertiesIndexPage() {
     q.trim() ? { label: `جستجو: ${q.trim()}`, clear: () => setQ("") } : null,
     transactionType ? { label: transactionLabel, clear: () => setTransactionType("") } : null,
     propertyType ? { label: propertyTypeLabel, clear: () => setPropertyType("") } : null,
-    neighborhood ? { label: neighborhood, clear: () => setNeighborhood("") } : null,
+    neighborhood ? { label: neighborhood, clear: clearNeighborhood } : null,
     minArea.trim() || maxArea.trim()
       ? { label: `متراژ ${minArea || "۰"} تا ${maxArea || "∞"} متر`, clear: () => { setMinArea(""); setMaxArea(""); } }
       : null,
@@ -1388,7 +1405,7 @@ function PropertiesIndexPage() {
                   <Search size={17} aria-hidden="true" />
                 </button>
                 {neighborhood ? (
-                  <button type="button" className="pf-neighborhood-clear" onClick={() => setNeighborhood("")}>
+                  <button type="button" className="pf-neighborhood-clear" onClick={clearNeighborhood}>
                     نمایش همهٔ محله‌ها
                   </button>
                 ) : null}
@@ -1835,6 +1852,7 @@ function PropertiesIndexPage() {
                         onSelect={setSelectedPropertyId}
                         onSelectNeighborhood={chooseNeighborhood}
                         onViewportChange={syncMapBoundsToUrl}
+                        onResetMap={resetMapViewport}
                         viewportResetBounds={mapBounds}
                         viewportResetVersion={mapViewportResetVersion}
                       />
@@ -1932,7 +1950,7 @@ function PropertiesIndexPage() {
               </label>
               <div className="pf-neighborhood-dialog-toolbar">
                 <span>{fa(neighborhoodGroupsForPicker.reduce((count, group) => count + group.items.length, 0))} محله در فهرست</span>
-                <button type="button" className={!neighborhood ? "is-selected" : ""} onClick={() => { setNeighborhood(""); setNeighborhoodPickerOpen(false); }}>همهٔ محله‌ها</button>
+                <button type="button" className={!neighborhood ? "is-selected" : ""} onClick={clearNeighborhood}>همهٔ محله‌ها</button>
               </div>
               <div className="pf-neighborhood-dialog-results">
                 {neighborhoodGroupsForPicker.length ? neighborhoodGroupsForPicker.map((group) => (
