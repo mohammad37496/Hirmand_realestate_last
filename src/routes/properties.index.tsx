@@ -1108,6 +1108,7 @@ function PropertiesIndexPage() {
   }, []);
 
   const hasFilters = Boolean(
+    mapBounds ||
     q.trim() ||
     transactionType ||
     propertyType ||
