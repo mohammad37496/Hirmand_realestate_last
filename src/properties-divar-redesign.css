@@ -449,3 +449,428 @@
   .pf-map-controls button { width: 34px; height: 34px; }
   .pf-map-empty-note, .pf-map-offline-note { inset-inline: 42px; font-size: .7rem; }
 }
+
+
+/* Neighborhood selection and geographic extents — Hirmand palette, independent of Divar runtime. */
+.pf-neighborhood-trigger {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 11px;
+  border: 1px solid var(--hr-line);
+  border-radius: 11px;
+  background: var(--hr-paper-2, #fff);
+  color: var(--hr-ink);
+  text-align: start;
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.pf-neighborhood-trigger:hover,
+.pf-neighborhood-trigger:focus-visible {
+  border-color: var(--hr-gold);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(177 139 69 / .12);
+}
+.pf-neighborhood-trigger-copy {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.pf-neighborhood-trigger-copy > svg {
+  flex: 0 0 auto;
+  color: var(--hr-gold);
+}
+.pf-neighborhood-trigger-copy > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.pf-neighborhood-trigger-copy strong {
+  overflow: hidden;
+  color: var(--hr-ink);
+  font-size: .83rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pf-neighborhood-trigger-copy small {
+  color: var(--hr-muted);
+  font-size: .67rem;
+  line-height: 1.65;
+}
+.pf-neighborhood-trigger > svg {
+  flex: 0 0 auto;
+  color: var(--hr-muted);
+}
+.pf-neighborhood-clear {
+  display: inline-flex;
+  margin-top: 7px;
+  border: 0;
+  padding: 4px 0;
+  background: transparent;
+  color: var(--hr-muted);
+  font: inherit;
+  font-size: .72rem;
+  cursor: pointer;
+}
+.pf-neighborhood-clear:hover { color: var(--hr-gold); }
+
+.pf-neighborhood-dialog-backdrop {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(13 25 23 / .62);
+  backdrop-filter: blur(5px);
+}
+.pf-neighborhood-dialog {
+  width: min(900px, calc(100vw - 28px));
+  max-height: min(88svh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--hr-line);
+  border-radius: 19px;
+  background: var(--hr-paper, #fff);
+  color: var(--hr-ink);
+  box-shadow: 0 28px 90px rgb(5 19 15 / .32);
+  direction: rtl;
+}
+.pf-neighborhood-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid var(--hr-line);
+  background: var(--hr-paper-2, #fbfbf8);
+}
+.pf-neighborhood-dialog-head > div { min-width: 0; }
+.pf-neighborhood-dialog-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--hr-gold);
+  font-size: .74rem;
+  font-weight: 900;
+}
+.pf-neighborhood-dialog-head h2 {
+  margin: 7px 0 4px;
+  color: var(--hr-ink);
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  font-weight: 950;
+}
+.pf-neighborhood-dialog-head p {
+  margin: 0;
+  color: var(--hr-muted);
+  font-size: .78rem;
+  line-height: 1.9;
+}
+.pf-neighborhood-dialog-head > button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--hr-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--hr-ink);
+  cursor: pointer;
+}
+.pf-neighborhood-dialog-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  margin: 16px 20px 10px;
+  padding: 0 13px;
+  border: 1px solid var(--hr-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--hr-muted);
+}
+.pf-neighborhood-dialog-search:focus-within {
+  border-color: var(--hr-gold);
+  box-shadow: 0 0 0 3px rgb(177 139 69 / .11);
+}
+.pf-neighborhood-dialog-search > svg { flex: 0 0 auto; color: var(--hr-gold); }
+.pf-neighborhood-dialog-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--hr-ink);
+  font: inherit;
+  font-size: .83rem;
+}
+.pf-neighborhood-dialog-search input::placeholder { color: #8b9690; }
+.pf-neighborhood-dialog-search button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 0;
+  border-radius: 7px;
+  background: #f0f2ef;
+  color: var(--hr-muted);
+  cursor: pointer;
+}
+.pf-neighborhood-dialog-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 22px 12px;
+  color: var(--hr-muted);
+  font-size: .73rem;
+}
+.pf-neighborhood-dialog-toolbar button {
+  min-height: 31px;
+  border: 1px solid var(--hr-line);
+  border-radius: 9px;
+  padding: 5px 10px;
+  background: #fff;
+  color: var(--hr-ink);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.pf-neighborhood-dialog-toolbar button.is-selected {
+  border-color: var(--hr-gold);
+  background: rgb(177 139 69 / .10);
+  color: var(--hr-ink);
+}
+.pf-neighborhood-dialog-results {
+  flex: 1 1 auto;
+  min-height: 100px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 20px 16px;
+}
+.pf-neighborhood-result-group {
+  padding: 12px 0 14px;
+  border-top: 1px solid var(--hr-line);
+}
+.pf-neighborhood-result-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  color: var(--hr-muted);
+  font-size: .75rem;
+  font-weight: 900;
+}
+.pf-neighborhood-result-group h3 span {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: #f1f2ee;
+  color: var(--hr-muted);
+  font-size: .65rem;
+}
+.pf-neighborhood-result-group > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 7px;
+}
+.pf-neighborhood-result-group > div > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 39px;
+  padding: 7px 10px;
+  border: 1px solid var(--hr-line);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--hr-ink);
+  text-align: start;
+  font: inherit;
+  font-size: .77rem;
+  cursor: pointer;
+  transition: background .14s ease, border-color .14s ease;
+}
+.pf-neighborhood-result-group > div > button:hover {
+  border-color: var(--hr-gold);
+  background: var(--hr-paper-2, #faf9f4);
+}
+.pf-neighborhood-result-group > div > button.is-selected {
+  border-color: var(--hr-gold);
+  background: rgb(177 139 69 / .10);
+  font-weight: 900;
+}
+.pf-neighborhood-select-mark {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #cbd1cb;
+  border-radius: 50%;
+}
+.pf-neighborhood-check {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--hr-gold);
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 950;
+}
+.pf-neighborhood-no-results {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  padding: 36px 12px;
+  color: var(--hr-muted);
+  text-align: center;
+}
+.pf-neighborhood-no-results > svg { color: var(--hr-gold); }
+.pf-neighborhood-no-results strong { color: var(--hr-ink); }
+.pf-neighborhood-no-results p { margin: 0; font-size: .78rem; }
+.pf-neighborhood-dialog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 20px;
+  border-top: 1px solid var(--hr-line);
+  background: var(--hr-paper-2, #fbfbf8);
+  color: var(--hr-muted);
+  font-size: .73rem;
+}
+.pf-neighborhood-dialog-foot > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pf-neighborhood-dialog-foot button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  border: 1px solid var(--hr-gold);
+  border-radius: 10px;
+  padding: 6px 20px;
+  background: var(--hr-gold);
+  color: #fff;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.pf-map-neighborhood-box {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  overflow: visible;
+  padding: 0;
+  box-sizing: border-box;
+  border: 1px dashed rgb(170 128 52 / .78);
+  border-radius: 5px;
+  background: rgb(197 160 91 / .12);
+  color: #263a35;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color .12s ease, background .12s ease, box-shadow .12s ease;
+}
+.pf-map-neighborhood-box:hover {
+  z-index: 6;
+  border: 2px solid var(--hr-gold);
+  background: rgb(197 160 91 / .22);
+  box-shadow: 0 1px 8px rgb(21 45 36 / .20);
+}
+.pf-map-neighborhood-box span {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 2px 4px;
+  border: 1px solid rgb(255 255 255 / .7);
+  border-radius: 4px;
+  background: rgb(255 255 255 / .86);
+  color: #24362f;
+  font-size: .61rem;
+  font-weight: 900;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.pf-map-neighborhood-box.is-active {
+  z-index: 7;
+  border: 2px solid var(--hr-gold);
+  background: rgb(177 139 69 / .25);
+  box-shadow: 0 0 0 2px rgb(255 255 255 / .65), 0 3px 12px rgb(20 38 32 / .22);
+}
+.pf-map-neighborhood-box.is-active span {
+  background: var(--hr-gold);
+  color: #fff;
+}
+.pf-map-controls button.is-active {
+  border-color: var(--hr-gold);
+  background: rgb(177 139 69 / .14);
+  color: #80612b;
+}
+.pf-map-bounds-note {
+  position: absolute;
+  z-index: 10;
+  bottom: 31px;
+  inset-inline-start: 8px;
+  max-width: calc(100% - 18px);
+  padding: 5px 8px;
+  border: 1px solid rgb(32 52 45 / .10);
+  border-radius: 7px;
+  background: rgb(255 255 255 / .92);
+  color: #526159;
+  box-shadow: 0 1px 5px rgb(20 38 32 / .08);
+  font-size: .63rem;
+  line-height: 1.5;
+  pointer-events: none;
+}
+@media (max-width: 620px) {
+  .pf-neighborhood-dialog-backdrop { padding: 8px; }
+  .pf-neighborhood-dialog {
+    width: calc(100vw - 16px);
+    max-height: 94svh;
+    border-radius: 14px;
+  }
+  .pf-neighborhood-dialog-head { padding: 16px 14px 12px; gap: 10px; }
+  .pf-neighborhood-dialog-head p { font-size: .72rem; }
+  .pf-neighborhood-dialog-search { margin: 12px 12px 8px; min-height: 44px; }
+  .pf-neighborhood-dialog-toolbar { padding: 0 13px 10px; }
+  .pf-neighborhood-dialog-results { padding: 0 12px 12px; }
+  .pf-neighborhood-result-group > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .pf-neighborhood-result-group > div > button { min-height: 37px; padding: 6px 8px; font-size: .72rem; }
+  .pf-neighborhood-dialog-foot { padding: 10px 12px; }
+  .pf-neighborhood-dialog-foot > span { font-size: .67rem; }
+  .pf-map-bounds-note { bottom: 29px; font-size: .58rem; }
+}
+
+
+/* Empty viewport results keep the map reachable so users can pan into another area. */
+.pf-map-list-empty {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding: 30px 22px;
+  color: var(--hr-muted);
+  text-align: center;
+  line-height: 1.8;
+}
+.pf-map-list-empty > svg { color: var(--hr-gold); }
+.pf-map-list-empty > strong { color: var(--hr-ink); font-size: .86rem; }
+.pf-map-list-empty > p { margin: 0; font-size: .77rem; }
