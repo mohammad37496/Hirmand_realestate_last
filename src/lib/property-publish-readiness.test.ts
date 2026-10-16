@@ -61,3 +61,38 @@ test("buy requests do not require a sale price", () => {
   });
   assert.equal(result.ready, true);
 });
+
+
+test("zero-valued money is not enough to publish a priced listing", () => {
+  const sale = getPublishReadiness({ ...base, price: "0" });
+  assert.equal(sale.ready, false);
+  assert.ok(sale.blockers.some((item) => item.includes("شرایط مالی")));
+
+  const rentWithZeroAmounts = getPublishReadiness({
+    ...base,
+    transactionType: "rent",
+    price: "",
+    deposit: "0",
+    rent: "۰",
+  });
+  assert.equal(rentWithZeroAmounts.ready, false);
+  assert.ok(rentWithZeroAmounts.blockers.some((item) => item.includes("شرایط مالی")));
+
+  const rentWithPositiveRent = getPublishReadiness({
+    ...base,
+    transactionType: "rent",
+    price: "",
+    deposit: "0",
+    rent: "8500000",
+  });
+  assert.equal(rentWithPositiveRent.ready, true);
+
+  const mortgageWithZeroDeposit = getPublishReadiness({
+    ...base,
+    transactionType: "mortgage",
+    price: "",
+    deposit: "0",
+    rent: "0",
+  });
+  assert.equal(mortgageWithZeroDeposit.ready, false);
+});
