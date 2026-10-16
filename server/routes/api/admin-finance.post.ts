@@ -68,10 +68,10 @@ export default defineEventHandler(async(event)=>{
     limit?:number;
   };
   if (dbSource === "unconfigured") {
-    if ((body.action ?? "list") === "list") {
-      return { transactions: [], summary: { income: 0, expense: 0, balance: 0 } };
-    }
-    throw createError({ statusCode: 503, statusMessage: "پایگاه داده مالی تنظیم نشده است؛ تغییرات ثبت نشد." });
+    throw createError({
+      statusCode: 503,
+      statusMessage: "پایگاه داده مالی در دسترس نیست؛ داده‌های مالی قابل خواندن یا تغییر نیستند.",
+    });
   }
   const sql=await getSql();
 
