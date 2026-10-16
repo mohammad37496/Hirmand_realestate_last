@@ -17,8 +17,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "دسترسی خروجی گرفتن از فایل‌ها برای این حساب فعال نیست." });
   }
   if (dbSource === "unconfigured") {
-    setResponseHeader(event, "content-type", "text/csv; charset=utf-8");
-    return "\uFEFF";
+    throw createError({ statusCode: 503, statusMessage: "خروجی فایل‌های ملک به‌دلیل در دسترس نبودن پایگاه داده تولید نشد." });
   }
 
   const sql = await getSql();
