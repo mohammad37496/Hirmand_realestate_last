@@ -41,7 +41,7 @@ export function pendingMigrations(paths, applied) {
   const migrations = [...paths]
     .filter(isMigrationFile)
     .map((path) => ({ name: migrationName(path), path }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
   const seen = new Set();
   for (const { name, path } of migrations) {
