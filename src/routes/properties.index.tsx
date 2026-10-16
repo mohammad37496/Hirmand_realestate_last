@@ -2027,69 +2027,69 @@ function PropertiesIndexPage() {
         </div>
         {neighborhoodPickerOpen && typeof document !== "undefined"
           ? createPortal(
-          <div
-            className="pf-neighborhood-dialog-backdrop"
-            role="presentation"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setNeighborhoodPickerOpen(false);
-            }}
-          >
-            <section className="pf-neighborhood-dialog" role="dialog" aria-modal="true" aria-labelledby="pf-neighborhood-dialog-title">
-              <header className="pf-neighborhood-dialog-head">
-                <div>
-                  <span className="pf-neighborhood-dialog-kicker"><MapPinned size={15} /> انتخاب محدوده</span>
-                  <h2 id="pf-neighborhood-dialog-title">محلهٔ موردنظر را انتخاب کنید</h2>
-                  <p>فهرست از کاتالوگ محلی هیرمند می‌آید؛ برای نمایش فایل‌ها نیازی به اتصال دیوار نیست.</p>
-                </div>
-                <button type="button" aria-label="بستن انتخاب محله" onClick={() => setNeighborhoodPickerOpen(false)}><X size={20} /></button>
-              </header>
-              <label className="pf-neighborhood-dialog-search">
-                <Search size={18} aria-hidden="true" />
-                <input
-                  autoFocus
-                  type="search"
-                  value={neighborhoodQuery}
-                  onChange={(event) => setNeighborhoodQuery(event.target.value)}
-                  placeholder="نام محله را جست‌وجو کنید؛ مثلاً درچه، جلفا، مرداویج…"
-                  aria-label="جست‌وجوی محله‌ها"
-                />
-                {neighborhoodQuery ? <button type="button" aria-label="پاک کردن جست‌وجوی محله" onClick={() => setNeighborhoodQuery("")}><X size={15} /></button> : null}
-              </label>
-              <div className="pf-neighborhood-dialog-toolbar">
-                <span>{fa(neighborhoodGroupsForPicker.reduce((count, group) => count + group.items.length, 0))} محله در فهرست</span>
-                <button type="button" className={!neighborhood ? "is-selected" : ""} onClick={() => { setNeighborhood(""); setNeighborhoodPickerOpen(false); }}>همهٔ محله‌ها</button>
-              </div>
-              <div className="pf-neighborhood-dialog-results">
-                {neighborhoodGroupsForPicker.length ? neighborhoodGroupsForPicker.map((group) => (
-                  <section className="pf-neighborhood-result-group" key={group.title}>
-                    <h3>{group.title}<span>{fa(group.items.length)}</span></h3>
+              <div
+                className="pf-neighborhood-dialog-backdrop"
+                role="presentation"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) setNeighborhoodPickerOpen(false);
+                }}
+              >
+                <section className="pf-neighborhood-dialog" role="dialog" aria-modal="true" aria-labelledby="pf-neighborhood-dialog-title">
+                  <header className="pf-neighborhood-dialog-head">
                     <div>
-                      {group.items.map((name) => (
-                        <button
-                          type="button"
-                          key={name}
-                          className={neighborhood === name ? "is-selected" : ""}
-                          aria-pressed={neighborhood === name}
-                          onClick={() => { chooseNeighborhood(name); setNeighborhoodQuery(""); }}
-                        >
-                          <span>{name}</span>
-                          {neighborhood === name ? <span className="pf-neighborhood-check" aria-hidden="true">✓</span> : <span className="pf-neighborhood-select-mark" aria-hidden="true" />}
-                        </button>
-                      ))}
+                      <span className="pf-neighborhood-dialog-kicker"><MapPinned size={15} /> انتخاب محدوده</span>
+                      <h2 id="pf-neighborhood-dialog-title">محلهٔ موردنظر را انتخاب کنید</h2>
+                      <p>فهرست از کاتالوگ محلی هیرمند می‌آید؛ برای نمایش فایل‌ها نیازی به اتصال دیوار نیست.</p>
                     </div>
-                  </section>
-                )) : (
-                  <div className="pf-neighborhood-no-results"><Search size={22} /><strong>محله‌ای پیدا نشد</strong><p>املای نام را کوتاه‌تر کنید یا عبارت دیگری بنویسید.</p></div>
-                )}
-              </div>
-              <footer className="pf-neighborhood-dialog-foot">
-                <span>{neighborhood ? `محلهٔ انتخاب‌شده: ${neighborhood}` : "هنوز محله‌ای انتخاب نشده است"}</span>
-                <button type="button" onClick={() => setNeighborhoodPickerOpen(false)}>انجام شد</button>
-              </footer>
-            </section>
-          </div>,
-          document.body,
-        )
+                    <button type="button" aria-label="بستن انتخاب محله" onClick={() => setNeighborhoodPickerOpen(false)}><X size={20} /></button>
+                  </header>
+                  <label className="pf-neighborhood-dialog-search">
+                    <Search size={18} aria-hidden="true" />
+                    <input
+                      autoFocus
+                      type="search"
+                      value={neighborhoodQuery}
+                      onChange={(event) => setNeighborhoodQuery(event.target.value)}
+                      placeholder="نام محله را جست‌وجو کنید؛ مثلاً درچه، جلفا، مرداویج…"
+                      aria-label="جست‌وجوی محله‌ها"
+                    />
+                    {neighborhoodQuery ? <button type="button" aria-label="پاک کردن جست‌وجوی محله" onClick={() => setNeighborhoodQuery("")}><X size={15} /></button> : null}
+                  </label>
+                  <div className="pf-neighborhood-dialog-toolbar">
+                    <span>{fa(neighborhoodGroupsForPicker.reduce((count, group) => count + group.items.length, 0))} محله در فهرست</span>
+                    <button type="button" className={!neighborhood ? "is-selected" : ""} onClick={() => { setNeighborhood(""); setNeighborhoodPickerOpen(false); }}>همهٔ محله‌ها</button>
+                  </div>
+                  <div className="pf-neighborhood-dialog-results">
+                    {neighborhoodGroupsForPicker.length ? neighborhoodGroupsForPicker.map((group) => (
+                      <section className="pf-neighborhood-result-group" key={group.title}>
+                        <h3>{group.title}<span>{fa(group.items.length)}</span></h3>
+                        <div>
+                          {group.items.map((name) => (
+                            <button
+                              type="button"
+                              key={name}
+                              className={neighborhood === name ? "is-selected" : ""}
+                              aria-pressed={neighborhood === name}
+                              onClick={() => { chooseNeighborhood(name); setNeighborhoodQuery(""); }}
+                            >
+                              <span>{name}</span>
+                              {neighborhood === name ? <span className="pf-neighborhood-check" aria-hidden="true">✓</span> : <span className="pf-neighborhood-select-mark" aria-hidden="true" />}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    )) : (
+                      <div className="pf-neighborhood-no-results"><Search size={22} /><strong>محله‌ای پیدا نشد</strong><p>املای نام را کوتاه‌تر کنید یا عبارت دیگری بنویسید.</p></div>
+                    )}
+                  </div>
+                  <footer className="pf-neighborhood-dialog-foot">
+                    <span>{neighborhood ? `محلهٔ انتخاب‌شده: ${neighborhood}` : "هنوز محله‌ای انتخاب نشده است"}</span>
+                    <button type="button" onClick={() => setNeighborhoodPickerOpen(false)}>انجام شد</button>
+                  </footer>
+                </section>
+              </div>,
+              document.body,
+            )
           : null}
       </main>
     </SiteChrome>
