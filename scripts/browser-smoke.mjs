@@ -497,11 +497,18 @@ try {
       await propertyPopup.waitFor({ state: "visible", timeout: mapTimeoutMs }).catch(() => undefined);
       const popupVisible = await propertyPopup.isVisible().catch(() => false);
       const detailLinkVisible = await propertyPopup.locator('a[href^="/properties/"]').count() > 0;
+      const popupWithinCanvas = await mapPage.evaluate(() => {
+        const canvas = document.querySelector(".pf-map-canvas")?.getBoundingClientRect();
+        const popup = document.querySelector(".pf-map-property-popup")?.getBoundingClientRect();
+        return Boolean(canvas && popup) &&
+          popup.left >= canvas.left - 1 && popup.top >= canvas.top - 1 &&
+          popup.right <= canvas.right + 1 && popup.bottom <= canvas.bottom + 1;
+      });
       await propertyPopup.getByRole("button", { name: "بستن جزئیات فایل انتخاب‌شده" }).click().catch(() => undefined);
       const popupClosed = await propertyPopup.count() === 0;
       mapInteractionCheck.propertyMarkerSelection =
         await mapPage.locator(".pf-map-marker.is-active").count() > 0 &&
-        popupVisible && detailLinkVisible && popupClosed;
+        popupVisible && detailLinkVisible && popupWithinCanvas && popupClosed;
     }
 
     // Tap a visible neighborhood extent away from the selected bbox. The
@@ -582,9 +589,16 @@ try {
       await mobilePopup.waitFor({ state: "visible", timeout: mapTimeoutMs }).catch(() => undefined);
       const popupVisible = await mobilePopup.isVisible().catch(() => false);
       const detailLinkVisible = await mobilePopup.locator('a[href^="/properties/"]').count() > 0;
+      const popupWithinCanvas = await mobileMapPage.evaluate(() => {
+        const canvas = document.querySelector(".pf-map-canvas")?.getBoundingClientRect();
+        const popup = document.querySelector(".pf-map-property-popup")?.getBoundingClientRect();
+        return Boolean(canvas && popup) &&
+          popup.left >= canvas.left - 1 && popup.top >= canvas.top - 1 &&
+          popup.right <= canvas.right + 1 && popup.bottom <= canvas.bottom + 1;
+      });
       await mobilePopup.getByRole("button", { name: "بستن جزئیات فایل انتخاب‌شده" }).tap().catch(() => undefined);
       const popupClosed = await mobilePopup.count() === 0;
-      mobilePopupInteraction = popupVisible && detailLinkVisible && popupClosed;
+      mobilePopupInteraction = popupVisible && detailLinkVisible && popupWithinCanvas && popupClosed;
     }
     const mobileCanvas = mobileMapPage.locator(".pf-map-canvas");
     await mobileCanvas.scrollIntoViewIfNeeded();
