@@ -145,6 +145,10 @@ export function PropertiesMap({
 
   useEffect(() => {
     if (!selectedNeighborhood) return;
+    // A saved map_bbox is the user's actual viewport and must win on refresh.
+    // The parent explicitly increments viewportResetVersion when a new area is selected.
+    const params = new URLSearchParams(window.location.search);
+    if (normalizeBbox(params.get("map_bbox")) ?? normalizeBbox(params.get("bbox"))) return;
     const area = neighborhoods.find((item) => item.name === selectedNeighborhood);
     if (!area?.divarBbox) return;
     const [west, south, east, north] = area.divarBbox;
