@@ -7,6 +7,7 @@ import {
   BriefcaseBusiness,
   Building2,
   Calculator,
+  ClipboardList,
   ChevronDown,
   Grid2X2,
   Handshake,
@@ -42,6 +43,7 @@ const NAV_ICONS = {
   listings: Building2,
   services: Sparkles,
   properties: Grid2X2,
+  "request-property": ClipboardList,
   "budget-match": Calculator,
   areas: MapPinned,
   consultants: UsersRound,
@@ -221,17 +223,12 @@ export function Header() {
                     );
                   })}
                   <Link
-                    to="/"
-                    hash="inquiry"
+                    to="/request-property"
                     className="nav-quick-item"
                     role="menuitem"
-                    onClick={(event) => {
-                      closeQuickMenu();
-                      if (onHome) scrollToId(event, "inquiry", closeMenu);
-                      else closeMenu();
-                    }}
+                    onClick={() => { closeQuickMenu(); closeMenu(); }}
                   >
-                    <span className="nav-quick-item-icon" aria-hidden="true"><BriefcaseBusiness size={17} strokeWidth={1.9} /></span>
+                    <span className="nav-quick-item-icon" aria-hidden="true"><ClipboardList size={17} strokeWidth={1.9} /></span>
                     <span className="nav-quick-item-copy"><strong>درخواست ملک</strong><small>نیازتان را برای ما ثبت کنید</small></span>
                     <span className="nav-quick-item-arrow" aria-hidden="true">←</span>
                   </Link>
@@ -322,8 +319,8 @@ export function Header() {
           <Link to="/nearby" className="mobile-menu-inquiry" onClick={closeMenu}><LocateFixed size={17} aria-hidden="true" /><span>فایل‌های نزدیک من</span></Link>
           <Link to="/file-code" className="mobile-menu-inquiry" onClick={closeMenu}><Hash size={17} aria-hidden="true" /><span>جستجوی کد فایل</span></Link>
           <Link to="/submit-property" className="mobile-menu-inquiry is-submit" onClick={closeMenu}><Building2 size={17} aria-hidden="true" /><span>ثبت ملک</span></Link>
-          <Link to="/" hash="inquiry" className="mobile-menu-inquiry" onClick={(event) => { if (onHome) scrollToId(event, "inquiry", closeMenu); else closeMenu(); }}>
-            <BriefcaseBusiness size={17} aria-hidden="true" /> <span>درخواست ملک</span>
+          <Link to="/request-property" className="mobile-menu-inquiry" onClick={closeMenu}>
+            <ClipboardList size={17} aria-hidden="true" /> <span>درخواست ملک</span>
           </Link>
           <a href="/#contact" className="mobile-menu-inquiry" onClick={closeMenu}>
             <Phone size={17} aria-hidden="true" /> <span>تماس با هیرمند</span>
