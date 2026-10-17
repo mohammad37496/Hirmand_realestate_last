@@ -2,6 +2,7 @@ import { createError, defineEventHandler, getCookie, readBody, setResponseHeader
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
+import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
@@ -27,7 +28,7 @@ const submissionSchema = z.object({
   areaM2: z.number().int().min(1).max(100000),
   bedrooms: z.number().int().min(0).max(30).nullable().optional().default(null),
   bathrooms: z.number().int().min(0).max(30).nullable().optional().default(null),
-  floor: z.number().int().min(-60).max(200).nullable().optional().default(null),
+  floor: z.number().int().refine(isAllowedPropertyFloorValue, "طبقه باید منفی ۶۰ یا بین ۰ تا ۲۰۰ باشد.").nullable().optional().default(null),
   totalFloors: z.number().int().min(0).max(200).nullable().optional().default(null),
   builtYear: z.number().int().min(1200).max(2500).nullable().optional().default(null),
   orientation: z.enum(["north","south","east","west","northeast","northwest","southeast","southwest","two_fronts","three_fronts","four_fronts","other"]).nullable().optional().default(null),
