@@ -115,12 +115,12 @@ export const PROPERTY_OTHER_AMENITY_OPTIONS = [
 /**
  * Supported floor values:
  * - -60 is retained as the one explicit exceptional underground level.
- * - All ordinary floors are from ground (0) through 200.
- * Values -59 through -1 are intentionally not offered or accepted.
+ * - Ordinary floors are from ground (0) through floor 20.
+ * - Floors -59 through -1 and 21 through 200 are intentionally excluded.
  */
 export const PROPERTY_FLOOR_OPTIONS = [
   -60,
-  ...Array.from({ length: 201 }, (_, index) => index),
+  ...Array.from({ length: 21 }, (_, index) => index),
 ].map((value) => ({
   value: String(value),
   label: value === 0
@@ -131,7 +131,7 @@ export const PROPERTY_FLOOR_OPTIONS = [
 }));
 
 export function isAllowedPropertyFloorValue(value: number): boolean {
-  return Number.isInteger(value) && (value === -60 || (value >= 0 && value <= 200));
+  return Number.isInteger(value) && (value === -60 || (value >= 0 && value <= 20));
 }
 
 export type PropertyCabinetType = (typeof PROPERTY_CABINET_OPTIONS)[number]["value"];
