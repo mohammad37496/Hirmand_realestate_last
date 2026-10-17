@@ -8,6 +8,7 @@ import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
 import { propertyInputSchema } from "@/lib/properties";
 import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
+import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 
 type Action = "list" | "approve" | "reject" | "update" | "set_priority" | "history" | "bulk_set_priority" | "bulk_reject" | "export" | "assign_consultant";
 
@@ -388,7 +389,7 @@ export default defineEventHandler(async (event) => {
 
     for (const [key, max] of [["bedrooms",30],["bathrooms",30],["floor",200],["totalFloors",200],["builtYear",2500]] as const) {
       const value = parseOptionalInt(next[key]);
-      if (value != null && (!Number.isInteger(value) || (key === "floor" ? value < -60 || value > max : value < (key === "builtYear" ? 1200 : 0) || value > max))) {
+      if (value != null && (!Number.isInteger(value) || (key === "floor" ? !isAllowedPropertyFloorValue(value) : value < (key === "builtYear" ? 1200 : 0) || value > max))) {
         throw createError({ statusCode: 422, statusMessage: "مقدار " + key + " معتبر نیست." });
       }
       next[key] = value;
