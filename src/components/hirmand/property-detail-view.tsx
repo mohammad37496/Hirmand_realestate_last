@@ -164,6 +164,7 @@ import { useConsultants } from "@/components/hirmand/consultants-context";
 import { getPublishedPropertyPriceHistory, isFeaturedActive, type PropertyPriceHistoryItem } from "@/lib/properties";
 import {
   PROPERTY_CABINET_OPTIONS,
+  isAllowedPropertyFloorValue,
   PROPERTY_COOLING_OPTIONS,
   PROPERTY_FLOORING_OPTIONS,
   PROPERTY_HEATING_OPTIONS,
@@ -1386,7 +1387,7 @@ export function PropertyDetailView({
       value: "سوئیت",
       icon: <Building2 size={18} aria-hidden="true" />,
     },
-    property.floorLabel !== "suite" && property.floor != null && {
+    property.floorLabel !== "suite" && property.floor != null && isAllowedPropertyFloorValue(property.floor) && {
       id: "floor",
       label: "طبقه",
       value: property.floor.toLocaleString("fa-IR"),
