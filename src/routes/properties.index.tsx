@@ -206,7 +206,7 @@ function normalizeBounds(a: string, b: string) {
 }
 
 function parseFloorNumber(raw: string) {
-  const parsed = parseIntegerFilter(raw, { min: -60, max: 200, allowNegative: true });
+  const parsed = parseIntegerFilter(raw, { min: -60, max: 20, allowNegative: true });
   return parsed.valid && parsed.value !== undefined && isAllowedPropertyFloorValue(parsed.value)
     ? parsed.value
     : undefined;
