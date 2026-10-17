@@ -316,7 +316,7 @@ function TrustStrip() {
 
 function HomeDiscovery() {
   return (
-    <Reveal as="section" className="section home-discovery" id="services">
+    <Reveal as="section" className="section home-discovery" id="transaction-paths">
       <SectionHead
         kicker="شروع جست‌وجو"
         title="دنبال چه هستید؟"
