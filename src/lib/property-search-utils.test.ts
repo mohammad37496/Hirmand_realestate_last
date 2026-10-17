@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { PROPERTY_FLOOR_OPTIONS } from "./property-options.ts";
 import {
   compactSearchText,
   normalizeSearchText,
@@ -58,4 +59,17 @@ test("validates all supported listing numeric filters without dropping bad value
   }), ["حداقل متراژ", "حداکثر قیمت", "حداقل اجاره", "حداقل اتاق", "سال ساخت از"]);
   assert.deepEqual(validatePropertySearchNumbers({ minArea: "۱۲۰", maxArea: "۸۰" }), ["بازهٔ متراژ"]);
   assert.deepEqual(validatePropertySearchNumbers({ minFloor: "۵", maxFloor: "۲" }), ["بازهٔ طبقه"]);
+});
+
+
+test("floor options and public floor filters exclude floors -59 through -1", () => {
+  const floors = PROPERTY_FLOOR_OPTIONS.map((item) => Number(item.value));
+  for (let floor = -59; floor <= -1; floor += 1) {
+    assert.equal(floors.includes(floor), false, `floor ${floor} should not be offered`);
+  }
+  assert.equal(floors.includes(-60), true);
+  assert.equal(floors.includes(0), true);
+  assert.deepEqual(validatePropertySearchNumbers({ minFloor: "-59" }), ["طبقه از"]);
+  assert.deepEqual(validatePropertySearchNumbers({ maxFloor: "-1" }), ["طبقه تا"]);
+  assert.deepEqual(validatePropertySearchNumbers({ minFloor: "-60", maxFloor: "0" }), []);
 });
