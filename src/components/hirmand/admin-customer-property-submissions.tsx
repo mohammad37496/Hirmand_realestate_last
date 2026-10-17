@@ -5,6 +5,7 @@ import { TEAM } from "@/lib/site";
 import { formatToman } from "@/lib/money";
 import { isVideoUrl } from "@/lib/media";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
+import { PROPERTY_FLOOR_OPTIONS, isAllowedPropertyFloorValue } from "@/lib/property-options";
 import "./admin-customer-property-submissions.css";
 
 type Submission = {
@@ -50,6 +51,21 @@ function labelTransaction(value: unknown) {
 
 function labelType(value: unknown) {
   return ({ apartment:"آپارتمان", villa:"ویلا و باغ", office:"اداری", heritage:"خانه اصیل", land:"زمین", commercial:"تجاری" } as Record<string,string>)[String(value ?? "")] ?? String(value ?? "—");
+}
+
+function supportedFloorText(value: unknown): string {
+  const raw = String(value ?? "").trim()
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[٬،,\\s]/g, "");
+  if (!raw || !/^-?\\d+$/.test(raw)) return "";
+  const floor = Number(raw);
+  return isAllowedPropertyFloorValue(floor) ? String(floor) : "";
+}
+
+function displayFloor(value: unknown): string {
+  const floor = supportedFloorText(value);
+  return floor ? Number(floor).toLocaleString("fa-IR") : "—";
 }
 
 function mediaItems(data: Record<string, unknown>) {
@@ -122,7 +138,7 @@ export function AdminCustomerPropertySubmissions() {
   function openSubmission(submission: Submission) {
     setSelected(selected?.id === submission.id ? null : submission);
     setReviewNote(submission.reviewNote || "");
-    setEditDraft({ ...submission.propertyData });
+    setEditDraft({ ...submission.propertyData, floor: supportedFloorText(submission.propertyData.floor) });
   }
 
   function patchDraft(key: string, value: unknown) {
@@ -321,7 +337,10 @@ export function AdminCustomerPropertySubmissions() {
         areaM2: numeric("areaM2"),
         bedrooms: numeric("bedrooms"),
         bathrooms: numeric("bathrooms"),
-        floor: numeric("floor"),
+        floor: (() => {
+          const value = numeric("floor");
+          return typeof value === "number" && isAllowedPropertyFloorValue(value) ? value : null;
+        })(),
         totalFloors: numeric("totalFloors"),
         builtYear: numeric("builtYear"),
         orientation: String(editDraft.orientation ?? "") || null,
@@ -341,7 +360,7 @@ export function AdminCustomerPropertySubmissions() {
       if (!response.ok || !data?.success || !data.submission) throw new Error(data?.statusMessage || "ذخیره ویرایش انجام نشد.");
       setSubmissions((items) => items.map((item) => item.id === selected.id ? data.submission! : item));
       setSelected(data.submission);
-      setEditDraft({ ...data.submission.propertyData });
+      setEditDraft({ ...data.submission.propertyData, floor: supportedFloorText(data.submission.propertyData.floor) });
       toast.success("ویرایش قبل از انتشار ذخیره شد.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "ذخیره ویرایش انجام نشد.");
@@ -555,6 +574,7 @@ export function AdminCustomerPropertySubmissions() {
                         <label className="field wide"><span>آدرس / توضیح موقعیت</span><input value={String(editDraft.address ?? "")} onChange={(e)=>patchDraft("address",e.target.value)}/></label>
                         <label className="field"><span>خواب</span><input inputMode="numeric" value={String(editDraft.bedrooms ?? "")} onChange={(e)=>patchDraft("bedrooms",e.target.value)}/></label>
                         <label className="field"><span>حمام</span><input inputMode="numeric" value={String(editDraft.bathrooms ?? "")} onChange={(e)=>patchDraft("bathrooms",e.target.value)}/></label>
+                        <label className="field"><span>طبقه</span><select value={supportedFloorText(editDraft.floor)} onChange={(e)=>patchDraft("floor",e.target.value)}><option value="">ثبت نشده</option>{PROPERTY_FLOOR_OPTIONS.map((item)=><option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
                         <label className="field wide"><span>ویژگی‌ها</span><input value={String(editDraft.featuresText ?? (Array.isArray(editDraft.features) ? editDraft.features.join("، ") : ""))} onChange={(e)=>patchDraft("featuresText",e.target.value)}/></label>
                         <label className="field wide"><span>توضیحات</span><textarea rows={7} value={String(editDraft.description ?? "")} onChange={(e)=>patchDraft("description",e.target.value)}/></label>
                       </div>
@@ -595,7 +615,7 @@ export function AdminCustomerPropertySubmissions() {
                   <div className="admin-customer-submission-detail-grid">
                     <div><span>آدرس</span><strong>{String(data.address || "ثبت نشده")}</strong>{data.latitude != null && data.longitude != null ? <a className="admin-customer-map-link" href={"https://www.google.com/maps?q="+encodeURIComponent(String(data.latitude)+","+String(data.longitude))} target="_blank" rel="noreferrer"><MapPin size={12}/> مشاهده روی نقشه</a> : null}</div>
                     <div><span>خواب / حمام</span><strong>{String(data.bedrooms ?? "—")} / {String(data.bathrooms ?? "—")}</strong></div>
-                    <div><span>طبقه</span><strong>{String(data.floor ?? "—")} از {String(data.totalFloors ?? "—")}</strong></div>
+                    <div><span>طبقه</span><strong>{displayFloor(data.floor)} از {String(data.totalFloors ?? "—")}</strong></div>
                     <div><span>سال ساخت</span><strong>{String(data.builtYear ?? "—")}</strong></div>
                     <div className="wide"><span>توضیحات</span><p>{String(data.description ?? "—")}</p></div>
                   </div>
