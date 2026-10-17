@@ -17,6 +17,7 @@ import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import {
   PROPERTY_CABINET_OPTIONS,
+  isAllowedPropertyFloorValue,
   PROPERTY_COOLING_OPTIONS,
   PROPERTY_FLOORING_OPTIONS,
   PROPERTY_HEATING_OPTIONS,
@@ -223,7 +224,7 @@ export const propertyInputSchema = z.object({
   areaM2: z.number().int().min(0).max(100000).nullable().optional(),
   bedrooms: z.number().int().min(0).max(30).nullable().optional(),
   bathrooms: z.number().int().min(0).max(30).nullable().optional(),
-  floor: z.number().int().min(-60).max(200).nullable().optional(),
+  floor: z.number().int().refine(isAllowedPropertyFloorValue, "طبقه باید منفی ۶۰ یا بین ۰ تا ۲۰۰ باشد.").nullable().optional(),
   floorLabel: z.literal("suite").nullable().optional().default(null),
   orientation: z.enum(["north","south","east","west","northeast","northwest","southeast","southwest","two_fronts","three_fronts","four_fronts","other"]).nullable().optional().default(null),
   totalFloors: z.number().int().min(0).max(200).nullable().optional(),
@@ -315,6 +316,11 @@ function numberOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function propertyFloorOrNull(value: unknown): number | null {
+  const floor = numberOrNull(value);
+  return floor !== null && isAllowedPropertyFloorValue(floor) ? floor : null;
+}
+
 export function isFeaturedActive(property: { featured: boolean; featuredUntil?: string | null }) {
   return property.featured && (!property.featuredUntil || new Date(property.featuredUntil).getTime() >= Date.now());
 }
@@ -354,7 +360,7 @@ function mapProperty(row: Record<string, unknown>, options: { admin?: boolean } 
     areaM2: numberOrNull(row.area_m2),
     bedrooms: numberOrNull(row.bedrooms),
     bathrooms: numberOrNull(row.bathrooms),
-    floor: numberOrNull(row.floor),
+    floor: propertyFloorOrNull(row.floor),
     floorLabel: row.floor_label === "suite" ? "suite" : null,
     orientation: (row.orientation as PropertyOrientation | null) ?? null,
     totalFloors: numberOrNull(row.total_floors),
