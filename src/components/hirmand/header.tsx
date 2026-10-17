@@ -223,6 +223,7 @@ export function Header() {
                   })}
                   <Link
                     to="/request-property"
+                    search={{}}
                     className="nav-quick-item"
                     role="menuitem"
                     onClick={() => { closeQuickMenu(); closeMenu(); }}
@@ -318,7 +319,7 @@ export function Header() {
           <Link to="/nearby" className="mobile-menu-inquiry" onClick={closeMenu}><LocateFixed size={17} aria-hidden="true" /><span>فایل‌های نزدیک من</span></Link>
           <Link to="/file-code" className="mobile-menu-inquiry" onClick={closeMenu}><Hash size={17} aria-hidden="true" /><span>جستجوی کد فایل</span></Link>
           <Link to="/submit-property" className="mobile-menu-inquiry is-submit" onClick={closeMenu}><Building2 size={17} aria-hidden="true" /><span>ثبت ملک</span></Link>
-          <Link to="/request-property" className="mobile-menu-inquiry" onClick={closeMenu}>
+          <Link to="/request-property" search={{}} className="mobile-menu-inquiry" onClick={closeMenu}>
             <ClipboardList size={17} aria-hidden="true" /> <span>درخواست ملک</span>
           </Link>
           <a href="/#contact" className="mobile-menu-inquiry" onClick={closeMenu}>
