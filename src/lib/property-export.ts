@@ -1,3 +1,5 @@
+import { isAllowedPropertyFloorValue } from "./property-options.ts";
+
 const HEADERS = [
   "شناسه", "عنوان", "slug", "وضعیت", "ویژه", "پایان ویژه", "معامله", "نوع ملک", "محله", "آدرس",
   "متراژ", "خواب", "سرویس", "طبقه", "طبقه خاص", "کل طبقات", "سال ساخت", "پارکینگ", "آسانسور",
@@ -43,6 +45,8 @@ export function csvCell(value: unknown): string {
 
 /** Return data cells in exactly the same order as PROPERTY_EXPORT_HEADERS. */
 export function propertyExportRow(row: Record<string, unknown>): unknown[] {
+  const floor = row.floor == null ? null : Number(row.floor);
+  const exportFloor = floor !== null && isAllowedPropertyFloorValue(floor) ? floor : "";
   return [
     row.id,
     row.title,
@@ -57,7 +61,7 @@ export function propertyExportRow(row: Record<string, unknown>): unknown[] {
     row.area_m2,
     row.bedrooms,
     row.bathrooms,
-    row.floor,
+    exportFloor,
     row.floor_label === "suite" ? "سوئیت" : "",
     row.total_floors,
     row.built_year,
