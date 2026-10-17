@@ -124,6 +124,7 @@ export const NAV = [
   { id: "listings", label: "فایل‌ها", to: "/properties", hash: "" },
   { id: "services", label: "خدمات", to: "/", hash: "services" },
   { id: "properties", label: "انواع ملک", to: "/", hash: "properties" },
+  { id: "request-property", label: "درخواست ملک", to: "/request-property", hash: "" },
   { id: "budget-match", label: "بودجه‌یاب", to: "/budget-match", hash: "" },
   { id: "areas", label: "محله‌ها", to: "/areas", hash: "" },
   { id: "consultants", label: "مشاورین", to: "/consultants", hash: "" },
