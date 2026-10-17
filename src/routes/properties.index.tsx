@@ -33,6 +33,8 @@ import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { PROPERTY_TYPES, NEIGHBORHOOD_NAMES, NEIGHBORHOODS, NEIGHBORHOOD_GROUPS, SERVICES } from "@/lib/site";
 import {
   PROPERTY_CABINET_OPTIONS,
+  PROPERTY_FLOOR_OPTIONS,
+  isAllowedPropertyFloorValue,
   PROPERTY_COOLING_OPTIONS,
   PROPERTY_FLOORING_OPTIONS,
   PROPERTY_HEATING_OPTIONS,
@@ -182,11 +184,6 @@ const ORIENTATION_OPTIONS: { value: PropertyOrientation; label: string }[] = [
   { value: "other", label: "سایر" },
 ];
 
-const FLOOR_OPTIONS = Array.from({ length: 261 }, (_, index) => index - 60).map((value) => ({
-  value: String(value),
-  label: value === 0 ? "همکف (۰)" : value < 0 ? `منفی ${Math.abs(value).toLocaleString("fa-IR")}` : value.toLocaleString("fa-IR"),
-}));
-
 function validTransaction(value: string): PropertyTransaction | undefined {
   return value === "buy" || value === "sell" || value === "rent" || value === "mortgage" ? value : undefined;
 }
@@ -209,7 +206,10 @@ function normalizeBounds(a: string, b: string) {
 }
 
 function parseFloorNumber(raw: string) {
-  return parseIntegerFilter(raw, { min: -60, max: 200, allowNegative: true }).value;
+  const parsed = parseIntegerFilter(raw, { min: -60, max: 200, allowNegative: true });
+  return parsed.valid && parsed.value !== undefined && isAllowedPropertyFloorValue(parsed.value)
+    ? parsed.value
+    : undefined;
 }
 
 function normalizeFloorBounds(a: string, b: string) {
@@ -1563,7 +1563,7 @@ function PropertiesIndexPage() {
                     <span>از طبقه</span>
                     <select value={minFloor} onChange={(e) => setMinFloor(e.target.value)}>
                       <option value="">از همه طبقات</option>
-                      {FLOOR_OPTIONS.map((item) => <option key={`min-${item.value}`} value={item.value}>{item.label}</option>)}
+                      {PROPERTY_FLOOR_OPTIONS.map((item) => <option key={`min-${item.value}`} value={item.value}>{item.label}</option>)}
                     </select>
                   </label>
                   <i aria-hidden="true">—</i>
@@ -1571,7 +1571,7 @@ function PropertiesIndexPage() {
                     <span>تا طبقه</span>
                     <select value={maxFloor} onChange={(e) => setMaxFloor(e.target.value)}>
                       <option value="">تا همه طبقات</option>
-                      {FLOOR_OPTIONS.map((item) => <option key={`max-${item.value}`} value={item.value}>{item.label}</option>)}
+                      {PROPERTY_FLOOR_OPTIONS.map((item) => <option key={`max-${item.value}`} value={item.value}>{item.label}</option>)}
                     </select>
                   </label>
                 </div>
