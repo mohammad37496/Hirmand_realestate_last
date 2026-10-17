@@ -1,6 +1,7 @@
 import { Eye, X } from "lucide-react";
 import { useState } from "react";
 import { getPropertyFallbackImage } from "@/lib/property-fallback-images";
+import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import type { PropertyType, PropertyTransaction } from "@/lib/properties";
 import "@/admin-property-preview.css";
 
@@ -15,6 +16,8 @@ const PT:Record<PropertyType,string>={apartment:"آپارتمان",villa:"ویل
 function money(v:string){const d=v.replace(/[۰-۹]/g,x=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(x))).replace(/[٬،,\s]/g,"");return /^\d+$/.test(d)?Number(d).toLocaleString("fa-IR"):"—";}
 export function AdminPropertyPreview({data}:{data:AdminPropertyPreviewData}){
   const [open,setOpen]=useState(false);
+  const floorNumber = data.floor.trim() ? Number(data.floor.trim()) : null;
+  const showFloor = floorNumber !== null && /^-?\d+$/.test(data.floor.trim()) && isAllowedPropertyFloorValue(floorNumber);
   const image=data.images.split(/[\n,]+/).map(x=>x.trim()).find(Boolean)||getPropertyFallbackImage(data.propertyType,"admin-preview");
   const price=data.transactionType==="rent"?[data.deposit&&"رهن "+money(data.deposit),data.rent&&"اجاره "+money(data.rent)].filter(Boolean).join(" · ")+" تومان":data.transactionType==="mortgage"?(data.deposit?money(data.deposit)+" تومان":"رهن مشخص نشده"):(data.price?money(data.price)+" تومان":"قیمت مشخص نشده");
   return <><button type="button" className="admin-preview-trigger" onClick={()=>setOpen(true)}><Eye size={16}/> پیش‌نمایش قبل از انتشار</button>
@@ -23,7 +26,7 @@ export function AdminPropertyPreview({data}:{data:AdminPropertyPreviewData}){
     <header className="admin-preview-head"><div><span>پیش‌نمایش فایل</span><h2>{data.title.trim()||"عنوان فایل هنوز وارد نشده است"}</h2><small>{TX[data.transactionType]} · {PT[data.propertyType]} · {data.neighborhood.trim()||"محله مشخص نشده"}</small></div><b>{data.status==="published"?"نسخه انتشار":"نسخه پیش‌نویس"}</b></header>
     <div className="admin-preview-property"><div className="admin-preview-image-wrap"><img src={image} alt="" className="admin-preview-image"/>{data.featured?<span className="admin-preview-badge">ویژه</span>:null}</div>
       <div className="admin-preview-info"><div className="admin-preview-price">{price}</div><div className="admin-preview-specs">
-        {data.areaM2?<span><b>{data.areaM2}</b> متر</span>:null}{data.bedrooms?<span><b>{data.bedrooms}</b> خواب</span>:null}{data.bathrooms?<span><b>{data.bathrooms}</b> سرویس</span>:null}{data.floor?<span><b>{data.floor}</b> طبقه</span>:null}{data.parking?<span>پارکینگ</span>:null}{data.elevator?<span>آسانسور</span>:null}{data.storage?<span>انباری</span>:null}
+        {data.areaM2?<span><b>{data.areaM2}</b> متر</span>:null}{data.bedrooms?<span><b>{data.bedrooms}</b> خواب</span>:null}{data.bathrooms?<span><b>{data.bathrooms}</b> سرویس</span>:null}{showFloor ? <span><b>{floorNumber!.toLocaleString("fa-IR")}</b> طبقه</span> : null}{data.parking?<span>پارکینگ</span>:null}{data.elevator?<span>آسانسور</span>:null}{data.storage?<span>انباری</span>:null}
       </div><p>{data.description.trim()||"توضیحات فایل هنوز تکمیل نشده است."}</p><div className="admin-preview-contact"><strong>{data.contactName.trim()||"مشاور هیرمند"}</strong><span dir="ltr">{data.contactPhone.trim()||"شماره تماس ثبت نشده"}</span></div></div></div>
     <footer className="admin-preview-foot"><span>این پیش‌نمایش فقط از اطلاعات فعلی فرم استفاده می‌کند و چیزی منتشر نمی‌کند.</span><button type="button" className="btn-ghost" onClick={()=>setOpen(false)}>بستن</button></footer>
   </section></div>:null}</>;
