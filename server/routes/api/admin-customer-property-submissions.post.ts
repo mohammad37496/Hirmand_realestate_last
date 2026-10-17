@@ -497,7 +497,7 @@ export default defineEventHandler(async (event) => {
       areaM2: data.areaM2 == null ? null : Number(data.areaM2),
       bedrooms: data.bedrooms == null ? null : Number(data.bedrooms),
       bathrooms: data.bathrooms == null ? null : Number(data.bathrooms),
-      floor: data.floor == null ? null : Number(data.floor),
+      floor: data.floor == null || !isAllowedPropertyFloorValue(Number(data.floor)) ? null : Number(data.floor)
       floorLabel: null,
       orientation: data.orientation ?? null,
       totalFloors: data.totalFloors == null ? null : Number(data.totalFloors),
