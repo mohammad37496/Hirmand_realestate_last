@@ -389,7 +389,7 @@ export async function autoMatchLead(
     `select ${PROPERTY_COLUMNS}
      from properties
      where status = 'published'
-       and (floor is null or floor = -60 or floor >= 0)
+       and (floor is null or floor = -60 or floor between 0 and 20)
        and (
          $1::text = ''
          or property_type = $1
