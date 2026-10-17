@@ -18,7 +18,6 @@ import {
   Menu,
   Phone,
   Search,
-  Sparkles,
   UsersRound,
   WalletCards,
   X,
@@ -40,7 +39,7 @@ const FINANCE_NAV = [
 
 const NAV_ICONS = {
   listings: Building2,
-  services: Sparkles,
+  services: Handshake,
   properties: Grid2X2,
   "request-property": ClipboardList,
   "budget-match": Calculator,
