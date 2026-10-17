@@ -351,21 +351,9 @@ function HomeDiscovery() {
           );
         })}
       </div>
-      <div className="home-type-row" aria-label="انتخاب نوع ملک">
-        {PROPERTY_TYPES.map((item) => {
-          const Icon = TYPE_ICONS[item.id];
-          return (
-            <a
-              key={item.id}
-              href={"/properties?type=" + encodeURIComponent(item.id)}
-              className="home-type-chip"
-              aria-label={"جستجوی " + item.title}
-            >
-              <span className="icon-box sm"><Icon size={15} strokeWidth={1.8} /></span>
-              <span>{item.title}</span>
-            </a>
-          );
-        })}
+      <div className="home-discovery-footer">
+        <span>نوع ملک‌تان را هم می‌توانید جداگانه انتخاب کنید.</span>
+        <a className="home-discovery-types-link" href="#properties">مشاهده همه دسته‌بندی‌ها <span aria-hidden="true">←</span></a>
       </div>
     </Reveal>
   );
@@ -518,34 +506,94 @@ function Services({ onPick }: { onPick: (title: string) => void }) {
   );
 }
 
-function Properties({ onPick }: { onPick: (title: string) => void }) {
+const PROPERTY_CATEGORY_CARDS = [
+  {
+    id: "apartment",
+    title: "آپارتمان",
+    text: "واحدهای یک‌خوابه تا چندخوابه؛ برای خرید، رهن یا اجاره در محله‌های اصفهان.",
+    image: "/images/type-apartment.jpg",
+    imageAlt: "نمای آپارتمان مسکونی",
+    icon: Building2,
+  },
+  {
+    id: "villa",
+    title: "ویلا و باغ",
+    text: "خانه‌های مستقل، ویلا و باغ‌ویلا برای کسانی که فضای باز را ترجیح می‌دهند.",
+    image: "/images/type-villa.jpg",
+    imageAlt: "نمای ویلای مسکونی",
+    icon: Trees,
+  },
+  {
+    id: "heritage",
+    title: "خانه‌های حیاط‌دار و اصیل",
+    text: "خانه‌های مستقل و حیاط‌دار با معماری اصیل و حال‌وهوای خاص اصفهان.",
+    image: "/images/type-heritage.jpg",
+    imageAlt: "خانه سنتی حیاط‌دار",
+    icon: Home,
+  },
+  {
+    id: "office",
+    title: "املاک اداری",
+    text: "دفتر کار و واحد اداری برای شرکت‌ها، متخصصان و کسب‌وکارها.",
+    image: "/images/type-office.jpg",
+    imageAlt: "فضای اداری",
+    icon: Landmark,
+  },
+  {
+    id: "commercial",
+    title: "مغازه و ملک تجاری",
+    text: "واحدهای تجاری و مغازه؛ با توجه به موقعیت و کاربری ثبت‌شده ملک.",
+    image: "/images/fallback/commercial-01.svg",
+    imageAlt: "تصویر دسته‌بندی ملک تجاری",
+    icon: Building2,
+  },
+  {
+    id: "land",
+    title: "زمین",
+    text: "زمین‌های موجود برای ساخت‌وساز یا سرمایه‌گذاری، بر اساس اطلاعات هر فایل.",
+    image: "/images/fallback/land-01.svg",
+    imageAlt: "تصویر دسته‌بندی زمین",
+    icon: MapPinned,
+  },
+] as const;
+
+function Properties() {
   return (
-    <Reveal as="section" className="section" id="properties">
+    <Reveal as="section" className="section home-property-categories" id="properties">
       <SectionHead
         kicker="انواع ملک"
-        title="برای هر سبک زندگی"
-        text="فایل مناسب پس از شناخت نیاز شما معرفی می‌شود. این‌ها مسیرهایی است که بیشتر روی آن کار می‌کنیم."
+        title="جست‌وجو را از نوع ملک شروع کنید"
+        text="دسته‌بندی دلخواه را انتخاب کنید تا فایل‌های مرتبط را ببینید یا درخواست اختصاصی خود را برای همان نوع ملک ثبت کنید."
       />
-      <div className="type-grid">
-        {PROPERTY_TYPES.map((item, index) => {
-          const Icon = TYPE_ICONS[item.id];
+      <div className="type-grid type-grid-categories">
+        {PROPERTY_CATEGORY_CARDS.map((item, index) => {
+          const Icon = item.icon;
+          const listingHref = "/properties?type=" + encodeURIComponent(item.id);
+          const requestHref = "/request-property?type=" + encodeURIComponent(item.id);
           return (
-            <Reveal key={item.id} className="type-card" delay={index * 60}>
-              <button type="button" onClick={() => onPick(item.title)} aria-label={`درخواست ${item.title}`}>
-                <img
-                  src={item.image}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                />
-                <span className="type-body">
-                  <span className="icon-box sm">
-                    <Icon size={16} strokeWidth={1.8} />
+            <Reveal key={item.id} className="type-card" delay={index * 45}>
+              <a
+                className="type-card-media"
+                href={listingHref}
+                aria-label={"مشاهده فایل‌های " + item.title}
+                tabIndex={0}
+              >
+                <img src={item.image} alt={item.imageAlt} loading="lazy" decoding="async" />
+                <span className="type-card-media-badge">مشاهده دسته‌بندی</span>
+              </a>
+              <div className="type-body">
+                <div className="type-card-title-row">
+                  <span className="icon-box sm" aria-hidden="true">
+                    <Icon size={17} strokeWidth={1.8} />
                   </span>
-                  <strong>{item.title}</strong>
-                  <span>{item.text}</span>
-                </span>
-              </button>
+                  <h3>{item.title}</h3>
+                </div>
+                <p className="type-card-description">{item.text}</p>
+                <div className="type-card-actions">
+                  <a className="type-card-list-link" href={listingHref}>مشاهده فایل‌ها</a>
+                  <a className="type-card-request-link" href={requestHref}>درخواست این ملک</a>
+                </div>
+              </div>
             </Reveal>
           );
         })}
@@ -942,6 +990,7 @@ export function SitePage({
         <TrustStrip />
         <PropertyShowcase initialProperties={initialProperties} />
         <HomeDiscovery />
+        <Properties />
         <Inquiry draft={draft} />
         <details className="home-secondary">
           <summary>
