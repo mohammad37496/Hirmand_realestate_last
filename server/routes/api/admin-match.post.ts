@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
+import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -154,7 +155,10 @@ function serializeProperty(row: Record<string, unknown>, score: number, reasons:
     areaM2: num(row.area_m2),
     bedrooms: num(row.bedrooms),
     bathrooms: num(row.bathrooms),
-    floor: num(row.floor),
+    floor: (() => {
+      const value = num(row.floor);
+      return value !== null && isAllowedPropertyFloorValue(value) ? value : null;
+    })(),
     floorLabel: row.floor_label === "suite" ? "سوئیت" : null,
     totalFloors: num(row.total_floors),
     builtYear: num(row.built_year),
@@ -397,7 +401,9 @@ export default defineEventHandler(async (event) => {
       if (mode === "smart") {
         if (sameNeighborhood === true) score += 6;
         if (requestedBedrooms != null && sameBedrooms === true) score += 4;
-        if (String(row.floor ?? "") === String(lead.floor_preference ?? "").trim() && String(lead.floor_preference ?? "").trim()) {
+        const rowFloor = num(row.floor);
+        const preferredFloor = String(lead.floor_preference ?? "").trim();
+        if (rowFloor !== null && isAllowedPropertyFloorValue(rowFloor) && String(rowFloor) === preferredFloor && preferredFloor) {
           score += 5;
           reasons.push("طبقه مطابق درخواست");
         }
