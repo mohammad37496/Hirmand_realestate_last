@@ -97,7 +97,7 @@ function AreaPage() {
             <MapPinned size={34} aria-hidden="true" />
             <h1>این محله پیدا نشد</h1>
             <p>محلهٔ درخواستی در فهرست مناطق تحت پوشش هیرمند نیست.</p>
-            <Link to="/areas/" className="area-action area-action-primary">
+            <Link to="/areas" className="area-action area-action-primary">
               مشاهدهٔ همهٔ محله‌ها <ArrowUpLeft size={16} />
             </Link>
           </section>
@@ -154,7 +154,7 @@ function AreaPage() {
         <nav className="area-profile-breadcrumbs" aria-label="مسیر صفحه">
           <Link to="/">صفحهٔ اصلی</Link>
           <span aria-hidden="true">/</span>
-          <Link to="/areas/">راهنمای محله‌ها</Link>
+          <Link to="/areas">راهنمای محله‌ها</Link>
           <span aria-hidden="true">/</span>
           <span aria-current="page">{area.name}</span>
         </nav>
@@ -416,7 +416,7 @@ function AreaPage() {
                 <span className="area-profile-section-kicker">محدوده‌های هم‌گروه</span>
                 <h2>محله‌های دیگر در {area.groupTitle}</h2>
               </div>
-              <Link to="/areas/" className="area-profile-text-link">فهرست کامل محله‌ها <ArrowUpLeft size={15} aria-hidden="true" /></Link>
+              <Link to="/areas" className="area-profile-text-link">فهرست کامل محله‌ها <ArrowUpLeft size={15} aria-hidden="true" /></Link>
             </div>
             <div className="area-profile-nearby-grid">
               {nearby.map((candidate) => (
