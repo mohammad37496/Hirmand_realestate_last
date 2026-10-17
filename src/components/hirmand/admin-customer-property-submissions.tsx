@@ -57,8 +57,8 @@ function supportedFloorText(value: unknown): string {
   const raw = String(value ?? "").trim()
     .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
     .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-    .replace(/[٬،,\\s]/g, "");
-  if (!raw || !/^-?\\d+$/.test(raw)) return "";
+    .replace(/[٬،,\s]/g, "");
+  if (!raw || !/^-?\d+$/.test(raw)) return "";
   const floor = Number(raw);
   return isAllowedPropertyFloorValue(floor) ? String(floor) : "";
 }
