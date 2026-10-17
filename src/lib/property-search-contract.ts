@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { compactSearchText } from "./property-search-utils.ts";
+import { isAllowedPropertyFloorValue } from "./property-options.ts";
 
 export const publicPropertyFiltersSchema = z.object({
   transactionType: z.enum(["buy", "sell", "rent", "mortgage"]).optional(),
@@ -29,8 +30,8 @@ export const publicPropertyFiltersSchema = z.object({
   maxRent: z.number().int().min(0).max(999999999999999).optional(),
   minBedrooms: z.number().int().min(0).max(30).optional(),
   minBathrooms: z.number().int().min(0).max(30).optional(),
-  minFloor: z.number().int().min(-60).max(200).optional(),
-  maxFloor: z.number().int().min(-60).max(200).optional(),
+  minFloor: z.number().int().refine(isAllowedPropertyFloorValue, "طبقه نامعتبر است.").optional(),
+  maxFloor: z.number().int().refine(isAllowedPropertyFloorValue, "طبقه نامعتبر است.").optional(),
   floorType: z.literal("suite").optional(),
   orientation: z.enum(["north","south","east","west","northeast","northwest","southeast","southwest","two_fronts","three_fronts","four_fronts","other"]).optional(),
   convertibleOnly: z.boolean().optional(),
