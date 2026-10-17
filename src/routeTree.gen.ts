@@ -26,6 +26,7 @@ import { Route as NearbyRouteImport } from './routes/nearby'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PropertiesRouteImport } from './routes/properties'
 import { Route as RequestTrackingRouteImport } from './routes/request-tracking'
+import { Route as RequestPropertyRouteImport } from './routes/request-property'
 import { Route as SmartSearchRouteImport } from './routes/smart-search'
 import { Route as SubmitPropertyRouteImport } from './routes/submit-property'
 import { Route as TrackingRouteImport } from './routes/tracking'
@@ -128,6 +129,11 @@ const PropertiesRoute = PropertiesRouteImport.update({
 const RequestTrackingRoute = RequestTrackingRouteImport.update({
   id: '/request-tracking',
   path: '/request-tracking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestPropertyRoute = RequestPropertyRouteImport.update({
+  id: '/request-property',
+  path: '/request-property',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SmartSearchRoute = SmartSearchRouteImport.update({
@@ -348,6 +354,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/properties'
     | '/request-tracking'
+    | '/request-property'
     | '/smart-search'
     | '/submit-property'
     | '/tracking'
@@ -383,6 +390,7 @@ export interface FileRouteTypes {
     | '/nearby'
     | '/notifications'
     | '/request-tracking'
+    | '/request-property'
     | '/smart-search'
     | '/submit-property'
     | '/tracking'
@@ -418,6 +426,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/properties'
     | '/request-tracking'
+    | '/request-property'
     | '/smart-search'
     | '/submit-property'
     | '/tracking'
@@ -456,6 +465,7 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   PropertiesRoute: typeof PropertiesRouteWithChildren
   RequestTrackingRoute: typeof RequestTrackingRoute
+  RequestPropertyRoute: typeof RequestPropertyRoute
   SmartSearchRoute: typeof SmartSearchRoute
   SubmitPropertyRoute: typeof SubmitPropertyRoute
   TrackingRoute: typeof TrackingRoute
@@ -589,6 +599,13 @@ declare module '@tanstack/react-router' {
       path: '/request-tracking'
       fullPath: '/request-tracking'
       preLoaderRoute: typeof RequestTrackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request-property': {
+      id: '/request-property'
+      path: '/request-property'
+      fullPath: '/request-property'
+      preLoaderRoute: typeof RequestPropertyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/smart-search': {
@@ -780,6 +797,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   PropertiesRoute: PropertiesRouteWithChildren,
   RequestTrackingRoute: RequestTrackingRoute,
+  RequestPropertyRoute: RequestPropertyRoute,
   SmartSearchRoute: SmartSearchRoute,
   SubmitPropertyRoute: SubmitPropertyRoute,
   TrackingRoute: TrackingRoute,
