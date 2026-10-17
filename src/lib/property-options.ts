@@ -112,6 +112,28 @@ export const PROPERTY_OTHER_AMENITY_OPTIONS = [
   { value: "elevator_private", label: "آسانسور اختصاصی" },
 ] as const;
 
+/**
+ * Supported floor values:
+ * - -60 is retained as the one explicit exceptional underground level.
+ * - All ordinary floors are from ground (0) through 200.
+ * Values -59 through -1 are intentionally not offered or accepted.
+ */
+export const PROPERTY_FLOOR_OPTIONS = [
+  -60,
+  ...Array.from({ length: 201 }, (_, index) => index),
+].map((value) => ({
+  value: String(value),
+  label: value === 0
+    ? "همکف (۰)"
+    : value < 0
+      ? `منفی ${Math.abs(value).toLocaleString("fa-IR")}`
+      : value.toLocaleString("fa-IR"),
+}));
+
+export function isAllowedPropertyFloorValue(value: number): boolean {
+  return Number.isInteger(value) && (value === -60 || (value >= 0 && value <= 200));
+}
+
 export type PropertyCabinetType = (typeof PROPERTY_CABINET_OPTIONS)[number]["value"];
 export type PropertyFlooringType = (typeof PROPERTY_FLOORING_OPTIONS)[number]["value"];
 export type PropertyCoolingSystem = (typeof PROPERTY_COOLING_OPTIONS)[number]["value"];
