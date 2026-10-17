@@ -387,7 +387,7 @@ export default defineEventHandler(async (event) => {
     if (description.length < 80 || description.length > 5000) throw createError({ statusCode: 422, statusMessage: "توضیحات ملک باید حداقل ۸۰ کاراکتر باشد." });
     if (area != null && (!Number.isInteger(area) || area < 1 || area > 100000)) throw createError({ statusCode: 422, statusMessage: "متراژ ملک معتبر نیست." });
 
-    for (const [key, max] of [["bedrooms",30],["bathrooms",30],["floor",200],["totalFloors",200],["builtYear",2500]] as const) {
+    for (const [key, max] of [["bedrooms",30],["bathrooms",30],["floor",20],["totalFloors",200],["builtYear",2500]] as const) {
       const value = parseOptionalInt(next[key]);
       if (value != null && (!Number.isInteger(value) || (key === "floor" ? !isAllowedPropertyFloorValue(value) : value < (key === "builtYear" ? 1200 : 0) || value > max))) {
         throw createError({ statusCode: 422, statusMessage: "مقدار " + key + " معتبر نیست." });
