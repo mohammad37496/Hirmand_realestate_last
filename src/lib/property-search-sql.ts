@@ -50,6 +50,7 @@ function normalizedTextSql(expression: string): string {
 export function buildPublicPropertyWhereSql(): string {
   return [
     "(deleted_at is null) and (status = 'published' or (status = 'draft' and publish_at is not null and publish_at <= current_timestamp)) and (unpublish_at is null or unpublish_at > current_timestamp)",
+    "and (floor is null or floor = -60 or floor >= 0)",
     "and ($1::text is null or transaction_type = $1)",
     "and ($2::text is null or property_type = $2)",
     `and ($3::text is null or ($5::boolean is true and ${normalizedTextSql("neighborhood")} = ${normalizedTextSql("$3::text")}) or ($5::boolean is false and strpos(${normalizedTextSql("neighborhood")}, ${normalizedTextSql("$3::text")}) > 0))`,
