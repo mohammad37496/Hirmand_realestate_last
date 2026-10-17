@@ -37,8 +37,8 @@ function numberValue(value: string) {
 }
 
 function supportedFloorText(value: unknown) {
-  const raw = digits(String(value ?? "")).trim().replace(/[٬،,\\s]/g, "");
-  if (!raw || !/^-?\\d+$/.test(raw)) return "";
+  const raw = digits(String(value ?? "")).trim().replace(/[٬،,\s]/g, "");
+  if (!raw || !/^-?\d+$/.test(raw)) return "";
   const parsed = Number(raw);
   return isAllowedPropertyFloorValue(parsed) ? String(parsed) : "";
 }
