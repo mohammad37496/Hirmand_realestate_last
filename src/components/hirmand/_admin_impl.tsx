@@ -134,6 +134,8 @@ import "@/property-feature-enhancements.css";
 import "@/admin-customer-inbox.css";
 import {
   PROPERTY_CABINET_OPTIONS,
+  PROPERTY_FLOOR_OPTIONS,
+  isAllowedPropertyFloorValue,
   PROPERTY_COOLING_OPTIONS,
   PROPERTY_FLOORING_OPTIONS,
   PROPERTY_HEATING_OPTIONS,
@@ -349,11 +351,6 @@ const ORIENTATION_OPTIONS: { value: NonNullable<Property["orientation"]>; label:
   { value: "other", label: "سایر" },
 ];
 
-const FLOOR_OPTIONS = Array.from({ length: 261 }, (_, index) => index - 60).map((value) => ({
-  value: String(value),
-  label: value === 0 ? "همکف (۰)" : value < 0 ? `منفی ${Math.abs(value).toLocaleString("fa-IR")}` : value.toLocaleString("fa-IR"),
-}));
-
 function toEnglishDigits(raw: string) {
   return raw
     .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
@@ -366,6 +363,12 @@ function numberOrNull(raw: string, allowNegative = false) {
   const value = Number(digits);
   if (!Number.isInteger(value) || !Number.isFinite(value)) return null;
   return allowNegative || value >= 0 ? value : null;
+}
+
+function isInvalidFloorInput(raw: string) {
+  if (isInvalidIntegerInput(raw, true)) return true;
+  const floor = numberOrNull(raw, true);
+  return floor !== null && !isAllowedPropertyFloorValue(floor);
 }
 
 function moneyOrNull(raw: string) {
@@ -386,7 +389,7 @@ function hasInvalidPropertyIntegerInputs(form: Pick<
     isInvalidIntegerInput(form.areaM2) ||
     isInvalidIntegerInput(form.bedrooms) ||
     isInvalidIntegerInput(form.bathrooms) ||
-    isInvalidIntegerInput(form.floor, true) ||
+    isInvalidFloorInput(form.floor) ||
     isInvalidIntegerInput(form.totalFloors) ||
     isInvalidIntegerInput(form.builtYear)
   );
@@ -472,7 +475,7 @@ function propertyToForm(property: Property): FormState {
     areaM2: property.areaM2 != null ? String(property.areaM2) : "",
     bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
     bathrooms: property.bathrooms != null ? String(property.bathrooms) : "",
-    floor: property.floor != null ? String(property.floor) : "",
+    floor: property.floor != null && isAllowedPropertyFloorValue(property.floor) ? String(property.floor) : "",
     floorLabel: property.floorLabel ?? null,
     orientation: property.orientation ?? null,
     totalFloors: property.totalFloors != null ? String(property.totalFloors) : "",
@@ -1450,7 +1453,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       return;
     }
     if (hasInvalidPropertyIntegerInputs(form)) {
-      toast.error("متراژ، خواب، سرویس، طبقه، تعداد طبقات و سال ساخت باید عدد صحیح باشند.");
+      toast.error("متراژ، خواب، سرویس، تعداد طبقات و سال ساخت باید عدد صحیح باشند؛ طبقه فقط می‌تواند منفی ۶۰ یا از ۰ تا ۲۰۰ باشد.");
       return;
     }
     const price = moneyOrNull(form.price);
@@ -2806,7 +2809,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                       >
                         <option value="">انتخاب طبقه</option>
                         <option value="suite">سوئیت</option>
-                        {FLOOR_OPTIONS.map((item) => (
+                        {PROPERTY_FLOOR_OPTIONS.map((item) => (
                           <option key={item.value} value={item.value}>{item.label}</option>
                         ))}
                       </select>
