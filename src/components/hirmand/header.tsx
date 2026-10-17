@@ -4,7 +4,6 @@ import {
   ArrowLeftRight,
   BadgeDollarSign,
   Bell,
-  BriefcaseBusiness,
   Building2,
   Calculator,
   ClipboardList,
