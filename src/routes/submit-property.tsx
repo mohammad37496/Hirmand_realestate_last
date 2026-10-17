@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { PROPERTY_TYPES, SERVICES, NEIGHBORHOODS, SITE } from "@/lib/site";
 import {
   PROPERTY_CABINET_OPTIONS,
+  PROPERTY_FLOOR_OPTIONS,
+  isAllowedPropertyFloorValue,
   PROPERTY_COOLING_OPTIONS,
   PROPERTY_FLOORING_OPTIONS,
   PROPERTY_HEATING_OPTIONS,
@@ -32,6 +34,13 @@ function numberValue(value: string) {
   if (!raw) return null;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function supportedFloorText(value: unknown) {
+  const raw = digits(String(value ?? "")).trim().replace(/[٬،,\\s]/g, "");
+  if (!raw || !/^-?\\d+$/.test(raw)) return "";
+  const parsed = Number(raw);
+  return isAllowedPropertyFloorValue(parsed) ? String(parsed) : "";
 }
 
 function moneyValue(value: string) {
@@ -124,7 +133,7 @@ function SubmitPropertyPage() {
           setOwnerName(text("ownerName")); setOwnerPhone(text("ownerPhone")); setTitle(text("title"));
           if (["buy","sell","rent","mortgage"].includes(String(data.transactionType))) setTransactionType(String(data.transactionType) as typeof transactionType);
           if (["apartment","villa","office","heritage","land","commercial"].includes(String(data.propertyType))) setPropertyType(String(data.propertyType) as typeof propertyType);
-          setNeighborhood(text("neighborhood")); setAddress(text("address")); setArea(text("area")); setBedrooms(num("bedrooms")); setBathrooms(num("bathrooms")); setFloor(num("floor")); setTotalFloors(num("totalFloors")); setBuiltYear(num("builtYear")); setOrientation(text("orientation"));
+          setNeighborhood(text("neighborhood")); setAddress(text("address")); setArea(text("area")); setBedrooms(num("bedrooms")); setBathrooms(num("bathrooms")); setFloor(supportedFloorText(num("floor"))); setTotalFloors(num("totalFloors")); setBuiltYear(num("builtYear")); setOrientation(text("orientation"));
           setCabinetType(text("cabinetType")); setFlooringType(text("flooringType")); setCoolingSystem(text("coolingSystem")); setHeatingSystem(text("heatingSystem")); setWallClosetType(text("wallClosetType"));
           setParking(bool("parking")); setElevator(bool("elevator")); setStorage(bool("storage")); setPainted(bool("painted")); setWallpaper(bool("wallpaper")); setConvertible(bool("convertible"));
           setOtherAmenities(Array.isArray(data.otherAmenities) ? data.otherAmenities.filter((v): v is string => typeof v === "string") : []);
@@ -160,7 +169,7 @@ function SubmitPropertyPage() {
       setOwnerName(text("ownerName")); setOwnerPhone(text("ownerPhone")); setTitle(text("title"));
       if (["buy","sell","rent","mortgage"].includes(String(data.transactionType))) setTransactionType(String(data.transactionType) as typeof transactionType);
       if (["apartment","villa","office","heritage","land","commercial"].includes(String(data.propertyType))) setPropertyType(String(data.propertyType) as typeof propertyType);
-      setNeighborhood(text("neighborhood")); setAddress(text("address")); setArea(num("areaM2")); setBedrooms(num("bedrooms")); setBathrooms(num("bathrooms")); setFloor(num("floor")); setTotalFloors(num("totalFloors")); setBuiltYear(num("builtYear")); setOrientation(text("orientation"));
+      setNeighborhood(text("neighborhood")); setAddress(text("address")); setArea(num("areaM2")); setBedrooms(num("bedrooms")); setBathrooms(num("bathrooms")); setFloor(supportedFloorText(num("floor"))); setTotalFloors(num("totalFloors")); setBuiltYear(num("builtYear")); setOrientation(text("orientation"));
       setCabinetType(text("cabinetType")); setFlooringType(text("flooringType")); setCoolingSystem(text("coolingSystem")); setHeatingSystem(text("heatingSystem")); setWallClosetType(text("wallClosetType"));
       setParking(bool("parking")); setElevator(bool("elevator")); setStorage(bool("storage")); setPainted(bool("painted")); setWallpaper(bool("wallpaper")); setConvertible(bool("convertible"));
       setOtherAmenities(Array.isArray(data.otherAmenities) ? data.otherAmenities.filter((v): v is string => typeof v === "string") : []);
@@ -409,7 +418,7 @@ function SubmitPropertyPage() {
             <label className="field"><span>متراژ</span><input value={area} onChange={(e)=>setArea(e.target.value)} inputMode="decimal" dir="ltr" placeholder="120"/></label>
             <label className="field"><span>خواب</span><select value={bedrooms} onChange={(e)=>setBedrooms(e.target.value)}><option value="">ثبت نشده</option>{[0,1,2,3,4,5,6].map((n)=><option key={n} value={String(n)}>{n===0?"بدون خواب":n===6?"۶ خواب و بیشتر":n.toLocaleString("fa-IR")+" خواب"}</option>)}</select></label>
             <label className="field"><span>حمام</span><input value={bathrooms} onChange={(e)=>setBathrooms(e.target.value)} inputMode="numeric" dir="ltr"/></label>
-            <label className="field"><span>طبقه</span><input value={floor} onChange={(e)=>setFloor(e.target.value)} inputMode="numeric" dir="ltr"/></label>
+            <label className="field"><span>طبقه</span><select value={floor} onChange={(e)=>setFloor(e.target.value)}><option value="">ثبت نشده</option>{PROPERTY_FLOOR_OPTIONS.map((item)=><option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
             <label className="field"><span>تعداد طبقات</span><input value={totalFloors} onChange={(e)=>setTotalFloors(e.target.value)} inputMode="numeric" dir="ltr"/></label>
             <label className="field"><span>سال ساخت</span><input value={builtYear} onChange={(e)=>setBuiltYear(e.target.value)} inputMode="numeric" dir="ltr" placeholder="1402"/></label>
             <label className="field"><span>جهت</span><select value={orientation} onChange={(e)=>setOrientation(e.target.value)}><option value="">ثبت نشده</option>{[["north","شمالی"],["south","جنوبی"],["east","شرقی"],["west","غربی"],["northeast","شمال‌شرقی"],["northwest","شمال‌غربی"],["southeast","جنوب‌شرقی"],["southwest","جنوب‌غربی"],["two_fronts","دوبر"],["three_fronts","سه‌بر"],["four_fronts","چهاربر"],["other","سایر"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
