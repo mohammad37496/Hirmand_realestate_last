@@ -59,6 +59,7 @@ import {
   type DivarSortKey,
 } from "@/lib/divar-status";
 import { DIVAR_CSS, DivarGallery } from "@/components/hirmand/divar-admin-ui";
+import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 
 type Tab = "accepted" | "imported" | "rejected";
 
@@ -1094,7 +1095,7 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
                         <b>
                           {file.floorLabel === "suite"
                             ? "سوئیت"
-                            : file.floor == null
+                            : file.floor == null || !isAllowedPropertyFloorValue(file.floor)
                               ? "—"
                               : `${fa(file.floor)}${file.totalFloors ? ` از ${fa(file.totalFloors)}` : ""}`}
                         </b>
