@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
+import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 type SqlClient = Awaited<ReturnType<typeof getSql>>;
@@ -208,7 +209,8 @@ function scoreProperty(
     if (sameBedrooms === true) score += 4;
 
     const preferredFloor = String(lead.floor_preference ?? "").trim();
-    if (preferredFloor && String(row.floor ?? "") === preferredFloor) {
+    const rowFloor = num(row.floor);
+    if (preferredFloor && rowFloor !== null && isAllowedPropertyFloorValue(rowFloor) && String(rowFloor) === preferredFloor) {
       score += 5;
       reasons.push("طبقه مطابق درخواست");
     }
@@ -278,7 +280,10 @@ function serializeMatch(row: Record<string, unknown>, scored: ReturnType<typeof 
     areaM2: num(row.area_m2),
     bedrooms: num(row.bedrooms),
     bathrooms: num(row.bathrooms),
-    floor: num(row.floor),
+    floor: (() => {
+      const floor = num(row.floor);
+      return floor !== null && isAllowedPropertyFloorValue(floor) ? floor : null;
+    })(),
     price: row.price == null ? null : String(row.price),
     deposit: row.deposit == null ? null : String(row.deposit),
     rent: row.rent == null ? null : String(row.rent),
@@ -384,6 +389,7 @@ export async function autoMatchLead(
     `select ${PROPERTY_COLUMNS}
      from properties
      where status = 'published'
+       and (floor is null or floor = -60 or floor >= 0)
        and (
          $1::text = ''
          or property_type = $1
