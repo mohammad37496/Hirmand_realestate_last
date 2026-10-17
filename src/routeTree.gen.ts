@@ -245,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/request-tracking': typeof RequestTrackingRoute
+  '/request-property': typeof RequestPropertyRoute
   '/smart-search': typeof SmartSearchRoute
   '/submit-property': typeof SubmitPropertyRoute
   '/tracking': typeof TrackingRoute
@@ -278,6 +279,7 @@ export interface FileRoutesByTo {
   '/nearby': typeof NearbyRoute
   '/notifications': typeof NotificationsRoute
   '/request-tracking': typeof RequestTrackingRoute
+  '/request-property': typeof RequestPropertyRoute
   '/smart-search': typeof SmartSearchRoute
   '/submit-property': typeof SubmitPropertyRoute
   '/tracking': typeof TrackingRoute
@@ -315,6 +317,7 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/properties': typeof PropertiesRouteWithChildren
   '/request-tracking': typeof RequestTrackingRoute
+  '/request-property': typeof RequestPropertyRoute
   '/smart-search': typeof SmartSearchRoute
   '/submit-property': typeof SubmitPropertyRoute
   '/tracking': typeof TrackingRoute
