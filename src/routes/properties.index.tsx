@@ -516,8 +516,8 @@ function PropertiesIndexPage() {
     setMaxRent(params.get("maxRent") ?? "");
     setMinBedrooms(params.get("bedrooms") ?? "");
     setMinBathrooms(params.get("bathrooms") ?? "");
-    setMinFloor(params.get("minFloor") ?? "");
-    setMaxFloor(params.get("maxFloor") ?? "");
+    setMinFloor(parseFloorNumber(params.get("minFloor") ?? "")?.toString() ?? "");
+    setMaxFloor(parseFloorNumber(params.get("maxFloor") ?? "")?.toString() ?? "");
     setFloorType(params.get("floorType") === "suite" ? "suite" : "");
     setOrientation(validOrientation(params.get("orientation") ?? "") ?? "");
     setConvertibleOnly(params.get("convertible") === "1");
@@ -1008,8 +1008,8 @@ function PropertiesIndexPage() {
     setMaxRent(params.get("maxRent") ?? "");
     setMinBedrooms(params.get("bedrooms") ?? "");
     setMinBathrooms(params.get("bathrooms") ?? "");
-    setMinFloor(params.get("minFloor") ?? "");
-    setMaxFloor(params.get("maxFloor") ?? "");
+    setMinFloor(parseFloorNumber(params.get("minFloor") ?? "")?.toString() ?? "");
+    setMaxFloor(parseFloorNumber(params.get("maxFloor") ?? "")?.toString() ?? "");
     setFloorType(params.get("floorType") === "suite" ? "suite" : "");
     setOrientation(validOrientation(params.get("orientation") ?? "") ?? "");
     setConvertibleOnly(params.get("convertible") === "1");
