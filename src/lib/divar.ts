@@ -9,6 +9,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { isMoneyText, normalizeMoneyText } from "@/lib/property-input-normalization";
+import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { extractDivarMediaUrls } from "./divar-media-utils";
 import { getDivarAgencyReason } from "./divar-agency-filter";
 export { getDivarAgencyReason } from "./divar-agency-filter";
@@ -356,7 +357,8 @@ export function parseDivarListing(
   const rawOrientation = getSpec("موقعیت ملک", "جهت ملک", "جهت ساختمان", "جهت");
   const compactOrientation = normalizeDivarText(rawOrientation).replace(/\s+/g, "");
   const orientation = compactOrientation.includes("شمالشرقی") ? "northeast" : compactOrientation.includes("شمالغربی") ? "northwest" : compactOrientation.includes("جنوبشرقی") ? "southeast" : compactOrientation.includes("جنوبغربی") ? "southwest" : compactOrientation.includes("دونبش") || compactOrientation.includes("دوبر") ? "two_fronts" : compactOrientation.includes("سهنبش") || compactOrientation.includes("سهبر") ? "three_fronts" : compactOrientation.includes("چهارنَبش") || compactOrientation.includes("چهارنبش") || compactOrientation.includes("چهاربر") ? "four_fronts" : compactOrientation.includes("شمالی") ? "north" : compactOrientation.includes("جنوبی") ? "south" : compactOrientation.includes("شرقی") ? "east" : compactOrientation.includes("غربی") ? "west" : null;
-  const floor = floorLabel ? null : parseNumber(getSpec("طبقه"));
+  const parsedFloor = floorLabel ? null : parseNumber(getSpec("طبقه"));
+  const floor = parsedFloor !== null && isAllowedPropertyFloorValue(parsedFloor) ? parsedFloor : null;
   const totalFloors = parseNumber(getSpec("تعداد کل طبقات ساختمان", "تعداد کل طبقات"));
   const builtYear = parseNumber(getSpec("ساخت", "سال ساخت"));
 
@@ -800,7 +802,7 @@ function mapRow(row: Record<string, unknown>): DivarFile {
     areaM2: row.area_m2 == null ? null : Number(row.area_m2),
     bedrooms: row.bedrooms == null ? null : Number(row.bedrooms),
     bathrooms: row.bathrooms == null ? null : Number(row.bathrooms),
-    floor: row.floor == null ? null : Number(row.floor),
+    floor: row.floor == null || !isAllowedPropertyFloorValue(Number(row.floor)) ? null : Number(row.floor),
     floorLabel: row.floor_label === "suite" ? "suite" : null,
     orientation: (row.orientation as DivarFile["orientation"]) ?? null,
     totalFloors: row.total_floors == null ? null : Number(row.total_floors),
