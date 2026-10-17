@@ -465,7 +465,7 @@
     grid-template-columns: minmax(0, .78fr) minmax(0, 1fr);
   }
 
-  .site-home .home-property-categories .type-card-body {
+  .site-home .home-property-categories .type-body {
     padding-inline: 8px;
   }
 }
