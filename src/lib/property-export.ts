@@ -46,7 +46,7 @@ export function csvCell(value: unknown): string {
 /** Return data cells in exactly the same order as PROPERTY_EXPORT_HEADERS. */
 export function propertyExportRow(row: Record<string, unknown>): unknown[] {
   const floor = row.floor == null ? null : Number(row.floor);
-  const exportFloor = floor !== null && isAllowedPropertyFloorValue(floor) ? floor : "";
+  const exportFloor = floor === null ? null : isAllowedPropertyFloorValue(floor) ? floor : "";
   return [
     row.id,
     row.title,
