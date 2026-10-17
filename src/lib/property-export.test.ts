@@ -71,3 +71,17 @@ test("CSV cells quote separators and neutralize spreadsheet formulas", () => {
   assert.equal(csvCell("\t-2+3"), "'\t-2+3");
   assert.equal(csvCell("plain text"), "plain text");
 });
+
+
+test("property exports do not expose unsupported legacy floor values", () => {
+  const base = {
+    id: "legacy-floor",
+    title: "فایل با طبقه قدیمی",
+    slug: "legacy-floor",
+    status: "published",
+    floor: -5,
+  };
+  const row = propertyExportRow(base);
+  const floorIndex = (PROPERTY_EXPORT_HEADERS as readonly string[]).indexOf("طبقه");
+  assert.equal(row[floorIndex], "");
+});
