@@ -109,7 +109,7 @@ export function validatePropertySearchNumbers(values: Record<string, unknown>): 
     { value: values.maxFloor, label: "طبقه تا" },
   ];
   for (const field of floorFields) {
-    const parsed = parseIntegerFilter(field.value, { min: -60, max: 200, allowNegative: true });
+    const parsed = parseIntegerFilter(field.value, { min: -60, max: 20, allowNegative: true });
     if (!parsed.valid || (parsed.value !== undefined && !isAllowedPropertyFloorValue(parsed.value))) {
       errors.push(field.label);
     }
@@ -131,8 +131,8 @@ export function validatePropertySearchNumbers(values: Record<string, unknown>): 
     }
   }
 
-  const minimumFloor = parseIntegerFilter(values.minFloor, { min: -60, max: 200, allowNegative: true });
-  const maximumFloor = parseIntegerFilter(values.maxFloor, { min: -60, max: 200, allowNegative: true });
+  const minimumFloor = parseIntegerFilter(values.minFloor, { min: -60, max: 20, allowNegative: true });
+  const maximumFloor = parseIntegerFilter(values.maxFloor, { min: -60, max: 20, allowNegative: true });
   if (
     minimumFloor.valid &&
     maximumFloor.valid &&
