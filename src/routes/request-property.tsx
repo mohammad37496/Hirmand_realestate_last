@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { ArrowLeft, BadgeCheck, ClipboardList, Clock3, MapPinned, ShieldCheck } from "lucide-react";
 import { InquiryForm, type InquiryDraft } from "@/components/hirmand/inquiry-form";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
@@ -25,7 +26,37 @@ export const Route = createFileRoute("/request-property")({
   component: RequestPropertyPage,
 });
 
+const PROPERTY_TYPE_LABELS: Record<string, string> = {
+  apartment: "آپارتمان",
+  villa: "ویلا و باغ",
+  heritage: "خانه اصیل",
+  office: "اداری و تجاری",
+  commercial: "تجاری",
+  land: "زمین",
+};
+
+const TRANSACTION_LABELS: Record<string, string> = {
+  buy: "خرید",
+  sell: "فروش",
+  mortgage: "رهن",
+  rent: "اجاره",
+};
+
 function RequestPropertyPage() {
+  const [draft, setDraft] = useState<InquiryDraft>(EMPTY_DRAFT);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get("type") ?? "";
+    const transaction = params.get("transaction") ?? "";
+    const neighborhood = params.get("neighborhood")?.trim() ?? "";
+    setDraft({
+      deal: TRANSACTION_LABELS[transaction] ?? "",
+      propertyType: PROPERTY_TYPE_LABELS[type] ?? "",
+      neighborhood,
+    });
+  }, []);
+
   return (
     <SiteChrome className="request-property-shell">
       <main className="request-property-page" aria-labelledby="request-property-title">
@@ -58,7 +89,7 @@ function RequestPropertyPage() {
               <h2 id="request-property-form-title">چه ملکی مدنظرتان است؟</h2>
               <p>اطلاعات را تا جایی که می‌دانید وارد کنید؛ جزئیات دقیق‌تر به ما کمک می‌کند گزینه‌های مرتبط‌تری معرفی کنیم.</p>
             </header>
-            <InquiryForm draft={EMPTY_DRAFT} />
+            <InquiryForm draft={draft} />
           </section>
 
           <aside className="request-property-sidebar" aria-label="راهنمای درخواست ملک">
