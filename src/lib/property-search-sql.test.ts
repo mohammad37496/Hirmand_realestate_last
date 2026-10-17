@@ -308,3 +308,8 @@ test("controlled fixture: result count and pagination use the same WHERE contrac
     await db.close();
   }
 });
+
+
+test("public property SQL excludes unsupported legacy floor values", () => {
+  assert.match(buildPublicPropertyWhereSql(), /floor is null or floor = -60 or floor >= 0/);
+});
