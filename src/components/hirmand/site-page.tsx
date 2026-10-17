@@ -67,13 +67,6 @@ const SERVICE_ICONS = {
   rent: Building2,
 } as const;
 
-const TYPE_ICONS = {
-  apartment: Building2,
-  villa: Trees,
-  office: Landmark,
-  heritage: Home,
-} as const;
-
 const TEAM_ICONS = {
   briefcase: Briefcase,
   handshake: Handshake,
