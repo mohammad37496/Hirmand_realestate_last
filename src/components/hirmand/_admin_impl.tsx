@@ -128,6 +128,7 @@ import "@/admin-site-settings.css";
 import "@/admin-security.css";
 import "@/admin-seo-redirects.css";
 import "@/admin-content-studio.css";
+import "@/admin-area-content.css";
 import "@/admin-property-performance.css";
 import "@/property-feature-enhancements.css";
 import "@/admin-customer-inbox.css";
