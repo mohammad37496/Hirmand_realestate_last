@@ -47,3 +47,13 @@ test("public filter contract rejects symbol-only search text but permits an empt
   assert.equal(publicPropertyFiltersSchema.safeParse({ search: "" }).success, true);
   assert.equal(publicPropertyFiltersSchema.safeParse({ featureSearch: "؟؟؟" }).success, false);
 });
+
+
+test("public floor filters allow -60 and nonnegative levels but reject -59 through -1", () => {
+  for (let floor = -59; floor <= -1; floor += 1) {
+    assert.equal(publicPropertyFiltersSchema.safeParse({ minFloor: floor }).success, false, String(floor));
+    assert.equal(publicPropertyFiltersSchema.safeParse({ maxFloor: floor }).success, false, String(floor));
+  }
+  assert.equal(publicPropertyFiltersSchema.safeParse({ minFloor: -60, maxFloor: 0 }).success, true);
+  assert.equal(publicPropertyFiltersSchema.safeParse({ minFloor: 0, maxFloor: 200 }).success, true);
+});
