@@ -18,7 +18,7 @@ export type InquiryDraft = {
 };
 
 const DEAL_OPTIONS = SERVICES.map((item) => item.title);
-const TYPE_OPTIONS = PROPERTY_TYPES.map((item) => item.title);
+const TYPE_OPTIONS = [...PROPERTY_TYPES.map((item) => item.title), "زمین", "تجاری"];
 const BEDROOM_OPTIONS = [
   { value: "", label: "فرقی ندارد" },
   { value: "0", label: "بدون خواب" },
