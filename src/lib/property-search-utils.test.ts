@@ -62,14 +62,22 @@ test("validates all supported listing numeric filters without dropping bad value
 });
 
 
-test("floor options and public floor filters exclude floors -59 through -1", () => {
+test("floor options and public filters exclude unsupported floors", () => {
   const floors = PROPERTY_FLOOR_OPTIONS.map((item) => Number(item.value));
   for (let floor = -59; floor <= -1; floor += 1) {
     assert.equal(floors.includes(floor), false, `floor ${floor} should not be offered`);
   }
+  for (let floor = 21; floor <= 200; floor += 1) {
+    assert.equal(floors.includes(floor), false, `floor ${floor} should not be offered`);
+    assert.deepEqual(validatePropertySearchNumbers({ minFloor: String(floor) }), ["طبقه از"]);
+    assert.deepEqual(validatePropertySearchNumbers({ maxFloor: String(floor) }), ["طبقه تا"]);
+  }
   assert.equal(floors.includes(-60), true);
   assert.equal(floors.includes(0), true);
+  assert.equal(floors.includes(20), true);
+  assert.equal(floors.includes(21), false);
   assert.deepEqual(validatePropertySearchNumbers({ minFloor: "-59" }), ["طبقه از"]);
   assert.deepEqual(validatePropertySearchNumbers({ maxFloor: "-1" }), ["طبقه تا"]);
   assert.deepEqual(validatePropertySearchNumbers({ minFloor: "-60", maxFloor: "0" }), []);
+  assert.deepEqual(validatePropertySearchNumbers({ minFloor: "0", maxFloor: "20" }), []);
 });
