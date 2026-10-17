@@ -536,7 +536,7 @@ const PROPERTY_CATEGORY_CARDS = [
     id: "commercial",
     title: "مغازه و ملک تجاری",
     text: "واحدهای تجاری و مغازه؛ با توجه به موقعیت و کاربری ثبت‌شده ملک.",
-    image: "/images/fallback/commercial-01.svg",
+    image: "/images/fallback/commercial-01.jpg",
     imageAlt: "تصویر دسته‌بندی ملک تجاری",
     icon: Building2,
   },
@@ -544,7 +544,7 @@ const PROPERTY_CATEGORY_CARDS = [
     id: "land",
     title: "زمین",
     text: "زمین‌های موجود برای ساخت‌وساز یا سرمایه‌گذاری، بر اساس اطلاعات هر فایل.",
-    image: "/images/fallback/land-01.svg",
+    image: "/images/fallback/land-01.jpg",
     imageAlt: "تصویر دسته‌بندی زمین",
     icon: MapPinned,
   },
@@ -571,7 +571,18 @@ function Properties() {
                 aria-label={"مشاهده فایل‌های " + item.title}
                 tabIndex={0}
               >
-                <img src={item.image} alt={item.imageAlt} loading="lazy" decoding="async" />
+                <img
+                  src={item.image}
+                  alt={item.imageAlt}
+                  loading="lazy"
+                  decoding="async"
+                  onError={(event) => {
+                    const image = event.currentTarget;
+                    if (image.dataset.fallbackApplied === "true") return;
+                    image.dataset.fallbackApplied = "true";
+                    image.src = `/images/fallback/${item.id}-01.svg`;
+                  }}
+                />
                 <span className="type-card-media-badge">مشاهده دسته‌بندی</span>
               </a>
               <div className="type-body">
