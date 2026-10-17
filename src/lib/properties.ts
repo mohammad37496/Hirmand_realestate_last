@@ -224,7 +224,7 @@ export const propertyInputSchema = z.object({
   areaM2: z.number().int().min(0).max(100000).nullable().optional(),
   bedrooms: z.number().int().min(0).max(30).nullable().optional(),
   bathrooms: z.number().int().min(0).max(30).nullable().optional(),
-  floor: z.number().int().refine(isAllowedPropertyFloorValue, "طبقه باید منفی ۶۰ یا بین ۰ تا ۲۰۰ باشد.").nullable().optional(),
+  floor: z.number().int().refine(isAllowedPropertyFloorValue, "طبقه باید منفی ۶۰ یا بین ۰ تا ۲۰ باشد.").nullable().optional(),
   floorLabel: z.literal("suite").nullable().optional().default(null),
   orientation: z.enum(["north","south","east","west","northeast","northwest","southeast","southwest","two_fronts","three_fronts","four_fronts","other"]).nullable().optional().default(null),
   totalFloors: z.number().int().min(0).max(200).nullable().optional(),
