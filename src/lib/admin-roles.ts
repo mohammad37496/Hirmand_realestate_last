@@ -8,6 +8,7 @@ export type AdminPermission =
   | "lead.manage"
   | "finance.manage"
   | "content.manage"
+  | "area.manage"
   | "settings.manage"
   | "backup.manage"
   | "security.manage"
@@ -34,6 +35,7 @@ export const ADMIN_ROLE_PERMISSIONS: Record<AdminRole, readonly AdminPermission[
     "lead.manage",
     "finance.manage",
     "content.manage",
+    "area.manage",
     "settings.manage",
     "backup.manage",
     "security.manage",
@@ -50,6 +52,7 @@ export const ADMIN_ROLE_PERMISSIONS: Record<AdminRole, readonly AdminPermission[
     "lead.manage",
     "finance.manage",
     "content.manage",
+    "area.manage",
     "settings.manage",
     "backup.manage",
     "security.manage",
@@ -61,15 +64,15 @@ export const ADMIN_ROLE_PERMISSIONS: Record<AdminRole, readonly AdminPermission[
     "property.manage",
     "property.create",
     "divar.import",
+    "area.manage",
     "lead.manage",
     "reports.view",
     "deal.manage",
     "commission.manage",
   ],
-  content: ["property.manage", "property.create", "content.manage", "reports.view"],
-  // Employees can create draft listings, review leads, match listings, and import Divar ads.
-  // They cannot edit existing properties, publish, delete, or access administrative controls.
-  staff: ["property.create", "lead.manage", "divar.import"],
+  content: ["property.manage", "property.create", "content.manage", "area.manage", "reports.view"],
+  // Employees can draft listings and maintain neighborhood editorial content, but cannot access system controls.
+  staff: ["property.create", "lead.manage", "divar.import", "area.manage"],
   viewer: ["reports.view"],
 };
 

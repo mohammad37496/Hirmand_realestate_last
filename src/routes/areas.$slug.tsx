@@ -5,30 +5,53 @@ import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "
 import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas } from "@/lib/areas";
 import { breadcrumbJsonLd } from "@/lib/seo";
 import { SITE } from "@/lib/site";
+import { getPublicAreaContent, type AreaContent } from "@/lib/area-content";
+import areaDetailCss from "../area-detail.css?url";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
 
 export const Route = createFileRoute("/areas/$slug")({
   loader: async ({ params }) => {
     const area = findAreaBySlug(params.slug);
-    if (!area) return { area: null, properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>, market: null as NeighborhoodMarketSnapshot | null };
+    if (!area) return {
+      area: null,
+      properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>,
+      market: null as NeighborhoodMarketSnapshot | null,
+      content: null as AreaContent | null,
+    };
     try {
-      const [properties, market] = await Promise.all([
+      const [properties, market, content] = await Promise.all([
         listPublishedProperties({ data: { neighborhood: area.name } }),
         getNeighborhoodMarketSnapshot({ data: { neighborhood: area.name } }),
+        getPublicAreaContent({ data: { slug: area.slug } }),
       ]);
-      return { area, properties, market };
+      return { area, properties, market, content };
     } catch (error) {
-      console.error("[area] properties loader failed", error);
-      return { area, properties: [], market: null };
+      console.error("[area] page loader failed", error);
+      return { area, properties: [], market: null, content: null };
     }
   },
-  head: ({ loaderData, params }) => areaHead(loaderData?.area ?? null, params.slug),
+  head: ({ loaderData, params }) => {
+    const base = areaHead(loaderData?.area ?? null, params.slug);
+    const content = loaderData?.content;
+    const meta = content ? [
+      ...base.meta.filter((item) => !(content.seoTitle && "title" in item) && !(content.seoDescription && "name" in item && item.name === "description")),
+      ...(content.seoTitle ? [{ title: content.seoTitle }] : []),
+      ...(content.seoDescription ? [{ name: "description", content: content.seoDescription }] : []),
+    ] : base.meta;
+    return { ...base, meta, links: [...base.links, { rel: "stylesheet", href: areaDetailCss }] };
+  },
   component: AreaPage,
 });
 
+function linesForAreaPage(value: string) {
+  return value.split(/\r?\n/).map((line) => line.replace(/^[\s•\-–—]+/, "").trim()).filter(Boolean);
+}
+
 function AreaPage() {
-  const { area, properties, market } = Route.useLoaderData();
+  const { area, properties, market, content } = Route.useLoaderData();
+  const highlights = content ? linesForAreaPage(content.highlights) : [];
+  const amenities = content ? linesForAreaPage(content.amenities) : [];
 
   if (!area) {
     return (
@@ -106,13 +129,22 @@ function AreaPage() {
           <span className="property-detail-code">{area.groupTitle}</span>
         </div>
 
+        <section className={"area-editorial-hero" + (content?.heroImage ? " has-image" : "")}>
+          <div className="area-editorial-hero-copy">
+            <span className="area-editorial-eyebrow">راهنمای محله‌های اصفهان · {area.groupTitle}</span>
+            <h1>املاک {area.name} اصفهان</h1>
+            <p>{content?.intro || ("برای خرید، فروش، رهن یا اجاره ملک در " + area.name + " اصفهان، فایل‌های فعال، موقعیت محله و راهنمای محلی هیرمند را در همین صفحه بررسی کنید.")}</p>
+          </div>
+          {content?.heroImage ? <img className="area-editorial-hero-image" src={content.heroImage} alt={"نمای محله " + area.name} loading="eager" /> : null}
+        </section>
+
         <div className="property-detail-grid">
           <div className="property-detail-main">
             <div className="pcard-meta">
               <span>اصفهان</span>
               <span>{area.groupTitle}</span>
             </div>
-            <h1>املاک {area.name}</h1>
+            <h2 className="area-property-heading">فایل‌های ملکی در {area.name}</h2>
             <p className="property-detail-description">
               خرید، فروش، رهن و اجاره ملک در محله <strong>{area.name}</strong> اصفهان با همراهی
               گروه مشاورین املاک هیرمند. فایل‌های به‌روز این محله را در همین صفحه ببینید یا برای
@@ -148,6 +180,56 @@ function AreaPage() {
                   : "برای این نام، مختصات ثابت تأییدشده در کاتالوگ نداریم؛ نقشه بر اساس جستجوی نام نمایش داده می‌شود."}
               </p>
             </section>
+
+            {content && (content.about || highlights.length || amenities.length || content.transportation || content.marketNote) ? (
+              <section className="area-editorial-sections" aria-label={"راهنمای محلی " + area.name}>
+                {content.about ? (
+                  <article className="area-editorial-card wide">
+                    <h2>دربارهٔ محلهٔ {area.name}</h2>
+                    <p>{content.about}</p>
+                  </article>
+                ) : null}
+                {highlights.length ? (
+                  <article className="area-editorial-card">
+                    <h2>ویژگی‌های شاخص محله</h2>
+                    <ul>{highlights.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                  </article>
+                ) : null}
+                {amenities.length ? (
+                  <article className="area-editorial-card">
+                    <h2>امکانات و خدمات اطراف</h2>
+                    <ul>{amenities.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                  </article>
+                ) : null}
+                {content.transportation ? (
+                  <article className="area-editorial-card">
+                    <h2>دسترسی و حمل‌ونقل</h2>
+                    <p>{content.transportation}</p>
+                  </article>
+                ) : null}
+                {content.marketNote ? (
+                  <article className="area-editorial-card">
+                    <h2>نگاهی به بازار ملک</h2>
+                    <p>{content.marketNote}</p>
+                  </article>
+                ) : null}
+              </section>
+            ) : null}
+
+            {content?.gallery.length ? (
+              <section className="area-photo-gallery" aria-label={"تصاویر محله " + area.name}>
+                <div className="area-photo-gallery-head">
+                  <div><h2>گالری تصاویر {area.name}</h2><p>تصاویر منتخب این محله از سوی گروه هیرمند</p></div>
+                </div>
+                <div className="area-photo-gallery-grid">
+                  {content.gallery.map((url, index) => (
+                    <a key={url + "-" + index} href={url} target="_blank" rel="noreferrer" aria-label={"نمایش تصویر " + (index + 1).toLocaleString("fa-IR") + " از " + area.name}>
+                      <img src={url} alt={"تصویر " + (index + 1).toLocaleString("fa-IR") + " از محله " + area.name} loading="lazy" />
+                    </a>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             {market ? (
               <section style={{ marginTop: 28, padding: 18, border: "1px solid var(--line)", borderRadius: 20, background: "var(--card)" }}>

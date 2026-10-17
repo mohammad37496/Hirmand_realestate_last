@@ -11,6 +11,7 @@ import {
   Home,
   KeyRound,
   LayoutDashboard,
+  MapPinned,
   Menu,
   Music2,
   UsersRound,
@@ -112,6 +113,7 @@ import { AdminMediaHealth } from "@/components/hirmand/admin-media-health";
 import { AdminSecurityCenter } from "@/components/hirmand/admin-security-center";
 import { AdminSeoRedirects } from "@/components/hirmand/admin-seo-redirects";
 import { AdminContentStudio } from "@/components/hirmand/admin-content-studio";
+import { AdminAreaContentManager } from "@/components/hirmand/admin-area-content";
 import { AdminPublicationQueue } from "@/components/hirmand/admin-publication-queue";
 import { AdminKpiHistory } from "@/components/hirmand/admin-kpi-history";
 import { AdminDataHealth } from "@/components/hirmand/admin-data-health";
@@ -149,7 +151,7 @@ const AVAILABILITY_LABEL: Record<PropertyAvailabilityStatus, string> = {
   rented: "اجاره‌داده‌شده",
   unavailable: "فعلاً ناموجود",
 };
-type ViewMode = "staffHome" | "dashboard" | "managementReport" | "integrity" | "deals" | "expiry" | "commission" | "consultantPerformance" | "consultantTargets" | "productivity" | "list" | "form" | "music" | "leads" | "messages" | "partners" | "divar" | "consultants" | "attendance" | "matching" | "owners" | "finance" | "backup" | "watermark" | "schedule" | "trash" | "audit" | "settings" | "mediaHealth" | "security" | "seoRedirects" | "contentStudio";
+type ViewMode = "staffHome" | "dashboard" | "managementReport" | "integrity" | "deals" | "expiry" | "commission" | "consultantPerformance" | "consultantTargets" | "productivity" | "list" | "form" | "music" | "leads" | "messages" | "partners" | "divar" | "consultants" | "attendance" | "matching" | "owners" | "finance" | "backup" | "watermark" | "schedule" | "trash" | "audit" | "settings" | "mediaHealth" | "security" | "seoRedirects" | "contentStudio" | "areaContent";
 
 type ListSort = "newest" | "oldest" | "updated" | "title" | "price_asc" | "price_desc" | "area_desc";
 type MediaFilter = "all" | "with" | "without";
@@ -604,6 +606,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       { view: "security" as ViewMode, section: "سیستم و محتوا", label: "امنیت مدیران", icon: ShieldAlert },
       { view: "seoRedirects" as ViewMode, section: "سیستم و محتوا", label: "ریدایرکت و ۴۰۴", icon: RouteIcon },
       { view: "contentStudio" as ViewMode, section: "سیستم و محتوا", label: "استودیو محتوا", icon: FileText },
+      { view: "areaContent" as ViewMode, section: "سیستم و محتوا", label: "اطلاعات محله‌ها", icon: MapPinned },
     ],
     [],
   );
@@ -612,16 +615,16 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
     if (adminRole === "staff") {
       return [
         { view: "staffHome" as ViewMode, section: "فضای کارکنان", label: "خانه کارکنان", icon: LayoutDashboard },
-        ...navItems.filter((item) => item.view === "leads" || item.view === "matching" || item.view === "divar"),
+        ...navItems.filter((item) => item.view === "leads" || item.view === "matching" || item.view === "divar" || (item.view === "areaContent" && hasAdminPermission(adminRole, "area.manage"))),
       ];
     }
     if (adminRole === "owner" || adminRole === "manager") return navItems;
     if (adminRole === "sales") {
-      const allowed = new Set<ViewMode>(["dashboard", "managementReport", "productivity", "list", "leads", "messages", "matching", "divar", "deals", "expiry", "commission", "consultantPerformance", "consultantTargets"]);
+      const allowed = new Set<ViewMode>(["dashboard", "managementReport", "productivity", "list", "leads", "messages", "matching", "divar", "deals", "expiry", "commission", "consultantPerformance", "consultantTargets", "areaContent"]);
       return navItems.filter((item) => allowed.has(item.view));
     }
     if (adminRole === "content") {
-      const allowed = new Set<ViewMode>(["dashboard", "managementReport", "list", "form", "music", "watermark", "mediaHealth", "contentStudio"]);
+      const allowed = new Set<ViewMode>(["dashboard", "managementReport", "list", "form", "music", "watermark", "mediaHealth", "contentStudio", "areaContent"]);
       return navItems.filter((item) => allowed.has(item.view));
     }
     return navItems.filter((item) => item.view === "dashboard" || item.view === "managementReport");
@@ -2060,7 +2063,9 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                                                     ? "ریدایرکت و ۴۰۴"
                                                     : view === "contentStudio"
                                                       ? "استودیو محتوا"
-                                                      : (view as string) === "integrity"
+                                                      : view === "areaContent"
+                                                        ? "اطلاعات محله‌ها"
+                                                        : (view as string) === "integrity"
                                                         ? "سلامت داده و کنترل کیفیت"
                                                         : (view as string) === "deals"
                                                           ? "معاملات و قراردادها"
@@ -2124,6 +2129,8 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                                                 ? "مدیریت ریدایرکت‌های دائمی/موقت و گزارش خطاهای ۴۰۴"
                                                 : view === "contentStudio"
                                                   ? "ویرایش راهنماها و پرسش‌های متداول بدون تغییر کد"
+                                                : view === "areaContent"
+                                                  ? "مدیریت متن، تصاویر، ویژگی‌ها و SEO صفحهٔ همه محله‌ها"
                               : view === "divar"
                         ? "دریافت، فیلتر و ورود فایل‌های شخصی از دیوار"
                         : form.contactName
@@ -2621,6 +2628,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
           {view === "security" ? <AdminSecurityCenter /> : null}
           {view === "seoRedirects" ? <AdminSeoRedirects /> : null}
           {view === "contentStudio" ? <AdminContentStudio /> : null}
+          {view === "areaContent" ? <AdminAreaContentManager /> : null}
           {view === "divar" ? <AdminDivarFiles staffMode={staffMode} /> : null}
 
           {view === "form" ? (
