@@ -34,7 +34,7 @@ export function SiteChrome({
           <FileKey size={17} />
           <span>فایل‌ها</span>
         </Link>
-        <Link to="/" hash="inquiry" className="quick-action quick-action-primary" onClick={() => trackAnalyticsEvent("inquiry_click")}>
+        <Link to="/request-property" className="quick-action quick-action-primary" onClick={() => trackAnalyticsEvent("inquiry_click")}>
           <FileKey size={17} />
           <span>درخواست ملک</span>
         </Link>
