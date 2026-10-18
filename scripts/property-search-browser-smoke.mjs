@@ -83,7 +83,8 @@ try {
   emptyUrl.searchParams.set("q", "عبارت-آزمایشی-بدون-نتیجه-۷۸۹۱۲۳");
   await empty.goto(emptyUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
   await empty.locator(".pf-map-list-empty").waitFor({ state: "visible", timeout: timeoutMs });
-  assert.match(await empty.locator(".pf-map-list-empty").innerText(), /فایلی پیدا نشد/);
+  assert.match(await empty.locator(".pf-map-list-empty").innerText(), /(?:فایلی پیدا نشد|در این محدوده فایلِ دارای مختصات ثبت‌شده پیدا نشد)/,
+    "no-match state may use the map-specific empty copy when the current viewport constrains results");
   assert.equal(await empty.locator(".pf-map-item-copy strong").filter({ hasText: title }).count(), 0);
   console.log("[property-search-smoke] no-match query rendered the empty-results state");
 
