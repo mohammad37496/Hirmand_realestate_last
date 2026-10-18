@@ -614,7 +614,7 @@
 }
 .pf-page .pf-grid.is-list-view > .pcard > .pcard-link {
   display: grid;
-  grid-template-columns: subgrid;
+  grid-template-columns: minmax(215px, 29%) minmax(0, 1fr);
   grid-column: 1 / -1;
   grid-row: 1;
   align-items: stretch;
