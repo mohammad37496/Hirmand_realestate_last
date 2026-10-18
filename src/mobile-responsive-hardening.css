@@ -1689,6 +1689,11 @@ svg {
 /* The nested option group has a more specific two-column rule in the route
    stylesheet. At tablet widths the sidebar is too narrow to keep that layout. */
 @media (min-width: 980px) and (max-width: 1199px) {
+  /* The sidebar cannot support the route's two-column subgroup + two-column
+     options nesting at tablet widths: the resulting labels collapse to ~20px. */
+  .pf-page .pf-sidebar .pf-spec-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .pf-page .pf-sidebar .pf-spec-options,
   .pf-page .pf-sidebar .pf-spec-subgroup .pf-spec-options {
     grid-template-columns: minmax(0, 1fr);
@@ -1716,6 +1721,17 @@ svg {
   min-width: 44px;
   min-height: 44px;
   padding: 8px 10px;
+}
+
+/* Keep the search reset reachable on phones instead of a 28px icon target. */
+.pf-page .pf-search > button {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
 }
 
 /* Keep map controls comfortable to tap without enlarging desktop map chrome. */
