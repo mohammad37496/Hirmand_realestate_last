@@ -53,8 +53,14 @@ const TYPE: Record<Props["propertyType"], string> = {
 };
 
 function cleanNumber(raw: string) {
-  const value = raw.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[^0-9]/g, "");
-  return value ? Number(value) : null;
+  const value = raw
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .trim()
+    .replace(/[٬،,\s]/g, "");
+  if (!value || !/^\\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 function buildTitle(p: Props) {
@@ -106,7 +112,7 @@ function qualityScore(p: Props) {
   if (p.features.trim()) score += 10;
   if (p.description.trim().length >= 80) score += 14;
   if (p.imageCount >= 1) score += 6;
-  if (p.imageCount >= 4) score += 4;
+  if (p.imageCount >= 4) score += 10;
   return Math.min(score, 100);
 }
 
