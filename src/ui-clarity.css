@@ -190,7 +190,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   border-radius:8px!important;background:var(--card-2)!important;border:1px solid var(--line)!important;color:var(--subtle)!important;
 }
 .property-detail-summary-head h1{
-  max-width:15ch!important;letter-spacing:-.02em!important;
+  max-width:100%;letter-spacing:normal;overflow-wrap:break-word;word-break:normal;
 }
 .property-detail-meta{
   display:flex!important;align-items:flex-start!important;gap:7px!important;
