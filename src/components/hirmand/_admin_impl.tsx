@@ -371,6 +371,11 @@ function isInvalidFloorInput(raw: string) {
   return floor !== null && !isAllowedPropertyFloorValue(floor);
 }
 
+function isOutsideIntegerRange(raw: string, minimum: number, maximum: number) {
+  const value = numberOrNull(raw);
+  return value !== null && (value < minimum || value > maximum);
+}
+
 function moneyOrNull(raw: string) {
   const normalized = normalizeMoneyText(raw);
   return normalized && /^\d{1,20}$/.test(normalized) ? normalized : null;
@@ -387,11 +392,16 @@ function hasInvalidPropertyIntegerInputs(form: Pick<
 >) {
   return (
     isInvalidIntegerInput(form.areaM2) ||
+    isOutsideIntegerRange(form.areaM2, 0, 100000) ||
     isInvalidIntegerInput(form.bedrooms) ||
+    isOutsideIntegerRange(form.bedrooms, 0, 30) ||
     isInvalidIntegerInput(form.bathrooms) ||
+    isOutsideIntegerRange(form.bathrooms, 0, 30) ||
     isInvalidFloorInput(form.floor) ||
     isInvalidIntegerInput(form.totalFloors) ||
-    isInvalidIntegerInput(form.builtYear)
+    isOutsideIntegerRange(form.totalFloors, 0, 200) ||
+    isInvalidIntegerInput(form.builtYear) ||
+    isOutsideIntegerRange(form.builtYear, 1200, 2500)
   );
 }
 
@@ -1454,7 +1464,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       return;
     }
     if (hasInvalidPropertyIntegerInputs(form)) {
-      toast.error("متراژ، خواب، سرویس، تعداد طبقات و سال ساخت باید عدد صحیح باشند؛ طبقه فقط می‌تواند منفی ۶۰ یا از ۰ تا ۲۰ باشد.");
+      toast.error("مقادیر عددی خارج از محدوده مجازند: متراژ ۰ تا ۱۰۰٬۰۰۰، خواب و سرویس ۰ تا ۳۰، کل طبقات ۰ تا ۲۰۰ و سال ساخت ۱۲۰۰ تا ۲۵۰۰؛ طبقه فقط منفی ۶۰ یا ۰ تا ۲۰ است.");
       return;
     }
     const price = moneyOrNull(form.price);
