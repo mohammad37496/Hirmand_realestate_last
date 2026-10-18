@@ -66,7 +66,7 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   assert.match(responsiveCss, /\.action-menu\.floating-call-menu\s*\{[^}]*position:\s*fixed\s*!important/is,
     "the desktop floating contact menu must not stretch as a relative action menu");
 
-  assert.match(propertyDecisionToolsCss, /@media\s*\(max-width:1600px\)\s*\{[^}]*\.property-decision-grid\s*\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/is,
+  assert.match(propertyDecisionToolsCss, /\.property-decision-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/is,
     "financial decision cards must not remain in six narrow columns at desktop widths");
   assert.match(propertyScenarioToolsCss, /\.property-score-stars button\s*\{[^}]*width:40px;[^}]*height:40px;[^}]*min-width:40px;[^}]*min-height:40px/is,
     "five-star scoring buttons need accessible mobile touch targets");
@@ -195,6 +195,11 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   }
 });
 
+testRunner.test("property decision cards remain readable at 1920px layouts", () => {
+  assert.match(propertyDecisionToolsCss, /\.property-decision-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/s);
+  assert.doesNotMatch(propertyDecisionToolsCss, /grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+});
+
 testRunner.test("property filters keep Persian labels readable and view toggles touch friendly", () => {
   assert.match(responsiveCss, /\.pf-page \.pf-spec-options\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
   const labelRule = responsiveCss.match(/\.pf-page \.pf-spec-option > span:last-child\s*\{[^}]*\}/s)?.[0] ?? "";
@@ -240,6 +245,13 @@ testRunner.test("admin property rows expose complete titles and metadata with us
   assert.match(metaRule, /overflow-wrap:break-word/i);
   assert.doesNotMatch(metaRule, /text-overflow:ellipsis|white-space:nowrap/i);
   assert.match(iconRule, /width:44px;height:44px;min-width:44px;min-height:44px/i);
+});
+
+
+testRunner.test("property map and filter actions meet the minimum mobile hit area", () => {
+  assert.match(responsiveCss, /\.pf-page \.pf-filter-overview > button\s*\{[^}]*min-height:\s*40px/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-marker\s*\{[^}]*min-height:\s*40px/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-popup-close\s*\{[^}]*min-width:\s*40px/s);
 });
 
 testRunner.test("CI runs the admin visual/accessibility audit and archives its screenshots", () => {
