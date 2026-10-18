@@ -211,7 +211,7 @@ testRunner.test("property decision cards remain readable at 1920px layouts", () 
 
 testRunner.test("minimum bedroom and bathroom filters use equal-width columns, not the range separator track", () => {
   assert.match(propertiesRoute, /<div className="pf-range pf-range--pair">[\s\S]{0,180}<span>حداقل خواب<\/span>/);
-  assert.match(propertyFiltersCss, /\.pf-range--pair\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(propertyFiltersCss, /\.pf-range\.pf-range--pair\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
 });
 
 testRunner.test("property filters keep Persian labels readable and view toggles touch friendly", () => {
