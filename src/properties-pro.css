@@ -2761,3 +2761,36 @@
     transition: none;
   }
 }
+
+
+/* Keep Persian filter labels readable in the narrow tablet filter drawer. */
+.pf-fold-grid,
+.pf-fold-grid > *,
+.pf-range,
+.pf-range > *,
+.pf-field {
+  min-width: 0;
+}
+.pf-range {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+.pf-field > span {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: normal;
+  letter-spacing: normal;
+}
+@media (max-width: 1100px) {
+  .pf-fold-grid .pf-range {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+  .pf-fold-grid .pf-range > i {
+    display: none;
+  }
+}
+@media (max-width: 420px) {
+  .pf-fold-grid .pf-range {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
