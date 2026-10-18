@@ -13,7 +13,7 @@
 .property-decision-fields label{display:grid;gap:5px;color:var(--muted);font-size:.74rem;}
 .property-decision-fields input{width:100%;accent-color:var(--gold);}
 .property-decision-metrics{display:grid;gap:7px;margin-top:14px;}
-.property-decision-metrics>div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:7px;border-bottom:1px solid var(--line);font-size:.76rem;color:var(--muted);}
+.property-decision-metrics>div{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:3px;padding-bottom:7px;border-bottom:1px solid var(--line);font-size:.76rem;color:var(--muted);}.property-decision-metrics>div>span,.property-decision-metrics>div>strong{min-width:0;overflow-wrap:break-word;word-break:normal;}.property-decision-metrics>div>strong{text-align:start;}
 .property-decision-metrics>div:last-child{border-bottom:0;padding-bottom:0;}
 .property-decision-metrics strong{color:var(--fg);font-size:.79rem;text-align:left;}
 .property-decision-metrics .is-highlight{padding:9px 10px;border:1px solid var(--gold-line);border-bottom:1px solid var(--gold-line);border-radius:12px;background:rgba(192,138,42,.06);}
