@@ -1685,6 +1685,15 @@ svg {
 .pf-page .pf-spec-options {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* The nested option group has a more specific two-column rule in the route
+   stylesheet. At tablet widths the sidebar is too narrow to keep that layout. */
+@media (min-width: 980px) and (max-width: 1199px) {
+  .pf-page .pf-sidebar .pf-spec-options,
+  .pf-page .pf-sidebar .pf-spec-subgroup .pf-spec-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .pf-page .pf-spec-option {
   min-width: 0;
   gap: 10px;
@@ -1707,5 +1716,26 @@ svg {
   min-width: 44px;
   min-height: 44px;
   padding: 8px 10px;
+}
+
+/* Keep map controls comfortable to tap without enlarging desktop map chrome. */
+.pf-page .pf-filter-overview > button {
+  min-height: 40px;
+  padding: 7px 12px;
+}
+@media (max-width: 620px) {
+  .pf-page .pf-map-marker {
+    min-height: 40px;
+    padding-block: 8px;
+  }
+  .pf-page .pf-map-popup {
+    padding-top: 42px;
+  }
+  .pf-page .pf-map-popup-close {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
 }
 
