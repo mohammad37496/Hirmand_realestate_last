@@ -2637,6 +2637,18 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
 
           {view === "form" ? (
             <form className="admin-form-wrap" onSubmit={onSubmit}>
+              <header className="admin-form-intro">
+                <div className="admin-form-intro-icon" aria-hidden="true"><Building2 size={24} /></div>
+                <div className="admin-form-intro-content">
+                  <div className="admin-form-intro-kicker"><span aria-hidden="true" /> پنل املاک هیرمند <span className="admin-form-intro-kicker-sep">/</span> مدیریت فایل</div>
+                  <h2>{form.id ? "ویرایش فایل ملک" : "ثبت فایل جدید"}</h2>
+                  <p>اطلاعات ملک را در بخش‌های مستقل تکمیل کنید. موقعیت، مشخصات، قیمت و تصاویر با چیدمانی منظم در دسترس هستند.</p>
+                  <div className="admin-form-intro-meta">
+                    <span><MapPinned size={14} aria-hidden="true" /> آدرس عمومی فقط به‌صورت تقریبی نمایش داده می‌شود</span>
+                    <span className={"admin-form-dirty" + (formDirty ? " is-dirty" : "")}>{formDirty ? "تغییرات ذخیره‌نشده" : form.id ? "حالت ویرایش فایل" : "فرم آماده ثبت"}</span>
+                  </div>
+                </div>
+              </header>
               {draftRestored ? (
                 <div style={{ marginBottom: 14 }}>
                   <AdminErrorBanner
