@@ -36,6 +36,11 @@ jobs:
           set -euo pipefail
           mkdir -p public/images/fallback
 
+          if [[ -s public/images/fallback/commercial-01.jpg && -s public/images/fallback/land-01.jpg ]]; then
+            echo "Both local category photos already exist; no download is needed."
+            exit 0
+          fi
+
           download_jpg() {
             local destination="$1"
             local source_url="$2"
