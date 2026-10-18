@@ -202,6 +202,8 @@ testRunner.test("property decision cards remain readable at 1920px layouts", () 
 
 testRunner.test("property filters keep Persian labels readable and view toggles touch friendly", () => {
   assert.match(responsiveCss, /\.pf-page \.pf-spec-options\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-sidebar \.pf-spec-subgroup \.pf-spec-options\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+    "nested property-filter options must also collapse when the desktop sidebar is narrow");
   const labelRule = responsiveCss.match(/\.pf-page \.pf-spec-option > span:last-child\s*\{[^}]*\}/s)?.[0] ?? "";
   assert.ok(labelRule, "filter option labels should have a scoped wrapping rule");
   assert.match(labelRule, /white-space:\s*normal/);
