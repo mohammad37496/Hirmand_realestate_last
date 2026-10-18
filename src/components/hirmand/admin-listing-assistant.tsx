@@ -58,7 +58,7 @@ function cleanNumber(raw: string) {
     .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
     .trim()
     .replace(/[٬،,\s]/g, "");
-  if (!value || !/^\\d+$/.test(value)) return null;
+  if (!value || !/^\d+$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
 }
