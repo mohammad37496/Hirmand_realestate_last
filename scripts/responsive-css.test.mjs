@@ -27,6 +27,8 @@ const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.c
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
+const valuationCss = fs.readFileSync(new URL("../src/valuation.css", import.meta.url), "utf8");
+const adminShellCss = fs.readFileSync(new URL("../src/components/hirmand/admin-shell-css.ts", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const verifyWorkflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
 
@@ -191,3 +193,39 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
     assert.ok(browserSmoke.includes(route), `responsive test should cover ${route}`);
   }
 });
+
+testRunner.test("shared Tailwind palette follows the established Hirmand navy-and-brass theme", () => {
+  const tailwindTokens = globalCss.match(/@theme\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+  assert.match(themeProCss, /--navy-900:\s*#0b1a2b/i);
+  assert.match(themeProCss, /--brass-700:\s*#8a5e14/i);
+  assert.match(tailwindTokens, /--color-gold:\s*#8a5e14/i,
+    "Tailwind gold utilities must not retain the legacy teal accent");
+  assert.match(tailwindTokens, /--color-bg:\s*#f7f4ee/i);
+  assert.match(tailwindTokens, /--color-surface-2:\s*#fbf8f2/i);
+  assert.doesNotMatch(tailwindTokens, /#0f766e|#edf2f0/i);
+});
+
+testRunner.test("valuation and property titles preserve word-level wrapping", () => {
+  assert.match(valuationCss, /\.valuation-hero\{[^}]*grid-template-columns:auto minmax\(0,1fr\)/i);
+  assert.match(valuationCss, /\.valuation-hero>div:last-child\{min-width:0\}/i);
+  assert.match(valuationCss, /\.valuation-hero h1\{[^}]*letter-spacing:normal;[^}]*word-break:normal;[^}]*overflow-wrap:break-word/is);
+  assert.match(valuationCss, /\.valuation-comparable strong,\.valuation-comparable small\{[^}]*white-space:normal;[^}]*overflow-wrap:break-word/is);
+  assert.doesNotMatch(uiClarityCss, /\.property-detail-summary-head h1\s*\{[^}]*max-width:\s*15ch/i,
+    "property titles must not be constrained to an unnecessarily narrow character count");
+  assert.doesNotMatch(uiClarityCss, /\.property-detail-summary-head h1\s*\{[^}]*letter-spacing:\s*-\.02em/i,
+    "Persian/Latin property titles must not use aggressive negative tracking");
+});
+
+testRunner.test("admin property rows expose complete titles and metadata with usable action targets", () => {
+  const titleRule = adminShellCss.match(/\.admin-property-meta h3\{[^}]*\}/i)?.[0] ?? "";
+  const metaRule = adminShellCss.match(/\.admin-property-meta p\{[^}]*\}/i)?.[0] ?? "";
+  const iconRule = adminShellCss.match(/\.admin-icon-btn\{[^}]*\}/i)?.[0] ?? "";
+  assert.match(titleRule, /white-space:normal/i);
+  assert.match(titleRule, /overflow-wrap:break-word/i);
+  assert.doesNotMatch(titleRule, /text-overflow:ellipsis|white-space:nowrap/i);
+  assert.match(metaRule, /white-space:normal/i);
+  assert.match(metaRule, /overflow-wrap:break-word/i);
+  assert.doesNotMatch(metaRule, /text-overflow:ellipsis|white-space:nowrap/i);
+  assert.match(iconRule, /width:44px;height:44px;min-width:44px;min-height:44px/i);
+});
+\n
