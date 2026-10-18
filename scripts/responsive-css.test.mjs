@@ -229,12 +229,11 @@ testRunner.test("admin property rows expose complete titles and metadata with us
   assert.doesNotMatch(metaRule, /text-overflow:ellipsis|white-space:nowrap/i);
   assert.match(iconRule, /width:44px;height:44px;min-width:44px;min-height:44px/i);
 });
-\n
 
 testRunner.test("CI runs the admin visual/accessibility audit and archives its screenshots", () => {
-  assert.match(verifyWorkflow, /name: Admin visual and accessibility matrix[\\s\\S]*?npm run qa:admin-a11y/);
+  assert.match(verifyWorkflow, /name: Admin visual and accessibility matrix[\s\S]*?npm run qa:admin-a11y/);
   assert.match(verifyWorkflow, /QA_VIEWPORTS: "320x568,390x844,768x1024,1440x900,1920x1080"/);
   assert.match(verifyWorkflow, /QA_SCREENSHOT_DIR: \/workspace\/screenshots\/admin/);
   assert.match(adminAuditScript, /process\.env\.QA_SCREENSHOT_DIR \|\| "screenshots\/admin"/);
 });
-\n
+
