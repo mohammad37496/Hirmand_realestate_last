@@ -48,7 +48,7 @@ import {
   Target,
 } from "lucide-react";
 import { NEIGHBORHOOD_NAMES, PROPERTY_TYPES, SITE, TEAM } from "@/lib/site";
-import { isInvalidIntegerInput, normalizeMoneyText } from "@/lib/property-input-normalization";
+import { isInvalidIntegerInput, isPropertyDescriptionValidForStatus, normalizeMoneyText } from "@/lib/property-input-normalization";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { listConsultants, type Consultant } from "@/lib/consultants";
 import { propertyPath } from "@/lib/property-path";
@@ -1421,6 +1421,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    const shouldPublish = !staffMode && form.status === "published";
     // A ref guard, not just `disabled={saving}`: two clicks inside the same
     // render pass both see `saving === false`.
     if (submitting.current) return;
@@ -1440,8 +1441,8 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       toast.error("نام و تلفن مشاور را مشخص کنید.");
       return;
     }
-    if (form.description.trim().length < 10) {
-      toast.error("توضیحات فایل را کامل‌تر بنویسید.");
+    if (!isPropertyDescriptionValidForStatus(staffMode ? "draft" : form.status, form.description)) {
+      toast.error("توضیحات فایل برای ذخیره در وضعیت غیرپیش‌نویس باید حداقل ۱۰ کاراکتر باشد.");
       return;
     }
     if ((form.latitude == null) !== (form.longitude == null)) {
@@ -1453,26 +1454,26 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       return;
     }
     if (hasInvalidPropertyIntegerInputs(form)) {
-      toast.error("متراژ، خواب، سرویس، تعداد طبقات و سال ساخت باید عدد صحیح باشند؛ طبقه فقط می‌تواند منفی ۶۰ یا از ۰ تا ۲۰۰ باشد.");
+      toast.error("متراژ، خواب، سرویس، تعداد طبقات و سال ساخت باید عدد صحیح باشند؛ طبقه فقط می‌تواند منفی ۶۰ یا از ۰ تا ۲۰ باشد.");
       return;
     }
     const price = moneyOrNull(form.price);
     const deposit = moneyOrNull(form.deposit);
     const rent = moneyOrNull(form.rent);
-    if (form.transactionType === "sell" && price == null) {
-      toast.error("برای فایل فروش، قیمت فروش را وارد کنید.");
+    if (shouldPublish && form.transactionType === "sell" && price == null) {
+      toast.error("برای انتشار فایل فروش، قیمت فروش را وارد کنید.");
       return;
     }
-    if (form.transactionType === "rent" && deposit == null && rent == null) {
-      toast.error("برای فایل اجاره حداقل یکی از رهن یا اجاره را وارد کنید.");
+    if (shouldPublish && form.transactionType === "rent" && deposit == null && rent == null) {
+      toast.error("برای انتشار فایل اجاره، حداقل یکی از رهن یا اجاره را وارد کنید.");
       return;
     }
-    if (form.transactionType === "mortgage" && deposit == null) {
-      toast.error("برای فایل رهن، مبلغ رهن را وارد کنید.");
+    if (shouldPublish && form.transactionType === "mortgage" && deposit == null) {
+      toast.error("برای انتشار فایل رهن، مبلغ رهن را وارد کنید.");
       return;
     }
 
-    if (form.status === "published") {
+    if (shouldPublish) {
       const readiness = getPublishReadinessForForm(form);
       if (!readiness.ready) {
         toast.error("انتشار فایل متوقف شد: " + readiness.blockers.join(" "));
@@ -3330,7 +3331,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
               <div className="admin-sticky-bar">
                 <div className="admin-sticky-bar-info">
                   مشاور: <strong>{form.contactName || "—"}</strong>
-                  {formDirty ? " · تغییرات ذخیره‌نشده" : " · همه‌چیز ذخیره شده"}
+                  {formDirty ? " · تغییرات ذخیره‌نشده" : form.id ? " · همه‌چیز ذخیره شده" : " · فایل جدید هنوز ذخیره نشده"}
                 </div>
                 <div className="admin-sticky-actions">
                   <AdminPropertyPreview data={{title:form.title,transactionType:form.transactionType,propertyType:form.propertyType,neighborhood:form.neighborhood,areaM2:form.areaM2,bedrooms:form.bedrooms,bathrooms:form.bathrooms,floor:form.floorLabel==="suite"?"سوئیت":form.floor,parking:form.parking,elevator:form.elevator,storage:form.storage,price:form.price,deposit:form.deposit,rent:form.rent,description:form.description,images:form.images,contactName:form.contactName,contactPhone:form.contactPhone,featured:form.featured,status:form.status}} />
