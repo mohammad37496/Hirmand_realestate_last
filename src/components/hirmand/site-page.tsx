@@ -10,7 +10,6 @@ import {
   FileKey,
   Handshake,
   Home,
-  KeyRound,
   Landmark,
   MapPinned,
   Phone,
@@ -58,13 +57,6 @@ const PRINCIPLE_ICONS = {
   honesty: Scale,
   experience: Compass,
   advice: BadgeCheck,
-} as const;
-
-const SERVICE_ICONS = {
-  buy: Home,
-  sell: KeyRound,
-  mortgage: Landmark,
-  rent: Building2,
 } as const;
 
 const TEAM_ICONS = {
@@ -314,43 +306,6 @@ function TrustStrip() {
   );
 }
 
-function HomeDiscovery() {
-  return (
-    <Reveal as="section" className="section home-discovery" id="transaction-paths">
-      <SectionHead
-        kicker="شروع جست‌وجو"
-        title="دنبال چه هستید؟"
-        text="مسیر معامله یا نوع ملک را انتخاب کنید و مستقیم به فایل‌های مرتبط بروید."
-      />
-      <div className="home-discovery-grid">
-        {SERVICES.map((item) => {
-          const Icon = SERVICE_ICONS[item.id];
-          return (
-            <a
-              key={item.id}
-              href={"/properties?transaction=" + encodeURIComponent(item.id)}
-              className="home-discovery-card"
-              aria-label={"جستجوی فایل برای " + item.title}
-            >
-              <span className="icon-box"><Icon size={20} strokeWidth={1.8} /></span>
-              <span>
-                <strong>{item.title}</strong>
-                <small>
-                  {item.id === "buy" ? "انتخاب و خرید" : item.id === "sell" ? "قیمت‌گذاری و فروش" : item.id === "mortgage" ? "رهن ملک" : "اجاره ملک"}
-                </small>
-              </span>
-              <span aria-hidden="true">↗</span>
-            </a>
-          );
-        })}
-      </div>
-      <div className="home-discovery-footer">
-        <span>نوع ملک‌تان را هم می‌توانید جداگانه انتخاب کنید.</span>
-        <a className="home-discovery-types-link" href="#properties">مشاهده همه دسته‌بندی‌ها <span aria-hidden="true">←</span></a>
-      </div>
-    </Reveal>
-  );
-}
 
 function About() {
   return (
@@ -958,7 +913,6 @@ export function SitePage({
         <Hero />
         <TrustStrip />
         <PropertyShowcase initialProperties={initialProperties} />
-        <HomeDiscovery />
         <Properties />
         <Inquiry draft={draft} />
         <details className="home-secondary">
