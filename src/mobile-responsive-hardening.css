@@ -1679,3 +1679,33 @@ svg {
     animation-duration: .01ms !important;
   }
 }
+
+/* Keep property-filter labels readable in the desktop sidebar at tablet widths.
+   Two narrow grid tracks leave Persian labels with only a few characters per line. */
+.pf-page .pf-spec-options {
+  grid-template-columns: minmax(0, 1fr);
+}
+.pf-page .pf-spec-option {
+  min-width: 0;
+  gap: 10px;
+}
+.pf-page .pf-spec-option > span:last-child {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+/* Result-view toggles are controls, not tiny decorative icons. */
+.pf-page .pf-views {
+  flex-wrap: wrap;
+}
+.pf-page .pf-views button {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 10px;
+}
+
