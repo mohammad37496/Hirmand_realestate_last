@@ -1070,6 +1070,15 @@ function PropertiesIndexPage() {
     }
   }
 
+  function showAllPropertiesWithoutMapBounds() {
+    // A map viewport can only match listings with stored coordinates. Let visitors
+    // see every published listing while retaining their non-map filters.
+    setMapBounds(undefined);
+    setOffset(0);
+    setSelectedPropertyId(null);
+    setViewMode("list");
+  }
+
   function resetFilters() {
     setQ("");
     setTransactionType("");
@@ -1904,11 +1913,24 @@ function PropertiesIndexPage() {
                         <strong>فایل‌های ملکی</strong>
                         <span>{fa(properties.length)} نتیجه</span>
                       </div>
-                      {properties.length === 0 ? (
+                      {loading ? (
+                        <div className="pf-map-list-empty" role="status" aria-live="polite">
+                          <MapPin size={22} />
+                          <strong>در حال جست‌وجوی فایل‌های این محدوده…</strong>
+                          <p>فایل‌های منتشرشده و مختصات آن‌ها در حال بررسی است.</p>
+                        </div>
+                      ) : properties.length === 0 ? (
                         <div className="pf-map-list-empty" role="status">
                           <MapPin size={22} />
-                          <strong>در این محدوده فایلی پیدا نشد.</strong>
-                          <p>نقشه را جابه‌جا کنید یا محدودهٔ جست‌وجو را بزرگ‌تر کنید.</p>
+                          <strong>در این محدوده فایلِ دارای مختصات ثبت‌شده پیدا نشد.</strong>
+                          <p>فقط فایل‌هایی که موقعیت جغرافیایی آن‌ها ذخیره شده باشد می‌توانند با محدوده نقشه فیلتر شوند؛ پیش‌نمایش مرکز محله در پنل مدیریت به‌تنهایی مختصات فایل را ثبت نمی‌کند.</p>
+                          {mapBounds ? (
+                            <button type="button" className="btn-ghost" onClick={showAllPropertiesWithoutMapBounds}>
+                              نمایش همه فایل‌ها بدون فیلتر نقشه
+                            </button>
+                          ) : (
+                            <p>نقشه را جابه‌جا کنید یا محدودهٔ جست‌وجو را بزرگ‌تر کنید.</p>
+                          )}
                         </div>
                       ) : properties.map((property) => (
                         <div className={`pf-map-card-row${selectedPropertyId === property.id ? " is-active" : ""}`} key={property.id}>
@@ -1985,12 +2007,18 @@ function PropertiesIndexPage() {
             ) : (
               <div className="pf-empty">
                 <Search size={26} />
-                <strong>فایلی با این معیارها پیدا نشد.</strong>
+                <strong>{mapBounds ? "در این محدوده فایلِ دارای مختصات ثبت‌شده پیدا نشد." : "فایلی با این معیارها پیدا نشد."}</strong>
                 <p>
-                  بازه قیمت یا متراژ را بازتر کنید، فیلترهای کمتری انتخاب کنید، یا درخواست اختصاصی ثبت کنید تا
-                  مشاور فایل مناسب را برایتان پیدا کند.
+                  {mapBounds
+                    ? "فایل‌های بدون مختصات ذخیره‌شده با فیلتر نقشه قابل تطبیق نیستند. می‌توانید فهرست فایل‌ها را بدون محدودیت مکانی ببینید؛ سایر فیلترها حفظ می‌شوند."
+                    : "بازه قیمت یا متراژ را بازتر کنید، فیلترهای کمتری انتخاب کنید، یا درخواست اختصاصی ثبت کنید تا مشاور فایل مناسب را برایتان پیدا کند."}
                 </p>
                 <div className="pf-empty-actions">
+                  {mapBounds ? (
+                    <button type="button" className="btn-ghost" onClick={showAllPropertiesWithoutMapBounds}>
+                      نمایش همه فایل‌ها بدون فیلتر نقشه
+                    </button>
+                  ) : null}
                   {hasFilters ? (
                     <button type="button" className="btn-ghost" onClick={resetFilters}>
                       <X size={15} /> پاک‌کردن فیلترها
