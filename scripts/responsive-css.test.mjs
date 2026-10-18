@@ -211,6 +211,8 @@ testRunner.test("property decision cards remain readable at 1920px layouts", () 
 
 testRunner.test("property filters keep Persian labels readable and view toggles touch friendly", () => {
   assert.match(responsiveCss, /\.pf-page \.pf-spec-options\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-sidebar \.pf-spec-groups\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+    "nested subgroup grid must collapse to one column at tablet widths");
   assert.match(responsiveCss, /\.pf-page \.pf-sidebar \.pf-spec-subgroup \.pf-spec-options\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
     "nested property-filter options must also collapse when the desktop sidebar is narrow");
   const labelRule = responsiveCss.match(/\.pf-page \.pf-spec-option > span:last-child\s*\{[^}]*\}/s)?.[0] ?? "";
@@ -260,6 +262,8 @@ testRunner.test("admin property rows expose complete titles and metadata with us
 
 
 testRunner.test("property map and filter actions meet the minimum mobile hit area", () => {
+  assert.match(responsiveCss, /\.pf-page \.pf-search > button\s*\{[^}]*min-width:\s*44px/s);
+
   assert.match(responsiveCss, /\.pf-page \.pf-filter-overview > button\s*\{[^}]*min-height:\s*40px/s);
   assert.match(responsiveCss, /\.pf-page \.pf-map-marker\s*\{[^}]*min-height:\s*40px/s);
   assert.match(responsiveCss, /\.pf-page \.pf-map-popup-close\s*\{[^}]*min-width:\s*40px/s);
