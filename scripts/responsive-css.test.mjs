@@ -201,7 +201,7 @@ testRunner.test("property filters keep Persian labels readable and view toggles 
   assert.ok(labelRule, "filter option labels should have a scoped wrapping rule");
   assert.match(labelRule, /white-space:\s*normal/);
   assert.match(labelRule, /overflow-wrap:\s*break-word/);
-  const viewRule = responsiveCss.match(/\.pf-page \.pf-views button\s*\{[^}]*\}/s)?.[0] ?? "";
+  const viewRule = [...responsiveCss.matchAll(/\.pf-page \.pf-views button\s*\{[^}]*\}/gs)].at(-1)?.[0] ?? "";
   assert.ok(viewRule, "listing view toggles should have a shared hit-area rule");
   assert.match(viewRule, /min-width:\s*44px/);
   assert.match(viewRule, /min-height:\s*44px/);
