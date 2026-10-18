@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, LocateFixed, MapPinned, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { ExternalLink, LocateFixed, MapPin, MapPinned, Minus, Plus, RotateCcw, Save } from "lucide-react";
 import { NEIGHBORHOOD_GROUPS, SITE } from "@/lib/site";
 
 type Coordinates = {
@@ -44,8 +44,23 @@ const LOCATION_PICKER_CSS = `
 .admin-location-map-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;border-bottom:1px solid var(--line);background:var(--card-2)}
 .admin-location-map-head strong{color:var(--fg);font-size:.78rem}
 .admin-location-map-head span{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid rgb(192 138 42 / 20%);background:var(--brass-100);color:var(--brass-800);font-size:.65rem;font-weight:800;white-space:nowrap}
-.admin-location-map{min-height:330px}
-.admin-location-map iframe{display:block;width:100%;height:330px;border:0}
+.admin-location-map{position:relative;min-height:330px;height:330px;overflow:hidden;background:#f1eae0;touch-action:pan-y}
+.admin-location-map-canvas{position:absolute;inset:0;overflow:hidden;background-color:#f1eae0;background-image:linear-gradient(0deg,transparent 48%,rgb(190 198 187 / .38) 49%,rgb(190 198 187 / .38) 51%,transparent 52%),linear-gradient(90deg,transparent 48%,rgb(190 198 187 / .28) 49%,rgb(190 198 187 / .28) 51%,transparent 52%);background-size:160px 160px,160px 160px;cursor:crosshair;touch-action:none;user-select:none}
+.admin-location-map-canvas.is-dragging{cursor:grabbing}
+.admin-location-map-tiles{position:absolute;inset:0;pointer-events:none}
+.admin-location-map-tile{position:absolute;width:256px!important;height:256px!important;max-width:none!important;object-fit:cover;pointer-events:none;user-select:none}
+.admin-location-map-wash{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgb(255 253 248 / 3%),rgb(241 234 224 / 5%))}
+.admin-location-map-marker{position:absolute;z-index:5;display:grid;place-items:center;width:42px;height:42px;padding:0;border:2px solid #fff;border-radius:50%;background:#0b1a2b;color:#fff;box-shadow:0 4px 15px rgb(11 26 43 / 35%);transform:translate(-50%,-50%);cursor:grab;touch-action:none}
+.admin-location-map-marker svg{color:#f0cc78;pointer-events:none}
+.admin-location-map-marker:active{cursor:grabbing}
+.admin-location-map-marker:focus-visible{outline:3px solid rgb(192 138 42 / 55%);outline-offset:3px}
+.admin-location-map-help{position:absolute;z-index:4;left:12px;right:12px;bottom:12px;display:flex;align-items:center;justify-content:center;gap:7px;padding:8px 10px;border:1px solid rgb(11 26 43 / 10%);border-radius:10px;background:rgb(255 255 255 / 92%);color:#354558;font-size:.71rem;line-height:1.7;text-align:center;pointer-events:none;box-shadow:0 3px 12px rgb(11 26 43 / 10%)}
+.admin-location-map-controls{position:absolute;z-index:6;top:10px;inset-inline-start:10px;display:grid;gap:6px}
+.admin-location-map-controls button{display:grid;place-items:center;width:36px;height:36px;padding:0;border:1px solid rgb(11 26 43 / 13%);border-radius:10px;background:rgb(255 255 255 / 96%);color:#172a42;box-shadow:0 2px 9px rgb(11 26 43 / 12%)}
+.admin-location-map-controls button:hover{background:#fbf2dc;border-color:#c08a2a}
+.admin-location-map-attribution{position:absolute;z-index:7;right:5px;bottom:4px;padding:2px 5px;border-radius:4px;background:rgb(255 255 255 / 88%);color:#536070;font-size:.61rem;direction:ltr}
+.admin-location-map-attribution a{color:inherit;text-decoration:underline}
+.admin-location-map-offline{position:absolute;z-index:4;top:50%;left:54px;right:54px;transform:translateY(-50%);padding:10px 12px;border:1px solid #e7ddc5;border-radius:10px;background:rgb(255 255 255 / 94%);color:#445163;font-size:.72rem;line-height:1.8;text-align:center;pointer-events:none}
 .admin-location-map-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 12px;border-top:1px solid var(--line);color:var(--subtle);font-size:.68rem;line-height:1.7}
 .admin-location-map-foot strong{color:var(--fg)}
 .admin-location-foot{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;color:var(--subtle);font-size:.7rem;line-height:1.8;padding:0 2px}
@@ -53,14 +68,16 @@ const LOCATION_PICKER_CSS = `
 .admin-location-coordinates{display:inline-flex;align-items:center;direction:ltr;unicode-bidi:plaintext;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (max-width:900px){
   .admin-location-panel{grid-template-columns:1fr}
-  .admin-location-map,.admin-location-map iframe{min-height:290px;height:290px}
+  .admin-location-map{min-height:290px;height:290px}
 }
 @media (max-width:600px){
   .admin-location-head{padding:13px}
   .admin-location-actions{width:100%}
   .admin-location-actions button,.admin-location-actions a{flex:1 1 auto}
   .admin-location-grid{grid-template-columns:1fr}
-  .admin-location-map,.admin-location-map iframe{min-height:250px;height:250px}
+  .admin-location-map{min-height:280px;height:280px}
+  .admin-location-map-marker{width:40px;height:40px}
+  .admin-location-map-help{left:8px;right:8px;bottom:8px;padding:7px;font-size:.66rem}
   .admin-location-foot{font-size:.68rem}
 }
 `;
@@ -79,15 +96,35 @@ function parseCoordinate(value: string, min: number, max: number) {
   return parsed;
 }
 
-function osmEmbedUrl(latitude: number, longitude: number) {
-  const delta = 0.012;
-  const bbox = [
-    longitude - delta,
-    latitude - delta,
-    longitude + delta,
-    latitude + delta,
-  ].join(",");
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${latitude}%2C${longitude}`;
+type AdminMapView = { latitude: number; longitude: number; zoom: number };
+type AdminMapPoint = { x: number; y: number };
+type AdminMapTile = { key: string; url: string; left: number; top: number };
+type AdminMapSize = { width: number; height: number };
+type AdminMapDrag = { mode: "map" | "marker"; x: number; y: number; pointerId: number; moved: boolean };
+const ADMIN_MAP_TILE_SIZE = 256;
+const ADMIN_MAP_DEFAULT: AdminMapView = { latitude: 32.6546, longitude: 51.668, zoom: 14 };
+
+function projectAdminMap(latitude: number, longitude: number, zoom: number): AdminMapPoint {
+  const scale = ADMIN_MAP_TILE_SIZE * 2 ** zoom;
+  const safeLatitude = Math.max(-85.05112878, Math.min(85.05112878, latitude));
+  const sin = Math.sin((safeLatitude * Math.PI) / 180);
+  return {
+    x: ((longitude + 180) / 360) * scale,
+    y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale,
+  };
+}
+
+function unprojectAdminMap(point: AdminMapPoint, zoom: number): Pick<AdminMapView, "latitude" | "longitude"> {
+  const scale = ADMIN_MAP_TILE_SIZE * 2 ** zoom;
+  const n = Math.PI - (2 * Math.PI * point.y) / scale;
+  return {
+    longitude: Math.max(-180, Math.min(180, (point.x / scale) * 360 - 180)),
+    latitude: Math.max(-85.05112878, Math.min(85.05112878, (180 / Math.PI) * Math.atan(Math.sinh(n)))),
+  };
+}
+
+function formatCoordinate(value: number) {
+  return value.toFixed(6);
 }
 
 export function AdminLocationPicker({
@@ -96,16 +133,28 @@ export function AdminLocationPicker({
   neighborhood,
   onChange,
 }: AdminLocationPickerProps) {
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const dragOrigin = useRef<AdminMapDrag | null>(null);
+  const suppressMapClick = useRef(false);
   const [latitudeText, setLatitudeText] = useState(latitude == null ? "" : String(latitude));
   const [longitudeText, setLongitudeText] = useState(longitude == null ? "" : String(longitude));
+  const [view, setView] = useState<AdminMapView>({
+    latitude: latitude ?? ADMIN_MAP_DEFAULT.latitude,
+    longitude: longitude ?? ADMIN_MAP_DEFAULT.longitude,
+    zoom: ADMIN_MAP_DEFAULT.zoom,
+  });
+  const [size, setSize] = useState<AdminMapSize>({ width: 760, height: 330 });
+  const [dragOffset, setDragOffset] = useState<AdminMapPoint>({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [failedTiles, setFailedTiles] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     setLatitudeText(latitude == null ? "" : String(latitude));
-  }, [latitude]);
-
-  useEffect(() => {
     setLongitudeText(longitude == null ? "" : String(longitude));
-  }, [longitude]);
+    if (latitude != null && longitude != null) {
+      setView((current) => ({ ...current, latitude, longitude, zoom: Math.max(14, current.zoom) }));
+    }
+  }, [latitude, longitude]);
 
   const suggested = useMemo(() => {
     const normalized = neighborhood.trim();
@@ -117,55 +166,196 @@ export function AdminLocationPicker({
     return null;
   }, [neighborhood]);
 
-  const previewLatitude = latitude ?? suggested?.lat ?? 32.6546;
-  const previewLongitude = longitude ?? suggested?.lng ?? 51.6680;
+  const latitudeDraft = parseCoordinate(latitudeText, -90, 90);
+  const longitudeDraft = parseCoordinate(longitudeText, -180, 180);
+  const latitudeValid = latitudeText.trim() === "" || latitudeDraft != null;
+  const longitudeValid = longitudeText.trim() === "" || longitudeDraft != null;
+  const bothBlank = latitudeText.trim() === "" && longitudeText.trim() === "";
+  const bothCoordinatesValid = latitudeText.trim() !== "" && longitudeText.trim() !== "" && latitudeDraft != null && longitudeDraft != null;
+  const draftPairValid = bothCoordinatesValid || bothBlank;
   const hasCustomLocation = latitude != null && longitude != null;
+  const draftMatchesForm = draftPairValid &&
+    (bothBlank ? latitude == null && longitude == null : latitudeDraft === latitude && longitudeDraft === longitude);
+  const hasPendingChanges = !draftMatchesForm && draftPairValid;
+  const canRegister = draftPairValid && hasPendingChanges;
+  const markerLatitude = latitudeDraft ?? suggested?.lat ?? view.latitude;
+  const markerLongitude = longitudeDraft ?? suggested?.lng ?? view.longitude;
 
-  function setCoordinate(key: "latitude" | "longitude", raw: string) {
-    if (key === "latitude") {
-      setLatitudeText(raw);
-      const next = parseCoordinate(raw, -90, 90);
-      if (next != null || raw.trim() === "") onChange({ latitude: next, longitude });
+  useEffect(() => {
+    setView((current) => ({
+      ...current,
+      latitude: latitudeDraft ?? suggested?.lat ?? current.latitude,
+      longitude: longitudeDraft ?? suggested?.lng ?? current.longitude,
+    }));
+    // The neighborhood default only moves the map when there is no custom point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [neighborhood, suggested?.lat, suggested?.lng]);
+
+  useEffect(() => {
+    const node = mapRef.current;
+    if (!node) return;
+    const measure = () => {
+      const rect = node.getBoundingClientRect();
+      setSize({ width: Math.max(300, Math.round(rect.width)), height: Math.max(240, Math.round(rect.height)) });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+      return () => window.removeEventListener("resize", measure);
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const centerWorld = useMemo(() => projectAdminMap(view.latitude, view.longitude, view.zoom), [view.latitude, view.longitude, view.zoom]);
+  const visualCenter = { x: centerWorld.x - dragOffset.x, y: centerWorld.y - dragOffset.y };
+  const worldLeft = visualCenter.x - size.width / 2;
+  const worldTop = visualCenter.y - size.height / 2;
+
+  const markerPoint = useMemo(() => {
+    const point = projectAdminMap(markerLatitude, markerLongitude, view.zoom);
+    return { x: point.x - worldLeft, y: point.y - worldTop };
+  }, [markerLatitude, markerLongitude, view.zoom, worldLeft, worldTop]);
+
+  const tiles = useMemo<AdminMapTile[]>(() => {
+    const totalTiles = 2 ** view.zoom;
+    const startX = Math.floor(worldLeft / ADMIN_MAP_TILE_SIZE);
+    const endX = Math.floor((worldLeft + size.width) / ADMIN_MAP_TILE_SIZE);
+    const startY = Math.floor(worldTop / ADMIN_MAP_TILE_SIZE);
+    const endY = Math.floor((worldTop + size.height) / ADMIN_MAP_TILE_SIZE);
+    const result: AdminMapTile[] = [];
+    for (let rawY = startY; rawY <= endY; rawY += 1) {
+      if (rawY < 0 || rawY >= totalTiles) continue;
+      for (let rawX = startX; rawX <= endX; rawX += 1) {
+        const x = ((rawX % totalTiles) + totalTiles) % totalTiles;
+        result.push({
+          key: `${view.zoom}/${x}/${rawY}`,
+          url: `https://tile.openstreetmap.org/${view.zoom}/${x}/${rawY}.png`,
+          left: rawX * ADMIN_MAP_TILE_SIZE - worldLeft,
+          top: rawY * ADMIN_MAP_TILE_SIZE - worldTop,
+        });
+      }
+    }
+    return result;
+  }, [view.zoom, worldLeft, worldTop, size.width, size.height]);
+
+  useEffect(() => {
+    setFailedTiles(new Set());
+  }, [view.latitude, view.longitude, view.zoom]);
+
+  const coordinateAtPointer = useCallback((clientX: number, clientY: number) => {
+    const rect = mapRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const point = unprojectAdminMap({
+      x: clientX - rect.left + worldLeft,
+      y: clientY - rect.top + worldTop,
+    }, view.zoom);
+    if (point.latitude < -90 || point.latitude > 90 || point.longitude < -180 || point.longitude > 180) return null;
+    return point;
+  }, [view.zoom, worldLeft, worldTop]);
+
+  const setDraftCoordinates = useCallback((lat: number, lng: number) => {
+    setLatitudeText(formatCoordinate(lat));
+    setLongitudeText(formatCoordinate(lng));
+  }, []);
+
+  const onMapPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || (event.target as HTMLElement).closest("button, a")) return;
+    dragOrigin.current = { mode: "map", x: event.clientX, y: event.clientY, pointerId: event.pointerId, moved: false };
+    setDragOffset({ x: 0, y: 0 });
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, []);
+
+  const onMapPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const origin = dragOrigin.current;
+    if (!origin || origin.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - origin.x;
+    const deltaY = event.clientY - origin.y;
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) origin.moved = true;
+    if (origin.mode === "map") {
+      setDragOffset({ x: deltaX, y: deltaY });
       return;
     }
+    const point = coordinateAtPointer(event.clientX, event.clientY);
+    if (point) setDraftCoordinates(point.latitude, point.longitude);
+  }, [coordinateAtPointer, setDraftCoordinates]);
 
-    setLongitudeText(raw);
-    const next = parseCoordinate(raw, -180, 180);
-    if (next != null || raw.trim() === "") onChange({ latitude, longitude: next });
-  }
+  const onMapPointerUp = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const origin = dragOrigin.current;
+    if (!origin || origin.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - origin.x;
+    const deltaY = event.clientY - origin.y;
+    dragOrigin.current = null;
+    setDragging(false);
+    if (origin.mode === "map") {
+      if (origin.moved) {
+        const nextCenter = unprojectAdminMap({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
+        setView((current) => ({ ...current, ...nextCenter }));
+        suppressMapClick.current = true;
+      }
+      setDragOffset({ x: 0, y: 0 });
+    } else if (origin.moved) {
+      suppressMapClick.current = true;
+    }
+  }, [centerWorld.x, centerWorld.y, view.zoom]);
+
+  const startMarkerDrag = useCallback((event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragOrigin.current = { mode: "marker", x: event.clientX, y: event.clientY, pointerId: event.pointerId, moved: false };
+    setDragging(true);
+    mapRef.current?.setPointerCapture(event.pointerId);
+  }, []);
+
+  const onMapClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (suppressMapClick.current) {
+      suppressMapClick.current = false;
+      return;
+    }
+    if ((event.target as HTMLElement).closest("button, a")) return;
+    const point = coordinateAtPointer(event.clientX, event.clientY);
+    if (!point) return;
+    setDraftCoordinates(point.latitude, point.longitude);
+  }, [coordinateAtPointer, setDraftCoordinates]);
+
+  const zoomBy = useCallback((amount: number) => {
+    setView((current) => ({
+      ...current,
+      zoom: Math.max(10, Math.min(18, current.zoom + amount)),
+    }));
+  }, []);
 
   function useNeighborhoodCenter() {
     if (!suggested) return;
-    setLatitudeText(String(suggested.lat ?? 32.6546));
-    setLongitudeText(String(suggested.lng ?? 51.6680));
-    onChange({ latitude: suggested.lat ?? null, longitude: suggested.lng ?? null });
+    setDraftCoordinates(suggested.lat ?? ADMIN_MAP_DEFAULT.latitude, suggested.lng ?? ADMIN_MAP_DEFAULT.longitude);
+    setView((current) => ({
+      ...current,
+      latitude: suggested.lat ?? ADMIN_MAP_DEFAULT.latitude,
+      longitude: suggested.lng ?? ADMIN_MAP_DEFAULT.longitude,
+      zoom: Math.max(14, current.zoom),
+    }));
   }
 
-  function clearLocation() {
+  function clearLocationDraft() {
     setLatitudeText("");
     setLongitudeText("");
-    onChange({ latitude: null, longitude: null });
   }
 
-  const latitudeValid = latitudeText.trim() === "" || parseCoordinate(latitudeText, -90, 90) != null;
-  const longitudeValid = longitudeText.trim() === "" || parseCoordinate(longitudeText, -180, 180) != null;
-  const bothCoordinatesValid =
-    latitudeText.trim() !== "" &&
-    longitudeText.trim() !== "" &&
-    latitudeValid &&
-    longitudeValid;
+  function registerLocation() {
+    if (!canRegister) return;
+    onChange({
+      latitude: bothBlank ? null : latitudeDraft,
+      longitude: bothBlank ? null : longitudeDraft,
+    });
+  }
 
-  function commitCoordinate(key: "latitude" | "longitude") {
-    if (key === "latitude") {
-      const next = parseCoordinate(latitudeText, -90, 90);
-      onChange({ latitude: next, longitude });
-      setLatitudeText(next == null ? "" : String(next));
-      return;
-    }
-
-    const next = parseCoordinate(longitudeText, -180, 180);
-    onChange({ latitude, longitude: next });
-    setLongitudeText(next == null ? "" : String(next));
+  function resetMapView() {
+    const nextLatitude = latitudeDraft ?? suggested?.lat ?? ADMIN_MAP_DEFAULT.latitude;
+    const nextLongitude = longitudeDraft ?? suggested?.lng ?? ADMIN_MAP_DEFAULT.longitude;
+    setView((current) => ({ ...current, latitude: nextLatitude, longitude: nextLongitude }));
   }
 
   return (
@@ -193,12 +383,12 @@ export function AdminLocationPicker({
                   مرکز محله
                 </button>
               ) : null}
-              <button type="button" onClick={clearLocation} disabled={!hasCustomLocation && !latitudeText && !longitudeText}>
+              <button type="button" onClick={clearLocationDraft} disabled={bothBlank && latitude == null && longitude == null}>
                 <RotateCcw size={15} aria-hidden="true" />
                 پاک کردن
               </button>
               <a
-                href={`https://www.google.com/maps/search/?api=1&query=${previewLatitude},${previewLongitude}`}
+                href={`https://www.google.com/maps/search/?api=1&query=${markerLatitude},${markerLongitude}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -214,13 +404,12 @@ export function AdminLocationPicker({
               <input
                 inputMode="decimal"
                 value={latitudeText}
-                onChange={(event) => setCoordinate("latitude", event.target.value)}
-                onBlur={() => commitCoordinate("latitude")}
+                onChange={(event) => setLatitudeText(event.target.value)}
                 placeholder={suggested?.lat != null ? String(suggested.lat) : "32.6546"}
                 aria-label="عرض جغرافیایی موقعیت تقریبی"
                 aria-invalid={!latitudeValid}
               />
-              <small>{`مثال: ${suggested ? String(suggested.lat) : "32.6546"}`}</small>
+              <small>مختصات با کلیک روی نقشه یا کشیدن نشانگر به‌روزرسانی می‌شود.</small>
               <span className={`admin-location-validation ${latitudeValid ? "is-ok" : "is-error"}`} aria-live="polite">
                 {latitudeValid ? "فرمت مختصات معتبر است" : "عدد واردشده برای عرض جغرافیایی معتبر نیست"}
               </span>
@@ -231,13 +420,12 @@ export function AdminLocationPicker({
               <input
                 inputMode="decimal"
                 value={longitudeText}
-                onChange={(event) => setCoordinate("longitude", event.target.value)}
-                onBlur={() => commitCoordinate("longitude")}
+                onChange={(event) => setLongitudeText(event.target.value)}
                 placeholder={suggested?.lng != null ? String(suggested.lng) : "51.6680"}
                 aria-label="طول جغرافیایی موقعیت تقریبی"
                 aria-invalid={!longitudeValid}
               />
-              <small>{`مثال: ${suggested ? String(suggested.lng) : "51.6680"}`}</small>
+              <small>پس از انتخاب نقطه، روی «ثبت موقعیت» بزن.</small>
               <span className={`admin-location-validation ${longitudeValid ? "is-ok" : "is-error"}`} aria-live="polite">
                 {longitudeValid ? "فرمت مختصات معتبر است" : "عدد واردشده برای طول جغرافیایی معتبر نیست"}
               </span>
@@ -247,31 +435,92 @@ export function AdminLocationPicker({
           <p className="admin-location-status" role="status">
             <span className="admin-location-status-dot" aria-hidden="true" />
             <span>
-              {hasCustomLocation
-                ? "موقعیت اختصاصی این فایل ثبت شده است و در سایت عمومی به‌صورت تقریبی نمایش داده می‌شود."
-                : suggested
-                  ? `هنوز موقعیت اختصاصی ثبت نشده؛ مرکز «${neighborhood}» فقط به‌عنوان پیش‌نمایش استفاده می‌شود.`
-                  : "هنوز موقعیت اختصاصی ثبت نشده؛ نقشه فعلاً مرکز اصفهان را به‌عنوان پیش‌نمایش نشان می‌دهد."}
+              {!draftPairValid
+                ? "برای ثبت موقعیت، هر دو مختصات را کامل و معتبر وارد کن."
+                : hasPendingChanges
+                  ? bothBlank
+                    ? "حذف موقعیت آماده ثبت است؛ برای اعمال آن در فرم، «ثبت موقعیت» را بزن."
+                    : "نقطه انتخاب شده اما هنوز در فرم ثبت نشده است؛ برای تأیید، «ثبت موقعیت» را بزن."
+                  : hasCustomLocation
+                    ? "موقعیت اختصاصی در فرم ثبت شده است و در سایت عمومی به‌صورت تقریبی نمایش داده می‌شود."
+                    : suggested
+                      ? `هنوز موقعیت اختصاصی ثبت نشده؛ مرکز «${neighborhood}» فقط پیش‌نمایش است تا نقطه‌ای انتخاب و ثبت شود.`
+                      : "هنوز موقعیت اختصاصی ثبت نشده؛ نقطه فعلی روی نقشه فقط پیش‌نمایش است."}
             </span>
           </p>
+          <div className="admin-location-actions admin-location-save-actions">
+            <button type="button" onClick={registerLocation} disabled={!canRegister} className="admin-location-register">
+              <Save size={15} aria-hidden="true" />
+              ثبت موقعیت در فرم
+            </button>
+            <small>برای ذخیره نهایی اطلاعات در سامانه، پس از آن دکمهٔ اصلی ذخیرهٔ فایل را هم بزن.</small>
+          </div>
         </div>
 
         <div className="admin-location-map-shell">
           <div className="admin-location-map-head">
-            <strong>پیش‌نمایش موقعیت</strong>
-            <span>{hasCustomLocation ? "موقعیت ثبت‌شده" : "پیش‌نمایش تقریبی"}</span>
+            <strong>انتخاب موقعیت روی نقشه</strong>
+            <span>{hasPendingChanges ? "موقعیت ثبت‌نشده" : hasCustomLocation ? "مختصات فرم" : "پیش‌نمایش تقریبی"}</span>
           </div>
-          <div className="admin-location-map">
-            <iframe
-              title={`پیش‌نمایش موقعیت تقریبی ${neighborhood || "فایل"}`}
-              src={osmEmbedUrl(previewLatitude, previewLongitude)}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+          <div
+            className={`admin-location-map-canvas${dragging ? " is-dragging" : ""}`}
+            ref={mapRef}
+            role="application"
+            aria-label="نقشه انتخاب موقعیت؛ برای انتخاب روی نقشه کلیک کنید یا نشانگر را بکشید"
+            onPointerDown={onMapPointerDown}
+            onPointerMove={onMapPointerMove}
+            onPointerUp={onMapPointerUp}
+            onPointerCancel={onMapPointerUp}
+            onClick={onMapClick}
+            onDragStart={(event) => event.preventDefault()}
+          >
+            <div className="admin-location-map-tiles" aria-hidden="true">
+              {tiles.map((tile) => (
+                <img
+                  key={tile.key}
+                  className="admin-location-map-tile"
+                  src={tile.url}
+                  alt=""
+                  draggable={false}
+                  loading="lazy"
+                  style={{ left: tile.left, top: tile.top }}
+                  onError={() => setFailedTiles((previous) => {
+                    if (previous.has(tile.key)) return previous;
+                    const next = new Set(previous);
+                    next.add(tile.key);
+                    return next;
+                  })}
+                />
+              ))}
+            </div>
+            <div className="admin-location-map-wash" aria-hidden="true" />
+            <button
+              type="button"
+              className="admin-location-map-marker"
+              style={{ left: markerPoint.x, top: markerPoint.y }}
+              aria-label="نشانگر موقعیت؛ برای تغییر موقعیت آن را بکشید"
+              title="برای جابه‌جایی نشانگر را بکشید"
+              onPointerDown={startMarkerDrag}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <MapPin size={22} aria-hidden="true" />
+            </button>
+            <div className="admin-location-map-controls" aria-label="کنترل نقشه">
+              <button type="button" onClick={() => zoomBy(1)} aria-label="بزرگ‌نمایی"><Plus size={17} /></button>
+              <button type="button" onClick={() => zoomBy(-1)} aria-label="کوچک‌نمایی"><Minus size={17} /></button>
+              <button type="button" onClick={resetMapView} aria-label="مرکز کردن نقشه روی موقعیت انتخاب‌شده"><LocateFixed size={17} /></button>
+            </div>
+            {failedTiles.size >= 4 ? (
+              <div className="admin-location-map-offline" role="status">
+                نقشه پایه بارگذاری نشده است؛ می‌توانی روی این محدوده کلیک کنی، اما برای دیدن خیابان‌ها اتصال نقشه لازم است.
+              </div>
+            ) : null}
+            <div className="admin-location-map-help"><MapPin size={15} aria-hidden="true" /> روی نقطهٔ موردنظر کلیک کن یا نشانگر را بکش؛ سپس موقعیت را ثبت کن.</div>
+            <div className="admin-location-map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a></div>
           </div>
           <div className="admin-location-map-foot">
-            <span>نقشه داخلی فقط برای کنترل موقعیت فایل در پنل مدیریت است.</span>
-            <strong>{bothCoordinatesValid ? "مختصات آماده ثبت" : "در انتظار مختصات کامل"}</strong>
+            <span>نقطه روی نقشه تا زمان زدن «ثبت موقعیت» فقط پیش‌نویس است.</span>
+            <strong>{bothCoordinatesValid ? "مختصات معتبر" : bothBlank ? "مختصات انتخاب نشده" : "در انتظار دو مختصات معتبر"}</strong>
           </div>
         </div>
       </div>
@@ -280,7 +529,9 @@ export function AdminLocationPicker({
         <span>
           <strong>حریم خصوصی:</strong> نقطه را روی محدوده نزدیک ملک بگذار، نه روی پلاک یا ورودی دقیق ساختمان.
         </span>
-        {hasCustomLocation ? (
+        {bothCoordinatesValid ? (
+          <span className="admin-location-coordinates">{formatCoordinate(latitudeDraft!)} · {formatCoordinate(longitudeDraft!)}</span>
+        ) : hasCustomLocation ? (
           <span className="admin-location-coordinates">{latitude} · {longitude}</span>
         ) : null}
       </div>
