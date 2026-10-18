@@ -1,0 +1,77 @@
+name: Bootstrap local real-estate category photos
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/bootstrap-property-category-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-property-category-photos
+  cancel-in-progress: false
+
+jobs:
+  download-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      # Sources:
+      # Commercial property: Aalo Lens, Unsplash, Unsplash License
+      # https://unsplash.com/photos/modern-building-with-glass-facade-and-illuminated-storefronts-nc5NrVH5Vc8
+      # Vacant lot: Fotografías inmobiliarias, Unsplash, Unsplash License
+      # https://unsplash.com/photos/aerial-view-of-a-vacant-lot-with-trees-and-street-Qal7KiJ-ErQ
+      - name: Download local JPG assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public/images/fallback
+
+          download_jpg() {
+            local destination="$1"
+            local source_url="$2"
+            local mime_type
+            mime_type="$(curl --fail --location --silent --show-error \
+              --retry 3 --retry-all-errors \
+              --output "$destination" --write-out '%{content_type}' "$source_url")"
+            if [[ "$mime_type" != image/jpeg ]]; then
+              echo "::error::Expected JPEG for $destination, received $mime_type"
+              exit 1
+            fi
+            if [[ ! -s "$destination" ]]; then
+              echo "::error::Downloaded image is empty: $destination"
+              exit 1
+            fi
+            file "$destination"
+          }
+
+          download_jpg \
+            public/images/fallback/commercial-01.jpg \
+            'https://images.unsplash.com/photo-1758448500766-fdbb9f0925bc?fit=crop&fm=jpg&q=84&w=1400&h=900&crop=entropy'
+
+          download_jpg \
+            public/images/fallback/land-01.jpg \
+            'https://images.unsplash.com/photo-1777268209440-296c2bb6facf?fit=crop&fm=jpg&q=84&w=1400&h=900&crop=entropy'
+
+      - name: Commit images to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/images/fallback/commercial-01.jpg public/images/fallback/land-01.jpg
+          if git diff --cached --quiet; then
+            echo "The local category images are already present."
+            exit 0
+          fi
+          git commit -m "Add local commercial and land category photos"
+          git push origin HEAD:main
