@@ -4,7 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl = process.argv[2] ?? process.env.RESPONSIVE_SMOKE_BASE_URL ?? "http://127.0.0.1:8081";
-const viewportWidths = [320, 360, 375, 390, 414, 768, 1024, 1440];
+const viewportWidths = [320, 360, 375, 390, 414, 768, 1024, 1440, 1920];
 const propertyId = process.env.BROWSER_SMOKE_PROPERTY_ID || "browser-smoke-property-001";
 const propertySlug = process.env.BROWSER_SMOKE_PROPERTY_SLUG || "آپارتمان-تست-ناوبری-۱۴۰۵-browser-smoke";
 const routes = [
@@ -56,7 +56,7 @@ const screenshotRoutes = new Set([
   "/tools/rahn-rent",
   "/admin",
 ]);
-const screenshotWidths = new Set([320, 390, 768, 1024]);
+const screenshotWidths = new Set([320, 390, 768, 1024, 1440, 1920]);
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 

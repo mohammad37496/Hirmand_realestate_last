@@ -6,17 +6,17 @@
 @import "@fontsource/vazirmatn/800.css";
 
 @theme {
-  --color-bg: #f5f7f6;
+  --color-bg: #f7f4ee;
   --color-surface: #ffffff;
-  --color-surface-2: #edf2f0;
-  --color-fg: #15221f;
-  --color-muted: #65736e;
-  --color-subtle: #8b9894;
-  --color-gold: #0f766e;
-  --color-gold-soft: #c48a3a;
+  --color-surface-2: #fbf8f2;
+  --color-fg: #152430;
+  --color-muted: #57646e;
+  --color-subtle: #64707b;
+  --color-gold: #8a5e14;
+  --color-gold-soft: #c08a2a;
   --color-ink: #ffffff;
-  --color-border: rgba(21, 34, 31, 0.10);
-  --color-gold-line: rgba(15, 118, 110, 0.20);
+  --color-border: rgba(228, 220, 204, 0.9);
+  --color-gold-line: rgba(138, 94, 20, 0.26);
   --font-sans: "Vazirmatn", Tahoma, Arial, sans-serif;
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -32,17 +32,17 @@
 }
 
 :root {
-  --bg: #f5f7f6;
+  --bg: #f7f4ee;
   --surface: #ffffff;
-  --surface-2: #edf2f0;
-  --fg: #15221f;
-  --muted: #65736e;
-  --subtle: #8b9894;
-  --gold: #0f766e;
-  --gold-soft: #c48a3a;
+  --surface-2: #fbf8f2;
+  --fg: #152430;
+  --muted: #57646e;
+  --subtle: #64707b;
+  --gold: #8a5e14;
+  --gold-soft: #c08a2a;
   --ink: #ffffff;
-  --line: rgba(244, 239, 230, 0.1);
-  --gold-line: rgba(15, 118, 110, 0.20);
+  --line: #e4dccc;
+  --gold-line: rgba(138, 94, 20, 0.26);
   --r-sm: 10px;
   --r-md: 14px;
   --r-lg: 22px;

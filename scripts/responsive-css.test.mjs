@@ -27,6 +27,9 @@ const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.c
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
+const valuationCss = fs.readFileSync(new URL("../src/valuation.css", import.meta.url), "utf8");
+const adminShellCss = fs.readFileSync(new URL("../src/components/hirmand/admin-shell-css.ts", import.meta.url), "utf8");
+const adminAuditScript = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const verifyWorkflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
 
@@ -63,7 +66,7 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   assert.match(responsiveCss, /\.action-menu\.floating-call-menu\s*\{[^}]*position:\s*fixed\s*!important/is,
     "the desktop floating contact menu must not stretch as a relative action menu");
 
-  assert.match(propertyDecisionToolsCss, /@media\s*\(max-width:1600px\)\s*\{[^}]*\.property-decision-grid\s*\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/is,
+  assert.match(propertyDecisionToolsCss, /\.property-decision-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/is,
     "financial decision cards must not remain in six narrow columns at desktop widths");
   assert.match(propertyScenarioToolsCss, /\.property-score-stars button\s*\{[^}]*width:40px;[^}]*height:40px;[^}]*min-width:40px;[^}]*min-height:40px/is,
     "five-star scoring buttons need accessible mobile touch targets");
@@ -159,7 +162,7 @@ testRunner.test("responsive guardrails load after the older global styles", () =
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
-  assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 414, 768, 1024, 1440\]/);
+  assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 414, 768, 1024, 1440, 1920\]/);
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
@@ -191,3 +194,90 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
     assert.ok(browserSmoke.includes(route), `responsive test should cover ${route}`);
   }
 });
+
+testRunner.test("property financial metric labels cannot shrink into letter columns", () => {
+  const metricRow = propertyDecisionToolsCss.match(/\.property-decision-metrics>div\{[^}]*\}/s)?.[0] ?? "";
+  assert.match(metricRow, /display:grid/);
+  assert.match(metricRow, /grid-template-columns:minmax\(0,1fr\)/);
+  const children = propertyDecisionToolsCss.match(/\.property-decision-metrics>div>span,\.property-decision-metrics>div>strong\{[^}]*\}/s)?.[0] ?? "";
+  assert.match(children, /min-width:0/);
+  assert.match(children, /overflow-wrap:break-word/);
+});
+
+testRunner.test("property decision cards remain readable at 1920px layouts", () => {
+  assert.match(propertyDecisionToolsCss, /\.property-decision-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/s);
+  assert.doesNotMatch(propertyDecisionToolsCss, /grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+});
+
+testRunner.test("minimum bedroom and bathroom filters use equal-width columns, not the range separator track", () => {
+  assert.match(propertiesRoute, /<div className="pf-range pf-range--pair">[\s\S]{0,180}<span>حداقل خواب<\/span>/);
+  assert.match(propertyFiltersCss, /\.pf-range\.pf-range--pair\s*\{\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
+});
+
+testRunner.test("property filters keep Persian labels readable and view toggles touch friendly", () => {
+  assert.match(responsiveCss, /\.pf-page \.pf-spec-options\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-sidebar \.pf-spec-groups\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+    "nested subgroup grid must collapse to one column at tablet widths");
+  assert.match(responsiveCss, /\.pf-page \.pf-sidebar \.pf-spec-subgroup \.pf-spec-options\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+    "nested property-filter options must also collapse when the desktop sidebar is narrow");
+  const labelRule = responsiveCss.match(/\.pf-page \.pf-spec-option > span:last-child\s*\{[^}]*\}/s)?.[0] ?? "";
+  assert.ok(labelRule, "filter option labels should have a scoped wrapping rule");
+  assert.match(labelRule, /white-space:\s*normal/);
+  assert.match(labelRule, /overflow-wrap:\s*break-word/);
+  const viewRule = [...responsiveCss.matchAll(/\.pf-page \.pf-views button\s*\{[^}]*\}/gs)].at(-1)?.[0] ?? "";
+  assert.ok(viewRule, "listing view toggles should have a shared hit-area rule");
+  assert.match(viewRule, /min-width:\s*44px/);
+  assert.match(viewRule, /min-height:\s*44px/);
+});
+
+testRunner.test("shared Tailwind palette follows the established Hirmand navy-and-brass theme", () => {
+  const tailwindTokens = globalCss.match(/@theme\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+  assert.match(themeProCss, /--navy-900:\s*#0b1a2b/i);
+  assert.match(themeProCss, /--brass-700:\s*#8a5e14/i);
+  assert.match(tailwindTokens, /--color-gold:\s*#8a5e14/i,
+    "Tailwind gold utilities must not retain the legacy teal accent");
+  assert.match(tailwindTokens, /--color-bg:\s*#f7f4ee/i);
+  assert.match(tailwindTokens, /--color-surface-2:\s*#fbf8f2/i);
+  assert.doesNotMatch(tailwindTokens, /#0f766e|#edf2f0/i);
+});
+
+testRunner.test("valuation and property titles preserve word-level wrapping", () => {
+  assert.match(valuationCss, /\.valuation-hero\{[^}]*grid-template-columns:auto minmax\(0,1fr\)/i);
+  assert.match(valuationCss, /\.valuation-hero>div:last-child\{min-width:0\}/i);
+  assert.match(valuationCss, /\.valuation-hero h1\{[^}]*letter-spacing:normal;[^}]*word-break:normal;[^}]*overflow-wrap:break-word/is);
+  assert.match(valuationCss, /\.valuation-comparable strong,\.valuation-comparable small\{[^}]*white-space:normal;[^}]*overflow-wrap:break-word/is);
+  assert.doesNotMatch(uiClarityCss, /\.property-detail-summary-head h1\s*\{[^}]*max-width:\s*15ch/i,
+    "property titles must not be constrained to an unnecessarily narrow character count");
+  assert.doesNotMatch(uiClarityCss, /\.property-detail-summary-head h1\s*\{[^}]*letter-spacing:\s*-\.02em/i,
+    "Persian/Latin property titles must not use aggressive negative tracking");
+});
+
+testRunner.test("admin property rows expose complete titles and metadata with usable action targets", () => {
+  const titleRule = adminShellCss.match(/\.admin-property-meta h3\{[^}]*\}/i)?.[0] ?? "";
+  const metaRule = adminShellCss.match(/\.admin-property-meta p\{[^}]*\}/i)?.[0] ?? "";
+  const iconRule = adminShellCss.match(/\.admin-icon-btn\{[^}]*\}/i)?.[0] ?? "";
+  assert.match(titleRule, /white-space:normal/i);
+  assert.match(titleRule, /overflow-wrap:break-word/i);
+  assert.doesNotMatch(titleRule, /text-overflow:ellipsis|white-space:nowrap/i);
+  assert.match(metaRule, /white-space:normal/i);
+  assert.match(metaRule, /overflow-wrap:break-word/i);
+  assert.doesNotMatch(metaRule, /text-overflow:ellipsis|white-space:nowrap/i);
+  assert.match(iconRule, /width:44px;height:44px;min-width:44px;min-height:44px/i);
+});
+
+
+testRunner.test("property map and filter actions meet the minimum mobile hit area", () => {
+  assert.match(responsiveCss, /\.pf-page \.pf-search > button\s*\{[^}]*min-width:\s*44px/s);
+
+  assert.match(responsiveCss, /\.pf-page \.pf-filter-overview > button\s*\{[^}]*min-height:\s*40px/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-marker\s*\{[^}]*min-height:\s*40px/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-popup-close\s*\{[^}]*min-width:\s*40px/s);
+});
+
+testRunner.test("CI runs the admin visual/accessibility audit and archives its screenshots", () => {
+  assert.match(verifyWorkflow, /name: Admin visual and accessibility matrix[\s\S]*?npm run qa:admin-a11y/);
+  assert.match(verifyWorkflow, /QA_VIEWPORTS: "320x568,390x844,768x1024,1440x900,1920x1080"/);
+  assert.match(verifyWorkflow, /QA_SCREENSHOT_DIR: \/workspace\/screenshots\/admin/);
+  assert.match(adminAuditScript, /process\.env\.QA_SCREENSHOT_DIR \|\| "screenshots\/admin"/);
+});
+
