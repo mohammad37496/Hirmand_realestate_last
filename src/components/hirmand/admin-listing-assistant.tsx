@@ -112,7 +112,7 @@ function qualityScore(p: Props) {
   if (p.features.trim()) score += 10;
   if (p.description.trim().length >= 80) score += 14;
   if (p.imageCount >= 1) score += 6;
-  if (p.imageCount >= 4) score += 10;
+  if (p.imageCount >= 4) score += 4;
   return Math.min(score, 100);
 }
 
