@@ -39,7 +39,6 @@ const FINANCE_NAV = [
 
 const NAV_ICONS = {
   listings: Building2,
-  services: Handshake,
   properties: Grid2X2,
   "request-property": ClipboardList,
   "budget-match": Calculator,
