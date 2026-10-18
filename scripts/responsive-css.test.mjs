@@ -191,3 +191,10 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
     assert.ok(browserSmoke.includes(route), `responsive test should cover ${route}`);
   }
 });
+
+testRunner.test("property filter labels stay readable in tablet and mobile filter grids", () => {
+  assert.match(propertyFiltersCss, /\.pf-fold-grid[\s\S]*?min-width:\s*0/);
+  assert.match(propertyFiltersCss, /\.pf-field\s*>\s*span\s*\{[^}]*word-break:\s*normal/s);
+  assert.match(propertyFiltersCss, /@media\s*\(max-width:\s*1100px\)[\s\S]*?\.pf-fold-grid \.pf-range\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/s);
+  assert.match(propertyFiltersCss, /@media\s*\(max-width:\s*420px\)[\s\S]*?\.pf-fold-grid \.pf-range\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+});

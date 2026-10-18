@@ -94,9 +94,15 @@ export function AdminPropertyDuplicateCheck(props: Props) {
                     {match.status === "published" ? " · منتشرشده" : " · پیش‌نویس"}
                   </small>
                 </div>
-                <a className="text-link" href={"/properties/" + encodeURIComponent(match.slug)} target="_blank" rel="noreferrer">
-                  مشاهده <ExternalLink size={13} />
-                </a>
+                {match.status === "published" ? (
+                  <a className="text-link" href={"/properties/" + encodeURIComponent(match.slug)} target="_blank" rel="noreferrer">
+                    مشاهده <ExternalLink size={13} />
+                  </a>
+                ) : (
+                  <span className="text-link" aria-label="این فایل پیش‌نویس است و در سایت عمومی نمایش داده نمی‌شود">
+                    پیش‌نویس · فقط مدیریت
+                  </span>
+                )}
               </div>
             ))}
           </div>

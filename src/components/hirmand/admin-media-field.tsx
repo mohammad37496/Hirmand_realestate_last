@@ -410,7 +410,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
             <Upload size={22} aria-hidden="true" />
             <strong>آپلود از گالری یا کامپیوتر</strong>
             <span>تصویر یا ویدیو را بکشید و رها کنید · یا کلیک کنید</span>
-            <small>jpg / png / webp / gif / avif / mp4 / webm · تصاویر به WebP و حداکثر ۲۵۶۰px بهینه می‌شوند · ویدئوها بعد از آپلود با واترمارک دائمی به MP4 تبدیل می‌شوند · حداکثر ۲۵ مگابایت · تا {MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} فایل</small>
+            <small>jpg / png / webp / gif / avif / mp4 / webm / mov · تصاویر در صورت امکان به WebP و حداکثر ۲۵۶۰px بهینه می‌شوند · ویدئوها با فعال‌بودن واترمارک در تنظیمات به MP4 واترمارک‌دار تبدیل می‌شوند؛ در غیر این صورت با فرمت اصلی ذخیره می‌شوند · حداکثر ۲۵ مگابایت · تا {MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} فایل</small>
           </>
         )}
       </div>

@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+export type PropertySaveStatus = "draft" | "published" | "archived";
+
+/**
+ * Incomplete drafts are allowed to be saved. Non-draft records keep the
+ * minimum description contract; publishing still has its stricter readiness
+ * checks in property-publish-readiness.ts.
+ */
+export function isPropertyDescriptionValidForStatus(status: PropertySaveStatus, value: string): boolean {
+  return status === "draft" || value.trim().length >= 10;
+}
+
 /**
  * Shared normalization for property money values.
  *

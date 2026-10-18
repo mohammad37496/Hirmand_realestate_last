@@ -48,7 +48,8 @@ import {
   Target,
 } from "lucide-react";
 import { NEIGHBORHOOD_NAMES, PROPERTY_TYPES, SITE, TEAM } from "@/lib/site";
-import { isInvalidIntegerInput, normalizeMoneyText } from "@/lib/property-input-normalization";
+import { isInvalidIntegerInput, isPropertyDescriptionValidForStatus, normalizeMoneyText } from "@/lib/property-input-normalization";
+import { stripPrivatePropertyDraftFields } from "@/lib/property-draft-storage";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { listConsultants, type Consultant } from "@/lib/consultants";
 import { propertyPath } from "@/lib/property-path";
@@ -174,14 +175,13 @@ const DEFAULT_PAGE_SIZE = 20;
 /**
  * Draft autosave.
  *
- * A half-filled property form is expensive to recreate, but owner contact
- * details are sensitive, so they are deliberately excluded from the draft.
- * `sessionStorage` (not `localStorage`) means the draft dies with the tab and
- * never lingers on a shared machine's disk.
+ * Only non-sensitive form values are kept in sessionStorage. Owner details,
+ * exact address, precise coordinates, and internal notes are stripped on save
+ * and on restore (including legacy drafts written by older versions).
  */
 const DRAFT_KEY = "hirmand:admin:property-draft";
 
-type DraftShape = Omit<FormState, "ownerName" | "ownerPhone" | "ownerInfo"> & {
+type DraftShape = Omit<FormState, "address" | "latitude" | "longitude" | "ownerName" | "ownerPhone" | "ownerInfo" | "internalNote"> & {
   savedAt: string;
 };
 
@@ -190,8 +190,16 @@ function loadDraft(key: string): DraftShape | null {
   try {
     const raw = window.sessionStorage.getItem(`${DRAFT_KEY}:${key}`);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as DraftShape;
-    return parsed && typeof parsed === "object" ? parsed : null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const safe = stripPrivatePropertyDraftFields(parsed as Record<string, unknown>);
+    if (
+      typeof safe.title !== "string" ||
+      typeof safe.transactionType !== "string" ||
+      typeof safe.propertyType !== "string"
+    ) return null;
+    const savedAt = typeof safe.savedAt === "string" ? safe.savedAt : "";
+    return { ...safe, savedAt } as unknown as DraftShape;
   } catch {
     return null;
   }
@@ -200,10 +208,7 @@ function loadDraft(key: string): DraftShape | null {
 function saveDraft(key: string, form: FormState) {
   if (typeof window === "undefined") return;
   try {
-    const { ownerName, ownerPhone, ownerInfo, ...safe } = form;
-    void ownerName;
-    void ownerPhone;
-    void ownerInfo;
+    const safe = stripPrivatePropertyDraftFields(form);
     window.sessionStorage.setItem(
       `${DRAFT_KEY}:${key}`,
       JSON.stringify({ ...safe, savedAt: new Date().toISOString() }),
@@ -371,6 +376,11 @@ function isInvalidFloorInput(raw: string) {
   return floor !== null && !isAllowedPropertyFloorValue(floor);
 }
 
+function isOutsideIntegerRange(raw: string, minimum: number, maximum: number) {
+  const value = numberOrNull(raw);
+  return value !== null && (value < minimum || value > maximum);
+}
+
 function moneyOrNull(raw: string) {
   const normalized = normalizeMoneyText(raw);
   return normalized && /^\d{1,20}$/.test(normalized) ? normalized : null;
@@ -387,11 +397,16 @@ function hasInvalidPropertyIntegerInputs(form: Pick<
 >) {
   return (
     isInvalidIntegerInput(form.areaM2) ||
+    isOutsideIntegerRange(form.areaM2, 0, 100000) ||
     isInvalidIntegerInput(form.bedrooms) ||
+    isOutsideIntegerRange(form.bedrooms, 0, 30) ||
     isInvalidIntegerInput(form.bathrooms) ||
+    isOutsideIntegerRange(form.bathrooms, 0, 30) ||
     isInvalidFloorInput(form.floor) ||
     isInvalidIntegerInput(form.totalFloors) ||
-    isInvalidIntegerInput(form.builtYear)
+    isOutsideIntegerRange(form.totalFloors, 0, 200) ||
+    isInvalidIntegerInput(form.builtYear) ||
+    isOutsideIntegerRange(form.builtYear, 1200, 2500)
   );
 }
 
@@ -812,7 +827,11 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       return {
         ...current,
         ...draft,
-        // Owner details always come from the saved record, never the draft.
+        // Privacy-sensitive values always come from the current authorized form state.
+        address: current.address,
+        latitude: current.latitude,
+        longitude: current.longitude,
+        internalNote: current.internalNote,
         ownerName: current.ownerName,
         ownerPhone: current.ownerPhone,
         ownerInfo: current.ownerInfo,
@@ -1421,6 +1440,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    const shouldPublish = !staffMode && form.status === "published";
     // A ref guard, not just `disabled={saving}`: two clicks inside the same
     // render pass both see `saving === false`.
     if (submitting.current) return;
@@ -1440,8 +1460,8 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       toast.error("نام و تلفن مشاور را مشخص کنید.");
       return;
     }
-    if (form.description.trim().length < 10) {
-      toast.error("توضیحات فایل را کامل‌تر بنویسید.");
+    if (!isPropertyDescriptionValidForStatus(staffMode ? "draft" : form.status, form.description)) {
+      toast.error("توضیحات فایل برای ذخیره در وضعیت غیرپیش‌نویس باید حداقل ۱۰ کاراکتر باشد.");
       return;
     }
     if ((form.latitude == null) !== (form.longitude == null)) {
@@ -1453,26 +1473,26 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       return;
     }
     if (hasInvalidPropertyIntegerInputs(form)) {
-      toast.error("متراژ، خواب، سرویس، تعداد طبقات و سال ساخت باید عدد صحیح باشند؛ طبقه فقط می‌تواند منفی ۶۰ یا از ۰ تا ۲۰۰ باشد.");
+      toast.error("مقادیر عددی خارج از محدوده مجازند: متراژ ۰ تا ۱۰۰٬۰۰۰، خواب و سرویس ۰ تا ۳۰، کل طبقات ۰ تا ۲۰۰ و سال ساخت ۱۲۰۰ تا ۲۵۰۰؛ طبقه فقط منفی ۶۰ یا ۰ تا ۲۰ است.");
       return;
     }
     const price = moneyOrNull(form.price);
     const deposit = moneyOrNull(form.deposit);
     const rent = moneyOrNull(form.rent);
-    if (form.transactionType === "sell" && price == null) {
-      toast.error("برای فایل فروش، قیمت فروش را وارد کنید.");
+    if (shouldPublish && form.transactionType === "sell" && price == null) {
+      toast.error("برای انتشار فایل فروش، قیمت فروش را وارد کنید.");
       return;
     }
-    if (form.transactionType === "rent" && deposit == null && rent == null) {
-      toast.error("برای فایل اجاره حداقل یکی از رهن یا اجاره را وارد کنید.");
+    if (shouldPublish && form.transactionType === "rent" && deposit == null && rent == null) {
+      toast.error("برای انتشار فایل اجاره، حداقل یکی از رهن یا اجاره را وارد کنید.");
       return;
     }
-    if (form.transactionType === "mortgage" && deposit == null) {
-      toast.error("برای فایل رهن، مبلغ رهن را وارد کنید.");
+    if (shouldPublish && form.transactionType === "mortgage" && deposit == null) {
+      toast.error("برای انتشار فایل رهن، مبلغ رهن را وارد کنید.");
       return;
     }
 
-    if (form.status === "published") {
+    if (shouldPublish) {
       const readiness = getPublishReadinessForForm(form);
       if (!readiness.ready) {
         toast.error("انتشار فایل متوقف شد: " + readiness.blockers.join(" "));
@@ -3330,7 +3350,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
               <div className="admin-sticky-bar">
                 <div className="admin-sticky-bar-info">
                   مشاور: <strong>{form.contactName || "—"}</strong>
-                  {formDirty ? " · تغییرات ذخیره‌نشده" : " · همه‌چیز ذخیره شده"}
+                  {formDirty ? " · تغییرات ذخیره‌نشده" : form.id ? " · همه‌چیز ذخیره شده" : " · فایل جدید هنوز ذخیره نشده"}
                 </div>
                 <div className="admin-sticky-actions">
                   <AdminPropertyPreview data={{title:form.title,transactionType:form.transactionType,propertyType:form.propertyType,neighborhood:form.neighborhood,areaM2:form.areaM2,bedrooms:form.bedrooms,bathrooms:form.bathrooms,floor:form.floorLabel==="suite"?"سوئیت":form.floor,parking:form.parking,elevator:form.elevator,storage:form.storage,price:form.price,deposit:form.deposit,rent:form.rent,description:form.description,images:form.images,contactName:form.contactName,contactPhone:form.contactPhone,featured:form.featured,status:form.status}} />

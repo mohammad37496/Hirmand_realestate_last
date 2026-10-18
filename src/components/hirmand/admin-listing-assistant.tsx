@@ -12,9 +12,13 @@ const ASSISTANT_CSS = `
 .admin-assistant-suggestion .btn-ghost,.admin-assistant-suggestion .admin-icon-btn{flex:0 0 auto}
 .admin-quality-note{display:block;margin-top:8px;font-size:.68rem;line-height:1.8;color:rgb(0 0 0 / .52)}
 
-/* Admin 3.0 theme override */
-.admin-assistant-suggestion{background:#fbfcfd!important;border-color:#dde4ea!important}.admin-assistant-suggestion small,.admin-quality-note{color:#66717d!important}.admin-assistant-suggestion strong{color:#122333!important}.admin-assistant-suggestion p{color:#475467!important}
-.admin-assistant-suggestion .btn-ghost{background:#fff!important;color:#253545!important;border-color:#cbd5df!important}
+/* Keep suggestions aligned with the active Hirmand theme. */
+.admin-assistant-suggestion{background:var(--card-2,var(--card,#fbfcfd));border-color:var(--line,#dde4ea)}
+.admin-assistant-suggestion small,.admin-quality-note{color:var(--muted,#66717d)}
+.admin-assistant-suggestion strong{color:var(--navy-900,#122333)}
+.admin-assistant-suggestion p{color:var(--fg,#475467)}
+.admin-assistant-suggestion .btn-ghost{background:var(--card,#fff);color:var(--fg,#253545);border-color:var(--line,#cbd5df)}
+.admin-assistant-suggestion .btn-ghost:focus-visible,.admin-assistant-suggestion .admin-icon-btn:focus-visible{outline:2px solid var(--brass-600,#c08a2a);outline-offset:2px}
 `;
 
 type Props = {
@@ -53,8 +57,14 @@ const TYPE: Record<Props["propertyType"], string> = {
 };
 
 function cleanNumber(raw: string) {
-  const value = raw.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[^0-9]/g, "");
-  return value ? Number(value) : null;
+  const value = raw
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .trim()
+    .replace(/[٬،,\s]/g, "");
+  if (!value || !/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 function buildTitle(p: Props) {

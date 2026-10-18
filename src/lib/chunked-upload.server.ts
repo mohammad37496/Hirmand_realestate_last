@@ -108,9 +108,8 @@ function signatureRejection(message: string) {
 
 /**
  * Verifies the assembled object really is the media type the upload claimed.
- * Object-store uploads cannot be byte-inspected cheaply, so they are trusted
- * there (the CDN only ever serves what we uploaded); database-backed media is
- * always checked.
+ * All new uploads are validated before public object-store offload; this
+ * post-store check remains as defence in depth for database-backed media.
  */
 async function assertStoredContentType(stored: StoredMedia, declaredType: string) {
   if (stored.storage !== "database" || !stored.id) return;
@@ -364,6 +363,11 @@ export async function handleChunkedUpload(
               totalBytes: receivedBytes,
             })
           : undefined,
+        validateBeforeStore: async ({ data, contentType }) => {
+          if (!contentMatchesDeclaredType(data.subarray(0, SIGNATURE_PROBE_BYTES), contentType)) {
+            throw signatureRejection("محتوای فایل با نوع اعلام‌شده هم‌خوانی ندارد.");
+          }
+        },
       });
 
       // The declared type and the extension are both attacker-controlled. Read

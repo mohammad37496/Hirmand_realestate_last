@@ -3,7 +3,7 @@ import { setResponseHeader } from "@tanstack/react-start/server";
 import { cachedPropertyRead, clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
+import { isPropertyDescriptionValidForStatus, nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
 import { buildPublicPropertyFilterParams, buildPublicPropertyWhereSql, PRICE_EXPR } from "@/lib/property-search-sql";
 import { publicPropertyFiltersSchema } from "@/lib/property-search-contract";
 import { compactSearchText } from "@/lib/property-search-utils";
@@ -244,7 +244,7 @@ export const propertyInputSchema = z.object({
   price: nullableMoneyField,
   deposit: nullableMoneyField,
   rent: nullableMoneyField,
-  description: z.string().trim().min(10).max(5000),
+  description: z.string().trim().max(5000),
   features: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
   images: z
     .array(
@@ -264,7 +264,7 @@ export const propertyInputSchema = z.object({
   ownerInfo: z.string().trim().max(2000).optional().default(""),
   internalPriority: z.enum(["low","normal","high","urgent"]).default("normal"),
   internalNote: z.string().trim().max(3000).default(""),
-  status: z.enum(["draft", "published", "archived"]).default("published"),
+  status: z.enum(["draft", "published", "archived"]).default("draft"),
   availabilityStatus: z.enum(["available","reserved","sold","rented","unavailable"]).default("available"),
   featured: z.boolean().default(false),
   featuredUntil: z.string().trim().max(80).nullable().optional().default(null),
@@ -278,6 +278,14 @@ export const propertyInputSchema = z.object({
     (value) => !value || /^https:\/\//i.test(value) || isAllowedMediaRef(value),
     { message: "نشانی پلان معتبر نیست." },
   ).default(""),
+}).superRefine((data, context) => {
+  if (!isPropertyDescriptionValidForStatus(data.status, data.description)) {
+    context.addIssue({
+      code: "custom",
+      path: ["description"],
+      message: "توضیحات فایل برای وضعیت غیرپیش‌نویس باید حداقل ۱۰ کاراکتر باشد.",
+    });
+  }
 });
 
 const budgetMatchSchema = z

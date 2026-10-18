@@ -57,10 +57,9 @@ export function AdminConsultantPicker({ contactName, contactPhone, onSelect }: P
       <p className="admin-consultant-hint">مشاور مسئول این فایل را انتخاب کنید:</p>
       <div className="admin-consultant-grid" role="listbox" aria-label="انتخاب مشاور مسئول">
         {consultants.map((person) => {
-          const active =
-            normalizePhone(person.phone) === phoneNorm ||
-            person.name === nameTrim ||
-            person.id === nameTrim;
+          const active = phoneNorm
+            ? normalizePhone(person.phone) === phoneNorm
+            : person.name === nameTrim || person.id === nameTrim;
           const Icon = person.icon === "handshake" ? Handshake : Briefcase;
           return (
             <button
@@ -92,9 +91,9 @@ export function AdminConsultantPicker({ contactName, contactPhone, onSelect }: P
         <span className="sr-only">انتخاب سریع مشاور</span>
         <select
           value={
-            consultants.find(
-              (p) =>
-                normalizePhone(p.phone) === phoneNorm || p.name === nameTrim,
+            (phoneNorm
+              ? consultants.find((p) => normalizePhone(p.phone) === phoneNorm)
+              : consultants.find((p) => p.name === nameTrim || p.id === nameTrim)
             )?.id ?? ""
           }
           onChange={(e) => {
