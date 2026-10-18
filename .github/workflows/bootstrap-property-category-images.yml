@@ -68,7 +68,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/images/fallback/commercial-01.jpg public/images/fallback/land-01.jpg
+          git add -f public/images/fallback/commercial-01.jpg public/images/fallback/land-01.jpg
           if git diff --cached --quiet; then
             echo "The local category images are already present."
             exit 0
