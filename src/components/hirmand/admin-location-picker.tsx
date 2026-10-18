@@ -12,7 +12,7 @@ type AdminLocationPickerProps = Coordinates & {
   onChange: (coordinates: Coordinates) => void;
 };
 
-const LOCATION_PICKER_CSS = \`
+const LOCATION_PICKER_CSS = `
 .admin-location{display:flex;flex-direction:column;gap:18px;min-width:0;color:var(--fg)}
 .admin-location-panel{display:grid;grid-template-columns:minmax(0,.94fr) minmax(0,1.06fr);gap:18px;align-items:stretch;min-width:0}
 .admin-location-controls{display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -114,7 +114,7 @@ const LOCATION_PICKER_CSS = \`
 @media (prefers-reduced-motion:reduce){
   .admin-location-actions button,.admin-location-actions a,.admin-location-field input,.admin-location-map-marker,.admin-location-map-controls button{transition:none}
 }
-\`;
+`;
 
 function toEnglishDigits(value: string) {
   return value
