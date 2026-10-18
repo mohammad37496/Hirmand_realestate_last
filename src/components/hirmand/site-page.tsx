@@ -463,41 +463,6 @@ function Team() {
   );
 }
 
-function Services({ onPick }: { onPick: (title: string) => void }) {
-  return (
-    <Reveal as="section" className="section" id="services">
-      <SectionHead
-        kicker="خدمات"
-        title="خرید، فروش، رهن و اجاره"
-        text="چهار مسیر اصلی معامله؛ با توضیح روشن و همراهی تا پایان کار."
-      />
-      <div className="service-grid">
-        {SERVICES.map((item, index) => {
-          const Icon = SERVICE_ICONS[item.id];
-          return (
-            <Reveal key={item.id} className="service-card" delay={index * 70}>
-              <button
-                type="button"
-                className="service-card-button"
-                onClick={() => onPick(item.title)}
-                aria-label={`درخواست ${item.title}`}
-              >
-                <span className="icon-box">
-                  <Icon size={22} strokeWidth={1.8} />
-                </span>
-                <span className="service-card-copy">
-                  <span className="service-card-title">{item.title}</span>
-                  <span className="service-card-text">{item.text}</span>
-                </span>
-                <span className="service-card-arrow" aria-hidden="true">↗</span>
-              </button>
-            </Reveal>
-          );
-        })}
-      </div>
-    </Reveal>
-  );
-}
 
 const PROPERTY_CATEGORY_CARDS = [
   {
@@ -1006,7 +971,6 @@ export function SitePage({
           </summary>
           <div className="home-secondary-body">
             <About />
-            <Services onPick={(title) => goInquiry({ deal: title })} />
             <Process />
             <Neighborhoods onPick={(name) => goInquiry({ neighborhood: name })} />
             <Team />
