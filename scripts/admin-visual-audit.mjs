@@ -12,7 +12,7 @@ import { installAdminApiStubs } from "./admin-fixtures.mjs";
 
 const BASE = process.env.QA_BASE_URL || "http://127.0.0.1:8080";
 const KEY = process.env.HIRMAND_ADMIN_KEY || "";
-const OUT = "screenshots/admin";
+const OUT = process.env.QA_SCREENSHOT_DIR || "screenshots/admin";
 
 const VIEWS = [
   { id: "dashboard", label: "داشبورد" },
