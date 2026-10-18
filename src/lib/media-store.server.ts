@@ -131,11 +131,19 @@ export type AssembledUploadTransform = (input: {
   pathname: string;
 } | null>;
 
+export type AssembledUploadValidator = (input: {
+  data: Buffer;
+  contentType: string;
+  pathname: string;
+}) => Promise<void> | void;
+
 export async function storeAssembledUpload(input: {
   pathname: string;
   contentType: string;
   sessionId: string;
   transform?: AssembledUploadTransform;
+  /** Validate final bytes before they can be sent to a public object store. */
+  validateBeforeStore?: AssembledUploadValidator;
 }): Promise<StoredMedia> {
   requireDatabase();
   const sql = await getSql();
@@ -210,6 +218,17 @@ export async function storeAssembledUpload(input: {
           contentType,
         };
       }
+    } catch (error) {
+      await sql.query("delete from media_objects where id = $1", [id]).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  // Validate the final bytes, including transformed output, before any public
+  // object-store upload. Invalid content must never reach the CDN.
+  if (input.validateBeforeStore) {
+    try {
+      await input.validateBeforeStore({ data: dataResult.bytes, contentType, pathname });
     } catch (error) {
       await sql.query("delete from media_objects where id = $1", [id]).catch(() => undefined);
       throw error;
