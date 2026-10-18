@@ -32,7 +32,7 @@ function workScore(load: Pick<ConsultantLoad, "activeLeads" | "overdue" | "viewi
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { consultants: [], recommendations: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده تخصیص لید به مشاوران در دسترس نیست." });
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const action = typeof body.action === "string" ? body.action : "recommend";
@@ -57,10 +57,7 @@ export default defineEventHandler(async (event) => {
      where c.is_active = true
      group by c.name, c.phone, c.sort_order
      order by c.sort_order asc, c.name asc`,
-  ).catch((error) => {
-    console.error("[admin-lead-assignment] consultant query unavailable", error);
-    return [];
-  });
+  );
 
   const loads: ConsultantLoad[] = consultants.map((row) => {
     const base = {
@@ -102,7 +99,7 @@ export default defineEventHandler(async (event) => {
 
   const unassigned = await sql.query<Record<string, unknown>>(
     "select id,name,phone,deal,property_type,neighborhood,created_at from leads where trim(coalesce(consultant,''))='' and status not in ('closed','spam') order by created_at desc limit 24",
-  ).catch(() => []);
+  );
 
   const sorted = [...loads].sort((a, b) => a.score - b.score || a.activeLeads - b.activeLeads || a.name.localeCompare(b.name, "fa"));
   return {

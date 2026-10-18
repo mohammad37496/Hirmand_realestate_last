@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "دسترسی بررسی فایل‌های مشابه برای این حساب فعال نیست." });
   }
 
-  if (dbSource === "unconfigured") return { matches: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده بررسی فایل‌های مشابه در دسترس نیست." });
 
   const parsed = schema.safeParse(await readBody(event).catch(() => null));
   if (!parsed.success) throw createError({ statusCode: 422, statusMessage: "اطلاعات فایل برای بررسی کامل نیست." });

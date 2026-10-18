@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "property.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی تاریخچه قیمت برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { property: null, history: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده تاریخچه قیمت در دسترس نیست." });
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const propertyId = clean(body.propertyId);

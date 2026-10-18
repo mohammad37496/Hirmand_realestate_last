@@ -21,9 +21,7 @@ export default defineEventHandler(async(event)=>{
   const body=await readBody<Record<string, unknown>>(event).catch(()=>({} as Record<string, unknown>));
   const action=String(body?.action??"");
   if (dbSource === "unconfigured") {
-    if (action === "list" || action === "admin_list") return { questions: [] };
-    if (action === "ask") return { success: true, accepted: false };
-    throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای مدیریت پرسش‌های ملک تنظیم نشده است." });
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده پرسش‌های ملک در دسترس نیست؛ پرسش‌ها قابل بازیابی یا ثبت نیستند." });
   }
 
   if(action==="admin_list"||action==="answer"||action==="hide"){

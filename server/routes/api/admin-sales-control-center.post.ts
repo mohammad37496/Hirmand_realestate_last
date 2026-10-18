@@ -26,22 +26,7 @@ export default defineEventHandler(async (event) => {
   const requestedDays = Number(body?.days);
   const days = ALLOWED_DAYS.has(requestedDays) ? requestedDays : 30;
 
-  if (dbSource === "unconfigured") {
-    return {
-      days,
-      pipeline: { new: 0, contacted: 0, follow_up: 0, visited: 0, contract: 0 },
-      summary: {
-        consultants: 0,
-        activeConsultants: 0,
-        activeLeads: 0,
-        overdueLeads: 0,
-        visitRequests: 0,
-        contracts: 0,
-        totalViews: 0,
-      },
-      consultants: [],
-    };
-  }
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده مرکز کنترل فروش در دسترس نیست." });
 
   const sql = await getSql();
 
@@ -115,10 +100,7 @@ export default defineEventHandler(async (event) => {
        left join event_stats es on es.key = lower(trim(c.name))
        order by overdue_leads desc, visit_requests desc, active_leads desc, period_contracts desc, c.name asc
       `,
-    ).catch((error) => {
-      console.error("[admin-sales-control-center] consultant query unavailable", error);
-      return [] as Record<string, unknown>[];
-    }),
+    ),
     sql.query<Record<string, unknown>>(
       `select
          count(*) filter (where status = 'new')::int as new,
@@ -129,10 +111,7 @@ export default defineEventHandler(async (event) => {
        from leads
        where created_at >= current_timestamp - interval '${days} days'
       `,
-    ).catch((error) => {
-      console.error("[admin-sales-control-center] pipeline query unavailable", error);
-      return [] as Record<string, unknown>[];
-    }),
+    ),
   ]);
 
   const consultants = consultantRows.map((row) => {

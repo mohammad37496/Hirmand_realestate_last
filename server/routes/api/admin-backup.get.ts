@@ -11,7 +11,19 @@ async function requireAdmin(event:H3Event){
   if(!hasAdminPermission(normalizeAdminRole(claims?.role),"backup.manage")) throw createError({statusCode:403,statusMessage:"سطح دسترسی پشتیبان برای این حساب فعال نیست."});
 }
 const TABLES=["properties","leads","lead_activities","finance_transactions","consultants","staff_attendance","staff_mobile_devices","admin_tasks","property_change_history","site_events"] as const;
-async function verifyTables(sql:Awaited<ReturnType<typeof getSql>>){return Promise.all(TABLES.map(async(table)=>{const existsRows=await sql.query<{name:string|null}>("select to_regclass($1) as name",[table]).catch(()=>[]);const exists=Boolean(existsRows[0]?.name);const count=exists?Number((await sql.query<{count:number}>(`select count(*)::int as count from ${table}`).catch(()=>[{count:0}]))[0]?.count)||0:0;return {table,exists,count};}));}
+async function verifyTables(sql: Awaited<ReturnType<typeof getSql>>) {
+  return Promise.all(TABLES.map(async (table) => {
+    const existsRows = await sql.query<{ name: string | null }>(
+      "select to_regclass($1) as name",
+      [table],
+    );
+    const exists = Boolean(existsRows[0]?.name);
+    const count = exists
+      ? Number((await sql.query<{ count: number }>(`select count(*)::int as count from ${table}`))[0]?.count) || 0
+      : 0;
+    return { table, exists, count };
+  }));
+}
 export default defineEventHandler(async(event)=>{await requireAdmin(event);setResponseHeader(event,"cache-control","no-store");if(dbSource==="unconfigured")throw createError({statusCode:503,statusMessage:"پایگاه داده تنظیم نشده است."});const sql=await getSql();const query=getQuery(event) as Record<string,unknown>;
 if(String(query.mode??"")==="history"){
   const rows=await sql.query<Record<string,unknown>>("select id,kind,created_at,table_counts from admin_backup_log order by created_at desc limit 40");

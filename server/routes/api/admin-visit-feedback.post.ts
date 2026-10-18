@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مشاهده بازخورد مشتریان برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { total: 0, average: 0, interested: 0, recent: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده بازخورد بازدیدها در دسترس نیست." });
 
   await readBody(event).catch(() => ({}));
   const sql = await getSql();

@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (dbSource === "unconfigured") {
-    if (body.action === "list") return { tracks: [] };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده مدیریت موسیقی در دسترس نیست؛ فهرست آهنگ‌ها بازیابی نشد." });
     throw createError({
       statusCode: 503,
       statusMessage: "پایگاه داده برای مدیریت موسیقی تنظیم نشده است.",

@@ -17,7 +17,7 @@ async function requireReportAccess(event: H3Event) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireReportAccess(event);
-  if (dbSource === "unconfigured") return { snapshots: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده شاخص‌های مدیریتی در دسترس نیست." });
   const sql = await getSql();
   const query = getQuery(event) as Record<string, unknown>;
   const rows = await sql.query<Record<string, unknown>>(

@@ -18,7 +18,9 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   const parsed = querySchema.safeParse(getQuery(event));
   if (!parsed.success) throw createError({ statusCode: 422, statusMessage: "تاریخ یا فایل بازدید نامعتبر است." });
-  if (dbSource === "unconfigured") return { success: true, occupiedTimes: [], checkedAt: new Date().toISOString() };
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "برای بررسی زمان‌های آزاد بازدید، پایگاه داده لازم است." });
+  }
 
   const sql = await getSql();
   const rows = await sql.query<{ visit_preferred_at: string }>(

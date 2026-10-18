@@ -24,23 +24,7 @@ export default defineEventHandler(async (event) => {
   const canViewLeadDetails = hasAdminPermission(role, "lead.manage");
 
   if (dbSource === "unconfigured") {
-    return {
-      properties: { total: 0, published: 0, draft: 0, archived: 0, featured: 0, withoutImages: 0, newLast7: 0, incomplete: 0 },
-      consultants: { total: 0, active: 0, withFiles: 0, withLeads: 0 },
-      leads: { total: 0, new: 0, contacted: 0, follow_up: 0, visited: 0, contract: 0, closed: 0, spam: 0, today: 0, last7: 0, last30: 0 },
-      propertyTypes: [],
-      leadDays: [],
-      music: { total: 0, active: 0, sizeBytes: 0 },
-      visitors: { today: 0, last7: 0, last30: 0, pageviewsToday: 0, pageviewsLast7: 0, pageviewsLast30: 0, activeNow: 0 },
-      visitorDays: [],
-      topPages: [],
-      topProperties: [],
-      eventStats: [],
-      visitorSources: [],
-      followUps: { due: 0, next7: 0 },
-      leadSla: { overdue: 0, newOver4Hours: 0 },
-      recentLeads: [],
-    };
+    throw createError({ statusCode: 503, statusMessage: "گزارش‌های مدیریتی به‌دلیل در دسترس نبودن پایگاه داده قابل بازیابی نیستند." });
   }
 
   const sql = await getSql();
@@ -131,18 +115,12 @@ export default defineEventHandler(async (event) => {
           where day >= (current_timestamp at time zone 'Asia/Tehran')::date - 29
         ), 0)::int as pageviews_last30
       from site_visitor_days
-    `).catch((error) => {
-      console.error("[admin-dashboard] visitor stats unavailable", error);
-      return [{}];
-    }),
+    `),
     sql.query<Record<string, unknown>>(`
       select count(distinct visitor_id)::int as active_now
       from site_visitor_days
       where last_seen_at >= current_timestamp - interval '5 minutes'
-    `).catch((error) => {
-      console.error("[admin-dashboard] active visitors unavailable", error);
-      return [{}];
-    }),
+    `),
     sql.query<Record<string, unknown>>(`
       select
         ((current_timestamp at time zone 'Asia/Tehran')::date - days.n)::date as day,
@@ -226,10 +204,7 @@ export default defineEventHandler(async (event) => {
         count(*) filter (where status in ('new','contacted','follow_up','visited','contract') and follow_up_at <= current_timestamp)::int as due,
         count(*) filter (where status in ('new','contacted','follow_up','visited','contract') and follow_up_at > current_timestamp and follow_up_at <= current_timestamp + interval '7 days')::int as next7
       from leads
-    `).catch((error) => {
-      console.error("[admin-dashboard] follow-up stats unavailable", error);
-      return [{}];
-    }),
+    `),
     sql.query<Record<string, unknown>>(
       `select
         (select count(*)::int from consultants) as total,
@@ -251,10 +226,7 @@ export default defineEventHandler(async (event) => {
           from leads
           where coalesce(trim(consultant), '') <> ''
         ) as consultants_with_leads
-    `).catch((error) => {
-      console.error("[admin-dashboard] consultant stats unavailable", error);
-      return [{}];
-    }),
+    `),
     sql.query<Record<string, unknown>>(
       `select
          count(*) filter (
@@ -271,10 +243,7 @@ export default defineEventHandler(async (event) => {
              and l.created_at < current_timestamp - interval '4 hours'
          )::int as new_over_4h
        from leads l`
-    ).catch((error) => {
-      console.error("[admin-dashboard] lead SLA unavailable", error);
-      return [{}];
-    }),
+    ),
     sql.query<Record<string, unknown>>(
       `with file_stats as (
          select lower(trim(contact_name)) as key,
