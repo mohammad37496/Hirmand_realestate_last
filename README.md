@@ -61,7 +61,7 @@ Phone Bridge از نسخهٔ `versionCode`/`versionName` دستگاه نیز ن�
 ## شروع سریع
 
 ```bash
-git clone https://github.com/mohammad37496/Hirmand_real_Estate.git
+git clone https://github.com/mohammad37496/Hirmand_realestate_last.git
 cd Hirmand_real_Estate
 npm install
 npm run dev
