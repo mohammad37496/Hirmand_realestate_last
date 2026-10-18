@@ -195,6 +195,15 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   }
 });
 
+testRunner.test("property financial metric labels cannot shrink into letter columns", () => {
+  const metricRow = propertyDecisionToolsCss.match(/\.property-decision-metrics>div\{[^}]*\}/s)?.[0] ?? "";
+  assert.match(metricRow, /display:grid/);
+  assert.match(metricRow, /grid-template-columns:minmax\(0,1fr\)/);
+  const children = propertyDecisionToolsCss.match(/\.property-decision-metrics>div>span,\.property-decision-metrics>div>strong\{[^}]*\}/s)?.[0] ?? "";
+  assert.match(children, /min-width:0/);
+  assert.match(children, /overflow-wrap:break-word/);
+});
+
 testRunner.test("property decision cards remain readable at 1920px layouts", () => {
   assert.match(propertyDecisionToolsCss, /\.property-decision-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/s);
   assert.doesNotMatch(propertyDecisionToolsCss, /grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
