@@ -122,7 +122,6 @@ export const OFFICE_MAP = mapLinks({
 // accessible from both desktop and mobile navigation.
 export const NAV = [
   { id: "listings", label: "فایل‌ها", to: "/properties", hash: "" },
-  { id: "services", label: "خدمات ملکی", to: "/", hash: "services" },
   { id: "properties", label: "انواع ملک", to: "/", hash: "properties" },
   { id: "request-property", label: "درخواست ملک", to: "/request-property", hash: "" },
   { id: "budget-match", label: "بودجه‌یاب", to: "/budget-match", hash: "" },
