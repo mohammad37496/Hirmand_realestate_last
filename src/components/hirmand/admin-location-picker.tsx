@@ -13,8 +13,8 @@ type AdminLocationPickerProps = Coordinates & {
 };
 
 const LOCATION_PICKER_CSS = `
-.admin-location{display:flex;flex-direction:column;gap:18px;min-width:0;color:var(--fg)}
-.admin-location-panel{display:grid;grid-template-columns:minmax(0,.94fr) minmax(0,1.06fr);gap:18px;align-items:stretch;min-width:0}
+.admin-location{position:relative;z-index:0;isolation:isolate;display:flex;flex-direction:column;gap:18px;min-width:0;color:var(--fg)}
+.admin-location-panel{position:relative;z-index:0;isolation:isolate;display:grid;grid-template-columns:minmax(0,.94fr) minmax(0,1.06fr);gap:18px;align-items:stretch;min-width:0}
 .admin-location-controls{display:flex;flex-direction:column;gap:14px;min-width:0}
 .admin-location-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:17px;border:1px solid var(--line);border-radius:19px;background:linear-gradient(145deg,var(--card) 0%,var(--card-2) 100%);box-shadow:0 8px 24px rgb(24 29 36 / 4%)}
 .admin-location-title{display:flex;align-items:flex-start;gap:11px;min-width:0;flex:1 1 220px}
@@ -45,12 +45,12 @@ const LOCATION_PICKER_CSS = `
 .admin-location-actions .admin-location-register:hover:not(:disabled){border-color:#234a68;background:#234a68;color:#fff;box-shadow:0 8px 18px rgb(23 47 70 / 20%)}
 .admin-location-actions .admin-location-register:disabled{background:var(--card-2);border-color:var(--line);color:var(--muted);box-shadow:none}
 .admin-location-save-actions>small{display:block;flex:1 1 170px;min-width:0;color:var(--muted);font-size:.69rem;line-height:1.9}
-.admin-location-map-shell{display:flex;flex-direction:column;min-width:0;min-height:100%;overflow:hidden;border:1px solid var(--line);border-radius:20px;background:var(--paper-2);box-shadow:0 10px 30px rgb(24 29 36 / 8%);isolation:isolate}
+.admin-location-map-shell{position:relative;z-index:0;isolation:isolate;display:flex;flex-direction:column;min-width:0;min-height:100%;overflow:hidden;border:1px solid var(--line);border-radius:20px;background:var(--paper-2);box-shadow:0 10px 30px rgb(24 29 36 / 8%)}
 .admin-location-map-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);background:linear-gradient(145deg,var(--card),var(--card-2))}
 .admin-location-map-head strong{color:var(--fg);font-size:.81rem;font-weight:900;letter-spacing:-.01em}
 .admin-location-map-head span{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid rgb(192 138 42 / 24%);background:var(--brass-100);color:var(--brass-800);font-size:.66rem;font-weight:850;white-space:nowrap}
-.admin-location-map{position:relative;min-height:440px;height:clamp(390px,48vw,560px);overflow:hidden;background:#e9e8e2;touch-action:pan-y}
-.admin-location-map-canvas{position:absolute;inset:0;overflow:hidden;background-color:#e9e8e2;background-image:radial-gradient(ellipse at 50% 50%,rgb(255 255 255 / 18%),transparent 70%);cursor:crosshair;touch-action:none;user-select:none}
+.admin-location-map{position:relative;z-index:0;isolation:isolate;contain:layout paint;min-width:0;min-height:440px;height:clamp(390px,48vw,560px);overflow:hidden;background:#e9e8e2;touch-action:pan-y}
+.admin-location-map-canvas{position:absolute;inset:0;z-index:0;isolation:isolate;contain:layout paint;overflow:hidden;background-color:#e9e8e2;background-image:radial-gradient(ellipse at 50% 50%,rgb(255 255 255 / 18%),transparent 70%);cursor:crosshair;touch-action:none;user-select:none}
 .admin-location-map-canvas.is-dragging{cursor:grabbing}
 .admin-location-map-tiles{position:absolute;inset:0;pointer-events:none}
 .admin-location-map-tile{position:absolute;width:256px!important;height:256px!important;max-width:none!important;object-fit:cover;pointer-events:none;user-select:none;-webkit-user-drag:none}
