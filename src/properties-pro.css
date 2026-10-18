@@ -316,7 +316,7 @@
 
 /* Bedroom and bathroom are independent minimum filters, not a from/to range.
    A two-column layout prevents the second label falling into the narrow dash track. */
-.pf-range--pair {
+.pf-range.pf-range--pair {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .pf-range i {
