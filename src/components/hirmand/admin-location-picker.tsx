@@ -498,9 +498,20 @@ export function AdminLocationPicker({
               type="button"
               className="admin-location-map-marker"
               style={{ left: markerPoint.x, top: markerPoint.y }}
-              aria-label="نشانگر موقعیت؛ برای تغییر موقعیت آن را بکشید"
-              title="برای جابه‌جایی نشانگر را بکشید"
+              aria-label="نشانگر موقعیت؛ برای تغییر با صفحه‌کلید از کلیدهای جهت‌دار استفاده کنید یا آن را بکشید"
+              title="با کلیدهای جهت‌دار جابه‌جا کنید؛ با Shift حرکت دقیق‌تر است"
               onPointerDown={startMarkerDrag}
+              onKeyDown={(event) => {
+                if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+                event.preventDefault();
+                const step = event.shiftKey ? 0.001 : 0.0001;
+                const lat = latitudeDraft ?? markerLatitude;
+                const lng = longitudeDraft ?? markerLongitude;
+                setDraftCoordinates(
+                  Math.max(-90, Math.min(90, lat + (event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0))),
+                  Math.max(-180, Math.min(180, lng + (event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0))),
+                );
+              }}
               onClick={(event) => event.stopPropagation()}
             >
               <MapPin size={22} aria-hidden="true" />
