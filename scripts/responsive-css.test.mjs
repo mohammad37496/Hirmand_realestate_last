@@ -195,6 +195,18 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   }
 });
 
+testRunner.test("property filters keep Persian labels readable and view toggles touch friendly", () => {
+  assert.match(responsiveCss, /\.pf-page \.pf-spec-options\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+  const labelRule = responsiveCss.match(/\.pf-page \.pf-spec-option > span:last-child\s*\{[^}]*\}/s)?.[0] ?? "";
+  assert.ok(labelRule, "filter option labels should have a scoped wrapping rule");
+  assert.match(labelRule, /white-space:\s*normal/);
+  assert.match(labelRule, /overflow-wrap:\s*break-word/);
+  const viewRule = responsiveCss.match(/\.pf-page \.pf-views button\s*\{[^}]*\}/s)?.[0] ?? "";
+  assert.ok(viewRule, "listing view toggles should have a shared hit-area rule");
+  assert.match(viewRule, /min-width:\s*44px/);
+  assert.match(viewRule, /min-height:\s*44px/);
+});
+
 testRunner.test("shared Tailwind palette follows the established Hirmand navy-and-brass theme", () => {
   const tailwindTokens = globalCss.match(/@theme\s*\{([\s\S]*?)\}/)?.[1] ?? "";
   assert.match(themeProCss, /--navy-900:\s*#0b1a2b/i);
