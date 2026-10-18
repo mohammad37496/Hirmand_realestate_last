@@ -26,7 +26,7 @@ export function AdminKpiHistory() {
     setLoading(true);
     try {
       const response = await fetch("/api/admin-kpi-snapshot" + (sync ? "?action=sync" : ""), {
-        method: "GET",
+        method: "POST",
         credentials: "same-origin",
         headers: { accept: "application/json" },
       });
