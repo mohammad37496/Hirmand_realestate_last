@@ -1006,6 +1006,7 @@ export function SitePage({
           </summary>
           <div className="home-secondary-body">
             <About />
+            <Services onPick={(title) => goInquiry({ deal: title })} />
             <Process />
             <Neighborhoods onPick={(name) => goInquiry({ neighborhood: name })} />
             <Team />
