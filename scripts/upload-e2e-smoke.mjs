@@ -239,6 +239,47 @@ async function main() {
     console.warn(`[upload-e2e] WARNING reported to the panel: ${result.watermarkWarning}`);
   }
 
+  // A/B proof that the failure is watermark-specific: repeat the same upload
+  // with the operator setting switched off. The stored bytes must then be the
+  // original JPEG, and switching it back on must watermark again.
+  const settingsUpdate = async (enabled) => {
+    const response = await call("/api/admin-watermark", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "update", enabled }),
+    });
+    const payload = await readJson(response);
+    if (!response.ok || payload?.settings?.enabled !== enabled) {
+      throw new Error(
+        `watermark settings update failed (HTTP ${response.status}): ${JSON.stringify(payload)}`,
+      );
+    }
+  };
+
+  await settingsUpdate(false);
+  try {
+    const plain = await upload(file, "photo_2026-10-19_12-57-34.jpg");
+    const plainResponse = await fetch(new URL(plain.result.url, baseUrl).toString());
+    const plainBody = Buffer.from(await plainResponse.arrayBuffer());
+    const plainType = (plainResponse.headers.get("content-type") || "").split(";")[0].trim();
+    if (!plainResponse.ok) {
+      throw new Error(`watermark-off media fetch failed with HTTP ${plainResponse.status}`);
+    }
+    if (plainType !== "image/jpeg") {
+      throw new Error(
+        `watermark-off upload must keep the original JPEG, got ${plainType}`,
+      );
+    }
+    if (detectRaster(plainBody) !== "image/jpeg") {
+      throw new Error("watermark-off upload did not store JPEG bytes");
+    }
+    console.log(
+      `[upload-e2e] watermark OFF kept the original ${plainBody.length} byte JPEG`,
+    );
+  } finally {
+    await settingsUpdate(true);
+  }
+
   console.log("[upload-e2e] OK");
 }
 
