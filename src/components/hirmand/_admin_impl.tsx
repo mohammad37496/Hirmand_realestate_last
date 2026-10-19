@@ -52,7 +52,7 @@ import { isInvalidIntegerInput, normalizeMoneyText } from "@/lib/property-input-
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { listConsultants, type Consultant } from "@/lib/consultants";
 import { propertyPath } from "@/lib/property-path";
-import { getPropertyFallbackImage } from "@/lib/property-fallback-images";
+import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import type { Property, PropertyAvailabilityStatus, PropertyType, PropertyTransaction } from "@/lib/properties";
 import {
   bulkAssignPropertyConsultant,
@@ -497,7 +497,7 @@ function propertyToForm(property: Property): FormState {
     rent: property.rent != null ? String(property.rent) : "",
     description: property.description ?? "",
     features: (property.features ?? []).join("\n"),
-    images: (property.images ?? []).join("\n"),
+    images: (property.images ?? []).filter((src) => !isPropertyFallbackImage(src)).join("\n"),
     floorPlanUrl: property.floorPlanUrl ?? "",
     contactName: property.contactName,
     contactPhone: property.contactPhone,
@@ -1480,7 +1480,9 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       }
     }
 
-    const { valid: images, invalid } = parseImageUrls(form.images);
+    const { valid: parsedImages, invalid } = parseImageUrls(form.images);
+    // Category/fallback images are presentation-only, never property media.
+    const images = parsedImages.filter((src) => !isPropertyFallbackImage(src));
     if (invalid.length) {
       toast.error("برخی لینک‌های تصویر/ویدیو معتبر نیستند.");
       return;
@@ -1713,7 +1715,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
           rent: moneyOrNull(base.rent),
           description: base.description,
           features: splitLines(base.features),
-          images: parseImageUrls(base.images).valid,
+          images: parseImageUrls(base.images).valid.filter((src) => !isPropertyFallbackImage(src)),
           floorPlanUrl: base.floorPlanUrl.trim(),
           contactName: base.contactName,
           contactPhone: base.contactPhone,
