@@ -149,8 +149,13 @@ export async function uploadInChunks(options: {
       }
 
       // A 409 can mean an earlier request using this same ID is still
-      // finalizing. Give it a moment to publish its receipt, then replay once.
-      if (completeResponse.status === 409 && attempt + 1 < maxCompletionAttempts) {
+      // finalizing. A 5xx may also be transient after the server committed a
+      // database fallback URL; replay only for routes that opted into idempotent
+      // completion, using the same uploadId to recover that result.
+      if (
+        (completeResponse.status === 409 || completeResponse.status >= 500) &&
+        attempt + 1 < maxCompletionAttempts
+      ) {
         await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
         continue;
       }
