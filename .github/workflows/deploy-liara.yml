@@ -58,6 +58,34 @@ jobs:
             --message="Deploy ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}" \
             --debug
 
+      # Opt-in collection prevents routine deployments from copying general
+      # application logs to GitHub. A commit containing [diagnose-upload] enables
+      # this one-time, narrowly filtered snapshot for the current incident.
+      - name: Capture upload-related Liara runtime diagnostics
+        if: contains(github.event.head_commit.message, '[diagnose-upload]')
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+          LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
+          LIARA_APP_NAME: ${{ vars.LIARA_APP_NAME }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          APP_NAME="${LIARA_APP_NAME:-hirmand}"
+          TEAM_ARGS=()
+          if [[ -n "${LIARA_TEAM_ID:-}" ]]; then
+            TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
+          fi
+          liara app logs \
+            --app="${APP_NAME}" \
+            --api-token="${LIARA_TOKEN}" \
+            "${TEAM_ARGS[@]}" \
+            --timestamps \
+            --last-lines \
+            --since="30 minutes ago" 2>&1 |
+            grep -E -i '\\[upload\\]|\\[media\\]|\\[liara-storage\\]|\\[prestart\\]|\\[migrate\\]|\\[db\\]|\\[font\\]|\\[ffmpeg\\]' || true
+
       - name: Diagnose Liara runtime on failure
         if: failure()
         continue-on-error: true
