@@ -13,6 +13,7 @@ import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
 import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type BudgetMatchDetails } from "@/lib/budget-matching";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { deleteStoredMedia } from "@/lib/media-store.server";
+import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import {
@@ -256,7 +257,9 @@ export const propertyInputSchema = z.object({
         .refine(isAllowedMediaRef, { message: "نشانی رسانه نامعتبر است." }),
     )
     .max(MAX_PROPERTY_MEDIA)
-    .default([]),
+    .default([])
+    // Placeholder/category imagery must never be persisted as a property's own gallery.
+    .transform((images) => images.filter((src) => !isPropertyFallbackImage(src))),
   contactName: z.string().trim().min(2).max(80),
   contactPhone: z.string().trim().min(8).max(30),
   ownerName: z.string().trim().max(100).optional().default(""),
