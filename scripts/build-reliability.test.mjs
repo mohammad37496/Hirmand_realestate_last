@@ -13,7 +13,7 @@ const deployEnv = await readFile(
 
 test("FFmpeg download has a finite timeout and an actionable timeout error", () => {
   assert.match(ffmpegDownloader, /AbortSignal\.timeout\(timeoutMs\)/);
-  assert.match(ffmpegDownloader, /FFmpeg download timed out after/);
+  assert.match(ffmpegDownloader, /\$\{label\} download timed out after/);
 });
 
 test("npm build does not repeat fallback image downloads", () => {
