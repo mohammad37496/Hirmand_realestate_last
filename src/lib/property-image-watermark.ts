@@ -5,13 +5,19 @@ let logoPromise: Promise<HTMLImageElement> | null = null;
 
 function loadLogo() {
   if (logoPromise) return logoPromise;
-  logoPromise = new Promise<HTMLImageElement>((resolve, reject) => {
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("بارگذاری لوگوی واترمارک انجام نشد."));
     image.src = LOGO_SRC;
   });
-  return logoPromise;
+  logoPromise = promise;
+  // A temporary asset/network failure must not cache a permanently rejected
+  // promise; a later retry is allowed to fetch the logo again.
+  void promise.catch(() => {
+    if (logoPromise === promise) logoPromise = null;
+  });
+  return promise;
 }
 
 function roundedRect(
@@ -36,7 +42,17 @@ export async function applyPropertyImageWatermark(
   file: File,
   settings: PropertyWatermarkSettings,
 ): Promise<File> {
-  if (!settings.enabled || !file.type.startsWith("image/") || file.type === "image/gif" || file.type === "image/svg+xml" || (!settings.showLogo && (!settings.showText || !settings.text.trim()))) return file;
+  const needsWatermark =
+    settings.enabled && (settings.showLogo || (settings.showText && settings.text.trim()));
+  if (!needsWatermark || !file.type.startsWith("image/")) return file;
+  if (file.type === "image/gif") {
+    // Canvas would flatten animation and previously silently skipped the
+    // configured watermark. Fail explicitly rather than upload an unmarked GIF.
+    throw new Error("واترمارک خودکار برای GIF متحرک پشتیبانی نمی‌شود؛ فایل را به WebP یا JPEG تبدیل کنید یا واترمارک را غیرفعال کنید.");
+  }
+  if (file.type === "image/svg+xml") {
+    throw new Error("واترمارک تصویر SVG پشتیبانی نمی‌شود؛ فایل را به یک تصویر معمولی تبدیل کنید.");
+  }
 
   const objectUrl = URL.createObjectURL(file);
   try {
@@ -56,7 +72,7 @@ export async function applyPropertyImageWatermark(
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d");
-    if (!context) return file;
+    if (!context) throw new Error("پردازش واترمارک تصویر در مرورگر در دسترس نیست.");
 
     context.drawImage(image, 0, 0, width, height);
 
@@ -64,7 +80,7 @@ export async function applyPropertyImageWatermark(
     const paddingX = Math.max(10, Math.round(base * 0.8));
     const paddingY = Math.max(8, Math.round(base * 0.58));
     const gap = Math.max(7, Math.round(base * 0.5));
-    const logo = settings.showLogo ? await loadLogo().catch(() => null) : null;
+    const logo = settings.showLogo ? await loadLogo() : null;
     const logoHeight = logo ? Math.round(base * 1.9) : 0;
     const logoWidth = logo && logo.naturalHeight > 0 ? Math.round(logo.naturalWidth * (logoHeight / logo.naturalHeight)) : 0;
 
@@ -103,9 +119,9 @@ export async function applyPropertyImageWatermark(
     const blob = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob(resolve, "image/webp", 0.84);
     });
-    if (!blob) return file;
+    if (!blob) throw new Error("ساخت نسخهٔ نهایی واترمارک‌شدهٔ تصویر انجام نشد؛ دوباره تلاش کنید.");
 
-    const name = file.name.replace(/.[^.]+$/, "") || "property-image";
+    const name = file.name.replace(/\.[^.]+$/, "") || "property-image";
     return new File([blob], name + "-watermarked.webp", {
       type: "image/webp",
       lastModified: Date.now(),
