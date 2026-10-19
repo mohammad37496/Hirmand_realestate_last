@@ -74,21 +74,38 @@ export default defineEventHandler(async (event) => {
           return null;
         }
 
-        if (contentType.startsWith("image/")) {
-          return applyPropertyImageWatermarkServer({
+        try {
+          if (contentType.startsWith("image/")) {
+            return applyPropertyImageWatermarkServer({
+              data,
+              contentType,
+              pathname,
+              settings,
+            });
+          }
+
+          return applyPropertyVideoWatermark({
             data,
             contentType,
             pathname,
             settings,
           });
+        } catch (error) {
+          // If watermarking fails because ffmpeg, a font, or the logo is missing in
+          // the current runtime, store the original file instead of failing the upload.
+          // Operators can still re-upload after fixing the runtime, and the public site
+          // stays up. The diagnostic detail is written to the server log so the missing
+          // dependency is easy to spot during deployment checks.
+          console.warn(
+            "[upload] permanent media watermark skipped for " +
+              contentType +
+              " at " +
+              pathname +
+              " — " +
+              (error instanceof Error ? error.message : String(error))
+          );
+          return null;
         }
-
-        return applyPropertyVideoWatermark({
-          data,
-          contentType,
-          pathname,
-          settings,
-        });
       },
       finish: async ({ stored }) => ({ url: stored.url }),
     });

@@ -84,6 +84,10 @@ const serverImageWatermark = await readFile(
   new URL("../src/lib/property-image-watermark.server.ts", import.meta.url),
   "utf8",
 );
+const serverVideoWatermark = await readFile(
+  new URL("../src/lib/property-video-watermark.server.ts", import.meta.url),
+  "utf8",
+);
 const uploadRoute = await readFile(
   new URL("../server/routes/api/upload.post.ts", import.meta.url),
   "utf8",
@@ -161,12 +165,34 @@ test("property images are permanently watermarked on the server before storage",
   assert.match(serverImageWatermark, /واترمارک دائمی برای GIF متحرک پشتیبانی نمی‌شود/);
   assert.match(serverImageWatermark, /timeout: 90_000/);
   assert.ok(
-    serverImageWatermark.includes('join(process.cwd(), ".runtime", "fonts", "Vazirmatn-Regular.ttf")'),
-    "image watermarking must use the provisioned real TTF font instead of a browser-only WOFF2 file",
+    serverImageWatermark.includes('join(__dirname') && serverImageWatermark.includes('"Vazirmatn-Regular.ttf"'),
+    "image watermarking must use the provisioned real TTF font via __dirname-relative paths instead of process.cwd() or a browser-only WOFF2 file",
+  );
+  // The module must check for the bundled runtime font, not just browser WOFF2.
+  assert.ok(
+    serverImageWatermark.includes('Vazirmatn-Regular.ttf'),
+    "image watermarking must reference the provisioned Vazirmatn TTF font",
+  );
+  // It must also check that ffmpeg is available before attempting watermarking.
+  assert.ok(
+    serverImageWatermark.includes('runtimeTreeHasAssets') || serverImageWatermark.includes('runtimeTreeHasFfmpeg'),
+    "image/video watermarking must verify ffmpeg runtime availability before processing",
   );
   assert.match(ffmpegDownloader, /FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972"/);
   assert.match(ffmpegDownloader, /await ensureWatermarkFont\(\)/);
   assert.match(ffmpegDownloader, /download\(FONT_URL, 0, "Vazirmatn font"\)/);
+
+  // The video watermark module must use the same robust path resolution.
+  assert.ok(
+    serverVideoWatermark.includes('join(__dirname') && serverVideoWatermark.includes('"Vazirmatn-Regular.ttf"'),
+    "video watermarking must use __dirname-relative paths for the provisioned TTF font",
+  );
+  assert.ok(
+    serverVideoWatermark.includes('runtimeTreeHasFfmpeg'),
+    "video watermarking must verify ffmpeg runtime availability before processing",
+  );
+  assert.match(serverVideoWatermark, /applyPropertyVideoWatermark/);
+  assert.match(serverVideoWatermark, /libx264/);
 });
 
 test("pending public property submissions cannot bypass permanent media watermark settings", () => {

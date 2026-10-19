@@ -5,6 +5,8 @@ node_modules/
 
 # Build
 .runtime/
+src/.runtime/
+src/lib/.runtime/
 dist/
 .output/
 .vinxi/

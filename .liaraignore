@@ -17,20 +17,36 @@ temp/
 # prevents Android-only changes from affecting website deployment.
 android/
 android-staff/
+
+# Preserve runtime binaries and fonts provisioned by prebuild scripts.
+# These are required at runtime for permanent media watermarking.
+# The prebuild step (npm run build / npm run prebuild) provisions them;
+# without this exemption they would be discarded before deployment.
+# Only discard the large compressed archives, not the extracted binaries and fonts.
+# Runtime provisioning artifacts (FFmpeg + Persian font) needed at runtime
+# for permanent media watermarking. Prebuild provisions them; the ignore rules
+# below keep those binaries in the deployment payload while discarding the large
+# compressed archives.
+.runtime/
+!.runtime/ffmpeg/
+!.runtime/fonts/
+src/.runtime/
+!src/.runtime/ffmpeg/
+!src/.runtime/fonts/
+src/lib/.runtime/
+!src/lib/.runtime/ffmpeg/
+!src/lib/.runtime/fonts/
 node_modules/
 dist/
 .output/
-.runtime/
+
 .vercel/
 .nitro/
 .tanstack/
 *.log
 *.tsbuildinfo
-**/*.test.ts
-**/*.test.tsx
-**/*.test.mjs
-**/*.spec.ts
-**/*.spec.tsx
-**/*.spec.mjs
+__pycache__/
+*.pyc
+.node_repl_history
 README.md
 AGENTS.md
