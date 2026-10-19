@@ -156,7 +156,7 @@ import { formatPersianDate } from "@/lib/persian-date";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { isVideoUrl, mediaSourceCandidates } from "@/lib/media";
 import { isPermanentlyWatermarkedMediaUrl, isPermanentlyWatermarkedVideoUrl } from "@/lib/property-watermark";
-import { getPropertyFallbackImage, getPropertyFallbackImages, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
+import { getPropertyFallbackImage, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { areaSlug } from "@/lib/areas";
 import { SITE } from "@/lib/site";
 import { propertyPath } from "@/lib/property-path";
@@ -1217,10 +1217,13 @@ export function PropertyDetailView({
     const raw = property?.images ?? [];
     const cleaned = Array.from(new Set(raw.map((src) => src.trim()).filter(Boolean)));
     const ownedImages = cleaned.filter((src) => !isPropertyFallbackImage(src));
+    // Placeholder photography is a rendering fallback, never a collection
+    // of extra gallery slides. A property without real media shows one fallback
+    // image and its counter remains 1 instead of claiming several real photos.
     return ownedImages.length
       ? ownedImages
-      : getPropertyFallbackImages(property?.propertyType ?? "apartment");
-  }, [property?.images, property?.propertyType]);
+      : [getPropertyFallbackImage(property?.propertyType ?? "apartment", property?.id ?? "public")];
+  }, [property?.images, property?.propertyType, property?.id]);
 
   useEffect(() => {
     if (!viewedPropertySlug || typeof window === "undefined") {
