@@ -144,7 +144,7 @@ test("active image watermarking fails closed instead of silently uploading origi
 test("opaque upload failures expose sanitized HTTP and proxy diagnostics", () => {
   assert.match(mediaClient, /سرور پاسخ غیرقابل‌خواندن برگرداند/);
   assert.match(mediaClient, /response\.status/);
-  assert.match(uploadRoute, /\\[upload\\] API request failed:/);
+  assert.ok(uploadRoute.includes("[upload] API request failed:"));
 });
 
 test("upload client reuses the same ID for bounded finalization recovery", () => {
