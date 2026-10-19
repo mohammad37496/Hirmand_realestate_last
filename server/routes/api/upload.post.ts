@@ -51,8 +51,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "دسترسی آپلود رسانه برای فایل‌های ملک فعال نیست." });
   }
   assertSameOrigin(event);
-  return handleChunkedUpload(event, {
-    kind: "media",
+  try {
+    return await handleChunkedUpload(event, {
+      kind: "media",
     pathPrefix: "properties/uploads",
     maxBytes: MAX_BYTES,
     resolveContentType: ({ filename, declared }) => {
@@ -89,6 +90,14 @@ export default defineEventHandler(async (event) => {
         settings,
       });
     },
-    finish: async ({ stored }) => ({ url: stored.url }),
-  });
+      finish: async ({ stored }) => ({ url: stored.url }),
+    });
+  } catch (error) {
+    // Also report failures that happen before the completion handler's own
+    // storage/transform try block (for example database lookup/claim failures).
+    console.error(
+      `[upload] API request failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    throw error;
+  }
 });
