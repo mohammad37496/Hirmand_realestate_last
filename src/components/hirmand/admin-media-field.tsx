@@ -168,6 +168,8 @@ function MediaThumb({ src, fallback }: { src: string; fallback: string }) {
 
 export function AdminMediaField({ value, onChange, propertyType, propertyId }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const uploadingRef = useRef(false);
+  const valueRef = useRef(value);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadLabel, setUploadLabel] = useState("");
@@ -178,6 +180,10 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
   const [watermarkSettings, setWatermarkSettings] = useState<PropertyWatermarkSettings>(DEFAULT_PROPERTY_WATERMARK);
   const items = linesToList(value).filter((src) => !isPropertyFallbackImage(src));
   const fallback = getPropertyFallbackImage(propertyType ?? "apartment", propertyId ?? "admin");
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   useEffect(() => {
     let active = true;
@@ -191,7 +197,12 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
 
   function setItems(next: string[]) {
     const unique = Array.from(new Set(next.map((item) => item.trim()).filter((item) => item && !isPropertyFallbackImage(item))));
-    onChange(listToLines(unique.slice(0, MAX_PROPERTY_MEDIA)));
+    const normalized = listToLines(unique.slice(0, MAX_PROPERTY_MEDIA));
+    // Keep a synchronous source of truth so multiple async upload completions
+    // append to the latest form value instead of overwriting a user's reorder
+    // or removal that happened while the upload was in flight.
+    valueRef.current = normalized;
+    onChange(normalized);
     setSelected((current) => current.filter((item) => unique.includes(item)));
   }
 
@@ -256,6 +267,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
   }
 
   async function uploadFiles(files: FileList | File[]) {
+    if (uploadingRef.current) return;
     const list = Array.from(files);
     if (!list.length) return;
     if (items.length + list.length > MAX_PROPERTY_MEDIA) {
@@ -271,6 +283,8 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
       return;
     }
 
+    // React state alone does not prevent two same-tick change/drop events.
+    uploadingRef.current = true;
     setUploading(true);
     setUploadProgress(0);
     const uploaded: string[] = [];
@@ -299,7 +313,9 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
         }
       }
 
-      if (uploaded.length) setItems([...items, ...uploaded]);
+      if (uploaded.length) {
+        setItems([...linesToList(valueRef.current).filter((src) => !isPropertyFallbackImage(src)), ...uploaded]);
+      }
       if (newlyFailed.length) setFailed((current) => [...current, ...newlyFailed]);
 
       const savedLabel = optimizedBytes > 0
@@ -318,6 +334,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
         );
       }
     } finally {
+      uploadingRef.current = false;
       setUploading(false);
       setUploadProgress(0);
       setUploadLabel("");
@@ -327,13 +344,15 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
 
   /** Re-uploads one failed file in place; keeps other failures untouched. */
   async function retryFailed(entry: FailedUpload) {
+    if (uploadingRef.current) return;
+    uploadingRef.current = true;
     setFailed((current) => current.filter((item) => item.key !== entry.key));
     setUploading(true);
     setUploadProgress(0);
     setUploadLabel(`تلاش مجدد: ${entry.name}`);
     try {
       const { url } = await uploadOne(entry.file);
-      setItems([...linesToList(value).filter((src) => !isPropertyFallbackImage(src)), url]);
+      setItems([...linesToList(valueRef.current).filter((src) => !isPropertyFallbackImage(src)), url]);
       toast.success(`«${entry.name}» با موفقیت آپلود شد.`);
     } catch (error) {
       setFailed((current) => [
@@ -342,6 +361,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
       ]);
       toast.error(uploadErrorMessage(error, "تلاش مجدد انجام نشد."));
     } finally {
+      uploadingRef.current = false;
       setUploading(false);
       setUploadProgress(0);
       setUploadLabel("");
