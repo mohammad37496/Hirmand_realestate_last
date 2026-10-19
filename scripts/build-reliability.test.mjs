@@ -101,11 +101,10 @@ test("media upload verifies binary signatures before object-store offload", () =
 });
 
 test("media uploads retain server diagnostics for finalization failures", () => {
-  assert.match(mediaProtocol, /\\[upload\\] finalization failed for/);
-  assert.match(mediaClient, /HTTP \\\$\\{completeResponse\\.status\\}/);
-  assert.match(
-    mediaProtocol,
-    /if \\(stored\\.storage !== "database" \\|\\| !stored\\.id\\) return;/,
+  assert.ok(mediaProtocol.includes("[upload] finalization failed for"));
+  assert.ok(mediaClient.includes("HTTP ${completeResponse.status}"));
+  assert.ok(
+    mediaProtocol.includes('if (stored.storage !== "database" || !stored.id) return;'),
     "offloaded objects must not be re-read from the database-only media table",
   );
 });
