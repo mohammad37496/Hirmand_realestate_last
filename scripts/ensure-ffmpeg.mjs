@@ -2,23 +2,25 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { realpathSync } from "node:fs";
-import { gunzipSync } from "node:zlib";
 
-const RELEASE_TAG = "b6.1.1";
+// Pin the complete GPL static build rather than ffmpeg-static's Linux asset:
+ // drawtext has been absent from that asset, which breaks Persian text watermarks.
+ // SHA-256 values are the digests published by the upstream BtbN release.
+const RELEASE_TAG = "autobuild-2026-10-18-13-01";
 const TARGET_DIR = join(process.cwd(), ".runtime", "ffmpeg");
 const TARGET_PATH = join(TARGET_DIR, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
 
 const ASSETS = {
   "linux-x64": {
-    name: "ffmpeg-linux-x64.gz",
-    sha256: "bfe8a8fc511530457b528c48d77b5737527b504a3797a9bc4866aeca69c2dffa",
+    name: "ffmpeg-n9.0.2-28-g669f5ab083-linux64-gpl-9.0.tar.xz",
+    sha256: "d2cc2d5446f14ff32b411e4fee488005b472023fb6554bed0ea80b7110f0b3a6",
   },
   "linux-arm64": {
-    name: "ffmpeg-linux-arm64.gz",
-    sha256: "754a678672298bc68156adff58aa7385a592c2b30b1d0ae8750c45c915c4bac0",
+    name: "ffmpeg-n9.0.2-28-g669f5ab083-linuxarm64-gpl-9.0.tar.xz",
+    sha256: "623cf029917f0740580ca6f57875ced4cef923238247af73220b6098634c256f",
   },
 };
 
@@ -100,9 +102,16 @@ export async function ensureFfmpegBinary() {
   }
 
   if (existsSync(TARGET_PATH)) {
-    verifyWatermarkCapabilities(TARGET_PATH);
-    console.log("[ffmpeg] Bundled runtime has the required watermark filters/encoders.");
-    return TARGET_PATH;
+    try {
+      verifyWatermarkCapabilities(TARGET_PATH);
+      console.log("[ffmpeg] Bundled runtime has the required watermark filters/encoders.");
+      return TARGET_PATH;
+    } catch {
+      // A cache from an older build may contain the upstream binary without
+      // drawtext. Replace it instead of making all later builds fail repeatedly.
+      console.warn("[ffmpeg] Cached runtime lacks required watermark capabilities; replacing it.");
+      rmSync(TARGET_PATH, { force: true });
+    }
   }
 
   const key = platformKey();
@@ -116,22 +125,42 @@ export async function ensureFfmpegBinary() {
     || "https://github.com/eugeneware/ffmpeg-static/releases/download";
   const url = `${baseUrl}/${RELEASE_TAG}/${asset.name}`;
 
-  console.log(`[ffmpeg] Downloading ${asset.name}…`);
-  const compressed = await download(url);
-  verify(compressed, asset.sha256);
-  const binary = gunzipSync(compressed);
-  if (!binary.length) throw new Error("Downloaded FFmpeg binary is empty.");
+  console.log(`[ffmpeg] Downloading verified ${asset.name}…`);
+  let archive = await download(url);
+  verify(archive, asset.sha256);
 
-  mkdirSync(dirname(TARGET_PATH), { recursive: true });
-  const temp = `${TARGET_PATH}.tmp-${process.pid}`;
+  mkdirSync(TARGET_DIR, { recursive: true });
+  const archivePath = join(TARGET_DIR, asset.name);
+  const extractDir = join(TARGET_DIR, `extract-${process.pid}`);
+  const tempBinary = `${TARGET_PATH}.tmp-${process.pid}`;
   try {
-    writeFileSync(temp, binary, { mode: 0o755 });
-    chmodSync(temp, 0o755);
+    writeFileSync(archivePath, archive);
+    // Release the large compressed archive buffer before extracting the static
+    // binary; the archive itself is also removed in the finally block.
+    archive = Buffer.alloc(0);
+    mkdirSync(extractDir, { recursive: true });
+    try {
+      execFileSync(
+        "tar",
+        ["-xJf", archivePath, "--wildcards", "--strip-components=2", "-C", extractDir, "*/bin/ffmpeg"],
+        { timeout: 240_000, stdio: ["ignore", "pipe", "pipe"] },
+      );
+    } catch {
+      throw new Error("Could not extract the pinned FFmpeg archive. Ensure tar supports xz archives.");
+    }
+
+    const extractedBinary = join(extractDir, "ffmpeg");
+    if (!existsSync(extractedBinary)) {
+      throw new Error("Pinned FFmpeg archive did not contain the expected bin/ffmpeg executable.");
+    }
+    copyFileSync(extractedBinary, tempBinary);
+    chmodSync(tempBinary, 0o755);
     rmSync(TARGET_PATH, { force: true });
-    writeFileSync(TARGET_PATH, binary, { mode: 0o755 });
-    chmodSync(TARGET_PATH, 0o755);
+    renameSync(tempBinary, TARGET_PATH);
   } finally {
-    rmSync(temp, { force: true });
+    rmSync(archivePath, { force: true });
+    rmSync(extractDir, { recursive: true, force: true });
+    rmSync(tempBinary, { force: true });
   }
 
   verifyWatermarkCapabilities(TARGET_PATH);
