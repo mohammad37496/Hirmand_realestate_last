@@ -121,8 +121,11 @@ export async function ensureFfmpegBinary() {
     return "";
   }
 
+  // The pinned asset names/digests above belong to BtbN/FFmpeg-Builds,
+  // not eugeneware/ffmpeg-static. Keeping the repositories mismatched caused
+  // HTTP 404 during Liara's prebuild and prevented the entire deployment.
   const baseUrl = process.env.HIRMAND_FFMPEG_BASE_URL?.trim()
-    || "https://github.com/eugeneware/ffmpeg-static/releases/download";
+    || "https://github.com/BtbN/FFmpeg-Builds/releases/download";
   const url = `${baseUrl}/${RELEASE_TAG}/${asset.name}`;
 
   console.log(`[ffmpeg] Downloading verified ${asset.name}…`);
