@@ -154,6 +154,11 @@ test("property images are permanently watermarked on the server before storage",
   assert.match(serverImageWatermark, /contentMatchesDeclaredType\(output, "image\/webp"\)/);
   assert.match(serverImageWatermark, /واترمارک دائمی برای GIF متحرک پشتیبانی نمی‌شود/);
   assert.match(serverImageWatermark, /timeout: 90_000/);
+  assert.match(
+    serverImageWatermark,
+    /node_modules\/@fontsource\/vazirmatn\/files\/vazirmatn-arabic-400-normal\.woff2/,
+    "image watermarking must include the packaged Persian font fallback for minimal containers",
+  );
 });
 
 test("pending public property submissions cannot bypass permanent media watermark settings", () => {
