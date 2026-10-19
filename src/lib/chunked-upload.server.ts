@@ -237,7 +237,11 @@ export async function handleChunkedUpload(
   if (action === "begin") {
     // Uploads are expensive (staging rows plus an assembled object), so an
     // authenticated but scripted client cannot open them without bound.
-    const attempt = await consumeAdminAttempt(`upload:${clientFingerprint(event)}`);
+    // A property can contain many media files; use a dedicated bucket and
+    // a higher cap so an ordinary batch does not trigger the login/API throttle.
+    // The new key namespace also releases clients blocked by the older, overly
+    // strict upload bucket as soon as this version is deployed.
+    const attempt = await consumeAdminAttempt(`media-upload:begin:${clientFingerprint(event)}`, 30);
     if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
 
     const payload = (body ?? {}) as Record<string, unknown>;
