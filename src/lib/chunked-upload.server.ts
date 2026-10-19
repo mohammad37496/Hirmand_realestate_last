@@ -312,6 +312,28 @@ export async function handleChunkedUpload(
     if (!uploadId) throw httpError("شناسه آپلود مشخص نیست.");
 
     const sql = await getSql();
+
+    // A completed upload may have succeeded while the HTTP response was lost.
+    // Keep a short-lived receipt so retrying the same uploadId returns the same
+    // URL instead of assembling a second object or reporting a false failure.
+    const completedRows = await sql.query<SessionRow>(
+      `select completion_result, stored_storage
+       from media_upload_sessions
+       where id = $1 and completion_result is not null
+       limit 1`,
+      [uploadId],
+    );
+    const completedSession = completedRows[0];
+    if (
+      completedSession?.completion_result &&
+      typeof completedSession.completion_result === "object"
+    ) {
+      return {
+        ...(completedSession.completion_result as Record<string, unknown>),
+        storage: String(completedSession.stored_storage ?? "database"),
+      };
+    }
+
     // Claim completion atomically. A second request can read the session, but
     // only one UPDATE can win; the other receives a retryable 409 instead of
     // assembling a duplicate object.
@@ -336,7 +358,6 @@ export async function handleChunkedUpload(
 
     if (session.completion_result && typeof session.completion_result === "object") {
       const result = session.completion_result as Record<string, unknown>;
-      await sql.query("delete from media_upload_sessions where id = $1", [uploadId]);
       return {
         ...result,
         storage: String(session.stored_storage ?? "database"),
@@ -369,6 +390,27 @@ export async function handleChunkedUpload(
 
     let stored: StoredMedia | null = null;
     try {
+      // Validate the real bytes before storeAssembledUpload can offload the
+      // object to Liara/Vercel Blob and remove its temporary database copy.
+      // Validating only after that step skipped signature checks for CDN files.
+      const signatureRows = await sql.query<{ data?: Uint8Array }>(
+        `select substring(data from 1 for $2) as data
+         from media_upload_chunks
+         where session_id = $1 and chunk_index = 0
+         limit 1`,
+        [uploadId, SIGNATURE_PROBE_BYTES],
+      );
+      const signatureData = signatureRows[0]?.data;
+      const signatureProbe = signatureData
+        ? (Buffer.isBuffer(signatureData) ? signatureData : Buffer.from(signatureData))
+        : Buffer.alloc(0);
+      if (!signatureProbe.length) {
+        throw signatureRejection("فایل آپلودشده خالی است.");
+      }
+      if (!contentMatchesDeclaredType(signatureProbe, String(session.content_type))) {
+        throw signatureRejection("محتوای فایل با نوع اعلام‌شده هم‌خوانی ندارد.");
+      }
+
       stored = await storeAssembledUpload({
         pathname: String(session.pathname),
         contentType: String(session.content_type),
@@ -411,7 +453,10 @@ export async function handleChunkedUpload(
          where id = $1`,
         [uploadId, JSON.stringify(resultObject)],
       );
-      await sql.query("delete from media_upload_sessions where id = $1", [uploadId]);
+      // Chunks are no longer needed once storage and the business response are
+      // committed. Keep only the receipt until normal stale-session pruning so
+      // a retry can recover the same result if the HTTP response was dropped.
+      await sql.query("delete from media_upload_chunks where session_id = $1", [uploadId]);
       return { ...resultObject, storage: stored.storage };
     } catch (error) {
       if (isSignatureRejection(error)) {
