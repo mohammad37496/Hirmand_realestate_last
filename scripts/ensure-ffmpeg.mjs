@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { realpathSync } from "node:fs";
 
 // Pin the complete GPL static build rather than ffmpeg-static's Linux asset:
@@ -71,7 +71,7 @@ async function download(url, redirects = 0) {
   const configuredTimeout = Number(process.env.HIRMAND_FFMPEG_DOWNLOAD_TIMEOUT_MS);
   const timeoutMs = Number.isInteger(configuredTimeout) && configuredTimeout >= 1000 && configuredTimeout <= 120_000
     ? configuredTimeout
-    : 45_000;
+    : 120_000;
   let response;
   try {
     response = await fetch(url, {
