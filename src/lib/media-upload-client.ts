@@ -102,14 +102,26 @@ export async function uploadInChunks(options: {
         signal,
       });
 
+      const chunkAcknowledgement = await readJson(chunkResponse) as Record<string, unknown> | null;
       if (!chunkResponse.ok) {
-        const detail = await readJson(chunkResponse);
         throw new Error(
-          responseMessage(detail, `ارسال بخش ${index + 1} از ${totalChunks} انجام نشد.`),
+          responseMessage(chunkAcknowledgement, `ارسال بخش ${index + 1} از ${totalChunks} انجام نشد.`),
         );
       }
 
-      sent += slice.size;
+      const expectedBytesReceived = sent + slice.size;
+      if (
+        !chunkAcknowledgement ||
+        chunkAcknowledgement.uploadId !== uploadId ||
+        Number(chunkAcknowledgement.receivedChunks) < index + 1 ||
+        Number(chunkAcknowledgement.bytesReceived) !== expectedBytesReceived
+      ) {
+        throw new Error(
+          `سرور دریافت بخش ${index + 1} را با حجم کامل تأیید نکرد. اتصال یا ذخیره‌سازی فایل را بررسی و دوباره تلاش کنید.`,
+        );
+      }
+
+      sent = expectedBytesReceived;
       if (totalBytes > 0) {
         onProgress?.(Math.min(99, Math.round((sent / totalBytes) * 100)));
       }
