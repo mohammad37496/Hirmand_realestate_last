@@ -229,7 +229,7 @@ function buildDescription(p: Props) {
   ].filter(Boolean);
 
   const featureList = p.features
-    .split(/[\\n,]+/)
+    .split(/[\n,]+/)
     .map((x) => x.trim())
     .filter(Boolean)
     .slice(0, 8);
@@ -240,7 +240,7 @@ function buildDescription(p: Props) {
     ".",
     featureList.length ? ` ویژگی‌ها: ${featureList.join("، ")}.` : "",
     " برای اطلاعات کامل، هماهنگی بازدید و دریافت جزئیات با مشاور هیرمند تماس بگیرید.",
-  ].join("").replace(/\\s+/g, " ").trim();
+  ].join("").replace(/\s+/g, " ").trim();
 }
 
 function qualityScore(p: Props) {
