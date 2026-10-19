@@ -26,7 +26,10 @@ type BeginResponse = {
 function responseMessage(payload: unknown, fallback: string): string {
   if (payload && typeof payload === "object") {
     const record = payload as Record<string, unknown>;
-    const candidate = record.statusMessage ?? record.message;
+    const candidate =
+      record.statusMessage ??
+      record.message ??
+      (typeof record.error === "string" ? record.error : null);
     if (typeof candidate === "string" && candidate.trim()) return candidate;
   }
   return fallback;
@@ -168,7 +171,14 @@ export async function uploadInChunks(options: {
     const complete = await readJson(completeResponse);
 
     if (!completeResponse.ok) {
-      throw new Error(responseMessage(complete, "ثبت فایل در سرور انجام نشد."));
+      const message = responseMessage(complete, "");
+      if (message) throw new Error(message);
+      const serverHint = completeResponse.status >= 500
+        ? "؛ سرور یا درگاه آپلود خطای داخلی برگرداند."
+        : "";
+      throw new Error(
+        `ثبت فایل در سرور انجام نشد (HTTP ${completeResponse.status})${serverHint} اگر فایل ذخیره نشده است، گزارش سرور را بررسی کنید.`,
+      );
     }
 
     onProgress?.(100);
