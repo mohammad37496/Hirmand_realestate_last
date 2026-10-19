@@ -16,13 +16,7 @@ import { toast } from "sonner";
 import { MAX_PROPERTY_MEDIA, isVideoUrl } from "@/lib/media";
 import type { PropertyType } from "@/lib/properties";
 import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
-import {
-  getPropertyWatermarkSettings,
-  DEFAULT_PROPERTY_WATERMARK,
-  isPermanentlyWatermarkedMediaUrl,
-  type PropertyWatermarkSettings,
-} from "@/lib/property-watermark";
-import { applyPropertyImageWatermark } from "@/lib/property-image-watermark";
+import { isPermanentlyWatermarkedMediaUrl } from "@/lib/property-watermark";
 import { PropertyMediaWatermark } from "@/components/hirmand/property-media-watermark";
 import { faBytes } from "@/components/hirmand/admin-ui-utils";
 
@@ -177,23 +171,12 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [failed, setFailed] = useState<FailedUpload[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const [watermarkSettings, setWatermarkSettings] = useState<PropertyWatermarkSettings>(DEFAULT_PROPERTY_WATERMARK);
   const items = linesToList(value).filter((src) => !isPropertyFallbackImage(src));
   const fallback = getPropertyFallbackImage(propertyType ?? "apartment", propertyId ?? "admin");
 
   useEffect(() => {
     valueRef.current = value;
   }, [value]);
-
-  useEffect(() => {
-    let active = true;
-    void getPropertyWatermarkSettings().then((settings) => {
-      if (active) setWatermarkSettings(settings);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   function setItems(next: string[]) {
     const unique = Array.from(new Set(next.map((item) => item.trim()).filter((item) => item && !isPropertyFallbackImage(item))));
@@ -252,8 +235,10 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
   }
 
   async function uploadOne(file: File): Promise<{ url: string; savedBytes: number }> {
-    const watermarked = await applyPropertyImageWatermark(file, watermarkSettings);
-    const optimized = await optimizeImage(watermarked);
+    // Browser-side optimization is only a preparation step. The API applies
+    // permanent watermarking after validating the real file bytes, so direct
+    // requests cannot bypass the operator's watermark settings.
+    const optimized = await optimizeImage(file);
     const result = await uploadInChunks({
       endpoint: "/api/upload",
       file: optimized.file,
