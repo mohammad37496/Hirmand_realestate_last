@@ -141,6 +141,12 @@ test("active image watermarking fails closed instead of silently uploading origi
   assert.doesNotMatch(imageWatermark, /if \(!blob\) return file/);
 });
 
+test("opaque upload failures expose sanitized HTTP and proxy diagnostics", () => {
+  assert.match(mediaClient, /سرور پاسخ غیرقابل‌خواندن برگرداند/);
+  assert.match(mediaClient, /response\.status/);
+  assert.match(uploadRoute, /\\[upload\\] API request failed:/);
+});
+
 test("upload client reuses the same ID for bounded finalization recovery", () => {
   assert.match(mediaClient, /recover the same receipt/i);
   assert.match(mediaClient, /action: "complete", uploadId/);
@@ -160,7 +166,7 @@ test("property images are permanently watermarked on the server before storage",
   );
   assert.match(ffmpegDownloader, /FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972"/);
   assert.match(ffmpegDownloader, /await ensureWatermarkFont\(\)/);
-  assert.match(ffmpegDownloader, /Vazirmatn font download failed/);
+  assert.match(ffmpegDownloader, /download\(FONT_URL, 0, "Vazirmatn font"\)/);
 });
 
 test("pending public property submissions cannot bypass permanent media watermark settings", () => {
