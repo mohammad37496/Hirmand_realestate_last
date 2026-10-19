@@ -108,7 +108,7 @@ test("active image watermarking fails closed instead of silently uploading origi
 });
 
 test("upload client reuses the same ID for bounded finalization recovery", () => {
-  assert.match(mediaClient, /completion\s+receipt/i);
+  assert.match(mediaClient, /receipt makes this idempotent/i);
   assert.match(mediaClient, /action: "complete", uploadId/);
   assert.match(mediaClient, /attempt < 3/);
 });
