@@ -146,7 +146,10 @@ export type RateLimitResult = {
 };
 
 /** Records an attempt and reports whether the caller may continue. */
-export async function consumeAdminAttempt(key: string): Promise<RateLimitResult> {
+export async function consumeAdminAttempt(
+  key: string,
+  maxAttempts = MAX_ATTEMPTS,
+): Promise<RateLimitResult> {
   const now = Date.now();
   const target = store();
 
@@ -168,7 +171,7 @@ export async function consumeAdminAttempt(key: string): Promise<RateLimitResult>
   bucket.hits = bucket.hits.filter((hit) => now - hit <= WINDOW_MS);
   bucket.hits.push(now);
 
-  if (bucket.hits.length > MAX_ATTEMPTS) {
+  if (bucket.hits.length > maxAttempts) {
     bucket.blockedUntil = now + BLOCK_MS;
     bucket.hits = [];
     await target.set(key, bucket);
@@ -182,7 +185,7 @@ export async function consumeAdminAttempt(key: string): Promise<RateLimitResult>
   await target.set(key, bucket);
   return {
     allowed: true,
-    remaining: Math.max(0, MAX_ATTEMPTS - bucket.hits.length),
+    remaining: Math.max(0, maxAttempts - bucket.hits.length),
     retryAfterSeconds: 0,
   };
 }
