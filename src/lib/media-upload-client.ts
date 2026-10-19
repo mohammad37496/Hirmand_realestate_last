@@ -127,12 +127,36 @@ export async function uploadInChunks(options: {
       }
     }
 
-    const completeResponse = await fetch(endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "complete", uploadId }),
-      signal,
-    });
+    // Finalization can succeed on the server while its response is lost.
+    // Reuse the same uploadId for a bounded retry; the server's completion
+    // receipt makes this idempotent and prevents duplicate objects/records.
+    let completeResponse: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        completeResponse = await fetch(endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "complete", uploadId }),
+          signal,
+        });
+      } catch (error) {
+        if (signal?.aborted || attempt === 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+        continue;
+      }
+
+      // A 409 can mean an earlier request using this same ID is still
+      // finalizing. Give it a moment to publish its receipt, then replay once.
+      if (completeResponse.status === 409 && attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+        continue;
+      }
+      break;
+    }
+
+    if (!completeResponse) {
+      throw new Error("پاسخ نهایی آپلود دریافت نشد؛ همان فایل را دوباره تلاش کنید.");
+    }
     const complete = await readJson(completeResponse);
 
     if (!completeResponse.ok) {
