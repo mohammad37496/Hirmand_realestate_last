@@ -55,8 +55,11 @@ export async function uploadInChunks(options: {
   signal?: AbortSignal;
   /** Shown when the server refuses the file's type or size. */
   rejectedMessage?: string;
+  /** Replays finalization for routes whose finish step is idempotent. */
+  retryCompletion?: boolean;
 }): Promise<ChunkedUploadResult> {
   const { endpoint, file, contentType, payload, onProgress, signal } = options;
+  const maxCompletionAttempts = options.retryCompletion ? 3 : 1;
   const rejected = options.rejectedMessage ?? "فایل انتخاب‌شده قابل آپلود نیست.";
 
   onProgress?.(0);
@@ -128,10 +131,10 @@ export async function uploadInChunks(options: {
     }
 
     // Finalization can succeed on the server while its response is lost.
-    // Reuse the same uploadId for a bounded retry; the server's completion
-    // receipt makes this idempotent and prevents duplicate objects/records.
+    // Routes that opt in must make finish idempotent, so the same uploadId can
+    // recover the same receipt without creating a second object or record.
     let completeResponse: Response | null = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < maxCompletionAttempts; attempt += 1) {
       try {
         completeResponse = await fetch(endpoint, {
           method: "POST",
@@ -140,14 +143,14 @@ export async function uploadInChunks(options: {
           signal,
         });
       } catch (error) {
-        if (signal?.aborted || attempt === 2) throw error;
+        if (signal?.aborted || attempt + 1 >= maxCompletionAttempts) throw error;
         await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
         continue;
       }
 
       // A 409 can mean an earlier request using this same ID is still
       // finalizing. Give it a moment to publish its receipt, then replay once.
-      if (completeResponse.status === 409 && attempt < 2) {
+      if (completeResponse.status === 409 && attempt + 1 < maxCompletionAttempts) {
         await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
         continue;
       }
