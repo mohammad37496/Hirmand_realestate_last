@@ -231,9 +231,9 @@ export async function storeAssembledUpload(input: {
       [input.sessionId, stored.url, stored.storage, stored.id],
     );
   } catch (error) {
-    // The staging object was never exposed to the caller; remove it if we could
-    // not persist the session recovery pointer.
-    await sql.query("delete from media_objects where id = $1", [id]).catch(() => undefined);
+    // SQL failures can occur after the database committed but before its reply
+    // reached us. Keep the media row: deleting it here could invalidate a URL
+    // whose session update actually succeeded.
     throw error;
   }
 
@@ -264,9 +264,9 @@ export async function storeAssembledUpload(input: {
           [input.sessionId, remoteStored.url, remoteStored.storage, remoteStored.id],
         );
       } catch (error) {
-        // The database fallback is still referenced by the session. Best-effort
-        // cleanup prevents the failed remote attempt from leaking an object.
-        await deleteStoredMedia(remoteUrl);
+        // The SQL update may have committed even if its acknowledgement was
+        // lost. Do not delete the remote object in this ambiguous state: the
+        // session may already reference it. An orphan is safer than a broken URL.
         throw error;
       }
 
