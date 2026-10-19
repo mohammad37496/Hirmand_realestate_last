@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { getPropertyWatermarkSettingsServer } from "@/lib/property-watermark.server";
+import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
 import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
 
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -62,7 +63,7 @@ export default defineEventHandler(async (event) => {
     unsupportedTypeMessage: "نوع فایل رسانه‌ای مجاز نیست.",
     sizeLimitMessage: (limitMb) => `حجم فایل بیش از ${limitMb} مگابایت است.`,
     transform: async ({ data, contentType, pathname }) => {
-      if (!contentType.startsWith("video/")) return null;
+      if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) return null;
 
       const settings = await getPropertyWatermarkSettingsServer();
       if (
@@ -70,6 +71,15 @@ export default defineEventHandler(async (event) => {
         (!settings.showLogo && !(settings.showText && settings.text.trim()))
       ) {
         return null;
+      }
+
+      if (contentType.startsWith("image/")) {
+        return applyPropertyImageWatermarkServer({
+          data,
+          contentType,
+          pathname,
+          settings,
+        });
       }
 
       return applyPropertyVideoWatermark({
