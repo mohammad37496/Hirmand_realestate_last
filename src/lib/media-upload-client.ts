@@ -53,7 +53,7 @@ async function readJson(response: Response): Promise<unknown> {
     const html = /html/i.test(contentType) || /<!doctype html|<html[\s>]/i.test(body);
     const title = body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
     const summarySource = html
-      ? (title ?? body.replace(/<script[\\s\\S]*?<\/script>/gi, " ").replace(/<style[\\s\\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " "))
+      ? (title ?? body.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " "))
       : body;
     const summary = summarySource
       .replace(/&nbsp;|&#160;/gi, " ")
