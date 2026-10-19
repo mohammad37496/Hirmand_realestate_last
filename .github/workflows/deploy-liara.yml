@@ -83,7 +83,7 @@ jobs:
             "${TEAM_ARGS[@]}" \
             --timestamps \
             --last-lines \
-            --since="30 minutes ago" 2>&1 |
+            --since="24 hours ago" 2>&1 |
             grep -E -i '\\[upload\\]|\\[media\\]|\\[liara-storage\\]|\\[prestart\\]|\\[migrate\\]|\\[db\\]|\\[font\\]|\\[ffmpeg\\]' || true
 
       - name: Diagnose Liara runtime on failure
