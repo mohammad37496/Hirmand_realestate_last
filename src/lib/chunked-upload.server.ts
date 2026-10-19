@@ -186,11 +186,21 @@ export async function handleChunkedUpload(
       throw httpError("شماره قطعه ارسالی نامعتبر است.");
     }
 
-    const raw = await readRawBody(event);
+    // Binary media must stay bytes. readRawBody defaults to UTF-8 text, which
+    // corrupts arbitrary JPEG/WebP/video bytes and makes the final size check fail.
+    const raw = await readRawBody(event, false);
     const bytes = raw ? Buffer.from(raw) : Buffer.alloc(0);
     if (!bytes.length) throw httpError("قطعه ارسالی خالی بود.");
     if (bytes.length > maxChunkBytes) {
       throw httpError("حجم قطعه ارسالی بیش از حد مجاز است.");
+    }
+
+    const totalBytes = Number(session.total_bytes) || 0;
+    const expectedBytes = Math.min(chunkSize, Math.max(0, totalBytes - index * chunkSize));
+    if (expectedBytes > 0 && bytes.length !== expectedBytes) {
+      throw httpError(
+        `حجم قطعه دریافتی با اندازه مورد انتظار برابر نیست (${bytes.length.toLocaleString("fa-IR")} از ${expectedBytes.toLocaleString("fa-IR")} بایت). دوباره تلاش کنید.`,
+      );
     }
 
     const sql = await getSql();
@@ -346,8 +356,10 @@ export async function handleChunkedUpload(
          where id = $1`,
         [uploadId],
       );
+      const chunkLabel = `${receivedChunks.toLocaleString("fa-IR")} از ${totalChunks.toLocaleString("fa-IR")} قطعه`;
+      const byteLabel = `${receivedBytes.toLocaleString("fa-IR")} از ${totalBytes.toLocaleString("fa-IR")} بایت`;
       throw httpError(
-        `فایل کامل دریافت نشد (${receivedChunks.toLocaleString("fa-IR")} از ${totalChunks.toLocaleString("fa-IR")} قطعه). دوباره آپلود کنید.`,
+        `فایل کامل دریافت نشد (${chunkLabel}، ${byteLabel} دریافت شده). دوباره آپلود کنید.`,
       );
     }
 
