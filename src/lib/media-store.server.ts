@@ -225,17 +225,12 @@ export async function storeAssembledUpload(input: {
     id,
   };
 
-  try {
-    await sql.query(
-      "update media_upload_sessions\n       set completion_state = 'assembled', stored_url = $2, stored_storage = $3, stored_media_id = $4\n       where id = $1",
-      [input.sessionId, stored.url, stored.storage, stored.id],
-    );
-  } catch (error) {
-    // SQL failures can occur after the database committed but before its reply
-    // reached us. Keep the media row: deleting it here could invalidate a URL
-    // whose session update actually succeeded.
-    throw error;
-  }
+  // Do not delete the database row if this update throws: the transaction
+  // may have committed even if its acknowledgement was lost.
+  await sql.query(
+    "update media_upload_sessions\n     set completion_state = 'assembled', stored_url = $2, stored_storage = $3, stored_media_id = $4\n     where id = $1",
+    [input.sessionId, stored.url, stored.storage, stored.id],
+  );
 
   if (dataResult.size > 0 && dataResult.size <= MAX_OFFLOAD_BYTES) {
     let remoteUrl: string | null = null;
@@ -258,17 +253,13 @@ export async function storeAssembledUpload(input: {
       };
 
       // Commit the public CDN URL before deleting the durable database fallback.
-      try {
-        await sql.query(
-          "update media_upload_sessions\n           set completion_state = 'assembled', stored_url = $2, stored_storage = $3, stored_media_id = $4\n           where id = $1",
-          [input.sessionId, remoteStored.url, remoteStored.storage, remoteStored.id],
-        );
-      } catch (error) {
-        // The SQL update may have committed even if its acknowledgement was
-        // lost. Do not delete the remote object in this ambiguous state: the
-        // session may already reference it. An orphan is safer than a broken URL.
-        throw error;
-      }
+      // The SQL update may have committed even if its acknowledgement is lost.
+      // Do not delete the remote object in this ambiguous state: the session may
+      // already reference it. An orphan is safer than a broken URL.
+      await sql.query(
+        "update media_upload_sessions\n         set completion_state = 'assembled', stored_url = $2, stored_storage = $3, stored_media_id = $4\n         where id = $1",
+        [input.sessionId, remoteStored.url, remoteStored.storage, remoteStored.id],
+      );
 
       await sql.query("delete from media_objects where id = $1", [id]).catch((error) => {
         // An extra DB copy is safer than losing the only recoverable URL.
