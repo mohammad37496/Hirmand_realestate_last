@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { MAX_PROPERTY_MEDIA, isVideoUrl } from "@/lib/media";
 import type { PropertyType } from "@/lib/properties";
-import { getPropertyFallbackImage } from "@/lib/property-fallback-images";
+import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import {
   getPropertyWatermarkSettings,
   DEFAULT_PROPERTY_WATERMARK,
@@ -176,7 +176,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
   const [failed, setFailed] = useState<FailedUpload[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [watermarkSettings, setWatermarkSettings] = useState<PropertyWatermarkSettings>(DEFAULT_PROPERTY_WATERMARK);
-  const items = linesToList(value);
+  const items = linesToList(value).filter((src) => !isPropertyFallbackImage(src));
   const fallback = getPropertyFallbackImage(propertyType ?? "apartment", propertyId ?? "admin");
 
   useEffect(() => {
@@ -190,7 +190,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
   }, []);
 
   function setItems(next: string[]) {
-    const unique = Array.from(new Set(next.map((item) => item.trim()).filter(Boolean)));
+    const unique = Array.from(new Set(next.map((item) => item.trim()).filter((item) => item && !isPropertyFallbackImage(item))));
     onChange(listToLines(unique.slice(0, MAX_PROPERTY_MEDIA)));
     setSelected((current) => current.filter((item) => unique.includes(item)));
   }
@@ -333,7 +333,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     setUploadLabel(`تلاش مجدد: ${entry.name}`);
     try {
       const { url } = await uploadOne(entry.file);
-      setItems([...linesToList(value), url]);
+      setItems([...linesToList(value).filter((src) => !isPropertyFallbackImage(src)), url]);
       toast.success(`«${entry.name}» با موفقیت آپلود شد.`);
     } catch (error) {
       setFailed((current) => [
@@ -561,7 +561,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
         <textarea
           rows={3}
           dir="ltr"
-          value={value}
+          value={listToLines(items)}
           onChange={(e) => onChange(e.target.value)}
           placeholder={"https://...\nhttps://..."}
         />
