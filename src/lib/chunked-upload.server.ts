@@ -477,6 +477,12 @@ export async function handleChunkedUpload(
         );
       }
 
+      // Preserve the diagnostic detail in Liara runtime logs while keeping
+      // the browser response safe and actionable.
+      console.error(
+        `[upload] finalization failed for ${String(session.kind ?? config.kind)} upload ${uploadId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+
       // Leave an assembled object retryable, but do not leave a permanently
       // locked session if a transient database/network error occurred.
       await sql.query(
