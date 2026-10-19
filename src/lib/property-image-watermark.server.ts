@@ -116,7 +116,7 @@ export async function applyPropertyImageWatermarkServer(input: {
     }
 
     const scaleInput =
-      "scale='min(2560,iw)':'min(2560,ih)':force_original_aspect_ratio=decrease";
+      "scale='min(2560,iw)':'min(2560,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2";
     const args = ["-hide_banner", "-loglevel", "error", "-y", "-i", inputPath];
 
     if (logoPath) {
