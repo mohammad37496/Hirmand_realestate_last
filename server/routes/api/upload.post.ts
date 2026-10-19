@@ -54,42 +54,42 @@ export default defineEventHandler(async (event) => {
   try {
     return await handleChunkedUpload(event, {
       kind: "media",
-    pathPrefix: "properties/uploads",
-    maxBytes: MAX_BYTES,
-    resolveContentType: ({ filename, declared }) => {
-      if (ALLOWED.has(declared)) return declared;
-      const derived = mimeFromFilename(filename);
-      return ALLOWED.has(derived) ? derived : null;
-    },
-    unsupportedTypeMessage: "نوع فایل رسانه‌ای مجاز نیست.",
-    sizeLimitMessage: (limitMb) => `حجم فایل بیش از ${limitMb} مگابایت است.`,
-    transform: async ({ data, contentType, pathname }) => {
-      if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) return null;
+      pathPrefix: "properties/uploads",
+      maxBytes: MAX_BYTES,
+      resolveContentType: ({ filename, declared }) => {
+        if (ALLOWED.has(declared)) return declared;
+        const derived = mimeFromFilename(filename);
+        return ALLOWED.has(derived) ? derived : null;
+      },
+      unsupportedTypeMessage: "نوع فایل رسانه‌ای مجاز نیست.",
+      sizeLimitMessage: (limitMb) => `حجم فایل بیش از ${limitMb} مگابایت است.`,
+      transform: async ({ data, contentType, pathname }) => {
+        if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) return null;
 
-      const settings = await getPropertyWatermarkSettingsServer();
-      if (
-        !settings.enabled ||
-        (!settings.showLogo && !(settings.showText && settings.text.trim()))
-      ) {
-        return null;
-      }
+        const settings = await getPropertyWatermarkSettingsServer();
+        if (
+          !settings.enabled ||
+          (!settings.showLogo && !(settings.showText && settings.text.trim()))
+        ) {
+          return null;
+        }
 
-      if (contentType.startsWith("image/")) {
-        return applyPropertyImageWatermarkServer({
+        if (contentType.startsWith("image/")) {
+          return applyPropertyImageWatermarkServer({
+            data,
+            contentType,
+            pathname,
+            settings,
+          });
+        }
+
+        return applyPropertyVideoWatermark({
           data,
           contentType,
           pathname,
           settings,
         });
-      }
-
-      return applyPropertyVideoWatermark({
-        data,
-        contentType,
-        pathname,
-        settings,
-      });
-    },
+      },
       finish: async ({ stored }) => ({ url: stored.url }),
     });
   } catch (error) {
