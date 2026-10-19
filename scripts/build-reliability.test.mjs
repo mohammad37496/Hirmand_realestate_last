@@ -29,6 +29,10 @@ const packageManifest = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8",
 );
+const ffmpegProvisioner = await readFile(
+  new URL("./ensure-ffmpeg.mjs", import.meta.url),
+  "utf8",
+);
 const mediaStore = await readFile(
   new URL("../src/lib/media-store.server.ts", import.meta.url),
   "utf8",
@@ -164,4 +168,11 @@ test("object-store offload never deletes the database fallback before saving the
   const deleteDbCopy = mediaStore.indexOf('delete from media_objects where id = $1', persistRemotePointer);
   assert.ok(persistDbPointer >= 0 && remoteUpload > persistDbPointer);
   assert.ok(persistRemotePointer > remoteUpload && deleteDbCopy > persistRemotePointer);
+});
+
+test("FFmpeg release URL uses the same repository as its pinned release assets", () => {
+  assert.match(ffmpegProvisioner, /https:\/\/github\.com\/BtbN\/FFmpeg-Builds\/releases\/download/);
+  assert.doesNotMatch(ffmpegProvisioner, /\|\| "https:\/\/github\.com\/eugeneware\/ffmpeg-static\/releases\/download"/);
+  assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-28-g669f5ab083-linux64-gpl-9\.0\.tar\.xz/);
+  assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
 });
