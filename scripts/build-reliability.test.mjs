@@ -29,6 +29,10 @@ const packageManifest = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8",
 );
+const mediaStore = await readFile(
+  new URL("../src/lib/media-store.server.ts", import.meta.url),
+  "utf8",
+);
 
 test("property save SQL assigns every INSERT placeholder and types floor_label", () => {
   const queryStart = propertyStore.indexOf("`insert into properties (");
@@ -137,4 +141,13 @@ test("property images are permanently watermarked on the server before storage",
 
 test("production prebuild provisions the checksum-verified FFmpeg binary used for watermarking", () => {
   assert.match(packageManifest, /"prebuild": "node scripts\/ensure-ffmpeg\.mjs && node scripts\/generate-fallback-assets\.mjs"/);
+});
+
+test("object-store offload never deletes the database fallback before saving the Liara URL", () => {
+  const persistDbPointer = mediaStore.indexOf("set completion_state = 'assembled', stored_url = $2", mediaStore.indexOf("// Commit a usable database URL"));
+  const remoteUpload = mediaStore.indexOf("remoteUrl = await putLiaraObject", persistDbPointer);
+  const persistRemotePointer = mediaStore.indexOf("remoteStored.url", remoteUpload);
+  const deleteDbCopy = mediaStore.indexOf('delete from media_objects where id = $1', persistRemotePointer);
+  assert.ok(persistDbPointer >= 0 && remoteUpload > persistDbPointer);
+  assert.ok(persistRemotePointer > remoteUpload && deleteDbCopy > persistRemotePointer);
 });
