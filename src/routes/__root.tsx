@@ -1,4 +1,4 @@
-import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Link, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
@@ -105,6 +105,10 @@ function PwaRegistrar() {
 }
 
 function RootDocument() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const isAdminPath =
+    pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/admin-");
+
   return (
     <html lang="fa" dir="rtl" className="js antialiased" suppressHydrationWarning>
       <head>
@@ -115,7 +119,7 @@ function RootDocument() {
         <PreviewHostBridge />
         <AuthProvider>
           <Outlet />
-          <MusicPlayer />
+          {!isAdminPath && <MusicPlayer />}
         </AuthProvider>
         <Scripts />
       </body>
