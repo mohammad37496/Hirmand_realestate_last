@@ -248,18 +248,25 @@ export const propertyInputSchema = z.object({
   description: z.string().trim().min(10).max(5000),
   features: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
   images: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1)
-        .max(2048)
-        .refine(isAllowedMediaRef, { message: "نشانی رسانه نامعتبر است." }),
-    )
+    .array(z.string().trim().min(1).max(2048))
     .max(MAX_PROPERTY_MEDIA)
     .default([])
-    // Placeholder/category imagery must never be persisted as a property's own gallery.
-    .transform((images) => images.filter((src) => !isPropertyFallbackImage(src))),
+    // Strip UI-only category placeholders before URL validation. Doing this
+    // after refine rejected legacy placeholder URLs instead of safely removing
+    // them, while still preserving every valid real media URL.
+    .transform((images) => images.filter((src) => !isPropertyFallbackImage(src)))
+    .pipe(
+      z
+        .array(
+          z
+            .string()
+            .trim()
+            .min(1)
+            .max(2048)
+            .refine(isAllowedMediaRef, { message: "نشانی رسانه نامعتبر است." }),
+        )
+        .max(MAX_PROPERTY_MEDIA),
+    ),
   contactName: z.string().trim().min(2).max(80),
   contactPhone: z.string().trim().min(8).max(30),
   ownerName: z.string().trim().max(100).optional().default(""),
