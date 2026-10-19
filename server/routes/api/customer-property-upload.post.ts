@@ -1,5 +1,8 @@
 import { defineEventHandler } from "h3";
 import { handleChunkedUpload } from "@/lib/chunked-upload.server";
+import { getPropertyWatermarkSettingsServer } from "@/lib/property-watermark.server";
+import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
+import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
 
 const MAX_BYTES = 25 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg","image/png","image/webp","image/gif","image/avif","video/mp4","video/webm","video/quicktime"]);
@@ -31,6 +34,25 @@ export default defineEventHandler((event) =>
     },
     unsupportedTypeMessage: "نوع فایل رسانه‌ای مجاز نیست.",
     sizeLimitMessage: (limitMb) => `حجم هر فایل بیش از ${limitMb} مگابایت است.`,
+    // Pending public submissions also use the permanent watermark pipeline so
+    // approving a submission cannot expose a raw upload that bypassed the admin API.
+    transform: async ({ data, contentType, pathname }) => {
+      if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) return null;
+
+      const settings = await getPropertyWatermarkSettingsServer();
+      if (
+        !settings.enabled ||
+        (!settings.showLogo && !(settings.showText && settings.text.trim()))
+      ) {
+        return null;
+      }
+
+      if (contentType.startsWith("image/")) {
+        return applyPropertyImageWatermarkServer({ data, contentType, pathname, settings });
+      }
+
+      return applyPropertyVideoWatermark({ data, contentType, pathname, settings });
+    },
     finish: async ({ stored, session }) => ({ url: stored.url + (String(session.content_type ?? "").startsWith("video/") ? "?type=video" : "") }),
   }),
 );
