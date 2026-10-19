@@ -267,9 +267,13 @@ export async function handleChunkedUpload(
     }
 
     // Count only a syntactically valid, type- and size-accepted begin request.
-    // Invalid files/fields must not exhaust a legitimate operator's upload
-    // budget; the bucket remains separate from login and other admin APIs.
-    const attempt = await consumeAdminAttempt(`media-upload:begin:${clientFingerprint(event)}`, 30);
+    // Keep each upload pathway's quota independent so customer submissions,
+    // area photos and admin property galleries do not block one another.
+    // This bucket stays separate from login and other sensitive admin APIs.
+    const attempt = await consumeAdminAttempt(
+      `media-upload:begin:${config.pathPrefix}:${clientFingerprint(event)}`,
+      30,
+    );
     if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
 
     const totalChunks = Math.max(1, Math.ceil(sizeBytes / chunkSize));
