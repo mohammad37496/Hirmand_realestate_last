@@ -70,7 +70,7 @@ const imageWatermark = await readFile(
 );
 
 test("media upload verifies binary signatures before object-store offload", () => {
-  assert.match(mediaProtocol, /readRawBody\\(event, false\\)/);
+  assert.match(mediaProtocol, /readRawBody\(event, false\)/);
   const signatureCheck = mediaProtocol.indexOf("contentMatchesDeclaredType(signatureProbe");
   const storeCall = mediaProtocol.indexOf("stored = await storeAssembledUpload");
   assert.ok(signatureCheck >= 0 && storeCall > signatureCheck, "signature validation must precede persistence/offload");
@@ -78,12 +78,12 @@ test("media upload verifies binary signatures before object-store offload", () =
 
 test("successful finalization keeps a replay receipt but releases chunk payloads", () => {
   assert.match(mediaProtocol, /completion_result is not null/);
-  assert.match(mediaProtocol, /where id = \\$1 and kind = \\$2 and completion_result is not null/);
+  assert.match(mediaProtocol, /where id = \$1 and kind = \$2 and completion_result is not null/);
   const resultWrite = mediaProtocol.indexOf("set completion_result = $2::jsonb");
   const resultReturn = mediaProtocol.indexOf("return { ...resultObject, storage: stored.storage }", resultWrite);
   assert.ok(resultWrite >= 0 && resultReturn > resultWrite);
   const committedSection = mediaProtocol.slice(resultWrite, resultReturn);
-  assert.match(committedSection, /delete from media_upload_chunks where session_id = \\$1/);
+  assert.match(committedSection, /delete from media_upload_chunks where session_id = \$1/);
   assert.doesNotMatch(committedSection, /delete from media_upload_sessions/);
 });
 
@@ -95,20 +95,20 @@ test("placeholder gallery values are stripped before strict URL validation", () 
 });
 
 test("admin media uploads are single-flight and append to the latest form value", () => {
-  assert.match(mediaField, /const uploadingRef = useRef\\(false\\)/);
-  assert.match(mediaField, /valueRef\\.current/);
-  assert.match(mediaField, /if \\(uploadingRef\\.current\\) return/);
+  assert.match(mediaField, /const uploadingRef = useRef\(false\)/);
+  assert.match(mediaField, /valueRef\.current/);
+  assert.match(mediaField, /if \(uploadingRef\.current\) return/);
 });
 
 test("active image watermarking fails closed instead of silently uploading originals", () => {
   assert.match(imageWatermark, /واترمارک خودکار برای GIF متحرک پشتیبانی نمی‌شود/);
-  assert.match(imageWatermark, /if \\(!context\\) throw new Error/);
-  assert.match(imageWatermark, /if \\(!blob\\) throw new Error/);
-  assert.doesNotMatch(imageWatermark, /if \\(!blob\\) return file/);
+  assert.match(imageWatermark, /if \(!context\) throw new Error/);
+  assert.match(imageWatermark, /if \(!blob\) throw new Error/);
+  assert.doesNotMatch(imageWatermark, /if \(!blob\) return file/);
 });
 
 test("upload client reuses the same ID for bounded finalization recovery", () => {
-  assert.match(mediaClient, /completion_receipt/);
+  assert.match(mediaClient, /completion\s+receipt/i);
   assert.match(mediaClient, /action: "complete", uploadId/);
   assert.match(mediaClient, /attempt < 3/);
 });
