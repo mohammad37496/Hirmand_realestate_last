@@ -100,6 +100,16 @@ test("media upload verifies binary signatures before object-store offload", () =
   assert.ok(signatureCheck >= 0 && storeCall > signatureCheck, "signature validation must precede persistence/offload");
 });
 
+test("media uploads retain server diagnostics for finalization failures", () => {
+  assert.match(mediaProtocol, /\\[upload\\] finalization failed for/);
+  assert.match(mediaClient, /HTTP \\\$\\{completeResponse\\.status\\}/);
+  assert.match(
+    mediaProtocol,
+    /if \\(stored\\.storage !== "database" \\|\\| !stored\\.id\\) return;/,
+    "offloaded objects must not be re-read from the database-only media table",
+  );
+});
+
 test("successful finalization keeps a replay receipt but releases chunk payloads", () => {
   assert.match(mediaProtocol, /completion_result is not null/);
   assert.match(mediaProtocol, /where id = \$1 and kind = \$2 and completion_result is not null/);
@@ -133,7 +143,7 @@ test("active image watermarking fails closed instead of silently uploading origi
 });
 
 test("upload client reuses the same ID for bounded finalization recovery", () => {
-  assert.match(mediaClient, /receipt makes this idempotent/i);
+  assert.match(mediaClient, /recover the same receipt/i);
   assert.match(mediaClient, /action: "complete", uploadId/);
   assert.match(mediaClient, /options\.retryCompletion/);
   assert.match(mediaClient, /attempt < maxCompletionAttempts/);
