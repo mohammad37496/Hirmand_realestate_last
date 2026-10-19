@@ -50,17 +50,17 @@ async function readJson(response: Response): Promise<unknown> {
     // Liara or an upstream proxy may return HTML/plain text for a 5xx instead
     // of H3's JSON error envelope. Keep a short, sanitized summary for admins.
     const contentType = response.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
-    const html = /html/i.test(contentType) || /<!doctype html|<html[\\s>]/i.test(body);
-    const title = body.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1];
+    const html = /html/i.test(contentType) || /<!doctype html|<html[\s>]/i.test(body);
+    const title = body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
     const summarySource = html
-      ? (title ?? body.replace(/<script[\\s\\S]*?<\\/script>/gi, " ").replace(/<style[\\s\\S]*?<\\/style>/gi, " ").replace(/<[^>]+>/g, " "))
+      ? (title ?? body.replace(/<script[\\s\\S]*?<\/script>/gi, " ").replace(/<style[\\s\\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " "))
       : body;
     const summary = summarySource
       .replace(/&nbsp;|&#160;/gi, " ")
       .replace(/&amp;/gi, "&")
       .replace(/&#39;|&apos;/gi, "'")
       .replace(/&quot;/gi, '"')
-      .replace(/\\s+/g, " ")
+      .replace(/\s+/g, " ")
       .trim()
       .slice(0, 180);
     const type = contentType ? `, ${contentType}` : "";
