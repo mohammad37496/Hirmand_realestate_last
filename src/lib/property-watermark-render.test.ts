@@ -1,0 +1,284 @@
+import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+
+import { applyPropertyImageWatermarkServer } from "./property-image-watermark.server.ts";
+import { applyPropertyVideoWatermark } from "./property-video-watermark.server.ts";
+import type { PropertyWatermarkSettings } from "./property-watermark.ts";
+import {
+  projectRoots,
+  resolveBrandLogo,
+  resolveBundledFfmpeg,
+  resolveWatermarkFont,
+} from "./watermark-runtime.server.ts";
+
+const execFileAsync = promisify(execFile);
+
+const here = dirname(fileURLToPath(import.meta.url));
+const projectRoot = join(here, "..", "..");
+
+/** Same lookup order the production modules use, restricted to what tests need. */
+function ffmpegBinary(): string {
+  const configured = process.env.FFMPEG_BIN?.trim();
+  if (configured && existsSync(configured)) return configured;
+  const bundled = join(projectRoot, ".runtime", "ffmpeg", "ffmpeg");
+  return existsSync(bundled) ? bundled : "";
+}
+
+const FFMPEG = ffmpegBinary();
+const LOGO = join(projectRoot, "public", "images", "hirmand-logo.png");
+const FONT = join(projectRoot, ".runtime", "fonts", "Vazirmatn-Regular.ttf");
+/** Real rendering needs the bundled binary plus the provisioned brand assets. */
+const CAN_RENDER = Boolean(FFMPEG) && existsSync(LOGO) && existsSync(FONT);
+
+const SETTINGS: PropertyWatermarkSettings = {
+  enabled: true,
+  showLogo: true,
+  showText: true,
+  text: "املاک هیرمند",
+  opacity: 0.82,
+  size: 1,
+};
+
+const imageSource = await readFile(
+  new URL("./property-image-watermark.server.ts", import.meta.url),
+  "utf8",
+);
+const videoSource = await readFile(
+  new URL("./property-video-watermark.server.ts", import.meta.url),
+  "utf8",
+);
+
+/**
+ * The production build bundles these modules into `.output/server/_chunks/`,
+ * where a fixed `join(__dirname, "..", ...)` misses the repo-level `.runtime/`
+ * tree. That made every upload die in finalization with "font not found" →
+ * HTTP 500, so the lookup must also consider the app root (`process.cwd()`).
+ */
+test("watermark assets resolve from the app root, not just the module directory", () => {
+  assert.ok(
+    projectRoots().includes(process.cwd()),
+    "process.cwd() must be searched for .runtime/ and public/",
+  );
+
+  if (existsSync(FFMPEG)) {
+    assert.equal(resolveBundledFfmpeg(), FFMPEG, "bundled FFmpeg must be found from the app root");
+  }
+  if (existsSync(LOGO)) {
+    assert.equal(resolveBrandLogo(), LOGO, "brand logo must be found from the app root");
+  }
+  if (existsSync(FONT)) {
+    assert.equal(resolveWatermarkFont(), FONT, "Vazirmatn font must be found from the app root");
+  }
+
+  const previous = process.env.HIRMAND_PROJECT_ROOT;
+  process.env.HIRMAND_PROJECT_ROOT = projectRoot;
+  try {
+    assert.equal(projectRoots()[0], projectRoot, "HIRMAND_PROJECT_ROOT must win over the defaults");
+  } finally {
+    if (previous === undefined) delete process.env.HIRMAND_PROJECT_ROOT;
+    else process.env.HIRMAND_PROJECT_ROOT = previous;
+  }
+});
+
+/**
+ * `drawtext` only exposes the frame size as `main_w` / `main_h`. The `iw` / `ih`
+ * aliases belong to drawbox/scale; using them made FFmpeg abort with
+ * "[Eval] Undefined constant ... in 'iw*0.012*0.900'", which is exactly the
+ * HTTP 500 this suite exists to prevent from coming back.
+ */
+test("watermark filters use drawtext-safe frame variables", () => {
+  for (const [name, source] of [
+    ["image", imageSource],
+    ["video", videoSource],
+  ] as const) {
+    const drawtextCalls = source
+      .split("\n")
+      .filter((line) => line.includes("drawtext=") && line.includes("fontsize="));
+    assert.equal(drawtextCalls.length, 1, `${name} watermark should build exactly one drawtext filter`);
+    for (const line of drawtextCalls) {
+      assert.match(line, /fontsize=\$\{fontSize\}/, `${name} fontsize must come from the shared expression`);
+      assert.match(line, /x=\$\{textX\}/, `${name} text x must come from the shared expression`);
+      assert.match(line, /y=\$\{textY\}/, `${name} text y must come from the shared expression`);
+    }
+
+    assert.match(
+      source,
+      /[fF]ontSize = `18\+main_w\*0\.012\*/,
+      `${name} watermark must size text from main_w, not the drawbox-only iw alias`,
+    );
+    assert.match(source, /main_w-104-text_w/, `${name} text must be offset from main_w`);
+    assert.match(source, /main_h\*0\.875-text_h\/2/, `${name} text must be vertically centred from main_h`);
+  }
+
+  assert.doesNotMatch(imageSource, /fontsize=18\+iw\*/, "image fontsize must not use iw");
+  assert.doesNotMatch(videoSource, /fontsize=18\+iw\*/, "video fontsize must not use iw");
+});
+
+/**
+ * `-loop 1 -i logo` is an endless input. With overlay `shortest=0` the graph
+ * never reaches EOF, so the encode ran until the 8 minute command timeout and
+ * every video upload failed.
+ */
+test("video overlay ends with the source video instead of the endless logo", () => {
+  assert.match(
+    videoSource,
+    /overlay=x=w-82:y=h-0\.085\*h:eof_action=repeat:shortest=1/,
+    "the looped logo input requires overlay shortest=1",
+  );
+  const overlayCalls = videoSource
+    .split("\n")
+    .filter((line) => line.includes("[wm_base][wm_logo]overlay=") && !line.trimStart().startsWith("//"));
+  assert.equal(overlayCalls.length, 1);
+  assert.doesNotMatch(overlayCalls[0]!, /shortest=0/);
+});
+
+test(
+  "a real JPEG is permanently watermarked into a valid WebP",
+  { skip: CAN_RENDER ? false : "FFmpeg/logo/font are not provisioned in this environment" },
+  async () => {
+    const workDir = await mkdtemp(join(tmpdir(), "hirmand-watermark-test-"));
+    try {
+      const jpegPath = join(workDir, "photo.jpg");
+      // A 1200x900 solid JPEG, the same rough shape as an admin gallery upload.
+      await execFileAsync(FFMPEG, [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=0x101820:size=1200x900",
+        "-frames:v",
+        "1",
+        "-q:v",
+        "3",
+        jpegPath,
+      ]);
+      const jpeg = await readFile(jpegPath);
+
+      const result = await applyPropertyImageWatermarkServer({
+        data: jpeg,
+        contentType: "image/jpeg",
+        pathname: "properties/uploads/photo_2026-10-19_12-57-34.jpg",
+        settings: SETTINGS,
+      });
+
+      assert.equal(result.contentType, "image/webp");
+      assert.match(result.pathname, /-watermarked\.webp$/);
+      assert.ok(result.data.length > 0, "watermarked output must not be empty");
+      assert.ok(
+        result.data.subarray(0, 4).toString("latin1") === "RIFF" &&
+          result.data.subarray(8, 12).toString("latin1") === "WEBP",
+        "output must carry a real WebP container signature",
+      );
+
+      // Decode the produced bytes and prove the watermark text was really drawn:
+      // a bare copy of the dark source has no bright pixels in the footer band.
+      const webpPath = join(workDir, "watermarked.webp");
+      await writeFile(webpPath, result.data);
+      const grayPath = join(workDir, "out.gray");
+      await execFileAsync(FFMPEG, [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        webpPath,
+        "-pix_fmt",
+        "gray",
+        "-f",
+        "rawvideo",
+        grayPath,
+      ]);
+
+      const gray = await readFile(grayPath);
+      const width = 1200;
+      const height = Math.round(gray.length / width);
+      assert.equal(height, 900, "watermarking must preserve the aspect ratio and dimensions");
+
+      let bright = 0;
+      for (let y = Math.round(height * 0.84); y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          if (gray[y * width + x] > 150) bright += 1;
+        }
+      }
+      assert.ok(
+        bright > 150,
+        `the footer watermark text must be visible (found ${bright} bright pixels)`,
+      );
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  },
+);
+
+test(
+  "a real video is watermarked and keeps its duration",
+  { skip: CAN_RENDER ? false : "FFmpeg/logo/font are not provisioned in this environment" },
+  async () => {
+    const workDir = await mkdtemp(join(tmpdir(), "hirmand-watermark-video-test-"));
+    try {
+      const inputPath = join(workDir, "input.mp4");
+      await execFileAsync(FFMPEG, [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=640x360:rate=25",
+        "-t",
+        "1",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-an",
+        inputPath,
+      ]);
+      const input = await readFile(inputPath);
+
+      const result = await applyPropertyVideoWatermark({
+        data: input,
+        contentType: "video/mp4",
+        pathname: "properties/uploads/clip.mp4",
+        settings: SETTINGS,
+      });
+
+      assert.equal(result.contentType, "video/mp4");
+      assert.match(result.pathname, /-watermarked\.mp4$/);
+      assert.ok(result.data.length > 0);
+      assert.equal(
+        result.data.subarray(4, 8).toString("latin1"),
+        "ftyp",
+        "output must be a real MP4 container",
+      );
+
+      const outputPath = join(workDir, "out.mp4");
+      await writeFile(outputPath, result.data);
+      const probe = await execFileAsync(FFMPEG, ["-hide_banner", "-i", outputPath]).catch(
+        (error: { stderr?: string }) => ({ stderr: error.stderr ?? "", stdout: "" }),
+      );
+      const detail = `${probe.stderr ?? ""}${probe.stdout ?? ""}`;
+      const duration = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(detail);
+      assert.ok(duration, "the watermarked video must be readable by FFmpeg");
+      const seconds =
+        Number(duration[1]) * 3600 + Number(duration[2]) * 60 + Number(duration[3]);
+      assert.ok(
+        Math.abs(seconds - 1) < 0.35,
+        `watermarked video must keep the source duration (got ${seconds}s)`,
+      );
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  },
+);

@@ -71,6 +71,14 @@ jobs:
       - name: Ensure CI dev dependencies after production build
         run: npm ci
 
+      # `npm run build` runs the prebuild hook, which provisions the bundled
+      # FFmpeg binary and Vazirmatn font into `.runtime/`. With those present the
+      # watermark suite renders a real JPEG and a real video through the
+      # production functions instead of skipping. This is the only job that can
+      # prove FFmpeg still accepts the generated drawtext/overlay graph.
+      - name: Watermark render regression (real FFmpeg)
+        run: node --experimental-strip-types --test src/lib/property-watermark-render.test.ts
+
       # The smoke fixtures below write to and read from the real `properties`
       # table, so the service database has to be migrated first. Without this
       # the seed dies with `relation "properties" does not exist` and the

@@ -234,7 +234,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     );
   }
 
-  async function uploadOne(file: File): Promise<{ url: string; savedBytes: number }> {
+  async function uploadOne(file: File): Promise<{ url: string; savedBytes: number; warning?: string }> {
     // Browser-side optimization is only a preparation step. The API applies
     // permanent watermarking after validating the real file bytes, so direct
     // requests cannot bypass the operator's watermark settings.
@@ -257,7 +257,13 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     });
     const url = typeof result.response.url === "string" ? result.response.url : "";
     if (!url) throw new Error("نشانی فایل آپلودشده دریافت نشد.");
-    return { url, savedBytes: optimized.savedBytes };
+    // The server reports when the bytes were stored but permanent watermarking
+    // could not run. The file is live, so this is a warning, never a failure.
+    const warning =
+      typeof result.response.watermarkWarning === "string"
+        ? result.response.watermarkWarning
+        : undefined;
+    return { url, savedBytes: optimized.savedBytes, warning };
   }
 
   async function uploadFiles(files: FileList | File[]) {
@@ -283,6 +289,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     setUploadProgress(0);
     const uploaded: string[] = [];
     const newlyFailed: FailedUpload[] = [];
+    const watermarkWarnings: string[] = [];
     let optimizedBytes = 0;
 
     try {
@@ -294,6 +301,9 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
         try {
           const result = await uploadOne(originalFile);
           optimizedBytes += result.savedBytes;
+          if (result.warning && !watermarkWarnings.includes(result.warning)) {
+            watermarkWarnings.push(result.warning);
+          }
           uploaded.push(result.url);
         } catch (error) {
           // Keep the File so the operator can retry instead of re-picking it.
@@ -327,6 +337,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
             : uploaded.length.toLocaleString("fa-IR") + " فایل آپلود شد." + savedLabel,
         );
       }
+      for (const warning of watermarkWarnings) toast.warning(warning);
     } finally {
       uploadingRef.current = false;
       setUploading(false);
@@ -345,9 +356,10 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     setUploadProgress(0);
     setUploadLabel(`تلاش مجدد: ${entry.name}`);
     try {
-      const { url } = await uploadOne(entry.file);
+      const { url, warning } = await uploadOne(entry.file);
       setItems([...linesToList(valueRef.current).filter((src) => !isPropertyFallbackImage(src)), url]);
       toast.success(`«${entry.name}» با موفقیت آپلود شد.`);
+      if (warning) toast.warning(warning);
     } catch (error) {
       setFailed((current) => [
         ...current,

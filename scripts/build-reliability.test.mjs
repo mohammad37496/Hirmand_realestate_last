@@ -37,6 +37,10 @@ const mediaStore = await readFile(
   new URL("../src/lib/media-store.server.ts", import.meta.url),
   "utf8",
 );
+const watermarkRuntime = await readFile(
+  new URL("../src/lib/watermark-runtime.server.ts", import.meta.url),
+  "utf8",
+);
 
 test("property save SQL assigns every INSERT placeholder and types floor_label", () => {
   const queryStart = propertyStore.indexOf("`insert into properties (");
@@ -164,31 +168,47 @@ test("property images are permanently watermarked on the server before storage",
   assert.match(serverImageWatermark, /contentMatchesDeclaredType\(output, "image\/webp"\)/);
   assert.match(serverImageWatermark, /واترمارک دائمی برای GIF متحرک پشتیبانی نمی‌شود/);
   assert.match(serverImageWatermark, /timeout: 90_000/);
-  assert.ok(
-    serverImageWatermark.includes('join(__dirname') && serverImageWatermark.includes('"Vazirmatn-Regular.ttf"'),
-    "image watermarking must use the provisioned real TTF font via __dirname-relative paths instead of process.cwd() or a browser-only WOFF2 file",
+  // The font must be the provisioned real TTF, resolved by the shared helper.
+  // A fixed `join(__dirname, "..", ...)` misses `.runtime/` once Nitro bundles
+  // the module into `.output/server/_chunks/`, which is what produced HTTP 500
+  // with "font not found" in production.
+  assert.match(
+    serverImageWatermark,
+    /resolveWatermarkFont\(\)/,
+    "image watermarking must resolve the provisioned Vazirmatn TTF through the shared runtime helper",
   );
-  // The module must check for the bundled runtime font, not just browser WOFF2.
-  assert.ok(
-    serverImageWatermark.includes('Vazirmatn-Regular.ttf'),
-    "image watermarking must reference the provisioned Vazirmatn TTF font",
+  assert.match(
+    serverImageWatermark,
+    /from "\.\/watermark-runtime\.server\.ts"/,
+    "image watermarking must use the shared runtime asset resolver",
   );
+  assert.match(
+    watermarkRuntime,
+    /"Vazirmatn-Regular\.ttf"/,
+    "the shared resolver must reference the provisioned Vazirmatn TTF font",
+  );
+  // The resolver must search the app root (production cwd), not only the
+  // module directory, and stay overridable for unusual deployments.
+  assert.match(watermarkRuntime, /process\.cwd\(\)/);
+  assert.match(watermarkRuntime, /HIRMAND_PROJECT_ROOT/);
+  assert.match(watermarkRuntime, /join\(root, \.\.\.segments\)/);
+  assert.match(watermarkRuntime, /resolveFromProject\("\.runtime", "fonts", "Vazirmatn-Regular\.ttf"\)/);
   // It must also check that ffmpeg is available before attempting watermarking.
-  assert.ok(
-    serverImageWatermark.includes('runtimeTreeHasAssets') || serverImageWatermark.includes('runtimeTreeHasFfmpeg'),
-    "image/video watermarking must verify ffmpeg runtime availability before processing",
+  assert.match(
+    serverImageWatermark,
+    /if \(!resolveBundledFfmpeg\(\)\)/,
+    "image watermarking must verify ffmpeg runtime availability before processing",
   );
   assert.match(ffmpegDownloader, /FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972"/);
   assert.match(ffmpegDownloader, /await ensureWatermarkFont\(\)/);
   assert.match(ffmpegDownloader, /download\(FONT_URL, 0, "Vazirmatn font"\)/);
 
   // The video watermark module must use the same robust path resolution.
-  assert.ok(
-    serverVideoWatermark.includes('join(__dirname') && serverVideoWatermark.includes('"Vazirmatn-Regular.ttf"'),
-    "video watermarking must use __dirname-relative paths for the provisioned TTF font",
-  );
-  assert.ok(
-    serverVideoWatermark.includes('runtimeTreeHasFfmpeg'),
+  assert.match(serverVideoWatermark, /resolveWatermarkFont\(\)/);
+  assert.match(serverVideoWatermark, /from "\.\/watermark-runtime\.server\.ts"/);
+  assert.match(
+    serverVideoWatermark,
+    /if \(!resolveBundledFfmpeg\(\)\)/,
     "video watermarking must verify ffmpeg runtime availability before processing",
   );
   assert.match(serverVideoWatermark, /applyPropertyVideoWatermark/);

@@ -51,6 +51,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "دسترسی آپلود رسانه برای فایل‌های ملک فعال نیست." });
   }
   assertSameOrigin(event);
+
+  // Per-request diagnostic. When permanent watermarking cannot run (missing
+  // FFmpeg/font/logo, or an FFmpeg filter error) the upload must still succeed,
+  // but the operator is told that the original bytes were stored instead. It is
+  // deliberately not a silent fallback: the reason is logged server-side and the
+  // fact is returned to the admin panel.
+  let watermarkWarning: string | null = null;
+
   try {
     return await handleChunkedUpload(event, {
       kind: "media",
@@ -91,23 +99,28 @@ export default defineEventHandler(async (event) => {
             settings,
           });
         } catch (error) {
-          // If watermarking fails because ffmpeg, a font, or the logo is missing in
-          // the current runtime, store the original file instead of failing the upload.
-          // Operators can still re-upload after fixing the runtime, and the public site
-          // stays up. The diagnostic detail is written to the server log so the missing
-          // dependency is easy to spot during deployment checks.
-          console.warn(
-            "[upload] permanent media watermark skipped for " +
+          // If watermarking fails because ffmpeg, the font, the logo or a filter
+          // is unavailable, store the original file instead of failing the upload
+          // with HTTP 500. The failure is logged at error level (not buried in a
+          // warning) and reported to the caller so the operator knows the media
+          // is live without the brand watermark.
+          console.error(
+            "[upload] permanent media watermark failed for " +
               contentType +
               " at " +
               pathname +
               " — " +
               (error instanceof Error ? error.message : String(error))
           );
+          watermarkWarning =
+            "فایل ذخیره شد، اما واترمارک دائمی روی آن اعمال نشد و نسخه اصلی نگه داشته شد.";
           return null;
         }
       },
-      finish: async ({ stored }) => ({ url: stored.url }),
+      finish: async ({ stored }) => ({
+        url: stored.url,
+        ...(watermarkWarning ? { watermarkWarning } : {}),
+      }),
     });
   } catch (error) {
     // Also report failures that happen before the completion handler's own

@@ -21,8 +21,12 @@ function mimeFromFilename(filename: string): string {
 }
 
 /** Public property-media uploads. The submission itself still remains pending until an admin approves it. */
-export default defineEventHandler((event) =>
-  handleChunkedUpload(event, {
+export default defineEventHandler((event) => {
+  // A watermark dependency/filter failure must never turn a customer upload into
+  // an HTTP 500; keep the original and report the degradation in the response.
+  let watermarkWarning: string | null = null;
+
+  return handleChunkedUpload(event, {
     access: "public",
     kind: "customer-property-media",
     pathPrefix: "properties/customer-submissions",
@@ -47,12 +51,29 @@ export default defineEventHandler((event) =>
         return null;
       }
 
-      if (contentType.startsWith("image/")) {
-        return applyPropertyImageWatermarkServer({ data, contentType, pathname, settings });
-      }
+      try {
+        if (contentType.startsWith("image/")) {
+          return await applyPropertyImageWatermarkServer({ data, contentType, pathname, settings });
+        }
 
-      return applyPropertyVideoWatermark({ data, contentType, pathname, settings });
+        return await applyPropertyVideoWatermark({ data, contentType, pathname, settings });
+      } catch (error) {
+        console.error(
+          "[upload] permanent media watermark failed for customer submission " +
+            contentType +
+            " at " +
+            pathname +
+            " — " +
+            (error instanceof Error ? error.message : String(error)),
+        );
+        watermarkWarning =
+          "فایل ذخیره شد، اما واترمارک دائمی روی آن اعمال نشد و نسخه اصلی نگه داشته شد.";
+        return null;
+      }
     },
-    finish: async ({ stored, session }) => ({ url: stored.url + (String(session.content_type ?? "").startsWith("video/") ? "?type=video" : "") }),
-  }),
-);
+    finish: async ({ stored, session }) => ({
+      url: stored.url + (String(session.content_type ?? "").startsWith("video/") ? "?type=video" : ""),
+      ...(watermarkWarning ? { watermarkWarning } : {}),
+    }),
+  });
+});

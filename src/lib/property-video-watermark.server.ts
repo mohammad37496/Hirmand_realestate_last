@@ -2,132 +2,50 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { promisify } from "node:util";
+import {
+  resolveBrandLogo,
+  resolveBundledFfmpeg,
+  resolveLocalFontFallback,
+  resolveWatermarkFont,
+} from "./watermark-runtime.server.ts";
 import type { PropertyWatermarkSettings } from "@/lib/property-watermark";
 
 const execFileAsync = promisify(execFile);
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-/**
- * Base directories that may contain project/public assets in dev or deploy.
- *
- * We avoid relying purely on `process.cwd()` because in some deployments
- * (Liara, container starts, preview servers) the working directory is not
- * the repo root and paths like `public/images/...` are not resolvable relative
- * to it.
- */
-function projectAssetDirs(): string[] {
-  const dirs = [
-    join(__dirname, "..", "public"),
-    join(__dirname, "..", "..", "public"),
-  ];
-  try {
-    const cwd = process.cwd();
-    if (cwd && cwd !== "/" && cwd !== ".") {
-      dirs.push(join(cwd, "public"));
-    }
-  } catch {
-    // ignore
-  }
-  const seen = new Set<string>();
-  return dirs.filter((d) => seen.has(d) ? false : seen.add(d));
-}
-
 /** Find the first candidate that actually exists on disk. */
-function findExisting(candidates: string[]): string | null {
+function findExisting(candidates: Array<string | null>): string | null {
   for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
+    if (candidate && existsSync(candidate)) return candidate;
   }
   return null;
 }
 
-/** True when a bundled ffmpeg binary is available for video watermarking. */
-function runtimeTreeHasFfmpeg(): boolean {
-  const candidates = [
-    join(__dirname, ".runtime", "ffmpeg", "ffmpeg.exe"),
-    join(__dirname, ".runtime", "ffmpeg", "ffmpeg"),
-    join(__dirname, "..", ".runtime", "ffmpeg", "ffmpeg.exe"),
-    join(__dirname, "..", ".runtime", "ffmpeg", "ffmpeg"),
-    join(__dirname, "..", "..", ".runtime", "ffmpeg", "ffmpeg.exe"),
-    join(__dirname, "..", "..", ".runtime", "ffmpeg", "ffmpeg"),
-    // CWD-based runtime tree (some local/dev layouts).
-    ...projectAssetDirs().map((d) =>
-      join(d, "..", ".runtime", "ffmpeg", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg")
-    ),
-  ];
-
-  for (const path of candidates) {
-    try {
-      if (existsSync(path)) return true;
-    } catch {
-      // ignore
-    }
-  }
-
-  return false;
-}
-
-const LOGO_CANDIDATES = [
-  ...projectAssetDirs().map(
-    (d) => join(d, "images", "hirmand-logo.png")
-  ),
-  join(__dirname, "..", "..", ".output", "public", "images", "hirmand-logo.png"),
-  join(__dirname, ".runtime", "public", "images", "hirmand-logo.png"),
-  join(__dirname, "..", ".runtime", "public", "images", "hirmand-logo.png"),
-];
-
-const FONT_CANDIDATES = [
-  // Explicit operator override (Liara env var or local test override).
-  ...(process.env.HIRMAND_WATERMARK_FONT?.trim()
-    ? [process.env.HIRMAND_WATERMARK_FONT.trim()]
-    : []),
-  // Provisioned and checksum-verified by scripts/ensure-ffmpeg.mjs during prebuild.
-  join(__dirname, ".runtime", "fonts", "Vazirmatn-Regular.ttf"),
-  join(__dirname, "..", ".runtime", "fonts", "Vazirmatn-Regular.ttf"),
-  join(__dirname, "..", "..", ".runtime", "fonts", "Vazirmatn-Regular.ttf"),
-  // System fonts commonly available on Debian/Ubuntu-based Node hosts.
+/** System fonts used only when the provisioned Vazirmatn font is absent. */
+const SYSTEM_FONT_CANDIDATES = [
   "/usr/share/fonts/opentype/noto/NotoSansArabic-Regular.ttf",
   "/usr/share/fonts/opentype/noto/NotoNaskhArabic-Regular.ttf",
   "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
   "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-  // Local dev fallback.
-  join(
-    __dirname,
-    "..",
-    "node_modules",
-    "@fontsource",
-    "vazirmatn",
-    "files",
-    "vazirmatn-arabic-400-normal.woff2"
-  ),
 ];
 
+/**
+ * Resolve the watermark assets once per call. The shared helper searches the
+ * app root (`process.cwd()`), an explicit override and the module's ancestors,
+ * so the same lookup works for `src/`, a bundled Nitro chunk and Liara.
+ */
+function resolveFontPath(): string | null {
+  return findExisting([
+    resolveWatermarkFont(),
+    ...SYSTEM_FONT_CANDIDATES,
+    resolveLocalFontFallback(),
+  ]);
+}
+
 function resolveFfmpegBinary(): string {
-  const configured = process.env.FFMPEG_BIN?.trim();
-  if (configured && existsSync(configured)) return configured;
-
-  const bundledPaths = [
-    join(__dirname, ".runtime", "ffmpeg", "ffmpeg.exe"),
-    join(__dirname, ".runtime", "ffmpeg", "ffmpeg"),
-    join(__dirname, "..", ".runtime", "ffmpeg", "ffmpeg.exe"),
-    join(__dirname, "..", ".runtime", "ffmpeg", "ffmpeg"),
-    join(__dirname, "..", "..", ".runtime", "ffmpeg", "ffmpeg.exe"),
-    join(__dirname, "..", "..", ".runtime", "ffmpeg", "ffmpeg"),
-    // CWD-based runtime tree (some local/dev layouts).
-    ...projectAssetDirs().map((d) =>
-      join(d, "..", ".runtime", "ffmpeg", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg")
-    ),
-  ];
-  for (const bundled of bundledPaths) {
-    if (existsSync(bundled)) return bundled;
-  }
-
   // Last resort: assume ffmpeg is on PATH.
-  return "ffmpeg";
+  return resolveBundledFfmpeg() ?? "ffmpeg";
 }
 
 function filterPath(value: string): string {
@@ -176,8 +94,8 @@ export async function applyPropertyVideoWatermark(
     );
   }
 
-  const logoPath = settings.showLogo ? findExisting(LOGO_CANDIDATES) : null;
-  const fontPath = settings.showText ? findExisting(FONT_CANDIDATES) : null;
+  const logoPath = settings.showLogo ? resolveBrandLogo() : null;
+  const fontPath = settings.showText ? resolveFontPath() : null;
 
   if (settings.showLogo && !logoPath) {
     throw new Error(
@@ -190,7 +108,7 @@ export async function applyPropertyVideoWatermark(
     );
   }
 
-  if (!runtimeTreeHasFfmpeg()) {
+  if (!resolveBundledFfmpeg()) {
     throw new Error(
       "ابزار تنظیم ویدئو (FFmpeg) در محیط فعلی در دسترس نیست."
     );
@@ -222,9 +140,12 @@ export async function applyPropertyVideoWatermark(
     ];
 
     if (settings.showText) {
-      const fontSize = `18+iw*0.012*${settings.size.toFixed(3)}`;
-      const textX = settings.showLogo ? "w-104-text_w" : "w-24-text_w";
-      const textY = "h-0.125*h-text_h/2";
+      // drawtext only understands the frame-size aliases `main_w` / `main_h`.
+      // `iw` / `ih` are drawbox/scale aliases and make FFmpeg abort with
+      // "Undefined constant" while initialising the filter graph.
+      const fontSize = `18+main_w*0.012*${settings.size.toFixed(3)}`;
+      const textX = settings.showLogo ? "main_w-104-text_w" : "main_w-24-text_w";
+      const textY = "main_h*0.875-text_h/2";
       panelParts.push(
         `drawtext=fontfile='${filterPath(fontPath!)}':textfile='${filterPath(textPath)}':fontcolor=white:fontsize=${fontSize}:x=${textX}:y=${textY}:fix_bounds=1:borderw=1:bordercolor=0x081320@0.35:text_shaping=1`
       );
@@ -245,7 +166,11 @@ export async function applyPropertyVideoWatermark(
       filters.push(
         `[1:v]scale=${overlayScale}:-1[wm_logo]`,
         `[0:v]${panelParts.join(",")}[wm_base]`,
-        "[wm_base][wm_logo]overlay=x=w-82:y=h-0.085*h:eof_action=repeat:shortest=0:format=auto[vout]"
+        // `-loop 1` makes the logo input endless, so overlay MUST stop at the
+        // shortest stream. With `shortest=0` the graph never reaches EOF and the
+        // encode runs until the 8-minute command timeout, failing every video
+        // upload. `shortest=1` ends the output with the source video.
+        "[wm_base][wm_logo]overlay=x=w-82:y=h-0.085*h:eof_action=repeat:shortest=1:format=auto[vout]"
       );
       args.push("-filter_complex", filters.join(";"), "-map", "[vout]");
     } else {

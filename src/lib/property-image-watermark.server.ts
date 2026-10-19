@@ -2,161 +2,55 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { promisify } from "node:util";
-import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
+// Relative (same-directory) imports keep the module loadable by the plain Node
+// test runner, which does not resolve the `@/` alias used at build time.
+import { contentMatchesDeclaredType } from "./file-signature.server.ts";
+import {
+  resolveBrandLogo,
+  resolveBundledFfmpeg,
+  resolveLocalFontFallback,
+  resolveWatermarkFont,
+} from "./watermark-runtime.server.ts";
 import type { PropertyWatermarkSettings } from "@/lib/property-watermark";
 
-const execFileAsync = promisify(execFile);
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-/**
- * Base directories that may contain project/public assets in dev or deploy.
- *
- * We avoid `process.cwd()` because in some deployments (Liara, Vercel-style
- * container starts, preview servers) the working directory is not the repo root
- * and paths like `public/images/...` are not resolvable relative to it.
- */
-function projectAssetDirs(): string[] {
-  const dirs = [
-    join(__dirname, "..", "public"),
-    join(__dirname, "..", "..", "public"),
-  ];
-  try {
-    const cwd = process.cwd();
-    if (cwd && cwd !== "/" && cwd !== ".") {
-      dirs.push(join(cwd, "public"));
-    }
-  } catch {
-    // ignore
-  }
-  // Deduplicate while preserving order.
-  const seen = new Set<string>();
-  return dirs.filter((d) => seen.has(d) ? false : seen.add(d));
-}
-
-/** Find the first candidate that actually exists on disk. */
-function findExisting(candidates: string[]): string | null {
+const execFileAsync = promisify(execFile);/** Find the first candidate that actually exists on disk. */
+function findExisting(candidates: Array<string | null>): string | null {
   for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
+    if (candidate && existsSync(candidate)) return candidate;
   }
   return null;
 }
 
 /**
- * True when a ffmpeg+runtime tree looks provisioned (binary + font present).
- *
- * We check both the `__dirname`-relative `.runtime` tree and the CWD-based one
- * because different deployment layouts place `.runtime` in different spots.
+ * System fonts commonly present on Debian/Ubuntu Node hosts, used only when the
+ * provisioned Vazirmatn font is absent. drawtext needs a TTF/OTF here.
  */
-function runtimeTreeHasAssets(): boolean {
-  const candidates = [
-    // __dirname-based (most reliable for bundled servers).
-    join(__dirname, "..", ".runtime", "ffmpeg"),
-    join(__dirname, "..", "..", ".runtime", "ffmpeg"),
-    // CWD-based (some local/dev layouts).
-    ...projectAssetDirs().map((d) => join(d, "..", ".runtime", "ffmpeg")),
-  ];
-
-  for (const base of candidates) {
-    try {
-      if (!existsSync(base)) continue;
-      if (
-        existsSync(join(base, "ffmpeg")) ||
-        existsSync(join(base, "ffmpeg.exe"))
-      ) {
-        return true;
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  // Font-only presence is not enough to watermark images (we need ffmpeg), but
-  // we record it anyway for diagnostics. The real gate is the ffmpeg binary.
-  return false;
-}
-
-const LOGO_CANDIDATES = [
-  // Dev layout: public/ next to src/.
-  ...projectAssetDirs().map(
-    (d) => join(d, "images", "hirmand-logo.png")
-  ),
-  // Deployed Nitro output layout (nitro puts server assets under .output).
-  join(__dirname, "..", "..", ".output", "public", "images", "hirmand-logo.png"),
-  // Some build layouts stage public assets under .runtime/public.
-  join(__dirname, ".runtime", "public", "images", "hirmand-logo.png"),
-  join(__dirname, "..", ".runtime", "public", "images", "hirmand-logo.png"),
-];
-
-const FONT_CANDIDATES = [
-  // Explicit operator override (Liara env var or local test override).
-  ...(process.env.HIRMAND_WATERMARK_FONT?.trim()
-    ? [process.env.HIRMAND_WATERMARK_FONT.trim()]
-    : []),
-  // Provisioned and checksum-verified by scripts/ensure-ffmpeg.mjs during prebuild.
-  // Use __dirname-based paths so they work regardless of process.cwd() at runtime.
-  join(__dirname, ".runtime", "fonts", "Vazirmatn-Regular.ttf"),
-  join(__dirname, "..", ".runtime", "fonts", "Vazirmatn-Regular.ttf"),
-  join(__dirname, "..", "..", ".runtime", "fonts", "Vazirmatn-Regular.ttf"),
-  // System fonts commonly available on Debian/Ubuntu-based Node hosts (including many
-  // Liara container images). These are fallbacks only; the project font is preferred.
+const SYSTEM_FONT_CANDIDATES = [
   "/usr/share/fonts/opentype/noto/NotoSansArabic-Regular.ttf",
   "/usr/share/fonts/opentype/noto/NotoNaskhArabic-Regular.ttf",
   "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
   "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-  // Local dev fallback when neither runtime provisioning nor system fonts exist.
-  // drawtext officially wants TTF/OTF, but some FFmpeg builds accept WOFF2 as well;
-  // treat this as a best-effort fallback only.
-  join(
-    __dirname,
-    "..",
-    "node_modules",
-    "@fontsource",
-    "vazirmatn",
-    "files",
-    "vazirmatn-arabic-400-normal.woff2"
-  ),
 ];
 
+/**
+ * Resolve the watermark assets once per call. The shared helper searches the
+ * app root (`process.cwd()`), an explicit override and the module's ancestors,
+ * so the same lookup works for `src/`, a bundled Nitro chunk and Liara.
+ */
+function resolveFontPath(): string | null {
+  return findExisting([
+    resolveWatermarkFont(),
+    ...SYSTEM_FONT_CANDIDATES,
+    // Best-effort WOFF2 fallback for local dev; not all FFmpeg builds accept it.
+    resolveLocalFontFallback(),
+  ]);
+}
+
 function resolveFfmpegBinary(): string {
-  const configured = process.env.FFMPEG_BIN?.trim();
-  if (configured && existsSync(configured)) return configured;
-
-  // __dirname-based runtime tree (most reliable for deployed servers).
-  const bundledPaths = [
-    join(__dirname, ".runtime", "ffmpeg", "ffmpeg.exe"),
-    join(__dirname, ".runtime", "ffmpeg", "ffmpeg"),
-    join(__dirname, "..", ".runtime", "ffmpeg", "ffmpeg.exe"),
-    join(__dirname, "..", ".runtime", "ffmpeg", "ffmpeg"),
-    join(__dirname, "..", "..", ".runtime", "ffmpeg", "ffmpeg.exe"),
-    join(__dirname, "..", "..", ".runtime", "ffmpeg", "ffmpeg"),
-  ];
-  for (const bundled of bundledPaths) {
-    if (existsSync(bundled)) return bundled;
-  }
-
-  // CWD-based runtime tree (some local/dev layouts).
-  try {
-    const cwd = process.cwd();
-    if (cwd) {
-      const cwdPaths = [
-        join(cwd, ".runtime", "ffmpeg", "ffmpeg.exe"),
-        join(cwd, ".runtime", "ffmpeg", "ffmpeg"),
-      ];
-      for (const bundled of cwdPaths) {
-        if (existsSync(bundled)) return bundled;
-      }
-    }
-  } catch {
-    // ignore
-  }
-
   // Last resort: assume ffmpeg is on PATH (works in some container/dev setups).
-  return "ffmpeg";
+  return resolveBundledFfmpeg() ?? "ffmpeg";
 }
 
 function filterPath(value: string): string {
@@ -224,8 +118,8 @@ export async function applyPropertyImageWatermarkServer(
     );
   }
 
-  const logoPath = settings.showLogo ? findExisting(LOGO_CANDIDATES) : null;
-  const fontPath = settings.showText ? findExisting(FONT_CANDIDATES) : null;
+  const logoPath = settings.showLogo ? resolveBrandLogo() : null;
+  const fontPath = settings.showText ? resolveFontPath() : null;
 
   if (settings.showLogo && !logoPath) {
     throw new Error(
@@ -238,7 +132,7 @@ export async function applyPropertyImageWatermarkServer(
     );
   }
 
-  if (!runtimeTreeHasAssets()) {
+  if (!resolveBundledFfmpeg()) {
     throw new Error(
       "ابزار تنظیم تصویر (FFmpeg) در محیط فعلی در دسترس نیست."
     );
@@ -264,9 +158,14 @@ export async function applyPropertyImageWatermarkServer(
     ];
 
     if (settings.showText) {
-      const fontSize = `18+iw*0.012*${size.toFixed(3)}`;
-      const textX = settings.showLogo ? "w-104-text_w" : "w-24-text_w";
-      const textY = "h-0.125*h-text_h/2";
+      // drawtext evaluates its expressions against the *frame* dims exposed as
+      // `main_w` / `main_h`. The `iw` / `ih` aliases that drawbox and scale use
+      // are not defined inside drawtext, so sizing the text from `iw` made FFmpeg
+      // abort with "Undefined constant ... in 'iw*0.012*...'", which surfaced as
+      // HTTP 500 on every property-image upload.
+      const fontSize = `18+main_w*0.012*${size.toFixed(3)}`;
+      const textX = settings.showLogo ? "main_w-104-text_w" : "main_w-24-text_w";
+      const textY = "main_h*0.875-text_h/2";
       drawingParts.push(
         `drawtext=fontfile='${filterPath(fontPath!)}':textfile='${filterPath(textPath)}':fontcolor=white@${opacity.toFixed(3)}:fontsize=${fontSize}:x=${textX}:y=${textY}:fix_bounds=1:borderw=1:bordercolor=0x081320@0.35:text_shaping=1`
       );
