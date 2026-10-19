@@ -99,7 +99,7 @@ async function download(url, redirects = 0, label = "FFmpeg") {
 }
 
 function verifyGitBlob(buffer, expected) {
-  const header = Buffer.from(`blob ${buffer.length}\\0`);
+  const header = Buffer.from(`blob ${buffer.length}\0`);
   const actual = createHash("sha1").update(Buffer.concat([header, buffer])).digest("hex");
   if (actual !== expected) {
     throw new Error(`Vazirmatn font blob checksum mismatch: expected ${expected}, got ${actual}`);
