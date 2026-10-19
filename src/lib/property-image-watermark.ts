@@ -97,7 +97,10 @@ export async function applyPropertyImageWatermark(
     context.fillStyle = "rgba(8,19,32,0.74)";
     roundedRect(context, x, y, panelWidth, panelHeight, Math.max(9, Math.round(base * 0.6)));
     context.fill();
-    context.globalAlpha = 1;
+    // Apply the configured opacity to the logo and text too, not only to the
+    // background panel; otherwise the controls appear to have no effect on
+    // the visible watermark itself.
+    context.globalAlpha = settings.opacity;
 
     let cursorX = x + panelWidth - paddingX;
     const centerY = y + panelHeight / 2;
