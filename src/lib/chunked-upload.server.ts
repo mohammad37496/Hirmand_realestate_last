@@ -176,8 +176,8 @@ export async function handleChunkedUpload(
     }
 
     const session = await loadSession(uploadIdHeader);
-    if (!session) {
-      throw httpError("نشست آپلود پیدا نشد یا منقضی شده است. دوباره تلاش کنید.", 404);
+    if (!session || String(session.kind ?? "") !== config.kind) {
+      throw httpError("نشست آپلود پیدا نشد یا برای این مسیر معتبر نیست.", 404);
     }
     if (String(session.completion_state ?? "pending") !== "pending") {
       throw httpError("این آپلود در مرحله نهایی‌سازی است و قطعه جدیدی نمی‌پذیرد.", 409);
@@ -235,15 +235,6 @@ export async function handleChunkedUpload(
   const action = body && typeof body === "object" ? body.action : undefined;
 
   if (action === "begin") {
-    // Uploads are expensive (staging rows plus an assembled object), so an
-    // authenticated but scripted client cannot open them without bound.
-    // A property can contain many media files; use a dedicated bucket and
-    // a higher cap so an ordinary batch does not trigger the login/API throttle.
-    // The new key namespace also releases clients blocked by the older, overly
-    // strict upload bucket as soon as this version is deployed.
-    const attempt = await consumeAdminAttempt(`media-upload:begin:${clientFingerprint(event)}`, 30);
-    if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
-
     const payload = (body ?? {}) as Record<string, unknown>;
     const filename = typeof payload.filename === "string" ? payload.filename.trim() : "";
     const declared =
@@ -274,6 +265,12 @@ export async function handleChunkedUpload(
       }
       text[field.column] = value;
     }
+
+    // Count only a syntactically valid, type- and size-accepted begin request.
+    // Invalid files/fields must not exhaust a legitimate operator's upload
+    // budget; the bucket remains separate from login and other admin APIs.
+    const attempt = await consumeAdminAttempt(`media-upload:begin:${clientFingerprint(event)}`, 30);
+    if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
 
     const totalChunks = Math.max(1, Math.ceil(sizeBytes / chunkSize));
     const uploadId = crypto.randomUUID();
@@ -319,9 +316,9 @@ export async function handleChunkedUpload(
     const completedRows = await sql.query<SessionRow>(
       `select completion_result, stored_storage
        from media_upload_sessions
-       where id = $1 and completion_result is not null
+       where id = $1 and kind = $2 and completion_result is not null
        limit 1`,
-      [uploadId],
+      [uploadId, config.kind],
     );
     const completedSession = completedRows[0];
     if (
@@ -341,6 +338,7 @@ export async function handleChunkedUpload(
       `update media_upload_sessions
        set completion_state = 'completing', completion_started_at = current_timestamp
        where id = $1
+         and kind = $2
          and (
            completion_state = 'pending'
            or (
@@ -349,7 +347,7 @@ export async function handleChunkedUpload(
            )
          )
        returning *`,
-      [uploadId],
+      [uploadId, config.kind],
     );
     const session = claimed[0];
     if (!session) {
@@ -493,8 +491,8 @@ export async function handleChunkedUpload(
     if (uploadId) {
       const sql = await getSql();
       await sql.query(
-        "delete from media_upload_sessions where id = $1 and completion_state = 'pending'",
-        [uploadId],
+        "delete from media_upload_sessions where id = $1 and kind = $2 and completion_state = 'pending'",
+        [uploadId, config.kind],
       );
     }
     return { aborted: true };
