@@ -98,6 +98,7 @@ test("admin media uploads are single-flight and append to the latest form value"
   assert.match(mediaField, /const uploadingRef = useRef\(false\)/);
   assert.match(mediaField, /valueRef\.current/);
   assert.match(mediaField, /if \(uploadingRef\.current\) return/);
+  assert.match(mediaField, /retryCompletion: true/);
 });
 
 test("active image watermarking fails closed instead of silently uploading originals", () => {
@@ -110,5 +111,6 @@ test("active image watermarking fails closed instead of silently uploading origi
 test("upload client reuses the same ID for bounded finalization recovery", () => {
   assert.match(mediaClient, /receipt makes this idempotent/i);
   assert.match(mediaClient, /action: "complete", uploadId/);
-  assert.match(mediaClient, /attempt < 3/);
+  assert.match(mediaClient, /options\.retryCompletion/);
+  assert.match(mediaClient, /attempt < maxCompletionAttempts/);
 });
