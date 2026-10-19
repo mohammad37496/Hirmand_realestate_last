@@ -44,7 +44,7 @@
     "test:phone-bridge:sql": "node scripts/phone-bridge-sql-check.mjs",
     "test:phone-bridge:http": "node scripts/phone-bridge-e2e.mjs",
     "start": "node scripts/prestart.mjs && node .output/server/index.mjs",
-    "prebuild": "node scripts/generate-fallback-assets.mjs"
+    "prebuild": "node scripts/ensure-ffmpeg.mjs && node scripts/generate-fallback-assets.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
