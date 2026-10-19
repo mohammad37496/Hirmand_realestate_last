@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { realpathSync } from "node:fs";
@@ -39,6 +40,30 @@ function verify(buffer, expected) {
   }
 }
 
+/** Fail the build early if the binary cannot perform configured media watermarks. */
+function verifyWatermarkCapabilities(binaryPath) {
+  const options = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15_000 };
+  let filters;
+  let encoders;
+  try {
+    filters = execFileSync(binaryPath, ["-hide_banner", "-filters"], options);
+    encoders = execFileSync(binaryPath, ["-hide_banner", "-encoders"], options);
+  } catch {
+    throw new Error("FFmpeg is present but could not run its capability check.");
+  }
+
+  const missing = [];
+  for (const name of ["drawtext", "overlay", "scale"]) {
+    if (!new RegExp("\\b" + name + "\\b").test(filters)) missing.push("filter " + name);
+  }
+  for (const name of ["libwebp", "libx264"]) {
+    if (!new RegExp("\\b" + name + "\\b").test(encoders)) missing.push("encoder " + name);
+  }
+  if (missing.length) {
+    throw new Error("FFmpeg lacks required media watermark capabilities: " + missing.join(", "));
+  }
+}
+
 async function download(url, redirects = 0) {
   if (redirects > 5) throw new Error("Too many FFmpeg download redirects.");
   const configuredTimeout = Number(process.env.HIRMAND_FFMPEG_DOWNLOAD_TIMEOUT_MS);
@@ -69,12 +94,14 @@ async function download(url, redirects = 0) {
 export async function ensureFfmpegBinary() {
   const configured = runtimeBinaryConfigured();
   if (configured) {
-    console.log(`[ffmpeg] Using FFMPEG_BIN=${configured}`);
+    verifyWatermarkCapabilities(configured);
+    console.log(`[ffmpeg] Using configured FFmpeg with required watermark filters/encoders.`);
     return configured;
   }
 
   if (existsSync(TARGET_PATH)) {
-    console.log(`[ffmpeg] Bundled runtime already present: ${TARGET_PATH}`);
+    verifyWatermarkCapabilities(TARGET_PATH);
+    console.log("[ffmpeg] Bundled runtime has the required watermark filters/encoders.");
     return TARGET_PATH;
   }
 
@@ -107,7 +134,8 @@ export async function ensureFfmpegBinary() {
     rmSync(temp, { force: true });
   }
 
-  console.log(`[ffmpeg] Ready: ${TARGET_PATH}`);
+  verifyWatermarkCapabilities(TARGET_PATH);
+  console.log("[ffmpeg] Ready with the required watermark filters/encoders.");
   return TARGET_PATH;
 }
 
