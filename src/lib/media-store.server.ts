@@ -216,44 +216,67 @@ export async function storeAssembledUpload(input: {
     }
   }
 
-  // With an object store configured, move the finished file to the CDN and drop
-  // the database copy; if that fails the stored row still serves the media.
+  // Commit a usable database URL before attempting the optional CDN offload.
+  // If the remote put succeeds but updating the session fails, the database row
+  // remains intact and a retried completion can safely return this fallback URL.
   let stored: StoredMedia = {
     url: `${DB_MEDIA_PATH}${id}`,
     storage: "database",
     id,
   };
 
+  try {
+    await sql.query(
+      "update media_upload_sessions\n       set completion_state = 'assembled', stored_url = $2, stored_storage = $3, stored_media_id = $4\n       where id = $1",
+      [input.sessionId, stored.url, stored.storage, stored.id],
+    );
+  } catch (error) {
+    // The staging object was never exposed to the caller; remove it if we could
+    // not persist the session recovery pointer.
+    await sql.query("delete from media_objects where id = $1", [id]).catch(() => undefined);
+    throw error;
+  }
+
   if (dataResult.size > 0 && dataResult.size <= MAX_OFFLOAD_BYTES) {
+    let remoteUrl: string | null = null;
+
     if (liaraStorageConfigured()) {
-      const url = await putLiaraObject({
+      remoteUrl = await putLiaraObject({
         key: pathname,
         body: dataResult.bytes,
         contentType,
       });
-      if (url) {
-        await sql.query("delete from media_objects where id = $1", [id]);
-        stored = { url, storage: "object-store", id: null };
-      }
     } else if (blobConfigured()) {
-      const url = await putToObjectStore(pathname, dataResult.bytes, contentType);
-      if (url) {
-        await sql.query("delete from media_objects where id = $1", [id]);
-        stored = { url, storage: "object-store", id: null };
-      }
+      remoteUrl = await putToObjectStore(pathname, dataResult.bytes, contentType);
     }
-  }
 
-  // Keep the session until the caller's business record is committed. This
-  // makes a retry observable and lets us return the same URL/result.
-  await sql.query(
-    `update media_upload_sessions
-     set completion_state = 'assembled', stored_url = $2, stored_storage = $3, stored_media_id = $4
-     where id = $1`,
-    [input.sessionId, stored.url, stored.storage, stored.id],
-  );
-  return stored;
-}
+    if (remoteUrl) {
+      const remoteStored: StoredMedia = {
+        url: remoteUrl,
+        storage: "object-store",
+        id: null,
+      };
+
+      // Commit the public CDN URL before deleting the durable database fallback.
+      try {
+        await sql.query(
+          "update media_upload_sessions\n           set completion_state = 'assembled', stored_url = $2, stored_storage = $3, stored_media_id = $4\n           where id = $1",
+          [input.sessionId, remoteStored.url, remoteStored.storage, remoteStored.id],
+        );
+      } catch (error) {
+        // The database fallback is still referenced by the session. Best-effort
+        // cleanup prevents the failed remote attempt from leaking an object.
+        await deleteStoredMedia(remoteUrl);
+        throw error;
+      }
+
+      await sql.query("delete from media_objects where id = $1", [id]).catch((error) => {
+        // An extra DB copy is safer than losing the only recoverable URL.
+        console.warn("[media] duplicate database copy cleanup failed", error instanceof Error ? error.message : error);
+      });
+      stored = remoteStored;
+    }
+  }}
 export async function deleteStoredMedia(
   url: string | null | undefined,
 ): Promise<void> {
