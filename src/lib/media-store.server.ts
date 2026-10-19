@@ -276,7 +276,11 @@ export async function storeAssembledUpload(input: {
       });
       stored = remoteStored;
     }
-  }}
+  }
+
+  return stored;
+}
+
 export async function deleteStoredMedia(
   url: string | null | undefined,
 ): Promise<void> {
