@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { realpathSync } from "node:fs";
 
@@ -12,6 +12,11 @@ import { realpathSync } from "node:fs";
 const RELEASE_TAG = "autobuild-2026-10-18-13-01";
 const TARGET_DIR = join(process.cwd(), ".runtime", "ffmpeg");
 const TARGET_PATH = join(TARGET_DIR, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+const FONT_VERSION = "v33.003";
+const FONT_DIR = join(process.cwd(), ".runtime", "fonts");
+const FONT_PATH = join(FONT_DIR, "Vazirmatn-Regular.ttf");
+const FONT_URL = `https://raw.githubusercontent.com/rastikerdar/vazirmatn/${FONT_VERSION}/fonts/ttf/Vazirmatn-Regular.ttf`;
+const FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972";
 
 const ASSETS = {
   "linux-x64": {
@@ -66,8 +71,8 @@ function verifyWatermarkCapabilities(binaryPath) {
   }
 }
 
-async function download(url, redirects = 0) {
-  if (redirects > 5) throw new Error("Too many FFmpeg download redirects.");
+async function download(url, redirects = 0, label = "FFmpeg") {
+  if (redirects > 5) throw new Error(`Too many ${label} download redirects.`);
   const configuredTimeout = Number(process.env.HIRMAND_FFMPEG_DOWNLOAD_TIMEOUT_MS);
   const timeoutMs = Number.isInteger(configuredTimeout) && configuredTimeout >= 1000 && configuredTimeout <= 120_000
     ? configuredTimeout
@@ -80,20 +85,58 @@ async function download(url, redirects = 0) {
     });
   } catch (error) {
     if (error && typeof error === "object" && error.name === "TimeoutError") {
-      throw new Error(`FFmpeg download timed out after ${timeoutMs}ms: ${url}`);
+      throw new Error(`${label} download timed out after ${timeoutMs}ms: ${url}`);
     }
     throw error;
   }
   if (response.status >= 300 && response.status < 400) {
     const location = response.headers.get("location");
-    if (!location) throw new Error(`FFmpeg download redirect has no location (${response.status}).`);
-    return download(new URL(location, url).toString(), redirects + 1);
+    if (!location) throw new Error(`${label} download redirect has no location (${response.status}).`);
+    return download(new URL(location, url).toString(), redirects + 1, label);
   }
-  if (!response.ok) throw new Error(`FFmpeg download failed with HTTP ${response.status}.`);
+  if (!response.ok) throw new Error(`${label} download failed with HTTP ${response.status}.`);
   return Buffer.from(await response.arrayBuffer());
 }
 
+function verifyGitBlob(buffer, expected) {
+  const header = Buffer.from(`blob ${buffer.length}\\0`);
+  const actual = createHash("sha1").update(Buffer.concat([header, buffer])).digest("hex");
+  if (actual !== expected) {
+    throw new Error(`Vazirmatn font blob checksum mismatch: expected ${expected}, got ${actual}`);
+  }
+}
+
+/**
+ * FFmpeg drawtext needs a real TTF/OTF file; browser WOFF2 assets are not a
+ * reliable font source for the FreeType filter in minimal Liara containers.
+ */
+async function ensureWatermarkFont() {
+  mkdirSync(FONT_DIR, { recursive: true });
+  if (existsSync(FONT_PATH)) {
+    try {
+      verifyGitBlob(readFileSync(FONT_PATH), FONT_GIT_BLOB_SHA1);
+      return FONT_PATH;
+    } catch {
+      rmSync(FONT_PATH, { force: true });
+    }
+  }
+
+  console.log(`[font] Downloading verified Vazirmatn ${FONT_VERSION} TrueType font…`);
+  const buffer = await download(FONT_URL, 0, "Vazirmatn font");
+  verifyGitBlob(buffer, FONT_GIT_BLOB_SHA1);
+  const tempPath = `${FONT_PATH}.tmp-${process.pid}`;
+  try {
+    writeFileSync(tempPath, buffer);
+    renameSync(tempPath, FONT_PATH);
+  } finally {
+    rmSync(tempPath, { force: true });
+  }
+  console.log("[font] Ready with checksum-verified Persian TTF font.");
+  return FONT_PATH;
+}
+
 export async function ensureFfmpegBinary() {
+  await ensureWatermarkFont();
   const configured = runtimeBinaryConfigured();
   if (configured) {
     verifyWatermarkCapabilities(configured);
