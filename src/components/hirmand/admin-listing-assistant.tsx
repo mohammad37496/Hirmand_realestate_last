@@ -362,7 +362,7 @@ export function AdminListingAssistant(props: Props) {
         </div>
         <strong>{props.title || suggestedTitle || "عنوان فایل شما"}</strong>
         <p>{props.description || suggestedDescription}</p>
-        <div className="admin-seo-preview-url">www.hirmandrealestate.ir / properties / preview</div>
+        <div className="admin-seo-preview-url">www.hirmandrealestate.ir/properties/preview</div>
       </aside>
     </div>
   );
