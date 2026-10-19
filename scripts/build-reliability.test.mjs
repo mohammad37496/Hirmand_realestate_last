@@ -84,6 +84,10 @@ const uploadRoute = await readFile(
   new URL("../server/routes/api/upload.post.ts", import.meta.url),
   "utf8",
 );
+const customerUploadRoute = await readFile(
+  new URL("../server/routes/api/customer-property-upload.post.ts", import.meta.url),
+  "utf8",
+);
 
 test("media upload verifies binary signatures before object-store offload", () => {
   assert.match(mediaProtocol, /readRawBody\(event, false\)/);
@@ -137,6 +141,16 @@ test("property images are permanently watermarked on the server before storage",
   assert.match(serverImageWatermark, /contentMatchesDeclaredType\(output, "image\/webp"\)/);
   assert.match(serverImageWatermark, /واترمارک دائمی برای GIF متحرک پشتیبانی نمی‌شود/);
   assert.match(serverImageWatermark, /timeout: 90_000/);
+});
+
+test("pending public property submissions cannot bypass permanent media watermark settings", () => {
+  assert.match(customerUploadRoute, /getPropertyWatermarkSettingsServer/);
+  assert.match(customerUploadRoute, /applyPropertyImageWatermarkServer/);
+  assert.match(customerUploadRoute, /applyPropertyVideoWatermark/);
+});
+
+test("media start-rate quota is independent for each upload pathway", () => {
+  assert.match(mediaProtocol, /media-upload:begin:\$\{config\.pathPrefix\}:\$\{clientFingerprint\(event\)\}/);
 });
 
 test("production prebuild provisions the checksum-verified FFmpeg binary used for watermarking", () => {
