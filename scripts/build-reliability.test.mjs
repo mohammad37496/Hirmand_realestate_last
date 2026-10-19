@@ -68,6 +68,14 @@ const imageWatermark = await readFile(
   new URL("../src/lib/property-image-watermark.ts", import.meta.url),
   "utf8",
 );
+const serverImageWatermark = await readFile(
+  new URL("../src/lib/property-image-watermark.server.ts", import.meta.url),
+  "utf8",
+);
+const uploadRoute = await readFile(
+  new URL("../server/routes/api/upload.post.ts", import.meta.url),
+  "utf8",
+);
 
 test("media upload verifies binary signatures before object-store offload", () => {
   assert.match(mediaProtocol, /readRawBody\(event, false\)/);
@@ -113,4 +121,12 @@ test("upload client reuses the same ID for bounded finalization recovery", () =>
   assert.match(mediaClient, /action: "complete", uploadId/);
   assert.match(mediaClient, /options\.retryCompletion/);
   assert.match(mediaClient, /attempt < maxCompletionAttempts/);
+});
+
+test("property images are permanently watermarked on the server before storage", () => {
+  assert.match(uploadRoute, /applyPropertyImageWatermarkServer/);
+  assert.match(uploadRoute, /applyPropertyVideoWatermark/);
+  assert.match(serverImageWatermark, /contentMatchesDeclaredType\(output, "image\/webp"\)/);
+  assert.match(serverImageWatermark, /واترمارک دائمی برای GIF متحرک پشتیبانی نمی‌شود/);
+  assert.match(serverImageWatermark, /timeout: 90_000/);
 });
