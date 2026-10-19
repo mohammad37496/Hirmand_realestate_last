@@ -19,13 +19,12 @@ const FONT_CANDIDATES = [
   ...(process.env.HIRMAND_WATERMARK_FONT?.trim()
     ? [process.env.HIRMAND_WATERMARK_FONT.trim()]
     : []),
+  // Provisioned and checksum-verified by scripts/ensure-ffmpeg.mjs during prebuild.
+  join(process.cwd(), ".runtime", "fonts", "Vazirmatn-Regular.ttf"),
   "/usr/share/fonts/opentype/noto/NotoSansArabic-Regular.ttf",
   "/usr/share/fonts/opentype/noto/NotoNaskhArabic-Regular.ttf",
   "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
   "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-  // Keep the packaged font fallback aligned with the video-watermark pipeline.
-  // This avoids assuming the host OS installs Noto/DejaVu fonts.
-  join(process.cwd(), "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-400-normal.woff2"),
 ];
 
 function findExisting(candidates: string[]): string | null {
