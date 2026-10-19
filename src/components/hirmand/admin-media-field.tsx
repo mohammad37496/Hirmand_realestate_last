@@ -238,7 +238,15 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     // Browser-side optimization is only a preparation step. The API applies
     // permanent watermarking after validating the real file bytes, so direct
     // requests cannot bypass the operator's watermark settings.
-    const optimized = await optimizeImage(file);
+    let optimized: { file: File; savedBytes: number };
+    try {
+      optimized = await optimizeImage(file);
+    } catch {
+      // Browser decoder support varies (notably AVIF and some phone photos).
+      // Optimization is optional: send the original bytes to the server, where
+      // signature validation and permanent watermark processing are authoritative.
+      optimized = { file, savedBytes: 0 };
+    }
     const result = await uploadInChunks({
       endpoint: "/api/upload",
       file: optimized.file,
