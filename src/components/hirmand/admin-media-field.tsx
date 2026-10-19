@@ -259,6 +259,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
       file: optimized.file,
       contentType: optimized.file.type,
       rejectedMessage: "نوع یا حجم این فایل رسانه‌ای پذیرفته نشد.",
+      retryCompletion: true,
       onProgress: (percentage) => setUploadProgress(percentage),
     });
     const url = typeof result.response.url === "string" ? result.response.url : "";
