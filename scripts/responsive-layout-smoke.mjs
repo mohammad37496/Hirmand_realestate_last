@@ -226,6 +226,61 @@ try {
             }
           }
 
+          let propertyGallery = null;
+          const galleryStage = document.querySelector(".property-detail-page .property-gallery-main");
+          if (galleryStage && viewport <= 720) {
+            const stageRect = galleryStage.getBoundingClientRect();
+            const media = galleryStage.querySelector("picture img, .property-video-player video, .property-image-fallback");
+            const mediaRect = media?.getBoundingClientRect();
+            const mediaStyle = media ? getComputedStyle(media) : null;
+            const rail = document.querySelector(".property-detail-page .property-gallery-rail");
+            const firstThumb = rail?.querySelector(".property-gallery-thumb");
+            const thumbRect = firstThumb?.getBoundingClientRect();
+            const openButton = galleryStage.querySelector(".property-gallery-open");
+            const openRect = openButton?.getBoundingClientRect();
+            const navButtons = [...galleryStage.querySelectorAll(".property-gallery-nav")].map((button) => {
+              const rect = button.getBoundingClientRect();
+              return {
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+                left: Math.round(rect.left),
+                right: Math.round(rect.right),
+                top: Math.round(rect.top),
+                bottom: Math.round(rect.bottom),
+              };
+            });
+            const videoControls = [...galleryStage.querySelectorAll(".property-video-controls button")].map((button) => {
+              const rect = button.getBoundingClientRect();
+              return { width: Math.round(rect.width), height: Math.round(rect.height) };
+            });
+            propertyGallery = {
+              stage: {
+                width: Math.round(stageRect.width),
+                height: Math.round(stageRect.height),
+                left: Math.round(stageRect.left),
+                right: Math.round(stageRect.right),
+                ratio: stageRect.height > 0 ? Number((stageRect.width / stageRect.height).toFixed(3)) : 0,
+              },
+              media: media && mediaRect ? {
+                width: Math.round(mediaRect.width),
+                height: Math.round(mediaRect.height),
+                objectFit: mediaStyle?.objectFit ?? "",
+                visible: mediaRect.width > 0 && mediaRect.height > 0 && mediaStyle?.visibility !== "hidden",
+              } : null,
+              thumb: thumbRect ? { width: Math.round(thumbRect.width), height: Math.round(thumbRect.height) } : null,
+              openButton: openRect ? {
+                width: Math.round(openRect.width),
+                height: Math.round(openRect.height),
+                left: Math.round(openRect.left),
+                right: Math.round(openRect.right),
+                top: Math.round(openRect.top),
+                bottom: Math.round(openRect.bottom),
+              } : null,
+              navButtons,
+              videoControls,
+            };
+          }
+
           return {
             viewport,
             rootWidth,
@@ -233,6 +288,7 @@ try {
             offenders: offenders.slice(0, 8),
             brokenWords: brokenWords.slice(0, 8),
             smallTargets: smallTargets.slice(0, 8),
+            propertyGallery,
             title: document.title,
           };
         });
@@ -243,6 +299,48 @@ try {
         }
         if (metrics.brokenWords.length) {
           failures.push(`${route} @ ${width}px: text appears split letter-by-letter; elements=${JSON.stringify(metrics.brokenWords)}`);
+        }
+
+        if (metrics.propertyGallery && width <= 414) {
+          const gallery = metrics.propertyGallery;
+          const expectedRatio = width <= 360 ? 1 : 4 / 3;
+          if (Math.abs(gallery.stage.ratio - expectedRatio) > 0.18) {
+            failures.push(`${route} @ ${width}px: property media stage ratio ${gallery.stage.ratio} does not match the mobile layout ${expectedRatio}`);
+          }
+          if (gallery.stage.left < -2 || gallery.stage.right > width + 2) {
+            failures.push(`${route} @ ${width}px: property media stage escapes the viewport: ${JSON.stringify(gallery.stage)}`);
+          }
+          if (!gallery.media?.visible || gallery.media.width < gallery.stage.width * 0.8 || gallery.media.height < gallery.stage.height * 0.8) {
+            failures.push(`${route} @ ${width}px: active property media is missing or not filling its stage: ${JSON.stringify(gallery.media)}`);
+          }
+          if (gallery.media?.objectFit && gallery.media.objectFit !== "contain") {
+            failures.push(`${route} @ ${width}px: uploaded property media is cropped with object-fit=${gallery.media.objectFit}`);
+          }
+          if (gallery.thumb && (gallery.thumb.width < 60 || gallery.thumb.height < 48)) {
+            failures.push(`${route} @ ${width}px: property gallery thumbnail is too small: ${JSON.stringify(gallery.thumb)}`);
+          }
+          if (gallery.openButton && (
+            gallery.openButton.width < 40 ||
+            gallery.openButton.height < 40 ||
+            gallery.openButton.left < gallery.stage.left - 1 ||
+            gallery.openButton.right > gallery.stage.right + 1 ||
+            gallery.openButton.top < gallery.stage.top - 1 ||
+            gallery.openButton.bottom > gallery.stage.bottom + 1
+          )) {
+            failures.push(`${route} @ ${width}px: gallery full-screen control is too small or outside the image: ${JSON.stringify(gallery.openButton)}`);
+          }
+          if (gallery.navButtons.some((button) =>
+            button.width < 40 || button.height < 40 ||
+            button.left < gallery.stage.left - 1 ||
+            button.right > gallery.stage.right + 1 ||
+            button.top < gallery.stage.top - 1 ||
+            button.bottom > gallery.stage.bottom + 1
+          )) {
+            failures.push(`${route} @ ${width}px: gallery navigation buttons are too small or overlap the viewport edge: ${JSON.stringify(gallery.navButtons)}`);
+          }
+          if (gallery.videoControls.some((button) => button.width < 40 || button.height < 40)) {
+            failures.push(`${route} @ ${width}px: video controls are below 40px touch targets: ${JSON.stringify(gallery.videoControls)}`);
+          }
         }
 
         if ((screenshotRoutes.has(route) || route.startsWith("/properties/") || route.startsWith("/file/")) && screenshotWidths.has(width)) {
