@@ -29,6 +29,19 @@ test("database media URLs keep their existing same-origin route", () => {
   ]);
 });
 
+test("same-origin uploaded image and video references pass property form validation", () => {
+  const databaseImage = "/api/media/2a3bf33e-ec55-4e2d-9ff2-3d962c1e7d11";
+  const databaseVideo = databaseImage + "?type=video";
+  const liaraImage = "/api/liara-media?url=" + encodeURIComponent(privateLiaraImage);
+  const liaraVideo =
+    "/api/liara-media?url=" + encodeURIComponent(privateLiaraVideo) + "&type=video";
+
+  assert.equal(isAllowedMediaRef(databaseImage), true);
+  assert.equal(isAllowedMediaRef(databaseVideo), true);
+  assert.equal(isAllowedMediaRef(liaraImage), true);
+  assert.equal(isAllowedMediaRef(liaraVideo), true);
+});
+
 test("validated Liara proxy URLs are accepted by property media validation", () => {
   const proxyUrl =
     "/api/liara-media?url=" + encodeURIComponent(privateLiaraImage);
