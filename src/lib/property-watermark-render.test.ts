@@ -358,7 +358,7 @@ test(
         "-f",
         "lavfi",
         "-i",
-        "testsrc2=size=640x360:rate=25",
+        "color=c=blue:s=640x360:r=25",
         "-t",
         "1",
         "-c:v",
@@ -388,6 +388,50 @@ test(
 
       const outputPath = join(workDir, "out.mp4");
       await writeFile(outputPath, result.data);
+
+      // Decode an actual output frame and prove the watermark changes visible
+      // pixels against a uniformly blue source. A valid MP4 container/receipt
+      // alone cannot prove that the brand was baked into the video frames.
+      const framePath = join(workDir, "watermarked-frame.rgb");
+      await execFileAsync(FFMPEG, [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        outputPath,
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        framePath,
+      ]);
+      const frame = await readFile(framePath);
+      assert.equal(frame.length, 640 * 360 * 3, "decoded frame dimensions must remain 640x360");
+      const backgroundOffset = (24 * 640 + 24) * 3;
+      const background = [
+        frame[backgroundOffset]!,
+        frame[backgroundOffset + 1]!,
+        frame[backgroundOffset + 2]!,
+      ];
+      let alteredPixels = 0;
+      for (let y = 270; y < 356; y += 1) {
+        for (let x = 320; x < 636; x += 1) {
+          const offset = (y * 640 + x) * 3;
+          const difference =
+            Math.abs(frame[offset]! - background[0]!) +
+            Math.abs(frame[offset + 1]! - background[1]!) +
+            Math.abs(frame[offset + 2]! - background[2]!);
+          if (difference > 55) alteredPixels += 1;
+        }
+      }
+      assert.ok(
+        alteredPixels > 500,
+        `the decoded video must contain visible watermark pixels (found ${alteredPixels})`,
+      );
+
       const probe = await execFileAsync(FFMPEG, ["-hide_banner", "-i", outputPath]).catch(
         (error: { stderr?: string }) => ({ stderr: error.stderr ?? "", stdout: "" }),
       );
