@@ -96,3 +96,32 @@ export function resolveLocalFontFallback(): string | null {
     "vazirmatn-arabic-400-normal.woff2",
   );
 }
+
+/**
+ * Preserve the low-level cause when FFmpeg cannot start or exits unsuccessfully.
+ * The upload API deliberately returns a stable Persian message to the browser;
+ * this diagnostic is logged server-side so ENOENT/EACCES, exit codes and stderr
+ * aren't discarded behind a generic "FFmpeg failed" message.
+ */
+export function formatFfmpegExecutionError(error: unknown): string {
+  if (!error || typeof error !== "object") {
+    return String(error ?? "Unknown FFmpeg execution error");
+  }
+
+  const record = error as Record<string, unknown>;
+  const details: string[] = [];
+  if (typeof record.message === "string" && record.message.trim()) {
+    details.push(`message=${record.message.trim().slice(0, 360)}`);
+  }
+  for (const key of ["code", "errno", "syscall", "path", "exitCode", "signal"] as const) {
+    const value = record[key];
+    if (typeof value === "string" || typeof value === "number") {
+      details.push(`${key}=${String(value).slice(0, 260)}`);
+    }
+  }
+  if (typeof record.stderr === "string" && record.stderr.trim()) {
+    details.push(`stderr=${record.stderr.trim().slice(-1200)}`);
+  }
+
+  return details.join(" | ").slice(-2200) || "FFmpeg execution failed without diagnostic metadata";
+}
