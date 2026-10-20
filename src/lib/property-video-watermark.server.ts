@@ -240,10 +240,11 @@ export async function applyPropertyVideoWatermark(
     }
 
     const output = await readFile(outputPath);
-    if (!output.length) {
-      throw new Error(
-        "FFmpeg فایل ویدئوی نهایی را خالی تولید کرد."
-      );
+    if (
+      output.length < 12 ||
+      output.subarray(4, 8).toString("latin1") !== "ftyp"
+    ) {
+      throw new Error("FFmpeg فایل MP4 نهایی معتبری تولید نکرد.");
     }
 
     const extensionIndex = pathname.lastIndexOf(".");
