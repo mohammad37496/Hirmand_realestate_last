@@ -153,7 +153,15 @@ async function login() {
 }
 
 /** Exactly the client protocol in src/lib/media-upload-client.ts. */
-async function upload(file, filename, endpoint = "/api/property-media", contentType = "image/jpeg", assetKind = "gallery") {
+async function upload(
+  file,
+  filename,
+  endpoint = "/api/property-media",
+  contentType = "image/jpeg",
+  assetKind = "gallery",
+  watermarkEnabled = false,
+  watermarkPosition = "bottom-right",
+) {
   const beginResponse = await call(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -163,6 +171,8 @@ async function upload(file, filename, endpoint = "/api/property-media", contentT
       contentType,
       assetKind,
       sizeBytes: file.length,
+      watermarkEnabled: assetKind === "gallery" && watermarkEnabled,
+      watermarkPosition,
     }),
   });
   const begin = await readJson(beginResponse);
@@ -265,10 +275,52 @@ async function main() {
     `[upload-e2e] media endpoint served ${body.length} bytes of ${detected}; watermark ${detected === "image/webp" ? "applied" : "skipped (original stored)"}`,
   );
 
+  // Exercise the new per-upload setting through the complete HTTP pipeline.
+  const watermarkedImage = await upload(
+    file,
+    "photo-watermarked.jpg",
+    "/api/property-media",
+    "image/jpeg",
+    "gallery",
+    true,
+    "top-left",
+  );
+  if (
+    watermarkedImage.result.watermarkApplied !== true ||
+    watermarkedImage.result.watermarkPosition !== "top-left"
+  ) {
+    throw new Error(`watermark preference was not preserved in the receipt: ${JSON.stringify(watermarkedImage.result)}`);
+  }
+  const watermarkedImageResponse = await fetch(new URL(watermarkedImage.result.url, baseUrl).toString());
+  const watermarkedImageBody = Buffer.from(await watermarkedImageResponse.arrayBuffer());
+  const watermarkedImageType = (watermarkedImageResponse.headers.get("content-type") || "").split(";")[0].trim();
+  if (
+    !watermarkedImageResponse.ok ||
+    watermarkedImageType !== "image/webp" ||
+    detectRaster(watermarkedImageBody) !== "image/webp"
+  ) {
+    throw new Error(`watermarked image is invalid (HTTP ${watermarkedImageResponse.status}, type=${watermarkedImageType})`);
+  }
+  console.log("[upload-e2e] per-upload image watermark was baked into valid WebP bytes at top-left");
+
   const video = await buildMp4();
   if (video) {
     console.log(`[upload-e2e] uploading ${video.length} byte MP4 video`);
-    const videoUpload = await upload(video, "property-tour.mp4", "/api/property-media", "video/mp4", "gallery");
+    const videoUpload = await upload(
+      video,
+      "property-tour.mp4",
+      "/api/property-media",
+      "video/mp4",
+      "gallery",
+      true,
+      "bottom-left",
+    );
+    if (
+      videoUpload.result.watermarkApplied !== true ||
+      videoUpload.result.watermarkPosition !== "bottom-left"
+    ) {
+      throw new Error(`video watermark preference was not preserved in the receipt: ${JSON.stringify(videoUpload.result)}`);
+    }
     const videoResponse = await fetch(new URL(videoUpload.result.url, baseUrl).toString());
     const videoBytes = Buffer.from(await videoResponse.arrayBuffer());
     const videoType = (videoResponse.headers.get("content-type") || "").split(";")[0].trim();
