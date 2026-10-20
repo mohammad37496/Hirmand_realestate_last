@@ -61,7 +61,31 @@ function isLiaraStorageUrl(value: string): boolean {
   }
 }
  
-/** Validate our same-origin wrapper without allowing arbitrary proxy targets. */
+/**
+ * Validate the shape of a configured object-storage URL inside our same-origin
+ * proxy. The actual host is intentionally not hard-coded here: LIARA_ENDPOINT
+ * is deployment-configurable, and the server route independently requires the
+ * target origin to match that exact configured endpoint and the object key to
+ * be allowlisted before it signs or sends any storage request.
+ */
+function isConfiguredObjectStorageUrlShape(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      Boolean(url.hostname) &&
+      !url.username &&
+      !url.password &&
+      !url.search &&
+      !url.hash &&
+      url.pathname.split("/").filter(Boolean).length >= 2
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Validate our same-origin wrapper; the server enforces the storage endpoint. */
 export function isLiaraMediaProxyUrl(value: string): boolean {
   try {
     const parsed = new URL(value, "https://hirmand.invalid");
@@ -73,7 +97,10 @@ export function isLiaraMediaProxyUrl(value: string): boolean {
     }
 
     const targets = parsed.searchParams.getAll("url");
-    if (targets.length !== 1 || !isLiaraStorageUrl(targets[0] ?? "")) {
+    if (
+      targets.length !== 1 ||
+      !isConfiguredObjectStorageUrlShape(targets[0] ?? "")
+    ) {
       return false;
     }
 

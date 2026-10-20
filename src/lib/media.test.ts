@@ -58,13 +58,25 @@ test("validated Liara proxy URLs are accepted by property media validation", () 
   assert.equal(isAllowedMediaRef(proxyUrl), true);
 });
 
-test("Liara proxy validation rejects arbitrary or malformed targets", () => {
+test("configured object-storage proxy supports custom HTTPS endpoints", () => {
+  const configuredEndpointUrl =
+    "https://objects.example.net/hirmand/properties/uploads/photo.jpg";
+  const proxyUrl =
+    "/api/liara-media?url=" + encodeURIComponent(configuredEndpointUrl);
+
+  // The client validates URL structure. The server route validates the exact
+  // LIARA_ENDPOINT and allowed object key before it contacts object storage.
+  assert.equal(isLiaraMediaProxyUrl(proxyUrl), true);
+  assert.equal(isAllowedMediaRef(proxyUrl), true);
+});
+
+test("Liara proxy validation rejects malformed or unsafe URL shapes", () => {
   assert.equal(
-    isLiaraMediaProxyUrl("/api/liara-media?url=" + encodeURIComponent("https://evil.example/image.jpg")),
+    isLiaraMediaProxyUrl("/api/liara-media?url=" + encodeURIComponent("http://objects.example.net/hirmand/photo.jpg")),
     false,
   );
   assert.equal(
-    isAllowedMediaRef("/api/liara-media?url=" + encodeURIComponent("https://evil.example/image.jpg")),
+    isLiaraMediaProxyUrl("/api/liara-media?url=" + encodeURIComponent("https://evil.example/image.jpg")),
     false,
   );
   assert.equal(isAllowedMediaRef("/api/liara-media"), false);
