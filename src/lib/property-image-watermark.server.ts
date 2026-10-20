@@ -177,7 +177,8 @@ export async function applyPropertyImageWatermarkServer(
 
     if (logoPath) {
       args.push("-loop", "1", "-i", logoPath);
-      const logoHeight = Math.max(22, Math.round(46 * size));
+      // Make the mark readable after full-size property photos are scaled in the UI.
+      const logoHeight = Math.max(30, Math.round(90 * size));
       const position = settings.position ?? "bottom-right";
       const margin = Math.max(8, Math.round(16 * size));
       const overlayPosition: Record<string, string> = {
