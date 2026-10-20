@@ -217,10 +217,25 @@ test("npm and direct Liara builds both provision the watermark runtime", () => {
   assert.match(deployEnv, /const \{ ensureFfmpegBinary \} = await import\("\.\/ensure-ffmpeg\.mjs"\)/);
   assert.match(deployEnv, /const ffmpegPath = await ensureFfmpegBinary\(\)/);
   assert.match(deployEnv, /if \(!ffmpegPath\)/);
+  assert.match(
+    deployEnv,
+    /process\.platform === "linux"/,
+    "Liara Linux builds must provision FFmpeg even when NODE_ENV is unset",
+  );
+  assert.match(deployEnv, /hasConfiguredFfmpeg/);
   assert.doesNotMatch(
     deployEnv,
     /if \(isProduction\) \{\s*const \{ ensureFfmpegBinary \}/,
-    "FFmpeg provisioning must not be gated on NODE_ENV=production",
+    "FFmpeg provisioning must not be gated on NODE_ENV=production alone",
+  );
+});
+
+test("upload client diagnostics match fail-closed watermark handling", () => {
+  assert.match(mediaClient, /instead of publishing the original without the requested watermark/);
+  assert.doesNotMatch(
+    mediaClient,
+    /server stores the original media without a watermark/,
+    "client comments must not describe an unwatermarked-success fallback that no longer exists",
   );
 });
 
