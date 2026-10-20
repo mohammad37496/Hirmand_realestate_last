@@ -450,9 +450,11 @@ async function completeUpload(
 
     return result;
   } catch (error) {
-    const isHttpError =
-      Boolean(error) && typeof error === "object" && "statusCode" in error;
-    if (!isHttpError || (error as { statusCode?: number }).statusCode !== 415) {
+    const errorStatus =
+      typeof error === "object" && error !== null && "statusCode" in error
+        ? Number((error as { statusCode?: unknown }).statusCode)
+        : null;
+    if (errorStatus !== 415) {
       await sql.query(
         `update property_media_upload_sessions
          set state = case when stored_url is null then 'pending' else 'completing' end,
@@ -463,7 +465,7 @@ async function completeUpload(
         [uploadId],
       ).catch(() => undefined);
     }
-    if (stored && (error as { statusCode?: number }).statusCode === 415) {
+    if (stored && errorStatus === 415) {
       await deleteStoredMedia(stored.url).catch(() => undefined);
     }
     console.error(
