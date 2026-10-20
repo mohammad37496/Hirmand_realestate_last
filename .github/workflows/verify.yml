@@ -130,17 +130,17 @@ jobs:
 
           npx playwright install --with-deps chromium
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
+          # End-to-end proof of the admin upload path: begin → chunks → complete,
+          # then fetch the stored media from the public endpoint, plus the
+          # watermark-on/watermark-off A/B. The `iw`-in-drawtext regression this
+          # guards against returned HTTP 500 on every property-image upload.
+          node scripts/upload-e2e-smoke.mjs http://127.0.0.1:8081
           # Run the responsive matrix first so failures in unrelated route,
           # search, or admin smoke tests cannot prevent mobile diagnostics.
           node scripts/responsive-layout-smoke.mjs http://127.0.0.1:8081
           node scripts/browser-smoke.mjs http://127.0.0.1:8081/ /workspace/screenshots/hirmand-preview.png
           node scripts/property-search-browser-smoke.mjs http://127.0.0.1:8081
           node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081
-          # End-to-end proof of the admin upload path: begin → chunks → complete,
-          # then fetch the stored media from the public endpoint, plus the
-          # watermark-on/watermark-off A/B. The `iw`-in-drawtext regression this
-          # guards against returned HTTP 500 on every property-image upload.
-          node scripts/upload-e2e-smoke.mjs http://127.0.0.1:8081
 
       - name: Cleanup property-detail fixture
         if: always() && steps.migrate_database.outcome == 'success'
