@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 // test runner, which does not resolve the `@/` alias used at build time.
 import { contentMatchesDeclaredType } from "./file-signature.server.ts";
 import {
+  formatFfmpegExecutionError,
   resolveBrandLogo,
   resolveBundledFfmpeg,
   resolveLocalFontFallback,
@@ -223,16 +224,8 @@ export async function applyPropertyImageWatermarkServer(
         windowsHide: true,
       });
     } catch (error) {
-      const detail =
-        typeof error === "object" &&
-        error !== null &&
-        "stderr" in error
-          ? String((error as { stderr?: unknown }).stderr ?? "")
-          : "";
       throw new Error(
-        detail.trim()
-          ? `پردازش دائمی واترمارک تصویر انجام نشد: ${detail.trim().slice(-900)}`
-          : "پردازش واترمارک تصویر انجام نشد. وجود FFmpeg و پشتیبانی WebP را بررسی کنید.",
+        `پردازش دائمی واترمارک تصویر انجام نشد: ${formatFfmpegExecutionError(error)}`,
       );
     }
 
