@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mediaSourceCandidates } from "./media.ts";
+import { isAllowedMediaRef, isLiaraMediaProxyUrl, mediaSourceCandidates } from "./media.ts";
 
 const fallback = "/images/type-apartment.jpg";
 const privateLiaraImage =
@@ -27,4 +27,30 @@ test("database media URLs keep their existing same-origin route", () => {
     "/api/media/2a3bf33e-ec55-4e2d-9ff2-3d962c1e7d11",
     fallback,
   ]);
+});
+
+test("validated Liara proxy URLs are accepted by property media validation", () => {
+  const proxyUrl =
+    "/api/liara-media?url=" + encodeURIComponent(privateLiaraImage);
+
+  assert.equal(isLiaraMediaProxyUrl(proxyUrl), true);
+  assert.equal(isAllowedMediaRef(proxyUrl), true);
+});
+
+test("Liara proxy validation rejects arbitrary or malformed targets", () => {
+  assert.equal(
+    isLiaraMediaProxyUrl("/api/liara-media?url=" + encodeURIComponent("https://evil.example/image.jpg")),
+    false,
+  );
+  assert.equal(
+    isAllowedMediaRef("/api/liara-media?url=" + encodeURIComponent("https://evil.example/image.jpg")),
+    false,
+  );
+  assert.equal(isAllowedMediaRef("/api/liara-media"), false);
+  assert.equal(
+    isLiaraMediaProxyUrl(
+      "/api/liara-media?url=" + encodeURIComponent(privateLiaraImage) + "&type=audio",
+    ),
+    false,
+  );
 });
