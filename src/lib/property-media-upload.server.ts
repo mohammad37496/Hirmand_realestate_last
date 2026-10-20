@@ -442,7 +442,7 @@ async function completeUpload(
       throw httpError("محتوای واقعی فایل با نوع تصویر یا ویدیوی انتخاب‌شده مطابقت ندارد.", 415);
     }
 
-    let finalData = data;
+    let finalData: Uint8Array = data;
     let finalContentType = contentType;
     let finalPathname = String(session.pathname ?? "");
     const watermarkEnabled = session.watermark_enabled === true || String(session.watermark_enabled) === "true";
@@ -452,7 +452,7 @@ async function completeUpload(
       );
       if (contentType.startsWith("image/")) {
         const watermarked = await applyPropertyImageWatermarkServer({
-          data: finalData,
+          data: Buffer.from(finalData),
           contentType: finalContentType,
           pathname: finalPathname,
           settings,
@@ -462,7 +462,7 @@ async function completeUpload(
         finalPathname = watermarked.pathname;
       } else if (contentType.startsWith("video/")) {
         const watermarked = await applyPropertyVideoWatermark({
-          data: finalData,
+          data: Buffer.from(finalData),
           contentType: finalContentType,
           pathname: finalPathname,
           settings,
