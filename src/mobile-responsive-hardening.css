@@ -1715,7 +1715,7 @@ svg {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    aspect-ratio: 4 / 3 !important;
+    aspect-ratio: 16 / 10 !important;
     overflow: hidden !important;
     border: 1px solid var(--hr-border, #ded5c8) !important;
     border-radius: 22px !important;
@@ -2116,7 +2116,7 @@ svg {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    aspect-ratio: 4 / 3 !important;
+    aspect-ratio: 16 / 10 !important;
   }
 }
 
@@ -2125,19 +2125,24 @@ svg {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
-    aspect-ratio: 1 / 1 !important;
+    aspect-ratio: 16 / 10 !important;
   }
 }
 
 @media (max-width: 360px) {
   .property-detail-page .property-gallery-open {
-    inset-inline-start: 8px !important;
-    top: 49px !important;
+    /* Use physical insets together: in RTL, inset-inline-start alone sets
+       the opposite edge and can stretch an absolutely-positioned button. */
+    inset: 49px auto auto 8px !important;
+    inset-inline-end: auto !important;
+    width: max-content !important;
+    max-width: calc(100% - 16px) !important;
+    flex: 0 0 auto !important;
     padding-inline: 9px !important;
   }
 
   .property-detail-page .property-gallery-main {
-    aspect-ratio: 1 / 1 !important;
+    aspect-ratio: 16 / 10 !important;
     border-radius: 18px !important;
   }
 
