@@ -1679,3 +1679,10 @@ svg {
     animation-duration: .01ms !important;
   }
 }
+
+/* The bedroom/bathroom pair has two controls and no separator. The generic
+   .pf-range uses three tracks for bounded ranges; keep both fields readable
+   instead of placing one label in the auto-sized middle track. */
+.pf-page .pf-range.pf-range-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
