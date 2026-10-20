@@ -119,7 +119,6 @@ import { PropertyPrepBudget } from "@/components/hirmand/property-prep-budget";
 import { PropertyTargetAlert } from "@/components/hirmand/property-target-alert";
 import { PropertyVerificationRequest } from "@/components/hirmand/property-verification-request";
 import { PropertyVerificationStamp } from "@/components/hirmand/property-verification-stamp";
-import { PropertyMediaWatermark } from "@/components/hirmand/property-media-watermark";
 import { PropertyExpertRequests } from "@/components/hirmand/property-expert-requests";
 import { PropertyNeighborhoodInsight } from "@/components/hirmand/property-neighborhood-insight";
 import { PropertyReport } from "@/components/hirmand/property-report";
@@ -155,7 +154,6 @@ import { formatToman } from "@/lib/money";
 import { formatPersianDate } from "@/lib/persian-date";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { isVideoUrl, mediaSourceCandidates } from "@/lib/media";
-import { isPermanentlyWatermarkedMediaUrl, isPermanentlyWatermarkedVideoUrl } from "@/lib/property-watermark";
 import { getPropertyFallbackImage, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { areaSlug } from "@/lib/areas";
 import { SITE } from "@/lib/site";
@@ -926,9 +924,6 @@ function Gallery({
     <div className="property-gallery-wrap" role="region" aria-label={"گالری تصاویر " + title}>
       <div className="property-gallery">
         <div className="property-gallery-main">
-          {!isVideoUrl(current) || !isPermanentlyWatermarkedMediaUrl(current) ? (
-            <PropertyMediaWatermark subtle={isPropertyFallbackImage(current) || current.startsWith("/images/fallback/")} />
-          ) : null}
           {isVideoUrl(current) ? (
             <VideoPlayer src={current} title={title} className="is-gallery" />
           ) : (
@@ -1059,7 +1054,6 @@ function Gallery({
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
               >
-                {!isVideoUrl(current) || !isPermanentlyWatermarkedVideoUrl(current) ? <PropertyMediaWatermark /> : null}
                 {isVideoUrl(current) ? (
                   <VideoPlayer src={current} title={title} autoPlay className="is-lightbox" />
                 ) : (
