@@ -2112,7 +2112,7 @@ svg {
    final selector at the same specificity as that legacy rule so mobile ratios
    actually win in the rendered page, not only in source-level CSS tests. */
 @media (max-width: 720px) {
-  body:has(.property-detail-page) .property-detail-page .property-gallery-main {
+  body:has(.property-detail-page) .property-detail-page .property-gallery-wrap .property-gallery .property-gallery-main {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
@@ -2121,7 +2121,7 @@ svg {
 }
 
 @media (max-width: 360px) {
-  body:has(.property-detail-page) .property-detail-page .property-gallery-main {
+  body:has(.property-detail-page) .property-detail-page .property-gallery-wrap .property-gallery .property-gallery-main {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
