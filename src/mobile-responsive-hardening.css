@@ -1880,7 +1880,7 @@ svg {
   .property-detail-page .property-gallery-nav:active,
   .property-detail-page .property-gallery-thumb:active,
   .property-detail-page .property-gallery-open:active {
-    transform: scale(.97) !important;
+    transform: translateY(-50%) scale(.97) !important;
   }
 
   /* The thumbnail rail is a predictable touch carousel: equal tiles, no
@@ -1903,7 +1903,7 @@ svg {
     scroll-padding-inline: 3px !important;
     overscroll-behavior-inline: contain !important;
     -webkit-overflow-scrolling: touch !important;
-    touch-action: pan-x !important;
+    touch-action: pan-x pan-y !important;
     scrollbar-width: none !important;
     mask-image: none !important;
     -webkit-mask-image: none !important;
@@ -2037,10 +2037,15 @@ svg {
     justify-content: center !important;
     gap: 10px !important;
     width: 100% !important;
-    height: 100svh !important;
+    height: 100% !important;
     min-height: 0 !important;
-    max-height: 100svh !important;
-    padding: calc(72px + env(safe-area-inset-top)) 12px calc(78px + env(safe-area-inset-bottom)) !important;
+    max-height: 100% !important;
+    margin: 0 auto !important;
+    padding: calc(54px + env(safe-area-inset-top)) 12px calc(46px + env(safe-area-inset-bottom)) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
   }
 
   .property-lightbox-media-button {
