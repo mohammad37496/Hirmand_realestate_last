@@ -280,7 +280,8 @@ export function AdminMediaField({
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [linkDraft, setLinkDraft] = useState("");
   const [watermarkEnabled, setWatermarkEnabled] = useState(false);
-  const [watermarkPosition, setWatermarkPosition] = useState<PropertyWatermarkPosition>("bottom-right");
+  const [watermarkPosition, setWatermarkPosition] =
+    useState<PropertyWatermarkPosition>("bottom-right");
   const items = linesToList(value).filter((item) => !isPropertyFallbackImage(item));
   const fallback = getPropertyFallbackImage(propertyType ?? "apartment", propertyId ?? "admin");
   const invalidExisting = items.filter((item) => !isAllowedMediaRef(item));
@@ -581,7 +582,7 @@ export function AdminMediaField({
           </div>
 
           <div className="hirmand-watermark-preview-card">
-            <div className="hirmand-watermark-preview-scene" aria-label="پیش‌نمایش قرارگیری لوگو">
+            <div className="hirmand-watermark-preview-scene" role="img" aria-label="پیش‌نمایش قرارگیری لوگو">
               <span className="hirmand-watermark-preview-building" aria-hidden="true">
                 <span />
                 <span />
