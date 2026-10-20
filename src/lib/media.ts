@@ -42,6 +42,26 @@ function isAllowedRemoteMediaUrl(url: URL): boolean {
 }
 
 /**
+ * Liara object URLs can point at a private S3-compatible endpoint. Browser
+ * requests cannot sign those URLs, so route them through our authenticated-
+ * configuration server proxy rather than displaying a 403 as a broken photo.
+ */
+function isLiaraStorageUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    const liaraHost =
+      host.endsWith(".liara.space") ||
+      host.endsWith(".liara.ir") ||
+      host.endsWith(".liara.cloud");
+    return url.protocol === "https:" && liaraHost &&
+      url.pathname.split("/").filter(Boolean).length >= 2;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * A gallery entry is either a remote `https://` URL, a loopback development
  * URL, or media we serve ourselves from `/api/media/<id>`.
  */
@@ -139,6 +159,12 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
   if (!value) return fallback ? [fallback] : [];
 
   const isDivarRemote = isDivarRemoteHost(value);
+
+  if (isLiaraStorageUrl(value)) {
+    const kind = isVideoUrl(value) ? "&type=video" : "";
+    const proxy = `/api/liara-media?url=${encodeURIComponent(value)}${kind}`;
+    return Array.from(new Set([proxy, fallback].filter(Boolean)));
+  }
 
   if (isDivarRemote) {
     // Imported classifieds media should never make the visitor's browser call
