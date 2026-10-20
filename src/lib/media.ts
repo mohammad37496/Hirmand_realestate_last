@@ -60,12 +60,40 @@ function isLiaraStorageUrl(value: string): boolean {
     return false;
   }
 }
+ 
+/** Validate our same-origin wrapper without allowing arbitrary proxy targets. */
+export function isLiaraMediaProxyUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value, "https://hirmand.invalid");
+    if (
+      parsed.origin !== "https://hirmand.invalid" ||
+      parsed.pathname !== "/api/liara-media"
+    ) {
+      return false;
+    }
+
+    const targets = parsed.searchParams.getAll("url");
+    if (targets.length !== 1 || !isLiaraStorageUrl(targets[0] ?? "")) {
+      return false;
+    }
+
+    const typeValues = parsed.searchParams.getAll("type");
+    return typeValues.length === 0 ||
+      (typeValues.length === 1 && typeValues[0] === "video");
+  } catch {
+    return false;
+  }
+}
 
 /**
  * A gallery entry is either a remote `https://` URL, a loopback development
  * URL, or media we serve ourselves from `/api/media/<id>`.
  */
 export function isAllowedMediaRef(value: string): boolean {
+  // Uploaded Liara media is represented by a same-origin proxy URL; validate
+  // both the local route and its single HTTPS Liara target before accepting it.
+  if (isLiaraMediaProxyUrl(value)) return true;
+
   if (value.startsWith(DB_MEDIA_PATH)) {
     try {
       const url = new URL(value, "https://hirmand.invalid");
