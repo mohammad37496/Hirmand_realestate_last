@@ -11,6 +11,8 @@ import { dbSource, getSql } from "@/lib/db";
 import { DB_MEDIA_PATH } from "@/lib/media";
 import {
   deleteLiaraObject,
+  liaraMediaProxyUrl,
+  liaraObjectKeyFromBrowserProxy,
   liaraObjectKeyFromUrl,
   liaraStorageConfigured,
   putLiaraObject,
@@ -33,6 +35,16 @@ export function blobConfigured(): boolean {
 
 export function isDatabaseMediaUrl(value: string | null | undefined): boolean {
   return typeof value === "string" && value.startsWith(DB_MEDIA_PATH);
+}
+
+/** Browser-safe URL for media uploaded to either private Liara storage or the database. */
+export function mediaUrlForBrowser(value: string, contentType = ""): string {
+  const proxyUrl = liaraMediaProxyUrl(value, contentType);
+  if (proxyUrl !== value) return proxyUrl;
+  if (contentType.toLowerCase().startsWith("video/") && value.startsWith(DB_MEDIA_PATH)) {
+    return value + (value.includes("?") ? "&" : "?") + "type=video";
+  }
+  return value;
 }
 
 export function mediaIdFromUrl(value: string | null | undefined): string | null {
@@ -277,7 +289,7 @@ export async function deleteStoredMedia(
 ): Promise<void> {
   if (!url) return;
 
-  const liaraKey = liaraObjectKeyFromUrl(url);
+  const liaraKey = liaraObjectKeyFromUrl(url) ?? liaraObjectKeyFromBrowserProxy(url);
   if (liaraKey) {
     try {
       await deleteLiaraObject(liaraKey);
