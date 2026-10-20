@@ -1001,7 +1001,12 @@ function Gallery({
               aria-current={index === active ? "true" : undefined}
             >
               {isVideoUrl(src) ? (
-                <video src={src} muted playsInline preload="none" aria-hidden="true" />
+                <>
+                  <video src={src} muted playsInline preload="none" aria-hidden="true" />
+                  <span className="property-gallery-thumb-video" aria-hidden="true">
+                    <Play size={14} fill="currentColor" aria-hidden="true" />
+                  </span>
+                </>
               ) : (
                 <ResilientImage src={src} fallback={fallback} fallbackLegacy={fallbackLegacy} alt="" loading="lazy" />
               )}

@@ -1679,3 +1679,491 @@ svg {
     animation-duration: .01ms !important;
   }
 }
+
+/* ==========================================================================
+   HIRMAND · Mobile property media gallery
+   Final mobile-only presentation layer for listing photos and video.
+   This file is loaded after the older detail styles intentionally: the gallery
+   had accumulated competing mobile rules that cropped media and compressed
+   player controls. Desktop layout and data/interaction behavior are untouched.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .property-detail-page .property-detail-top-gallery,
+  .property-detail-page .property-gallery-wrap,
+  .property-detail-page .property-gallery {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .property-detail-page .property-gallery {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    align-items: start !important;
+    gap: 10px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .property-detail-page .property-gallery-main {
+    position: relative !important;
+    isolation: isolate !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    aspect-ratio: 4 / 3 !important;
+    overflow: hidden !important;
+    border: 1px solid var(--hr-border, #ded5c8) !important;
+    border-radius: 22px !important;
+    background: linear-gradient(
+      135deg,
+      var(--hr-panel-warm, #f1eae0),
+      var(--hr-panel-soft, #f8f5ef)
+    ) !important;
+    box-shadow: 0 12px 30px rgb(11 26 43 / 11%) !important;
+  }
+
+  .property-detail-page .property-gallery-main::after {
+    display: none !important;
+    content: none !important;
+  }
+
+  .property-detail-page .property-gallery-main > picture,
+  .property-detail-page .property-gallery-main > .property-video-player,
+  .property-detail-page .property-gallery-main > .property-image-fallback {
+    position: absolute !important;
+    inset: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+  }
+
+  .property-detail-page .property-gallery-main > picture > img,
+  .property-detail-page .property-gallery-main > img,
+  .property-detail-page .property-gallery-main > .property-image-fallback {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    background: transparent !important;
+  }
+
+  .property-detail-page .property-gallery-main > .property-video-player,
+  .property-detail-page .property-gallery-main > .property-video-player .property-video-frame {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    background: var(--hr-panel-warm, #f1eae0) !important;
+  }
+
+  .property-detail-page .property-gallery-main > .property-video-player video,
+  .property-detail-page .property-gallery-main > .property-video-player .property-video-frame video {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    background: var(--hr-panel-warm, #f1eae0) !important;
+  }
+
+  /* Top badges share one compact row; they can no longer stretch across the
+     image or collide with the full-screen action on small phones. */
+  .property-detail-page .property-gallery-overlays {
+    position: absolute !important;
+    inset: 10px 10px auto !important;
+    z-index: 6 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 7px !important;
+    width: auto !important;
+    height: auto !important;
+    pointer-events: none !important;
+  }
+
+  .property-detail-page .property-gallery-counter,
+  .property-detail-page .property-gallery-featured,
+  .property-detail-page .property-gallery-sample-label {
+    position: static !important;
+    inset: auto !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    max-width: 58% !important;
+    min-width: 0 !important;
+    min-height: 31px !important;
+    margin: 0 !important;
+    padding: 5px 9px !important;
+    overflow: hidden !important;
+    border: 1px solid rgb(255 255 255 / 78%) !important;
+    border-radius: 999px !important;
+    background: rgb(255 255 255 / 94%) !important;
+    color: var(--hr-ink, #172b49) !important;
+    font-size: .68rem !important;
+    font-weight: 800 !important;
+    line-height: 1.3 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    box-shadow: 0 4px 14px rgb(11 26 43 / 10%) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+
+  .property-detail-page .property-gallery-featured {
+    background: var(--hr-brass-fill, #b78b46) !important;
+    border-color: transparent !important;
+    color: #fff !important;
+  }
+
+  .property-detail-page .property-gallery-open {
+    position: absolute !important;
+    inset: 51px auto auto 10px !important;
+    z-index: 7 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 7px 11px !important;
+    border: 1px solid rgb(255 255 255 / 82%) !important;
+    border-radius: 13px !important;
+    background: rgb(255 255 255 / 95%) !important;
+    color: var(--hr-ink, #172b49) !important;
+    font-size: .7rem !important;
+    line-height: 1.2 !important;
+    box-shadow: 0 5px 16px rgb(11 26 43 / 12%) !important;
+  }
+
+  .property-detail-page .property-gallery-nav {
+    position: absolute !important;
+    top: 50% !important;
+    bottom: auto !important;
+    z-index: 7 !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: translateY(-50%) !important;
+    border: 1px solid rgb(255 255 255 / 88%) !important;
+    border-radius: 50% !important;
+    background: rgb(255 255 255 / 91%) !important;
+    color: var(--hr-ink, #172b49) !important;
+    box-shadow: 0 6px 18px rgb(11 26 43 / 16%) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+
+  .property-detail-page .property-gallery-prev {
+    right: 9px !important;
+    left: auto !important;
+  }
+
+  .property-detail-page .property-gallery-next {
+    left: 9px !important;
+    right: auto !important;
+  }
+
+  .property-detail-page .property-gallery-nav:active,
+  .property-detail-page .property-gallery-thumb:active,
+  .property-detail-page .property-gallery-open:active {
+    transform: translateY(-50%) scale(.97) !important;
+  }
+
+  /* The thumbnail rail is a predictable touch carousel: equal tiles, no
+     wrapped rows, no hidden fifth item, and enough room to see that it scrolls. */
+  .property-detail-page .property-gallery-rail {
+    display: flex !important;
+    flex-flow: row nowrap !important;
+    align-items: center !important;
+    direction: rtl !important;
+    gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 3px 2px 7px !important;
+    scroll-snap-type: x mandatory !important;
+    scroll-padding-inline: 3px !important;
+    overscroll-behavior-inline: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x pan-y !important;
+    scrollbar-width: none !important;
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+  }
+
+  .property-detail-page .property-gallery-rail::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .property-detail-page .property-gallery-thumb,
+  .property-detail-page .property-gallery-thumb:nth-of-type(n + 5) {
+    position: relative !important;
+    display: block !important;
+    flex: 0 0 76px !important;
+    width: 76px !important;
+    min-width: 76px !important;
+    max-width: 76px !important;
+    height: 62px !important;
+    min-height: 62px !important;
+    max-height: 62px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid var(--hr-border, #ded5c8) !important;
+    border-radius: 12px !important;
+    background: var(--hr-panel-warm, #f1eae0) !important;
+    box-shadow: 0 3px 10px rgb(11 26 43 / 6%) !important;
+    scroll-snap-align: start !important;
+    transform: none !important;
+  }
+
+  .property-detail-page .property-gallery-thumb.is-active {
+    border: 2px solid var(--hr-brass-fill, #b78b46) !important;
+    box-shadow: 0 0 0 3px var(--hr-brass-soft, rgb(183 139 70 / 16%)) !important;
+  }
+
+  .property-detail-page .property-gallery-thumb img,
+  .property-detail-page .property-gallery-thumb video {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    object-fit: cover !important;
+    object-position: center !important;
+  }
+
+  .property-detail-page .property-gallery-thumb-video {
+    position: absolute !important;
+    inset: 5px auto auto 5px !important;
+    z-index: 3 !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 26px !important;
+    height: 26px !important;
+    border: 1px solid rgb(255 255 255 / 65%) !important;
+    border-radius: 50% !important;
+    background: rgb(11 26 43 / 84%) !important;
+    color: #fff !important;
+    pointer-events: none !important;
+  }
+
+  .property-detail-page .property-gallery-thumb-number {
+    z-index: 2 !important;
+    min-width: 22px !important;
+    min-height: 22px !important;
+    padding: 2px 5px !important;
+    font-size: .62rem !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Restore thumb-sized controls. The old 30px video transport buttons were
+     too small on phones and the full-screen action overlapped the control bar. */
+  .property-detail-page .property-video-controls {
+    inset: auto 8px 8px !important;
+    display: grid !important;
+    grid-template-columns: 44px 44px 44px minmax(38px, 1fr) 44px !important;
+    grid-template-rows: 44px auto !important;
+    align-items: center !important;
+    gap: 4px !important;
+    min-height: 0 !important;
+    max-width: calc(100% - 16px) !important;
+    padding: 6px !important;
+    border-radius: 14px !important;
+  }
+
+  .property-detail-page .property-video-controls button {
+    width: 44px !important;
+    height: 44px !important;
+    flex: 0 0 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    border-radius: 10px !important;
+  }
+
+  .property-detail-page .property-video-time {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    justify-self: center !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    font-size: .64rem !important;
+    line-height: 1.2 !important;
+    color: rgb(255 255 255 / 92%) !important;
+  }
+
+  .property-detail-page .property-video-progress {
+    grid-column: 4 !important;
+    grid-row: 1 !important;
+    min-width: 34px !important;
+    height: 6px !important;
+    touch-action: pan-y !important;
+  }
+
+  .property-detail-page .property-video-center-play {
+    width: 56px !important;
+    height: 56px !important;
+    min-width: 56px !important;
+    min-height: 56px !important;
+  }
+
+  /* On a phone, the lightbox owns the screen and respects the safe-area insets.
+     Keep image/video fully visible instead of cropping media to the viewport. */
+  .property-lightbox {
+    padding: 0 !important;
+  }
+
+  .property-lightbox-stage {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    margin: 0 auto !important;
+    padding: calc(54px + env(safe-area-inset-top)) 12px calc(46px + env(safe-area-inset-bottom)) !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  .property-lightbox-media-button {
+    display: grid !important;
+    place-items: center !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
+    max-height: calc(100svh - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    border-radius: 14px !important;
+    background: transparent !important;
+  }
+
+  .property-lightbox-media-button img {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: calc(100svh - 190px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    border-radius: 14px !important;
+    box-shadow: 0 16px 42px rgb(0 0 0 / 24%) !important;
+  }
+
+  .property-lightbox .property-video-player.is-lightbox {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: calc(100svh - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    aspect-ratio: 16 / 9 !important;
+    border-radius: 14px !important;
+  }
+
+  .property-lightbox .property-video-player.is-lightbox .property-video-frame video {
+    object-fit: contain !important;
+  }
+
+  .property-lightbox .property-video-player.is-lightbox .property-video-controls {
+    left: 6px !important;
+    right: 6px !important;
+    bottom: 6px !important;
+    max-width: calc(100% - 12px) !important;
+    grid-template-columns: 36px 36px 36px minmax(24px, 1fr) 36px !important;
+  }
+
+  .property-lightbox .property-video-player.is-lightbox .property-video-controls button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    flex-basis: 36px !important;
+  }
+
+  .property-lightbox .property-lightbox-count {
+    bottom: calc(84px + env(safe-area-inset-bottom)) !important;
+    max-width: calc(100% - 120px) !important;
+  }
+}
+
+/* A legacy signature stylesheet has a higher-specificity 16:10 rule for
+   the hero image and a second mobile rule pins a pixel height. Keep this
+   final selector at the same specificity as that legacy rule so mobile ratios
+   actually win in the rendered page, not only in source-level CSS tests. */
+@media (max-width: 720px) {
+  body:has(.property-detail-page) .property-detail-page .property-gallery-wrap .property-gallery .property-gallery-main {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    aspect-ratio: 4 / 3 !important;
+  }
+}
+
+@media (max-width: 360px) {
+  body:has(.property-detail-page) .property-detail-page .property-gallery-wrap .property-gallery .property-gallery-main {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    aspect-ratio: 1 / 1 !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .property-detail-page .property-gallery-open {
+    inset-inline-start: 8px !important;
+    top: 49px !important;
+    padding-inline: 9px !important;
+  }
+
+  .property-detail-page .property-gallery-main {
+    aspect-ratio: 1 / 1 !important;
+    border-radius: 18px !important;
+  }
+
+  .property-detail-page .property-gallery-thumb,
+  .property-detail-page .property-gallery-thumb:nth-of-type(n + 5) {
+    flex-basis: 68px !important;
+    width: 68px !important;
+    min-width: 68px !important;
+    max-width: 68px !important;
+    height: 58px !important;
+    min-height: 58px !important;
+    max-height: 58px !important;
+  }
+
+  .property-detail-page .property-video-controls {
+    grid-template-columns: 40px 40px 40px minmax(28px, 1fr) 40px !important;
+    gap: 3px !important;
+    padding: 5px !important;
+  }
+
+  .property-detail-page .property-video-controls button {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    flex-basis: 40px !important;
+  }
+}
+
