@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { NEIGHBORHOOD_NAMES, PROPERTY_TYPES, SITE, TEAM } from "@/lib/site";
 import { isInvalidIntegerInput, normalizeMoneyText } from "@/lib/property-input-normalization";
+import { isAllowedMediaRef } from "@/lib/media";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { listConsultants, type Consultant } from "@/lib/consultants";
 import { propertyPath } from "@/lib/property-path";
@@ -427,13 +428,11 @@ function parseImageUrls(raw: string): { valid: string[]; invalid: string[] } {
   const valid: string[] = [];
   const invalid: string[] = [];
   for (const line of splitLines(raw)) {
-    try {
-      const u = new URL(line);
-      if (u.protocol === "http:" || u.protocol === "https:") valid.push(line);
-      else invalid.push(line);
-    } catch {
-      invalid.push(line);
-    }
+    // Reuse the same allowlist as the server schema. Uploaded media can be
+    // returned as same-origin paths (/api/media/<id> or /api/liara-media?...),
+    // which new URL(line) without a base incorrectly rejects.
+    if (isAllowedMediaRef(line)) valid.push(line);
+    else invalid.push(line);
   }
   return { valid, invalid };
 }
