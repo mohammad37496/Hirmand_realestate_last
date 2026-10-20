@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie } from "h3";
 import { handleChunkedUpload } from "@/lib/chunked-upload.server";
+import { mediaUrlForBrowser } from "@/lib/media-store.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
@@ -63,7 +64,9 @@ export default defineEventHandler(async (event) => {
       sizeLimitMessage: (limitMb) => `حجم فایل بیش از ${limitMb} مگابایت است.`,
       // No server-side watermarking: persist the uploaded media without logo/text overlays.
       transform: async () => null,
-      finish: async ({ stored }) => ({ url: stored.url }),
+      finish: async ({ stored, session }) => ({
+        url: mediaUrlForBrowser(stored.url, String(session.content_type ?? "")),
+      }),
     });
   } catch (error) {
     // Also report failures that happen before the completion handler's own
