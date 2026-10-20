@@ -76,6 +76,18 @@ const mediaField = await readFile(
   new URL("../src/components/hirmand/admin-media-field.tsx", import.meta.url),
   "utf8",
 );
+const propertyMediaService = await readFile(
+  new URL("../src/lib/property-media-upload.server.ts", import.meta.url),
+  "utf8",
+);
+const propertyMediaRoute = await readFile(
+  new URL("../server/routes/api/property-media.post.ts", import.meta.url),
+  "utf8",
+);
+const floorPlanField = await readFile(
+  new URL("../src/components/hirmand/admin-floor-plan-field.tsx", import.meta.url),
+  "utf8",
+);
 const imageWatermark = await readFile(
   new URL("../src/lib/property-image-watermark.ts", import.meta.url),
   "utf8",
@@ -123,11 +135,15 @@ test("placeholder gallery values are stripped before strict URL validation", () 
   assert.ok(imagesSchema >= 0 && stripFallbacks > imagesSchema && strictPipe > stripFallbacks);
 });
 
-test("admin media uploads are single-flight and append to the latest form value", () => {
+test("admin media uploads use the dedicated pipeline and remain single-flight with retry support", () => {
   assert.match(mediaField, /const uploadingRef = useRef\(false\)/);
   assert.match(mediaField, /valueRef\.current/);
   assert.match(mediaField, /if \(uploadingRef\.current\) return/);
-  assert.match(mediaField, /retryCompletion: true/);
+  assert.match(mediaField, /uploadPropertyMedia/);
+  assert.match(mediaField, /async function retryFailed/);
+  assert.match(mediaClient, /retryCompletion: true/);
+  assert.match(mediaClient, /endpoint: "\/api\/property-media"/);
+  assert.match(mediaField, /اولین مورد کاور اصلی است/);
 });
 
 test("active image watermarking fails closed instead of silently uploading originals", () => {
@@ -137,10 +153,13 @@ test("active image watermarking fails closed instead of silently uploading origi
   assert.doesNotMatch(imageWatermark, /if \(!blob\) return file/);
 });
 
-test("opaque upload failures expose sanitized HTTP and proxy diagnostics", () => {
+test("property upload failures expose sanitized diagnostics from the dedicated handler", () => {
   assert.match(mediaClient, /سرور پاسخ غیرقابل‌خواندن برگرداند/);
   assert.match(mediaClient, /response\.status/);
-  assert.ok(uploadRoute.includes("[upload] API request failed:"));
+  assert.match(propertyMediaService, /\[property-media\] chunk failed/);
+  assert.match(propertyMediaService, /\[property-media\] finalize failed/);
+  assert.match(uploadRoute, /handlePropertyMediaUpload/);
+  assert.match(propertyMediaRoute, /handlePropertyMediaUpload/);
 });
 
 test("upload client reuses the same ID for bounded finalization recovery", () => {
@@ -150,14 +169,20 @@ test("upload client reuses the same ID for bounded finalization recovery", () =>
   assert.match(mediaClient, /attempt < maxCompletionAttempts/);
 });
 
-test("property media uploads preserve originals and return browser-safe URLs without watermarking", () => {
+test("dedicated property image, video, and floor-plan uploads preserve originals and return browser-safe URLs", () => {
   assert.doesNotMatch(
-    uploadRoute,
+    propertyMediaService,
     /getPropertyWatermarkSettingsServer|applyPropertyImageWatermarkServer|applyPropertyVideoWatermark/,
-    "the admin upload route must not execute automatic watermark processors",
+    "property media uploads must not execute automatic watermark processors",
   );
-  assert.match(uploadRoute, /transform: async \(\) => null/);
-  assert.match(uploadRoute, /mediaUrlForBrowser/);
+  assert.match(propertyMediaService, /storeMedia\(/);
+  assert.match(propertyMediaService, /mediaUrlForBrowser/);
+  assert.match(propertyMediaService, /assetKind/);
+  assert.match(uploadRoute, /handlePropertyMediaUpload/, "the old URL must remain a compatibility alias");
+  assert.match(propertyMediaRoute, /handlePropertyMediaUpload/);
+  assert.match(mediaField, /uploadPropertyMedia/);
+  assert.match(mediaField, /رسانه‌ها پس از ذخیرهٔ فایل ملک ثبت می‌شوند/);
+  assert.match(floorPlanField, /uploadPropertyMedia/);
 
   assert.doesNotMatch(
     customerUploadRoute,
@@ -166,11 +191,11 @@ test("property media uploads preserve originals and return browser-safe URLs wit
   );
   assert.match(customerUploadRoute, /transform: async \(\) => null/);
   assert.match(customerUploadRoute, /mediaUrlForBrowser/);
-  assert.match(mediaField, /رسانه‌ها بدون درج خودکار واترمارک ذخیره می‌شوند/);
 });
 
-test("media start-rate quota is independent for each upload pathway", () => {
+test("legacy audio media and dedicated property uploads have independent rate-limit buckets", () => {
   assert.match(mediaProtocol, /media-upload:begin:\$\{config\.pathPrefix\}:\$\{clientFingerprint\(event\)\}/);
+  assert.match(propertyMediaService, /property-media:begin:\$\{kind\}:\$\{clientFingerprint\(event\)\}/);
 });
 
 test("production prebuild provisions the checksum-verified FFmpeg binary used for watermarking", () => {
