@@ -3,9 +3,6 @@ import { handleChunkedUpload } from "@/lib/chunked-upload.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
-import { getPropertyWatermarkSettingsServer } from "@/lib/property-watermark.server";
-import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
-import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
 
 const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -52,13 +49,6 @@ export default defineEventHandler(async (event) => {
   }
   assertSameOrigin(event);
 
-  // Per-request diagnostic. When permanent watermarking cannot run (missing
-  // FFmpeg/font/logo, or an FFmpeg filter error) the upload must still succeed,
-  // but the operator is told that the original bytes were stored instead. It is
-  // deliberately not a silent fallback: the reason is logged server-side and the
-  // fact is returned to the admin panel.
-  let watermarkWarning: string | null = null;
-
   try {
     return await handleChunkedUpload(event, {
       kind: "media",
@@ -71,56 +61,9 @@ export default defineEventHandler(async (event) => {
       },
       unsupportedTypeMessage: "نوع فایل رسانه‌ای مجاز نیست.",
       sizeLimitMessage: (limitMb) => `حجم فایل بیش از ${limitMb} مگابایت است.`,
-      transform: async ({ data, contentType, pathname }) => {
-        if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) return null;
-
-        const settings = await getPropertyWatermarkSettingsServer();
-        if (
-          !settings.enabled ||
-          (!settings.showLogo && !(settings.showText && settings.text.trim()))
-        ) {
-          return null;
-        }
-
-        try {
-          if (contentType.startsWith("image/")) {
-            return applyPropertyImageWatermarkServer({
-              data,
-              contentType,
-              pathname,
-              settings,
-            });
-          }
-
-          return applyPropertyVideoWatermark({
-            data,
-            contentType,
-            pathname,
-            settings,
-          });
-        } catch (error) {
-          // If watermarking fails because ffmpeg, the font, the logo or a filter
-          // is unavailable, store the original file instead of failing the upload
-          // with HTTP 500. The failure is logged at error level (not buried in a
-          // warning) and reported to the caller so the operator knows the media
-          // is live without the brand watermark.
-          console.error(
-            "[upload] permanent media watermark failed for " +
-              contentType +
-              " at " +
-              pathname +
-              " — " +
-              (error instanceof Error ? error.message : String(error))
-          );
-          watermarkWarning =
-            "فایل ذخیره شد، اما واترمارک دائمی روی آن اعمال نشد و نسخه اصلی نگه داشته شد.";
-          return null;
-        }
-      },
-      finish: async ({ stored }) => ({
-        url: stored.url,
-        ...(watermarkWarning ? { watermarkWarning } : {}),
-      }),
+      // No server-side watermarking: persist the uploaded media without logo/text overlays.
+      transform: async () => null,
+      finish: async ({ stored }) => ({ url: stored.url }),
     });
   } catch (error) {
     // Also report failures that happen before the completion handler's own
