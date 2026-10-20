@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { CheckCircle2, FileImage, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { uploadInChunks, uploadErrorMessage } from "@/lib/media-upload-client";
+import { uploadPropertyMedia, uploadErrorMessage } from "@/lib/media-upload-client";
 import "@/admin-floor-plan.css";
 
 type Props = {
@@ -12,6 +12,20 @@ type Props = {
 const MAX_BYTES = 15 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
 
+function resolveImageMime(file: File): string {
+  if (ALLOWED_TYPES.has(file.type)) return file.type;
+  if (!file.type || file.type === "application/octet-stream") {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    const mime = extension === "jpg" || extension === "jpeg" ? "image/jpeg"
+      : extension === "png" ? "image/png"
+      : extension === "webp" ? "image/webp"
+      : extension === "avif" ? "image/avif"
+      : "";
+    if (ALLOWED_TYPES.has(mime)) return mime;
+  }
+  return "";
+}
+
 export function AdminFloorPlanField({ value, onChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -19,7 +33,8 @@ export function AdminFloorPlanField({ value, onChange }: Props) {
   const [broken, setBroken] = useState(false);
 
   async function upload(file: File) {
-    if (!ALLOWED_TYPES.has(file.type)) {
+    const contentType = resolveImageMime(file);
+    if (!contentType) {
       toast.error("پلان باید تصویر JPG، PNG، WebP یا AVIF باشد.");
       return;
     }
@@ -32,17 +47,14 @@ export function AdminFloorPlanField({ value, onChange }: Props) {
     setProgress(0);
     setBroken(false);
     try {
-      const result = await uploadInChunks({
-        endpoint: "/api/property-media",
-        payload: { assetKind: "floor-plan" },
+      const result = await uploadPropertyMedia({
         file,
-        contentType: file.type,
+        contentType,
+        assetKind: "floor-plan",
         rejectedMessage: "آپلود پلان پذیرفته نشد.",
         onProgress: setProgress,
       });
-      const url = typeof result.response.url === "string" ? result.response.url.trim() : "";
-      if (!url) throw new Error("نشانی پلان آپلودشده دریافت نشد.");
-      onChange(url);
+      onChange(result.url);
       toast.success("پلان واقعی با موفقیت آپلود شد.");
     } catch (error) {
       toast.error(uploadErrorMessage(error, "آپلود پلان انجام نشد."));
