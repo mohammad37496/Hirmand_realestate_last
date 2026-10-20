@@ -48,6 +48,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Run the real watermark-render tests with the same verified FFmpeg and
+      # Persian font required by Liara. Without this step the render suite sees
+      # missing assets and skips its image/video integration checks.
+      - name: Provision watermark runtime for render tests
+        run: node scripts/ensure-ffmpeg.mjs
+
       - name: Typecheck
         run: npm run typecheck
 

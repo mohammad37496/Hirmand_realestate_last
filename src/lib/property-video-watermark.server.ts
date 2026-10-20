@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
+  formatFfmpegExecutionError,
   resolveBrandLogo,
   resolveBundledFfmpeg,
   resolveLocalFontFallback,
@@ -226,16 +227,8 @@ export async function applyPropertyVideoWatermark(
         windowsHide: true,
       });
     } catch (error) {
-      const detail =
-        typeof error === "object" &&
-        error !== null &&
-        "stderr" in error
-          ? String((error as { stderr?: unknown }).stderr ?? "")
-          : "";
       throw new Error(
-        detail.trim()
-          ? `پردازش دائمی واترمارک ویدئو انجام نشد: ${detail.trim().slice(-1200)}`
-          : "پردازش دائمی واترمارک ویدئو انجام نشد. وجود FFmpeg و دسترسی اجرای آن را بررسی کنید.",
+        `پردازش دائمی واترمارک ویدئو انجام نشد: ${formatFfmpegExecutionError(error)}`,
       );
     }
 

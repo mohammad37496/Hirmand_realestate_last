@@ -27,7 +27,7 @@
   },
   "scripts": {
     "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
-    "build": "node scripts/validate-deploy-env.mjs && node scripts/with-app-env.mjs vite build",
+    "build": "node scripts/generate-fallback-assets.mjs && node scripts/validate-deploy-env.mjs && node scripts/with-app-env.mjs vite build",
     "build:deploy": "npm run build && npm prune --omit=dev --ignore-scripts",
     "db:migrate": "node scripts/prestart-migrate.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
@@ -43,8 +43,7 @@
     "test:template": "node --test 'scripts/**/*.test.mjs'",
     "test:phone-bridge:sql": "node scripts/phone-bridge-sql-check.mjs",
     "test:phone-bridge:http": "node scripts/phone-bridge-e2e.mjs",
-    "start": "node scripts/prestart.mjs && node .output/server/index.mjs",
-    "prebuild": "node scripts/ensure-ffmpeg.mjs && node scripts/generate-fallback-assets.mjs"
+    "start": "node scripts/prestart.mjs && node .output/server/index.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

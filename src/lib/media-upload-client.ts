@@ -274,11 +274,10 @@ export async function uploadInChunks(options: {
       const message = responseMessage(complete, "");
       if (message) throw new Error(message);
 
-      // Distinguish a generic server/internal error from the known watermark-skip
-      // path. When watermarking fails because FFmpeg, a font, or the logo is missing
-      // at runtime, the server stores the original media without a watermark and logs
-      // a warning instead of returning 500 — so this branch is mainly for genuine
-      // storage/transform/persistence failures that need operator investigation.
+      // Permanent watermarking is fail-closed: if FFmpeg, the font, the logo,
+      // or media transformation is unavailable, the server rejects finalization
+      // instead of publishing the original without the requested watermark.
+      // Keep the actual HTTP status and server hint visible for diagnosis.
       const serverHint =
         completeResponse.status >= 500
           ? "؛ سرور یا درگاه آپلود خطای داخلی برگرداند."

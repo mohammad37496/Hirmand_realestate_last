@@ -12,6 +12,7 @@ import { applyPropertyImageWatermarkServer } from "./property-image-watermark.se
 import { applyPropertyVideoWatermark } from "./property-video-watermark.server.ts";
 import type { PropertyWatermarkSettings } from "./property-watermark.ts";
 import {
+  formatFfmpegExecutionError,
   projectRoots,
   resolveBrandLogo,
   resolveBundledFfmpeg,
@@ -93,6 +94,25 @@ test("watermark assets resolve from the app root, not just the module directory"
  * "[Eval] Undefined constant ... in 'iw*0.012*0.900'", which is exactly the
  * HTTP 500 this suite exists to prevent from coming back.
  */
+test("FFmpeg execution diagnostics preserve spawn and encoder failure causes", () => {
+  const spawnError = Object.assign(
+    new Error("spawn /app/.runtime/ffmpeg/ffmpeg EACCES"),
+    { code: "EACCES", errno: -13, syscall: "spawn", path: "/app/.runtime/ffmpeg/ffmpeg" },
+  );
+  const spawnDiagnostic = formatFfmpegExecutionError(spawnError);
+  assert.match(spawnDiagnostic, /code=EACCES/);
+  assert.match(spawnDiagnostic, /syscall=spawn/);
+  assert.match(spawnDiagnostic, /path=\/app\/\.runtime\/ffmpeg\/ffmpeg/);
+
+  const encoderError = Object.assign(new Error("FFmpeg exited"), {
+    code: 1,
+    stderr: "Unknown encoder 'libx264'",
+  });
+  const encoderDiagnostic = formatFfmpegExecutionError(encoderError);
+  assert.match(encoderDiagnostic, /code=1/);
+  assert.match(encoderDiagnostic, /stderr=Unknown encoder 'libx264'/);
+});
+
 test("watermark filters use drawtext-safe frame variables", () => {
   for (const [name, source] of [
     ["image", imageSource],
@@ -338,7 +358,7 @@ test(
         "-f",
         "lavfi",
         "-i",
-        "testsrc2=size=640x360:rate=25",
+        "color=c=blue:s=640x360:r=25",
         "-t",
         "1",
         "-c:v",
@@ -368,6 +388,50 @@ test(
 
       const outputPath = join(workDir, "out.mp4");
       await writeFile(outputPath, result.data);
+
+      // Decode an actual output frame and prove the watermark changes visible
+      // pixels against a uniformly blue source. A valid MP4 container/receipt
+      // alone cannot prove that the brand was baked into the video frames.
+      const framePath = join(workDir, "watermarked-frame.rgb");
+      await execFileAsync(FFMPEG, [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        outputPath,
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "rgb24",
+        "-f",
+        "rawvideo",
+        framePath,
+      ]);
+      const frame = await readFile(framePath);
+      assert.equal(frame.length, 640 * 360 * 3, "decoded frame dimensions must remain 640x360");
+      const backgroundOffset = (24 * 640 + 24) * 3;
+      const background = [
+        frame[backgroundOffset]!,
+        frame[backgroundOffset + 1]!,
+        frame[backgroundOffset + 2]!,
+      ];
+      let alteredPixels = 0;
+      for (let y = 270; y < 356; y += 1) {
+        for (let x = 320; x < 636; x += 1) {
+          const offset = (y * 640 + x) * 3;
+          const difference =
+            Math.abs(frame[offset]! - background[0]!) +
+            Math.abs(frame[offset + 1]! - background[1]!) +
+            Math.abs(frame[offset + 2]! - background[2]!);
+          if (difference > 55) alteredPixels += 1;
+        }
+      }
+      assert.ok(
+        alteredPixels > 500,
+        `the decoded video must contain visible watermark pixels (found ${alteredPixels})`,
+      );
+
       const probe = await execFileAsync(FFMPEG, ["-hide_banner", "-i", outputPath]).catch(
         (error: { stderr?: string }) => ({ stderr: error.stderr ?? "", stdout: "" }),
       );

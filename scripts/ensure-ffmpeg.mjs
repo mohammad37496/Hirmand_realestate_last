@@ -9,15 +9,16 @@ import { realpathSync } from "node:fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const PROJECT_ROOT = resolve(__dirname, "..");
 
 // Pin the complete GPL static build rather than ffmpeg-static's Linux asset:
  // drawtext has been absent from that asset, which breaks Persian text watermarks.
  // SHA-256 values are the digests published by the upstream BtbN release.
 const RELEASE_TAG = "autobuild-2026-10-18-13-01";
-const TARGET_DIR = join(process.cwd(), ".runtime", "ffmpeg");
+const TARGET_DIR = join(PROJECT_ROOT, ".runtime", "ffmpeg");
 const TARGET_PATH = join(TARGET_DIR, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
 const FONT_VERSION = "v33.003";
-const FONT_DIR = join(process.cwd(), ".runtime", "fonts");
+const FONT_DIR = join(PROJECT_ROOT, ".runtime", "fonts");
 const FONT_PATH = join(FONT_DIR, "Vazirmatn-Regular.ttf");
 const FONT_URL = `https://raw.githubusercontent.com/rastikerdar/vazirmatn/${FONT_VERSION}/fonts/ttf/Vazirmatn-Regular.ttf`;
 const FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972";
