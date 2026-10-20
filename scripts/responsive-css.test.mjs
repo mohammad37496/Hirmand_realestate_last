@@ -224,6 +224,11 @@ testRunner.test("mobile property gallery keeps full media visible and gives vide
     "the full-screen control on narrow phones must shrink to its content instead of stretching edge-to-edge",
   );
   assert.match(
+    browserSmoke,
+    /gallery\.openButton\.width > Math\.min\(gallery\.stage\.width \* 0\.62, 180\)/,
+    "the responsive browser matrix must detect a stretched full-screen action on small phones",
+  );
+  assert.match(
     responsiveCss,
     /\.property-detail-page \.property-gallery-main > picture > img\s*,[\s\S]*?object-fit:\s*contain\s*!important/s,
     "mobile photos must be fully visible instead of being cropped by cover",
