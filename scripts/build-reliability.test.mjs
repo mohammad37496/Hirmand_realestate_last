@@ -37,10 +37,6 @@ const mediaStore = await readFile(
   new URL("../src/lib/media-store.server.ts", import.meta.url),
   "utf8",
 );
-const watermarkRuntime = await readFile(
-  new URL("../src/lib/watermark-runtime.server.ts", import.meta.url),
-  "utf8",
-);
 
 test("property save SQL assigns every INSERT placeholder and types floor_label", () => {
   const queryStart = propertyStore.indexOf("`insert into properties (");
@@ -82,14 +78,6 @@ const mediaField = await readFile(
 );
 const imageWatermark = await readFile(
   new URL("../src/lib/property-image-watermark.ts", import.meta.url),
-  "utf8",
-);
-const serverImageWatermark = await readFile(
-  new URL("../src/lib/property-image-watermark.server.ts", import.meta.url),
-  "utf8",
-);
-const serverVideoWatermark = await readFile(
-  new URL("../src/lib/property-video-watermark.server.ts", import.meta.url),
   "utf8",
 );
 const uploadRoute = await readFile(
