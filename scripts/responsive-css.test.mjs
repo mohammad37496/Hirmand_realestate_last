@@ -9,6 +9,7 @@ const propertyDetailCss = fs.readFileSync(new URL("../src/property-detail-pro.cs
 const propertyDetailRedesignCss = fs.readFileSync(new URL("../src/property-detail-redesign.css", import.meta.url), "utf8");
 const propertyDetailLightCss = fs.readFileSync(new URL("../src/property-detail-light-theme.css", import.meta.url), "utf8");
 const propertyFiltersCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
+const propertyFiltersRedesignCss = fs.readFileSync(new URL("../src/properties-filters-redesign.css", import.meta.url), "utf8");
 const adminMatchingCss = fs.readFileSync(new URL("../src/admin-matching.css", import.meta.url), "utf8");
 const adminMobileManagementCss = fs.readFileSync(new URL("../src/admin-mobile-management.css", import.meta.url), "utf8");
 const adminPropertyQualityCss = fs.readFileSync(new URL("../src/admin-property-quality.css", import.meta.url), "utf8");
@@ -131,6 +132,14 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   assert.ok(verificationCopyRule, "property verification text rule should exist");
   assert.doesNotMatch(verificationCopyRule, /overflow-wrap\s*:\s*anywhere/i);
   assert.match(verificationCopyRule, /overflow-wrap\s*:\s*break-word/i);
+});
+
+testRunner.test("two-field spec ranges split evenly instead of collapsing a label", () => {
+  assert.match(
+    propertyFiltersRedesignCss,
+    /\.pf-range:not\(:has\(> i\)\)\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s,
+    "ranges without a separator must not leave the second field in the auto-width separator column",
+  );
 });
 
 testRunner.test("the mobile neighborhood dialog escapes the filter drawer stacking context", () => {

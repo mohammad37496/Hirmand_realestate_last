@@ -251,6 +251,12 @@
   gap: 7px;
 }
 .pf-range > .pf-field { min-width: 0; }
+/* Ranges without a separator element (e.g. "حداقل خواب" + "حداقل حمام") would
+   otherwise leave the second field in the auto-width separator column and
+   squeeze it to a few pixels on mid-size screens. */
+.pf-range:not(:has(> i)) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .pf-range > i {
   padding-bottom: 13px;
   color: var(--hr-muted, #68737e);
