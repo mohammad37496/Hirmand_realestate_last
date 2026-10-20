@@ -295,3 +295,48 @@ export function liaraObjectKeyFromUrl(
     return null;
   }
 }
+
+/** Property/media keys that may be served publicly through the same-origin proxy. */
+export function isAllowedLiaraMediaKey(value: string): boolean {
+  const key = value.trim();
+  if (
+    !key ||
+    key.includes("\\") ||
+    key.split("/").some((segment) => !segment || segment === "." || segment === "..")
+  ) {
+    return false;
+  }
+  return [
+    "properties/uploads/",
+    "properties/customer-submissions/",
+    "areas/uploads/",
+  ].some((prefix) => key.startsWith(prefix) && key.length > prefix.length);
+}
+
+/** Convert a private Liara object URL to a browser-safe same-origin URL. */
+export function liaraMediaProxyUrl(value: string, contentType = ""): string {
+  const key = liaraObjectKeyFromUrl(value);
+  if (!key || !isAllowedLiaraMediaKey(key)) return value;
+
+  const params = new URLSearchParams({ url: value });
+  if (contentType.toLowerCase().startsWith("video/")) params.set("type", "video");
+  return "/api/liara-media?" + params.toString();
+}
+
+/** Recover the private object key when a stored property uses the proxy URL. */
+export function liaraObjectKeyFromBrowserProxy(
+  value: string | null | undefined,
+): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value, "https://hirmand.invalid");
+    if (parsed.origin !== "https://hirmand.invalid" || parsed.pathname !== "/api/liara-media") {
+      return null;
+    }
+    const raw = parsed.searchParams.get("url");
+    const key = liaraObjectKeyFromUrl(raw);
+    return key && isAllowedLiaraMediaKey(key) ? key : null;
+  } catch {
+    return null;
+  }
+}
