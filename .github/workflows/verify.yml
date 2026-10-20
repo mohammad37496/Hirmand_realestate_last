@@ -89,23 +89,32 @@ jobs:
       - name: Seed deterministic property-detail fixture
         run: node scripts/seed-browser-smoke.mjs
 
-      - name: Browser smoke against production preview
+      - name: Browser smoke against built Nitro server
         shell: bash
+        env:
+          NODE_ENV: production
+          PORT: "8081"
+          NITRO_PORT: "8081"
+          HOST: 127.0.0.1
+          NITRO_HOST: 127.0.0.1
         run: |
           set -euo pipefail
           sudo mkdir -p /workspace
           sudo chown "$USER":"$USER" /workspace
 
-          npx vite preview --host 127.0.0.1 --port 8081 > /tmp/hirmand-preview.log 2>&1 &
-          PREVIEW_PID=$!
+          # Run the actual built server used by Liara, not Vite's development
+          # preview. This also tests runtime FFmpeg/font path resolution from
+          # the Nitro bundle and the real request handlers.
+          node .output/server/index.mjs > /tmp/hirmand-nitro.log 2>&1 &
+          SERVER_PID=$!
 
           cleanup() {
             status=$?
-            kill "$PREVIEW_PID" >/dev/null 2>&1 || true
-            wait "$PREVIEW_PID" >/dev/null 2>&1 || true
+            kill "$SERVER_PID" >/dev/null 2>&1 || true
+            wait "$SERVER_PID" >/dev/null 2>&1 || true
             if [ "$status" -ne 0 ]; then
-              echo "::group::Vite preview log"
-              cat /tmp/hirmand-preview.log || true
+              echo "::group::Built Nitro server log"
+              cat /tmp/hirmand-nitro.log || true
               echo "::endgroup::"
             fi
             exit "$status"
@@ -116,12 +125,12 @@ jobs:
             if curl --silent --fail http://127.0.0.1:8081/ >/dev/null; then
               break
             fi
-            if ! kill -0 "$PREVIEW_PID" >/dev/null 2>&1; then
-              echo "::error::Vite preview exited before becoming ready."
+            if ! kill -0 "$SERVER_PID" >/dev/null 2>&1; then
+              echo "::error::Built Nitro server exited before becoming ready."
               exit 1
             fi
             if [ "$attempt" -eq 45 ]; then
-              echo "::error::Vite preview did not become ready on port 8081."
+              echo "::error::Built Nitro server did not become ready on port 8081."
               exit 1
             fi
             sleep 1
@@ -130,9 +139,8 @@ jobs:
           npx playwright install --with-deps chromium
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
           # End-to-end proof of the admin upload path: begin → chunks → complete,
-          # then fetch the stored media from the public endpoint, plus the
-          # watermark-on/watermark-off A/B. The `iw`-in-drawtext regression this
-          # guards against returned HTTP 500 on every property-image upload.
+          # then fetch served bytes and verify the watermark-on/watermark-off
+          # paths against the same built runtime that runs in production.
           node scripts/upload-e2e-smoke.mjs http://127.0.0.1:8081
           # Run the responsive matrix first so failures in unrelated route,
           # search, or admin smoke tests cannot prevent mobile diagnostics.
