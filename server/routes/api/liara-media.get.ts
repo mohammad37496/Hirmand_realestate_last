@@ -47,7 +47,7 @@ function mimeFromKey(key: string): string {
   return "";
 }
 
-async function isPublishedPropertyMedia(rawUrl: string, key: string): Promise<boolean> {
+async function isPublishedPropertyMedia(rawUrl: string): Promise<boolean> {
   if (dbSource === "unconfigured") return false;
 
   // Customer-submission objects stay private until a published property refers
@@ -112,7 +112,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const publishedReference = customerSubmissionMedia
-    ? await isPublishedPropertyMedia(rawUrl, key)
+    ? await isPublishedPropertyMedia(rawUrl)
     : true;
   if (customerSubmissionMedia && !hasPrivateMediaPermission && !publishedReference) {
     // Do not expose whether a pending/rejected submission object exists.
