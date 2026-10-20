@@ -162,63 +162,23 @@ test("upload client reuses the same ID for bounded finalization recovery", () =>
   assert.match(mediaClient, /attempt < maxCompletionAttempts/);
 });
 
-test("property images are permanently watermarked on the server before storage", () => {
-  assert.match(uploadRoute, /applyPropertyImageWatermarkServer/);
-  assert.match(uploadRoute, /applyPropertyVideoWatermark/);
-  assert.match(serverImageWatermark, /contentMatchesDeclaredType\(output, "image\/webp"\)/);
-  assert.match(serverImageWatermark, /واترمارک دائمی برای GIF متحرک پشتیبانی نمی‌شود/);
-  assert.match(serverImageWatermark, /timeout: 90_000/);
-  // The font must be the provisioned real TTF, resolved by the shared helper.
-  // A fixed `join(__dirname, "..", ...)` misses `.runtime/` once Nitro bundles
-  // the module into `.output/server/_chunks/`, which is what produced HTTP 500
-  // with "font not found" in production.
-  assert.match(
-    serverImageWatermark,
-    /resolveWatermarkFont\(\)/,
-    "image watermarking must resolve the provisioned Vazirmatn TTF through the shared runtime helper",
+test("property media uploads preserve originals and return browser-safe URLs without watermarking", () => {
+  assert.doesNotMatch(
+    uploadRoute,
+    /getPropertyWatermarkSettingsServer|applyPropertyImageWatermarkServer|applyPropertyVideoWatermark/,
+    "the admin upload route must not execute automatic watermark processors",
   );
-  assert.match(
-    serverImageWatermark,
-    /from "\.\/watermark-runtime\.server\.ts"/,
-    "image watermarking must use the shared runtime asset resolver",
-  );
-  assert.match(
-    watermarkRuntime,
-    /"Vazirmatn-Regular\.ttf"/,
-    "the shared resolver must reference the provisioned Vazirmatn TTF font",
-  );
-  // The resolver must search the app root (production cwd), not only the
-  // module directory, and stay overridable for unusual deployments.
-  assert.match(watermarkRuntime, /process\.cwd\(\)/);
-  assert.match(watermarkRuntime, /HIRMAND_PROJECT_ROOT/);
-  assert.match(watermarkRuntime, /join\(root, \.\.\.segments\)/);
-  assert.match(watermarkRuntime, /resolveFromProject\("\.runtime", "fonts", "Vazirmatn-Regular\.ttf"\)/);
-  // It must also check that ffmpeg is available before attempting watermarking.
-  assert.match(
-    serverImageWatermark,
-    /if \(!resolveBundledFfmpeg\(\)\)/,
-    "image watermarking must verify ffmpeg runtime availability before processing",
-  );
-  assert.match(ffmpegDownloader, /FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972"/);
-  assert.match(ffmpegDownloader, /await ensureWatermarkFont\(\)/);
-  assert.match(ffmpegDownloader, /download\(FONT_URL, 0, "Vazirmatn font"\)/);
+  assert.match(uploadRoute, /transform: async \(\) => null/);
+  assert.match(uploadRoute, /mediaUrlForBrowser/);
 
-  // The video watermark module must use the same robust path resolution.
-  assert.match(serverVideoWatermark, /resolveWatermarkFont\(\)/);
-  assert.match(serverVideoWatermark, /from "\.\/watermark-runtime\.server\.ts"/);
-  assert.match(
-    serverVideoWatermark,
-    /if \(!resolveBundledFfmpeg\(\)\)/,
-    "video watermarking must verify ffmpeg runtime availability before processing",
+  assert.doesNotMatch(
+    customerUploadRoute,
+    /getPropertyWatermarkSettingsServer|applyPropertyImageWatermarkServer|applyPropertyVideoWatermark/,
+    "public customer uploads must not execute automatic watermark processors",
   );
-  assert.match(serverVideoWatermark, /applyPropertyVideoWatermark/);
-  assert.match(serverVideoWatermark, /libx264/);
-});
-
-test("pending public property submissions cannot bypass permanent media watermark settings", () => {
-  assert.match(customerUploadRoute, /getPropertyWatermarkSettingsServer/);
-  assert.match(customerUploadRoute, /applyPropertyImageWatermarkServer/);
-  assert.match(customerUploadRoute, /applyPropertyVideoWatermark/);
+  assert.match(customerUploadRoute, /transform: async \(\) => null/);
+  assert.match(customerUploadRoute, /mediaUrlForBrowser/);
+  assert.match(mediaField, /رسانه‌ها بدون درج خودکار واترمارک ذخیره می‌شوند/);
 });
 
 test("media start-rate quota is independent for each upload pathway", () => {
