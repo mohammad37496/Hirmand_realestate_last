@@ -2102,7 +2102,7 @@ svg {
   }
 
   .property-lightbox .property-lightbox-count {
-    bottom: calc(45px + env(safe-area-inset-bottom)) !important;
+    bottom: calc(84px + env(safe-area-inset-bottom)) !important;
     max-width: calc(100% - 120px) !important;
   }
 }
