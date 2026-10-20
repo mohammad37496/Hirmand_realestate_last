@@ -241,7 +241,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     } catch {
       // Browser decoder support varies (notably AVIF and some phone photos).
       // Optimization is optional: send the original bytes to the server, where
-      // signature validation and permanent watermark processing are authoritative.
+      // file-signature validation remains authoritative.
       optimized = { file, savedBytes: 0 };
     }
     const result = await uploadInChunks({
