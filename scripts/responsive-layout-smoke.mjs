@@ -303,7 +303,7 @@ try {
 
         if (metrics.propertyGallery && width <= 414) {
           const gallery = metrics.propertyGallery;
-          const expectedRatio = width <= 360 ? 1 : 4 / 3;
+          const expectedRatio = 16 / 10;
           if (Math.abs(gallery.stage.ratio - expectedRatio) > 0.18) {
             failures.push(`${route} @ ${width}px: property media stage ratio ${gallery.stage.ratio} does not match the mobile layout ${expectedRatio}`);
           }
@@ -322,12 +322,13 @@ try {
           if (gallery.openButton && (
             gallery.openButton.width < 40 ||
             gallery.openButton.height < 40 ||
+            gallery.openButton.width > Math.min(gallery.stage.width * 0.62, 180) ||
             gallery.openButton.left < gallery.stage.left - 1 ||
             gallery.openButton.right > gallery.stage.right + 1 ||
             gallery.openButton.top < gallery.stage.top - 1 ||
             gallery.openButton.bottom > gallery.stage.bottom + 1
           )) {
-            failures.push(`${route} @ ${width}px: gallery full-screen control is too small or outside the image: ${JSON.stringify(gallery.openButton)}`);
+            failures.push(`${route} @ ${width}px: gallery full-screen control is too small, stretched, or outside the image: ${JSON.stringify(gallery.openButton)}`);
           }
           if (gallery.navButtons.some((button) =>
             button.width < 40 || button.height < 40 ||
