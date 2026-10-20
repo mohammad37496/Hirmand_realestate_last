@@ -16,8 +16,6 @@ import { toast } from "sonner";
 import { MAX_PROPERTY_MEDIA, isVideoUrl } from "@/lib/media";
 import type { PropertyType } from "@/lib/properties";
 import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
-import { isPermanentlyWatermarkedMediaUrl } from "@/lib/property-watermark";
-import { PropertyMediaWatermark } from "@/components/hirmand/property-media-watermark";
 import { faBytes } from "@/components/hirmand/admin-ui-utils";
 
 type Props = {
@@ -234,10 +232,9 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     );
   }
 
-  async function uploadOne(file: File): Promise<{ url: string; savedBytes: number; warning?: string }> {
-    // Browser-side optimization is only a preparation step. The API applies
-    // permanent watermarking after validating the real file bytes, so direct
-    // requests cannot bypass the operator's watermark settings.
+  async function uploadOne(file: File): Promise<{ url: string; savedBytes: number }> {
+    // Images may be optimized in the browser, but no watermark is added by
+    // the browser or server during upload.
     let optimized: { file: File; savedBytes: number };
     try {
       optimized = await optimizeImage(file);
@@ -257,13 +254,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     });
     const url = typeof result.response.url === "string" ? result.response.url : "";
     if (!url) throw new Error("نشانی فایل آپلودشده دریافت نشد.");
-    // The server reports when the bytes were stored but permanent watermarking
-    // could not run. The file is live, so this is a warning, never a failure.
-    const warning =
-      typeof result.response.watermarkWarning === "string"
-        ? result.response.watermarkWarning
-        : undefined;
-    return { url, savedBytes: optimized.savedBytes, warning };
+    return { url, savedBytes: optimized.savedBytes };
   }
 
   async function uploadFiles(files: FileList | File[]) {
@@ -289,7 +280,6 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     setUploadProgress(0);
     const uploaded: string[] = [];
     const newlyFailed: FailedUpload[] = [];
-    const watermarkWarnings: string[] = [];
     let optimizedBytes = 0;
 
     try {
@@ -301,9 +291,6 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
         try {
           const result = await uploadOne(originalFile);
           optimizedBytes += result.savedBytes;
-          if (result.warning && !watermarkWarnings.includes(result.warning)) {
-            watermarkWarnings.push(result.warning);
-          }
           uploaded.push(result.url);
         } catch (error) {
           // Keep the File so the operator can retry instead of re-picking it.
@@ -337,7 +324,6 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
             : uploaded.length.toLocaleString("fa-IR") + " فایل آپلود شد." + savedLabel,
         );
       }
-      for (const warning of watermarkWarnings) toast.warning(warning);
     } finally {
       uploadingRef.current = false;
       setUploading(false);
@@ -356,10 +342,9 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     setUploadProgress(0);
     setUploadLabel(`تلاش مجدد: ${entry.name}`);
     try {
-      const { url, warning } = await uploadOne(entry.file);
+      const { url } = await uploadOne(entry.file);
       setItems([...linesToList(valueRef.current).filter((src) => !isPropertyFallbackImage(src)), url]);
       toast.success(`«${entry.name}» با موفقیت آپلود شد.`);
-      if (warning) toast.warning(warning);
     } catch (error) {
       setFailed((current) => [
         ...current,
@@ -436,7 +421,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
             <Upload size={22} aria-hidden="true" />
             <strong>آپلود از گالری یا کامپیوتر</strong>
             <span>تصویر یا ویدیو را بکشید و رها کنید · یا کلیک کنید</span>
-            <small>jpg / png / webp / gif / avif / mp4 / webm · تصاویر به WebP و حداکثر ۲۵۶۰px بهینه می‌شوند · ویدئوها بعد از آپلود با واترمارک دائمی به MP4 تبدیل می‌شوند · حداکثر ۲۵ مگابایت · تا {MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} فایل</small>
+            <small>jpg / png / webp / gif / avif / mp4 / webm · تصاویر در صورت پشتیبانی مرورگر بهینه می‌شوند · رسانه‌ها بدون درج خودکار واترمارک ذخیره می‌شوند · حداکثر ۲۵ مگابایت · تا {MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} فایل</small>
           </>
         )}
       </div>
@@ -521,7 +506,6 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
                   onDragEnd={() => setDragIndex(null)}
                 >
                   <MediaThumb src={src} fallback={fallback} />
-                  {!video || !isPermanentlyWatermarkedMediaUrl(src) ? <PropertyMediaWatermark /> : null}
                   <label className="admin-media-pick">
                     <input
                       type="checkbox"
