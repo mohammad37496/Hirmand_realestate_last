@@ -29,6 +29,7 @@ const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
+const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
 const verifyWorkflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
 
 testRunner.test("shared mobile styles do not hide root-level horizontal overflow", () => {
@@ -199,4 +200,52 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   ]) {
     assert.ok(browserSmoke.includes(route), `responsive test should cover ${route}`);
   }
+});
+
+testRunner.test("mobile property gallery keeps full media visible and gives video controls usable touch targets", () => {
+  assert.match(
+    responsiveCss,
+    /\.property-detail-page \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3\s*!important/s,
+    "the mobile hero media frame must have a stable 4:3 layout",
+  );
+  assert.match(
+    responsiveCss,
+    /\.property-detail-page \.property-gallery-main > picture > img\s*,[\s\S]*?object-fit:\s*contain\s*!important/s,
+    "mobile photos must be fully visible instead of being cropped by cover",
+  );
+  assert.match(
+    responsiveCss,
+    /\.property-detail-page \.property-gallery-main > \.property-video-player \.property-video-frame video\s*\{[^}]*object-fit:\s*contain\s*!important/s,
+    "property videos must retain their full frame",
+  );
+  assert.match(
+    responsiveCss,
+    /\.property-detail-page \.property-gallery-rail\s*\{[^}]*overflow-x:\s*auto\s*!important/s,
+    "the thumbnail rail must be horizontally scrollable on mobile",
+  );
+  assert.match(
+    responsiveCss,
+    /\.property-detail-page \.property-gallery-thumb,\s*\.property-detail-page \.property-gallery-thumb:nth-of-type\(n \+ 5\)\s*\{[^}]*flex:\s*0 0 76px\s*!important/s,
+    "all gallery thumbnails, including items after the fourth, must be the same width",
+  );
+  assert.match(
+    responsiveCss,
+    /\.property-detail-page \.property-video-controls button\s*\{[^}]*width:\s*44px\s*!important;[^}]*height:\s*44px\s*!important/s,
+    "video transport buttons must be touch-friendly on phones",
+  );
+  assert.match(
+    responsiveCss,
+    /\.property-lightbox \.property-video-player\.is-lightbox \.property-video-frame video\s*\{[^}]*object-fit:\s*contain\s*!important/s,
+    "video remains uncropped in the mobile full-screen viewer",
+  );
+  assert.match(
+    propertyDetailViewSource,
+    /className="property-gallery-thumb-video"/,
+    "video thumbnails must have a visible play marker",
+  );
+  assert.match(
+    propertyDetailViewSource,
+    /<Play size=\{14\} fill="currentColor" aria-hidden="true" \/>/,
+    "the thumbnail marker must use a visible, decorative play icon",
+  );
 });
