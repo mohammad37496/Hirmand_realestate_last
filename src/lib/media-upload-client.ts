@@ -1,4 +1,5 @@
 import { isAllowedMediaRef } from "@/lib/media";
+import type { PropertyWatermarkPosition } from "@/lib/property-watermark";
 
 /**
  * Browser side of the chunked upload protocol.
@@ -329,12 +330,21 @@ export async function uploadPropertyMedia(options: {
   onProgress?: (percentage: number) => void;
   signal?: AbortSignal;
   rejectedMessage?: string;
+  /** Apply a permanent logo watermark to this upload, if enabled. */
+  watermark?: {
+    enabled: boolean;
+    position: PropertyWatermarkPosition;
+  };
 }): Promise<PropertyMediaUploadResult> {
   const result = await uploadInChunks({
     endpoint: "/api/property-media",
     file: options.file,
     contentType: options.contentType ?? options.file.type,
-    payload: { assetKind: options.assetKind },
+    payload: {
+      assetKind: options.assetKind,
+      watermarkEnabled: options.assetKind === "gallery" && options.watermark?.enabled === true,
+      watermarkPosition: options.watermark?.position ?? "bottom-right",
+    },
     onProgress: options.onProgress,
     signal: options.signal,
     rejectedMessage: options.rejectedMessage ?? "آپلود رسانه پذیرفته نشد.",
