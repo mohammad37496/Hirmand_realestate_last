@@ -261,7 +261,8 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
       optimized = { file, savedBytes: 0 };
     }
     const result = await uploadInChunks({
-      endpoint: "/api/upload",
+      endpoint: "/api/property-media",
+      payload: { assetKind: "gallery" },
       file: optimized.file,
       contentType: optimized.file.type,
       rejectedMessage: "نوع یا حجم این فایل رسانه‌ای پذیرفته نشد.",
