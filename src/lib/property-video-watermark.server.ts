@@ -134,6 +134,9 @@ export async function applyPropertyVideoWatermark(
     }
 
     const alpha = opacityAlpha(settings.opacity).toFixed(3);
+    // Downscale high-resolution phone footage before overlay/encoding to avoid
+    // CPU and memory spikes during the synchronous upload-finalization request.
+    const videoScale = "scale='min(1280,iw)':'min(720,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2";
     const filters: string[] = [];
     const panelParts = settings.showText
       ? [`drawbox=x=iw*0.52:y=ih*0.84:w=iw*0.46:h=ih*0.13:color=0x081320@${alpha}:t=fill`]
@@ -156,13 +159,22 @@ export async function applyPropertyVideoWatermark(
       "-loglevel",
       "error",
       "-y",
+      // Keep decode/filter resource use predictable on the small Liara app plan.
+      "-filter_threads",
+      "1",
+      "-filter_complex_threads",
+      "1",
+      "-threads",
+      "1",
       "-i",
       inputPath,
     ];
 
     if (logoPath) {
       args.push("-loop", "1", "-i", logoPath);
-      const overlayScale = Math.max(22, Math.round(46 * settings.size));
+      // Larger than the old 36px output mark so it remains visible after
+      // property cards and gallery views scale the encoded video down.
+      const overlayScale = Math.max(30, Math.round(90 * settings.size));
       const position = settings.position ?? "bottom-right";
       const margin = Math.max(8, Math.round(16 * settings.size));
       const overlayPosition: Record<string, string> = {
@@ -173,7 +185,7 @@ export async function applyPropertyVideoWatermark(
       };
       filters.push(
         `[1:v]scale=${overlayScale}:-1,format=rgba,colorchannelmixer=aa=${Math.min(1, Math.max(0.2, settings.opacity)).toFixed(3)}[wm_logo]`,
-        `[0:v]${panelParts.length ? panelParts.join(",") : "null"}[wm_base]`,
+        `[0:v]${[videoScale, ...panelParts].join(",")}[wm_base]`,
         // The looped logo must stop at the source video's end or encoding never
         // finishes. Coordinates are selected from the four supported corners.
         `[wm_base][wm_logo]overlay=${overlayPosition[position] ?? overlayPosition["bottom-right"]}:eof_action=repeat:shortest=1:format=auto[vout]`
@@ -189,7 +201,7 @@ export async function applyPropertyVideoWatermark(
       "-c:v",
       "libx264",
       "-preset",
-      "veryfast",
+      "ultrafast",
       "-crf",
       "27",
       "-pix_fmt",
