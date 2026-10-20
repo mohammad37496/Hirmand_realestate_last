@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie } from "h3";
 import { handleChunkedUpload } from "@/lib/chunked-upload.server";
+import { mediaUrlForBrowser } from "@/lib/media-store.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
@@ -41,6 +42,8 @@ export default defineEventHandler(async (event) => {
     },
     unsupportedTypeMessage: "فقط تصاویر JPG، PNG، WebP، GIF و AVIF پذیرفته می‌شوند.",
     sizeLimitMessage: (limitMb) => "حجم تصویر بیش از " + limitMb + " مگابایت است.",
-    finish: async ({ stored }) => ({ url: stored.url }),
+    finish: async ({ stored, session }) => ({
+      url: mediaUrlForBrowser(stored.url, String(session.content_type ?? "")),
+    }),
   });
 });
