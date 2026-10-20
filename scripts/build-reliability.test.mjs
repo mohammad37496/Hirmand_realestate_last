@@ -207,8 +207,27 @@ test("legacy audio media and dedicated property uploads have independent rate-li
   assert.match(propertyMediaService, /property-media:begin:\$\{kind\}:\$\{clientFingerprint\(event\)\}/);
 });
 
-test("production prebuild provisions the checksum-verified FFmpeg binary used for watermarking", () => {
-  assert.match(packageManifest, /"prebuild": "node scripts\/ensure-ffmpeg\.mjs && node scripts\/generate-fallback-assets\.mjs"/);
+test("npm and direct Liara builds both provision the watermark runtime", () => {
+  assert.match(
+    packageManifest,
+    /"build": "node scripts\/generate-fallback-assets\.mjs && node scripts\/validate-deploy-env\.mjs/,
+    "npm builds should run fallback generation and the shared deploy validator",
+  );
+  assert.doesNotMatch(packageManifest, /"prebuild":/);
+  assert.match(deployEnv, /const \{ ensureFfmpegBinary \} = await import\("\.\/ensure-ffmpeg\.mjs"\)/);
+  assert.match(deployEnv, /const ffmpegPath = await ensureFfmpegBinary\(\)/);
+  assert.match(deployEnv, /if \(!ffmpegPath\)/);
+  assert.doesNotMatch(
+    deployEnv,
+    /if \(isProduction\) \{\s*const \{ ensureFfmpegBinary \}/,
+    "FFmpeg provisioning must not be gated on NODE_ENV=production",
+  );
+});
+
+test("watermark runtime assets are provisioned relative to the repository, not shell cwd", () => {
+  assert.match(ffmpegProvisioner, /const PROJECT_ROOT = resolve\(__dirname, "\.\."\)/);
+  assert.match(ffmpegProvisioner, /const TARGET_DIR = join\(PROJECT_ROOT, "\.runtime", "ffmpeg"\)/);
+  assert.match(ffmpegProvisioner, /const FONT_DIR = join\(PROJECT_ROOT, "\.runtime", "fonts"\)/);
 });
 
 test("object-store offload never deletes the database fallback before saving the Liara URL", () => {
