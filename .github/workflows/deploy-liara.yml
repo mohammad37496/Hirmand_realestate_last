@@ -84,7 +84,7 @@ jobs:
             --timestamps \
             --last-lines \
             --since="24 hours ago" 2>&1 |
-            grep -E -i '\[upload\]|\[media\]|\[liara-storage\]|\[prestart\]|\[migrate\]|\[db\]|\[font\]|\[ffmpeg\]' || true
+            grep -E -i '\[upload\]|\[media\]|\[property-media\]|\[liara-storage\]|\[prestart\]|\[migrate\]|\[db\]|\[font\]|\[ffmpeg\]' || true
 
       - name: Diagnose Liara runtime on failure
         if: failure()
