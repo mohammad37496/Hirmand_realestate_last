@@ -8,7 +8,7 @@ export type PropertyWatermarkSettings = {
 };
 
 export const DEFAULT_PROPERTY_WATERMARK: PropertyWatermarkSettings = {
-  enabled: true,
+  enabled: false,
   showLogo: true,
   showText: true,
   text: "املاک هیرمند",
@@ -51,8 +51,10 @@ export function invalidatePropertyWatermarkSettings() {
   cachedSettings = null;
 }
 
-export function watermarkIsVisible(settings: PropertyWatermarkSettings) {
-  return settings.enabled && (settings.showLogo || (settings.showText && settings.text.trim()));
+export function watermarkIsVisible(_settings: PropertyWatermarkSettings) {
+  // Watermark overlays were retired. Keep the helper for compatibility with
+  // older components, but never render a logo/text layer on uploaded media.
+  return false;
 }
 
 
