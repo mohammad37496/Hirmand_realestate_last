@@ -14,11 +14,14 @@ import {
   Trash2,
   Upload,
   X,
+  ShieldCheck,
+  ShieldOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef, isVideoUrl, mediaSourceCandidates } from "@/lib/media";
 import { uploadErrorMessage, uploadPropertyMedia } from "@/lib/media-upload-client";
 import type { PropertyType } from "@/lib/properties";
+import type { PropertyWatermarkPosition } from "@/lib/property-watermark";
 import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { faBytes } from "@/components/hirmand/admin-ui-utils";
 import "./admin-media-field.css";
@@ -60,6 +63,16 @@ const ACCEPTED_TYPES = new Set([
   "video/quicktime",
 ]);
 
+const WATERMARK_POSITION_OPTIONS: Array<{
+  value: PropertyWatermarkPosition;
+  label: string;
+}> = [
+  { value: "top-right", label: "بالا راست" },
+  { value: "top-left", label: "بالا چپ" },
+  { value: "bottom-right", label: "پایین راست" },
+  { value: "bottom-left", label: "پایین چپ" },
+];
+
 function linesToList(raw: string): string[] {
   return raw
     .split(/[\n,]+/)
@@ -69,6 +82,10 @@ function linesToList(raw: string): string[] {
 
 function listToLines(items: string[]): string {
   return items.join("\n");
+}
+
+function optionLabel(position: PropertyWatermarkPosition): string {
+  return WATERMARK_POSITION_OPTIONS.find((option) => option.value === position)?.label ?? "پایین راست";
 }
 
 function uniqueMedia(items: string[]): string[] {
@@ -262,6 +279,8 @@ export function AdminMediaField({
   const [failed, setFailed] = useState<FailedUpload[]>([]);
   const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [linkDraft, setLinkDraft] = useState("");
+  const [watermarkEnabled, setWatermarkEnabled] = useState(false);
+  const [watermarkPosition, setWatermarkPosition] = useState<PropertyWatermarkPosition>("bottom-right");
   const items = linesToList(value).filter((item) => !isPropertyFallbackImage(item));
   const fallback = getPropertyFallbackImage(propertyType ?? "apartment", propertyId ?? "admin");
   const invalidExisting = items.filter((item) => !isAllowedMediaRef(item));
@@ -316,6 +335,9 @@ export function AdminMediaField({
     if (!originalType) {
       throw new Error("نوع این فایل پشتیبانی نمی‌شود. JPG، PNG، WebP، GIF، AVIF، MP4، WebM یا MOV انتخاب کنید.");
     }
+    if (watermarkEnabled && originalType === "image/gif") {
+      throw new Error("برای حفظ انیمیشن GIF، واترمارک دائمی ممکن نیست؛ واترمارک را خاموش کنید یا تصویر ثابت انتخاب کنید.");
+    }
     if (file.size <= 0) throw new Error("فایل انتخاب‌شده خالی است.");
     if (file.size > MAX_FILE_BYTES) throw new Error("حجم هر فایل باید حداکثر ۲۵ مگابایت باشد.");
 
@@ -325,6 +347,10 @@ export function AdminMediaField({
       file: optimised.file,
       contentType,
       assetKind: "gallery",
+      watermark: {
+        enabled: watermarkEnabled,
+        position: watermarkPosition,
+      },
       rejectedMessage: "آپلود رسانه پذیرفته نشد.",
       onProgress: (percentage) => {
         setProgress({
@@ -502,6 +528,82 @@ export function AdminMediaField({
         multiple
         onChange={onPick}
       />
+
+      <section className="hirmand-watermark-controls" aria-label="تنظیم واترمارک عکس و ویدیوی ملک">
+        <div className="hirmand-watermark-controls-header">
+          <div className="hirmand-watermark-controls-title">
+            <span className={`hirmand-watermark-controls-icon${watermarkEnabled ? " is-active" : ""}`}>
+              {watermarkEnabled
+                ? <ShieldCheck size={20} aria-hidden="true" />
+                : <ShieldOff size={20} aria-hidden="true" />}
+            </span>
+            <div>
+              <strong>واترمارک اختصاصی هیرمند</strong>
+              <p>لوگوی کوچک و نیمه‌شفاف روی فایل نهایی عکس یا ویدیو درج می‌شود.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`hirmand-watermark-toggle${watermarkEnabled ? " is-active" : ""}`}
+            role="switch"
+            aria-checked={watermarkEnabled}
+            disabled={uploading}
+            onClick={() => setWatermarkEnabled((enabled) => !enabled)}
+          >
+            <span className="hirmand-watermark-switch-track" aria-hidden="true">
+              <span />
+            </span>
+            <span>{watermarkEnabled ? "واترمارک روشن" : "بدون واترمارک"}</span>
+          </button>
+        </div>
+
+        <div className={`hirmand-watermark-controls-body${watermarkEnabled ? " is-enabled" : ""}`}>
+          <div className="hirmand-watermark-position-area">
+            <strong>محل قرارگیری لوگو</strong>
+            <p>گوشه‌ای را انتخاب کن که کمترین تداخل را با نمای ملک داشته باشد.</p>
+            <div className="hirmand-watermark-position-grid" role="group" aria-label="محل قرارگیری واترمارک">
+              {WATERMARK_POSITION_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`hirmand-watermark-position-option${watermarkPosition === option.value ? " is-selected" : ""}`}
+                  aria-pressed={watermarkPosition === option.value}
+                  disabled={!watermarkEnabled || uploading}
+                  onClick={() => setWatermarkPosition(option.value)}
+                >
+                  <span className="hirmand-watermark-corner-diagram" aria-hidden="true">
+                    <span className={`is-${option.value}`} />
+                  </span>
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="hirmand-watermark-preview-card">
+            <div className="hirmand-watermark-preview-scene" aria-label="پیش‌نمایش قرارگیری لوگو">
+              <span className="hirmand-watermark-preview-building" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+              {watermarkEnabled ? (
+                <span className={`hirmand-watermark-preview-mark is-${watermarkPosition}`} aria-hidden="true">
+                  <img src="/images/hirmand-logo.png" alt="" />
+                </span>
+              ) : null}
+            </div>
+            <div className="hirmand-watermark-preview-caption">
+              <strong>پیش‌نمایش</strong>
+              <span>{watermarkEnabled ? optionLabel(watermarkPosition) : "واترمارک خاموش است"}</span>
+            </div>
+          </div>
+        </div>
+        <p className="hirmand-watermark-note">
+          این گزینه فقط روی رسانه‌هایی که از این به بعد آپلود می‌کنی اعمال می‌شود؛ فایل‌های قبلی تغییر نمی‌کنند.
+          واترمارک روی نسخهٔ نهایی درج می‌شود و مثل یک لایهٔ قابل‌خاموش‌کردن نیست.
+        </p>
+      </section>
 
       <div
         className={`hirmand-media-dropzone${dragOver ? " is-over" : ""}${uploading ? " is-busy" : ""}`}
