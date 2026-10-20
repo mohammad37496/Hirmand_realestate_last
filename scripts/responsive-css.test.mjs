@@ -205,18 +205,28 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
 testRunner.test("mobile property gallery keeps full media visible and gives video controls usable touch targets", () => {
   assert.match(
     responsiveCss,
-    /\.property-detail-page \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3\s*!important/s,
-    "the mobile hero media frame must have a stable 4:3 layout",
+    /\.property-detail-page \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10\s*!important/s,
+    "the mobile hero media frame must keep a landscape-friendly 16:10 layout",
   );
   assert.match(
     responsiveCss,
-    /body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-wrap \.property-gallery \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3\s*!important/s,
+    /body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-wrap \.property-gallery \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10\s*!important/s,
     "the final mobile ratio rule must outrank the legacy signature stylesheet",
   );
   assert.match(
     responsiveCss,
-    /@media\s*\(max-width:\s*360px\)\s*\{\s*body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-wrap \.property-gallery \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1\s*!important/s,
-    "extra-narrow phones must use a square media stage",
+    /@media\s*\(max-width:\s*360px\)\s*\{\s*body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-wrap \.property-gallery \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10\s*!important/s,
+    "extra-narrow phones must preserve the landscape media frame",
+  );
+  assert.match(
+    responsiveCss,
+    /@media\s*\(max-width:\s*360px\)\s*\{\s*\.property-detail-page \.property-gallery-open\s*\{[^}]*inset:\s*49px auto auto 8px\s*!important;[^}]*width:\s*max-content\s*!important/s,
+    "the full-screen control on narrow phones must shrink to its content instead of stretching edge-to-edge",
+  );
+  assert.match(
+    browserSmoke,
+    /gallery\.openButton\.width > Math\.min\(gallery\.stage\.width \* 0\.62, 180\)/,
+    "the responsive browser matrix must detect a stretched full-screen action on small phones",
   );
   assert.match(
     responsiveCss,
