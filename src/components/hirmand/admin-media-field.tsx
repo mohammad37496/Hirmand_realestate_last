@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef, isVideoUrl, mediaSourceCandidates } from "@/lib/media";
-import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
+import { uploadErrorMessage, uploadPropertyMedia } from "@/lib/media-upload-client";
 import type { PropertyType } from "@/lib/properties";
 import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { faBytes } from "@/components/hirmand/admin-ui-utils";
@@ -48,7 +48,6 @@ type UploadProgress = {
 const MAX_IMAGE_DIMENSION = 2560;
 const IMAGE_QUALITY = 0.82;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const PROPERTY_MEDIA_ENDPOINT = "/api/property-media";
 
 const ACCEPTED_TYPES = new Set([
   "image/jpeg",
@@ -322,13 +321,11 @@ export function AdminMediaField({
 
     const optimised = await optimiseImage(file);
     const contentType = resolveClientMime(optimised.file) || originalType;
-    const result = await uploadInChunks({
-      endpoint: PROPERTY_MEDIA_ENDPOINT,
+    const result = await uploadPropertyMedia({
       file: optimised.file,
       contentType,
-      payload: { assetKind: "gallery" },
+      assetKind: "gallery",
       rejectedMessage: "آپلود رسانه پذیرفته نشد.",
-      retryCompletion: true,
       onProgress: (percentage) => {
         setProgress({
           name: file.name,
@@ -338,11 +335,7 @@ export function AdminMediaField({
         });
       },
     });
-    const url = typeof result.response.url === "string" ? result.response.url.trim() : "";
-    if (!url || !isAllowedMediaRef(url)) {
-      throw new Error("سرور فایل را دریافت کرد، اما نشانی رسانهٔ قابل استفاده برنگرداند.");
-    }
-    return { url, savedBytes: optimised.savedBytes };
+    return { url: result.url, savedBytes: optimised.savedBytes };
   }
 
   async function uploadFiles(input: FileList | File[]) {
