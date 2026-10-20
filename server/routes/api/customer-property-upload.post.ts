@@ -1,5 +1,6 @@
 import { defineEventHandler } from "h3";
 import { handleChunkedUpload } from "@/lib/chunked-upload.server";
+import { mediaUrlForBrowser } from "@/lib/media-store.server";
 
 const MAX_BYTES = 25 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg","image/png","image/webp","image/gif","image/avif","video/mp4","video/webm","video/quicktime"]);
@@ -34,7 +35,7 @@ export default defineEventHandler((event) => {
     // Customer-submitted media is stored without automatic logo/text overlays.
     transform: async () => null,
     finish: async ({ stored, session }) => ({
-      url: stored.url + (String(session.content_type ?? "").startsWith("video/") ? "?type=video" : ""),
+      url: mediaUrlForBrowser(stored.url, String(session.content_type ?? "")),
     }),
   });
 });
