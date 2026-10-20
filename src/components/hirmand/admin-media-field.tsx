@@ -13,7 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-import { MAX_PROPERTY_MEDIA, isVideoUrl } from "@/lib/media";
+import { MAX_PROPERTY_MEDIA, isVideoUrl, mediaSourceCandidates } from "@/lib/media";
 import type { PropertyType } from "@/lib/properties";
 import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { faBytes } from "@/components/hirmand/admin-ui-utils";
@@ -134,9 +134,25 @@ async function optimizeImage(file: File): Promise<{ file: File; savedBytes: numb
   }
 }
 
-/** A single thumbnail that swaps in a branded fallback when the file is gone. */
+/** A thumbnail retries the same-origin proxy for private Liara media before showing a fallback. */
 function MediaThumb({ src, fallback }: { src: string; fallback: string }) {
+  const candidates = mediaSourceCandidates(src, fallback);
+  const [attempt, setAttempt] = useState(0);
   const [broken, setBroken] = useState(false);
+  const current = candidates[Math.min(attempt, Math.max(0, candidates.length - 1))] ?? fallback;
+
+  useEffect(() => {
+    setAttempt(0);
+    setBroken(false);
+  }, [src, fallback]);
+
+  function handleError() {
+    if (attempt < candidates.length - 1) {
+      setAttempt((value) => Math.min(value + 1, candidates.length - 1));
+    } else {
+      setBroken(true);
+    }
+  }
 
   if (broken) {
     return (
@@ -151,10 +167,10 @@ function MediaThumb({ src, fallback }: { src: string; fallback: string }) {
     );
   }
 
-  return isVideoUrl(src) ? (
-    <video src={src} muted playsInline preload="metadata" onError={() => setBroken(true)} />
+  return isVideoUrl(current) ? (
+    <video src={current} muted playsInline preload="metadata" onError={handleError} />
   ) : (
-    <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} />
+    <img src={current} alt="" loading="lazy" onError={handleError} />
   );
 }
 
