@@ -153,9 +153,9 @@ export async function applyPropertyImageWatermarkServer(
     const opacity = Math.max(0.2, Math.min(1, settings.opacity));
     const alpha = (opacity * 0.78).toFixed(3);
     const size = Math.max(0.6, Math.min(1.6, settings.size));
-    const drawingParts = [
-      `drawbox=x=iw*0.52:y=ih*0.84:w=iw*0.46:h=ih*0.13:color=0x081320@${alpha}:t=fill`,
-    ];
+    const drawingParts = settings.showText
+      ? [`drawbox=x=iw*0.52:y=ih*0.84:w=iw*0.46:h=ih*0.13:color=0x081320@${alpha}:t=fill`]
+      : [];
 
     if (settings.showText) {
       // drawtext evaluates its expressions against the *frame* dims exposed as
@@ -177,11 +177,20 @@ export async function applyPropertyImageWatermarkServer(
 
     if (logoPath) {
       args.push("-loop", "1", "-i", logoPath);
-      const logoHeight = Math.max(24, Math.round(58 * size));
+      const logoHeight = Math.max(22, Math.round(46 * size));
+      const position = settings.position ?? "bottom-right";
+      const margin = Math.max(8, Math.round(16 * size));
+      const overlayPosition: Record<string, string> = {
+        "top-left": `x=${margin}:y=${margin}`,
+        "top-right": `x=W-w-${margin}:y=${margin}`,
+        "bottom-left": `x=${margin}:y=H-h-${margin}`,
+        "bottom-right": `x=W-w-${margin}:y=H-h-${margin}`,
+      };
+      const baseFilters = [scaleInput, ...drawingParts].join(",");
       const filters = [
-        `[0:v]${scaleInput},${drawingParts.join(",")}[wm_base]`,
+        `[0:v]${baseFilters}[wm_base]`,
         `[1:v]scale=${logoHeight}:-1,format=rgba,colorchannelmixer=aa=${opacity.toFixed(3)}[wm_logo]`,
-        "[wm_base][wm_logo]overlay=x=w-82:y=h-0.085*h:eof_action=repeat:shortest=1:format=auto[vout]",
+        `[wm_base][wm_logo]overlay=${overlayPosition[position] ?? overlayPosition["bottom-right"]}:eof_action=repeat:shortest=1:format=auto[vout]`,
       ];
       args.push("-filter_complex", filters.join(";"), "-map", "[vout]");
     } else {
@@ -233,12 +242,14 @@ export async function applyPropertyImageWatermarkServer(
       );
     }
 
-    const baseName =
-      pathname.split("/").pop()?.replace(/\\.[^.]+$/, "") || "property-image";
+    const extensionIndex = pathname.lastIndexOf(".");
+    const slashIndex = pathname.lastIndexOf("/");
+    const basePath =
+      extensionIndex > slashIndex ? pathname.slice(0, extensionIndex) : pathname;
     return {
       data: output,
       contentType: "image/webp",
-      pathname: `properties/uploads/${baseName}-watermarked.webp`,
+      pathname: `${basePath || "properties/uploads/property-image"}-watermarked.webp`,
     };
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => undefined);

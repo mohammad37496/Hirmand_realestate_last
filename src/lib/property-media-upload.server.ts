@@ -28,6 +28,9 @@ import {
   tooManyAttemptsError,
 } from "@/lib/admin-rate-limit.server";
 import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
+import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
+import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
+import type { PropertyWatermarkPosition, PropertyWatermarkSettings } from "@/lib/property-watermark";
 import {
   deleteStoredMedia,
   mediaUrlForBrowser,
@@ -59,6 +62,31 @@ const FLOOR_PLAN_TYPES = new Set([
 
 type UploadSession = Record<string, unknown>;
 type UploadKind = "gallery" | "floor-plan";
+
+const WATERMARK_POSITIONS = new Set<PropertyWatermarkPosition>([
+  "top-left",
+  "top-right",
+  "bottom-left",
+  "bottom-right",
+]);
+
+function resolveWatermarkPosition(value: unknown): PropertyWatermarkPosition {
+  return typeof value === "string" && WATERMARK_POSITIONS.has(value as PropertyWatermarkPosition)
+    ? value as PropertyWatermarkPosition
+    : "bottom-right";
+}
+
+function uploadWatermarkSettings(position: PropertyWatermarkPosition): PropertyWatermarkSettings {
+  return {
+    enabled: true,
+    showLogo: true,
+    showText: false,
+    text: "املاک هیرمند",
+    opacity: 0.76,
+    size: 0.78,
+    position,
+  };
+}
 
 function httpError(message: string, statusCode = 400) {
   return createError({ statusCode, statusMessage: message });
@@ -168,6 +196,12 @@ async function beginUpload(
   const contentType = resolveType(filename, declared, kind);
   const sizeBytes = Number(body.sizeBytes);
   const maxBytes = kind === "floor-plan" ? MAX_FLOOR_PLAN_BYTES : MAX_GALLERY_BYTES;
+  const watermarkEnabled = kind === "gallery" && body.watermarkEnabled === true;
+  const watermarkPosition = resolveWatermarkPosition(body.watermarkPosition);
+
+  if (watermarkEnabled && contentType === "image/gif") {
+    throw httpError("برای حفظ انیمیشن GIF، واترمارک دائمی پشتیبانی نمی‌شود؛ واترمارک را خاموش کنید یا تصویر ثابت انتخاب کنید.");
+  }
 
   if (!filename || filename.length > 255) {
     throw httpError("نام فایل مشخص نیست یا بیش از حد طولانی است.");
@@ -220,9 +254,10 @@ async function beginUpload(
 
   await sql.query(
     `insert into property_media_upload_sessions
-       (id, pathname, original_filename, content_type, asset_kind, total_chunks, total_bytes)
-     values ($1, $2, $3, $4, $5, $6, $7)`,
-    [uploadId, pathname, filename, contentType, kind, totalChunks, sizeBytes],
+       (id, pathname, original_filename, content_type, asset_kind, total_chunks, total_bytes,
+        watermark_enabled, watermark_position)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [uploadId, pathname, filename, contentType, kind, totalChunks, sizeBytes, watermarkEnabled, watermarkPosition],
   );
 
   return {
@@ -407,21 +442,55 @@ async function completeUpload(
       throw httpError("محتوای واقعی فایل با نوع تصویر یا ویدیوی انتخاب‌شده مطابقت ندارد.", 415);
     }
 
-    // A deterministic id makes database fallback recoverable when storage
-    // succeeds but the response or receipt update is interrupted.
+    let finalData: Uint8Array = data;
+    let finalContentType = contentType;
+    let finalPathname = String(session.pathname ?? "");
+    const watermarkEnabled = session.watermark_enabled === true || String(session.watermark_enabled) === "true";
+    if (watermarkEnabled && String(session.asset_kind ?? "gallery") === "gallery") {
+      const settings = uploadWatermarkSettings(
+        resolveWatermarkPosition(session.watermark_position),
+      );
+      if (contentType.startsWith("image/")) {
+        const watermarked = await applyPropertyImageWatermarkServer({
+          data: Buffer.from(finalData),
+          contentType: finalContentType,
+          pathname: finalPathname,
+          settings,
+        });
+        finalData = watermarked.data;
+        finalContentType = watermarked.contentType;
+        finalPathname = watermarked.pathname;
+      } else if (contentType.startsWith("video/")) {
+        const watermarked = await applyPropertyVideoWatermark({
+          data: Buffer.from(finalData),
+          contentType: finalContentType,
+          pathname: finalPathname,
+          settings,
+        });
+        finalData = watermarked.data;
+        finalContentType = watermarked.contentType;
+        finalPathname = watermarked.pathname;
+      }
+    }
+
+    // A deterministic id makes database fallback recoverable when the response
+    // or receipt update is interrupted. Transformation occurs before storage so
+    // the published URL always points at the final bytes.
     stored = await storeMedia({
       id: uploadId,
-      pathname: String(session.pathname ?? ""),
-      data,
-      contentType,
+      pathname: finalPathname,
+      data: finalData,
+      contentType: finalContentType,
     });
-    const url = mediaUrlForBrowser(stored.url, contentType);
+    const url = mediaUrlForBrowser(stored.url, finalContentType);
     const result: Record<string, unknown> = {
       url,
       storage: stored.storage,
-      mediaType: contentType,
+      mediaType: finalContentType,
       assetKind: String(session.asset_kind ?? "gallery"),
-      sizeBytes: totalBytes,
+      sizeBytes: finalData.length,
+      watermarkApplied: watermarkEnabled && String(session.asset_kind ?? "gallery") === "gallery",
+      watermarkPosition: watermarkEnabled ? resolveWatermarkPosition(session.watermark_position) : null,
     };
 
     await sql.query(

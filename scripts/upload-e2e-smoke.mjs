@@ -153,7 +153,15 @@ async function login() {
 }
 
 /** Exactly the client protocol in src/lib/media-upload-client.ts. */
-async function upload(file, filename, endpoint = "/api/property-media", contentType = "image/jpeg", assetKind = "gallery") {
+async function upload(
+  file,
+  filename,
+  endpoint = "/api/property-media",
+  contentType = "image/jpeg",
+  assetKind = "gallery",
+  watermarkEnabled = false,
+  watermarkPosition = "bottom-right",
+) {
   const beginResponse = await call(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -163,6 +171,8 @@ async function upload(file, filename, endpoint = "/api/property-media", contentT
       contentType,
       assetKind,
       sizeBytes: file.length,
+      watermarkEnabled: assetKind === "gallery" && watermarkEnabled,
+      watermarkPosition,
     }),
   });
   const begin = await readJson(beginResponse);
@@ -265,10 +275,52 @@ async function main() {
     `[upload-e2e] media endpoint served ${body.length} bytes of ${detected}; watermark ${detected === "image/webp" ? "applied" : "skipped (original stored)"}`,
   );
 
+  // Exercise the new per-upload setting through the complete HTTP pipeline.
+  const watermarkedImage = await upload(
+    file,
+    "photo-watermarked.jpg",
+    "/api/property-media",
+    "image/jpeg",
+    "gallery",
+    true,
+    "top-left",
+  );
+  if (
+    watermarkedImage.result.watermarkApplied !== true ||
+    watermarkedImage.result.watermarkPosition !== "top-left"
+  ) {
+    throw new Error(`watermark preference was not preserved in the receipt: ${JSON.stringify(watermarkedImage.result)}`);
+  }
+  const watermarkedImageResponse = await fetch(new URL(watermarkedImage.result.url, baseUrl).toString());
+  const watermarkedImageBody = Buffer.from(await watermarkedImageResponse.arrayBuffer());
+  const watermarkedImageType = (watermarkedImageResponse.headers.get("content-type") || "").split(";")[0].trim();
+  if (
+    !watermarkedImageResponse.ok ||
+    watermarkedImageType !== "image/webp" ||
+    detectRaster(watermarkedImageBody) !== "image/webp"
+  ) {
+    throw new Error(`watermarked image is invalid (HTTP ${watermarkedImageResponse.status}, type=${watermarkedImageType})`);
+  }
+  console.log("[upload-e2e] per-upload image watermark was baked into valid WebP bytes at top-left");
+
   const video = await buildMp4();
   if (video) {
     console.log(`[upload-e2e] uploading ${video.length} byte MP4 video`);
-    const videoUpload = await upload(video, "property-tour.mp4", "/api/property-media", "video/mp4", "gallery");
+    const videoUpload = await upload(
+      video,
+      "property-tour.mp4",
+      "/api/property-media",
+      "video/mp4",
+      "gallery",
+      true,
+      "bottom-left",
+    );
+    if (
+      videoUpload.result.watermarkApplied !== true ||
+      videoUpload.result.watermarkPosition !== "bottom-left"
+    ) {
+      throw new Error(`video watermark preference was not preserved in the receipt: ${JSON.stringify(videoUpload.result)}`);
+    }
     const videoResponse = await fetch(new URL(videoUpload.result.url, baseUrl).toString());
     const videoBytes = Buffer.from(await videoResponse.arrayBuffer());
     const videoType = (videoResponse.headers.get("content-type") || "").split(";")[0].trim();
@@ -292,46 +344,22 @@ async function main() {
     console.warn(`[upload-e2e] WARNING reported to the panel: ${result.watermarkWarning}`);
   }
 
-  // A/B proof that the failure is watermark-specific: repeat the same upload
-  // with the operator setting switched off. The stored bytes must then be the
-  // original JPEG, and switching it back on must watermark again.
-  const settingsUpdate = async (enabled) => {
-    const response = await call("/api/admin-watermark", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "update", enabled }),
-    });
-    const payload = await readJson(response);
-    if (!response.ok || payload?.settings?.enabled !== enabled) {
-      throw new Error(
-        `watermark settings update failed (HTTP ${response.status}): ${JSON.stringify(payload)}`,
-      );
-    }
-  };
-
-  await settingsUpdate(false);
-  try {
-    const plain = await upload(file, "photo_2026-10-19_12-57-34.jpg", "/api/upload");
-    const plainResponse = await fetch(new URL(plain.result.url, baseUrl).toString());
-    const plainBody = Buffer.from(await plainResponse.arrayBuffer());
-    const plainType = (plainResponse.headers.get("content-type") || "").split(";")[0].trim();
-    if (!plainResponse.ok) {
-      throw new Error(`watermark-off media fetch failed with HTTP ${plainResponse.status}`);
-    }
-    if (plainType !== "image/jpeg") {
-      throw new Error(
-        `watermark-off upload must keep the original JPEG, got ${plainType}`,
-      );
-    }
-    if (detectRaster(plainBody) !== "image/jpeg") {
-      throw new Error("watermark-off upload did not store JPEG bytes");
-    }
-    console.log(
-      `[upload-e2e] watermark OFF kept the original ${plainBody.length} byte JPEG`,
-    );
-  } finally {
-    await settingsUpdate(true);
+  // Compatibility check: legacy browser bundles that do not send the new
+  // per-upload preference must keep uploading the original, unwatermarked JPEG.
+  const plain = await upload(file, "photo_2026-10-19_12-57-34.jpg", "/api/upload");
+  const plainResponse = await fetch(new URL(plain.result.url, baseUrl).toString());
+  const plainBody = Buffer.from(await plainResponse.arrayBuffer());
+  const plainType = (plainResponse.headers.get("content-type") || "").split(";")[0].trim();
+  if (!plainResponse.ok) {
+    throw new Error(`legacy upload media fetch failed with HTTP ${plainResponse.status}`);
   }
+  if (plainType !== "image/jpeg") {
+    throw new Error(`legacy upload without watermark options must keep the original JPEG, got ${plainType}`);
+  }
+  if (detectRaster(plainBody) !== "image/jpeg") {
+    throw new Error("legacy upload without watermark options did not store JPEG bytes");
+  }
+  console.log(`[upload-e2e] legacy endpoint kept the original ${plainBody.length} byte JPEG`);
 
   console.log("[upload-e2e] OK");
 }

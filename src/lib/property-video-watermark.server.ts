@@ -135,9 +135,9 @@ export async function applyPropertyVideoWatermark(
 
     const alpha = opacityAlpha(settings.opacity).toFixed(3);
     const filters: string[] = [];
-    const panelParts = [
-      `drawbox=x=iw*0.52:y=ih*0.84:w=iw*0.46:h=ih*0.13:color=0x081320@${alpha}:t=fill`,
-    ];
+    const panelParts = settings.showText
+      ? [`drawbox=x=iw*0.52:y=ih*0.84:w=iw*0.46:h=ih*0.13:color=0x081320@${alpha}:t=fill`]
+      : [];
 
     if (settings.showText) {
       // drawtext only understands the frame-size aliases `main_w` / `main_h`.
@@ -162,15 +162,21 @@ export async function applyPropertyVideoWatermark(
 
     if (logoPath) {
       args.push("-loop", "1", "-i", logoPath);
-      const overlayScale = Math.max(42, Math.round(58 * settings.size));
+      const overlayScale = Math.max(22, Math.round(46 * settings.size));
+      const position = settings.position ?? "bottom-right";
+      const margin = Math.max(8, Math.round(16 * settings.size));
+      const overlayPosition: Record<string, string> = {
+        "top-left": `x=${margin}:y=${margin}`,
+        "top-right": `x=W-w-${margin}:y=${margin}`,
+        "bottom-left": `x=${margin}:y=H-h-${margin}`,
+        "bottom-right": `x=W-w-${margin}:y=H-h-${margin}`,
+      };
       filters.push(
-        `[1:v]scale=${overlayScale}:-1[wm_logo]`,
-        `[0:v]${panelParts.join(",")}[wm_base]`,
-        // `-loop 1` makes the logo input endless, so overlay MUST stop at the
-        // shortest stream. With `shortest=0` the graph never reaches EOF and the
-        // encode runs until the 8-minute command timeout, failing every video
-        // upload. `shortest=1` ends the output with the source video.
-        "[wm_base][wm_logo]overlay=x=w-82:y=h-0.085*h:eof_action=repeat:shortest=1:format=auto[vout]"
+        `[1:v]scale=${overlayScale}:-1,format=rgba,colorchannelmixer=aa=${Math.min(1, Math.max(0.2, settings.opacity)).toFixed(3)}[wm_logo]`,
+        `[0:v]${panelParts.length ? panelParts.join(",") : "null"}[wm_base]`,
+        // The looped logo must stop at the source video's end or encoding never
+        // finishes. Coordinates are selected from the four supported corners.
+        `[wm_base][wm_logo]overlay=${overlayPosition[position] ?? overlayPosition["bottom-right"]}:eof_action=repeat:shortest=1:format=auto[vout]`
       );
       args.push("-filter_complex", filters.join(";"), "-map", "[vout]");
     } else {
@@ -228,13 +234,14 @@ export async function applyPropertyVideoWatermark(
       );
     }
 
-    const baseName =
-      pathname.split("/").pop()?.replace(/\\.[^.]+$/, "") ||
-      "property-video";
+    const extensionIndex = pathname.lastIndexOf(".");
+    const slashIndex = pathname.lastIndexOf("/");
+    const basePath =
+      extensionIndex > slashIndex ? pathname.slice(0, extensionIndex) : pathname;
     return {
       data: output,
       contentType: "video/mp4",
-      pathname: `properties/uploads/${baseName}-watermarked.mp4`,
+      pathname: `${basePath || "properties/uploads/property-video"}-watermarked.mp4`,
     };
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => undefined);

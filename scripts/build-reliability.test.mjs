@@ -169,25 +169,28 @@ test("upload client reuses the same ID for bounded finalization recovery", () =>
   assert.match(mediaClient, /attempt < maxCompletionAttempts/);
 });
 
-test("dedicated property image, video, and floor-plan uploads preserve originals and return browser-safe URLs", () => {
-  assert.doesNotMatch(
-    propertyMediaService,
-    /getPropertyWatermarkSettingsServer|applyPropertyImageWatermarkServer|applyPropertyVideoWatermark/,
-    "property media uploads must not execute automatic watermark processors",
-  );
+test("property media watermarking is opt-in per upload and excludes floor plans and customer uploads", () => {
+  assert.match(propertyMediaService, /body\.watermarkEnabled === true/);
+  assert.match(propertyMediaService, /watermark_enabled, watermark_position/);
+  assert.match(propertyMediaService, /applyPropertyImageWatermarkServer/);
+  assert.match(propertyMediaService, /applyPropertyVideoWatermark/);
+  assert.match(propertyMediaService, /String\(session\.asset_kind \?\? "gallery"\) === "gallery"/);
+  assert.match(propertyMediaService, /watermarkApplied: watermarkEnabled/);
   assert.match(propertyMediaService, /storeMedia\(/);
   assert.match(propertyMediaService, /mediaUrlForBrowser/);
   assert.match(propertyMediaService, /assetKind/);
   assert.match(uploadRoute, /handlePropertyMediaUpload/, "the old URL must remain a compatibility alias");
   assert.match(propertyMediaRoute, /handlePropertyMediaUpload/);
   assert.match(mediaField, /uploadPropertyMedia/);
+  assert.match(mediaField, /watermark: \{/);
+  assert.match(mediaField, /hirmand-watermark-controls/);
   assert.match(mediaField, /رسانه‌ها پس از ذخیرهٔ فایل ملک ثبت می‌شوند/);
   assert.match(floorPlanField, /uploadPropertyMedia/);
 
   assert.doesNotMatch(
     customerUploadRoute,
     /getPropertyWatermarkSettingsServer|applyPropertyImageWatermarkServer|applyPropertyVideoWatermark/,
-    "public customer uploads must not execute automatic watermark processors",
+    "public customer uploads must not execute watermark processors",
   );
   assert.match(customerUploadRoute, /transform: async \(\) => null/);
   assert.match(customerUploadRoute, /mediaUrlForBrowser/);
