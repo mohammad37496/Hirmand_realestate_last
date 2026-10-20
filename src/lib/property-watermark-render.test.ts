@@ -129,14 +129,29 @@ test("watermark filters use drawtext-safe frame variables", () => {
 test("video overlay ends with the source video instead of the endless logo", () => {
   assert.match(
     videoSource,
-    /overlay=x=w-82:y=h-0\.085\*h:eof_action=repeat:shortest=1/,
-    "the looped logo input requires overlay shortest=1",
+    /overlay=\$\{overlayPosition\[position\] \?\? overlayPosition\["bottom-right"\]\}:eof_action=repeat:shortest=1/,
+    "the looped logo input must stop at EOF and use the selected corner",
   );
   const overlayCalls = videoSource
     .split("\n")
     .filter((line) => line.includes("[wm_base][wm_logo]overlay=") && !line.trimStart().startsWith("//"));
   assert.equal(overlayCalls.length, 1);
   assert.doesNotMatch(overlayCalls[0]!, /shortest=0/);
+});
+
+test("compact logo watermark supports all four corners without a text footer", () => {
+  for (const [name, source] of [
+    ["image", imageSource],
+    ["video", videoSource],
+  ] as const) {
+    for (const position of ["top-left", "top-right", "bottom-left", "bottom-right"]) {
+      assert.ok(source.includes(`"${position}"`), `${name} watermark should support ${position}`);
+    }
+  }
+  assert.match(imageSource, /const drawingParts = settings\.showText\s*\?/);
+  assert.match(videoSource, /const panelParts = settings\.showText\s*\?/);
+  assert.match(imageSource, /overlay=\$\{overlayPosition\[position\]/);
+  assert.match(videoSource, /overlay=\$\{overlayPosition\[position\]/);
 });
 
 test(
