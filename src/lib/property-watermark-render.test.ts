@@ -12,6 +12,7 @@ import { applyPropertyImageWatermarkServer } from "./property-image-watermark.se
 import { applyPropertyVideoWatermark } from "./property-video-watermark.server.ts";
 import type { PropertyWatermarkSettings } from "./property-watermark.ts";
 import {
+  formatFfmpegExecutionError,
   projectRoots,
   resolveBrandLogo,
   resolveBundledFfmpeg,
@@ -93,6 +94,25 @@ test("watermark assets resolve from the app root, not just the module directory"
  * "[Eval] Undefined constant ... in 'iw*0.012*0.900'", which is exactly the
  * HTTP 500 this suite exists to prevent from coming back.
  */
+test("FFmpeg execution diagnostics preserve spawn and encoder failure causes", () => {
+  const spawnError = Object.assign(
+    new Error("spawn /app/.runtime/ffmpeg/ffmpeg EACCES"),
+    { code: "EACCES", errno: -13, syscall: "spawn", path: "/app/.runtime/ffmpeg/ffmpeg" },
+  );
+  const spawnDiagnostic = formatFfmpegExecutionError(spawnError);
+  assert.match(spawnDiagnostic, /code=EACCES/);
+  assert.match(spawnDiagnostic, /syscall=spawn/);
+  assert.match(spawnDiagnostic, /path=\/app\/\.runtime\/ffmpeg\/ffmpeg/);
+
+  const encoderError = Object.assign(new Error("FFmpeg exited"), {
+    code: 1,
+    stderr: "Unknown encoder 'libx264'",
+  });
+  const encoderDiagnostic = formatFfmpegExecutionError(encoderError);
+  assert.match(encoderDiagnostic, /code=1/);
+  assert.match(encoderDiagnostic, /stderr=Unknown encoder 'libx264'/);
+});
+
 test("watermark filters use drawtext-safe frame variables", () => {
   for (const [name, source] of [
     ["image", imageSource],
