@@ -125,7 +125,7 @@ async function login() {
 
 /** Exactly the client protocol in src/lib/media-upload-client.ts. */
 async function upload(file, filename) {
-  const beginResponse = await call("/api/upload", {
+  const beginResponse = await call("/api/property-media", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -149,7 +149,7 @@ async function upload(file, filename) {
   for (let index = 0; index < totalChunks; index += 1) {
     const start = index * chunkSize;
     const slice = file.subarray(start, Math.min(start + chunkSize, file.length));
-    const chunkResponse = await call("/api/upload", {
+    const chunkResponse = await call("/api/property-media", {
       method: "POST",
       headers: {
         "content-type": "application/octet-stream",
@@ -169,7 +169,7 @@ async function upload(file, filename) {
     }
   }
 
-  const completeResponse = await call("/api/upload", {
+  const completeResponse = await call("/api/property-media", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action: "complete", uploadId }),
@@ -198,7 +198,7 @@ async function main() {
 
   // Idempotency: replaying `complete` with the same uploadId must answer with the
   // same receipt instead of creating a second object.
-  const replay = await call("/api/upload", {
+  const replay = await call("/api/property-media", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action: "complete", uploadId }),
