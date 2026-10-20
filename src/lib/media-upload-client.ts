@@ -1,3 +1,5 @@
+import { isAllowedMediaRef } from "@/lib/media";
+
 /**
  * Browser side of the chunked upload protocol.
  *
@@ -303,3 +305,62 @@ export async function uploadInChunks(options: {
     throw error;
   }
 }
+
+export type PropertyMediaKind = "gallery" | "floor-plan";
+
+export type PropertyMediaUploadResult = {
+  uploadId: string;
+  url: string;
+  mediaType: string;
+  assetKind: PropertyMediaKind;
+  sizeBytes: number;
+  storage: string;
+};
+
+/**
+ * Typed entry point for the property-media pipeline. Only this wrapper knows
+ * the endpoint and metadata contract, so gallery and floor-plan controls cannot
+ * drift to different upload handlers or silently save unusable URLs.
+ */
+export async function uploadPropertyMedia(options: {
+  file: File;
+  contentType?: string;
+  assetKind: PropertyMediaKind;
+  onProgress?: (percentage: number) => void;
+  signal?: AbortSignal;
+  rejectedMessage?: string;
+}): Promise<PropertyMediaUploadResult> {
+  const result = await uploadInChunks({
+    endpoint: "/api/property-media",
+    file: options.file,
+    contentType: options.contentType ?? options.file.type,
+    payload: { assetKind: options.assetKind },
+    onProgress: options.onProgress,
+    signal: options.signal,
+    rejectedMessage: options.rejectedMessage ?? "آپلود رسانه پذیرفته نشد.",
+    retryCompletion: true,
+  });
+
+  const receipt = result.response;
+  const url = typeof receipt.url === "string" ? receipt.url.trim() : "";
+  if (!url || !isAllowedMediaRef(url)) {
+    throw new Error("سرور فایل را دریافت کرد، اما نشانی رسانهٔ قابل استفاده برنگرداند.");
+  }
+
+  const mediaType =
+    typeof receipt.mediaType === "string" ? receipt.mediaType : options.contentType ?? options.file.type;
+  const assetKind =
+    receipt.assetKind === "floor-plan" ? "floor-plan" : "gallery";
+  const storage = typeof receipt.storage === "string" ? receipt.storage : "unknown";
+  const sizeBytes = Number(receipt.sizeBytes) || result.totalBytes;
+
+  return {
+    uploadId: result.uploadId,
+    url,
+    mediaType,
+    assetKind,
+    sizeBytes,
+    storage,
+  };
+}
+\n
