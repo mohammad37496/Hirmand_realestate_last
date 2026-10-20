@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isAllowedMediaRef, isLiaraMediaProxyUrl, mediaSourceCandidates } from "./media.ts";
+import { isAllowedMediaRef, isLiaraMediaProxyUrl, isVideoUrl, mediaSourceCandidates } from "./media.ts";
 
 const fallback = "/images/type-apartment.jpg";
 const privateLiaraImage =
