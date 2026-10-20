@@ -234,7 +234,10 @@ export async function applyPropertyVideoWatermark(
       );
     }
 
-    const basePath = pathname.replace(/\\.[^/.]+$/, "");
+    const extensionIndex = pathname.lastIndexOf(".");
+    const slashIndex = pathname.lastIndexOf("/");
+    const basePath =
+      extensionIndex > slashIndex ? pathname.slice(0, extensionIndex) : pathname;
     return {
       data: output,
       contentType: "video/mp4",
