@@ -33,7 +33,8 @@ export function AdminFloorPlanField({ value, onChange }: Props) {
     setBroken(false);
     try {
       const result = await uploadInChunks({
-        endpoint: "/api/upload",
+        endpoint: "/api/property-media",
+        payload: { assetKind: "floor-plan" },
         file,
         contentType: file.type,
         rejectedMessage: "آپلود پلان پذیرفته نشد.",
