@@ -1,4 +1,11 @@
+export type PropertyWatermarkPosition =
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
 export type PropertyWatermarkSettings = {
+  position?: PropertyWatermarkPosition;
   enabled: boolean;
   showLogo: boolean;
   showText: boolean;
