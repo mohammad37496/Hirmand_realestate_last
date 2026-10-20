@@ -577,3 +577,305 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Watermark controls: warm navy/gold brand styling with an at-a-glance corner preview. */
+.hirmand-watermark-controls {
+  display: grid;
+  gap: 13px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e3e8ee;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fff 0%, #f8fafc 100%);
+  box-shadow: 0 3px 12px rgb(23 43 73 / 4%);
+}
+.hirmand-watermark-controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.hirmand-watermark-controls-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.hirmand-watermark-controls-title > div {
+  min-width: 0;
+}
+.hirmand-watermark-controls-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e4e9ef;
+  border-radius: 12px;
+  background: #f1f4f8;
+  color: #6d7b8e;
+}
+.hirmand-watermark-controls-icon.is-active {
+  border-color: #e3d2ac;
+  background: #fcf5e6;
+  color: #8a682e;
+}
+.hirmand-watermark-controls-title strong,
+.hirmand-watermark-position-area > strong {
+  display: block;
+  color: var(--hirmand-media-navy);
+  font-size: .88rem;
+  font-weight: 850;
+}
+.hirmand-watermark-controls-title p,
+.hirmand-watermark-position-area > p {
+  margin: 3px 0 0;
+  color: var(--hirmand-media-muted);
+  font-size: .75rem;
+  line-height: 1.75;
+}
+.hirmand-watermark-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 39px;
+  padding: 7px 10px;
+  border: 1px solid #d8dfe8;
+  border-radius: 11px;
+  background: #fff;
+  color: #56667b;
+  font: inherit;
+  font-size: .76rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.hirmand-watermark-toggle.is-active {
+  border-color: #d4bb86;
+  background: #fff8e9;
+  color: #73551e;
+}
+.hirmand-watermark-toggle:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+}
+.hirmand-watermark-switch-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 999px;
+  background: #b8c2ce;
+  transition: background 150ms ease;
+}
+.hirmand-watermark-switch-track > span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 18%);
+  transition: transform 150ms ease;
+}
+.hirmand-watermark-toggle.is-active .hirmand-watermark-switch-track {
+  background: #b18a43;
+}
+.hirmand-watermark-toggle.is-active .hirmand-watermark-switch-track > span {
+  transform: translateX(14px);
+}
+.hirmand-watermark-controls-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(145px, .58fr);
+  align-items: center;
+  gap: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #edf0f4;
+}
+.hirmand-watermark-controls-body:not(.is-enabled) .hirmand-watermark-position-area {
+  opacity: .66;
+}
+.hirmand-watermark-position-area {
+  min-width: 0;
+}
+.hirmand-watermark-position-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 10px;
+}
+.hirmand-watermark-position-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 4px;
+  border: 1px solid #e0e6ee;
+  border-radius: 10px;
+  background: #fff;
+  color: #6b788a;
+  font: inherit;
+  font-size: .67rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+.hirmand-watermark-position-option.is-selected {
+  border-color: #d3b777;
+  background: #fff9ed;
+  color: #73551e;
+  box-shadow: inset 0 0 0 1px rgb(198 161 91 / 12%);
+}
+.hirmand-watermark-position-option:disabled {
+  cursor: not-allowed;
+}
+.hirmand-watermark-position-option:disabled:not(.is-selected) {
+  opacity: .74;
+}
+.hirmand-watermark-corner-diagram {
+  position: relative;
+  display: block;
+  width: 43px;
+  height: 28px;
+  overflow: hidden;
+  border: 1px solid #dce3eb;
+  border-radius: 5px;
+  background:
+    linear-gradient(165deg, transparent 0 45%, rgb(23 43 73 / 6%) 46% 100%),
+    #eef2f6;
+}
+.hirmand-watermark-corner-diagram::after {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  left: 4px;
+  height: 1px;
+  background: #c8d2de;
+  content: "";
+}
+.hirmand-watermark-corner-diagram > span {
+  position: absolute;
+  z-index: 1;
+  width: 9px;
+  height: 7px;
+  border: 1px solid #fff;
+  border-radius: 2px;
+  background: #ba9148;
+  box-shadow: 0 1px 3px rgb(20 38 62 / 24%);
+}
+.hirmand-watermark-corner-diagram > span.is-top-left { top: 3px; left: 3px; }
+.hirmand-watermark-corner-diagram > span.is-top-right { top: 3px; right: 3px; }
+.hirmand-watermark-corner-diagram > span.is-bottom-left { bottom: 3px; left: 3px; }
+.hirmand-watermark-corner-diagram > span.is-bottom-right { right: 3px; bottom: 3px; }
+.hirmand-watermark-preview-card {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+.hirmand-watermark-preview-scene {
+  position: relative;
+  min-height: 95px;
+  aspect-ratio: 1.52 / 1;
+  overflow: hidden;
+  border: 1px solid #dfe5e9;
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse at 17% 26%, rgb(255 255 255 / 78%) 0 13%, transparent 13.5%),
+    linear-gradient(180deg, #e8eff2 0%, #f4e8d2 56%, #d9e0d7 56%, #c2d0c7 100%);
+}
+.hirmand-watermark-preview-building {
+  position: absolute;
+  right: 21%;
+  bottom: 0;
+  left: 21%;
+  height: 59%;
+  border: 1px solid rgb(255 255 255 / 75%);
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(90deg, #f5eee2, #d4c6ad 50%, #eee4d3);
+  box-shadow: 0 3px 12px rgb(36 50 59 / 11%);
+}
+.hirmand-watermark-preview-building::before {
+  position: absolute;
+  top: -11px;
+  right: -5px;
+  left: -5px;
+  height: 11px;
+  background: #8c806f;
+  clip-path: polygon(4% 100%, 50% 0, 96% 100%);
+  content: "";
+}
+.hirmand-watermark-preview-building > span {
+  position: absolute;
+  top: 21%;
+  width: 18%;
+  height: 31%;
+  border: 2px solid #b6a58b;
+  border-radius: 2px;
+  background: linear-gradient(135deg, #a4b8be, #dee8e9);
+}
+.hirmand-watermark-preview-building > span:nth-child(1) { left: 13%; }
+.hirmand-watermark-preview-building > span:nth-child(2) { left: 41%; }
+.hirmand-watermark-preview-building > span:nth-child(3) { right: 13%; }
+.hirmand-watermark-preview-mark {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 29px;
+  padding: 3px;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 7px;
+  background: rgb(12 28 48 / 68%);
+  box-shadow: 0 2px 7px rgb(0 0 0 / 22%);
+  opacity: .82;
+}
+.hirmand-watermark-preview-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.hirmand-watermark-preview-mark.is-top-left { top: 7px; left: 7px; }
+.hirmand-watermark-preview-mark.is-top-right { top: 7px; right: 7px; }
+.hirmand-watermark-preview-mark.is-bottom-left { bottom: 7px; left: 7px; }
+.hirmand-watermark-preview-mark.is-bottom-right { right: 7px; bottom: 7px; }
+.hirmand-watermark-preview-caption {
+  display: grid;
+  gap: 1px;
+  text-align: center;
+}
+.hirmand-watermark-preview-caption strong {
+  color: var(--hirmand-media-navy);
+  font-size: .72rem;
+}
+.hirmand-watermark-preview-caption span {
+  color: var(--hirmand-media-muted);
+  font-size: .65rem;
+}
+.hirmand-watermark-note {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid #edf0f4;
+  color: #768296;
+  font-size: .72rem;
+  line-height: 1.8;
+}
+@media (max-width: 560px) {
+  .hirmand-watermark-controls { padding: 11px; gap: 11px; }
+  .hirmand-watermark-controls-header { align-items: flex-start; flex-direction: column; }
+  .hirmand-watermark-toggle { align-self: stretch; justify-content: center; min-height: 40px; }
+  .hirmand-watermark-controls-body { grid-template-columns: minmax(0, 1fr); }
+  .hirmand-watermark-preview-card { grid-template-columns: 1fr auto; align-items: center; }
+  .hirmand-watermark-preview-scene { width: min(100%, 200px); min-height: 90px; }
+  .hirmand-watermark-preview-caption { min-width: 90px; }
+  .hirmand-watermark-position-grid { gap: 5px; }
+  .hirmand-watermark-corner-diagram { width: 38px; height: 25px; }
+  .hirmand-watermark-position-option { font-size: .61rem; padding-inline: 2px; }
+}
