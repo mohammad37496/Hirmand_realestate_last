@@ -18,10 +18,20 @@ if (process.env.npm_lifecycle_event !== "build") {
 
 const isProduction = process.env.NODE_ENV === "production";
 
-if (isProduction) {
-  const { ensureFfmpegBinary } = await import("./ensure-ffmpeg.mjs");
-  await ensureFfmpegBinary();
+// Liara's configured command may invoke this script directly instead of
+// running "npm run build". In that path npm lifecycle hooks are skipped and
+// NODE_ENV may be unset, but permanent image/video watermarking still requires
+// the checksum-verified FFmpeg binary and the Persian TTF font. Always provision
+// them here so a deployment cannot silently start without watermark support.
+const { ensureFfmpegBinary } = await import("./ensure-ffmpeg.mjs");
+const ffmpegPath = await ensureFfmpegBinary();
+if (!ffmpegPath) {
+  throw new Error(
+    "[deploy] Permanent media watermarking requires a supported FFmpeg runtime. " +
+      "Set FFMPEG_BIN to a compatible FFmpeg binary for this platform.",
+  );
 }
+console.log("[deploy] Permanent media watermark runtime is ready.");
 const runtime = resolveDatabaseUrl();
 const migration = resolveMigrationDatabaseUrl();
 
