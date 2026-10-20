@@ -316,6 +316,8 @@ export type PropertyMediaUploadResult = {
   assetKind: PropertyMediaKind;
   sizeBytes: number;
   storage: string;
+  watermarkApplied: boolean;
+  watermarkPosition: PropertyWatermarkPosition | null;
 };
 
 /**
@@ -363,6 +365,22 @@ export async function uploadPropertyMedia(options: {
     receipt.assetKind === "floor-plan" ? "floor-plan" : "gallery";
   const storage = typeof receipt.storage === "string" ? receipt.storage : "unknown";
   const sizeBytes = Number(receipt.sizeBytes) || result.totalBytes;
+  const watermarkApplied = receipt.watermarkApplied === true;
+  const watermarkPosition =
+    receipt.watermarkPosition === "top-left" ||
+    receipt.watermarkPosition === "top-right" ||
+    receipt.watermarkPosition === "bottom-left" ||
+    receipt.watermarkPosition === "bottom-right"
+      ? receipt.watermarkPosition
+      : null;
+
+  if (
+    options.assetKind === "gallery" &&
+    options.watermark?.enabled === true &&
+    !watermarkApplied
+  ) {
+    throw new Error("واترمارک روی فایل اعمال نشد؛ رسانه به فایل ملک اضافه نشد. دوباره تلاش کنید.");
+  }
 
   return {
     uploadId: result.uploadId,
@@ -371,5 +389,7 @@ export async function uploadPropertyMedia(options: {
     assetKind,
     sizeBytes,
     storage,
+    watermarkApplied,
+    watermarkPosition,
   };
 }

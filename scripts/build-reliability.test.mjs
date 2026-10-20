@@ -174,8 +174,14 @@ test("property media watermarking is opt-in per upload and excludes floor plans 
   assert.match(propertyMediaService, /watermark_enabled, watermark_position/);
   assert.match(propertyMediaService, /applyPropertyImageWatermarkServer/);
   assert.match(propertyMediaService, /applyPropertyVideoWatermark/);
-  assert.match(propertyMediaService, /String\(session\.asset_kind \?\? "gallery"\) === "gallery"/);
-  assert.match(propertyMediaService, /watermarkApplied: watermarkEnabled/);
+  assert.match(propertyMediaService, /const watermarkRequested = watermarkEnabled && assetKind === "gallery"/);
+  assert.match(propertyMediaService, /watermarkApplied =\s*finalContentType === "image\/webp"/);
+  assert.match(propertyMediaService, /watermarkApplied =\s*finalContentType === "video\/mp4"/);
+  assert.match(propertyMediaService, /watermarkApplied,/);
+  assert.match(propertyMediaService, /پردازش واترمارک ویدئو انجام نشد/);
+  assert.match(propertyMediaService, /پردازش واترمارک تصویر انجام نشد/);
+  assert.match(mediaClient, /options\.watermark\?\.enabled === true/);
+  assert.match(mediaClient, /واترمارک روی فایل اعمال نشد/);
   assert.match(propertyMediaService, /storeMedia\(/);
   assert.match(propertyMediaService, /mediaUrlForBrowser/);
   assert.match(propertyMediaService, /assetKind/);

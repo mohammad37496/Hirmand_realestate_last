@@ -445,31 +445,59 @@ async function completeUpload(
     let finalData: Uint8Array = data;
     let finalContentType = contentType;
     let finalPathname = String(session.pathname ?? "");
+    const assetKind = String(session.asset_kind ?? "gallery");
     const watermarkEnabled = session.watermark_enabled === true || String(session.watermark_enabled) === "true";
-    if (watermarkEnabled && String(session.asset_kind ?? "gallery") === "gallery") {
-      const settings = uploadWatermarkSettings(
-        resolveWatermarkPosition(session.watermark_position),
-      );
-      if (contentType.startsWith("image/")) {
-        const watermarked = await applyPropertyImageWatermarkServer({
-          data: Buffer.from(finalData),
-          contentType: finalContentType,
-          pathname: finalPathname,
-          settings,
-        });
-        finalData = watermarked.data;
-        finalContentType = watermarked.contentType;
-        finalPathname = watermarked.pathname;
-      } else if (contentType.startsWith("video/")) {
-        const watermarked = await applyPropertyVideoWatermark({
-          data: Buffer.from(finalData),
-          contentType: finalContentType,
-          pathname: finalPathname,
-          settings,
-        });
-        finalData = watermarked.data;
-        finalContentType = watermarked.contentType;
-        finalPathname = watermarked.pathname;
+    const watermarkRequested = watermarkEnabled && assetKind === "gallery";
+    let watermarkApplied = false;
+
+    if (watermarkRequested) {
+      try {
+        const settings = uploadWatermarkSettings(
+          resolveWatermarkPosition(session.watermark_position),
+        );
+        if (contentType.startsWith("image/")) {
+          const watermarked = await applyPropertyImageWatermarkServer({
+            data: Buffer.from(finalData),
+            contentType: finalContentType,
+            pathname: finalPathname,
+            settings,
+          });
+          finalData = watermarked.data;
+          finalContentType = watermarked.contentType;
+          finalPathname = watermarked.pathname;
+          watermarkApplied =
+            finalContentType === "image/webp" &&
+            /-watermarked\.webp$/i.test(finalPathname);
+        } else if (contentType.startsWith("video/")) {
+          const watermarked = await applyPropertyVideoWatermark({
+            data: Buffer.from(finalData),
+            contentType: finalContentType,
+            pathname: finalPathname,
+            settings,
+          });
+          finalData = watermarked.data;
+          finalContentType = watermarked.contentType;
+          finalPathname = watermarked.pathname;
+          watermarkApplied =
+            finalContentType === "video/mp4" &&
+            /-watermarked\.mp4$/i.test(finalPathname);
+        } else {
+          throw new Error("Unsupported media type for permanent watermark.");
+        }
+
+        if (!watermarkApplied) {
+          throw new Error("Watermark processor did not return a verified watermarked output.");
+        }
+      } catch (error) {
+        console.error(
+          `[property-media] watermark failed for ${uploadId} (${contentType}): ${error instanceof Error ? error.message : String(error)}`,
+        );
+        throw httpError(
+          contentType.startsWith("video/")
+            ? "پردازش واترمارک ویدئو انجام نشد؛ فایل ذخیره نشد. یک ویدئوی کوتاه‌تر یا MP4 استاندارد انتخاب کنید و دوباره تلاش کنید."
+            : "پردازش واترمارک تصویر انجام نشد؛ فایل ذخیره نشد. دوباره تلاش کنید یا واترمارک را برای این آپلود خاموش کنید.",
+          422,
+        );
       }
     }
 
@@ -487,10 +515,10 @@ async function completeUpload(
       url,
       storage: stored.storage,
       mediaType: finalContentType,
-      assetKind: String(session.asset_kind ?? "gallery"),
+      assetKind,
       sizeBytes: finalData.length,
-      watermarkApplied: watermarkEnabled && String(session.asset_kind ?? "gallery") === "gallery",
-      watermarkPosition: watermarkEnabled ? resolveWatermarkPosition(session.watermark_position) : null,
+      watermarkApplied,
+      watermarkPosition: watermarkApplied ? resolveWatermarkPosition(session.watermark_position) : null,
     };
 
     await sql.query(

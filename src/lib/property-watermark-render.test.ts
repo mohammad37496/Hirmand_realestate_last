@@ -154,6 +154,15 @@ test("compact logo watermark supports all four corners without a text footer", (
   assert.match(videoSource, /overlay=\$\{overlayPosition\[position\]/);
 });
 
+test("watermarked outputs stay visible and video processing is bounded for Liara", () => {
+  assert.match(imageSource, /Math\.round\(90 \* size\)/, "image logo should remain visible in scaled property cards");
+  assert.match(videoSource, /Math\.round\(90 \* settings\.size\)/, "video logo should remain visible in scaled previews");
+  assert.match(videoSource, /scale='min\(1280,iw\)':'min\(720,ih\)'/, "large phone videos should be downscaled before overlay");
+  assert.match(videoSource, /"-preset",\s*"ultrafast"/, "video encoder should prioritize low request CPU time");
+  assert.match(videoSource, /"-filter_threads",\s*"1"/, "video filter threads should be bounded");
+  assert.match(videoSource, /output\.subarray\(4, 8\)\.toString\("latin1"\) !== "ftyp"/, "only a valid MP4 should be reported as watermarked");
+});
+
 test(
   "a real JPEG is permanently watermarked into a valid WebP",
   { skip: CAN_RENDER ? false : "FFmpeg/logo/font are not provisioned in this environment" },
@@ -228,6 +237,85 @@ test(
       assert.ok(
         bright > 150,
         `the footer watermark text must be visible (found ${bright} bright pixels)`,
+      );
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  },
+);
+
+test(
+  "logo-only mode used by gallery uploads visibly changes the selected image corner",
+  { skip: CAN_RENDER ? false : "FFmpeg/logo/font are not provisioned in this environment" },
+  async () => {
+    const workDir = await mkdtemp(join(tmpdir(), "hirmand-logo-only-test-"));
+    try {
+      const jpegPath = join(workDir, "photo.jpg");
+      await execFileAsync(FFMPEG, [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=0x101820:size=1200x900",
+        "-frames:v",
+        "1",
+        "-q:v",
+        "3",
+        jpegPath,
+      ]);
+      const result = await applyPropertyImageWatermarkServer({
+        data: await readFile(jpegPath),
+        contentType: "image/jpeg",
+        pathname: "properties/uploads/gallery/photo.jpg",
+        settings: {
+          enabled: true,
+          showLogo: true,
+          showText: false,
+          text: "املاک هیرمند",
+          opacity: 0.76,
+          size: 0.78,
+          position: "bottom-right",
+        },
+      });
+
+      assert.equal(result.contentType, "image/webp");
+      assert.match(result.pathname, /-watermarked\.webp$/);
+      const outputPath = join(workDir, "watermarked.webp");
+      await writeFile(outputPath, result.data);
+      const grayPath = join(workDir, "out.gray");
+      await execFileAsync(FFMPEG, [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        outputPath,
+        "-pix_fmt",
+        "gray",
+        "-f",
+        "rawvideo",
+        grayPath,
+      ]);
+      const gray = await readFile(grayPath);
+      const width = 1200;
+      const height = Math.round(gray.length / width);
+      assert.equal(height, 900, "the output dimensions must remain stable");
+
+      // The source image is uniformly dark. A logo-only watermark must create
+      // visible pixel variation in the selected lower-right corner even when
+      // the text panel/footer is disabled by the live upload pipeline.
+      let visiblePixels = 0;
+      for (let y = height - 120; y < height - 4; y += 1) {
+        for (let x = width - 160; x < width - 4; x += 1) {
+          if (gray[y * width + x] > 55) visiblePixels += 1;
+        }
+      }
+      assert.ok(
+        visiblePixels > 40,
+        `the corner logo must alter visible pixels in logo-only mode (found ${visiblePixels})`,
       );
     } finally {
       await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
