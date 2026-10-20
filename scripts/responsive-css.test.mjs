@@ -210,12 +210,12 @@ testRunner.test("mobile property gallery keeps full media visible and gives vide
   );
   assert.match(
     responsiveCss,
-    /body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3\s*!important/s,
+    /body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-wrap \.property-gallery \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3\s*!important/s,
     "the final mobile ratio rule must outrank the legacy signature stylesheet",
   );
   assert.match(
     responsiveCss,
-    /@media\s*\(max-width:\s*360px\)\s*\{\s*body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1\s*!important/s,
+    /@media\s*\(max-width:\s*360px\)\s*\{\s*body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-wrap \.property-gallery \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*1\s*!important/s,
     "extra-narrow phones must use a square media stage",
   );
   assert.match(
