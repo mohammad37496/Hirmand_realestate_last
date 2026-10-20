@@ -449,9 +449,11 @@ export function AdminMediaField({
   }
 
   function onPick(event: ChangeEvent<HTMLInputElement>) {
-    const files = event.currentTarget.files;
+    // Snapshot the File objects before resetting the input. Some browsers clear
+    // the live FileList when value is set to an empty string.
+    const files = Array.from(event.currentTarget.files ?? []);
     event.currentTarget.value = "";
-    if (files?.length) void uploadFiles(files);
+    if (files.length) void uploadFiles(files);
   }
 
   function onDrop(event: DragEvent<HTMLDivElement>) {
