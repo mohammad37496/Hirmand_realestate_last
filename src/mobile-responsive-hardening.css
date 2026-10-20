@@ -2134,7 +2134,6 @@ svg {
     /* Use physical insets together: in RTL, inset-inline-start alone sets
        the opposite edge and can stretch an absolutely-positioned button. */
     inset: 49px auto auto 8px !important;
-    inset-inline-end: auto !important;
     width: max-content !important;
     max-width: calc(100% - 16px) !important;
     flex: 0 0 auto !important;
