@@ -467,7 +467,7 @@ async function completeUpload(
           finalPathname = watermarked.pathname;
           watermarkApplied =
             finalContentType === "image/webp" &&
-            /-watermarked\\.webp$/i.test(finalPathname);
+            /-watermarked\.webp$/i.test(finalPathname);
         } else if (contentType.startsWith("video/")) {
           const watermarked = await applyPropertyVideoWatermark({
             data: Buffer.from(finalData),
@@ -480,7 +480,7 @@ async function completeUpload(
           finalPathname = watermarked.pathname;
           watermarkApplied =
             finalContentType === "video/mp4" &&
-            /-watermarked\\.mp4$/i.test(finalPathname);
+            /-watermarked\.mp4$/i.test(finalPathname);
         } else {
           throw new Error("Unsupported media type for permanent watermark.");
         }
