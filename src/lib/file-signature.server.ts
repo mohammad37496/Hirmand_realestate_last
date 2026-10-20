@@ -62,7 +62,7 @@ const SIGNATURES: Signature[] = [
     mime: "image/avif",
     kind: "image",
     length: 12,
-    matches: (b) => ascii(b, 4, 4) === "ftyp" && ascii(b, 8, 4).toLowerCase().startsWith("avif"),
+    matches: (b) => ascii(b, 4, 4) === "ftyp" && ["avif", "avis"].includes(ascii(b, 8, 4).toLowerCase()),
   },
 
   // ---- audio ----
@@ -100,7 +100,16 @@ const SIGNATURES: Signature[] = [
     mime: "video/mp4",
     kind: "video",
     length: 12,
-    matches: (b) => ascii(b, 4, 4) === "ftyp" && ascii(b, 8, 4).toLowerCase().startsWith("isom"),
+    matches: (b) => {
+      if (ascii(b, 4, 4) !== "ftyp") return false;
+      const brand = ascii(b, 8, 4).toLowerCase();
+      // Common ISO-BMFF MP4 brands emitted by phones and editing apps.
+      return [
+        "isom", "iso2", "iso3", "iso4", "iso5", "iso6", "iso8",
+        "mp41", "mp42", "avc1", "dash", "m4v ", "msnv",
+        "3gp4", "3gp5", "3g2a", "f4v ",
+      ].includes(brand);
+    },
   },
   {
     mime: "video/webm",

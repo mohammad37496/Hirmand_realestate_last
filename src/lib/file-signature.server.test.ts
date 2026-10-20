@@ -8,6 +8,8 @@ const webp = new TextEncoder().encode("RIFF1234WEBPVP8 ");
 const gif = new TextEncoder().encode("GIF89a");
 const avif = new TextEncoder().encode("0000ftypavif0000");
 const mp4 = new TextEncoder().encode("0000ftypisom0000");
+const phoneMp4 = new TextEncoder().encode("0000ftypmp420000");
+const animatedAvif = new TextEncoder().encode("0000ftypavis0000");
 const webm = Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3, 0x93]);
 
 test("accepted image containers match their declared MIME type", () => {
@@ -16,10 +18,12 @@ test("accepted image containers match their declared MIME type", () => {
   assert.equal(contentMatchesDeclaredType(webp, "image/webp"), true);
   assert.equal(contentMatchesDeclaredType(gif, "image/gif"), true);
   assert.equal(contentMatchesDeclaredType(avif, "image/avif"), true);
+  assert.equal(contentMatchesDeclaredType(animatedAvif, "image/avif"), true);
 });
 
 test("accepted video containers are sniffed and type mismatches are refused", () => {
   assert.equal(contentMatchesDeclaredType(mp4, "video/mp4"), true);
+  assert.equal(contentMatchesDeclaredType(phoneMp4, "video/mp4"), true);
   assert.equal(contentMatchesDeclaredType(webm, "video/webm"), true);
   assert.equal(contentMatchesDeclaredType(jpeg, "image/png"), false);
   assert.equal(contentMatchesDeclaredType(new TextEncoder().encode("<html>bad</html>"), "image/jpeg"), false);

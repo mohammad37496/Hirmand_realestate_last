@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isAllowedMediaRef, isLiaraMediaProxyUrl, mediaSourceCandidates } from "./media.ts";
+import { isAllowedMediaRef, isLiaraMediaProxyUrl, isVideoUrl, mediaSourceCandidates } from "./media.ts";
 
 const fallback = "/images/type-apartment.jpg";
 const privateLiaraImage =
@@ -29,6 +29,13 @@ test("database media URLs keep their existing same-origin route", () => {
   ]);
 });
 
+test("same-origin MP4 delivery URLs retain video detection and pass validation", () => {
+  const url = "/api/media/2a3bf33e-ec55-4e2d-9ff2-3d962c1e7d11?type=video";
+  assert.equal(isVideoUrl(url), true);
+  assert.equal(isAllowedMediaRef(url), true);
+  assert.equal(mediaSourceCandidates(url, fallback)[0], url);
+});
+
 test("same-origin uploaded image and video references pass property form validation", () => {
   const databaseImage = "/api/media/2a3bf33e-ec55-4e2d-9ff2-3d962c1e7d11";
   const databaseVideo = databaseImage + "?type=video";
@@ -37,6 +44,7 @@ test("same-origin uploaded image and video references pass property form validat
     "/api/liara-media?url=" + encodeURIComponent(privateLiaraVideo) + "&type=video";
 
   assert.equal(isAllowedMediaRef(databaseImage), true);
+  assert.equal(isAllowedMediaRef(databaseImage + "?type=video"), true);
   assert.equal(isAllowedMediaRef(databaseVideo), true);
   assert.equal(isAllowedMediaRef(liaraImage), true);
   assert.equal(isAllowedMediaRef(liaraVideo), true);

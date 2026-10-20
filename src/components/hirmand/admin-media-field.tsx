@@ -1,54 +1,55 @@
-import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  Check,
+  FileImage,
   Film,
-  ImageIcon,
+  ImagePlus,
+  Link2,
   Loader2,
   RefreshCw,
   Star,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { MAX_PROPERTY_MEDIA, isVideoUrl, mediaSourceCandidates } from "@/lib/media";
+import { MAX_PROPERTY_MEDIA, isAllowedMediaRef, isVideoUrl, mediaSourceCandidates } from "@/lib/media";
+import { uploadErrorMessage, uploadPropertyMedia } from "@/lib/media-upload-client";
 import type { PropertyType } from "@/lib/properties";
 import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { faBytes } from "@/components/hirmand/admin-ui-utils";
+import "./admin-media-field.css";
 
 type Props = {
   value: string;
   onChange: (next: string) => void;
-  /** Used to render a branded fallback when a stored image 404s. */
   propertyType?: PropertyType;
   propertyId?: string;
 };
 
 type FailedUpload = {
-  key: string;
+  id: string;
+  file: File;
   name: string;
   sizeBytes: number;
-  file: File;
   message: string;
 };
 
-function linesToList(raw: string) {
-  return raw
-    .split(/[\n,]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-function listToLines(items: string[]) {
-  return items.join("\n");
-}
+type UploadProgress = {
+  name: string;
+  progress: number;
+  index: number;
+  total: number;
+};
 
 const MAX_IMAGE_DIMENSION = 2560;
 const IMAGE_QUALITY = 0.82;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const ALLOWED_TYPES = new Set([
+
+const ACCEPTED_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
@@ -59,10 +60,57 @@ const ALLOWED_TYPES = new Set([
   "video/quicktime",
 ]);
 
-async function loadImageDimensions(file: File): Promise<{ width: number; height: number; close?: () => void }> {
+function linesToList(raw: string): string[] {
+  return raw
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function listToLines(items: string[]): string {
+  return items.join("\n");
+}
+
+function uniqueMedia(items: string[]): string[] {
+  return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)))
+    .filter((item) => !isPropertyFallbackImage(item))
+    .slice(0, MAX_PROPERTY_MEDIA);
+}
+
+function mimeFromFilename(filename: string): string {
+  const extension = filename.split(".").pop()?.toLowerCase() ?? "";
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  if (extension === "gif") return "image/gif";
+  if (extension === "avif") return "image/avif";
+  if (extension === "mp4" || extension === "m4v") return "video/mp4";
+  if (extension === "webm") return "video/webm";
+  if (extension === "mov") return "video/quicktime";
+  return "";
+}
+
+function resolveClientMime(file: File): string {
+  if (ACCEPTED_TYPES.has(file.type)) return file.type;
+  if (!file.type || file.type === "application/octet-stream") {
+    const fromName = mimeFromFilename(file.name);
+    if (ACCEPTED_TYPES.has(fromName)) return fromName;
+  }
+  return "";
+}
+
+async function loadImageDimensions(file: File): Promise<{
+  width: number;
+  height: number;
+  close?: () => void;
+}> {
   if (typeof createImageBitmap === "function") {
     const bitmap = await createImageBitmap(file);
-    return { width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
+    return {
+      width: bitmap.width,
+      height: bitmap.height,
+      close: () => bitmap.close(),
+    };
   }
 
   const objectUrl = URL.createObjectURL(file);
@@ -70,7 +118,7 @@ async function loadImageDimensions(file: File): Promise<{ width: number; height:
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const element = new Image();
       element.onload = () => resolve(element);
-      element.onerror = () => reject(new Error("خواندن تصویر انجام نشد."));
+      element.onerror = () => reject(new Error("خواندن تصویر انتخاب‌شده انجام نشد."));
       element.src = objectUrl;
     });
     return { width: image.naturalWidth, height: image.naturalHeight };
@@ -79,22 +127,36 @@ async function loadImageDimensions(file: File): Promise<{ width: number; height:
   }
 }
 
-async function optimizeImage(file: File): Promise<{ file: File; savedBytes: number }> {
-  if (!file.type.startsWith("image/") || file.type === "image/gif" || file.type === "image/svg+xml") {
+/** Optimisation is best-effort. Original bytes are always retained on failure. */
+async function optimiseImage(file: File): Promise<{ file: File; savedBytes: number }> {
+  if (
+    !file.type.startsWith("image/") ||
+    file.type === "image/gif" ||
+    file.type === "image/svg+xml"
+  ) {
     return { file, savedBytes: 0 };
   }
 
-  if (file.type === "image/webp") {
-    const dimensions = await loadImageDimensions(file);
-    dimensions.close?.();
-    if (dimensions.width <= MAX_IMAGE_DIMENSION && dimensions.height <= MAX_IMAGE_DIMENSION) {
-      return { file, savedBytes: 0 };
-    }
+  let dimensions: Awaited<ReturnType<typeof loadImageDimensions>>;
+  try {
+    dimensions = await loadImageDimensions(file);
+  } catch {
+    return { file, savedBytes: 0 };
   }
 
-  const dimensions = await loadImageDimensions(file);
+  if (
+    file.type === "image/webp" &&
+    dimensions.width <= MAX_IMAGE_DIMENSION &&
+    dimensions.height <= MAX_IMAGE_DIMENSION
+  ) {
+    dimensions.close?.();
+    return { file, savedBytes: 0 };
+  }
+
   const maxDimension = Math.max(dimensions.width, dimensions.height);
-  const scale = maxDimension > MAX_IMAGE_DIMENSION ? MAX_IMAGE_DIMENSION / maxDimension : 1;
+  const scale = maxDimension > MAX_IMAGE_DIMENSION
+    ? MAX_IMAGE_DIMENSION / maxDimension
+    : 1;
   const width = Math.max(1, Math.round(dimensions.width * scale));
   const height = Math.max(1, Math.round(dimensions.height * scale));
   dimensions.close?.();
@@ -104,10 +166,9 @@ async function optimizeImage(file: File): Promise<{ file: File; savedBytes: numb
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const element = new Image();
       element.onload = () => resolve(element);
-      element.onerror = () => reject(new Error("پردازش تصویر انجام نشد."));
+      element.onerror = () => reject(new Error("رمزگشایی تصویر برای بهینه‌سازی ناموفق بود."));
       element.src = objectUrl;
     });
-
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -115,27 +176,25 @@ async function optimizeImage(file: File): Promise<{ file: File; savedBytes: numb
     if (!context) return { file, savedBytes: 0 };
 
     context.drawImage(image, 0, 0, width, height);
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/webp", IMAGE_QUALITY),
-    );
-
-    if (!blob || blob.size >= file.size) {
-      return { file, savedBytes: 0 };
-    }
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/webp", IMAGE_QUALITY);
+    });
+    if (!blob || blob.size >= file.size) return { file, savedBytes: 0 };
 
     const baseName = file.name.replace(/\.[^.]+$/, "") || "property-image";
-    const optimized = new File([blob], baseName + ".webp", {
+    const optimised = new File([blob], baseName + ".webp", {
       type: "image/webp",
       lastModified: Date.now(),
     });
-    return { file: optimized, savedBytes: file.size - optimized.size };
+    return { file: optimised, savedBytes: file.size - optimised.size };
+  } catch {
+    return { file, savedBytes: 0 };
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
 }
 
-/** A thumbnail retries the same-origin proxy for private Liara media before showing a fallback. */
-function MediaThumb({ src, fallback }: { src: string; fallback: string }) {
+function MediaPreview({ src, fallback }: { src: string; fallback: string }) {
   const candidates = mediaSourceCandidates(src, fallback);
   const [attempt, setAttempt] = useState(0);
   const [broken, setBroken] = useState(false);
@@ -148,7 +207,7 @@ function MediaThumb({ src, fallback }: { src: string; fallback: string }) {
 
   function handleError() {
     if (attempt < candidates.length - 1) {
-      setAttempt((value) => Math.min(value + 1, candidates.length - 1));
+      setAttempt((previous) => Math.min(previous + 1, candidates.length - 1));
     } else {
       setBroken(true);
     }
@@ -156,71 +215,85 @@ function MediaThumb({ src, fallback }: { src: string; fallback: string }) {
 
   if (broken) {
     return (
-      <img
-        src={fallback}
-        alt="تصویر در دسترس نیست"
-        className="is-broken"
-        loading="lazy"
-        data-broken="true"
-        title="این فایل در سرور پیدا نشد — بارگذاری دوباره یا حذف آن را در نظر بگیرید"
+      <div className="hirmand-media-preview-fallback" title="فایل در دسترس نیست">
+        <FileImage size={25} aria-hidden="true" />
+        <span>پیش‌نمایش در دسترس نیست</span>
+      </div>
+    );
+  }
+
+  if (isVideoUrl(current)) {
+    return (
+      <video
+        src={current}
+        muted
+        playsInline
+        preload="metadata"
+        onError={handleError}
+        aria-label="پیش‌نمایش ویدیوی ملک"
       />
     );
   }
 
-  return isVideoUrl(current) ? (
-    <video src={current} muted playsInline preload="metadata" onError={handleError} />
-  ) : (
-    <img src={current} alt="" loading="lazy" onError={handleError} />
+  return (
+    <img
+      src={current}
+      alt="پیش‌نمایش رسانه ملک"
+      loading="lazy"
+      decoding="async"
+      onError={handleError}
+    />
   );
 }
 
-export function AdminMediaField({ value, onChange, propertyType, propertyId }: Props) {
+export function AdminMediaField({
+  value,
+  onChange,
+  propertyType,
+  propertyId,
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadingRef = useRef(false);
   const valueRef = useRef(value);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadLabel, setUploadLabel] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [failed, setFailed] = useState<FailedUpload[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
-  const items = linesToList(value).filter((src) => !isPropertyFallbackImage(src));
+  const [failed, setFailed] = useState<FailedUpload[]>([]);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [linkDraft, setLinkDraft] = useState("");
+  const items = linesToList(value).filter((item) => !isPropertyFallbackImage(item));
   const fallback = getPropertyFallbackImage(propertyType ?? "apartment", propertyId ?? "admin");
+  const invalidExisting = items.filter((item) => !isAllowedMediaRef(item));
 
   useEffect(() => {
     valueRef.current = value;
   }, [value]);
 
-  function setItems(next: string[]) {
-    const unique = Array.from(new Set(next.map((item) => item.trim()).filter((item) => item && !isPropertyFallbackImage(item))));
-    const normalized = listToLines(unique.slice(0, MAX_PROPERTY_MEDIA));
-    // Keep a synchronous source of truth so multiple async upload completions
-    // append to the latest form value instead of overwriting a user's reorder
-    // or removal that happened while the upload was in flight.
-    valueRef.current = normalized;
-    onChange(normalized);
-    setSelected((current) => current.filter((item) => unique.includes(item)));
+  function setItems(nextItems: string[]) {
+    const next = uniqueMedia(nextItems);
+    const normalised = listToLines(next);
+    valueRef.current = normalised;
+    onChange(normalised);
+    setSelected((current) => current.filter((item) => next.includes(item)));
   }
 
-  function moveItem(index: number, direction: -1 | 1) {
-    const nextIndex = index + direction;
-    if (nextIndex < 0 || nextIndex >= items.length) return;
+  function moveItem(index: number, offset: -1 | 1) {
+    const target = index + offset;
+    if (target < 0 || target >= items.length) return;
     const next = [...items];
-    const current = next[index]!;
-    next[index] = next[nextIndex]!;
-    next[nextIndex] = current;
+    [next[index], next[target]] = [next[target]!, next[index]!];
     setItems(next);
   }
 
-  /** Promote any thumbnail to the cover slot without disturbing the rest. */
   function makePrimary(index: number) {
-    if (index <= 0) return;
+    if (index <= 0 || index >= items.length) return;
     const next = [...items];
-    const [moved] = next.splice(index, 1);
-    if (!moved) return;
-    next.unshift(moved);
+    const [primary] = next.splice(index, 1);
+    if (!primary) return;
+    next.unshift(primary);
     setItems(next);
+    toast.success("تصویر کاور اصلی تغییر کرد.");
   }
 
   function reorderByDrag(from: number, to: number) {
@@ -232,369 +305,389 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     setItems(next);
   }
 
-  function removeAt(index: number) {
-    setItems(items.filter((_, i) => i !== index));
-  }
-
   function removeSelected() {
     if (!selected.length) return;
     setItems(items.filter((item) => !selected.includes(item)));
     setSelected([]);
   }
 
-  function toggleSelected(src: string) {
-    setSelected((current) =>
-      current.includes(src) ? current.filter((item) => item !== src) : [...current, src],
-    );
-  }
-
-  async function uploadOne(file: File): Promise<{ url: string; savedBytes: number }> {
-    // Images may be optimized in the browser, but no watermark is added by
-    // the browser or server during upload.
-    let optimized: { file: File; savedBytes: number };
-    try {
-      optimized = await optimizeImage(file);
-    } catch {
-      // Browser decoder support varies (notably AVIF and some phone photos).
-      // Optimization is optional: send the original bytes to the server, where
-      // file-signature validation remains authoritative.
-      optimized = { file, savedBytes: 0 };
+  async function uploadOne(file: File, index: number, total: number) {
+    const originalType = resolveClientMime(file);
+    if (!originalType) {
+      throw new Error("نوع این فایل پشتیبانی نمی‌شود. JPG، PNG، WebP، GIF، AVIF، MP4، WebM یا MOV انتخاب کنید.");
     }
-    const result = await uploadInChunks({
-      endpoint: "/api/upload",
-      file: optimized.file,
-      contentType: optimized.file.type,
-      rejectedMessage: "نوع یا حجم این فایل رسانه‌ای پذیرفته نشد.",
-      retryCompletion: true,
-      onProgress: (percentage) => setUploadProgress(percentage),
+    if (file.size <= 0) throw new Error("فایل انتخاب‌شده خالی است.");
+    if (file.size > MAX_FILE_BYTES) throw new Error("حجم هر فایل باید حداکثر ۲۵ مگابایت باشد.");
+
+    const optimised = await optimiseImage(file);
+    const contentType = resolveClientMime(optimised.file) || originalType;
+    const result = await uploadPropertyMedia({
+      file: optimised.file,
+      contentType,
+      assetKind: "gallery",
+      rejectedMessage: "آپلود رسانه پذیرفته نشد.",
+      onProgress: (percentage) => {
+        setProgress({
+          name: file.name,
+          progress: percentage,
+          index,
+          total,
+        });
+      },
     });
-    const url = typeof result.response.url === "string" ? result.response.url : "";
-    if (!url) throw new Error("نشانی فایل آپلودشده دریافت نشد.");
-    return { url, savedBytes: optimized.savedBytes };
+    return { url: result.url, savedBytes: optimised.savedBytes };
   }
 
-  async function uploadFiles(files: FileList | File[]) {
+  async function uploadFiles(input: FileList | File[]) {
     if (uploadingRef.current) return;
-    const list = Array.from(files);
-    if (!list.length) return;
-    if (items.length + list.length > MAX_PROPERTY_MEDIA) {
-      toast.error(`حداکثر ${MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} فایل رسانه مجاز است.`);
+    const files = Array.from(input);
+    if (!files.length) return;
+
+    const latestItems = linesToList(valueRef.current).filter((item) => !isPropertyFallbackImage(item));
+    if (latestItems.length + files.length > MAX_PROPERTY_MEDIA) {
+      toast.error(`حداکثر ${MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} رسانه برای هر فایل ملک مجاز است.`);
       return;
     }
-    if (list.some((file) => !ALLOWED_TYPES.has(file.type))) {
-      toast.error("نوع یکی از فایل‌ها پشتیبانی نمی‌شود (JPG، PNG، WebP، GIF، AVIF، MP4، WebM، MOV).");
+    if (files.some((file) => file.size > MAX_FILE_BYTES)) {
+      toast.error("حجم هر فایل باید حداکثر ۲۵ مگابایت باشد.");
       return;
     }
-    if (list.some((file) => file.size > MAX_FILE_BYTES)) {
-      toast.error("حجم فایل اولیه باید حداکثر ۲۵ مگابایت باشد.");
+    const unsupported = files.find((file) => !resolveClientMime(file));
+    if (unsupported) {
+      toast.error(`نوع فایل «${unsupported.name}» پشتیبانی نمی‌شود.`);
       return;
     }
 
-    // React state alone does not prevent two same-tick change/drop events.
     uploadingRef.current = true;
     setUploading(true);
-    setUploadProgress(0);
-    const uploaded: string[] = [];
-    const newlyFailed: FailedUpload[] = [];
-    let optimizedBytes = 0;
+    setProgress({ name: files[0]!.name, progress: 0, index: 1, total: files.length });
+    const added: string[] = [];
+    const failedRows: FailedUpload[] = [];
+    let savedBytes = 0;
 
     try {
-      for (let index = 0; index < list.length; index += 1) {
-        const originalFile = list[index]!;
-        setUploadLabel(
-          `فایل ${(index + 1).toLocaleString("fa-IR")} از ${list.length.toLocaleString("fa-IR")}: ${originalFile.name}`,
-        );
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index]!;
+        setProgress({
+          name: file.name,
+          progress: 0,
+          index: index + 1,
+          total: files.length,
+        });
         try {
-          const result = await uploadOne(originalFile);
-          optimizedBytes += result.savedBytes;
-          uploaded.push(result.url);
+          const uploaded = await uploadOne(file, index + 1, files.length);
+          added.push(uploaded.url);
+          savedBytes += uploaded.savedBytes;
         } catch (error) {
-          // Keep the File so the operator can retry instead of re-picking it.
-          newlyFailed.push({
-            key: `${originalFile.name}-${originalFile.lastModified}-${index}`,
-            name: originalFile.name,
-            sizeBytes: originalFile.size,
-            file: originalFile,
+          failedRows.push({
+            id: `${file.name}-${file.lastModified}-${index}`,
+            file,
+            name: file.name,
+            sizeBytes: file.size,
             message: uploadErrorMessage(error, "آپلود این فایل انجام نشد."),
           });
         }
       }
 
-      if (uploaded.length) {
-        setItems([...linesToList(valueRef.current).filter((src) => !isPropertyFallbackImage(src)), ...uploaded]);
+      if (added.length) {
+        setItems([
+          ...linesToList(valueRef.current).filter((item) => !isPropertyFallbackImage(item)),
+          ...added,
+        ]);
       }
-      if (newlyFailed.length) setFailed((current) => [...current, ...newlyFailed]);
+      if (failedRows.length) setFailed((current) => [...current, ...failedRows]);
 
-      const savedLabel = optimizedBytes > 0
-        ? ` · حدود ${faBytes(optimizedBytes)} حجم کم شد`
-        : "";
-
-      if (uploaded.length && newlyFailed.length) {
+      const saved = savedBytes > 0 ? `؛ حدود ${faBytes(savedBytes)} حجم کاهش یافت` : "";
+      if (added.length && failedRows.length) {
         toast.warning(
-          `${uploaded.length.toLocaleString("fa-IR")} فایل آپلود شد${savedLabel} · ${newlyFailed.length.toLocaleString("fa-IR")} فایل شکست خورد و در پایین صفحه قابل تلاش مجدد است.`,
+          `${added.length.toLocaleString("fa-IR")} رسانه آپلود شد${saved}؛ ${failedRows.length.toLocaleString("fa-IR")} فایل ناموفق است و امکان تلاش مجدد دارد.`,
         );
-      } else if (uploaded.length) {
+      } else if (added.length) {
         toast.success(
-          uploaded.length === 1
-            ? "فایل با موفقیت آپلود شد." + savedLabel
-            : uploaded.length.toLocaleString("fa-IR") + " فایل آپلود شد." + savedLabel,
+          added.length === 1
+            ? `رسانه با موفقیت آپلود شد${saved}.`
+            : `${added.length.toLocaleString("fa-IR")} رسانه با موفقیت آپلود شد${saved}.`,
         );
+      } else if (failedRows.length) {
+        toast.error("هیچ‌کدام از فایل‌ها آپلود نشد. پیام هر فایل را بررسی کنید.");
       }
     } finally {
       uploadingRef.current = false;
       setUploading(false);
-      setUploadProgress(0);
-      setUploadLabel("");
+      setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
 
-  /** Re-uploads one failed file in place; keeps other failures untouched. */
   async function retryFailed(entry: FailedUpload) {
     if (uploadingRef.current) return;
+    if (linesToList(valueRef.current).filter((item) => !isPropertyFallbackImage(item)).length >= MAX_PROPERTY_MEDIA) {
+      toast.error(`حداکثر ${MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} رسانه برای هر ملک مجاز است.`);
+      return;
+    }
+
     uploadingRef.current = true;
-    setFailed((current) => current.filter((item) => item.key !== entry.key));
     setUploading(true);
-    setUploadProgress(0);
-    setUploadLabel(`تلاش مجدد: ${entry.name}`);
+    setFailed((current) => current.filter((item) => item.id !== entry.id));
+    setProgress({ name: entry.name, progress: 0, index: 1, total: 1 });
     try {
-      const { url } = await uploadOne(entry.file);
-      setItems([...linesToList(valueRef.current).filter((src) => !isPropertyFallbackImage(src)), url]);
+      const uploaded = await uploadOne(entry.file, 1, 1);
+      setItems([
+        ...linesToList(valueRef.current).filter((item) => !isPropertyFallbackImage(item)),
+        uploaded.url,
+      ]);
       toast.success(`«${entry.name}» با موفقیت آپلود شد.`);
     } catch (error) {
-      setFailed((current) => [
-        ...current,
-        { ...entry, message: uploadErrorMessage(error, "تلاش مجدد انجام نشد.") },
-      ]);
-      toast.error(uploadErrorMessage(error, "تلاش مجدد انجام نشد."));
+      const message = uploadErrorMessage(error, "تلاش مجدد انجام نشد.");
+      setFailed((current) => [...current, { ...entry, message }]);
+      toast.error(message);
     } finally {
       uploadingRef.current = false;
       setUploading(false);
-      setUploadProgress(0);
-      setUploadLabel("");
+      setProgress(null);
     }
   }
 
-  function onPick(e: ChangeEvent<HTMLInputElement>) {
-    if (e.target.files?.length) void uploadFiles(e.target.files);
+  function onPick(event: ChangeEvent<HTMLInputElement>) {
+    const files = event.currentTarget.files;
+    event.currentTarget.value = "";
+    if (files?.length) void uploadFiles(files);
   }
 
-  function onDrop(e: DragEvent) {
-    e.preventDefault();
+  function onDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
     setDragOver(false);
-    if (uploading) return;
-    if (e.dataTransfer.files?.length) void uploadFiles(e.dataTransfer.files);
+    if (!uploading && event.dataTransfer.files.length) {
+      void uploadFiles(event.dataTransfer.files);
+    }
+  }
+
+  function addLink() {
+    const url = linkDraft.trim();
+    if (!url) return;
+    if (!isAllowedMediaRef(url)) {
+      toast.error("آدرس باید HTTPS یا یک آدرس داخلی معتبر از رسانه‌های هیرمند باشد.");
+      return;
+    }
+    if (items.length >= MAX_PROPERTY_MEDIA) {
+      toast.error(`حداکثر ${MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} رسانه برای هر ملک مجاز است.`);
+      return;
+    }
+    setItems([...items, url]);
+    setLinkDraft("");
+    toast.success("آدرس رسانه به فایل اضافه شد؛ برای ذخیره نهایی، فایل ملک را ذخیره کنید.");
   }
 
   return (
-    <div className="admin-media">
+    <section className="hirmand-media-manager" aria-label="مدیریت تصاویر و ویدیوهای ملک">
+      <div className="hirmand-media-heading">
+        <div>
+          <span className="hirmand-media-eyebrow">رسانه‌های فایل</span>
+          <h3>تصاویر و ویدیوهای ملک</h3>
+          <p>فایل را انتخاب کنید یا بکشید و اینجا رها کنید. رسانه‌ها پس از ذخیرهٔ فایل ملک ثبت می‌شوند.</p>
+        </div>
+        <div className="hirmand-media-count" aria-live="polite">
+          <strong>{items.length.toLocaleString("fa-IR")}</strong>
+          <span>از {MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")}</span>
+        </div>
+      </div>
+
+      <input
+        ref={inputRef}
+        className="hirmand-media-file-input"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/avif,video/mp4,video/webm,video/quicktime"
+        multiple
+        onChange={onPick}
+      />
+
       <div
-        className={`admin-media-drop${dragOver ? " is-over" : ""}${uploading ? " is-busy" : ""}`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          if (!uploading) setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
-        onClick={() => !uploading && inputRef.current?.click()}
+        className={`hirmand-media-dropzone${dragOver ? " is-over" : ""}${uploading ? " is-busy" : ""}`}
         role="button"
         tabIndex={0}
         aria-disabled={uploading}
-        aria-label="افزودن تصویر یا ویدیو به ملک"
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
+        aria-label="انتخاب یا رها کردن عکس و ویدیوی ملک"
+        onClick={() => !uploading && inputRef.current?.click()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
             if (!uploading) inputRef.current?.click();
           }
         }}
+        onDragOver={(event) => {
+          event.preventDefault();
+          if (!uploading) setDragOver(true);
+        }}
+        onDragLeave={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(false);
+        }}
+        onDrop={onDrop}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif,image/avif,video/mp4,video/webm,video/quicktime"
-          multiple
-          hidden
-          onChange={onPick}
-        />
-        {uploading ? (
-          <>
-            <Loader2 size={22} className="admin-spin" aria-hidden="true" />
-            <strong dir="rtl">در حال آپلود… {uploadProgress.toLocaleString("fa-IR")}٪</strong>
-            {uploadLabel ? <span dir="ltr">{uploadLabel}</span> : null}
-            <div
-              className="admin-upload-progress"
-              role="progressbar"
-              aria-valuenow={uploadProgress}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="درصد پیشرفت آپلود"
-            >
-              <span style={{ width: `${Math.min(100, Math.max(0, uploadProgress))}%` }} />
+        <span className="hirmand-media-drop-icon">
+          {uploading ? <Loader2 size={24} className="hirmand-media-spin" aria-hidden="true" /> : <ImagePlus size={24} aria-hidden="true" />}
+        </span>
+        <strong>{uploading ? "در حال ارسال رسانه" : "افزودن تصاویر و ویدیوها"}</strong>
+        <span>{uploading ? progress?.name : "برای انتخاب از دستگاه کلیک کنید یا فایل‌ها را اینجا رها کنید"}</span>
+        {uploading && progress ? (
+          <div className="hirmand-media-progress-wrap">
+            <div className="hirmand-media-progress-label">
+              <span>فایل {progress.index.toLocaleString("fa-IR")} از {progress.total.toLocaleString("fa-IR")}</span>
+              <strong>{progress.progress.toLocaleString("fa-IR")}٪</strong>
             </div>
-          </>
+            <div className="hirmand-media-progress" role="progressbar" aria-valuenow={progress.progress} aria-valuemin={0} aria-valuemax={100} aria-label="پیشرفت آپلود">
+              <span style={{ width: `${Math.max(0, Math.min(100, progress.progress))}%` }} />
+            </div>
+          </div>
         ) : (
-          <>
-            <Upload size={22} aria-hidden="true" />
-            <strong>آپلود از گالری یا کامپیوتر</strong>
-            <span>تصویر یا ویدیو را بکشید و رها کنید · یا کلیک کنید</span>
-            <small>jpg / png / webp / gif / avif / mp4 / webm · تصاویر در صورت پشتیبانی مرورگر بهینه می‌شوند · رسانه‌ها بدون درج خودکار واترمارک ذخیره می‌شوند · حداکثر ۲۵ مگابایت · تا {MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} فایل</small>
-          </>
+          <small>JPG، PNG، WebP، GIF، AVIF، MP4، WebM و MOV · حداکثر ۲۵ مگابایت برای هر فایل</small>
         )}
       </div>
 
-      {failed.length ? (
-        <div className="admin-media-failures" role="alert">
-          <div className="admin-media-failures-head">
-            <AlertTriangle size={16} aria-hidden="true" />
-            <strong>{failed.length.toLocaleString("fa-IR")} فایل آپلود نشد</strong>
-            <button
-              type="button"
-              className="admin-icon-btn danger"
-              onClick={() => setFailed([])}
-              aria-label="پاک کردن فهرست فایل‌های ناموفق"
-              title="پاک کردن فهرست"
-            >
-              <Trash2 size={14} />
+      {invalidExisting.length > 0 ? (
+        <div className="hirmand-media-alert" role="alert">
+          <AlertCircle size={17} aria-hidden="true" />
+          <span>{invalidExisting.length.toLocaleString("fa-IR")} آدرس قدیمی یا نامعتبر شناسایی شده. آن‌ها را حذف یا با رسانهٔ جدید جایگزین کنید تا ذخیره‌سازی متوقف نشود.</span>
+        </div>
+      ) : null}
+
+      {failed.length > 0 ? (
+        <div className="hirmand-media-failed" role="alert">
+          <div className="hirmand-media-failed-heading">
+            <AlertCircle size={17} aria-hidden="true" />
+            <strong>{failed.length.toLocaleString("fa-IR")} فایل نیاز به تلاش مجدد دارد</strong>
+            <button type="button" className="hirmand-media-icon-button" onClick={() => setFailed([])} aria-label="پاک کردن فهرست فایل‌های ناموفق">
+              <X size={16} />
             </button>
           </div>
           {failed.map((entry) => (
-            <div className="admin-media-failure" key={entry.key}>
-              <span className="admin-media-failure-name" dir="ltr" title={entry.name}>
-                {entry.name}
-              </span>
-              <small>{faBytes(entry.sizeBytes)}</small>
-              <small className="admin-media-failure-error">{entry.message}</small>
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={() => void retryFailed(entry)}
-                disabled={uploading}
-              >
-                <RefreshCw size={14} /> تلاش مجدد
+            <div className="hirmand-media-failed-item" key={entry.id}>
+              <div className="hirmand-media-failed-meta">
+                <strong dir="auto">{entry.name}</strong>
+                <small>{faBytes(entry.sizeBytes)}</small>
+                <span>{entry.message}</span>
+              </div>
+              <button type="button" className="hirmand-media-secondary-button" disabled={uploading} onClick={() => void retryFailed(entry)}>
+                <RefreshCw size={14} aria-hidden="true" /> تلاش مجدد
               </button>
             </div>
           ))}
         </div>
       ) : null}
 
-      {items.length ? (
-        <>
-          <div className="admin-media-toolbar">
-            <strong>
-              {items.length.toLocaleString("fa-IR")} رسانه از {MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")}
-            </strong>
-            <span>اولین مورد کاور اصلی است · برای جابه‌جایی، رسانه را بکشید و روی جای جدید رها کنید.</span>
-          </div>
-
-          {selected.length ? (
-            <div className="admin-bulk-bar">
-              <strong>{selected.length.toLocaleString("fa-IR")} رسانه انتخاب شده</strong>
-              <button type="button" className="btn-ghost" onClick={() => setSelected([])}>
-                لغو انتخاب
-              </button>
-              <button type="button" className="btn-ghost danger" onClick={removeSelected}>
-                <Trash2 size={15} /> حذف انتخاب‌شده‌ها
-              </button>
+      {items.length > 0 ? (
+        <div className="hirmand-media-library">
+          <div className="hirmand-media-library-heading">
+            <div>
+              <strong>رسانه‌های انتخاب‌شده</strong>
+              <span>اولین مورد کاور اصلی است.</span>
             </div>
-          ) : null}
-
-          <div className="admin-media-grid">
+            {selected.length > 0 ? (
+              <button type="button" className="hirmand-media-text-button is-danger" onClick={removeSelected} disabled={uploading}>
+                <Trash2 size={14} aria-hidden="true" /> حذف {selected.length.toLocaleString("fa-IR")} مورد
+              </button>
+            ) : (
+              <span className="hirmand-media-hint">برای تغییر ترتیب از فلش‌ها استفاده کنید.</span>
+            )}
+          </div>
+          <div className="hirmand-media-grid">
             {items.map((src, index) => {
               const video = isVideoUrl(src);
+              const invalid = !isAllowedMediaRef(src);
               return (
-                <div
+                <article
                   key={`${src}-${index}`}
-                  className={`admin-media-item${index === 0 ? " is-primary" : ""}${dragIndex === index ? " is-dragging" : ""}`}
+                  className={`hirmand-media-card${index === 0 ? " is-primary" : ""}${dragIndex === index ? " is-dragging" : ""}${invalid ? " is-invalid" : ""}`}
                   draggable={!uploading}
-                  onDragStart={(e) => {
+                  onDragStart={(event) => {
                     setDragIndex(index);
-                    e.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.effectAllowed = "move";
                   }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
                   }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    reorderByDrag(dragIndex ?? index, index);
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    if (dragIndex != null) reorderByDrag(dragIndex, index);
                     setDragIndex(null);
                   }}
                   onDragEnd={() => setDragIndex(null)}
                 >
-                  <MediaThumb src={src} fallback={fallback} />
-                  <label className="admin-media-pick">
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(src)}
-                      onChange={() => toggleSelected(src)}
-                      aria-label={`انتخاب رسانه ${(index + 1).toLocaleString("fa-IR")}`}
-                    />
-                  </label>
-                  {index === 0 ? <span className="admin-media-primary">کاور اصلی</span> : null}
-                  <span className="admin-media-badge" title={video ? "ویدیو" : "تصویر"}>
-                    {video ? <Film size={12} /> : <ImageIcon size={12} />}
-                  </span>
-                  <div className="admin-media-controls">
-                    <button
-                      type="button"
-                      className="admin-media-move"
-                      onClick={() => moveItem(index, -1)}
-                      disabled={index === 0}
-                      title="انتقال به بالا"
-                      aria-label={`انتقال رسانه ${(index + 1).toLocaleString("fa-IR")} به بالا`}
-                    >
-                      <ChevronUp size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-media-move"
-                      onClick={() => moveItem(index, 1)}
-                      disabled={index === items.length - 1}
-                      title="انتقال به پایین"
-                      aria-label={`انتقال رسانه ${(index + 1).toLocaleString("fa-IR")} به پایین`}
-                    >
-                      <ChevronDown size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-media-move"
-                      onClick={() => makePrimary(index)}
-                      disabled={index === 0}
-                      title="تعیین به‌عنوان کاور اصلی"
-                      aria-label={`تعیین رسانه ${(index + 1).toLocaleString("fa-IR")} به‌عنوان کاور اصلی`}
-                    >
-                      <Star size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-media-remove"
-                      onClick={() => removeAt(index)}
-                      title="حذف این رسانه"
-                      aria-label={`حذف رسانه ${(index + 1).toLocaleString("fa-IR")}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                  <div className="hirmand-media-preview">
+                    <MediaPreview src={src} fallback={fallback} />
+                    <label className="hirmand-media-select" title="انتخاب برای حذف گروهی">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(src)}
+                        onChange={() => setSelected((current) => current.includes(src) ? current.filter((item) => item !== src) : [...current, src])}
+                        aria-label={`انتخاب رسانه ${(index + 1).toLocaleString("fa-IR")}`}
+                        disabled={uploading}
+                      />
+                    </label>
+                    <span className="hirmand-media-kind" title={video ? "ویدیو" : "تصویر"}>
+                      {video ? <Film size={13} aria-hidden="true" /> : <ImagePlus size={13} aria-hidden="true" />}
+                      {video ? "ویدیو" : "تصویر"}
+                    </span>
+                    {index === 0 ? <span className="hirmand-media-primary-label"><Star size={12} fill="currentColor" aria-hidden="true" /> کاور اصلی</span> : null}
+                    {invalid ? <span className="hirmand-media-invalid-label">آدرس نامعتبر</span> : null}
                   </div>
-                </div>
+                  <div className="hirmand-media-card-footer">
+                    <span className="hirmand-media-card-index">رسانه { (index + 1).toLocaleString("fa-IR") }</span>
+                    <div className="hirmand-media-card-actions">
+                      <button type="button" onClick={() => moveItem(index, -1)} disabled={uploading || index === 0} aria-label="انتقال به بالا" title="انتقال به بالا">
+                        <ArrowUp size={15} />
+                      </button>
+                      <button type="button" onClick={() => moveItem(index, 1)} disabled={uploading || index === items.length - 1} aria-label="انتقال به پایین" title="انتقال به پایین">
+                        <ArrowDown size={15} />
+                      </button>
+                      <button type="button" onClick={() => makePrimary(index)} disabled={uploading || index === 0} aria-label="تعیین به‌عنوان کاور اصلی" title="تعیین به‌عنوان کاور اصلی">
+                        <Star size={14} />
+                      </button>
+                      <button type="button" className="is-delete" onClick={() => setItems(items.filter((_, itemIndex) => itemIndex !== index))} disabled={uploading} aria-label="حذف این رسانه" title="حذف از این فایل">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </article>
               );
             })}
           </div>
-        </>
-      ) : null}
+          {items.length < MAX_PROPERTY_MEDIA ? (
+            <p className="hirmand-media-footnote"><Check size={14} aria-hidden="true" /> حذف از این فهرست فقط رسانه را از همین فایل ملک جدا می‌کند؛ فایل فیزیکی به‌صورت خودکار و ناخواسته از رسانه‌های احتمالی مشترک پاک نمی‌شود.</p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="hirmand-media-empty">
+          <ImagePlus size={22} aria-hidden="true" />
+          <strong>هنوز رسانه‌ای اضافه نشده</strong>
+          <span>حداقل یک عکس واضح از فضای داخلی یا نمای ملک اضافه کنید.</span>
+        </div>
+      )}
 
-      <label className="field" style={{ marginTop: 12 }}>
-        <span>یا لینک مستقیم تصویر/ویدیو (هر خط یک آدرس)</span>
-        <textarea
-          rows={3}
-          dir="ltr"
-          value={listToLines(items)}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={"https://...\nhttps://..."}
-        />
-      </label>
-      <p className="admin-field-help">
-        حذف یک رسانه فقط آن را از این فایل برمی‌دارد. برای پاک کردن فایل از سرور، بعد از ذخیره از بخش رسانه‌های همان فایل اقدام کنید.
-      </p>
-    </div>
+      <details className="hirmand-media-link-details">
+        <summary><Link2 size={15} aria-hidden="true" /> افزودن لینک رسانهٔ موجود</summary>
+        <div className="hirmand-media-link-row">
+          <input
+            type="url"
+            dir="ltr"
+            value={linkDraft}
+            onChange={(event) => setLinkDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                addLink();
+              }
+            }}
+            placeholder="https://… یا /api/media/…"
+            aria-label="نشانی مستقیم تصویر یا ویدیو"
+            disabled={uploading}
+          />
+          <button type="button" onClick={addLink} disabled={uploading || !linkDraft.trim()}>
+            <Link2 size={15} aria-hidden="true" /> افزودن
+          </button>
+        </div>
+        <small>برای فایل‌هایی که قبلاً در فضای رسانه ذخیره شده‌اند یا لینک معتبر HTTPS دارند. در حالت عادی از آپلود مستقیم استفاده کنید.</small>
+      </details>
+    </section>
   );
 }

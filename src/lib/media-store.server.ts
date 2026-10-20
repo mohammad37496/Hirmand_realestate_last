@@ -97,9 +97,31 @@ export async function storeMedia(input: {
   pathname: string;
   data: Buffer | Uint8Array;
   contentType: string;
+  /** Optional deterministic id used by idempotent upload sessions. */
+  id?: string;
 }): Promise<StoredMedia> {
   const bytes = toBytes(input.data);
   const contentType = input.contentType || "application/octet-stream";
+
+  // When a previous attempt reached the DB fallback but lost its final HTTP
+  // response, return the same durable object instead of inserting a duplicate.
+  if (input.id) {
+    requireDatabase();
+    const sql = await getSql();
+    const existing = await sql.query<Record<string, unknown>>(
+      `select id, pathname, content_type from media_objects where id = $1 limit 1`,
+      [input.id],
+    );
+    if (existing[0]) {
+      if (
+        String(existing[0].pathname ?? "") !== input.pathname ||
+        String(existing[0].content_type ?? "") !== contentType
+      ) {
+        throw new Error("شناسه رسانه از قبل برای فایل دیگری استفاده شده است.");
+      }
+      return { url: `${DB_MEDIA_PATH}${input.id}`, storage: "database", id: input.id };
+    }
+  }
 
   if (liaraStorageConfigured()) {
     const url = await putLiaraObject({
@@ -118,12 +140,25 @@ export async function storeMedia(input: {
 
   requireDatabase();
   const sql = await getSql();
-  const id = crypto.randomUUID();
+  const id = input.id ?? crypto.randomUUID();
   await sql.query(
     `insert into media_objects (id, pathname, content_type, size_bytes, data)
-     values ($1, $2, $3, $4, $5)`,
+     values ($1, $2, $3, $4, $5)
+     on conflict (id) do nothing`,
     [id, input.pathname, contentType, bytes.length, bytes],
   );
+
+  const stored = await sql.query<Record<string, unknown>>(
+    "select pathname, content_type from media_objects where id = $1 limit 1",
+    [id],
+  );
+  if (
+    !stored[0] ||
+    String(stored[0].pathname ?? "") !== input.pathname ||
+    String(stored[0].content_type ?? "") !== contentType
+  ) {
+    throw new Error("ذخیره رسانه در فضای پایدار تأیید نشد.");
+  }
 
   return { url: `${DB_MEDIA_PATH}${id}`, storage: "database", id };
 }

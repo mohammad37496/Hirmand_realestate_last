@@ -85,6 +85,35 @@ async function buildJpeg() {
   }
 }
 
+async function buildMp4() {
+  if (!existsSync(ffmpegPath)) return null;
+  const workDir = await mkdtemp(join(tmpdir(), "hirmand-upload-video-e2e-"));
+  try {
+    const videoPath = join(workDir, "property-tour.mp4");
+    await execFileAsync(ffmpegPath, [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=blue:s=320x240:r=12",
+      "-t",
+      "1",
+      "-an",
+      "-c:v",
+      "mpeg4",
+      "-movflags",
+      "+faststart",
+      videoPath,
+    ]);
+    return await readFile(videoPath);
+  } finally {
+    await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 let cookie = "";
 
 async function call(path, init = {}) {
@@ -124,14 +153,15 @@ async function login() {
 }
 
 /** Exactly the client protocol in src/lib/media-upload-client.ts. */
-async function upload(file, filename) {
-  const beginResponse = await call("/api/upload", {
+async function upload(file, filename, endpoint = "/api/property-media", contentType = "image/jpeg", assetKind = "gallery") {
+  const beginResponse = await call(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       action: "begin",
       filename,
-      contentType: "image/jpeg",
+      contentType,
+      assetKind,
       sizeBytes: file.length,
     }),
   });
@@ -149,7 +179,7 @@ async function upload(file, filename) {
   for (let index = 0; index < totalChunks; index += 1) {
     const start = index * chunkSize;
     const slice = file.subarray(start, Math.min(start + chunkSize, file.length));
-    const chunkResponse = await call("/api/upload", {
+    const chunkResponse = await call(endpoint, {
       method: "POST",
       headers: {
         "content-type": "application/octet-stream",
@@ -169,7 +199,7 @@ async function upload(file, filename) {
     }
   }
 
-  const completeResponse = await call("/api/upload", {
+  const completeResponse = await call(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action: "complete", uploadId }),
@@ -183,7 +213,7 @@ async function upload(file, filename) {
   if (typeof complete?.url !== "string" || !complete.url) {
     throw new Error(`complete returned no media URL: ${JSON.stringify(complete)}`);
   }
-  return { uploadId, result: complete };
+  return { uploadId, result: complete, endpoint };
 }
 
 async function main() {
@@ -193,12 +223,12 @@ async function main() {
   const file = await buildJpeg();
   console.log(`[upload-e2e] uploading ${file.length} byte JPEG`);
 
-  const { uploadId, result } = await upload(file, "photo_2026-10-19_12-57-34.jpg");
+  const { uploadId, result, endpoint } = await upload(file, "photo_2026-10-19_12-57-34.jpg");
   console.log(`[upload-e2e] stored at ${result.url} (${result.storage ?? "unknown"} storage)`);
 
   // Idempotency: replaying `complete` with the same uploadId must answer with the
   // same receipt instead of creating a second object.
-  const replay = await call("/api/upload", {
+  const replay = await call(endpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action: "complete", uploadId }),
@@ -235,6 +265,29 @@ async function main() {
     `[upload-e2e] media endpoint served ${body.length} bytes of ${detected}; watermark ${detected === "image/webp" ? "applied" : "skipped (original stored)"}`,
   );
 
+  const video = await buildMp4();
+  if (video) {
+    console.log(`[upload-e2e] uploading ${video.length} byte MP4 video`);
+    const videoUpload = await upload(video, "property-tour.mp4", "/api/property-media", "video/mp4", "gallery");
+    const videoResponse = await fetch(new URL(videoUpload.result.url, baseUrl).toString());
+    const videoBytes = Buffer.from(await videoResponse.arrayBuffer());
+    const videoType = (videoResponse.headers.get("content-type") || "").split(";")[0].trim();
+    const videoBrand = videoBytes.subarray(8, 12).toString("latin1").toLowerCase();
+    const validBrands = ["isom", "iso2", "iso3", "iso4", "iso5", "iso6", "iso8", "mp41", "mp42", "avc1", "dash", "m4v ", "msnv", "3gp4", "3gp5", "3g2a", "f4v "];
+    if (!videoResponse.ok || videoType !== "video/mp4" || !hasAscii(videoBytes, 4, "ftyp") || !validBrands.includes(videoBrand) || videoBytes.length < 1024) {
+      throw new Error(`video delivery failed validation (HTTP ${videoResponse.status}, type=${videoType}, brand=${videoBrand}, bytes=${videoBytes.length})`);
+    }
+    console.log(`[upload-e2e] media endpoint served ${videoBytes.length} bytes of video/mp4`);
+
+    const floorPlanUpload = await upload(file, "floor-plan.jpg", "/api/property-media", "image/jpeg", "floor-plan");
+    if (floorPlanUpload.result.assetKind !== "floor-plan") {
+      throw new Error(`floor-plan upload returned the wrong asset kind: ${JSON.stringify(floorPlanUpload.result)}`);
+    }
+    console.log("[upload-e2e] dedicated floor-plan upload contract returned a receipt");
+  } else {
+    console.warn("[upload-e2e] FFmpeg is missing; skipped MP4 and floor-plan upload checks.");
+  }
+
   if (result.watermarkWarning) {
     console.warn(`[upload-e2e] WARNING reported to the panel: ${result.watermarkWarning}`);
   }
@@ -258,7 +311,7 @@ async function main() {
 
   await settingsUpdate(false);
   try {
-    const plain = await upload(file, "photo_2026-10-19_12-57-34.jpg");
+    const plain = await upload(file, "photo_2026-10-19_12-57-34.jpg", "/api/upload");
     const plainResponse = await fetch(new URL(plain.result.url, baseUrl).toString());
     const plainBody = Buffer.from(await plainResponse.arrayBuffer());
     const plainType = (plainResponse.headers.get("content-type") || "").split(";")[0].trim();
