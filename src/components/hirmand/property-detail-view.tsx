@@ -29,9 +29,66 @@ import {
   X,
 } from "lucide-react";
 import { PropertyActions } from "@/components/hirmand/property-actions";
+import { PropertyConvertSlider } from "@/components/hirmand/property-convert-slider";
+import { PropertyMarketComparison } from "@/components/hirmand/property-market-comparison";
+import { PropertyViewingRequest } from "@/components/hirmand/property-viewing-request";
+import { PropertyVirtualTour } from "@/components/hirmand/property-virtual-tour";
+import { PropertyQuestions } from "@/components/hirmand/property-questions";
+import { PropertyOpenHouse } from "@/components/hirmand/property-open-house";
+import { PropertyFloorPlan } from "@/components/hirmand/property-floor-plan";
+import { PropertyNearbyServices } from "@/components/hirmand/property-nearby-services";
+import { PropertyDocumentRequest } from "@/components/hirmand/property-document-request";
+import { PropertyBackInMarketAlert } from "@/components/hirmand/property-back-in-market-alert";
+import { PropertyFinancingRequest } from "@/components/hirmand/property-financing-request";
+import { PropertyPrepBudget } from "@/components/hirmand/property-prep-budget";
+import { PropertyTargetAlert } from "@/components/hirmand/property-target-alert";
+import { PropertyVerificationRequest } from "@/components/hirmand/property-verification-request";
+import { PropertyVerificationStamp } from "@/components/hirmand/property-verification-stamp";
+import { PropertyExpertRequests } from "@/components/hirmand/property-expert-requests";
+import { PropertyNeighborhoodInsight } from "@/components/hirmand/property-neighborhood-insight";
+import { PropertyReport } from "@/components/hirmand/property-report";
+import { PropertyCallbackRequest } from "@/components/hirmand/property-callback-request";
+import { PropertyDecisionTools } from "@/components/hirmand/property-decision-tools";
+import { PropertyVisitChecklist } from "@/components/hirmand/property-visit-checklist";
+import { PropertyOfferMessage } from "@/components/hirmand/property-offer-message";
+import { PropertyPaymentPlanner } from "@/components/hirmand/property-payment-planner";
+import { PropertyDealChecklist } from "@/components/hirmand/property-deal-checklist";
+import { PropertyScenarioAnalysis } from "@/components/hirmand/property-scenario-analysis";
+import { PropertyPersonalScore } from "@/components/hirmand/property-personal-score";
+import { PropertyVisitOutcome } from "@/components/hirmand/property-visit-outcome";
+import { PropertyReviewAlerts } from "@/components/hirmand/property-review-alerts";
+import { PropertyFollowUpReminder } from "@/components/hirmand/property-follow-up-reminder";
+import { PropertyDecisionDossier } from "@/components/hirmand/property-decision-dossier";
+import { PropertyInquiryTools } from "@/components/hirmand/property-inquiry-tools";
+import { PropertyQuestionLog } from "@/components/hirmand/property-question-log";
+import { PropertyRenovationTracker } from "@/components/hirmand/property-renovation-tracker";
+import { PropertyVisitReport } from "@/components/hirmand/property-visit-report";
+import { PropertyNegotiationLog } from "@/components/hirmand/property-negotiation-log";
+import { PropertyOwnershipCost } from "@/components/hirmand/property-ownership-cost";
+import { PropertyDealRoom } from "@/components/hirmand/property-deal-room";
+import { PropertyRiskRadar } from "@/components/hirmand/property-risk-radar";
+import { PropertyDocumentPack } from "@/components/hirmand/property-document-pack";
+import { PropertyPhotoNotes } from "@/components/hirmand/property-photo-notes";
+import { getPublishedPropertyPriceHistory, isFeaturedActive, type PropertyPriceHistoryItem } from "@/lib/properties";
+import "@/property-price-history.css";
+import "@/property-feature-enhancements.css";
+import "@/property-new-features.css";
+import "@/property-next-features.css";
+import "@/property-target-and-trust.css";
+import "@/property-expert-requests.css";
+import "@/property-decision-dossier.css";
+import "@/property-question-log.css";
+import "@/property-negotiation-log.css";
+import "@/property-ownership-cost.css";
+import "@/property-renovation-tracker.css";
+import "@/property-photo-notes.css";
+import "@/property-decision-readiness.css";
+import "@/property-document-pack.css";
+import "@/property-risk-radar.css";
+import "@/property-deal-room.css";
+import "@/property-detail-page.css";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import type { Property } from "@/lib/properties";
-import { isFeaturedActive } from "@/lib/properties";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { isVideoUrl, mediaSourceCandidates } from "@/lib/media";
 import { formatToman, parseAmount } from "@/lib/money";
@@ -505,6 +562,9 @@ export function PropertyDetailView({
   related?: Property[];
 }) {
   const [copied, setCopied] = useState(false);
+  const [priceHistory, setPriceHistory] = useState<PropertyPriceHistoryItem[]>([]);
+  const [priceWatchEnabled, setPriceWatchEnabled] = useState(false);
+  const [priceWatchBusy, setPriceWatchBusy] = useState(false);
 
   useEffect(() => {
     if (!property) return;
@@ -512,11 +572,60 @@ export function PropertyDetailView({
       const key = "hirmand-viewed:" + property.slug;
       if (sessionStorage.getItem(key)) return;
       sessionStorage.setItem(key, "1");
+      const recentKey = "hirmand-recent-properties";
+      try {
+        const parsed: unknown = JSON.parse(localStorage.getItem(recentKey) || "[]");
+        const recent = Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && item !== property.slug) : [];
+        localStorage.setItem(recentKey, JSON.stringify([property.slug, ...recent].slice(0, 8)));
+      } catch { /* Recent history is optional. */ }
       trackAnalyticsEvent("property_view", property.slug);
     } catch {
       // Storage can be disabled in private mode; tracking must not break the page.
     }
   }, [property]);
+
+  useEffect(() => {
+    const slug = property?.slug;
+    if (!slug) {
+      setPriceHistory([]);
+      setPriceWatchEnabled(false);
+      return;
+    }
+    let cancelled = false;
+    void getPublishedPropertyPriceHistory({ data: { slug } })
+      .then((items) => { if (!cancelled) setPriceHistory(items); })
+      .catch(() => { if (!cancelled) setPriceHistory([]); });
+    void fetch("/api/property-watch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "sync" }),
+    })
+      .then((response) => response.ok ? response.json() as Promise<{ subscriptions?: Array<{ slug: string }> }> : null)
+      .then((payload) => { if (!cancelled) setPriceWatchEnabled(Boolean(payload?.subscriptions?.some((item) => item.slug === slug))); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [property?.slug, property?.price, property?.deposit, property?.rent]);
+
+  const togglePriceWatch = async () => {
+    if (!property?.slug || priceWatchBusy) return;
+    const action = priceWatchEnabled ? "unsubscribe" : "subscribe";
+    setPriceWatchBusy(true);
+    try {
+      const response = await fetch("/api/property-watch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, slug: property.slug }),
+      });
+      if (!response.ok) throw new Error("watch request failed");
+      setPriceWatchEnabled(action === "subscribe");
+      trackAnalyticsEvent("property_price_watch", property.slug);
+      toast.success(action === "subscribe" ? "پیگیری قیمت این فایل فعال شد." : "پیگیری قیمت این فایل خاموش شد.");
+    } catch {
+      toast.error("ثبت پیگیری قیمت انجام نشد؛ دوباره تلاش کنید.");
+    } finally {
+      setPriceWatchBusy(false);
+    }
+  };
 
   const copyPageUrl = async () => {
     const url = window.location.href;
@@ -638,6 +747,16 @@ export function PropertyDetailView({
                 </div>
               ) : <strong className="hd-price-contact">برای اطلاع از قیمت تماس بگیرید</strong>}
               {perMeter ? <small className="hd-per-meter">{perMeter}</small> : null}
+              <button
+                type="button"
+                className={"hd-price-watch-button" + (priceWatchEnabled ? " is-active" : "")}
+                onClick={() => void togglePriceWatch()}
+                aria-pressed={priceWatchEnabled}
+                disabled={priceWatchBusy}
+              >
+                <Clock3 size={16} aria-hidden="true" />
+                {priceWatchBusy ? "در حال ثبت…" : priceWatchEnabled ? "پیگیری تغییر قیمت فعال است" : "پیگیری تغییر قیمت"}
+              </button>
             </div>
 
             <div className="hd-summary-facts" aria-label="مشخصات برجسته">
@@ -651,8 +770,12 @@ export function PropertyDetailView({
             </div>
 
             <div className="hd-primary-contact">
-              <a href={telHref} className="hd-button hd-button-primary"><Phone size={18} aria-hidden="true" /> تماس با مشاور</a>
-              {waHref ? <a href={waHref} className="hd-button hd-button-secondary" target="_blank" rel="noreferrer"><MessageCircle size={18} aria-hidden="true" /> پیام در واتساپ</a> : null}
+              <a href={telHref} onClick={() => trackAnalyticsEvent("call_click", property.slug)} className="hd-button hd-button-primary"><Phone size={18} aria-hidden="true" /> تماس با مشاور</a>
+              {waHref ? <a href={waHref} onClick={() => trackAnalyticsEvent("whatsapp_click", property.slug)} className="hd-button hd-button-secondary" target="_blank" rel="noreferrer"><MessageCircle size={18} aria-hidden="true" /> پیام در واتساپ</a> : null}
+            </div>
+
+            <div className="hd-callback-request">
+              <PropertyCallbackRequest propertyType={typeLabel} neighborhood={property.neighborhood} context={"فایل «" + title + "»"} />
             </div>
 
             <div className="hd-actions-wrap">
@@ -694,6 +817,56 @@ export function PropertyDetailView({
                 </details>
               ) : null}
             </section>
+
+            <section className="hd-insight-grid" aria-label="اطلاعات تحلیلی فایل">
+              <PropertyVerificationStamp property={property} />
+              <PropertyMarketComparison property={property} />
+            </section>
+
+            {priceHistory.length ? (
+              <section id="property-price-history-section" className="property-price-history hd-section" aria-labelledby="hd-price-history-heading">
+                <div className="hd-section-heading">
+                  <div><span className="hd-section-eyebrow">شفافیت قیمت</span><h2 id="hd-price-history-heading">روند تغییر قیمت و شرایط مالی</h2></div>
+                  <span className="hd-section-count">{priceHistory.length.toLocaleString("fa-IR")} تغییر ثبت‌شده</span>
+                </div>
+                <div className="property-price-history-list">
+                  {priceHistory.slice(0, 2).map((item, index) => (
+                    <article className="property-price-history-item" key={item.changedAt + "-" + index}>
+                      <div className="property-price-history-date"><Clock3 size={16} aria-hidden="true" /><time dateTime={item.changedAt}>{formatDate(item.changedAt)}</time></div>
+                      <div className="property-price-history-changes">
+                        {item.previousPrice !== item.newPrice ? (
+                          <div className="property-price-history-change"><span>قیمت کل</span><strong>{item.previousPrice ? moneyLabel(item.previousPrice) + " تومان" : "ثبت نشده"}</strong><b>←</b><strong className="is-current">{item.newPrice ? moneyLabel(item.newPrice) + " تومان" : "حذف شد"}</strong></div>
+                        ) : null}
+                        {item.previousDeposit !== item.newDeposit ? (
+                          <div className="property-price-history-change"><span>رهن</span><strong>{item.previousDeposit ? moneyLabel(item.previousDeposit) + " تومان" : "ثبت نشده"}</strong><b>←</b><strong className="is-current">{item.newDeposit ? moneyLabel(item.newDeposit) + " تومان" : "حذف شد"}</strong></div>
+                        ) : null}
+                        {item.previousRent !== item.newRent ? (
+                          <div className="property-price-history-change"><span>اجاره</span><strong>{item.previousRent ? moneyLabel(item.previousRent) + " تومان" : "ثبت نشده"}</strong><b>←</b><strong className="is-current">{item.newRent ? moneyLabel(item.newRent) + " تومان" : "حذف شد"}</strong></div>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                {priceHistory.length > 2 ? (
+                  <details className="property-price-history-more">
+                    <summary><span>مشاهدهٔ تمام تغییرات قیمت</span><small>{(priceHistory.length - 2).toLocaleString("fa-IR")} مورد دیگر</small><ChevronLeft size={16} aria-hidden="true" /></summary>
+                    <div className="property-price-history-list">
+                      {priceHistory.slice(2).map((item, index) => (
+                        <article className="property-price-history-item" key={item.changedAt + "-more-" + index}>
+                          <div className="property-price-history-date"><Clock3 size={16} aria-hidden="true" /><time dateTime={item.changedAt}>{formatDate(item.changedAt)}</time></div>
+                          <div className="property-price-history-changes">
+                            {item.previousPrice !== item.newPrice ? <div className="property-price-history-change"><span>قیمت کل</span><strong>{item.previousPrice ? moneyLabel(item.previousPrice) + " تومان" : "ثبت نشده"}</strong><b>←</b><strong className="is-current">{item.newPrice ? moneyLabel(item.newPrice) + " تومان" : "حذف شد"}</strong></div> : null}
+                            {item.previousDeposit !== item.newDeposit ? <div className="property-price-history-change"><span>رهن</span><strong>{item.previousDeposit ? moneyLabel(item.previousDeposit) + " تومان" : "ثبت نشده"}</strong><b>←</b><strong className="is-current">{item.newDeposit ? moneyLabel(item.newDeposit) + " تومان" : "حذف شد"}</strong></div> : null}
+                            {item.previousRent !== item.newRent ? <div className="property-price-history-change"><span>اجاره</span><strong>{item.previousRent ? moneyLabel(item.previousRent) + " تومان" : "ثبت نشده"}</strong><b>←</b><strong className="is-current">{item.newRent ? moneyLabel(item.newRent) + " تومان" : "حذف شد"}</strong></div> : null}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </details>
+                ) : null}
+                <p className="property-price-history-note">این سابقه فقط تغییرات ثبت‌شده در سامانه هیرمند را نشان می‌دهد و جایگزین بررسی شرایط نهایی معامله نیست.</p>
+              </section>
+            ) : null}
 
             <section className="property-detail-body hd-section hd-description" aria-labelledby="hd-description-heading">
               <div className="hd-section-heading">
@@ -744,6 +917,9 @@ export function PropertyDetailView({
               ) : null}
             </section>
 
+            <PropertyFloorPlan property={property} />
+            <PropertyNearbyServices property={property} />
+
             <section className="hd-before-contact" aria-labelledby="hd-before-contact-heading">
               <div className="hd-before-icon"><Info size={21} aria-hidden="true" /></div>
               <div>
@@ -773,6 +949,9 @@ export function PropertyDetailView({
                 {waHref ? <a href={waHref} className="hd-button hd-button-secondary" target="_blank" rel="noreferrer"><MessageCircle size={17} aria-hidden="true" /> واتساپ</a> : null}
               </div>
               <p className="hd-consultant-note">پاسخگویی با هماهنگی قبلی</p>
+              {(property.availabilityStatus === "available" || property.availabilityStatus === "reserved") ? (
+                <div className="hd-viewing-request"><PropertyViewingRequest property={{ id: property.id, slug: property.slug, title: property.title, neighborhood: property.neighborhood, availabilityStatus: property.availabilityStatus }} /></div>
+              ) : null}
             </section>
 
             <section className="hd-aside-note">
@@ -790,6 +969,57 @@ export function PropertyDetailView({
           </aside>
         </div>
 
+        <section id="property-tools-section" className="hd-section property-tool-center" aria-labelledby="hd-tool-center-heading">
+          <div className="hd-section-heading">
+            <div><span className="hd-section-eyebrow">خدمات و امکانات تکمیلی</span><h2 id="hd-tool-center-heading">ابزارهای هوشمند این فایل</h2></div>
+            <span className="hd-section-count">اختیاری</span>
+          </div>
+          <p className="hd-tools-intro">ابزارهای عملی سامانه برای بررسی، هماهنگی بازدید، درخواست مدارک و مدیریت تصمیم‌گیری در دسترس‌اند. هر بخش را فقط در صورت نیاز باز کنید.</p>
+
+          <details className="property-secondary-services">
+            <summary className="property-secondary-services-summary"><span className="property-secondary-services-main"><strong>خدمات تکمیلی فایل</strong><small>مدارک، گزارش ایراد، بازدید، تأمین مالی و وضعیت انتشار</small></span><ChevronLeft size={18} aria-hidden="true" /></summary>
+            <div className="property-secondary-services-content hd-tools-stack">
+              {["sold", "rented", "unavailable"].includes(property.availabilityStatus) ? <PropertyBackInMarketAlert slug={property.slug} title={property.title} availabilityStatus={property.availabilityStatus} /> : null}
+              {(property.transactionType === "buy" || property.transactionType === "sell") ? <PropertyFinancingRequest property={property} /> : null}
+              <PropertyPrepBudget property={property} />
+              <PropertyTargetAlert property={property} />
+              <PropertyVerificationRequest property={property} />
+              <PropertyExpertRequests property={property} />
+              <PropertyDocumentRequest property={property} />
+              <PropertyVirtualTour property={property} />
+              <PropertyNeighborhoodInsight property={property} />
+              <PropertyReport property={property} />
+              <PropertyQuestions property={property} />
+              <PropertyOpenHouse property={property} />
+            </div>
+          </details>
+
+          <details className="property-tool-category">
+            <summary className="property-tool-category-summary"><span className="property-tool-category-main"><span className="property-tool-category-index">۰۱</span><span className="property-tool-category-copy"><strong>بررسی و تصمیم‌گیری</strong><span>چک‌لیست بازدید، ارزیابی تناسب، سناریو و بررسی ریسک</span></span></span><span className="property-tool-category-meta"><span className="property-tool-category-count">۸ ابزار</span><ChevronLeft size={17} aria-hidden="true" /></span></summary>
+            <div className="property-tool-category-content"><div className="property-tool-category-content-inner hd-tools-stack"><PropertyDecisionTools property={property} /><PropertyVisitChecklist property={property} /><PropertyDecisionReadiness property={property} /><PropertyScenarioAnalysis property={property} /><PropertyPersonalScore property={property} /><PropertyRiskRadar property={property} /><PropertyReviewAlerts property={property} /><PropertyVisitOutcome property={property} /></div></div>
+          </details>
+
+          <details className="property-tool-category">
+            <summary className="property-tool-category-summary"><span className="property-tool-category-main"><span className="property-tool-category-index">۰۲</span><span className="property-tool-category-copy"><strong>مالی و محاسبات معامله</strong><span>هزینه‌های مالکیت، برنامهٔ پرداخت و تبدیل رهن و اجاره</span></span></span><span className="property-tool-category-meta"><span className="property-tool-category-count">۳ ابزار</span><ChevronLeft size={17} aria-hidden="true" /></span></summary>
+            <div className="property-tool-category-content"><div className="property-tool-category-content-inner hd-tools-stack"><PropertyOwnershipCost property={property} /><PropertyPaymentPlanner property={property} /><PropertyConvertSlider property={property} /></div></div>
+          </details>
+
+          <details className="property-tool-category">
+            <summary className="property-tool-category-summary"><span className="property-tool-category-main"><span className="property-tool-category-index">۰۳</span><span className="property-tool-category-copy"><strong>مذاکره و آماده‌سازی معامله</strong><span>پیشنهاد، چک‌لیست توافق، اتاق معامله و پرونده تصمیم</span></span></span><span className="property-tool-category-meta"><span className="property-tool-category-count">۴ ابزار</span><ChevronLeft size={17} aria-hidden="true" /></span></summary>
+            <div className="property-tool-category-content"><div className="property-tool-category-content-inner hd-tools-stack"><PropertyOfferMessage property={property} /><PropertyDealChecklist property={property} /><PropertyDealRoom property={property} /><PropertyDecisionDossier property={property} /></div></div>
+          </details>
+
+          <details className="property-tool-category">
+            <summary className="property-tool-category-summary"><span className="property-tool-category-main"><span className="property-tool-category-index">۰۴</span><span className="property-tool-category-copy"><strong>مدارک و هماهنگی</strong><span>مدارک موردنیاز و ابزارهای پرسش و پیگیری</span></span></span><span className="property-tool-category-meta"><span className="property-tool-category-count">۲ ابزار</span><ChevronLeft size={17} aria-hidden="true" /></span></summary>
+            <div className="property-tool-category-content"><div className="property-tool-category-content-inner hd-tools-stack"><PropertyDocumentPack property={property} /><PropertyInquiryTools property={property} /></div></div>
+          </details>
+
+          <details className="property-tool-category property-tool-personal">
+            <summary className="property-tool-category-summary"><span className="property-tool-category-main"><span className="property-tool-category-index">۰۵</span><span className="property-tool-category-copy"><strong>دفتر شخصی این فایل</strong><span>یادداشت‌ها و پیگیری‌های شخصی شما دربارهٔ این ملک</span></span></span><span className="property-tool-category-meta"><span className="property-tool-category-count">۶ ابزار</span><ChevronLeft size={17} aria-hidden="true" /></span></summary>
+            <div className="property-tool-category-content"><div className="property-tool-category-content-inner hd-tools-stack"><PropertyNegotiationLog property={property} /><PropertyFollowUpReminder property={property} /><PropertyQuestionLog property={property} /><PropertyVisitReport property={property} /><PropertyRenovationTracker property={property} /><PropertyPhotoNotes property={property} /></div></div>
+          </details>
+        </section>
+
         {relatedItems.length ? (
           <section className="hd-related-section" aria-labelledby="hd-related-heading">
             <div className="hd-section-heading">
@@ -802,8 +1032,8 @@ export function PropertyDetailView({
       </main>
 
       <div className="property-mobile-actions hd-mobile-actions" aria-label="اقدام‌های تماس">
-        <a href={telHref} className="hd-mobile-call"><Phone size={19} aria-hidden="true" /><span>تماس</span></a>
-        {waHref ? <a href={waHref} className="hd-mobile-whatsapp" target="_blank" rel="noreferrer"><MessageCircle size={19} aria-hidden="true" /><span>واتساپ</span></a> : null}
+        <a href={telHref} className="hd-mobile-call" onClick={() => trackAnalyticsEvent("call_click", property.slug)}><Phone size={19} aria-hidden="true" /><span>تماس</span></a>
+        {waHref ? <a href={waHref} className="hd-mobile-whatsapp" onClick={() => trackAnalyticsEvent("whatsapp_click", property.slug)} target="_blank" rel="noreferrer"><MessageCircle size={19} aria-hidden="true" /><span>واتساپ</span></a> : null}
         <button type="button" onClick={() => void copyPageUrl()} aria-label="کپی پیوند فایل">
           {copied ? <Check size={19} aria-hidden="true" /> : <ExternalLink size={19} aria-hidden="true" />}
           <span>{copied ? "کپی شد" : "اشتراک"}</span>
