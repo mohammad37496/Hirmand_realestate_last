@@ -64,6 +64,19 @@
 .hd-gallery-image, .hd-gallery-video, .hd-gallery-stage > img, .hd-gallery-stage > video {
   display: block; width: 100%; height: 100%; min-width: 0; object-fit: contain; background: #f0ece5;
 }
+/* Legacy site-wide responsive rules have higher specificity than the component base
+   rules. Explicitly scope and elevate the actual listing media so portraits, watermarks
+   and floor-plan graphics remain fully visible on mobile instead of being cropped. */
+.property-detail-page.hd-property-detail-v2 .hd-gallery-stage img.hd-gallery-image,
+.property-detail-page.hd-property-detail-v2 .hd-gallery-stage video.hd-gallery-video,
+.property-detail-page.hd-property-detail-v2 .hd-gallery-stage > img,
+.property-detail-page.hd-property-detail-v2 .hd-gallery-stage > video {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: center !important;
+}
 .hd-gallery-stage .hd-image-missing { width: 100%; height: 100%; min-height: 260px; }
 .hd-gallery-expand {
   position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 7px;
