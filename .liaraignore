@@ -18,24 +18,11 @@ temp/
 android/
 android-staff/
 
-# Preserve runtime binaries and fonts provisioned by prebuild scripts.
-# These are required at runtime for permanent media watermarking.
-# The prebuild step (npm run build / npm run prebuild) provisions them;
-# without this exemption they would be discarded before deployment.
-# Only discard the large compressed archives, not the extracted binaries and fonts.
-# Runtime provisioning artifacts (FFmpeg + Persian font) needed at runtime
-# for permanent media watermarking. Prebuild provisions them; the ignore rules
-# below keep those binaries in the deployment payload while discarding the large
-# compressed archives.
+# Keep only the canonical FFmpeg and Persian TTF generated at the project root.
+# The build provisions these immediately before Vite/Nitro packaging.
 .runtime/
 !.runtime/ffmpeg/
 !.runtime/fonts/
-src/.runtime/
-!src/.runtime/ffmpeg/
-!src/.runtime/fonts/
-src/lib/.runtime/
-!src/lib/.runtime/ffmpeg/
-!src/lib/.runtime/fonts/
 node_modules/
 dist/
 .output/

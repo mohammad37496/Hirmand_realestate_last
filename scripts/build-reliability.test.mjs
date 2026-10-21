@@ -33,6 +33,10 @@ const ffmpegProvisioner = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
   "utf8",
 );
+const watermarkRuntime = await readFile(
+  new URL("../src/lib/watermark-runtime.server.ts", import.meta.url),
+  "utf8",
+);
 const mediaStore = await readFile(
   new URL("../src/lib/media-store.server.ts", import.meta.url),
   "utf8",
@@ -239,10 +243,18 @@ test("upload client diagnostics match fail-closed watermark handling", () => {
   );
 });
 
-test("watermark runtime assets are provisioned relative to the repository, not shell cwd", () => {
+test("watermark runtime assets are provisioned once at the repository root", () => {
   assert.match(ffmpegProvisioner, /const PROJECT_ROOT = resolve\(__dirname, "\.\."\)/);
   assert.match(ffmpegProvisioner, /const TARGET_DIR = join\(PROJECT_ROOT, "\.runtime", "ffmpeg"\)/);
   assert.match(ffmpegProvisioner, /const FONT_DIR = join\(PROJECT_ROOT, "\.runtime", "fonts"\)/);
+  assert.doesNotMatch(ffmpegProvisioner, /mirrorRuntimeDir|join\(repoRoot, sub, "\.runtime"\)/,
+    "FFmpeg and the font must not be copied into duplicate src/ runtime folders");
+  assert.match(watermarkRuntime, /const cwd = process\.cwd\(\)/,
+    "runtime lookup should include the project root on Liara");
+  assert.match(watermarkRuntime, /resolveFromProject\("\.runtime", "ffmpeg", name\)/,
+    "FFmpeg lookup should resolve the single canonical runtime copy");
+  assert.match(watermarkRuntime, /resolveFromProject\("\.runtime", "fonts", "Vazirmatn-Regular\.ttf"\)/,
+    "font lookup should resolve the single canonical runtime copy");
 });
 
 test("object-store offload never deletes the database fallback before saving the Liara URL", () => {

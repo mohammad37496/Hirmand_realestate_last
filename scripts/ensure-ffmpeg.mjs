@@ -115,9 +115,8 @@ function verifyGitBlob(buffer, expected) {
  * FFmpeg drawtext needs a real TTF/OTF file; browser WOFF2 assets are not a
  * reliable font source for the FreeType filter in minimal Liara containers.
  *
- * The font is written to the repo-root `.runtime/fonts/` and also mirrored into
- * `src/.runtime/fonts/` (when that layout exists) so both path resolutions used
- * by the watermark modules can find it at runtime.
+ * The font is stored at the project root so the runtime path resolver can find
+ * one canonical copy from Liara, the dev server and the Nitro bundle.
  */
 async function ensureWatermarkFont() {
   mkdirSync(FONT_DIR, { recursive: true });
@@ -143,62 +142,16 @@ async function ensureWatermarkFont() {
     console.log("[font] Ready with checksum-verified Persian TTF font.");
   }
 
-  // Mirror into src/.runtime/fonts so the __dirname-relative path in the
-  // watermark modules can also find it when cwd is not the repo root.
-  mirrorRuntimeDir(__dirname);
-
   return FONT_PATH;
 }
 
 /**
- * Copy .runtime artifacts into locations that the watermark modules can resolve
- * via __dirname-relative paths at runtime.
- *
- * The watermark modules live in src/lib/ and resolve:
- *   - .runtime/fonts/Vazirmatn-Regular.ttf  (relative to src/lib/.. = src/)
- *   - .runtime/ffmpeg/ffmpeg              (relative to src/lib/.. = src/)
- *
- * So we mirror into repo-root/src/.runtime and also into repo-root/src/lib/.runtime
- * as fallbacks.
+ * Runtime assets live in one canonical location at the project root.
+ * watermark-runtime.server.ts resolves process.cwd() first (the app root on
+ * Liara), then walks module ancestors for dev/test/Nitro compatibility. Do not
+ * duplicate the large static FFmpeg binary under src/ and src/lib/: those
+ * copies inflate every Liara build image without improving path resolution.
  */
-function mirrorRuntimeDir(_scriptDir) {
-  // Compute repo root: scripts/.. = repo root
-  const repoRoot = resolve(__dirname, "..");
-  // Mirror into src/.runtime and src/lib/.runtime
-  for (const sub of ["src", "src/lib"]) {
-    try {
-      const runtimeDir = join(repoRoot, sub, ".runtime");
-      mkdirSync(runtimeDir, { recursive: true });
-      mkdirSync(join(runtimeDir, "fonts"), { recursive: true });
-      mkdirSync(join(runtimeDir, "ffmpeg"), { recursive: true });
-
-      if (existsSync(FONT_PATH)) {
-        copyFileSync(
-          FONT_PATH,
-          join(runtimeDir, "fonts", "Vazirmatn-Regular.ttf")
-        );
-      }
-      if (existsSync(TARGET_PATH)) {
-        const dest = join(
-          runtimeDir,
-          "ffmpeg",
-          process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg"
-        );
-        copyFileSync(TARGET_PATH, dest);
-        try {
-          chmodSync(dest, 0o755);
-        } catch {
-          // ignore permission errors on non-Unix hosts
-        }
-      }
-    } catch (error) {
-      console.warn(
-        "[ffmpeg] Could not mirror .runtime into " + sub + "/.runtime:",
-        error instanceof Error ? error.message : error
-      );
-    }
-  }
-}
 
 export async function ensureFfmpegBinary() {
   await ensureWatermarkFont();
@@ -276,7 +229,6 @@ export async function ensureFfmpegBinary() {
 
   verifyWatermarkCapabilities(TARGET_PATH);
   console.log("[ffmpeg] Ready with the required watermark filters/encoders.");
-  mirrorRuntimeDir(__dirname);
   return TARGET_PATH;
 }
 
