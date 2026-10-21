@@ -169,15 +169,19 @@ testRunner.test("responsive guardrails and property-detail final layers load aft
     index: match.index,
   }));
   assert.ok(linkPositions.length > 0, "root route should link the shared CSS files");
-  assert.equal(linkPositions.at(-1)?.name, "propertyDetailSpecsRedesignCss", "the complete property specs redesign must load last");
+  assert.equal(linkPositions.at(-1)?.name, "propertyDetailMobileRedesignCss", "the property-detail mobile layout must load last");
   const responsiveIndex = linkPositions.findIndex((item) => item.name === "responsiveHardeningCss");
   const mobileDetailIndex = linkPositions.findIndex((item) => item.name === "propertyDetailMobileRedesignCss");
   const premiumDetailIndex = linkPositions.findIndex((item) => item.name === "propertyDetailPremiumFinalCss");
   const iconClarityIndex = linkPositions.findIndex((item) => item.name === "propertyDetailIconsClarityCss");
   const specsRedesignIndex = linkPositions.findIndex((item) => item.name === "propertyDetailSpecsRedesignCss");
   assert.ok(
-    responsiveIndex >= 0 && mobileDetailIndex > responsiveIndex && premiumDetailIndex > mobileDetailIndex && iconClarityIndex > premiumDetailIndex && specsRedesignIndex > iconClarityIndex,
-    "mobile layout, premium presentation and icon clarity must layer in that order",
+    responsiveIndex >= 0 &&
+      premiumDetailIndex > responsiveIndex &&
+      iconClarityIndex > premiumDetailIndex &&
+      specsRedesignIndex > iconClarityIndex &&
+      mobileDetailIndex > specsRedesignIndex,
+    "premium presentation, icon clarity, property specs and final mobile overrides must layer in that order",
   );
   assert.match(propertyDetailMobileCss, /@media \(max-width: 760px\)/);
   assert.match(propertyDetailMobileCss, /\.property-mobile-actions\s*\{[^}]*position:\s*fixed\s*!important/s);
@@ -199,7 +203,7 @@ testRunner.test("complete property specs redesign keeps the Hirmand theme and re
   assert.match(specsCss, /#property-specs-section\.property-divar-specs \.property-spec-amenity-icon\s*\{[^}]*background:\s*linear-gradient\(145deg, #f7fafb 0%, #eaf0f4 100%\)\s*!important/s,
     "amenity icons should use the same soft blue-gray palette");
   assert.match(specsCss, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(specsCss, /@media\s*\(max-width:\s*359px\)/, "narrow phones need a one-column fallback");
+  assert.match(specsCss, /@media\s*\(max-width:\s*380px\)/, "narrow phones through 380px need a one-column fallback");
   assert.match(specsCss, /overflow-wrap:\s*break-word\s*!important/);
   assert.match(specsCss, /focus-visible/, "accordion controls need a visible keyboard focus");
   assert.doesNotMatch(specsCss, /:has\(/i, "the new section design must not depend on relational selectors");
