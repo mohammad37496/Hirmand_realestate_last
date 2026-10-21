@@ -1666,3 +1666,11 @@
     animation-duration: 0.001ms !important;
   }
 }
+
+/* Preserve native disclosure behavior after card/grid styling:
+   author display rules must never expose details content while closed. */
+@media (max-width: 760px) {
+  body:has(.property-detail-page) .property-detail-page details:not([open]) > :not(summary) {
+    display: none !important;
+  }
+}
