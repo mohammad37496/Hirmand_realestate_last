@@ -210,3 +210,63 @@ html body:has(.property-detail-page) .property-detail-page :is(
     animation: none !important;
   }
 }
+
+
+/*
+ * HIGH-CONTRAST AMENITY ICONS
+ * Solid navy tiles with brass glyphs prevent the icon from visually blending
+ * into the pale gold/cream surface, including on low-quality mobile displays.
+ */
+html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
+html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
+  background: #102d45 !important;
+  border-color: #102d45 !important;
+  color: #f4d48a !important;
+  box-shadow: 0 2px 5px rgb(11 26 43 / 16%), inset 0 1px 0 rgb(255 255 255 / 8%) !important;
+}
+
+html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon > svg.lucide,
+html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child > svg.lucide {
+  color: #f4d48a !important;
+  stroke: #f4d48a !important;
+  stroke-width: 2.55px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Additional amenities render their Lucide glyph directly rather than inside a span. */
+html body:has(.property-detail-page) .property-detail-page .property-spec-amenity-item > svg.lucide {
+  display: block !important;
+  flex: 0 0 34px !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 8px !important;
+  border: 1px solid #102d45 !important;
+  border-radius: 10px !important;
+  background: #102d45 !important;
+  color: #f4d48a !important;
+  stroke: #f4d48a !important;
+  stroke-width: 2.5px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+@media (max-width: 760px) {
+  html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
+  html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
+    background: #102d45 !important;
+    border-color: #102d45 !important;
+    color: #f4d48a !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-spec-amenity-item > svg.lucide {
+    flex-basis: 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 7px !important;
+  }
+}

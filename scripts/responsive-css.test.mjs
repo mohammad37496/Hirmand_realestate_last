@@ -190,8 +190,10 @@ testRunner.test("property-detail icons keep clear contrast and visible stroke we
   const iconCss = fs.readFileSync(new URL("../src/property-detail-icons-clarity.css", import.meta.url), "utf8");
   assert.match(iconCss, /svg\.lucide\s*\{[^}]*opacity:\s*1\s*!important/s);
   assert.match(iconCss, /svg\.lucide\s*\{[^}]*stroke-width:\s*2\.25px\s*!important/s);
-  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?background:\s*#f7ecd6\s*!important/);
-  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?color:\s*#102d45\s*!important/);
+  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?background:\s*#102d45\s*!important/);
+  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?color:\s*#f4d48a\s*!important/);
+  assert.match(iconCss, /\.property-spec-item-icon > svg\.lucide[\s\S]*?stroke:\s*#f4d48a\s*!important/);
+  assert.match(iconCss, /\.property-spec-amenity-item > svg\.lucide[\s\S]*?background:\s*#102d45\s*!important/);
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
