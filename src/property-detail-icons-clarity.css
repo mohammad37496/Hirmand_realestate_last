@@ -1,16 +1,17 @@
 /*
- * HIRMAND — property-detail icon clarity pass
- * Improves contrast, stroke weight and flex sizing without changing behavior.
- * Scoped to the public detail page; preserves the navy / brass brand.
+ * HIRMAND — property detail icon system
+ * Clear navy/brass iconography for property facts and amenities.
+ * Scoped through .property-detail-page directly for mobile-browser compatibility.
  */
 
-/* Lucide line icons must stay crisp and inherit a deliberate foreground color. */
-html body:has(.property-detail-page) .property-detail-page svg.lucide {
+.property-detail-page svg.lucide {
   display: block !important;
   flex-shrink: 0 !important;
+  max-width: none !important;
   opacity: 1 !important;
   visibility: visible !important;
   filter: none !important;
+  color: inherit !important;
   stroke: currentColor !important;
   stroke-width: 2.25px !important;
   stroke-linecap: round !important;
@@ -18,108 +19,187 @@ html body:has(.property-detail-page) .property-detail-page svg.lucide {
   shape-rendering: geometricPrecision;
 }
 
-/* Inline/custom SVGs (for example, social marks) must not fade or collapse either. */
-html body:has(.property-detail-page) .property-detail-page svg:not(.lucide) {
+.property-detail-page svg:not(.lucide) {
   flex-shrink: 0 !important;
   opacity: 1 !important;
   visibility: visible !important;
   filter: none !important;
 }
 
-/* Every icon inside a control follows the control's high-contrast text color. */
-html body:has(.property-detail-page) .property-detail-page :is(a, button, summary) svg {
+.property-detail-page :is(a, button, summary) svg {
   flex-shrink: 0 !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
 
-/* Property specifications: replace faint brass-on-cream symbols with navy glyphs. */
-html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
-html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
-  flex: 0 0 35px !important;
-  width: 35px !important;
-  min-width: 35px !important;
-  height: 35px !important;
-  min-height: 35px !important;
+/* Shared premium icon tile: deep Hirmand navy with a warm brass outline. */
+.property-detail-page .property-spec-item-icon,
+.property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
+  box-sizing: border-box !important;
+  flex: 0 0 40px !important;
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
   display: grid !important;
   place-items: center !important;
+  align-self: flex-start !important;
   overflow: visible !important;
-  border: 1px solid rgb(16 45 69 / 18%) !important;
-  border-radius: 11px !important;
-  background: #f7ecd6 !important;
-  color: #102d45 !important;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 92%) !important;
+  border: 1px solid #c9a45d !important;
+  border-radius: 12px !important;
+  background: #102d45 !important;
+  color: #f4d48a !important;
+  box-shadow:
+    0 3px 8px rgb(16 45 69 / 16%),
+    inset 0 1px 0 rgb(255 255 255 / 9%) !important;
 }
 
-html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon svg,
-html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child svg {
+.property-detail-page .property-spec-item-icon > svg.lucide,
+.property-detail-page .property-spec-grid > .property-spec-item > span:first-child > svg.lucide {
   display: block !important;
+  box-sizing: border-box !important;
+  width: 21px !important;
+  min-width: 21px !important;
+  height: 21px !important;
+  min-height: 21px !important;
+  color: #f4d48a !important;
+  stroke: #f4d48a !important;
+  stroke-width: 2.35px !important;
+  fill: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Summary facts (area, bedrooms, floor and similar) use the same icon language. */
+.property-detail-page .property-summary-facts > div > svg {
+  box-sizing: border-box !important;
+  display: block !important;
+  flex: 0 0 38px !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 8px !important;
+  border: 1px solid #c9a45d !important;
+  border-radius: 11px !important;
+  background: #102d45 !important;
+  color: #f4d48a !important;
+  stroke: #f4d48a !important;
+  stroke-width: 2.3px !important;
+  fill: none !important;
+  box-shadow: 0 3px 8px rgb(16 45 69 / 14%) !important;
+}
+
+/* Give each additional amenity icon a stable, explicit wrapper. */
+.property-detail-page .property-spec-amenity-icon {
+  box-sizing: border-box !important;
+  display: grid !important;
+  place-items: center !important;
+  align-self: flex-start !important;
+  flex: 0 0 38px !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  border: 1px solid #c9a45d !important;
+  border-radius: 11px !important;
+  background: #102d45 !important;
+  color: #f4d48a !important;
+  box-shadow:
+    0 3px 8px rgb(16 45 69 / 14%),
+    inset 0 1px 0 rgb(255 255 255 / 8%) !important;
+}
+
+.property-detail-page .property-spec-amenity-icon > svg.lucide {
+  display: block !important;
+  box-sizing: border-box !important;
   width: 20px !important;
   min-width: 20px !important;
   height: 20px !important;
   min-height: 20px !important;
-  color: #102d45 !important;
-  stroke: currentColor !important;
+  color: #f4d48a !important;
+  stroke: #f4d48a !important;
   stroke-width: 2.35px !important;
+  fill: none !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
 
-/* Summary metrics: keep the icon and its container distinct from surrounding copy. */
-html body:has(.property-detail-page) .property-detail-page .property-summary-facts > div > svg {
+/* Defensive fallback for any legacy amenity markup that still renders an SVG directly. */
+.property-detail-page .property-spec-amenity-item > svg.lucide {
+  box-sizing: border-box !important;
   display: block !important;
-  flex: 0 0 auto !important;
-  width: 27px !important;
-  min-width: 27px !important;
-  height: 27px !important;
-  min-height: 27px !important;
-  padding: 5px !important;
-  border: 1px solid rgb(16 45 69 / 14%) !important;
-  border-radius: 9px !important;
-  background: #f7ecd6 !important;
-  color: #102d45 !important;
-  stroke: currentColor !important;
-  stroke-width: 2.2px !important;
+  flex: 0 0 38px !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 8px !important;
+  border: 1px solid #c9a45d !important;
+  border-radius: 11px !important;
+  background: #102d45 !important;
+  color: #f4d48a !important;
+  stroke: #f4d48a !important;
+  stroke-width: 2.35px !important;
+  fill: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
-/* Icons which sit directly on white surfaces should not use low-contrast pale gold. */
-html body:has(.property-detail-page) .property-detail-page .property-detail-meta svg,
-html body:has(.property-detail-page) .property-detail-page .property-section-heading > svg,
-html body:has(.property-detail-page) .property-detail-page .property-trust-strip svg,
-html body:has(.property-detail-page) .property-detail-page .property-spec-amenities-title svg,
-html body:has(.property-detail-page) .property-detail-page .property-spec-amenity-item > svg,
-html body:has(.property-detail-page) .property-detail-page .property-quick-overview svg,
-html body:has(.property-detail-page) .property-detail-page .property-aside-heading svg {
+/* Section/metadata symbols: crisp navy strokes where they sit on light surfaces. */
+.property-detail-page .property-detail-meta svg,
+.property-detail-page .property-section-heading > svg,
+.property-detail-page .property-trust-strip svg,
+.property-detail-page .property-spec-amenities-title > svg,
+.property-detail-page .property-quick-overview svg,
+.property-detail-page .property-aside-heading svg {
   color: #102d45 !important;
   stroke: currentColor !important;
   stroke-width: 2.2px !important;
   opacity: 1 !important;
+  visibility: visible !important;
 }
 
-/* Keep icons clear in utility rows, section headings and expandable controls. */
-html body:has(.property-detail-page) .property-detail-page .property-summary-utilities-summary svg,
-html body:has(.property-detail-page) .property-detail-page .property-specs-accordion-meta svg,
-html body:has(.property-detail-page) .property-detail-page .property-detail-tools-row svg,
-html body:has(.property-detail-page) .property-detail-page .property-tool-center svg,
-html body:has(.property-detail-page) .property-detail-page .property-tool-category-summary svg,
-html body:has(.property-detail-page) .property-detail-page .property-secondary-services-summary svg,
-html body:has(.property-detail-page) .property-detail-page .property-price-watch-button svg,
-html body:has(.property-detail-page) .property-detail-page .property-map-action-group svg,
-html body:has(.property-detail-page) .property-detail-page .property-location-fallback svg {
+.property-detail-page .property-spec-amenities-title > svg {
+  box-sizing: border-box !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 7px !important;
+  border: 1px solid rgb(16 45 69 / 10%) !important;
+  border-radius: 10px !important;
+  background: #f7ecd6 !important;
+  color: #102d45 !important;
+}
+
+.property-detail-page :is(
+  .property-summary-utilities-summary,
+  .property-specs-accordion-meta,
+  .property-detail-tools-row,
+  .property-tool-center,
+  .property-tool-category-summary,
+  .property-secondary-services-summary,
+  .property-price-watch-button,
+  .property-map-action-group,
+  .property-location-fallback
+) svg {
   flex-shrink: 0 !important;
   opacity: 1 !important;
   visibility: visible !important;
   stroke-width: 2.2px !important;
 }
 
-/* Gallery controls use white icons on a dark translucent surface. */
-html body:has(.property-detail-page) .property-detail-page .property-gallery-nav,
-html body:has(.property-detail-page) .property-detail-page .property-gallery-open {
+/* Gallery controls intentionally use white glyphs on their dark translucent backgrounds. */
+.property-detail-page .property-gallery-nav,
+.property-detail-page .property-gallery-open {
   color: #fff !important;
 }
 
-html body:has(.property-detail-page) .property-detail-page .property-gallery-nav svg,
-html body:has(.property-detail-page) .property-detail-page .property-gallery-open svg {
+.property-detail-page .property-gallery-nav svg,
+.property-detail-page .property-gallery-open svg {
+  box-sizing: border-box !important;
+  display: block !important;
   width: 21px !important;
   min-width: 21px !important;
   height: 21px !important;
@@ -130,20 +210,18 @@ html body:has(.property-detail-page) .property-detail-page .property-gallery-ope
   opacity: 1 !important;
 }
 
-/* Contact and bottom-dock icons must remain visible against their own button fill. */
-html body:has(.property-detail-page) .property-detail-page .property-primary-contact > * svg,
-html body:has(.property-detail-page) .property-detail-page .property-final-cta-actions > * svg,
-html body:has(.property-detail-page) .property-detail-page .property-mobile-action svg,
-html body:has(.property-detail-page) .property-detail-page .property-actions .property-action svg,
-html body:has(.property-detail-page) .property-detail-page .property-lightbox button svg {
+.property-detail-page .property-primary-contact > * svg,
+.property-detail-page .property-final-cta-actions > * svg,
+.property-detail-page .property-mobile-action svg,
+.property-detail-page .property-actions .property-action svg,
+.property-detail-page .property-lightbox button svg {
   display: block !important;
   flex-shrink: 0 !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
 
-/* Amenity lists and nested feature tools often use their own icon wrappers. */
-html body:has(.property-detail-page) .property-detail-page :is(
+.property-detail-page :is(
   .property-spec-amenity-item,
   .property-detail-insight-grid,
   .property-new-feature,
@@ -161,28 +239,72 @@ html body:has(.property-detail-page) .property-detail-page :is(
   stroke-width: 2.2px !important;
 }
 
-/* Practical sizes for the narrowest supported phones (including older Androids). */
+@media (hover: hover) and (pointer: fine) {
+  .property-detail-page .property-spec-item-icon,
+  .property-detail-page .property-spec-amenity-icon,
+  .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
+    transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease !important;
+  }
+
+  .property-detail-page .property-spec-grid > .property-spec-item:hover .property-spec-item-icon {
+    transform: translateY(-1px) !important;
+    border-color: #f4d48a !important;
+    box-shadow: 0 5px 12px rgb(16 45 69 / 19%), inset 0 1px 0 rgb(255 255 255 / 9%) !important;
+  }
+}
+
 @media (max-width: 760px) {
-  html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
-  html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
-    flex-basis: 30px !important;
-    width: 30px !important;
-    min-width: 30px !important;
-    height: 30px !important;
-    min-height: 30px !important;
-    border-radius: 9px !important;
+  .property-detail-page .property-spec-item-icon,
+  .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
+    flex-basis: 34px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    border-radius: 10px !important;
   }
 
-  html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon svg,
-  html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child svg {
-    width: 18px !important;
-    min-width: 18px !important;
-    height: 18px !important;
-    min-height: 18px !important;
-    stroke-width: 2.35px !important;
+  .property-detail-page .property-spec-item-icon > svg.lucide,
+  .property-detail-page .property-spec-grid > .property-spec-item > span:first-child > svg.lucide {
+    width: 19px !important;
+    min-width: 19px !important;
+    height: 19px !important;
+    min-height: 19px !important;
+    stroke-width: 2.4px !important;
   }
 
-  html body:has(.property-detail-page) .property-detail-page .property-mobile-action svg {
+  .property-detail-page .property-summary-facts > div > svg {
+    flex-basis: 34px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 7px !important;
+    border-radius: 10px !important;
+  }
+
+  .property-detail-page .property-spec-amenity-icon,
+  .property-detail-page .property-spec-amenity-item > svg.lucide {
+    flex-basis: 34px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+    border-radius: 10px !important;
+  }
+
+  .property-detail-page .property-spec-amenity-icon > svg.lucide {
+    width: 19px !important;
+    min-width: 19px !important;
+    height: 19px !important;
+    min-height: 19px !important;
+  }
+
+  .property-detail-page .property-spec-amenity-item > svg.lucide {
+    padding: 7px !important;
+  }
+
+  .property-detail-page .property-mobile-action svg {
     width: 20px !important;
     min-width: 20px !important;
     height: 20px !important;
@@ -192,81 +314,27 @@ html body:has(.property-detail-page) .property-detail-page :is(
 }
 
 @media (prefers-contrast: more) {
-  html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
-  html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
-    border-color: #102d45 !important;
-    background: #fff !important;
-    color: #102d45 !important;
+  .property-detail-page .property-spec-item-icon,
+  .property-detail-page .property-spec-amenity-icon,
+  .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
+    border-color: #f4d48a !important;
+    background: #102d45 !important;
+    color: #fff !important;
   }
 
-  html body:has(.property-detail-page) .property-detail-page svg.lucide {
-    stroke-width: 2.5px !important;
+  .property-detail-page .property-spec-item-icon > svg.lucide,
+  .property-detail-page .property-spec-amenity-icon > svg.lucide,
+  .property-detail-page .property-spec-grid > .property-spec-item > span:first-child > svg.lucide {
+    stroke: #fff !important;
+    stroke-width: 2.6px !important;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html body:has(.property-detail-page) .property-detail-page svg {
+  .property-detail-page svg,
+  .property-detail-page .property-spec-item-icon,
+  .property-detail-page .property-spec-amenity-icon {
     transition: none !important;
     animation: none !important;
-  }
-}
-
-
-/*
- * HIGH-CONTRAST AMENITY ICONS
- * Solid navy tiles with brass glyphs prevent the icon from visually blending
- * into the pale gold/cream surface, including on low-quality mobile displays.
- */
-html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
-html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
-  background: #102d45 !important;
-  border-color: #102d45 !important;
-  color: #f4d48a !important;
-  box-shadow: 0 2px 5px rgb(11 26 43 / 16%), inset 0 1px 0 rgb(255 255 255 / 8%) !important;
-}
-
-html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon > svg.lucide,
-html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child > svg.lucide {
-  color: #f4d48a !important;
-  stroke: #f4d48a !important;
-  stroke-width: 2.55px !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-/* Additional amenities render their Lucide glyph directly rather than inside a span. */
-html body:has(.property-detail-page) .property-detail-page .property-spec-amenity-item > svg.lucide {
-  display: block !important;
-  flex: 0 0 34px !important;
-  width: 34px !important;
-  min-width: 34px !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  padding: 8px !important;
-  border: 1px solid #102d45 !important;
-  border-radius: 10px !important;
-  background: #102d45 !important;
-  color: #f4d48a !important;
-  stroke: #f4d48a !important;
-  stroke-width: 2.5px !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-@media (max-width: 760px) {
-  html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
-  html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
-    background: #102d45 !important;
-    border-color: #102d45 !important;
-    color: #f4d48a !important;
-  }
-
-  html body:has(.property-detail-page) .property-detail-page .property-spec-amenity-item > svg.lucide {
-    flex-basis: 32px !important;
-    width: 32px !important;
-    min-width: 32px !important;
-    height: 32px !important;
-    min-height: 32px !important;
-    padding: 7px !important;
   }
 }

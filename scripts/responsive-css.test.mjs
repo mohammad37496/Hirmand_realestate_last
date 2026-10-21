@@ -186,14 +186,20 @@ testRunner.test("responsive guardrails and property-detail final layers load aft
 });
 
 
-testRunner.test("property-detail icons keep clear contrast and visible stroke weight", () => {
+testRunner.test("property-detail amenity icons use consistent accessible navy/brass tiles", () => {
   const iconCss = fs.readFileSync(new URL("../src/property-detail-icons-clarity.css", import.meta.url), "utf8");
   assert.match(iconCss, /svg\.lucide\s*\{[^}]*opacity:\s*1\s*!important/s);
   assert.match(iconCss, /svg\.lucide\s*\{[^}]*stroke-width:\s*2\.25px\s*!important/s);
   assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?background:\s*#102d45\s*!important/);
   assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?color:\s*#f4d48a\s*!important/);
-  assert.match(iconCss, /\.property-spec-item-icon > svg\.lucide[\s\S]*?stroke:\s*#f4d48a\s*!important/);
-  assert.match(iconCss, /\.property-spec-amenity-item > svg\.lucide[\s\S]*?background:\s*#102d45\s*!important/);
+  assert.match(iconCss, /\.property-spec-item-icon\s*>\s*svg\.lucide[\s\S]*?stroke:\s*#f4d48a\s*!important/);
+  assert.match(iconCss, /\.property-spec-amenity-icon\s*\{[^}]*width:\s*38px\s*!important/s);
+  assert.match(iconCss, /\.property-spec-amenity-icon\s*>\s*svg\.lucide[\s\S]*?stroke:\s*#f4d48a\s*!important/);
+  assert.match(iconCss, /\.property-spec-amenity-item\s*>\s*svg\.lucide[\s\S]*?background:\s*#102d45\s*!important/);
+  assert.doesNotMatch(iconCss, /:has\(/i, "the icon layer must work without relational selector support");
+  assert.match(propertyDetailViewSource, /className="property-spec-amenity-icon" aria-hidden="true">\{propertyAmenityIcon\("(?:cooling|heating)"|value\)\)\}/);
+  assert.equal((propertyDetailViewSource.match(/className="property-spec-amenity-icon"/g) || []).length, 3,
+    "cooling, heating and all optional amenities must use the same icon wrapper");
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {

@@ -1842,7 +1842,7 @@ export function PropertyDetailView({
                   <div className="property-spec-amenities-body">
                     {property.coolingSystem ? (
                       <div className="property-spec-amenity-item" key={"cooling:" + property.coolingSystem}>
-                        {propertyAmenityIcon("cooling")}
+                        <span className="property-spec-amenity-icon" aria-hidden="true">{propertyAmenityIcon("cooling")}</span>
                         <span>
                           <small>سیستم سرمایش</small>
                           <strong>{labelForOption(PROPERTY_COOLING_OPTIONS, property.coolingSystem)}</strong>
@@ -1851,7 +1851,7 @@ export function PropertyDetailView({
                     ) : null}
                     {property.heatingSystem ? (
                       <div className="property-spec-amenity-item" key={"heating:" + property.heatingSystem}>
-                        {propertyAmenityIcon("heating")}
+                        <span className="property-spec-amenity-icon" aria-hidden="true">{propertyAmenityIcon("heating")}</span>
                         <span>
                           <small>سیستم گرمایش</small>
                           <strong>{labelForOption(PROPERTY_HEATING_OPTIONS, property.heatingSystem)}</strong>
@@ -1860,7 +1860,7 @@ export function PropertyDetailView({
                     ) : null}
                     {property.otherAmenities.map((value, index) => (
                       <div className="property-spec-amenity-item" key={value + "-" + index}>
-                        {propertyAmenityIcon(value)}
+                        <span className="property-spec-amenity-icon" aria-hidden="true">{propertyAmenityIcon(value)}</span>
                         <span>
                           <small>امکانات</small>
                           <strong>{propertyAmenityLabel(value)}</strong>
