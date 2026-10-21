@@ -983,3 +983,26 @@
     min-height: 44px !important;
   }
 }
+
+
+/* The remaining compact search and active-filter controls also need finger-sized targets. */
+@media (max-width: 720px) {
+  .pf-page .pf-search > button[aria-label="پاک کردن جست‌وجو"],
+  .pf-page .pf-spec-search > button[aria-label="پاک کردن جست‌وجوی امکانات"] {
+    display: inline-grid !important;
+    place-items: center !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
+  }
+  .pf-page .pf-active .pf-chip {
+    min-height: 44px !important;
+    padding-block: 8px !important;
+  }
+  .pf-page .pf-map-marker {
+    min-height: 36px !important;
+    padding-block: 7px !important;
+  }
+}
