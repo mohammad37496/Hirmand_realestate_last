@@ -378,16 +378,24 @@ function PropertyImage({
 }
 
 function Gallery({ property }: { property: Property }) {
-  const images = useMemo(
-    () => [...new Set((property.images ?? []).map(cleanText).filter((src) => src && !isPropertyFallbackImage(src)))],
+  const storedImages = useMemo(
+    () => [...new Set((property.images ?? []).map(cleanText).filter(Boolean))],
     [property.images],
   );
+  const propertyImages = useMemo(
+    () => storedImages.filter((src) => !isPropertyFallbackImage(src)),
+    [storedImages],
+  );
+  // If the database only contains a known category fallback, show it honestly
+  // with an explicit on-image notice instead of pretending the gallery is real.
+  const images = propertyImages.length ? propertyImages : storedImages;
   const [activeIndex, setActiveIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const activeIndexSafe = images.length ? Math.min(activeIndex, images.length - 1) : 0;
   const current = images[activeIndexSafe] || "";
   const currentIsVideo = current ? isVideoUrl(current) : false;
+  const currentIsCategoryFallback = Boolean(current && isPropertyFallbackImage(current));
 
   useEffect(() => {
     setActiveIndex(0);
@@ -448,7 +456,8 @@ function Gallery({ property }: { property: Property }) {
             {current ? (
               <>
                 <div className="hd-gallery-stage">
-                  {renderMedia(current, property.title, true)}
+                  {renderMedia(current, currentIsCategoryFallback ? "تصویر نمونهٔ دسته‌بندی؛ عکس واقعی این ملک نیست" : property.title, true)}
+                  {currentIsCategoryFallback ? <span className="hd-gallery-fallback-note" role="note">تصویر نمونهٔ دسته‌بندی؛ عکس واقعی این ملک نیست</span> : null}
                   {!currentIsVideo ? (
                     <button type="button" className="hd-gallery-expand property-gallery-open" onClick={() => setLightboxOpen(true)} aria-label="نمایش تصویر در اندازهٔ بزرگ">
                       بزرگ‌نمایی تصویر
