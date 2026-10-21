@@ -684,10 +684,6 @@
     color:var(--header-brass);
   }
 
-  .header-redesign .mobile-menu-link-arrow{
-    color:#8a96a3;
-  }
-
   .header-redesign .mobile-menu a.is-current{
     background:var(--header-ink);
     border-color:var(--header-ink);
@@ -695,8 +691,7 @@
     box-shadow:0 7px 18px rgba(11,26,43,.12);
   }
 
-  .header-redesign .mobile-menu a.is-current .mobile-menu-link-main svg,
-  .header-redesign .mobile-menu a.is-current .mobile-menu-link-arrow{
+  .header-redesign .mobile-menu a.is-current .mobile-menu-link-main svg{
     color:#d8b477;
   }
 
