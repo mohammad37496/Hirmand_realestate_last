@@ -477,7 +477,7 @@ function Gallery({ property }: { property: Property }) {
           </div>
 
           {images.length ? (
-            <div className="property-gallery-thumbs hd-gallery-thumbs" aria-label="انتخاب تصویر">
+            <div className="property-gallery-thumbs property-gallery-rail hd-gallery-thumbs" aria-label="انتخاب تصویر">
               {images.map((src, index) => (
                 <button
                   className={"property-gallery-thumb hd-gallery-thumb" + (index === activeIndexSafe ? " is-active" : "")}
