@@ -1,6 +1,6 @@
 /*
  * HIRMAND — property detail icon system
- * Warm ivory icon tiles with crisp Hirmand navy glyphs and restrained brass borders.
+ * Soft blue-gray icon tiles with crisp Hirmand navy glyphs for clear contrast.
  * Scoped through .property-detail-page directly for mobile-browser compatibility.
  */
 
@@ -32,7 +32,7 @@
   visibility: visible !important;
 }
 
-/* Shared premium icon tile: soft ivory surface, navy glyph and muted brass edge. */
+/* Shared premium icon tile: quiet blue-gray surface and a crisp navy glyph. */
 .property-detail-page .property-spec-item-icon,
 .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
   box-sizing: border-box !important;
@@ -45,13 +45,13 @@
   place-items: center !important;
   align-self: flex-start !important;
   overflow: visible !important;
-  border: 1px solid #d7bf8b !important;
+  border: 1px solid #d2dfe6 !important;
   border-radius: 12px !important;
-  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  background: linear-gradient(145deg, #f7fafb 0%, #eaf0f4 100%) !important;
   color: #102d45 !important;
   box-shadow:
-    0 2px 6px rgb(16 45 69 / 7%),
-    inset 0 1px 0 rgb(255 255 255 / 85%) !important;
+    0 2px 6px rgb(16 45 69 / 5%),
+    inset 0 1px 0 rgb(255 255 255 / 95%) !important;
 }
 
 .property-detail-page .property-spec-item-icon > svg.lucide,
@@ -80,14 +80,14 @@
   height: 38px !important;
   min-height: 38px !important;
   padding: 8px !important;
-  border: 1px solid #d7bf8b !important;
+  border: 1px solid #d2dfe6 !important;
   border-radius: 11px !important;
-  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  background: linear-gradient(145deg, #f7fafb 0%, #eaf0f4 100%) !important;
   color: #102d45 !important;
   stroke: #102d45 !important;
   stroke-width: 2.3px !important;
   fill: none !important;
-  box-shadow: 0 2px 6px rgb(16 45 69 / 7%) !important;
+  box-shadow: 0 2px 6px rgb(16 45 69 / 5%) !important;
 }
 
 /* Give each additional amenity icon a stable, explicit wrapper. */
@@ -101,13 +101,13 @@
   min-width: 38px !important;
   height: 38px !important;
   min-height: 38px !important;
-  border: 1px solid #d7bf8b !important;
+  border: 1px solid #d2dfe6 !important;
   border-radius: 11px !important;
-  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  background: linear-gradient(145deg, #f7fafb 0%, #eaf0f4 100%) !important;
   color: #102d45 !important;
   box-shadow:
-    0 2px 6px rgb(16 45 69 / 7%),
-    inset 0 1px 0 rgb(255 255 255 / 85%) !important;
+    0 2px 6px rgb(16 45 69 / 5%),
+    inset 0 1px 0 rgb(255 255 255 / 95%) !important;
 }
 
 .property-detail-page .property-spec-amenity-icon > svg.lucide {
@@ -135,9 +135,9 @@
   height: 38px !important;
   min-height: 38px !important;
   padding: 8px !important;
-  border: 1px solid #d7bf8b !important;
+  border: 1px solid #d2dfe6 !important;
   border-radius: 11px !important;
-  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  background: linear-gradient(145deg, #f7fafb 0%, #eaf0f4 100%) !important;
   color: #102d45 !important;
   stroke: #102d45 !important;
   stroke-width: 2.35px !important;
@@ -248,8 +248,8 @@
 
   .property-detail-page .property-spec-grid > .property-spec-item:hover .property-spec-item-icon {
     transform: translateY(-1px) !important;
-    border-color: #b98536 !important;
-    box-shadow: 0 4px 10px rgb(16 45 69 / 9%), inset 0 1px 0 rgb(255 255 255 / 85%) !important;
+    border-color: #9bb5c5 !important;
+    box-shadow: 0 4px 10px rgb(16 45 69 / 9%), inset 0 1px 0 rgb(255 255 255 / 95%) !important;
   }
 }
 

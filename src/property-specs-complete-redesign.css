@@ -259,11 +259,11 @@
   height: 40px !important;
   min-height: 40px !important;
   margin: 0 !important;
-  border: 1px solid #d7bf8b !important;
+  border: 1px solid #d2dfe6 !important;
   border-radius: 12px !important;
-  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  background: linear-gradient(145deg, #f7fafb 0%, #eaf0f4 100%) !important;
   color: #102d45 !important;
-  box-shadow: 0 2px 6px rgb(16 45 69 / 7%), inset 0 1px 0 rgb(255 255 255 / 85%) !important;
+  box-shadow: 0 2px 6px rgb(16 45 69 / 5%), inset 0 1px 0 rgb(255 255 255 / 95%) !important;
 }
 
 #property-specs-section.property-divar-specs .property-spec-item-icon > svg {
@@ -326,8 +326,8 @@
   }
 
   #property-specs-section.property-divar-specs .property-spec-grid > .property-spec-item:hover .property-spec-item-icon {
-    border-color: #b98536 !important;
-    box-shadow: 0 3px 8px rgb(16 45 69 / 9%), inset 0 1px 0 rgb(255 255 255 / 85%) !important;
+    border-color: #9bb5c5 !important;
+    box-shadow: 0 3px 8px rgb(16 45 69 / 9%), inset 0 1px 0 rgb(255 255 255 / 95%) !important;
   }
 }
 
@@ -481,9 +481,9 @@
   min-width: 38px !important;
   height: 38px !important;
   min-height: 38px !important;
-  border: 1px solid #d7bf8b !important;
+  border: 1px solid #d2dfe6 !important;
   border-radius: 11px !important;
-  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  background: linear-gradient(145deg, #f7fafb 0%, #eaf0f4 100%) !important;
   color: #102d45 !important;
 }
 

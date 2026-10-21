@@ -192,12 +192,12 @@ testRunner.test("complete property specs redesign keeps the Hirmand theme and re
   const specsCss = fs.readFileSync(new URL("../src/property-specs-complete-redesign.css", import.meta.url), "utf8");
   assert.match(specsCss, /#property-specs-section\.property-divar-specs/);
   assert.match(specsCss, /background:[\s\S]*?#102d45/s, "specifications heading/cards should use the Hirmand navy");
-  assert.match(specsCss, /#property-specs-section\.property-divar-specs \.property-spec-item-icon\s*\{[^}]*background:\s*linear-gradient\(145deg, #fffaf0 0%, #f3e4c4 100%\)\s*!important/s,
-    "specification icons should sit on a warm ivory surface instead of a solid navy tile");
+  assert.match(specsCss, /#property-specs-section\.property-divar-specs \.property-spec-item-icon\s*\{[^}]*background:\s*linear-gradient\(145deg, #f7fafb 0%, #eaf0f4 100%\)\s*!important/s,
+    "specification icons should sit on a soft blue-gray surface instead of a distracting yellow tile");
   assert.match(specsCss, /#property-specs-section\.property-divar-specs \.property-spec-item-icon\s*>\s*svg\s*\{[^}]*stroke:\s*#102d45\s*!important/s,
     "specification icon strokes should use readable Hirmand navy");
-  assert.match(specsCss, /#property-specs-section\.property-divar-specs \.property-spec-amenity-icon\s*\{[^}]*background:\s*linear-gradient\(145deg, #fffaf0 0%, #f3e4c4 100%\)\s*!important/s,
-    "amenity icons should use the same ivory palette");
+  assert.match(specsCss, /#property-specs-section\.property-divar-specs \.property-spec-amenity-icon\s*\{[^}]*background:\s*linear-gradient\(145deg, #f7fafb 0%, #eaf0f4 100%\)\s*!important/s,
+    "amenity icons should use the same soft blue-gray palette");
   assert.match(specsCss, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
   assert.match(specsCss, /@media\s*\(max-width:\s*359px\)/, "narrow phones need a one-column fallback");
   assert.match(specsCss, /overflow-wrap:\s*break-word\s*!important/);
@@ -206,16 +206,16 @@ testRunner.test("complete property specs redesign keeps the Hirmand theme and re
   assert.match(rootRoute, /propertyDetailSpecsRedesignCss/);
 });
 
-testRunner.test("property-detail amenity icons use consistent warm ivory and navy styling", () => {
+testRunner.test("property-detail amenity icons use consistent soft blue-gray and navy styling", () => {
   const iconCss = fs.readFileSync(new URL("../src/property-detail-icons-clarity.css", import.meta.url), "utf8");
   assert.match(iconCss, /svg\.lucide\s*\{[^}]*opacity:\s*1\s*!important/s);
   assert.match(iconCss, /svg\.lucide\s*\{[^}]*stroke-width:\s*2\.25px\s*!important/s);
-  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?background:\s*linear-gradient\(145deg, #fffaf0 0%, #f3e4c4 100%\)\s*!important/);
+  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?background:\s*linear-gradient\(145deg, #f7fafb 0%, #eaf0f4 100%\)\s*!important/);
   assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?color:\s*#102d45\s*!important/);
   assert.match(iconCss, /\.property-spec-item-icon\s*>\s*svg\.lucide[\s\S]*?stroke:\s*#102d45\s*!important/);
   assert.match(iconCss, /\.property-spec-amenity-icon\s*\{[^}]*width:\s*38px\s*!important/s);
   assert.match(iconCss, /\.property-spec-amenity-icon\s*>\s*svg\.lucide[\s\S]*?stroke:\s*#102d45\s*!important/);
-  assert.match(iconCss, /\.property-spec-amenity-item\s*>\s*svg\.lucide[\s\S]*?background:\s*linear-gradient\(145deg, #fffaf0 0%, #f3e4c4 100%\)\s*!important/);
+  assert.match(iconCss, /\.property-spec-amenity-item\s*>\s*svg\.lucide[\s\S]*?background:\s*linear-gradient\(145deg, #f7fafb 0%, #eaf0f4 100%\)\s*!important/);
   assert.doesNotMatch(iconCss, /:has\(/i, "the icon layer must work without relational selector support");
   assert.match(propertyDetailViewSource, /className="property-spec-amenity-icon" aria-hidden="true">\{propertyAmenityIcon\("(?:cooling|heating)"|value\)\)\}/);
   assert.equal((propertyDetailViewSource.match(/className="property-spec-amenity-icon"/g) || []).length, 3,
