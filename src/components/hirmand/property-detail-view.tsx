@@ -219,9 +219,14 @@ function normalizePhone(value: string | null | undefined): string {
 }
 
 function whatsappPhone(value: string): string {
-  if (/^09\d{9}$/.test(value)) return "98" + value.slice(1);
-  if (/^989\d{9}$/.test(value)) return value;
-  return "";
+  const international = value.startsWith("0098")
+    ? value.slice(2)
+    : value.startsWith("98")
+      ? value
+      : value.startsWith("0")
+        ? "98" + value.slice(1)
+        : value;
+  return /^989\d{9}$/.test(international) ? international : "";
 }
 
 function hasValidCoordinates(latitude: number | null, longitude: number | null): boolean {
@@ -665,7 +670,7 @@ export function PropertyDetailView({
   const locationLabel = locationParts.join("، ");
   const locationDescription = [cleanText(property.address), ...locationParts].filter(Boolean).join("، ");
   const exactCoordinates = hasValidCoordinates(property.latitude, property.longitude);
-  const publishedDate = formatDate(property.publishedAt);
+  const publishedDate = formatDate(property.publishedAt || property.createdAt);
   const updatedDate = formatDate(property.updatedAt);
   const code = cleanText(property.id).slice(-8).toUpperCase();
   const prices = priceLines(property);
