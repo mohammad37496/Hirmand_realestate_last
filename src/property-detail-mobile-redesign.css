@@ -8,10 +8,6 @@
    ========================================================================== */
 
 @media (max-width: 760px) {
-  body:has(.property-detail-page) {
-    overflow-x: clip;
-  }
-
   body:has(.property-detail-page) .property-detail-page {
     box-sizing: border-box !important;
     width: min(calc(100% - 22px), 620px) !important;
@@ -804,6 +800,7 @@
     max-width: 100% !important;
   }
 
+  /* Bring the consultant card into the first content viewport on phones. */
   body:has(.property-detail-page) .property-detail-page .property-detail-aside {
     position: static !important;
     inset: auto !important;
@@ -811,6 +808,7 @@
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 12px !important;
     grid-area: auto !important;
+    order: -1 !important;
   }
 
   body:has(.property-detail-page) .property-detail-page .property-detail-aside-inner {
