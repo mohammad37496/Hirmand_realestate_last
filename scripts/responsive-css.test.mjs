@@ -163,18 +163,20 @@ testRunner.test("responsive guardrails and property-detail final layers load aft
   assert.match(rootRoute, /import propertyDetailMobileRedesignCss from "\.\.\/property-detail-mobile-redesign\.css\?url";/);
   assert.match(rootRoute, /import propertyDetailPremiumFinalCss from "\.\.\/property-detail-premium-final\.css\?url";/);
   assert.match(rootRoute, /import propertyDetailIconsClarityCss from "\.\.\/property-detail-icons-clarity\.css\?url";/);
+  assert.match(rootRoute, /import propertyDetailSpecsRedesignCss from "\.\.\/property-specs-complete-redesign\.css\?url";/);
   const linkPositions = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: ([A-Za-z][A-Za-z0-9]*) \}/g)].map((match) => ({
     name: match[1],
     index: match.index,
   }));
   assert.ok(linkPositions.length > 0, "root route should link the shared CSS files");
-  assert.equal(linkPositions.at(-1)?.name, "propertyDetailIconsClarityCss", "the icon clarity layer must load last");
+  assert.equal(linkPositions.at(-1)?.name, "propertyDetailSpecsRedesignCss", "the complete property specs redesign must load last");
   const responsiveIndex = linkPositions.findIndex((item) => item.name === "responsiveHardeningCss");
   const mobileDetailIndex = linkPositions.findIndex((item) => item.name === "propertyDetailMobileRedesignCss");
   const premiumDetailIndex = linkPositions.findIndex((item) => item.name === "propertyDetailPremiumFinalCss");
   const iconClarityIndex = linkPositions.findIndex((item) => item.name === "propertyDetailIconsClarityCss");
+  const specsRedesignIndex = linkPositions.findIndex((item) => item.name === "propertyDetailSpecsRedesignCss");
   assert.ok(
-    responsiveIndex >= 0 && mobileDetailIndex > responsiveIndex && premiumDetailIndex > mobileDetailIndex && iconClarityIndex > premiumDetailIndex,
+    responsiveIndex >= 0 && mobileDetailIndex > responsiveIndex && premiumDetailIndex > mobileDetailIndex && iconClarityIndex > premiumDetailIndex && specsRedesignIndex > iconClarityIndex,
     "mobile layout, premium presentation and icon clarity must layer in that order",
   );
   assert.match(propertyDetailMobileCss, /@media \(max-width: 760px\)/);
@@ -185,6 +187,19 @@ testRunner.test("responsive guardrails and property-detail final layers load aft
   assert.match(rootRoute, /<html lang="fa" dir="rtl"/);
 });
 
+
+testRunner.test("complete property specs redesign keeps the Hirmand theme and responsive layout", () => {
+  const specsCss = fs.readFileSync(new URL("../src/property-specs-complete-redesign.css", import.meta.url), "utf8");
+  assert.match(specsCss, /#property-specs-section\.property-divar-specs/);
+  assert.match(specsCss, /background:[\s\S]*?#102d45/s, "specifications heading/cards should use the Hirmand navy");
+  assert.match(specsCss, /#f4d48a/, "specification icons should retain the warm brass accent");
+  assert.match(specsCss, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(specsCss, /@media\s*\(max-width:\s*359px\)/, "narrow phones need a one-column fallback");
+  assert.match(specsCss, /overflow-wrap:\s*break-word\s*!important/);
+  assert.match(specsCss, /focus-visible/, "accordion controls need a visible keyboard focus");
+  assert.doesNotMatch(specsCss, /:has\(/i, "the new section design must not depend on relational selectors");
+  assert.match(rootRoute, /propertyDetailSpecsRedesignCss/);
+});
 
 testRunner.test("property-detail amenity icons use consistent accessible navy/brass tiles", () => {
   const iconCss = fs.readFileSync(new URL("../src/property-detail-icons-clarity.css", import.meta.url), "utf8");
