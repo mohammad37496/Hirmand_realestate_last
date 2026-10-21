@@ -174,6 +174,7 @@ testRunner.test("responsive guardrails and property mobile redesign load after t
   assert.match(propertyDetailMobileCss, /\.property-mobile-actions\s*\{[^}]*position:\s*fixed\s*!important/s);
   assert.match(propertyDetailMobileCss, /padding:\s*12px 0 calc\(126px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(propertyDetailMobileCss, /\.property-gallery-main > picture > img[\s\S]*?object-fit:\s*contain\s*!important/s, "the mobile redesign must not crop the listing photo or its permanent watermark");
+  assert.match(propertyDetailMobileCss, /details:not\(\[open\]\)\s*>\s*:not\(summary\)\s*\{[^}]*display:\s*none\s*!important/s, "native accordions must hide content while closed");
   assert.match(rootRoute, /<html lang="fa" dir="rtl"/);
 });
 
