@@ -134,8 +134,9 @@ function priceLines(property: Property): PriceLine[] {
 
 function pricePerMeter(property: Property): string {
   if (property.transactionType !== "buy" && property.transactionType !== "sell") return "";
-  if (property.areaM2 == null || property.areaM2 <= 0 || !cleanText(property.price)) return "";
-  const amount = parseAmount(property.price);
+  const rawPrice = cleanText(property.price);
+  if (property.areaM2 == null || property.areaM2 <= 0 || !rawPrice) return "";
+  const amount = parseAmount(rawPrice);
   if (amount <= 0) return "";
   return formatToman(Math.round(amount / property.areaM2)) + " تومان به‌ازای هر متر";
 }
