@@ -1674,3 +1674,126 @@
     display: none !important;
   }
 }
+
+/* Final mobile safety pass: preserve natural Persian wrapping after all desktop detail layers. */
+@media (max-width: 760px) {
+  html body:has(.property-detail-page) .property-detail-page {
+    width: min(calc(100% - 20px), 620px) !important;
+    max-width: calc(100% - 20px) !important;
+    min-width: 0 !important;
+    padding-bottom: calc(136px + env(safe-area-inset-bottom)) !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page :is(
+    h1, h2, h3, h4, p, span, strong, small, a, button, label, dd, dt, time
+  ) {
+    min-width: 0;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    hyphens: none !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page :is(
+    .property-detail-top,
+    .property-detail-top-gallery,
+    .property-detail-summary,
+    .property-detail-content,
+    .property-detail-main,
+    .property-detail-aside,
+    .property-detail-aside-inner,
+    .property-gallery-wrap,
+    .property-gallery-main,
+    .property-detail-body,
+    .property-location-section,
+    .property-related
+  ) {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-detail-top {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: none !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-detail-content {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: none !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-detail-aside {
+    position: static !important;
+    inset: auto !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page :is(
+    .property-gallery-main img,
+    .property-gallery-main video,
+    .property-location-section iframe
+  ) {
+    display: block;
+    max-width: 100% !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-price-row-label {
+    flex: 0 1 38% !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    word-break: normal !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-price-value {
+    flex: 0 1 auto !important;
+    max-width: 65% !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    font-size: clamp(.95rem, 4.1vw, 1.2rem) !important;
+  }
+}
+
+@media (max-width: 430px) {
+  html body:has(.property-detail-page) .property-detail-page .property-detail-summary {
+    padding: clamp(12px, 3.4vw, 15px) !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-detail-title-block h1,
+  html body:has(.property-detail-page) .property-detail-page .property-detail-summary-head h1 {
+    max-width: 100% !important;
+    font-size: clamp(1.18rem, 5.1vw, 1.43rem) !important;
+    line-height: 1.8 !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-primary-contact > * {
+    min-width: 0 !important;
+    white-space: normal !important;
+    text-align: center !important;
+  }
+}
+
+@media (max-width: 380px) {
+  html body:has(.property-detail-page) .property-detail-page .property-summary-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-summary-facts > div {
+    grid-template-columns: 26px minmax(0, 1fr) !important;
+    gap: 7px !important;
+    padding: 7px 8px !important;
+    min-width: 0 !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-mobile-actions {
+    inset-inline: 6px !important;
+    gap: 4px !important;
+    padding: 6px !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-mobile-action {
+    min-width: 0 !important;
+    font-size: .6rem !important;
+  }
+}
+
