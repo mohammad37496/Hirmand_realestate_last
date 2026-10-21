@@ -686,3 +686,14 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
     box-shadow: 0 3px 10px rgb(0 0 0 / 12%) !important;
   }
 }
+
+/* Desktop content order: place consultant/contact details on the right
+   and keep the wider property information column on the left. */
+@media (min-width: 861px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+    main#top.property-detail-page.hd-property-detail-v2
+    .property-detail-content.hd-content-grid {
+    grid-template-columns: minmax(0, 300px) minmax(0, 1fr) !important;
+    grid-template-areas: "aside main" !important;
+  }
+}
