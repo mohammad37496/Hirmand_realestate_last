@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminMobileManagementRouteImport } from './routes/admin-mobile-management'
@@ -233,9 +234,15 @@ const VSlugIdRoute = VSlugIdRouteImport.update({
   path: '/v/$slug/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin': typeof AdminRoute
   '/admin-mobile-management': typeof AdminMobileManagementRouteWithChildren
   '/areas': typeof AreasRouteWithChildren
@@ -275,6 +282,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin': typeof AdminRoute
   '/admin-mobile-management': typeof AdminMobileManagementRouteWithChildren
   '/budget-match': typeof BudgetMatchRoute
@@ -311,6 +319,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/admin-mobile-management': typeof AdminMobileManagementRouteWithChildren
@@ -353,6 +362,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/auth/$'
     | '/admin'
     | '/admin-mobile-management'
     | '/areas'
@@ -392,6 +402,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/auth/$'
     | '/admin'
     | '/admin-mobile-management'
     | '/budget-match'
@@ -427,6 +438,7 @@ export interface FileRouteTypes {
     | '/v/$slug/$id'
   id:
     | '__root__'
+    | '/api/auth/$'
     | '/'
     | '/admin'
     | '/admin-mobile-management'
@@ -467,6 +479,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AdminMobileManagementRoute: typeof AdminMobileManagementRouteWithChildren
@@ -501,6 +514,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -817,6 +837,7 @@ const PropertiesRouteWithChildren = PropertiesRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AdminMobileManagementRoute: AdminMobileManagementRouteWithChildren,
