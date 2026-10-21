@@ -241,61 +241,35 @@ font:   "Vazirmatn", Tahoma, Arial
 نام‌های legacy (`--bg`, `--surface`, `--gold`, `--ink`, `--shadow`, …) در همان فایل به توکن‌های بالا
 نگاشت شده‌اند؛ بازتم‌کردن کل سایت با تغییر همین یک بلوک انجام می‌شود.
 
-### ۶.۲ ترتیب لود CSS — `src/routes/__root.tsx`
+### ۶.۲ ترتیب لود CSS — src/routes/__root.tsx
 
-```text
-1  styles.css                      9487 خط · 500 !important  ← reset + کامپوننت‌های قدیمی
-2  properties-pro.css              2128 · 108
-3  theme-pro.css                   5093 ·  15   ← تعریف توکن‌ها و پایه
-4  theme-pro-pages.css             2113 ·   6
-5  mobile.css                       851 · 106
-6  refinements.css                 1259 ·   0
-7  ui-clarity.css                  4221 · 2355
-8  property-detail-pro.css         4821 · 1386
-9  mobile-device-fixes.css          396 ·  98
-10 theme-harmony.css               2639 · 1218
-11 property-card.css                645 ·   2
-12 home-property-layout.css         367 ·   0
-13 property-detail-redesign.css    3874 · 1743
-14 budget-matcher-redesign.css      706 · 311
-15 property-detail-light-theme.css 2379 · 1219  ← لایه‌ی نهایی صفحه‌ی جزئیات
-```
+ترتیب واقعی importها باید با آرایهٔ links در src/routes/__root.tsx تطبیق داده شود. ترتیب فعلی (پس از اصلاح لایهٔ موبایل) به این شکل است:
 
-**قانون:** تساوی specificity با ترتیب منبع برنده است. هرچه شماره بزرگ‌تر، هرچه دیرتر و غالب‌تر.
+| ترتیب | فایل | مسئولیت |
+|---:|---|---|
+| 1 | styles.css | reset و استایل‌های پایه |
+| 2–10 | properties-pro.css، theme-pro.css، theme-pro-pages.css، mobile.css، refinements.css، ui-clarity.css، property-detail-pro.css، mobile-device-fixes.css، theme-harmony.css | پوسته و لایه‌های قدیمی/عمومی |
+| 11–14 | property-card.css، home-property-layout.css، property-detail-redesign.css، budget-matcher-redesign.css | کارت‌ها و بازطراحی‌های بخش‌ها |
+| 15 | property-detail-light-theme.css | پایهٔ روشن صفحهٔ جزئیات و aliasهای --hr-* |
+| 16–21 | admin-mobile-clarity.css، admin-matching.css، admin-ops.css، smart-tools.css، desktop-nav-readability.css، header-redesign.css | پنل و chrome عمومی |
+| 22–29 | property-detail-flow.css، property-tool-center.css، property-detail-polish.css، homepage-polish.css، properties-divar-redesign.css، properties-filters-redesign.css، properties-marketplace-polish.css، mobile-responsive-hardening.css | جریان صفحه و اصلاحات عمومی تکمیلی |
+| 30 | property-detail-premium-final.css | لایهٔ نهایی ارائهٔ دسکتاپ/تبلت و جزئیات بصری |
+| 31 | property-detail-icons-clarity.css | کنتراست و اندازهٔ آیکون‌های صفحه |
+| 32 | property-specs-complete-redesign.css | بخش مشخصات و breakpointهای اختصاصی آن |
+| 33 | property-detail-mobile-redesign.css | آخرین لایهٔ responsive صفحهٔ جزئیات |
 
-### ۶.۳ لایه‌ی نهایی — `property-detail-light-theme.css`
+**قاعده:** لایهٔ موبایل بعد از تمام لایه‌های صفحه بارگذاری می‌شود تا اصلاحات عرض کم ناخواسته توسط قواعد دسکتاپ بازنویسی نشوند. بخش مشخصات selectorهای دارای ID دارد؛ breakpoint اختصاصی این بخش باید در property-specs-complete-redesign.css نگه داشته شود. از افزودن stylesheet تکراری خودداری کنید.
 
-بلوک `:root` این فایل فقط **آلیاس** می‌سازد (`--hr-*` → توکن‌های `theme-pro`) و یک متغیر اختصاصی اضافه می‌کند:
+### ۶.۳ مالکیت لایه‌های طراحی
 
-```css
---hr-mobile-bar: 78px;   /* ارتفاع نوار fixed موبایل؛ padding-bottom صفحه باید از آن بزرگ‌تر باشد */
-```
+property-detail-light-theme.css دیگر به‌تنهایی آخرین لایهٔ CSS نیست؛ این فایل پایهٔ روشن صفحه و aliasهای متغیرهای تم را فراهم می‌کند. در کَسکِید فعلی:
 
-ساختار لایه (به ترتیب فایل):
+- property-detail-premium-final.css چیدمان اصلی، خلاصهٔ فایل، قیمت، محتوا، نوار اقدام موبایل و کارت‌های صفحه را شکل می‌دهد.
+- property-detail-icons-clarity.css مسئول یکسان‌سازی stroke، اندازه و کنتراست آیکون‌هاست.
+- property-specs-complete-redesign.css شبکه و کارت‌های مشخصات را مالک است و به‌دلیل selectorهای دارای ID، قواعد responsive مربوط به همان بخش باید در همان فایل بماند.
+- property-detail-mobile-redesign.css لایهٔ responsive پایانی است: عرض صفحه، ستون‌بندی، خوانایی فارسی، فضای امن پایین نمایشگر و رفتار چیدمان در موبایل را اصلاح می‌کند.
 
-| خط | بخش |
-|---|---|
-| ۴۵ | Route canvas (`body:has(.property-detail-page)`) |
-| ۷۷ | Breadcrumb |
-| ۱۲۲ | HERO: gallery + summary — `grid-template-columns: minmax(0,1.34fr) minmax(390px,.66fr)` |
-| ۳۳۹ | Summary card |
-| ۷۴۷ | CONTENT + SIDEBAR |
-| ۷۷۷ | Section heading |
-| ۸۳۴ | Specifications — accordion در موبایل، grid باز در دسکتاپ |
-| ۱۰۳۸ | Description / features |
-| ۱۱۷۲ | Location |
-| ۱۲۵۴ | Sidebar — `position: sticky; top: 94px` |
-| ۱۵۰۷ | Final CTA |
-| ۱۵۸۵ | Conversion tool |
-| ۱۶۶۳ | Related listings |
-| ۱۷۲۴ | Mobile fixed actions — تنها نوار fixed این مسیر |
-| ۱۷۳۹ | Lightbox (تنها سطح تیره‌ی عمدی) |
-| ۱۸۲۴ | Footer روی این مسیر |
-| ۱۸۴۳ | Tablet ≤1180 |
-| ۱۸۸۵ | Stacked ≤900 (sidebar وارد جریان محتوا) |
-| ۱۹۱۹ | Phone ≤720 (accordion، ریل افقی، نوار تماس fixed) |
-| ۲۲۷۸ | Small phones ≤390 |
-| ۲۳۲۷ | Reduced motion / print |
+همهٔ این لایه‌ها باید از توکن‌های تم اصلی استفاده کنند (navy/brass، --paper، --card، --line، شعاع و سایهٔ تعریف‌شده). از ساخت پالت موازی یا selectorهای عمومی خارج از .property-detail-page خودداری شود.
 
 ### ۶.۴ z-index — معماری فعلی
 
