@@ -960,3 +960,26 @@
     transition: none;
   }
 }
+
+
+/* Accessible touch targets for the compact listing view switcher and map controls. */
+@media (max-width: 720px) {
+  .pf-page .pf-results-head .pf-head-actions .pf-views button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 8px !important;
+    gap: 6px !important;
+    line-height: 1.3 !important;
+  }
+  .pf-page .pf-map-popup-close {
+    display: inline-grid !important;
+    place-items: center !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+}
