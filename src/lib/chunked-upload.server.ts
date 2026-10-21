@@ -28,6 +28,7 @@ import {
 } from "@/lib/admin-rate-limit.server";
 import { dbSource, getSql } from "@/lib/db";
 import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
+import { matchesUploadSessionScope, uploadSessionScopePrefix } from "@/lib/upload-session-scope";
 import {
   deleteStoredMedia,
   getMediaMeta,
@@ -149,6 +150,7 @@ export async function handleChunkedUpload(
   config: ChunkedUploadConfig,
 ): Promise<unknown> {
   setResponseHeader(event, "cache-control", "no-store");
+  const sessionPathPrefix = uploadSessionScopePrefix(config.pathPrefix);
 
   const adminAccess = config.access !== "public";
   if (adminAccess && !await verifyAdminSessionToken(getCookie(event, ADMIN_SESSION_COOKIE))) {
@@ -176,7 +178,7 @@ export async function handleChunkedUpload(
     }
 
     const session = await loadSession(uploadIdHeader);
-    if (!session || String(session.kind ?? "") !== config.kind) {
+    if (!matchesUploadSessionScope(session, config.kind, config.pathPrefix)) {
       throw httpError("نشست آپلود پیدا نشد یا برای این مسیر معتبر نیست.", 404);
     }
     if (String(session.completion_state ?? "pending") !== "pending") {
