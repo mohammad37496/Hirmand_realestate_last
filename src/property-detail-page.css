@@ -682,3 +682,12 @@
     font-size: .73rem;
   }
 }
+
+@media (min-width: 721px) {
+  /* The expanded specification list is read-only on desktop; keep the
+     native disclosure interactive on compact screens where space matters. */
+  .hd-property-detail-v2 .property-specs-accordion > summary {
+    pointer-events: none;
+    cursor: default;
+  }
+}
