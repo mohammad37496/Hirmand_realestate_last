@@ -206,12 +206,28 @@ export async function handleChunkedUpload(
     }
 
     const sql = await getSql();
-    await sql.query(
-      `insert into media_upload_chunks (session_id, chunk_index, data)
-       values ($1, $2, $3)
-       on conflict (session_id, chunk_index) do update set data = excluded.data`,
-      [uploadIdHeader, index, bytes],
+    // Serialize chunk writes with completion. Both paths lock the same session
+    // row and the write re-checks kind, storage prefix, and pending state.
+    const savedChunk = await sql.query<{ session_id: string }>(
+      `with upload_session as (
+         select id from media_upload_sessions
+         where id = $1
+           and kind = $4
+           and left(pathname, length($5)) = $5
+           and completion_state = 'pending'
+         for update
+       ), saved_chunk as (
+         insert into media_upload_chunks (session_id, chunk_index, data)
+         select id, $2, $3 from upload_session
+         on conflict (session_id, chunk_index) do update set data = excluded.data
+         returning session_id
+       )
+       select session_id from saved_chunk`,
+      [uploadIdHeader, index, bytes, config.kind, sessionPathPrefix],
     );
+    if (!savedChunk.length) {
+      throw httpError("این نشست آپلود برای این مسیر معتبر نیست یا در حال نهایی‌سازی است.", 409);
+    }
 
     const counters = await sql.query<SessionRow>(
       `update media_upload_sessions
