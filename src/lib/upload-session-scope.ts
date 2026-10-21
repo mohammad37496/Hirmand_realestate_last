@@ -8,7 +8,9 @@ export type UploadSessionScopeCandidate = {
 };
 
 export function uploadSessionScopePrefix(pathPrefix: string): string {
-  return `${pathPrefix.replace(/\\/+$/, "")}/`;
+  let normalized = pathPrefix;
+  while (normalized.endsWith("/")) normalized = normalized.slice(0, -1);
+  return `${normalized}/`;
 }
 
 export function matchesUploadSessionScope(
