@@ -158,24 +158,40 @@ testRunner.test("compact property-detail actions keep touch-friendly hit areas o
   assert.match(renovationTrackerCss, /\.property-renovation-row button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px/s);
 });
 
-testRunner.test("responsive guardrails and property mobile redesign load after the older global styles", () => {
+testRunner.test("responsive guardrails and property-detail final layers load after the older global styles", () => {
   assert.match(rootRoute, /import responsiveHardeningCss from "\.\.\/mobile-responsive-hardening\.css\?url";/);
   assert.match(rootRoute, /import propertyDetailMobileRedesignCss from "\.\.\/property-detail-mobile-redesign\.css\?url";/);
+  assert.match(rootRoute, /import propertyDetailPremiumFinalCss from "\.\.\/property-detail-premium-final\.css\?url";/);
+  assert.match(rootRoute, /import propertyDetailIconsClarityCss from "\.\.\/property-detail-icons-clarity\.css\?url";/);
   const linkPositions = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: ([A-Za-z][A-Za-z0-9]*) \}/g)].map((match) => ({
     name: match[1],
     index: match.index,
   }));
   assert.ok(linkPositions.length > 0, "root route should link the shared CSS files");
-  assert.equal(linkPositions.at(-1)?.name, "propertyDetailMobileRedesignCss", "the dedicated mobile property-detail layer must load last");
+  assert.equal(linkPositions.at(-1)?.name, "propertyDetailIconsClarityCss", "the icon clarity layer must load last");
   const responsiveIndex = linkPositions.findIndex((item) => item.name === "responsiveHardeningCss");
   const mobileDetailIndex = linkPositions.findIndex((item) => item.name === "propertyDetailMobileRedesignCss");
-  assert.ok(responsiveIndex >= 0 && mobileDetailIndex > responsiveIndex, "property mobile layout must win over existing responsive rules");
+  const premiumDetailIndex = linkPositions.findIndex((item) => item.name === "propertyDetailPremiumFinalCss");
+  const iconClarityIndex = linkPositions.findIndex((item) => item.name === "propertyDetailIconsClarityCss");
+  assert.ok(
+    responsiveIndex >= 0 && mobileDetailIndex > responsiveIndex && premiumDetailIndex > mobileDetailIndex && iconClarityIndex > premiumDetailIndex,
+    "mobile layout, premium presentation and icon clarity must layer in that order",
+  );
   assert.match(propertyDetailMobileCss, /@media \(max-width: 760px\)/);
   assert.match(propertyDetailMobileCss, /\.property-mobile-actions\s*\{[^}]*position:\s*fixed\s*!important/s);
   assert.match(propertyDetailMobileCss, /padding:\s*12px 0 calc\(126px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(propertyDetailMobileCss, /\.property-gallery-main > picture > img[\s\S]*?object-fit:\s*contain\s*!important/s, "the mobile redesign must not crop the listing photo or its permanent watermark");
   assert.match(propertyDetailMobileCss, /details:not\(\[open\]\)\s*>\s*:not\(summary\)\s*\{[^}]*display:\s*none\s*!important/s, "native accordions must hide content while closed");
   assert.match(rootRoute, /<html lang="fa" dir="rtl"/);
+});
+
+
+testRunner.test("property-detail icons keep clear contrast and visible stroke weight", () => {
+  const iconCss = fs.readFileSync(new URL("../src/property-detail-icons-clarity.css", import.meta.url), "utf8");
+  assert.match(iconCss, /svg\.lucide\s*\{[^}]*opacity:\s*1\s*!important/s);
+  assert.match(iconCss, /svg\.lucide\s*\{[^}]*stroke-width:\s*2\.25px\s*!important/s);
+  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?background:\s*#f7ecd6\s*!important/);
+  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?color:\s*#102d45\s*!important/);
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
