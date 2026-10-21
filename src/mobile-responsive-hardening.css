@@ -2171,3 +2171,16 @@ svg {
   }
 }
 
+/* Desktop watermark crop guard
+   Permanently watermarked photos carry their mark inside the original pixels.
+   The 16:10 desktop hero uses object-fit: cover, which can crop a logo/text
+   positioned along the source image's bottom or top edge. Show the whole
+   watermarked asset on desktop while preserving the existing cover treatment
+   for ordinary photos and the current mobile presentation. */
+@media (min-width: 721px) {
+  body:has(.property-detail-page) .property-detail-page .property-gallery-wrap .property-gallery .property-gallery-main > picture > img[src*="-watermarked.webp"] {
+    object-fit: contain !important;
+    object-position: center !important;
+    background: var(--hr-panel-warm, var(--card-2)) !important;
+  }
+}
