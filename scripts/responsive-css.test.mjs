@@ -28,6 +28,7 @@ const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.c
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
+const propertyDetailMobileCss = fs.readFileSync(new URL("../src/property-detail-mobile-redesign.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
 const verifyWorkflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
@@ -157,14 +158,22 @@ testRunner.test("compact property-detail actions keep touch-friendly hit areas o
   assert.match(renovationTrackerCss, /\.property-renovation-row button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px/s);
 });
 
-testRunner.test("responsive guardrails load after the older global styles", () => {
+testRunner.test("responsive guardrails and property mobile redesign load after the older global styles", () => {
   assert.match(rootRoute, /import responsiveHardeningCss from "\.\.\/mobile-responsive-hardening\.css\?url";/);
+  assert.match(rootRoute, /import propertyDetailMobileRedesignCss from "\.\.\/property-detail-mobile-redesign\.css\?url";/);
   const linkPositions = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: ([A-Za-z][A-Za-z0-9]*) \}/g)].map((match) => ({
     name: match[1],
     index: match.index,
   }));
   assert.ok(linkPositions.length > 0, "root route should link the shared CSS files");
-  assert.equal(linkPositions.at(-1)?.name, "responsiveHardeningCss", "responsive guardrails must load last");
+  assert.equal(linkPositions.at(-1)?.name, "propertyDetailMobileRedesignCss", "the dedicated mobile property-detail layer must load last");
+  const responsiveIndex = linkPositions.findIndex((item) => item.name === "responsiveHardeningCss");
+  const mobileDetailIndex = linkPositions.findIndex((item) => item.name === "propertyDetailMobileRedesignCss");
+  assert.ok(responsiveIndex >= 0 && mobileDetailIndex > responsiveIndex, "property mobile layout must win over existing responsive rules");
+  assert.match(propertyDetailMobileCss, /@media \(max-width: 760px\)/);
+  assert.match(propertyDetailMobileCss, /\.property-mobile-actions\s*\{[^}]*position:\s*fixed\s*!important/s);
+  assert.match(propertyDetailMobileCss, /padding:\s*12px 0 calc\(126px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(propertyDetailMobileCss, /\.property-gallery-main > picture > img[\s\S]*?object-fit:\s*contain\s*!important/s, "the mobile redesign must not crop the listing photo or its permanent watermark");
   assert.match(rootRoute, /<html lang="fa" dir="rtl"/);
 });
 
