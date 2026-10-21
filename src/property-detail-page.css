@@ -693,3 +693,32 @@
     cursor: default;
   }
 }
+
+
+.hd-gallery-fallback-note {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  max-width: calc(100% - 24px);
+  padding: 7px 10px;
+  border: 1px solid #dfd3bc;
+  border-radius: 9px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 3px 12px rgb(21 36 48 / 10%);
+  color: var(--navy-800, #12293f);
+  font-size: .76rem;
+  font-weight: 750;
+  line-height: 1.7;
+  text-align: right;
+  pointer-events: none;
+}
+@media (max-width: 420px) {
+  .hd-gallery-fallback-note {
+    top: 8px;
+    right: 8px;
+    max-width: calc(100% - 16px);
+    padding: 5px 7px;
+    font-size: .7rem;
+  }
+}
