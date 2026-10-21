@@ -123,7 +123,7 @@ test("media uploads retain server diagnostics for finalization failures", () => 
 
 test("successful finalization keeps a replay receipt but releases chunk payloads", () => {
   assert.match(mediaProtocol, /completion_result is not null/);
-  assert.match(mediaProtocol, /where id = \$1 and kind = \$2 and completion_result is not null/);
+  assert.match(mediaProtocol, /where id = \$1 and kind = \$2[\s\S]*and completion_result is not null/);
   const resultWrite = mediaProtocol.indexOf("set completion_result = $2::jsonb");
   const resultReturn = mediaProtocol.indexOf("return { ...resultObject, storage: stored.storage }", resultWrite);
   assert.ok(resultWrite >= 0 && resultReturn > resultWrite);
@@ -271,4 +271,15 @@ test("FFmpeg release URL uses the same repository as its pinned release assets",
   assert.doesNotMatch(ffmpegProvisioner, /\|\| "https:\/\/github\.com\/eugeneware\/ffmpeg-static\/releases\/download"/);
   assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-28-g669f5ab083-linux64-gpl-9\.0\.tar\.xz/);
   assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
+});
+
+const authApiRoute = await readFile(
+  new URL("../src/routes/api/auth/$.ts", import.meta.url),
+  "utf8",
+);
+
+test("Better Auth catch-all route mounts GET and POST on the same-origin API path", () => {
+  assert.match(authApiRoute, /createFileRoute\("\/api\/auth\/\$"\)/);
+  assert.match(authApiRoute, /GET:\s*\(\{ request \}.*auth\.handler\(request\)/s);
+  assert.match(authApiRoute, /POST:\s*\(\{ request \}.*auth\.handler\(request\)/s);
 });
