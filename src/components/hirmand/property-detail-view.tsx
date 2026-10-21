@@ -480,6 +480,7 @@ function Gallery({ property }: { property: Property }) {
                   onClick={() => setActiveIndex(index)}
                   aria-label={"نمایش تصویر " + (index + 1).toLocaleString("fa-IR")}
                   aria-pressed={index === activeIndexSafe}
+                  aria-current={index === activeIndexSafe ? "true" : undefined}
                 >
                   {isVideoUrl(src) ? <span className="hd-video-thumb">ویدئو</span> : <PropertyImage src={src} alt="" />}
                 </button>
@@ -973,7 +974,7 @@ export function PropertyDetailView({
 
         <section id="property-tools-section" className="hd-section property-tool-center" aria-labelledby="hd-tool-center-heading">
           <div className="hd-section-heading">
-            <div><span className="hd-section-eyebrow">خدمات و امکانات تکمیلی</span><h2 id="hd-tool-center-heading">ابزارهای هوشمند این فایل</h2></div>
+            <div><span className="hd-section-eyebrow">ابزارهای تکمیلی</span><h2 id="hd-tool-center-heading">ابزارهای هوشمند این فایل</h2></div>
             <span className="hd-section-count">اختیاری</span>
           </div>
           <p className="hd-tools-intro">ابزارهای عملی سامانه برای بررسی، هماهنگی بازدید، درخواست مدارک و مدیریت تصمیم‌گیری در دسترس‌اند. هر بخش را فقط در صورت نیاز باز کنید.</p>
