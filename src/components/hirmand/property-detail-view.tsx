@@ -437,7 +437,7 @@ function Gallery({ property }: { property: Property }) {
         />
       );
     }
-    return <PropertyImage src={src} alt={alt} className="hd-gallery-image" priority={priority} />;
+    return <picture className="hd-gallery-picture"><PropertyImage src={src} alt={alt} className="hd-gallery-image" priority={priority} /></picture>;
   };
 
   return (
@@ -450,7 +450,7 @@ function Gallery({ property }: { property: Property }) {
                 <div className="hd-gallery-stage">
                   {renderMedia(current, property.title, true)}
                   {!currentIsVideo ? (
-                    <button type="button" className="hd-gallery-expand" onClick={() => setLightboxOpen(true)} aria-label="نمایش تصویر در اندازهٔ بزرگ">
+                    <button type="button" className="hd-gallery-expand property-gallery-open" onClick={() => setLightboxOpen(true)} aria-label="نمایش تصویر در اندازهٔ بزرگ">
                       بزرگ‌نمایی تصویر
                     </button>
                   ) : null}
