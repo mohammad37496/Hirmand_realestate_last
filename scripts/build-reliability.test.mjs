@@ -272,3 +272,15 @@ test("FFmpeg release URL uses the same repository as its pinned release assets",
   assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-28-g669f5ab083-linux64-gpl-9\.0\.tar\.xz/);
   assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
 });
+
+
+const authApiRoute = await readFile(
+  new URL("../src/routes/api/auth/$.ts", import.meta.url),
+  "utf8",
+);
+
+test("Better Auth catch-all route mounts GET and POST on the same-origin API path", () => {
+  assert.match(authApiRoute, /createFileRoute\("\/api\/auth\/\$"\)/);
+  assert.match(authApiRoute, /GET:\s*\(\{ request \}.*auth\.handler\(request\)/s);
+  assert.match(authApiRoute, /POST:\s*\(\{ request \}.*auth\.handler\(request\)/s);
+});
