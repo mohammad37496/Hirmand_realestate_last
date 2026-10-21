@@ -239,8 +239,8 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
 
 testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumbnails touch-friendly", () => {
   assert.match(propertyDetailV2Css, /\.hd-gallery-stage\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/s);
-  assert.match(propertyDetailV2Css, /\.hd-gallery-image,\s*\.hd-gallery-video[\s\S]*?object-fit:\s*contain/s,
-    "listing photos and videos must remain fully visible");
+  assert.match(propertyDetailV2Css, /\.property-detail-page\.hd-property-detail-v2 \.hd-gallery-stage img\.hd-gallery-image,\s*\.property-detail-page\.hd-property-detail-v2 \.hd-gallery-stage video\.hd-gallery-video,[\s\S]*?object-fit:\s*contain\s*!important/s,
+    "listing photos and videos must remain fully visible above legacy site-wide responsive rules");
   assert.match(propertyDetailV2Css, /\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumbs,\s*\.hd-gallery-thumbs\s*\{[^}]*overflow-x:\s*auto/s,
     "the thumbnail rail must remain scrollable");
   assert.match(propertyDetailV2Css, /@media \(max-width:\s*720px\)[\s\S]*?\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumb,\s*\.hd-gallery-thumb\s*\{[^}]*width:\s*75px;[^}]*min-width:\s*75px/s);
