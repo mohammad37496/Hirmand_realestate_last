@@ -661,3 +661,28 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
     transform: none !important;
   }
 }
+
+/* Desktop-only: keep the gallery zoom affordance compact and unobtrusive.
+   The legacy button rules set a taller, generously padded control; this scoped
+   override wins only on desktop and leaves the mobile tap target unchanged. */
+@media (min-width: 861px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+    main#top.property-detail-page.hd-property-detail-v2
+    .hd-gallery-stage > button.hd-gallery-expand.property-gallery-open {
+    display: inline-flex !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: max-content !important;
+    min-height: 30px !important;
+    height: 30px !important;
+    max-height: 30px !important;
+    padding: 4px 9px !important;
+    gap: 5px !important;
+    border-radius: 8px !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+    white-space: nowrap !important;
+    box-shadow: 0 3px 10px rgb(0 0 0 / 12%) !important;
+  }
+}
