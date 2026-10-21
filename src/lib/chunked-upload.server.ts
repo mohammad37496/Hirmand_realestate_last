@@ -338,9 +338,11 @@ export async function handleChunkedUpload(
     const completedRows = await sql.query<SessionRow>(
       `select completion_result, stored_storage
        from media_upload_sessions
-       where id = $1 and kind = $2 and completion_result is not null
+       where id = $1 and kind = $2
+         and left(pathname, length($3)) = $3
+         and completion_result is not null
        limit 1`,
-      [uploadId, config.kind],
+      [uploadId, config.kind, sessionPathPrefix],
     );
     const completedSession = completedRows[0];
     if (
@@ -361,6 +363,7 @@ export async function handleChunkedUpload(
        set completion_state = 'completing', completion_started_at = current_timestamp
        where id = $1
          and kind = $2
+         and left(pathname, length($3)) = $3
          and (
            completion_state = 'pending'
            or (
@@ -369,7 +372,7 @@ export async function handleChunkedUpload(
            )
          )
        returning *`,
-      [uploadId, config.kind],
+      [uploadId, config.kind, sessionPathPrefix],
     );
     const session = claimed[0];
     if (!session) {
@@ -519,8 +522,8 @@ export async function handleChunkedUpload(
     if (uploadId) {
       const sql = await getSql();
       await sql.query(
-        "delete from media_upload_sessions where id = $1 and kind = $2 and completion_state = 'pending'",
-        [uploadId, config.kind],
+        "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3 and completion_state = 'pending'",
+        [uploadId, config.kind, sessionPathPrefix],
       );
     }
     return { aborted: true };
