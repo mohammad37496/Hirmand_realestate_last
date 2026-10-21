@@ -673,7 +673,13 @@ export function PropertyDetailView({
     );
   }
 
-  const title = cleanText(property.title) || "جزئیات فایل ملک";
+  const title = (cleanText(property.title) || "جزئیات فایل ملک")
+    .replace(/\s*[|｜]\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/(\d+)\s*متر(?=\s|$|[،؛.,])/g, "$1 متری")
+    .replace(/(\d+)\s*خواب(?=\s|$|[،؛.,])/g, "$1 خوابه")
+    .replace(/\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]);
   const typeLabel = PROPERTY_TYPE_LABEL[property.propertyType];
   const transactionLabel = TRANSACTION_LABEL[property.transactionType];
   const locationParts = [cleanText(property.neighborhood), cleanText(property.city)].filter(Boolean);
