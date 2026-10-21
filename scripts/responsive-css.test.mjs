@@ -241,9 +241,9 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
   assert.match(propertyDetailV2Css, /\.hd-gallery-stage\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/s);
   assert.match(propertyDetailV2Css, /\.hd-gallery-image,\s*\.hd-gallery-video[\s\S]*?object-fit:\s*contain/s,
     "listing photos and videos must remain fully visible");
-  assert.match(propertyDetailV2Css, /\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumbs,\s*\.hd-gallery-thumbs\s*\{[^}]*overflow:[^;]*auto/s,
+  assert.match(propertyDetailV2Css, /\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumbs,\s*\.hd-gallery-thumbs\s*\{[^}]*overflow-x:\s*auto/s,
     "the thumbnail rail must remain scrollable");
-  assert.match(propertyDetailV2Css, /\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumb,\s*\.hd-gallery-thumb\s*\{[^}]*width:\s*75px;[^}]*min-width:\s*0/s);
+  assert.match(propertyDetailV2Css, /@media \(max-width:\s*720px\)[\s\S]*?\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumb,\s*\.hd-gallery-thumb\s*\{[^}]*width:\s*75px;[^}]*min-width:\s*75px/s);
   assert.match(propertyDetailV2Css, /\.hd-lightbox-media img,\s*\.hd-lightbox-media video\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(propertyDetailViewSource, /className="hd-video-thumb"/, "video thumbnails must have a visible play marker");
   assert.match(propertyDetailViewSource, /<Play size=\{14\} fill="currentColor" aria-hidden="true" \/>/,
