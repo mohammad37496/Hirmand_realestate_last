@@ -123,7 +123,7 @@ test("media uploads retain server diagnostics for finalization failures", () => 
 
 test("successful finalization keeps a replay receipt but releases chunk payloads", () => {
   assert.match(mediaProtocol, /completion_result is not null/);
-  assert.match(mediaProtocol, /where id = \\$1 and kind = \\$2[\\s\\S]*and completion_result is not null/);
+  assert.match(mediaProtocol, /where id = \$1 and kind = \$2[\s\S]*and completion_result is not null/);
   const resultWrite = mediaProtocol.indexOf("set completion_result = $2::jsonb");
   const resultReturn = mediaProtocol.indexOf("return { ...resultObject, storage: stored.storage }", resultWrite);
   assert.ok(resultWrite >= 0 && resultReturn > resultWrite);
