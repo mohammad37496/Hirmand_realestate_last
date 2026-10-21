@@ -304,7 +304,6 @@ export function Header() {
             return (
               <Link key={item.id} to={item.to} hash={item.hash || undefined} className={cn(isCurrent && "is-current")} onClick={(event) => (item.to === "/" ? goHash(event, item.hash) : closeMenu())} aria-current={isCurrent ? "page" : undefined}>
                 <span className="mobile-menu-link-main"><Icon size={17} strokeWidth={1.9} aria-hidden="true" /><span>{item.label}</span></span>
-                <span className="mobile-menu-link-arrow" aria-hidden="true">←</span>
               </Link>
             );
           })}
