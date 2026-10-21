@@ -178,7 +178,7 @@ export async function handleChunkedUpload(
     }
 
     const session = await loadSession(uploadIdHeader);
-    if (!matchesUploadSessionScope(session, config.kind, config.pathPrefix)) {
+    if (!session || !matchesUploadSessionScope(session, config.kind, config.pathPrefix)) {
       throw httpError("نشست آپلود پیدا نشد یا برای این مسیر معتبر نیست.", 404);
     }
     if (String(session.completion_state ?? "pending") !== "pending") {
