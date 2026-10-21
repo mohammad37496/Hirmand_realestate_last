@@ -734,8 +734,8 @@
   }
 }
 
-/* Very narrow phones: one clean column instead of squeezing labels into slivers. */
-@media (max-width: 359px) {
+/* Narrow phones up to 380px: keep long Persian specification labels readable. */
+@media (max-width: 380px) {
   #property-specs-section.property-divar-specs .property-spec-grid,
   #property-specs-section.property-divar-specs .property-spec-amenities-body {
     grid-template-columns: minmax(0, 1fr) !important;
