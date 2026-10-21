@@ -1,0 +1,228 @@
+/*
+ * Hirmand Real Estate — property detail experience refresh
+ * Scoped to the public property detail page; preserves data, actions and SEO.
+ */
+html body:has(main.hd-property-detail-v2) {
+  background: #f4f2ed;
+}
+main.hd-property-detail-v2 {
+  --detail-ink: #182d3e;
+  --detail-muted: #647481;
+  --detail-line: #e5ded2;
+  --detail-paper: #fffefa;
+  --detail-gold: #b18a4a;
+  --detail-gold-dark: #805c25;
+  width: min(1320px, calc(100% - 40px)) !important;
+  max-width: 1320px !important;
+  margin: 24px auto 0 !important;
+  padding: 0 0 100px !important;
+  color: var(--detail-ink);
+  font-size: 15px;
+  line-height: 1.85;
+  isolation: isolate;
+}
+main.hd-property-detail-v2 :where(*, *::before, *::after) { box-sizing: border-box; }
+main.hd-property-detail-v2 :where(h1,h2,h3,p,span,strong,small) { overflow-wrap: anywhere; }
+main.hd-property-detail-v2 :where(a,button,summary) { -webkit-tap-highlight-color: transparent; }
+main.hd-property-detail-v2 :where(a,button,summary):focus-visible {
+  outline: 3px solid rgb(177 138 74 / 65%) !important;
+  outline-offset: 3px !important;
+}
+main.hd-property-detail-v2 .hd-breadcrumb {
+  width: fit-content; max-width: 100%; margin-bottom: 20px; padding: 7px 13px;
+  border: 1px solid var(--detail-line); border-radius: 999px;
+  background: rgb(255 254 250 / 92%); font-size: .8rem;
+}
+main.hd-property-detail-v2 .hd-detail-hero {
+  grid-template-columns: minmax(0, 1.12fr) minmax(340px, .88fr) !important;
+  gap: clamp(18px, 2.2vw, 30px) !important;
+  align-items: start !important;
+  margin-bottom: 28px !important;
+}
+main.hd-property-detail-v2 .hd-gallery-wrap {
+  border: 1px solid var(--detail-line) !important; border-radius: 22px !important;
+  box-shadow: 0 18px 48px rgb(24 45 62 / 8%) !important;
+}
+main.hd-property-detail-v2 .hd-gallery-caption {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+  gap: 8px 14px; margin: 12px 3px 0; color: var(--detail-muted); font-size: .78rem;
+}
+main.hd-property-detail-v2 .hd-gallery-caption > span { display: inline-flex; align-items: center; gap: 7px; }
+main.hd-property-detail-v2 .hd-gallery-caption svg { color: var(--detail-gold-dark); flex: 0 0 auto; }
+main.hd-property-detail-v2 .hd-summary-card {
+  position: sticky !important; top: 88px !important;
+  padding: clamp(20px, 2.2vw, 30px) !important;
+  border: 1px solid var(--detail-line) !important; border-radius: 24px !important;
+  background: radial-gradient(ellipse at 100% 0, rgb(177 138 74 / 12%), transparent 40%), var(--detail-paper) !important;
+  box-shadow: 0 18px 46px rgb(24 45 62 / 7%) !important;
+}
+main.hd-property-detail-v2 .property-detail-title-block {
+  margin: 13px 0 0 !important; font-size: clamp(1.45rem, 1.05rem + 1.1vw, 2rem) !important;
+  line-height: 1.7 !important; letter-spacing: -.025em; font-weight: 850 !important;
+}
+main.hd-property-detail-v2 .hd-type-pill,
+main.hd-property-detail-v2 .hd-featured-pill { border-radius: 999px !important; padding-inline: 12px !important; }
+main.hd-property-detail-v2 .hd-price-card {
+  margin-top: 22px !important; padding: 19px !important; gap: 12px !important;
+  border: 1px solid #e6d4ae !important; border-radius: 18px !important;
+  background: linear-gradient(145deg, #fffaf0, #f8f1e4) !important;
+}
+main.hd-property-detail-v2 .hd-price-row { align-items: center; padding-bottom: 12px; }
+main.hd-property-detail-v2 .hd-price-row > strong { font-size: clamp(1rem, .8rem + .5vw, 1.28rem); }
+main.hd-property-detail-v2 .hd-price-watch-button {
+  min-height: 44px; border-radius: 12px; border: 1px solid #ddc69d;
+  background: #fffefa; color: var(--detail-ink); font-weight: 700;
+}
+main.hd-property-detail-v2 .hd-summary-facts {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px;
+  margin-top: 18px;
+}
+main.hd-property-detail-v2 .hd-summary-facts > div {
+  min-width: 0; padding: 12px 9px; border: 1px solid var(--detail-line);
+  border-radius: 14px; background: rgb(255 254 250 / 80%);
+}
+main.hd-property-detail-v2 .hd-summary-facts svg { color: var(--detail-gold-dark); }
+main.hd-property-detail-v2 .hd-detail-layout,
+main.hd-property-detail-v2 .hd-content-layout {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  align-items: start; gap: 24px;
+}
+main.hd-property-detail-v2 .hd-section,
+main.hd-property-detail-v2 .hd-consultant-card,
+main.hd-property-detail-v2 .hd-aside-note,
+main.hd-property-detail-v2 .hd-aside-meta,
+main.hd-property-detail-v2 .hd-before-contact {
+  border: 1px solid var(--detail-line) !important; border-radius: 20px !important;
+  background: var(--detail-paper) !important;
+  box-shadow: 0 8px 26px rgb(24 45 62 / 4%) !important;
+}
+main.hd-property-detail-v2 .hd-section {
+  margin-top: 20px !important; padding: clamp(18px, 2.2vw, 28px) !important;
+}
+main.hd-property-detail-v2 .hd-section-heading {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--detail-line);
+}
+main.hd-property-detail-v2 .hd-section-heading h2 {
+  margin: 2px 0 0; font-size: clamp(1.1rem, .95rem + .45vw, 1.4rem);
+  line-height: 1.7; font-weight: 850; color: var(--detail-ink);
+}
+main.hd-property-detail-v2 .hd-section-eyebrow {
+  color: var(--detail-gold-dark); font-size: .75rem; font-weight: 800; letter-spacing: .02em;
+}
+main.hd-property-detail-v2 .hd-spec-grid,
+main.hd-property-detail-v2 .hd-specs-grid,
+main.hd-property-detail-v2 .property-specs-grid {
+  gap: 10px !important;
+}
+main.hd-property-detail-v2 .hd-spec-item,
+main.hd-property-detail-v2 .hd-spec-card {
+  border-radius: 13px !important; border-color: var(--detail-line) !important;
+  background: #fffefa !important;
+}
+main.hd-property-detail-v2 .hd-location-section .hd-map-frame {
+  overflow: hidden; border: 1px solid var(--detail-line); border-radius: 16px;
+  background: #f1eee8;
+}
+main.hd-property-detail-v2 .hd-map-frame iframe { display: block; width: 100%; min-height: 300px; border: 0; }
+main.hd-property-detail-v2 .hd-map-link {
+  display: inline-flex; justify-content: center; align-items: center; gap: 8px;
+  min-height: 44px; margin-top: 12px; padding: 9px 15px; border-radius: 12px;
+  background: var(--detail-ink); color: white !important; font-weight: 750;
+}
+main.hd-property-detail-v2 .hd-consultant-card { padding: 22px !important; }
+main.hd-property-detail-v2 .hd-consultant-avatar {
+  width: 54px !important; height: 54px !important; border-radius: 17px !important;
+  background: #f3ead8 !important; color: var(--detail-gold-dark) !important;
+}
+main.hd-property-detail-v2 .hd-consultant-actions { gap: 9px !important; }
+main.hd-property-detail-v2 .hd-button { min-height: 46px; border-radius: 12px !important; font-weight: 800; }
+main.hd-property-detail-v2 .hd-button-primary { background: var(--detail-ink) !important; }
+main.hd-property-detail-v2 .hd-button-secondary { border: 1px solid var(--detail-line) !important; }
+main.hd-property-detail-v2 .hd-aside-note,
+main.hd-property-detail-v2 .hd-aside-meta { margin-top: 14px; padding: 18px; }
+main.hd-property-detail-v2 .hd-before-contact {
+  display: flex; gap: 14px; align-items: flex-start; margin-top: 22px; padding: 20px;
+}
+main.hd-property-detail-v2 .hd-before-icon { color: var(--detail-gold-dark); flex: 0 0 auto; }
+main.hd-property-detail-v2 .hd-back-row {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--detail-line);
+}
+main.hd-property-detail-v2 .hd-back-link,
+main.hd-property-detail-v2 .hd-copy-link { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; }
+main.hd-property-detail-v2 .hd-related-section { margin-top: 32px; }
+main.hd-property-detail-v2 .hd-related-grid { gap: 16px !important; }
+main.hd-property-detail-v2 .property-tool-center { margin-top: 30px !important; }
+main.hd-property-detail-v2 .property-tool-category,
+main.hd-property-detail-v2 .property-secondary-services {
+  overflow: clip; border: 1px solid var(--detail-line) !important; border-radius: 15px !important;
+  background: #fffefa !important;
+}
+main.hd-property-detail-v2 .property-tool-category-summary,
+main.hd-property-detail-v2 .property-secondary-services-summary {
+  min-height: 66px; padding: 14px 16px !important; gap: 12px;
+}
+main.hd-property-detail-v2 .property-tool-category-summary:hover,
+main.hd-property-detail-v2 .property-secondary-services-summary:hover { background: #faf5eb; }
+main.hd-property-detail-v2 .hd-mobile-actions { box-shadow: 0 -8px 30px rgb(24 45 62 / 12%) !important; }
+@media (max-width: 900px) {
+  main.hd-property-detail-v2 { width: min(100% - 28px, 760px) !important; margin-top: 14px !important; }
+  main.hd-property-detail-v2 .hd-detail-hero {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas: none !important; gap: 16px !important;
+  }
+  main.hd-property-detail-v2 .hd-summary-card { position: static !important; top: auto !important; }
+  main.hd-property-detail-v2 .hd-gallery-wrap { border-radius: 18px !important; }
+  main.hd-property-detail-v2 .hd-section { margin-top: 15px !important; }
+}
+@media (max-width: 600px) {
+  html body:has(main.hd-property-detail-v2) { background: #f6f4ef; }
+  main.hd-property-detail-v2 { width: 100% !important; margin: 0 !important; padding: 0 0 100px !important; }
+  main.hd-property-detail-v2 .hd-breadcrumb {
+    width: auto; margin: 10px 14px 14px; border-radius: 12px; padding: 8px 10px;
+  }
+  main.hd-property-detail-v2 .hd-detail-hero { gap: 12px !important; margin-bottom: 14px !important; }
+  main.hd-property-detail-v2 .hd-gallery-wrap {
+    border-inline: 0 !important; border-radius: 0 0 18px 18px !important;
+    box-shadow: 0 8px 24px rgb(24 45 62 / 6%) !important;
+  }
+  main.hd-property-detail-v2 .hd-gallery { padding: 7px !important; gap: 7px !important; }
+  main.hd-property-detail-v2 .hd-gallery-main { border-radius: 13px !important; }
+  main.hd-property-detail-v2 .hd-gallery-caption { margin: 9px 13px 0; font-size: .73rem; }
+  main.hd-property-detail-v2 .hd-summary-card {
+    margin: 0 12px !important; padding: 18px !important; border-radius: 18px !important;
+  }
+  main.hd-property-detail-v2 .property-detail-title-block { font-size: 1.35rem !important; line-height: 1.75 !important; }
+  main.hd-property-detail-v2 .hd-price-card { padding: 15px !important; border-radius: 15px !important; }
+  main.hd-property-detail-v2 .hd-summary-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  main.hd-property-detail-v2 .hd-summary-facts > div { padding: 10px 7px; border-radius: 12px; }
+  main.hd-property-detail-v2 .hd-summary-facts > div strong { font-size: .88rem; }
+  main.hd-property-detail-v2 .hd-main-column,
+  main.hd-property-detail-v2 .hd-aside-column,
+  main.hd-property-detail-v2 .hd-before-contact,
+  main.hd-property-detail-v2 .hd-back-row,
+  main.hd-property-detail-v2 .hd-related-section,
+  main.hd-property-detail-v2 .property-tool-center { margin-inline: 12px !important; }
+  main.hd-property-detail-v2 .hd-section,
+  main.hd-property-detail-v2 .hd-consultant-card,
+  main.hd-property-detail-v2 .hd-aside-note,
+  main.hd-property-detail-v2 .hd-aside-meta,
+  main.hd-property-detail-v2 .hd-before-contact {
+    border-radius: 16px !important; padding: 16px !important;
+  }
+  main.hd-property-detail-v2 .hd-section-heading { margin-bottom: 14px; padding-bottom: 11px; }
+  main.hd-property-detail-v2 .hd-section-heading h2 { font-size: 1.08rem; }
+  main.hd-property-detail-v2 .hd-map-frame iframe { min-height: 240px; }
+  main.hd-property-detail-v2 .hd-back-row { align-items: stretch; }
+  main.hd-property-detail-v2 .hd-back-link,
+  main.hd-property-detail-v2 .hd-copy-link { justify-content: center; }
+  main.hd-property-detail-v2 .hd-related-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  main.hd-property-detail-v2 .property-tool-category-summary,
+  main.hd-property-detail-v2 .property-secondary-services-summary { min-height: 60px; padding: 12px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  main.hd-property-detail-v2 *, main.hd-property-detail-v2 *::before, main.hd-property-detail-v2 *::after {
+    scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important;
+  }
+}
