@@ -69,6 +69,7 @@ import { PropertyDealRoom } from "@/components/hirmand/property-deal-room";
 import { PropertyRiskRadar } from "@/components/hirmand/property-risk-radar";
 import { PropertyDocumentPack } from "@/components/hirmand/property-document-pack";
 import { PropertyPhotoNotes } from "@/components/hirmand/property-photo-notes";
+import { PropertyDecisionReadiness } from "@/components/hirmand/property-decision-readiness";
 import { getPublishedPropertyPriceHistory, isFeaturedActive, type PropertyPriceHistoryItem } from "@/lib/properties";
 import "@/property-price-history.css";
 import "@/property-feature-enhancements.css";
