@@ -2605,51 +2605,14 @@ body:has(.property-detail-page) .floating-call-menu {
 }
 
 /* ==========================================================================
-   HIRMAND · PROPERTY DETAIL · MOBILE LAYER
+   HIRMAND · PROPERTY DETAIL · LEGACY MOBILE LAYER
    --------------------------------------------------------------------------
-   The single owner of the phone presentation of /properties/:slug.
-
-   Why this section exists
-   -----------------------
-   The mobile look of this route used to be the accident of eight stylesheets
-   loaded in sequence (styles, properties-pro, theme-pro, theme-pro-pages,
-   mobile, refinements, ui-clarity, property-detail-pro, mobile-device-fixes,
-   theme-harmony, property-detail-redesign, property-detail-light-theme).
-   The same selector — `.property-mobile-actions` — was declared in five of
-   them, `.property-gallery-main` in six. Nothing documented which one won, so
-   fixes had to be made by adding another `!important` and the cascade grew
-   instead of converging. This section converges it:
-
-     * it is the last thing in the last-loaded stylesheet, so it wins ties;
-     * every selector is scoped to `.property-detail-page`, so no other route
-       can be affected;
-     * the properties it sets are no longer set anywhere else in a mobile
-       media query, so there is exactly one owner per declaration.
-
-   Desktop safety
-   --------------
-   Everything below is inside a mobile media query, so widths ≥ 901px cannot
-   match and the desktop layout is untouched by construction — not by
-   specificity, not by load order. The two rules that genuinely cannot be
-   wrapped in a media query (the safe-area insets) are written so they compute
-   to zero on a device without a notch, and are additionally gated on the
-   mobile band.
-
-   The mobile band
-   ---------------
-   Portrait phones are `max-width: 720px`. That alone misses landscape phones:
-   an iPhone 14 Pro Max is 932px *wide* when rotated, so it fell through to the
-   desktop band, where the contact bar is `display: none` — leaving a rotated
-   phone with no way to call, and a page whose bottom padding still reserved
-   space for a bar that was not there. The second query pairs a short
-   viewport with a phone-max width. 932px is the widest rotated phone in the
-   matrix and the site's desktop band starts at 1024px, so no desktop window
-   can match.
-
-   !important
-   ----------
-   Used only where a pre-existing rule in an earlier stylesheet would otherwise
-   win on load order alone. Each block notes what it overrides.
+   These rules remain as baseline responsive behavior and interaction
+   safeguards for the gallery, accordions and fixed contact bar. The final
+   mobile presentation is owned by src/property-detail-mobile-redesign.css,
+   which is imported after the global and responsive styles in __root.tsx.
+   Keep new presentation changes in that dedicated final layer so the phone
+   layout can be reviewed as one coherent system rather than scattered patches.
    ========================================================================== */
 
 @media (max-width: 720px), (max-height: 500px) and (max-width: 932px) {
