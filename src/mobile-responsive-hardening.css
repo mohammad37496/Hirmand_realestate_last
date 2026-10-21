@@ -2184,3 +2184,153 @@ svg {
     background: var(--hr-panel-warm, var(--card-2)) !important;
   }
 }
+
+/* Premium property breadcrumb
+   A compact, warm-navy-and-brass navigation trail. The current listing title
+   has its own quiet emphasis; links stay easy to identify without competing
+   with the property heading. Mobile keeps a deliberate horizontal scroll. */
+body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb {
+  direction: rtl !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 5px !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 0 20px !important;
+  padding: 7px !important;
+  overflow: visible !important;
+  border: 1px solid rgb(18 45 70 / 9%) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, rgb(255 255 255 / 96%), rgb(248 245 238 / 92%)) !important;
+  box-shadow: 0 5px 18px rgb(11 26 43 / 5%), inset 0 1px 0 rgb(255 255 255 / 85%) !important;
+  color: var(--hr-muted, var(--muted)) !important;
+  font-size: .78rem !important;
+  font-weight: 650 !important;
+  line-height: 1.6 !important;
+  scrollbar-width: none !important;
+}
+
+body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb::-webkit-scrollbar {
+  display: none !important;
+}
+
+body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > a {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto !important;
+  min-width: 0 !important;
+  min-height: 34px !important;
+  padding: 6px 10px !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  color: var(--hr-muted, var(--muted)) !important;
+  font-size: inherit !important;
+  font-weight: 750 !important;
+  line-height: 1.5 !important;
+  text-decoration: none !important;
+  white-space: nowrap !important;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease !important;
+}
+
+body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > a:hover {
+  border-color: rgb(18 45 70 / 10%) !important;
+  background: #fff !important;
+  color: var(--hr-navy, var(--navy-900)) !important;
+}
+
+body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > a:focus-visible {
+  outline: 2px solid var(--hr-brass-fill, var(--brass-500)) !important;
+  outline-offset: 2px !important;
+}
+
+body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > span:not(:last-child) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 7px !important;
+  width: 7px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 1px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > span:not(:last-child)::before {
+  content: "" !important;
+  display: block !important;
+  width: 5px !important;
+  height: 5px !important;
+  border-top: 1.5px solid #aeb5bc !important;
+  border-left: 1.5px solid #aeb5bc !important;
+  transform: rotate(-45deg) !important;
+}
+
+body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > span:last-child {
+  display: block !important;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  max-width: min(560px, 48vw) !important;
+  margin-inline-start: 2px !important;
+  padding: 8px 12px !important;
+  overflow: hidden !important;
+  border: 1px solid rgb(178 129 43 / 17%) !important;
+  border-radius: 9px !important;
+  background: var(--hr-brass-soft, #f7efdf) !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 75%) !important;
+  color: var(--hr-navy, var(--navy-900)) !important;
+  font-size: .76rem !important;
+  font-weight: 800 !important;
+  line-height: 1.55 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 760px) {
+  body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex-wrap: nowrap !important;
+    gap: 3px !important;
+    margin-bottom: 13px !important;
+    padding: 4px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    border-radius: 12px !important;
+    background: rgb(255 255 255 / 90%) !important;
+    box-shadow: 0 3px 12px rgb(11 26 43 / 4%) !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-inline: contain !important;
+  }
+
+  body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > a {
+    min-height: 40px !important;
+    padding-inline: 9px !important;
+  }
+
+  body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > span:last-child {
+    flex: 0 1 auto !important;
+    max-width: 58vw !important;
+    min-width: 0 !important;
+    min-height: 36px !important;
+    padding: 7px 10px !important;
+    font-size: .72rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > a {
+    transition: none !important;
+  }
+}
