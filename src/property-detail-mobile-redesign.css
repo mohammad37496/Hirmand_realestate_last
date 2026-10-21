@@ -30,7 +30,7 @@
   }
 
   body:has(.property-detail-page) .property-detail-page :is(h1, h2, h3, p, strong, small, a, button, label, time) {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   /* Breadcrumb: visible path, no tiny clipped text or page-wide overflow. */
@@ -169,8 +169,14 @@
     display: block !important;
     width: 100% !important;
     height: 100% !important;
-    object-fit: cover !important;
+    object-fit: contain !important;
     object-position: center !important;
+  } 
+
+  body:has(.property-detail-page) .property-detail-page .property-gallery-main > picture > img,
+  body:has(.property-detail-page) .property-detail-page .property-gallery-main > img,
+  body:has(.property-detail-page) .property-detail-page .property-gallery-main > .property-video-player {
+    background: var(--hr-panel-warm, #f1eae0) !important;
   }
 
   body:has(.property-detail-page) .property-detail-page .property-gallery-overlays {
@@ -400,7 +406,7 @@
     font-weight: 900 !important;
     line-height: 1.72 !important;
     letter-spacing: -0.02em !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
   }
 
   body:has(.property-detail-page) .property-detail-page .property-detail-meta {
@@ -706,7 +712,7 @@
     font-size: .77rem !important;
     font-weight: 900 !important;
     line-height: 1.55 !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Section navigation: swipeable, thumb-friendly, and visually separate. */
@@ -960,7 +966,7 @@
     font-size: .77rem !important;
     font-weight: 850 !important;
     line-height: 1.65 !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
   }
 
   body:has(.property-detail-page) .property-detail-page .property-spec-amenities {
@@ -1050,7 +1056,7 @@
     color: var(--hr-ink, #233444) !important;
     font-size: .88rem !important;
     line-height: 2.05 !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
   }
 
   body:has(.property-detail-page) .property-detail-page .property-description-full > summary,
@@ -1114,7 +1120,7 @@
 
   body:has(.property-detail-page) .property-detail-page .property-price-history-change strong {
     font-size: .68rem !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Map controls: full-width accessible actions, fixed map aspect. */
@@ -1326,7 +1332,7 @@
   body:has(.property-detail-page) .property-detail-page .property-related .pcard-title {
     font-size: .9rem !important;
     line-height: 1.8 !important;
-    overflow-wrap: anywhere !important;
+    overflow-wrap: break-word !important;
   }
 
   body:has(.property-detail-page) .property-detail-page .property-secondary-services,
