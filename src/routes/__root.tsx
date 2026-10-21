@@ -12,7 +12,6 @@ import themeProPagesCss from "../theme-pro-pages.css?url";
 import mobileCss from "../mobile.css?url";
 import refinementsCss from "../refinements.css?url";
 import uiClarityCss from "../ui-clarity.css?url";
-import propertyDetailV2Css from "../property-detail-page.css?url";
 import mobileDeviceFixesCss from "../mobile-device-fixes.css?url";
 import themeHarmonyCss from "../theme-harmony.css?url";
 import propertyCardCss from "../property-card.css?url";
@@ -79,7 +78,6 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: propertiesFiltersRedesignCss },
       { rel: "stylesheet", href: propertiesMarketplacePolishCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
-      { rel: "stylesheet", href: propertyDetailV2Css },
     ],
   }),
   component: RootDocument,
