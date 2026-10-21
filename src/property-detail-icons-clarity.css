@@ -1,0 +1,212 @@
+/*
+ * HIRMAND — property-detail icon clarity pass
+ * Improves contrast, stroke weight and flex sizing without changing behavior.
+ * Scoped to the public detail page; preserves the navy / brass brand.
+ */
+
+/* Lucide line icons must stay crisp and inherit a deliberate foreground color. */
+html body:has(.property-detail-page) .property-detail-page svg.lucide {
+  display: block !important;
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+  stroke: currentColor !important;
+  stroke-width: 2.25px !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  shape-rendering: geometricPrecision;
+}
+
+/* Inline/custom SVGs (for example, social marks) must not fade or collapse either. */
+html body:has(.property-detail-page) .property-detail-page svg:not(.lucide) {
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  filter: none !important;
+}
+
+/* Every icon inside a control follows the control's high-contrast text color. */
+html body:has(.property-detail-page) .property-detail-page :is(a, button, summary) svg {
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Property specifications: replace faint brass-on-cream symbols with navy glyphs. */
+html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
+html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
+  flex: 0 0 35px !important;
+  width: 35px !important;
+  min-width: 35px !important;
+  height: 35px !important;
+  min-height: 35px !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: visible !important;
+  border: 1px solid rgb(16 45 69 / 18%) !important;
+  border-radius: 11px !important;
+  background: #f7ecd6 !important;
+  color: #102d45 !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 92%) !important;
+}
+
+html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon svg,
+html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child svg {
+  display: block !important;
+  width: 20px !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  color: #102d45 !important;
+  stroke: currentColor !important;
+  stroke-width: 2.35px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Summary metrics: keep the icon and its container distinct from surrounding copy. */
+html body:has(.property-detail-page) .property-detail-page .property-summary-facts > div > svg {
+  display: block !important;
+  flex: 0 0 auto !important;
+  width: 27px !important;
+  min-width: 27px !important;
+  height: 27px !important;
+  min-height: 27px !important;
+  padding: 5px !important;
+  border: 1px solid rgb(16 45 69 / 14%) !important;
+  border-radius: 9px !important;
+  background: #f7ecd6 !important;
+  color: #102d45 !important;
+  stroke: currentColor !important;
+  stroke-width: 2.2px !important;
+}
+
+/* Icons which sit directly on white surfaces should not use low-contrast pale gold. */
+html body:has(.property-detail-page) .property-detail-page .property-detail-meta svg,
+html body:has(.property-detail-page) .property-detail-page .property-section-heading > svg,
+html body:has(.property-detail-page) .property-detail-page .property-trust-strip svg,
+html body:has(.property-detail-page) .property-detail-page .property-spec-amenities-title svg,
+html body:has(.property-detail-page) .property-detail-page .property-spec-amenity-item > svg,
+html body:has(.property-detail-page) .property-detail-page .property-quick-overview svg,
+html body:has(.property-detail-page) .property-detail-page .property-aside-heading svg {
+  color: #102d45 !important;
+  stroke: currentColor !important;
+  stroke-width: 2.2px !important;
+  opacity: 1 !important;
+}
+
+/* Keep icons clear in utility rows, section headings and expandable controls. */
+html body:has(.property-detail-page) .property-detail-page .property-summary-utilities-summary svg,
+html body:has(.property-detail-page) .property-detail-page .property-specs-accordion-meta svg,
+html body:has(.property-detail-page) .property-detail-page .property-detail-tools-row svg,
+html body:has(.property-detail-page) .property-detail-page .property-tool-center svg,
+html body:has(.property-detail-page) .property-detail-page .property-tool-category-summary svg,
+html body:has(.property-detail-page) .property-detail-page .property-secondary-services-summary svg,
+html body:has(.property-detail-page) .property-detail-page .property-price-watch-button svg,
+html body:has(.property-detail-page) .property-detail-page .property-map-action-group svg,
+html body:has(.property-detail-page) .property-detail-page .property-location-fallback svg {
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  stroke-width: 2.2px !important;
+}
+
+/* Gallery controls use white icons on a dark translucent surface. */
+html body:has(.property-detail-page) .property-detail-page .property-gallery-nav,
+html body:has(.property-detail-page) .property-detail-page .property-gallery-open {
+  color: #fff !important;
+}
+
+html body:has(.property-detail-page) .property-detail-page .property-gallery-nav svg,
+html body:has(.property-detail-page) .property-detail-page .property-gallery-open svg {
+  width: 21px !important;
+  min-width: 21px !important;
+  height: 21px !important;
+  min-height: 21px !important;
+  color: #fff !important;
+  stroke: currentColor !important;
+  stroke-width: 2.45px !important;
+  opacity: 1 !important;
+}
+
+/* Contact and bottom-dock icons must remain visible against their own button fill. */
+html body:has(.property-detail-page) .property-detail-page .property-primary-contact > * svg,
+html body:has(.property-detail-page) .property-detail-page .property-final-cta-actions > * svg,
+html body:has(.property-detail-page) .property-detail-page .property-mobile-action svg,
+html body:has(.property-detail-page) .property-detail-page .property-actions .property-action svg,
+html body:has(.property-detail-page) .property-detail-page .property-lightbox button svg {
+  display: block !important;
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Amenity lists and nested feature tools often use their own icon wrappers. */
+html body:has(.property-detail-page) .property-detail-page :is(
+  .property-spec-amenity-item,
+  .property-detail-insight-grid,
+  .property-new-feature,
+  .property-convert-slider,
+  .property-nearby-services,
+  .property-floor-plan,
+  .property-related,
+  .property-tool-category-content,
+  .property-secondary-services-content,
+  .property-detail-aside
+) svg.lucide {
+  flex-shrink: 0 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  stroke-width: 2.2px !important;
+}
+
+/* Practical sizes for the narrowest supported phones (including older Androids). */
+@media (max-width: 760px) {
+  html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
+  html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
+    flex-basis: 30px !important;
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    border-radius: 9px !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon svg,
+  html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child svg {
+    width: 18px !important;
+    min-width: 18px !important;
+    height: 18px !important;
+    min-height: 18px !important;
+    stroke-width: 2.35px !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page .property-mobile-action svg {
+    width: 20px !important;
+    min-width: 20px !important;
+    height: 20px !important;
+    min-height: 20px !important;
+    stroke-width: 2.25px !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  html body:has(.property-detail-page) .property-detail-page .property-spec-item-icon,
+  html body:has(.property-detail-page) .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
+    border-color: #102d45 !important;
+    background: #fff !important;
+    color: #102d45 !important;
+  }
+
+  html body:has(.property-detail-page) .property-detail-page svg.lucide {
+    stroke-width: 2.5px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body:has(.property-detail-page) .property-detail-page svg {
+    transition: none !important;
+    animation: none !important;
+  }
+}
