@@ -29,6 +29,7 @@ const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const propertyDetailMobileCss = fs.readFileSync(new URL("../src/property-detail-mobile-redesign.css", import.meta.url), "utf8");
+const propertyDetailV2Css = fs.readFileSync(new URL("../src/property-detail-page.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
 const verifyWorkflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
@@ -158,68 +159,48 @@ testRunner.test("compact property-detail actions keep touch-friendly hit areas o
   assert.match(renovationTrackerCss, /\.property-renovation-row button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px/s);
 });
 
-testRunner.test("responsive guardrails and property-detail final layers load after the older global styles", () => {
+testRunner.test("property detail styles are route-scoped and legacy global detail layers are retired", () => {
   assert.match(rootRoute, /import responsiveHardeningCss from "\.\.\/mobile-responsive-hardening\.css\?url";/);
-  assert.match(rootRoute, /import propertyDetailMobileRedesignCss from "\.\.\/property-detail-mobile-redesign\.css\?url";/);
-  assert.match(rootRoute, /import propertyDetailPremiumFinalCss from "\.\.\/property-detail-premium-final\.css\?url";/);
-  assert.match(rootRoute, /import propertyDetailIconsClarityCss from "\.\.\/property-detail-icons-clarity\.css\?url";/);
-  assert.match(rootRoute, /import propertyDetailSpecsRedesignCss from "\.\.\/property-specs-complete-redesign\.css\?url";/);
-  const linkPositions = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: ([A-Za-z][A-Za-z0-9]*) \}/g)].map((match) => ({
-    name: match[1],
-    index: match.index,
-  }));
-  assert.ok(linkPositions.length > 0, "root route should link the shared CSS files");
-  assert.equal(linkPositions.at(-1)?.name, "propertyDetailSpecsRedesignCss", "the complete property specs redesign must load last");
-  const responsiveIndex = linkPositions.findIndex((item) => item.name === "responsiveHardeningCss");
-  const mobileDetailIndex = linkPositions.findIndex((item) => item.name === "propertyDetailMobileRedesignCss");
-  const premiumDetailIndex = linkPositions.findIndex((item) => item.name === "propertyDetailPremiumFinalCss");
-  const iconClarityIndex = linkPositions.findIndex((item) => item.name === "propertyDetailIconsClarityCss");
-  const specsRedesignIndex = linkPositions.findIndex((item) => item.name === "propertyDetailSpecsRedesignCss");
-  assert.ok(
-    responsiveIndex >= 0 && mobileDetailIndex > responsiveIndex && premiumDetailIndex > mobileDetailIndex && iconClarityIndex > premiumDetailIndex && specsRedesignIndex > iconClarityIndex,
-    "mobile layout, premium presentation and icon clarity must layer in that order",
-  );
-  assert.match(propertyDetailMobileCss, /@media \(max-width: 760px\)/);
-  assert.match(propertyDetailMobileCss, /\.property-mobile-actions\s*\{[^}]*position:\s*fixed\s*!important/s);
-  assert.match(propertyDetailMobileCss, /padding:\s*12px 0 calc\(126px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(propertyDetailMobileCss, /\.property-gallery-main > picture > img[\s\S]*?object-fit:\s*contain\s*!important/s, "the mobile redesign must not crop the listing photo or its permanent watermark");
-  assert.match(propertyDetailMobileCss, /details:not\(\[open\]\)\s*>\s*:not\(summary\)\s*\{[^}]*display:\s*none\s*!important/s, "native accordions must hide content while closed");
   assert.match(rootRoute, /<html lang="fa" dir="rtl"/);
+  assert.match(propertyDetailViewSource, /import "@\/property-detail-page\.css";/);
+  assert.ok(
+    propertyDetailViewSource.indexOf('import "@/property-detail-page.css";') >
+      propertyDetailViewSource.indexOf('import "@/property-deal-room.css";'),
+    "detail styling must load after its preserved feature-widget styles",
+  );
+  for (const legacyName of [
+    "propertyDetailMobileRedesignCss",
+    "propertyDetailPremiumFinalCss",
+    "propertyDetailIconsClarityCss",
+    "propertyDetailSpecsRedesignCss",
+  ]) {
+    assert.doesNotMatch(rootRoute, new RegExp(legacyName), `${legacyName} must not be loaded globally`);
+  }
+  assert.match(propertyDetailV2Css, /@media\s*\(max-width:\s*720px\)/);
+  assert.match(propertyDetailV2Css, /\.hd-mobile-actions\s*\{[^}]*position:\s*fixed/s);
+  assert.match(propertyDetailV2Css, /\.hd-gallery-stage\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/s);
 });
 
 
-testRunner.test("complete property specs redesign keeps the Hirmand theme and responsive layout", () => {
-  const specsCss = fs.readFileSync(new URL("../src/property-specs-complete-redesign.css", import.meta.url), "utf8");
-  assert.match(specsCss, /#property-specs-section\.property-divar-specs/);
-  assert.match(specsCss, /background:[\s\S]*?#102d45/s, "specifications heading/cards should use the Hirmand navy");
-  assert.match(specsCss, /#property-specs-section\.property-divar-specs \.property-spec-item-icon\s*\{[^}]*background:\s*linear-gradient\(145deg, #f7fafb 0%, #eaf0f4 100%\)\s*!important/s,
-    "specification icons should sit on a soft blue-gray surface instead of a distracting yellow tile");
-  assert.match(specsCss, /#property-specs-section\.property-divar-specs \.property-spec-item-icon\s*>\s*svg\s*\{[^}]*stroke:\s*#102d45\s*!important/s,
-    "specification icon strokes should use readable Hirmand navy");
-  assert.match(specsCss, /#property-specs-section\.property-divar-specs \.property-spec-amenity-icon\s*\{[^}]*background:\s*linear-gradient\(145deg, #f7fafb 0%, #eaf0f4 100%\)\s*!important/s,
-    "amenity icons should use the same soft blue-gray palette");
-  assert.match(specsCss, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(specsCss, /@media\s*\(max-width:\s*359px\)/, "narrow phones need a one-column fallback");
-  assert.match(specsCss, /overflow-wrap:\s*break-word\s*!important/);
-  assert.match(specsCss, /focus-visible/, "accordion controls need a visible keyboard focus");
-  assert.doesNotMatch(specsCss, /:has\(/i, "the new section design must not depend on relational selectors");
-  assert.match(rootRoute, /propertyDetailSpecsRedesignCss/);
+testRunner.test("rebuilt property specifications keep Hirmand colors and responsive RTL layout", () => {
+  assert.match(propertyDetailV2Css, /--hd-navy:\s*var\(--navy-800,\s*#12293f\)/);
+  assert.match(propertyDetailV2Css, /\.hd-section\s*\{[^}]*background:\s*var\(--hd-card\)/s);
+  assert.match(propertyDetailV2Css, /\.hd-spec-icon\s*\{[^}]*background:\s*#f5f0e7;[^}]*color:\s*var\(--hd-brass\)/s);
+  assert.match(propertyDetailV2Css, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(propertyDetailV2Css, /@media\s*\(max-width:\s*420px\)/);
+  assert.match(propertyDetailV2Css, /overflow-wrap:\s*anywhere/);
+  assert.match(propertyDetailV2Css, /:focus-visible/);
+  assert.match(propertyDetailViewSource, /className="property-specs-accordion hd-spec-accordion" open/);
+  assert.match(propertyDetailViewSource, /className="property-spec-amenities hd-amenity-accordion"/);
+  assert.match(propertyDetailViewSource, /import "@\/property-detail-page\.css";/);
 });
 
-testRunner.test("property-detail amenity icons use consistent soft blue-gray and navy styling", () => {
-  const iconCss = fs.readFileSync(new URL("../src/property-detail-icons-clarity.css", import.meta.url), "utf8");
-  assert.match(iconCss, /svg\.lucide\s*\{[^}]*opacity:\s*1\s*!important/s);
-  assert.match(iconCss, /svg\.lucide\s*\{[^}]*stroke-width:\s*2\.25px\s*!important/s);
-  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?background:\s*linear-gradient\(145deg, #f7fafb 0%, #eaf0f4 100%\)\s*!important/);
-  assert.match(iconCss, /\.property-spec-item-icon[\s\S]*?color:\s*#102d45\s*!important/);
-  assert.match(iconCss, /\.property-spec-item-icon\s*>\s*svg\.lucide[\s\S]*?stroke:\s*#102d45\s*!important/);
-  assert.match(iconCss, /\.property-spec-amenity-icon\s*\{[^}]*width:\s*38px\s*!important/s);
-  assert.match(iconCss, /\.property-spec-amenity-icon\s*>\s*svg\.lucide[\s\S]*?stroke:\s*#102d45\s*!important/);
-  assert.match(iconCss, /\.property-spec-amenity-item\s*>\s*svg\.lucide[\s\S]*?background:\s*linear-gradient\(145deg, #f7fafb 0%, #eaf0f4 100%\)\s*!important/);
-  assert.doesNotMatch(iconCss, /:has\(/i, "the icon layer must work without relational selector support");
-  assert.match(propertyDetailViewSource, /className="property-spec-amenity-icon" aria-hidden="true">\{propertyAmenityIcon\("(?:cooling|heating)"|value\)\)\}/);
-  assert.equal((propertyDetailViewSource.match(/className="property-spec-amenity-icon"/g) || []).length, 3,
-    "cooling, heating and all optional amenities must use the same icon wrapper");
+testRunner.test("property detail uses one consistent icon treatment for specifications and amenities", () => {
+  assert.match(propertyDetailV2Css, /\.hd-spec-icon\s*\{[^}]*background:\s*#f5f0e7;[^}]*color:\s*var\(--hd-brass\)/s);
+  assert.match(propertyDetailV2Css, /\.hd-feature-list li svg\s*\{[^}]*color:\s*var\(--hd-brass\)/s);
+  assert.match(propertyDetailViewSource, /className="hd-spec-icon"><Icon size=\{18\} aria-hidden="true" \/>/);
+  assert.match(propertyDetailViewSource, /className="hd-feature-list"/);
+  assert.match(propertyDetailViewSource, /features\.map\(\(feature\) => <li key=\{feature\}><Check size=\{16\} aria-hidden="true" \/>/);
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
@@ -256,70 +237,15 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   }
 });
 
-testRunner.test("mobile property gallery keeps full media visible and gives video controls usable touch targets", () => {
-  assert.match(
-    responsiveCss,
-    /\.property-detail-page \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10\s*!important/s,
-    "the mobile hero media frame must keep a landscape-friendly 16:10 layout",
-  );
-  assert.match(
-    responsiveCss,
-    /body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-wrap \.property-gallery \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10\s*!important/s,
-    "the final mobile ratio rule must outrank the legacy signature stylesheet",
-  );
-  assert.match(
-    responsiveCss,
-    /@media\s*\(max-width:\s*360px\)\s*\{\s*body:has\(\.property-detail-page\) \.property-detail-page \.property-gallery-wrap \.property-gallery \.property-gallery-main\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10\s*!important/s,
-    "extra-narrow phones must preserve the landscape media frame",
-  );
-  assert.match(
-    responsiveCss,
-    /@media\s*\(max-width:\s*360px\)\s*\{\s*\.property-detail-page \.property-gallery-open\s*\{[^}]*inset:\s*49px auto auto 8px\s*!important;[^}]*width:\s*max-content\s*!important/s,
-    "the full-screen control on narrow phones must shrink to its content instead of stretching edge-to-edge",
-  );
-  assert.match(
-    browserSmoke,
-    /gallery\.openButton\.width > Math\.min\(gallery\.stage\.width \* 0\.62, 180\)/,
-    "the responsive browser matrix must detect a stretched full-screen action on small phones",
-  );
-  assert.match(
-    responsiveCss,
-    /\.property-detail-page \.property-gallery-main > picture > img\s*,[\s\S]*?object-fit:\s*contain\s*!important/s,
-    "mobile photos must be fully visible instead of being cropped by cover",
-  );
-  assert.match(
-    responsiveCss,
-    /\.property-detail-page \.property-gallery-main > \.property-video-player \.property-video-frame video\s*\{[^}]*object-fit:\s*contain\s*!important/s,
-    "property videos must retain their full frame",
-  );
-  assert.match(
-    responsiveCss,
-    /\.property-detail-page \.property-gallery-rail\s*\{[^}]*overflow-x:\s*auto\s*!important/s,
-    "the thumbnail rail must be horizontally scrollable on mobile",
-  );
-  assert.match(
-    responsiveCss,
-    /\.property-detail-page \.property-gallery-thumb,\s*\.property-detail-page \.property-gallery-thumb:nth-of-type\(n \+ 5\)\s*\{[^}]*flex:\s*0 0 76px\s*!important/s,
-    "all gallery thumbnails, including items after the fourth, must be the same width",
-  );
-  assert.match(
-    responsiveCss,
-    /\.property-detail-page \.property-video-controls button\s*\{[^}]*width:\s*44px\s*!important;[^}]*height:\s*44px\s*!important/s,
-    "video transport buttons must be touch-friendly on phones",
-  );
-  assert.match(
-    responsiveCss,
-    /\.property-lightbox \.property-video-player\.is-lightbox \.property-video-frame video\s*\{[^}]*object-fit:\s*contain\s*!important/s,
-    "video remains uncropped in the mobile full-screen viewer",
-  );
-  assert.match(
-    propertyDetailViewSource,
-    /className="property-gallery-thumb-video"/,
-    "video thumbnails must have a visible play marker",
-  );
-  assert.match(
-    propertyDetailViewSource,
-    /<Play size=\{14\} fill="currentColor" aria-hidden="true" \/>/,
-    "the thumbnail marker must use a visible, decorative play icon",
-  );
+testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumbnails touch-friendly", () => {
+  assert.match(propertyDetailV2Css, /\.hd-gallery-stage\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/s);
+  assert.match(propertyDetailV2Css, /\.property-detail-page\.hd-property-detail-v2 \.hd-gallery-stage img\.hd-gallery-image,\s*\.property-detail-page\.hd-property-detail-v2 \.hd-gallery-stage video\.hd-gallery-video,[\s\S]*?object-fit:\s*contain\s*!important/s,
+    "listing photos and videos must remain fully visible above legacy site-wide responsive rules");
+  assert.match(propertyDetailV2Css, /\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumbs,\s*\.hd-gallery-thumbs\s*\{[^}]*overflow-x:\s*auto/s,
+    "the thumbnail rail must remain scrollable");
+  assert.match(propertyDetailV2Css, /@media \(max-width:\s*720px\)[\s\S]*?\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumb,\s*\.hd-gallery-thumb\s*\{[^}]*width:\s*75px;[^}]*min-width:\s*75px/s);
+  assert.match(propertyDetailV2Css, /\.hd-lightbox-media img,\s*\.hd-lightbox-media video\s*\{[^}]*object-fit:\s*contain/s);
+  assert.match(propertyDetailViewSource, /className="hd-video-thumb"/, "video thumbnails must have a visible play marker");
+  assert.match(propertyDetailViewSource, /<Play size=\{14\} fill="currentColor" aria-hidden="true" \/>/,
+    "the thumbnail marker must use a visible, decorative play icon");
 });

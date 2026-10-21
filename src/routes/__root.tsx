@@ -12,32 +12,23 @@ import themeProPagesCss from "../theme-pro-pages.css?url";
 import mobileCss from "../mobile.css?url";
 import refinementsCss from "../refinements.css?url";
 import uiClarityCss from "../ui-clarity.css?url";
-import propertyDetailProCss from "../property-detail-pro.css?url";
 import mobileDeviceFixesCss from "../mobile-device-fixes.css?url";
 import themeHarmonyCss from "../theme-harmony.css?url";
 import propertyCardCss from "../property-card.css?url";
 import homePropertyLayoutCss from "../home-property-layout.css?url";
-import propertyDetailRedesignCss from "../property-detail-redesign.css?url";
 import budgetMatcherRedesignCss from "../budget-matcher-redesign.css?url";
-import propertyDetailLightThemeCss from "../property-detail-light-theme.css?url";
 import adminMobileClarityCss from "../admin-mobile-clarity.css?url";
 import adminMatchingCss from "../admin-matching.css?url";
 import adminOpsCss from "../admin-ops.css?url";
 import smartToolsCss from "../smart-tools.css?url";
 import desktopNavReadabilityCss from "../desktop-nav-readability.css?url";
 import headerRedesignCss from "../header-redesign.css?url";
-import propertyDetailFlowCss from "../property-detail-flow.css?url";
 import propertyToolCenterCss from "../property-tool-center.css?url";
-import propertyDetailPolishCss from "../property-detail-polish.css?url";
 import homepagePolishCss from "../components/hirmand/homepage-polish.css?url";
 import propertiesDivarRedesignCss from "../properties-divar-redesign.css?url";
 import propertiesFiltersRedesignCss from "../properties-filters-redesign.css?url";
 import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
 import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css?url";
-import propertyDetailMobileRedesignCss from "../property-detail-mobile-redesign.css?url";
-import propertyDetailPremiumFinalCss from "../property-detail-premium-final.css?url";
-import propertyDetailIconsClarityCss from "../property-detail-icons-clarity.css?url";
-import propertyDetailSpecsRedesignCss from "../property-specs-complete-redesign.css?url";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -70,32 +61,23 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: mobileCss },
       { rel: "stylesheet", href: refinementsCss },
       { rel: "stylesheet", href: uiClarityCss },
-      { rel: "stylesheet", href: propertyDetailProCss },
       { rel: "stylesheet", href: mobileDeviceFixesCss },
       { rel: "stylesheet", href: themeHarmonyCss },
       { rel: "stylesheet", href: propertyCardCss },
       { rel: "stylesheet", href: homePropertyLayoutCss },
-      { rel: "stylesheet", href: propertyDetailRedesignCss },
       { rel: "stylesheet", href: budgetMatcherRedesignCss },
-      { rel: "stylesheet", href: propertyDetailLightThemeCss },
       { rel: "stylesheet", href: adminMobileClarityCss },
       { rel: "stylesheet", href: adminMatchingCss },
       { rel: "stylesheet", href: adminOpsCss },
       { rel: "stylesheet", href: smartToolsCss },
       { rel: "stylesheet", href: desktopNavReadabilityCss },
       { rel: "stylesheet", href: headerRedesignCss },
-      { rel: "stylesheet", href: propertyDetailFlowCss },
       { rel: "stylesheet", href: propertyToolCenterCss },
-      { rel: "stylesheet", href: propertyDetailPolishCss },
       { rel: "stylesheet", href: homepagePolishCss },
       { rel: "stylesheet", href: propertiesDivarRedesignCss },
       { rel: "stylesheet", href: propertiesFiltersRedesignCss },
       { rel: "stylesheet", href: propertiesMarketplacePolishCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
-      { rel: "stylesheet", href: propertyDetailMobileRedesignCss },
-      { rel: "stylesheet", href: propertyDetailPremiumFinalCss },
-      { rel: "stylesheet", href: propertyDetailIconsClarityCss },
-      { rel: "stylesheet", href: propertyDetailSpecsRedesignCss },
     ],
   }),
   component: RootDocument,
