@@ -24,6 +24,7 @@ import {
   MapPinned,
   MessageCircle,
   Phone,
+  Play,
   Ruler,
   ShieldCheck,
   Warehouse,
@@ -482,7 +483,7 @@ function Gallery({ property }: { property: Property }) {
                   aria-pressed={index === activeIndexSafe}
                   aria-current={index === activeIndexSafe ? "true" : undefined}
                 >
-                  {isVideoUrl(src) ? <span className="hd-video-thumb">ویدئو</span> : <PropertyImage src={src} alt="" />}
+                  {isVideoUrl(src) ? <span className="hd-video-thumb"><Play size={14} fill="currentColor" aria-hidden="true" /><span>ویدئو</span></span> : <PropertyImage src={src} alt="" />}
                 </button>
               ))}
             </div>
