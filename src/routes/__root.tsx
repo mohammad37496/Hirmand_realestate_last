@@ -35,6 +35,7 @@ import propertiesFiltersRedesignCss from "../properties-filters-redesign.css?url
 import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
 import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css?url";
 import propertyDetailMobileRedesignCss from "../property-detail-mobile-redesign.css?url";
+import propertyDetailPremiumFinalCss from "../property-detail-premium-final.css?url";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -90,6 +91,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: propertiesMarketplacePolishCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
       { rel: "stylesheet", href: propertyDetailMobileRedesignCss },
+      { rel: "stylesheet", href: propertyDetailPremiumFinalCss },
     ],
   }),
   component: RootDocument,
