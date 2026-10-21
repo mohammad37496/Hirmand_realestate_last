@@ -9,7 +9,7 @@
 
 `PropertyCard` → `/properties/$slug` → loader (`getPublishedProperty` + `listRelatedProperties`)
 → `PropertyDetailView` (یک فایل ۱۵۲۶ خطی، شامل Gallery / Lightbox / Video / ConsultantCard به‌صورت توابع داخلی)
-→ رندر با `SiteChrome` + استایل از **آخرین لایه‌ی CSS**: `src/property-detail-light-theme.css`.
+→ رندر با `SiteChrome` + استایل پایه از `src/property-detail-light-theme.css` و لایه نهایی موبایل از `src/property-detail-mobile-redesign.css` (آخرین stylesheet در `src/routes/__root.tsx`).
 
 ---
 
