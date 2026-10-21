@@ -1,6 +1,6 @@
 /*
  * HIRMAND — property detail icon system
- * Clear navy/brass iconography for property facts and amenities.
+ * Warm ivory icon tiles with crisp Hirmand navy glyphs and restrained brass borders.
  * Scoped through .property-detail-page directly for mobile-browser compatibility.
  */
 
@@ -32,7 +32,7 @@
   visibility: visible !important;
 }
 
-/* Shared premium icon tile: deep Hirmand navy with a warm brass outline. */
+/* Shared premium icon tile: soft ivory surface, navy glyph and muted brass edge. */
 .property-detail-page .property-spec-item-icon,
 .property-detail-page .property-spec-grid > .property-spec-item > span:first-child {
   box-sizing: border-box !important;
@@ -45,13 +45,13 @@
   place-items: center !important;
   align-self: flex-start !important;
   overflow: visible !important;
-  border: 1px solid #c9a45d !important;
+  border: 1px solid #d7bf8b !important;
   border-radius: 12px !important;
-  background: #102d45 !important;
-  color: #f4d48a !important;
+  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  color: #102d45 !important;
   box-shadow:
-    0 3px 8px rgb(16 45 69 / 16%),
-    inset 0 1px 0 rgb(255 255 255 / 9%) !important;
+    0 2px 6px rgb(16 45 69 / 7%),
+    inset 0 1px 0 rgb(255 255 255 / 85%) !important;
 }
 
 .property-detail-page .property-spec-item-icon > svg.lucide,
@@ -62,8 +62,8 @@
   min-width: 21px !important;
   height: 21px !important;
   min-height: 21px !important;
-  color: #f4d48a !important;
-  stroke: #f4d48a !important;
+  color: #102d45 !important;
+  stroke: #102d45 !important;
   stroke-width: 2.35px !important;
   fill: none !important;
   opacity: 1 !important;
@@ -80,14 +80,14 @@
   height: 38px !important;
   min-height: 38px !important;
   padding: 8px !important;
-  border: 1px solid #c9a45d !important;
+  border: 1px solid #d7bf8b !important;
   border-radius: 11px !important;
-  background: #102d45 !important;
-  color: #f4d48a !important;
-  stroke: #f4d48a !important;
+  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  color: #102d45 !important;
+  stroke: #102d45 !important;
   stroke-width: 2.3px !important;
   fill: none !important;
-  box-shadow: 0 3px 8px rgb(16 45 69 / 14%) !important;
+  box-shadow: 0 2px 6px rgb(16 45 69 / 7%) !important;
 }
 
 /* Give each additional amenity icon a stable, explicit wrapper. */
@@ -101,13 +101,13 @@
   min-width: 38px !important;
   height: 38px !important;
   min-height: 38px !important;
-  border: 1px solid #c9a45d !important;
+  border: 1px solid #d7bf8b !important;
   border-radius: 11px !important;
-  background: #102d45 !important;
-  color: #f4d48a !important;
+  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  color: #102d45 !important;
   box-shadow:
-    0 3px 8px rgb(16 45 69 / 14%),
-    inset 0 1px 0 rgb(255 255 255 / 8%) !important;
+    0 2px 6px rgb(16 45 69 / 7%),
+    inset 0 1px 0 rgb(255 255 255 / 85%) !important;
 }
 
 .property-detail-page .property-spec-amenity-icon > svg.lucide {
@@ -117,8 +117,8 @@
   min-width: 20px !important;
   height: 20px !important;
   min-height: 20px !important;
-  color: #f4d48a !important;
-  stroke: #f4d48a !important;
+  color: #102d45 !important;
+  stroke: #102d45 !important;
   stroke-width: 2.35px !important;
   fill: none !important;
   opacity: 1 !important;
@@ -135,11 +135,11 @@
   height: 38px !important;
   min-height: 38px !important;
   padding: 8px !important;
-  border: 1px solid #c9a45d !important;
+  border: 1px solid #d7bf8b !important;
   border-radius: 11px !important;
-  background: #102d45 !important;
-  color: #f4d48a !important;
-  stroke: #f4d48a !important;
+  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  color: #102d45 !important;
+  stroke: #102d45 !important;
   stroke-width: 2.35px !important;
   fill: none !important;
   opacity: 1 !important;
@@ -248,8 +248,8 @@
 
   .property-detail-page .property-spec-grid > .property-spec-item:hover .property-spec-item-icon {
     transform: translateY(-1px) !important;
-    border-color: #f4d48a !important;
-    box-shadow: 0 5px 12px rgb(16 45 69 / 19%), inset 0 1px 0 rgb(255 255 255 / 9%) !important;
+    border-color: #b98536 !important;
+    box-shadow: 0 4px 10px rgb(16 45 69 / 9%), inset 0 1px 0 rgb(255 255 255 / 85%) !important;
   }
 }
 

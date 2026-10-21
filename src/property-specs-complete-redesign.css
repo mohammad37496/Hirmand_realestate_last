@@ -259,11 +259,11 @@
   height: 40px !important;
   min-height: 40px !important;
   margin: 0 !important;
-  border: 1px solid #c9a45d !important;
+  border: 1px solid #d7bf8b !important;
   border-radius: 12px !important;
-  background: linear-gradient(145deg, #173b55, #102d45) !important;
-  color: #f4d48a !important;
-  box-shadow: 0 4px 9px rgb(16 45 69 / 15%), inset 0 1px 0 rgb(255 255 255 / 10%) !important;
+  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  color: #102d45 !important;
+  box-shadow: 0 2px 6px rgb(16 45 69 / 7%), inset 0 1px 0 rgb(255 255 255 / 85%) !important;
 }
 
 #property-specs-section.property-divar-specs .property-spec-item-icon > svg {
@@ -272,9 +272,9 @@
   min-width: 21px !important;
   height: 21px !important;
   min-height: 21px !important;
-  color: #f4d48a !important;
-  stroke: #f4d48a !important;
-  stroke-width: 2.35px !important;
+  color: #102d45 !important;
+  stroke: #102d45 !important;
+  stroke-width: 2.3px !important;
   fill: none !important;
   opacity: 1 !important;
   visibility: visible !important;
@@ -326,8 +326,8 @@
   }
 
   #property-specs-section.property-divar-specs .property-spec-grid > .property-spec-item:hover .property-spec-item-icon {
-    border-color: #f4d48a !important;
-    box-shadow: 0 5px 12px rgb(16 45 69 / 20%), inset 0 1px 0 rgb(255 255 255 / 10%) !important;
+    border-color: #b98536 !important;
+    box-shadow: 0 3px 8px rgb(16 45 69 / 9%), inset 0 1px 0 rgb(255 255 255 / 85%) !important;
   }
 }
 
@@ -481,10 +481,10 @@
   min-width: 38px !important;
   height: 38px !important;
   min-height: 38px !important;
-  border: 1px solid #c9a45d !important;
+  border: 1px solid #d7bf8b !important;
   border-radius: 11px !important;
-  background: #102d45 !important;
-  color: #f4d48a !important;
+  background: linear-gradient(145deg, #fffaf0 0%, #f3e4c4 100%) !important;
+  color: #102d45 !important;
 }
 
 #property-specs-section.property-divar-specs .property-spec-amenity-icon > svg {
@@ -493,9 +493,9 @@
   min-width: 20px !important;
   height: 20px !important;
   min-height: 20px !important;
-  color: #f4d48a !important;
+  color: #102d45 !important;
   stroke: currentColor !important;
-  stroke-width: 2.35px !important;
+  stroke-width: 2.3px !important;
 }
 
 #property-specs-section.property-divar-specs .property-spec-amenity-item > span:last-child {
