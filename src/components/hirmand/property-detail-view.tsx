@@ -313,7 +313,7 @@ function PropertyImage({
 
 function Gallery({ property }: { property: Property }) {
   const images = useMemo(
-    () => [...new Set((property.images ?? []).map(cleanText).filter((src) => src && !isPropertyFallbackImage(src))],
+    () => [...new Set((property.images ?? []).map(cleanText).filter((src) => src && !isPropertyFallbackImage(src)))],
     [property.images],
   );
   const [activeIndex, setActiveIndex] = useState(0);
