@@ -30,6 +30,9 @@ const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const propertyDetailMobileCss = fs.readFileSync(new URL("../src/property-detail-mobile-redesign.css", import.meta.url), "utf8");
 const propertyDetailV2Css = fs.readFileSync(new URL("../src/property-detail-page.css", import.meta.url), "utf8");
+const propertyGalleryMobileCss = fs.readFileSync(new URL("../src/property-gallery-mobile.css", import.meta.url), "utf8");
+const propertyDetailLuxuryCss = fs.readFileSync(new URL("../src/property-detail-page-luxury.css", import.meta.url), "utf8");
+const propertyExperienceRedesignCss = fs.readFileSync(new URL("../src/property-experience-redesign.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
 const verifyWorkflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
@@ -204,7 +207,7 @@ testRunner.test("property detail uses one consistent icon treatment for specific
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
-  assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 414, 768, 1024, 1440\]/);
+  assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 414, 430, 768, 1024, 1440\]/);
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
@@ -237,13 +240,27 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   }
 });
 
-testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumbnails touch-friendly", () => {
+testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumbnails vertically stacked", () => {
   assert.match(propertyDetailV2Css, /\.hd-gallery-stage\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/s);
   assert.match(propertyDetailV2Css, /\.property-detail-page\.hd-property-detail-v2 \.hd-gallery-stage img\.hd-gallery-image,\s*\.property-detail-page\.hd-property-detail-v2 \.hd-gallery-stage video\.hd-gallery-video,[\s\S]*?object-fit:\s*contain\s*!important/s,
     "listing photos and videos must remain fully visible above legacy site-wide responsive rules");
-  assert.match(propertyDetailV2Css, /\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumbs,\s*\.hd-gallery-thumbs\s*\{[^}]*overflow-x:\s*auto/s,
-    "the thumbnail rail must remain scrollable");
-  assert.match(propertyDetailV2Css, /@media \(max-width:\s*720px\)[\s\S]*?\.property-detail-page\.hd-property-detail-v2 \.property-gallery-thumb,\s*\.hd-gallery-thumb\s*\{[^}]*width:\s*75px;[^}]*min-width:\s*75px/s);
+  assert.match(propertyGalleryMobileCss, /\.hd-gallery-thumbs\s*\{[^}]*flex-direction:\s*column\s*!important/is,
+    "the mobile gallery thumbnails should form a vertical list");
+  assert.match(propertyDetailV2Css, /\.hd-gallery-thumbs\s*\{[^}]*flex-direction:\s*column/is,
+    "the detail page mobile stylesheet must not define a horizontal rail");
+  const v2GalleryStyles = [propertyGalleryMobileCss, propertyDetailLuxuryCss, propertyExperienceRedesignCss, propertyDetailV2Css].join("\n");
+  assert.doesNotMatch(v2GalleryStyles, /\.hd-gallery-thumbs\s*\{[^}]*flex-direction:\s*row\s*!important[^}]*\}/is,
+    "no mobile v2 thumbnail rule may restore a horizontal flex carousel");
+  assert.doesNotMatch(v2GalleryStyles, /\.hd-gallery-thumbs\s*\{[^}]*grid-auto-flow:\s*column\s*!important[^}]*\}/is,
+    "mobile thumbnail grid placement must flow down rows, never columns");
+  assert.doesNotMatch(v2GalleryStyles, /\.hd-gallery-thumbs\s*\{[^}]*overflow-x:\s*auto\s*!important[^}]*\}/is,
+    "the thumbnail list must not require horizontal scrolling");
+  assert.match(propertyGalleryMobileCss, /grid-template-areas:\s*"main"\s*"thumbs"/,
+    "the mobile gallery main image must precede the thumbnail list");
+  assert.match(propertyGalleryMobileCss, /grid-auto-flow:\s*row\s*!important/);
+  assert.match(propertyGalleryMobileCss, /grid-template-columns:\s*44px minmax\(0, 1fr\) 44px\s*!important/,
+    "gallery navigation hit areas must reserve room for 44px buttons");
+  assert.match(propertyGalleryMobileCss, /min-width:\s*44px\s*!important/);
   assert.match(propertyDetailV2Css, /\.hd-lightbox-media img,\s*\.hd-lightbox-media video\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(propertyDetailViewSource, /className="hd-video-thumb"/, "video thumbnails must have a visible play marker");
   assert.match(propertyDetailViewSource, /<Play size=\{14\} fill="currentColor" aria-hidden="true" \/>/,
