@@ -265,8 +265,8 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
     "the mobile fullscreen control must have a 44px minimum hit area");
   assert.match(propertyGalleryMobileCss, /\.hd-gallery-controls > button\s*\{[^}]*min-width:\s*44px\s*!important/is,
     "the mobile previous/next controls must have 44px minimum hit areas");
-  const galleryLightboxStyles = [propertyDetailV2Css, propertyDetailLuxuryCss, propertyExperienceRedesignCss].join("\\n");
-  assert.doesNotMatch(galleryLightboxStyles, /\.hd-lightbox-(?:prev|next|close)[^{]*\{[^}]*\\b(?:width|min-width):\\s*(?:38|42)px\\b[^}]*\}/is,
+  const galleryLightboxStyles = [propertyDetailV2Css, propertyDetailLuxuryCss, propertyExperienceRedesignCss].join("\n");
+  assert.doesNotMatch(galleryLightboxStyles, /\.hd-lightbox-(?:prev|next|close)[^{]*\{[^}]*\b(?:width|min-width):\s*(?:38|42)px\b[^}]*\}/is,
     "mobile lightbox controls must not fall below the 44px touch target");
   assert.match(propertyDetailV2Css, /\.hd-lightbox-media img,\s*\.hd-lightbox-media video\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(propertyDetailViewSource, /className="hd-video-thumb"/, "video thumbnails must have a visible play marker");
