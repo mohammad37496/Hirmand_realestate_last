@@ -1874,3 +1874,60 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
   }
 }
 
+/* Keep the lightbox close control in its own top corner.
+   The close icon must never share the same position as the side navigation arrows. */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-close {
+  position: fixed !important;
+  top: max(16px, env(safe-area-inset-top)) !important;
+  right: max(16px, env(safe-area-inset-right)) !important;
+  bottom: auto !important;
+  left: auto !important;
+  z-index: 10010 !important;
+  display: grid !important;
+  place-items: center !important;
+  justify-self: auto !important;
+  align-self: auto !important;
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  min-height: 46px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  transform: none !important;
+  overflow: hidden !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-close::before,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-close::after {
+  content: none !important;
+  display: none !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-close > svg {
+  display: block !important;
+  flex: 0 0 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  min-height: 24px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+  filter: none !important;
+  pointer-events: none !important;
+}
+@media (max-width: 620px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  .hd-lightbox .hd-lightbox-close {
+    top: max(10px, env(safe-area-inset-top)) !important;
+    right: max(10px, env(safe-area-inset-right)) !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+  }
+}
+
