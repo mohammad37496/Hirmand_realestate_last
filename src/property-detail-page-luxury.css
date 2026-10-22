@@ -2483,3 +2483,66 @@ main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview > 
     transition: none !important;
   }
 }
+
+/* Post-merge responsive correction:
+   Match the desktop gallery selectors' specificity so their two-column
+   layout and fixed-height hero cannot override the single-column phone layout. */
+@media (max-width: 760px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas: "main" "thumbs" !important;
+    grid-auto-flow: row !important;
+    align-items: start !important;
+    gap: 12px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 7px !important;
+    direction: rtl !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-main.hd-gallery-main {
+    grid-area: main !important;
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: clamp(250px, 70vw, 390px) !important;
+    min-height: 0 !important;
+    max-height: 390px !important;
+    aspect-ratio: 16 / 10 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-main.hd-gallery-main > div.hd-gallery-stage {
+    position: absolute !important;
+    inset: 0 !important;
+    display: block !important;
+    flex: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    aspect-ratio: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+}
+
