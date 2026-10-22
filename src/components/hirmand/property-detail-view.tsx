@@ -93,7 +93,7 @@ import "@/property-detail-page.css";
 import "@/property-detail-page-luxury.css";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import type { Property } from "@/lib/properties";
-import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
+import { getPropertyFallbackImages, getPropertyFallbackLegacyImages, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { isVideoUrl, mediaSourceCandidates } from "@/lib/media";
 import { formatToman, parseAmount } from "@/lib/money";
 import { formatPersianDate } from "@/lib/persian-date";
@@ -337,13 +337,15 @@ function PropertyImage({
   alt,
   className,
   priority = false,
+  fallbackSrc,
 }: {
   src: string;
   alt: string;
   className?: string;
   priority?: boolean;
+  fallbackSrc?: string;
 }) {
-  const candidates = useMemo(() => mediaSourceCandidates(src), [src]);
+  const candidates = useMemo(() => mediaSourceCandidates(src, fallbackSrc), [src, fallbackSrc]);
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
 
@@ -387,14 +389,22 @@ function Gallery({ property }: { property: Property }) {
     () => storedImages.filter((src) => !isPropertyFallbackImage(src)),
     [storedImages],
   );
-  // If no media was uploaded, use a checked-in, same-origin image for this
-  // property's category. Keep real listing media first, and keep any previously
-  // stored category fallback visible with an explicit on-image notice.
-  const images = propertyImages.length
-    ? propertyImages
-    : storedImages.length
-      ? storedImages
-      : [getPropertyFallbackImage(property.propertyType, property.id)];
+  // Real listing photos always take precedence. If there are none, show the
+  // curated set for the property's category so the gallery has working next /
+  // previous controls. Each generated JPG has a checked-in SVG fallback below.
+  const categoryFallbackImages = useMemo(
+    () => getPropertyFallbackImages(property.propertyType),
+    [property.propertyType],
+  );
+  const legacyFallbackImages = useMemo(
+    () => getPropertyFallbackLegacyImages(property.propertyType),
+    [property.propertyType],
+  );
+  const images = propertyImages.length ? propertyImages : categoryFallbackImages;
+  const fallbackForImage = (src: string, index: number) => {
+    if (!isPropertyFallbackImage(src) || !legacyFallbackImages.length) return undefined;
+    return legacyFallbackImages[index % legacyFallbackImages.length];
+  };
   const [activeIndex, setActiveIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -437,7 +447,7 @@ function Gallery({ property }: { property: Property }) {
     if (images.length) setActiveIndex((index) => (index + step + images.length) % images.length);
   };
 
-  const renderMedia = (src: string, alt: string, priority = false) => {
+  const renderMedia = (src: string, alt: string, priority = false, fallbackSrc?: string) => {
     if (isVideoUrl(src)) {
       const candidates = mediaSourceCandidates(src);
       return (
@@ -451,7 +461,7 @@ function Gallery({ property }: { property: Property }) {
         />
       );
     }
-    return <picture className="hd-gallery-picture"><PropertyImage src={src} alt={alt} className="hd-gallery-image" priority={priority} /></picture>;
+    return <picture className="hd-gallery-picture"><PropertyImage src={src} alt={alt} className="hd-gallery-image" priority={priority} fallbackSrc={fallbackSrc} /></picture>;
   };
 
   return (
@@ -462,7 +472,7 @@ function Gallery({ property }: { property: Property }) {
             {current ? (
               <>
                 <div className="hd-gallery-stage">
-                  {renderMedia(current, currentIsCategoryFallback ? "تصویر نمونهٔ دسته‌بندی؛ عکس واقعی این ملک نیست" : property.title, true)}
+                  {renderMedia(current, currentIsCategoryFallback ? "تصویر نمونهٔ دسته‌بندی؛ عکس واقعی این ملک نیست" : property.title, true, fallbackForImage(current, activeIndexSafe))}
                   {currentIsCategoryFallback ? <span className="hd-gallery-fallback-note" role="note">تصویر نمونهٔ دسته‌بندی؛ عکس واقعی این ملک نیست</span> : null}
                   {!currentIsVideo ? (
                     <button type="button" className="hd-gallery-expand property-gallery-open" onClick={() => setLightboxOpen(true)} aria-label="نمایش تصویر در اندازهٔ بزرگ">
@@ -503,7 +513,7 @@ function Gallery({ property }: { property: Property }) {
                   aria-pressed={index === activeIndexSafe}
                   aria-current={index === activeIndexSafe ? "true" : undefined}
                 >
-                  {isVideoUrl(src) ? <span className="hd-video-thumb"><Play size={14} fill="currentColor" aria-hidden="true" /><span>ویدئو</span></span> : <PropertyImage src={src} alt="" />}
+                  {isVideoUrl(src) ? <span className="hd-video-thumb"><Play size={14} fill="currentColor" aria-hidden="true" /><span>ویدئو</span></span> : <PropertyImage src={src} alt="" fallbackSrc={fallbackForImage(src, index)} />}
                 </button>
               ))}
             </div>
@@ -526,7 +536,7 @@ function Gallery({ property }: { property: Property }) {
                   <button className="hd-lightbox-prev" type="button" onClick={() => move(-1)} aria-label="تصویر قبلی"><ChevronRight size={30} /></button>
                 </>
               ) : null}
-              <div className="hd-lightbox-media"><PropertyImage src={current} alt={property.title} priority /></div>
+              <div className="hd-lightbox-media"><PropertyImage src={current} alt={property.title} priority fallbackSrc={fallbackForImage(current, activeIndexSafe)} /></div>
               <div className="hd-lightbox-count">تصویر {(activeIndexSafe + 1).toLocaleString("fa-IR")} از {images.length.toLocaleString("fa-IR")}</div>
             </div>,
             document.body,
