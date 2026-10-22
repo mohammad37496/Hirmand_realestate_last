@@ -1,0 +1,623 @@
+/*
+ * Hirmand Real Estate — mobile property gallery
+ * Original mobile-first design inspired by common property marketplace patterns.
+ * Deliberately isolated to the property-detail page and small-screen breakpoints.
+ */
+@media (max-width: 760px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 {
+    width: calc(100% - 16px) !important;
+    max-width: 760px !important;
+    min-width: 0 !important;
+    margin: 10px auto 0 !important;
+    padding-top: 8px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 section.property-detail-top.hd-detail-hero {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas: "gallery" "summary" !important;
+    align-items: start !important;
+    gap: 13px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    direction: rtl !important;
+    overflow: visible !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 section.property-detail-top.hd-detail-hero > .property-detail-top-gallery.hd-gallery-column {
+    grid-area: gallery !important;
+    display: block !important;
+    float: none !important;
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    overflow: visible !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-wrap.hd-gallery-wrap {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 7px !important;
+    border: 1px solid #e3d8c6 !important;
+    border-radius: 21px !important;
+    overflow: hidden !important;
+    background: linear-gradient(160deg, #fffefa, #f6f1e7) !important;
+    box-shadow: 0 13px 32px rgb(19 40 55 / 8%), inset 0 1px 0 #fff !important;
+    isolation: isolate !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-wrap.hd-gallery-wrap > .property-gallery.hd-gallery {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas: "main" "thumbs" !important;
+    grid-auto-flow: row !important;
+    align-items: start !important;
+    gap: 14px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 2px !important;
+    overflow: visible !important;
+    direction: rtl !important;
+  }
+
+  /* Hero image uses a predictable 16:10 frame, like a polished listing portal. */
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-wrap.hd-gallery-wrap .property-gallery-main.hd-gallery-main {
+    grid-area: main !important;
+    display: block !important;
+    position: relative !important;
+    inset: auto !important;
+    float: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    aspect-ratio: 16 / 10 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid #dfd4c1 !important;
+    border-radius: 17px !important;
+    background: #eee8dc !important;
+    box-shadow: 0 7px 20px rgb(21 39 52 / 7%), inset 0 1px 0 rgb(255 255 255 / 75%) !important;
+    isolation: isolate !important;
+    transform: none !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-stage {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
+    flex: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    aspect-ratio: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background:
+      radial-gradient(ellipse at center, rgb(255 255 255 / 75%), transparent 68%),
+      linear-gradient(145deg, #f3eee5, #e7dfd2) !important;
+    isolation: isolate !important;
+    transform: none !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main .hd-gallery-picture {
+    display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    transform: none !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main .hd-gallery-picture > img,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main .hd-gallery-stage > img,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main .hd-gallery-stage > video {
+    display: block !important;
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    object-fit: contain !important;
+    object-position: center center !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    transform: none !important;
+  }
+
+  /* Compact image status chip */
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-fallback-note {
+    position: absolute !important;
+    top: 9px !important;
+    right: 9px !important;
+    left: 9px !important;
+    z-index: 5 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    width: fit-content !important;
+    max-width: calc(100% - 18px) !important;
+    min-height: 28px !important;
+    margin: 0 !important;
+    padding: 5px 9px !important;
+    border: 1px solid rgb(197 156 82 / 48%) !important;
+    border-radius: 9px !important;
+    background: rgb(255 250 239 / 94%) !important;
+    color: #75541f !important;
+    box-shadow: 0 4px 14px rgb(20 34 45 / 10%) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-size: .66rem !important;
+    font-weight: 850 !important;
+    line-height: 1.55 !important;
+    white-space: normal !important;
+    pointer-events: none !important;
+  }
+
+  /* Icon-only expand action: reachable, unobtrusive, and never stretched. */
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main .hd-gallery-expand {
+    display: inline-grid !important;
+    place-items: center !important;
+    position: absolute !important;
+    inset: auto auto 8px 8px !important;
+    z-index: 9 !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid rgb(255 255 255 / 42%) !important;
+    border-radius: 13px !important;
+    background: rgb(15 35 51 / 88%) !important;
+    color: #fff !important;
+    box-shadow: 0 5px 17px rgb(4 17 28 / 23%) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transform: none !important;
+    cursor: pointer !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand-label {
+    display: none !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand-icon {
+    display: grid !important;
+    place-items: center !important;
+    width: 31px !important;
+    height: 31px !important;
+    border: 1px solid rgb(244 213 153 / 34%) !important;
+    border-radius: 9px !important;
+    background: linear-gradient(145deg, #e4c17c, #b88942) !important;
+    color: #152d3d !important;
+  }
+
+  /* Translucent navigation cluster floats on the image's bottom edge. */
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-controls {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    position: absolute !important;
+    inset: auto 8px 8px 60px !important;
+    z-index: 8 !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 5px !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: #fff !important;
+    direction: ltr !important;
+    pointer-events: none !important;
+    transform: none !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-controls > button {
+    display: inline-grid !important;
+    place-items: center !important;
+    position: static !important;
+    inset: auto !important;
+    flex: 0 0 40px !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    max-height: 40px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid rgb(255 255 255 / 22%) !important;
+    border-radius: 12px !important;
+    background: rgb(15 35 51 / 88%) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 12px rgb(4 17 28 / 14%) !important;
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-controls > button svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-controls .property-gallery-counter {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 88px) !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    margin: 0 !important;
+    padding: 4px 8px !important;
+    border: 1px solid rgb(255 255 255 / 20%) !important;
+    border-radius: 999px !important;
+    background: rgb(15 35 51 / 88%) !important;
+    color: #fff !important;
+    font-size: .68rem !important;
+    font-weight: 850 !important;
+    line-height: 1.4 !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+  }
+
+  /* Heading and list of gallery cards — always vertical on phones. */
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs {
+    grid-area: thumbs !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 9px !important;
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 1px 2px !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    direction: rtl !important;
+    scrollbar-width: none !important;
+    transform: none !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs-heading {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 34px !important;
+    margin: 0 0 1px !important;
+    padding: 0 2px !important;
+    color: #203849 !important;
+    font-size: .86rem !important;
+    font-weight: 900 !important;
+    line-height: 1.6 !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs-heading-title {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs-heading-title::before {
+    content: "";
+    display: block;
+    flex: 0 0 4px;
+    width: 4px;
+    height: 18px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #d9bc82, #a67b36);
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs-heading-count {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 27px !important;
+    padding: 4px 9px !important;
+    border: 1px solid #e8ddc8 !important;
+    border-radius: 999px !important;
+    background: #fffefa !important;
+    color: #756044 !important;
+    font-size: .69rem !important;
+    font-weight: 800 !important;
+    white-space: nowrap !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb {
+    display: grid !important;
+    grid-template-columns: 94px minmax(0, 1fr) 28px !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    grid-template-areas: "preview info status" !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+    gap: 10px !important;
+    position: relative !important;
+    inset: auto !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 88px !important;
+    min-height: 88px !important;
+    max-height: 88px !important;
+    margin: 0 !important;
+    padding: 7px !important;
+    overflow: hidden !important;
+    border: 1px solid #e5dccb !important;
+    border-radius: 15px !important;
+    background: linear-gradient(135deg, #fffefa 0%, #f8f4eb 100%) !important;
+    color: #203849 !important;
+    box-shadow: 0 4px 13px rgb(24 45 62 / 4%), inset 0 1px 0 rgb(255 255 255 / 92%) !important;
+    direction: rtl !important;
+    text-align: right !important;
+    scroll-snap-align: none !important;
+    transform: none !important;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb.is-active {
+    border-color: #b98e49 !important;
+    background: linear-gradient(135deg, #fff9ed, #f7efdf) !important;
+    box-shadow: 0 0 0 2px rgb(185 142 73 / 13%), 0 6px 17px rgb(24 45 62 / 6%) !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb:focus-visible {
+    outline: 3px solid rgb(185 142 73 / 55%) !important;
+    outline-offset: 2px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview {
+    grid-area: preview !important;
+    display: block !important;
+    position: relative !important;
+    width: 94px !important;
+    min-width: 94px !important;
+    max-width: 94px !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid rgb(24 45 62 / 7%) !important;
+    border-radius: 10px !important;
+    background: #eee7db !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview img,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview .hd-image-missing,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview .hd-video-thumb {
+    display: grid !important;
+    position: relative !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: cover !important;
+    object-position: center !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-info {
+    grid-area: info !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-align: right !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-title {
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    color: #203849 !important;
+    font-size: .8rem !important;
+    font-weight: 900 !important;
+    line-height: 1.5 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-description {
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    color: #77828a !important;
+    font-size: .68rem !important;
+    font-weight: 650 !important;
+    line-height: 1.5 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-status {
+    grid-area: status !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid #ebe2d2 !important;
+    border-radius: 9px !important;
+    background: #fff !important;
+    color: #84909a !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb.is-active .hd-gallery-thumb-status {
+    border-color: #e0c58e !important;
+    background: #f3e3bf !important;
+    color: #76531c !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-empty {
+    display: flex !important;
+    position: absolute !important;
+    inset: 0 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 18px !important;
+    border: 1px dashed #cdbb98 !important;
+    border-radius: 0 !important;
+    background: linear-gradient(145deg, #faf7f0, #f0e8da) !important;
+  }
+}
+
+@media (max-width: 380px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb {
+    grid-template-columns: 82px minmax(0, 1fr) 26px !important;
+    gap: 8px !important;
+    height: 82px !important;
+    min-height: 82px !important;
+    max-height: 82px !important;
+    padding: 6px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview {
+    width: 82px !important;
+    min-width: 82px !important;
+    max-width: 82px !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    max-height: 68px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-status {
+    width: 26px !important;
+    min-width: 26px !important;
+    max-width: 26px !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    max-height: 26px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb {
+    transition: none !important;
+  }
+}

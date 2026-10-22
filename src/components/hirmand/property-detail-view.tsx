@@ -110,6 +110,7 @@ import {
   PROPERTY_WALL_CLOSET_OPTIONS,
   labelForOption,
 } from "@/lib/property-options";
+import "@/property-gallery-mobile.css";
 
 const TRANSACTION_LABEL: Record<Property["transactionType"], string> = {
   buy: "خرید",
