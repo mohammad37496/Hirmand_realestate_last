@@ -1791,3 +1791,86 @@ main#top.property-detail-page.hd-property-detail-v2
   overflow-wrap: anywhere !important;
 }
 
+/* Lightbox arrow controls: prevent doubled glyphs and keep previous/next
+   controls anchored to opposite physical edges on every viewport. */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-prev,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-next {
+  position: absolute !important;
+  top: 50% !important;
+  z-index: 10003 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  padding: 0 !important;
+  line-height: 0 !important;
+  text-align: center !important;
+  transform: translateY(-50%) !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-prev {
+  right: max(16px, env(safe-area-inset-right)) !important;
+  left: auto !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-next {
+  left: max(16px, env(safe-area-inset-left)) !important;
+  right: auto !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-prev::before,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-prev::after,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-next::before,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-next::after {
+  content: none !important;
+  display: none !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-prev > svg,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+.hd-lightbox .hd-lightbox-next > svg {
+  display: block !important;
+  flex: 0 0 26px !important;
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  min-height: 26px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+@media (max-width: 620px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  .hd-lightbox .hd-lightbox-prev,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  .hd-lightbox .hd-lightbox-next {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  .hd-lightbox .hd-lightbox-prev > svg,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  .hd-lightbox .hd-lightbox-next > svg {
+    flex-basis: 23px !important;
+    width: 23px !important;
+    height: 23px !important;
+    min-width: 23px !important;
+    min-height: 23px !important;
+  }
+}
+
