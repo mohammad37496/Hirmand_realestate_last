@@ -290,4 +290,6 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
   assert.match(propertyDetailViewSource, /className="hd-video-thumb"/, "video thumbnails must have a visible play marker");
   assert.match(propertyDetailViewSource, /<Play size=\{14\} fill="currentColor" aria-hidden="true" \/>/,
     "the thumbnail marker must use a visible, decorative play icon");
+  assert.doesNotMatch(propertyDetailViewSource, /تصویر نمونهٔ دسته‌بندی؛ عکس واقعی این ملک نیست|hd-gallery-fallback-note/,
+    "the category fallback disclaimer must not be shown on property images");
 });
