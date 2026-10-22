@@ -42,7 +42,7 @@ async function download(url, output) {
     const response = await fetch(url, {
       headers: {
         "user-agent": "Hirmand-Real-Estate-fallback-assets/3.1",
-        accept: "image/jpeg,image/webp,image/avif,image/*;q=0.8",
+        accept: "image/jpeg",
       },
       signal: AbortSignal.timeout(30_000),
     });
@@ -54,7 +54,7 @@ async function download(url, output) {
     await pipeline(response.body, createWriteStream(temp));
     const bytes = await readFile(temp);
     if (bytes.length <= 1024 || !hasRasterMagic(bytes.subarray(0, 32))) {
-      throw new Error("downloaded response is not a valid raster image");
+      throw new Error("downloaded response is not a valid JPEG (content-type=" + (response.headers.get("content-type") ?? "unknown") + ", signature=" + bytes.subarray(0, 12).toString("hex") + ")");
     }
 
     renameSync(temp, output);
