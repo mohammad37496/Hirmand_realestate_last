@@ -174,6 +174,17 @@ try {
             if (!opened) {
               failures.push(`${route}: the gallery expand control did not open the lightbox`);
             } else {
+              const lightboxTargets = await lightbox.locator("button").evaluateAll((buttons) => buttons.map((button) => {
+                const rect = button.getBoundingClientRect();
+                return {
+                  label: button.getAttribute("aria-label") || "",
+                  width: Math.round(rect.width),
+                  height: Math.round(rect.height),
+                };
+              }));
+              if (lightboxTargets.some((target) => target.width < 44 || target.height < 44)) {
+                failures.push(`${route}: lightbox contains a touch target below 44px: ${JSON.stringify(lightboxTargets)}`);
+              }
               const lockedOverflow = await page.locator("body").evaluate((el) => getComputedStyle(el).overflow);
               if (lockedOverflow !== "hidden") failures.push(`${route}: background scrolling was not locked while the lightbox was open`);
               await page.keyboard.press("Escape");
