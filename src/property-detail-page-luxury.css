@@ -1220,7 +1220,7 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) .property-det
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .property-gallery-wrap.hd-gallery-wrap { border-radius: 18px !important; }
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .property-gallery.hd-gallery { padding: 7px !important; }
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-main { height: clamp(255px, 68vw, 390px) !important; border-radius: 13px !important; }
-  html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-controls { flex-basis: 42px !important; height: 42px !important; min-height: 42px !important; }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-controls { flex-basis: 48px !important; height: 48px !important; min-height: 48px !important; }
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .property-detail-summary.hd-summary-card {
     padding: 17px !important;
     border-radius: 19px !important;
@@ -1527,7 +1527,8 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox 
   }
   html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-prev,
   html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-next {
-    width: 42px !important;
+    width: 44px !important;
+    min-width: 44px !important;
     height: 46px !important;
     border-radius: 13px !important;
   }
