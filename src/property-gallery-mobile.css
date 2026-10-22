@@ -860,12 +860,12 @@
     z-index: 9 !important;
     display: grid !important;
     place-items: center !important;
-    width: 42px !important;
-    min-width: 42px !important;
-    max-width: 42px !important;
-    height: 42px !important;
-    min-height: 42px !important;
-    max-height: 42px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
     margin: 0 !important;
     padding: 0 !important;
     border: 1px solid rgb(255 255 255 / 58%) !important;
