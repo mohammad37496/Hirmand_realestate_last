@@ -1016,3 +1016,270 @@ main#top.property-detail-page.hd-property-detail-v2 .hd-related-grid {
     padding: 13px !important;
   }
 }
+
+/* ==========================================================================
+   Premium consultant card refresh
+   A richer navy + champagne-gold treatment, clearer contact hierarchy,
+   and full-width viewing action. Content and existing interactions unchanged.
+   ========================================================================== */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card {
+  position: relative !important;
+  isolation: isolate !important;
+  overflow: hidden !important;
+  padding: 17px !important;
+  border: 1px solid rgb(198 160 91 / 48%) !important;
+  border-radius: 20px !important;
+  background:
+    radial-gradient(ellipse at 0% 100%, rgb(194 155 82 / 13%), transparent 47%),
+    radial-gradient(ellipse at 100% 0%, rgb(228 190 115 / 12%), transparent 43%),
+    linear-gradient(145deg, #102b3e 0%, #17384b 54%, #102637 100%) !important;
+  color: #f7f3e9 !important;
+  box-shadow:
+    0 16px 34px rgb(12 34 49 / 16%),
+    inset 0 1px 0 rgb(255 255 255 / 6%) !important;
+  gap: 4px 11px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card::before {
+  content: "" !important;
+  position: absolute !important;
+  z-index: 0 !important;
+  top: 0 !important;
+  right: 17px !important;
+  width: 66px !important;
+  height: 3px !important;
+  border-radius: 0 0 4px 4px !important;
+  background: linear-gradient(90deg, #ead7a9, #bd9146) !important;
+  pointer-events: none !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card > * {
+  min-width: 0 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-kicker {
+  position: relative !important;
+  z-index: 1 !important;
+  justify-self: start !important;
+  width: fit-content !important;
+  margin: 1px 0 7px !important;
+  padding: 4px 9px !important;
+  border: 1px solid rgb(225 194 133 / 29%) !important;
+  border-radius: 999px !important;
+  background: rgb(225 194 133 / 9%) !important;
+  color: #e7d1a1 !important;
+  font-size: .68rem !important;
+  font-weight: 750 !important;
+  letter-spacing: .01em !important;
+  line-height: 1.55 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-avatar {
+  display: grid !important;
+  place-items: center !important;
+  width: 46px !important;
+  height: 46px !important;
+  border: 1px solid rgb(231 202 146 / 66%) !important;
+  border-radius: 15px !important;
+  background: linear-gradient(145deg, #f3e5c6, #d1ad68) !important;
+  color: #173347 !important;
+  box-shadow: 0 5px 13px rgb(0 0 0 / 14%), inset 0 1px 0 rgb(255 255 255 / 68%) !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-avatar svg {
+  width: 22px !important;
+  height: 22px !important;
+  stroke-width: 1.8 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card h2 {
+  color: #fffaf0 !important;
+  font-size: 1rem !important;
+  font-weight: 850 !important;
+  letter-spacing: -.015em !important;
+  line-height: 1.5 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card > p:not(.hd-consultant-note) {
+  color: #bdcbd2 !important;
+  font-size: .73rem !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-phone {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  margin-top: 3px !important;
+  padding: 6px 9px !important;
+  border: 1px solid rgb(231 238 240 / 12%) !important;
+  border-radius: 9px !important;
+  background: rgb(4 20 31 / 28%) !important;
+  color: #f2dfb4 !important;
+  font-size: .77rem !important;
+  font-weight: 800 !important;
+  text-decoration: none !important;
+  direction: ltr !important;
+  white-space: nowrap !important;
+  transition: background .18s ease, border-color .18s ease !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-phone svg {
+  flex: 0 0 auto !important;
+  color: #d8ba7d !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-phone:hover {
+  border-color: rgb(231 202 146 / 46%) !important;
+  background: rgb(4 20 31 / 48%) !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions .hd-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  min-height: 40px !important;
+  padding: 8px 9px !important;
+  border-radius: 11px !important;
+  font-size: .76rem !important;
+  font-weight: 800 !important;
+  line-height: 1.4 !important;
+  text-align: center !important;
+  text-decoration: none !important;
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions .hd-button svg {
+  flex: 0 0 auto !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions .hd-button:hover {
+  transform: translateY(-1px) !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions .hd-button-primary {
+  border: 1px solid #e2c27e !important;
+  background: linear-gradient(135deg, #f0dcae, #d2aa61) !important;
+  color: #172e3c !important;
+  box-shadow: 0 5px 12px rgb(0 0 0 / 12%) !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions .hd-button-primary svg {
+  color: #173347 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions .hd-button-secondary {
+  border: 1px solid rgb(190 220 204 / 25%) !important;
+  background: rgb(221 241 230 / 7%) !important;
+  color: #e2eee5 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions .hd-button-secondary svg {
+  color: #a6d5b5 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-note {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  margin: 5px 0 0 !important;
+  padding-top: 10px !important;
+  border-top: 1px solid rgb(231 238 240 / 12%) !important;
+  color: #c0cdd3 !important;
+  font-size: .69rem !important;
+  line-height: 1.7 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-note::before {
+  content: "" !important;
+  flex: 0 0 6px !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: #d7b875 !important;
+  box-shadow: 0 0 0 3px rgb(215 184 117 / 12%) !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-viewing-request {
+  margin-top: 7px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-viewing-request .property-viewing-trigger {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-height: 43px !important;
+  padding: 9px 12px !important;
+  border: 1px solid rgb(231 202 146 / 60%) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(120deg, rgb(226 195 132 / 12%), rgb(226 195 132 / 5%)) !important;
+  color: #f0d9a6 !important;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%) !important;
+  font-size: .78rem !important;
+  font-weight: 850 !important;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-viewing-request .property-viewing-trigger svg {
+  width: 17px !important;
+  height: 17px !important;
+  color: #e5c782 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-viewing-request .property-viewing-trigger:hover {
+  transform: translateY(-1px) !important;
+  border-color: #dfc17f !important;
+  background: rgb(226 195 132 / 17%) !important;
+}
+@media (max-width: 620px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card {
+    padding: 14px !important;
+    grid-template-columns: 38px minmax(0, 1fr) !important;
+    column-gap: 10px !important;
+    row-gap: 4px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-avatar {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 12px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions {
+    gap: 7px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions .hd-button {
+    min-height: 39px !important;
+    padding-inline: 6px !important;
+    font-size: .73rem !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card *,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card *::before {
+    transition: none !important;
+  }
+}
+
