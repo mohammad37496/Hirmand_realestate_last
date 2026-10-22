@@ -508,21 +508,47 @@ function Gallery({ property }: { property: Property }) {
             )}
           </div>
 
-          {images.length ? (
+          {images.length > 1 ? (
             <div className="property-gallery-thumbs property-gallery-rail hd-gallery-thumbs" aria-label="انتخاب تصویر">
-              {images.map((src, index) => (
-                <button
-                  className={"property-gallery-thumb hd-gallery-thumb" + (index === activeIndexSafe ? " is-active" : "")}
-                  key={src}
-                  type="button"
-                  onClick={() => setActiveIndex(index)}
-                  aria-label={"نمایش تصویر " + (index + 1).toLocaleString("fa-IR")}
-                  aria-pressed={index === activeIndexSafe}
-                  aria-current={index === activeIndexSafe ? "true" : undefined}
-                >
-                  {isVideoUrl(src) ? <span className="hd-video-thumb"><Play size={14} fill="currentColor" aria-hidden="true" /><span>ویدئو</span></span> : <PropertyImage src={src} alt="" fallbackSrc={fallbackForImage(src, index)} />}
-                </button>
-              ))}
+              <div className="hd-gallery-thumbs-heading" aria-hidden="true">
+                <span className="hd-gallery-thumbs-heading-title">تصاویر بیشتر این ملک</span>
+                <span className="hd-gallery-thumbs-heading-count">{images.length.toLocaleString("fa-IR")} تصویر</span>
+              </div>
+              {images.map((src, index) => {
+                const isActive = index === activeIndexSafe;
+                return (
+                  <button
+                    className={"property-gallery-thumb hd-gallery-thumb" + (isActive ? " is-active" : "")}
+                    key={src}
+                    type="button"
+                    onClick={() => setActiveIndex(index)}
+                    aria-label={"نمایش تصویر " + (index + 1).toLocaleString("fa-IR")}
+                    aria-pressed={isActive}
+                    aria-current={isActive ? "true" : undefined}
+                    data-gallery-index={index + 1}
+                  >
+                    <span className="hd-gallery-thumb-preview" aria-hidden="true">
+                      {isVideoUrl(src) ? (
+                        <span className="hd-video-thumb">
+                          <Play size={14} fill="currentColor" aria-hidden="true" />
+                          <span>ویدئو</span>
+                        </span>
+                      ) : (
+                        <PropertyImage src={src} alt="" fallbackSrc={fallbackForImage(src, index)} />
+                      )}
+                    </span>
+                    <span className="hd-gallery-thumb-info" aria-hidden="true">
+                      <span className="hd-gallery-thumb-title">تصویر { (index + 1).toLocaleString("fa-IR") }</span>
+                      <span className="hd-gallery-thumb-description">
+                        {isActive ? "در حال نمایش" : "برای مشاهده انتخاب کنید"}
+                      </span>
+                    </span>
+                    <span className="hd-gallery-thumb-status" aria-hidden="true">
+                      {isActive ? <Check size={16} strokeWidth={2.5} /> : <ChevronLeft size={16} />}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           ) : null}
         </div>
