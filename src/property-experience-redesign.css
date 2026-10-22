@@ -1770,3 +1770,24 @@ main#top.property-detail-page.hd-property-detail-v2 .hd-aside-meta > p strong {
   }
 }
 
+/* Fix note overlap: the legacy direct-child paragraph rule had higher
+   specificity and pinned this note to the consultant subtitle's grid row. */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2
+.hd-consultant-card > p.hd-consultant-note {
+  grid-column: 1 / -1 !important;
+  grid-row: 6 !important;
+  align-self: stretch !important;
+  justify-self: stretch !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 8px 0 0 !important;
+  padding: 10px 1px 2px !important;
+  clear: both !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
