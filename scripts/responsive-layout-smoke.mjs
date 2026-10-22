@@ -139,6 +139,7 @@ try {
       }
 
       if (route.startsWith("/properties/")) {
+        await page.setViewportSize({ width: 320, height: 900 });
         const thumbs = page.locator(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb");
         await thumbs.first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => undefined);
         const thumbCount = await thumbs.count();
@@ -200,6 +201,8 @@ try {
                 if (unlockedOverflow === "hidden") failures.push(`${route}: body overflow remained locked after closing the lightbox`);
               }
             }
+          } else {
+            failures.push(`${route}: gallery fullscreen control is missing or not visible`);
           }
         }
       }
@@ -449,7 +452,7 @@ try {
           )) {
             failures.push(`${route} @ ${width}px: gallery navigation buttons are too small or overlap the viewport edge: ${JSON.stringify(gallery.navButtons)}`);
           }
-          if (gallery.videoControls.some((button) => button.width < 40 || button.height < 40)) {
+          if (gallery.videoControls.some((button) => button.width < 44 || button.height < 44)) {
             failures.push(`${route} @ ${width}px: video controls are below 40px touch targets: ${JSON.stringify(gallery.videoControls)}`);
           }
         }
