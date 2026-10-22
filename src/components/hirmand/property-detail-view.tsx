@@ -410,7 +410,6 @@ function Gallery({ property }: { property: Property }) {
   const activeIndexSafe = images.length ? Math.min(activeIndex, images.length - 1) : 0;
   const current = images[activeIndexSafe] || "";
   const currentIsVideo = current ? isVideoUrl(current) : false;
-  const currentIsCategoryFallback = Boolean(current && isPropertyFallbackImage(current));
 
   useEffect(() => {
     setActiveIndex(0);
@@ -471,8 +470,7 @@ function Gallery({ property }: { property: Property }) {
             {current ? (
               <>
                 <div className="hd-gallery-stage">
-                  {renderMedia(current, currentIsCategoryFallback ? "تصویر نمونهٔ دسته‌بندی؛ عکس واقعی این ملک نیست" : property.title, true, fallbackForImage(current, activeIndexSafe))}
-                  {currentIsCategoryFallback ? <span className="hd-gallery-fallback-note" role="note">تصویر نمونهٔ دسته‌بندی؛ عکس واقعی این ملک نیست</span> : null}
+                  {renderMedia(current, property.title, true, fallbackForImage(current, activeIndexSafe))}
                   {!currentIsVideo ? (
                     <button
                       type="button"
