@@ -28,6 +28,7 @@ import {
 } from "@/lib/admin-rate-limit.server";
 import { dbSource, getSql } from "@/lib/db";
 import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
+import { matchesUploadSessionScope, uploadSessionScopePrefix } from "@/lib/upload-session-scope";
 import {
   deleteStoredMedia,
   getMediaMeta,
@@ -149,6 +150,7 @@ export async function handleChunkedUpload(
   config: ChunkedUploadConfig,
 ): Promise<unknown> {
   setResponseHeader(event, "cache-control", "no-store");
+  const sessionPathPrefix = uploadSessionScopePrefix(config.pathPrefix);
 
   const adminAccess = config.access !== "public";
   if (adminAccess && !await verifyAdminSessionToken(getCookie(event, ADMIN_SESSION_COOKIE))) {
@@ -176,7 +178,7 @@ export async function handleChunkedUpload(
     }
 
     const session = await loadSession(uploadIdHeader);
-    if (!session || String(session.kind ?? "") !== config.kind) {
+    if (!session || !matchesUploadSessionScope(session, config.kind, config.pathPrefix)) {
       throw httpError("نشست آپلود پیدا نشد یا برای این مسیر معتبر نیست.", 404);
     }
     if (String(session.completion_state ?? "pending") !== "pending") {
@@ -204,12 +206,28 @@ export async function handleChunkedUpload(
     }
 
     const sql = await getSql();
-    await sql.query(
-      `insert into media_upload_chunks (session_id, chunk_index, data)
-       values ($1, $2, $3)
-       on conflict (session_id, chunk_index) do update set data = excluded.data`,
-      [uploadIdHeader, index, bytes],
+    // Serialize chunk writes with completion. Both paths lock the same session
+    // row and the write re-checks kind, storage prefix, and pending state.
+    const savedChunk = await sql.query<{ session_id: string }>(
+      `with upload_session as (
+         select id from media_upload_sessions
+         where id = $1
+           and kind = $4
+           and left(pathname, length($5)) = $5
+           and completion_state = 'pending'
+         for update
+       ), saved_chunk as (
+         insert into media_upload_chunks (session_id, chunk_index, data)
+         select id, $2, $3 from upload_session
+         on conflict (session_id, chunk_index) do update set data = excluded.data
+         returning session_id
+       )
+       select session_id from saved_chunk`,
+      [uploadIdHeader, index, bytes, config.kind, sessionPathPrefix],
     );
+    if (!savedChunk.length) {
+      throw httpError("این نشست آپلود برای این مسیر معتبر نیست یا در حال نهایی‌سازی است.", 409);
+    }
 
     const counters = await sql.query<SessionRow>(
       `update media_upload_sessions
@@ -320,9 +338,11 @@ export async function handleChunkedUpload(
     const completedRows = await sql.query<SessionRow>(
       `select completion_result, stored_storage
        from media_upload_sessions
-       where id = $1 and kind = $2 and completion_result is not null
+       where id = $1 and kind = $2
+         and left(pathname, length($3)) = $3
+         and completion_result is not null
        limit 1`,
-      [uploadId, config.kind],
+      [uploadId, config.kind, sessionPathPrefix],
     );
     const completedSession = completedRows[0];
     if (
@@ -343,6 +363,7 @@ export async function handleChunkedUpload(
        set completion_state = 'completing', completion_started_at = current_timestamp
        where id = $1
          and kind = $2
+         and left(pathname, length($3)) = $3
          and (
            completion_state = 'pending'
            or (
@@ -351,7 +372,7 @@ export async function handleChunkedUpload(
            )
          )
        returning *`,
-      [uploadId, config.kind],
+      [uploadId, config.kind, sessionPathPrefix],
     );
     const session = claimed[0];
     if (!session) {
@@ -501,8 +522,8 @@ export async function handleChunkedUpload(
     if (uploadId) {
       const sql = await getSql();
       await sql.query(
-        "delete from media_upload_sessions where id = $1 and kind = $2 and completion_state = 'pending'",
-        [uploadId, config.kind],
+        "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3 and completion_state = 'pending'",
+        [uploadId, config.kind, sessionPathPrefix],
       );
     }
     return { aborted: true };

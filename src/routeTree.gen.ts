@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as StaffRouteImport } from './routes/staff'
@@ -226,9 +227,15 @@ const VSlugIdRoute = VSlugIdRouteImport.update({
   path: '/v/$slug/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin': typeof AdminRoute
   '/staff': typeof StaffRoute
   '/admin-mobile-management': typeof AdminMobileManagementRoute
@@ -267,6 +274,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin': typeof AdminRoute
   '/staff': typeof StaffRoute
   '/staff-agreement': typeof StaffAgreementRoute
@@ -300,6 +308,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/staff': typeof StaffRoute
@@ -341,6 +350,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/auth/$'
     | '/admin'
     | '/staff'
     | '/admin-mobile-management'
@@ -379,6 +389,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/auth/$'
     | '/admin'
     | '/staff'
     | '/admin-mobile-management'
@@ -413,6 +424,7 @@ export interface FileRouteTypes {
     | '/v/$slug/$id'
   id:
     | '__root__'
+    | '/api/auth/$'
     | '/'
     | '/admin'
     | '/staff'
@@ -451,6 +463,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   StaffRoute: typeof StaffRoute
@@ -485,6 +498,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -783,6 +803,7 @@ const PropertiesRouteWithChildren = PropertiesRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   StaffRoute: StaffRoute,
