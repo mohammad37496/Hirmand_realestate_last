@@ -2170,3 +2170,41 @@
     transition: none !important;
   }
 }
+
+/* Mobile: keep the zoom action, but use its text label instead of the expand icon. */
+@media (max-width: 760px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  .property-gallery-main.hd-gallery-main .hd-gallery-expand {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    width: auto !important;
+    min-width: 44px !important;
+    max-width: calc(100% - 18px) !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    padding: 0 12px !important;
+    white-space: nowrap !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  .property-gallery-main.hd-gallery-main .hd-gallery-expand .hd-gallery-expand-icon {
+    display: none !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  .property-gallery-main.hd-gallery-main .hd-gallery-expand .hd-gallery-expand-label {
+    display: inline !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    white-space: nowrap !important;
+    text-overflow: clip !important;
+    font-size: .72rem !important;
+    line-height: 1.4 !important;
+  }
+}
