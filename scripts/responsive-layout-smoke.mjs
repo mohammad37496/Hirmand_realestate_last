@@ -138,6 +138,61 @@ try {
         }
       }
 
+      if (route.startsWith("/properties/")) {
+        const thumbs = page.locator(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb");
+        await thumbs.first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => undefined);
+        const thumbCount = await thumbs.count();
+        if (thumbCount < 2) {
+          failures.push(`${route}: seeded property detail did not expose multiple gallery thumbnails (found ${thumbCount})`);
+        } else {
+          const firstCounter = await page.locator(".hd-gallery-controls .property-gallery-counter").innerText().catch(() => "");
+          await thumbs.nth(1).scrollIntoViewIfNeeded();
+          const scrollBeforeSelection = await page.evaluate(() => window.scrollY);
+          await thumbs.nth(1).click();
+          if (await thumbs.nth(1).getAttribute("aria-pressed") !== "true") {
+            failures.push(`${route}: selecting the second thumbnail did not update its active state`);
+          }
+          const secondCounter = await page.locator(".hd-gallery-controls .property-gallery-counter").innerText().catch(() => "");
+          if (!secondCounter || secondCounter === firstCounter) {
+            failures.push(`${route}: selecting a thumbnail did not update the current-image counter`);
+          }
+          const scrollAfterSelection = await page.evaluate(() => window.scrollY);
+          if (Math.abs(scrollAfterSelection - scrollBeforeSelection) > 2) {
+            failures.push(`${route}: selecting a thumbnail unexpectedly moved the page scroll position (${scrollBeforeSelection} → ${scrollAfterSelection})`);
+          }
+          const nextButton = page.locator('.hd-gallery-controls button[aria-label="تصویر بعدی"]').first();
+          await nextButton.click();
+          const thirdCounter = await page.locator(".hd-gallery-controls .property-gallery-counter").innerText().catch(() => "");
+          if (!thirdCounter || thirdCounter === secondCounter) {
+            failures.push(`${route}: the next-image control did not advance the image counter`);
+          }
+          const expandButton = page.locator(".hd-gallery-main .hd-gallery-expand").first();
+          if (await expandButton.isVisible().catch(() => false)) {
+            await expandButton.click();
+            const lightbox = page.locator(".hd-lightbox[role='dialog']").first();
+            const opened = await lightbox.waitFor({ state: "visible", timeout: 3_000 }).then(() => true).catch(() => false);
+            if (!opened) {
+              failures.push(`${route}: the gallery expand control did not open the lightbox`);
+            } else {
+              const lockedOverflow = await page.locator("body").evaluate((el) => getComputedStyle(el).overflow);
+              if (lockedOverflow !== "hidden") failures.push(`${route}: background scrolling was not locked while the lightbox was open`);
+              await page.keyboard.press("Escape");
+              const closed = await lightbox.waitFor({ state: "hidden", timeout: 3_000 }).then(() => true).catch(() => false);
+              if (!closed) {
+                failures.push(`${route}: Escape did not close the lightbox`);
+              } else {
+                const restored = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") || "");
+                if (restored !== "نمایش تصویر در اندازهٔ بزرگ") {
+                  failures.push(`${route}: closing the lightbox did not restore focus to the expand control`);
+                }
+                const unlockedOverflow = await page.locator("body").evaluate((el) => el.style.overflow);
+                if (unlockedOverflow === "hidden") failures.push(`${route}: body overflow remained locked after closing the lightbox`);
+              }
+            }
+          }
+        }
+      }
+
       for (const width of viewportWidths) {
         await page.setViewportSize({ width, height: 900 });
         await page.evaluate(() => new Promise((resolve) =>
@@ -227,10 +282,12 @@ try {
           }
 
           let propertyGallery = null;
-          const galleryStage = document.querySelector(".property-detail-page.hd-property-detail-v2 .hd-gallery-main, .property-detail-page:not(.hd-property-detail-v2) .property-gallery-main");
-          if (galleryStage && viewport <= 720) {
+          const galleryMain = document.querySelector(".property-detail-page.hd-property-detail-v2 .hd-gallery-main, .property-detail-page:not(.hd-property-detail-v2) .property-gallery-main");
+          const galleryStage = galleryMain?.querySelector(".hd-gallery-stage") ?? galleryMain;
+          if (galleryMain && galleryStage && viewport <= 720) {
+            const mainRect = galleryMain.getBoundingClientRect();
             const stageRect = galleryStage.getBoundingClientRect();
-            const media = galleryStage.querySelector(".hd-gallery-stage picture img, .hd-gallery-stage video, picture img, .property-video-player video, .property-image-fallback");
+            const media = galleryStage.querySelector("picture img, video, .property-video-player video, .property-image-fallback");
             const mediaRect = media?.getBoundingClientRect();
             const mediaStyle = media ? getComputedStyle(media) : null;
             const rail = document.querySelector(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs, .property-detail-page:not(.hd-property-detail-v2) .property-gallery-rail");
@@ -244,7 +301,7 @@ try {
             });
             const openButton = galleryStage.querySelector(".hd-gallery-expand, .property-gallery-open");
             const openRect = openButton?.getBoundingClientRect();
-            const navButtons = [...galleryStage.querySelectorAll(".hd-gallery-controls > button, .property-gallery-nav")].map((button) => {
+            const navButtons = [...galleryMain.querySelectorAll(".hd-gallery-controls > button, .property-gallery-nav")].map((button) => {
               const rect = button.getBoundingClientRect();
               return {
                 width: Math.round(rect.width),
@@ -255,11 +312,19 @@ try {
                 bottom: Math.round(rect.bottom),
               };
             });
-            const videoControls = [...galleryStage.querySelectorAll(".property-video-controls button")].map((button) => {
+            const videoControls = [...galleryMain.querySelectorAll(".property-video-controls button")].map((button) => {
               const rect = button.getBoundingClientRect();
               return { width: Math.round(rect.width), height: Math.round(rect.height) };
             });
             propertyGallery = {
+              main: {
+                width: Math.round(mainRect.width),
+                height: Math.round(mainRect.height),
+                left: Math.round(mainRect.left),
+                right: Math.round(mainRect.right),
+                top: Math.round(mainRect.top),
+                bottom: Math.round(mainRect.bottom),
+              },
               stage: {
                 width: Math.round(stageRect.width),
                 height: Math.round(stageRect.height),
@@ -366,10 +431,10 @@ try {
           }
           if (gallery.navButtons.some((button) =>
             button.width < 44 || button.height < 44 ||
-            button.left < gallery.stage.left - 1 ||
-            button.right > gallery.stage.right + 1 ||
-            button.top < gallery.stage.top - 1 ||
-            button.bottom > gallery.stage.bottom + 1
+            button.left < (gallery.main?.left ?? gallery.stage.left) - 1 ||
+            button.right > (gallery.main?.right ?? gallery.stage.right) + 1 ||
+            button.top < (gallery.main?.top ?? gallery.stage.top) - 1 ||
+            button.bottom > (gallery.main?.bottom ?? gallery.stage.bottom) + 1
           )) {
             failures.push(`${route} @ ${width}px: gallery navigation buttons are too small or overlap the viewport edge: ${JSON.stringify(gallery.navButtons)}`);
           }
