@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 import { getPropertyFallbackImages, getPropertyFallbackLegacyImages, isPropertyFallbackImage } from "./property-fallback-images.ts";
 
@@ -20,16 +22,23 @@ test("query strings do not change placeholder classification", () => {
   assert.equal(isPropertyFallbackImage(""), false);
 });
 
-test("every property type has multiple gallery fallbacks and local SVG emergency images", () => {
+test("every property type uses multiple checked-in local JPEG photos in its gallery", () => {
   const types = ["apartment", "villa", "office", "heritage", "land", "commercial"] as const;
 
   for (const type of types) {
     const galleryImages = getPropertyFallbackImages(type);
-    const emergencyImages = getPropertyFallbackLegacyImages(type);
+    assert.ok(galleryImages.length >= 4, `${type} should provide multiple next/previous gallery photos`);
 
-    assert.ok(galleryImages.length >= 4, `${type} should provide multiple next/previous gallery images`);
-    assert.ok(galleryImages.every((src) => src.startsWith("/images/fallback/")), `${type} fallbacks should be same-origin assets`);
-    assert.ok(emergencyImages.length >= 2, `${type} should have local emergency images`);
-    assert.ok(emergencyImages.every((src) => src.endsWith(".svg")), `${type} emergency images should use checked-in SVG files`);
+    for (const src of galleryImages) {
+      assert.ok(src.startsWith("/images/fallback/"), `${type} should use same-origin images`);
+      assert.ok(src.endsWith(".jpg"), `${type} gallery defaults must be real JPEG files, not SVG placeholders`);
+      const fullPath = join(process.cwd(), "public", src.slice(1));
+      assert.ok(statSync(fullPath).size > 1_024, `${src} should be checked into the project`);
+      const signature = readFileSync(fullPath).subarray(0, 3);
+      assert.deepEqual([...signature], [0xff, 0xd8, 0xff], `${src} must contain JPEG bytes`);
+    }
+
+    const emergencyImages = getPropertyFallbackLegacyImages(type);
+    assert.ok(emergencyImages.length >= 2, `${type} legacy emergency assets should remain available for older consumers`);
   }
 });

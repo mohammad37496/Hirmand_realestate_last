@@ -5,9 +5,9 @@ type FallbackMap = Record<PropertyType, readonly string[]>;
 /**
  * Curated, self-hosted fallback photography.
  *
- * JPEG files are generated into public/images/fallback before the production
- * build from the repository's source manifest. The bundled SVGs remain the
- * zero-network emergency fallback when a build-time image cannot be fetched.
+ * Every gallery JPEG is committed under public/images/fallback and served from
+ * the Hirmand origin. The production build and browser do not download fallback
+ * images from Pexels, Unsplash, or any other external photo host.
  */
 export const PROPERTY_FALLBACK_IMAGES: FallbackMap = {
   apartment: [
@@ -49,17 +49,6 @@ export const PROPERTY_FALLBACK_IMAGES: FallbackMap = {
     "/images/fallback/commercial-02.jpg",
     "/images/fallback/commercial-03.jpg",
     "/images/fallback/commercial-04.jpg",
-  ],
-};
-
-const PROPERTY_FALLBACK_REMOTE_IMAGES: Partial<FallbackMap> = {
-  apartment: [
-    "https://images.pexels.com/photos/7546596/pexels-photo-7546596.jpeg?auto=compress&dpr=1&h=750&w=1260",
-    "https://images.pexels.com/photos/7173672/pexels-photo-7173672.jpeg?auto=compress&dpr=1&h=750&w=1260",
-    "https://images.pexels.com/photos/8142052/pexels-photo-8142052.jpeg?auto=compress&dpr=1&h=750&w=1260",
-    "https://images.pexels.com/photos/6636258/pexels-photo-6636258.jpeg?auto=compress&dpr=1&h=750&w=1260",
-    "https://images.pexels.com/photos/6447393/pexels-photo-6447393.jpeg?auto=compress&dpr=1&h=750&w=1260",
-    "https://images.pexels.com/photos/7534559/pexels-photo-7534559.jpeg?auto=compress&dpr=1&h=750&w=1260",
   ],
 };
 
@@ -140,13 +129,7 @@ function stableIndex(value: string, length: number) {
 }
 
 export function getPropertyFallbackImages(propertyType: PropertyType) {
-  // Prefer same-origin assets so property galleries do not depend on Pexels
-  // being reachable from the visitor's network. The raster files are generated
-  // during deploy; ResilientImage falls back to the tracked category image and
-  // then the checked-in SVG if a generated file is missing.
-  return PROPERTY_FALLBACK_IMAGES[propertyType] ??
-    PROPERTY_FALLBACK_REMOTE_IMAGES[propertyType] ??
-    PROPERTY_FALLBACK_IMAGES.apartment;
+  return PROPERTY_FALLBACK_IMAGES[propertyType] ?? PROPERTY_FALLBACK_IMAGES.apartment;
 }
 
 const LOCAL_CATEGORY_FALLBACK: Record<PropertyType, string> = {
