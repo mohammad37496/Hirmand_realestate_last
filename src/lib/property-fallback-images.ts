@@ -168,7 +168,11 @@ export function getPropertyFallbackImageAvif(propertyType: PropertyType, propert
   return /\.webp$/i.test(fallback) ? fallback.replace(/\.webp$/i, ".avif") : "";
 }
 
+export function getPropertyFallbackLegacyImages(propertyType: PropertyType) {
+  return LEGACY_FALLBACK_IMAGES[propertyType] ?? LEGACY_FALLBACK_IMAGES.apartment;
+}
+
 export function getPropertyFallbackLegacyImage(propertyType: PropertyType, propertyId: string) {
-  const images = LEGACY_FALLBACK_IMAGES[propertyType] ?? LEGACY_FALLBACK_IMAGES.apartment;
+  const images = getPropertyFallbackLegacyImages(propertyType);
   return images[stableIndex(propertyId || propertyType, images.length)] ?? images[0];
 }
