@@ -48,6 +48,14 @@ testRunner.test("mobile property gallery suppresses duplicate and legacy zoom co
   );
 });
 
+testRunner.test("mobile property gallery hides the zoom button", () => {
+  assert.match(
+    propertyGalleryMobileCss,
+    /@media\s*\(max-width:\s*760px\)[\s\S]*?\.property-gallery-main\.hd-gallery-main\s+\.hd-gallery-stage\s*>\s*\.hd-gallery-expand\.property-gallery-open\s*\{[^}]*display:\s*none\s*!important;/is,
+    "the zoom/fullscreen button must be hidden in the mobile layout",
+  );
+});
+
 testRunner.test("property gallery has one zoom control without a duplicate hover tooltip", () => {
   const zoomButtonMarker = 'className="hd-gallery-expand property-gallery-open"';
   assert.equal(
