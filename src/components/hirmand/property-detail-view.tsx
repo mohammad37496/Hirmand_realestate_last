@@ -491,7 +491,7 @@ function Gallery({ property }: { property: Property }) {
                   <button type="button" onClick={() => move(-1)} aria-label="تصویر قبلی" disabled={images.length < 2}>
                     <ChevronRight size={18} />
                   </button>
-                  <span className="property-gallery-counter">
+                  <span className="property-gallery-counter" aria-live="polite" aria-atomic="true">
                     تصویر {(activeIndexSafe + 1).toLocaleString("fa-IR")} از {images.length.toLocaleString("fa-IR")}
                   </span>
                   <button type="button" onClick={() => move(1)} aria-label="تصویر بعدی" disabled={images.length < 2}>
