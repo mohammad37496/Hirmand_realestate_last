@@ -35,6 +35,22 @@ const propertyDetailLuxuryCss = fs.readFileSync(new URL("../src/property-detail-
 const propertyExperienceRedesignCss = fs.readFileSync(new URL("../src/property-experience-redesign.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
+testRunner.test("property gallery has one zoom control without a duplicate hover tooltip", () => {
+  const zoomButtonMarker = 'className="hd-gallery-expand property-gallery-open"';
+  assert.equal(
+    (propertyDetailViewSource.match(/className="hd-gallery-expand property-gallery-open"/g) ?? []).length,
+    1,
+    "the property gallery must expose exactly one zoom/fullscreen control",
+  );
+  const zoomButtonStart = propertyDetailViewSource.indexOf(zoomButtonMarker);
+  const zoomButtonStartTag = propertyDetailViewSource.lastIndexOf("<button", zoomButtonStart);
+  const zoomButtonEnd = propertyDetailViewSource.indexOf("</button>", zoomButtonStart);
+  assert.ok(zoomButtonStartTag >= 0 && zoomButtonEnd > zoomButtonStart, "the zoom control must be a valid button element");
+  const zoomButtonSource = propertyDetailViewSource.slice(zoomButtonStartTag, zoomButtonEnd);
+  assert.match(zoomButtonSource, /aria-label="نمایش تصویر در اندازهٔ بزرگ"/, "the zoom control must remain accessible");
+  assert.doesNotMatch(zoomButtonSource, /\btitle=/, "the visible zoom label must not be duplicated by a native hover tooltip");
+});
+
 const verifyWorkflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
 
 testRunner.test("shared mobile styles do not hide root-level horizontal overflow", () => {
