@@ -246,6 +246,14 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
     "listing photos and videos must remain fully visible above legacy site-wide responsive rules");
   assert.match(propertyGalleryMobileCss, /\.hd-gallery-thumbs\s*\{[^}]*flex-direction:\s*column\s*!important/is,
     "the mobile gallery thumbnails should form a vertical list");
+  assert.match(propertyGalleryMobileCss, /\.property-gallery-wrap\.hd-gallery-wrap\s*>\s*\.property-gallery\.hd-gallery\s*>\s*\.property-gallery-thumbs\.hd-gallery-thumbs\s*\{[^}]*position:\s*absolute\s*!important/s,
+    "mobile thumbnails should float over the full-size image instead of adding page height");
+  assert.match(propertyGalleryMobileCss, /\.property-gallery-thumbs\.hd-gallery-thumbs\s*\{[^}]*overflow-y:\s*auto\s*!important/s,
+    "the compact thumbnail rail should scroll vertically to reach all property media");
+  assert.match(propertyGalleryMobileCss, /\.property-gallery-thumbs\.hd-gallery-thumbs\s*>\s*\.hd-gallery-thumb\s*\{[^}]*min-height:\s*48px\s*!important/s,
+    "each compact thumbnail must keep an accessible touch target");
+  assert.match(propertyGalleryMobileCss, /\.hd-gallery-thumbs-heading,[\s\S]*?\.hd-gallery-thumb-status\s*\{[^}]*display:\s*none\s*!important/s,
+    "mobile thumbnail headings, repeated descriptions and status icons should not consume space");
   assert.match(propertyDetailV2Css, /\.hd-gallery-thumbs\s*\{[^}]*flex-direction:\s*column/is,
     "the detail page mobile stylesheet must not define a horizontal rail");
   const v2GalleryStyles = [propertyGalleryMobileCss, propertyDetailLuxuryCss, propertyExperienceRedesignCss, propertyDetailV2Css].join("\n");
