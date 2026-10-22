@@ -375,7 +375,7 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
 
 
 testRunner.test("responsive guardrails are loaded after every other site stylesheet", () => {
-  const stylesheetLinks = [...rootRoute.matchAll(/\\{ rel: "stylesheet", href: (\\w+) \\}/g)]
+  const stylesheetLinks = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: (\w+) \}/g)]
     .map((match) => match[1]);
   assert.equal(
     stylesheetLinks.at(-1),
@@ -385,9 +385,9 @@ testRunner.test("responsive guardrails are loaded after every other site stylesh
 });
 
 testRunner.test("responsive browser smoke covers the required viewport matrix", () => {
-  const matrix = responsiveSmoke.match(/const viewportMatrix = \\[([\\s\\S]*?)\\];/);
+  const matrix = responsiveSmoke.match(/const viewportMatrix = \[([\s\S]*?)\];/);
   assert.ok(matrix, "responsive smoke must define an explicit width/height viewport matrix");
-  const pairs = [...matrix[1].matchAll(/width: (\\d+), height: (\\d+)/g)]
+  const pairs = [...matrix[1].matchAll(/width: (\d+), height: (\d+)/g)]
     .map((match) => [Number(match[1]), Number(match[2])]);
   const required = [
     [320, 568], [360, 640], [375, 667], [390, 844],
@@ -401,7 +401,7 @@ testRunner.test("responsive browser smoke covers the required viewport matrix", 
       `responsive smoke is missing the ${width}x${height} viewport`,
     );
   }
-  assert.match(responsiveSmoke, /await page\\.setViewportSize\\(\\{ width, height \\}\\)/);
-  assert.match(responsiveSmoke, /viewportMatrix\\.length/);
-  assert.match(responsiveSmoke, /\\$\\{width\\}x\\$\\{height\\}\\.png/);
+  assert.match(responsiveSmoke, /await page\.setViewportSize\(\{ width, height \}\)/);
+  assert.match(responsiveSmoke, /viewportMatrix\.length/);
+  assert.ok(responsiveSmoke.includes("`${routeFileName(route)}-${width}x${height}.png`"));
 });
