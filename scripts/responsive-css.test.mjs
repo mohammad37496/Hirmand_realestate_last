@@ -48,6 +48,36 @@ testRunner.test("mobile property gallery suppresses duplicate and legacy zoom co
   );
 });
 
+testRunner.test("property amenities render contextual icons", () => {
+  assert.match(
+    propertyDetailViewSource,
+    /function amenityIconForFeature\(feature: string\): LucideIcon\s*\{/,
+    "amenities should select an icon from the feature label",
+  );
+  assert.ok(
+    propertyDetailViewSource.includes("if (/(بالکن|تراس|نور\\s?گیر|آفتاب\\s?گیر)/.test(normalized)) return Sun;"),
+    "balconies and terraces should use a matching icon",
+  );
+  assert.ok(
+    propertyDetailViewSource.includes("if (/(آیفون تصویری|آیفون|دربازکن تصویری|اینترکام)/.test(normalized)) return Video;"),
+    "video intercom amenities should use a video icon",
+  );
+  assert.ok(
+    propertyDetailViewSource.includes("if (/(سیستم مرکزی|سیستم هوشمند|هوشمند|شبکه مرکزی)/.test(normalized)) return Network;"),
+    "central system amenities should use a network icon",
+  );
+  assert.match(
+    propertyDetailViewSource,
+    /const FeatureIcon = amenityIconForFeature\(feature\);/,
+    "each listed amenity should use its selected icon component",
+  );
+  assert.doesNotMatch(
+    propertyDetailViewSource,
+    /features\.map\(\(feature\) => <li key=\{feature\}><Check/,
+    "all amenities must not share the same hard-coded checkmark",
+  );
+});
+
 testRunner.test("mobile property specifications use a compact two-column layout", () => {
   const mobileSpecStyles = propertyGalleryMobileCss.slice(
     propertyGalleryMobileCss.indexOf("Compact property specifications: two legible columns on phone screens"),
@@ -281,7 +311,7 @@ testRunner.test("property detail uses one consistent icon treatment for specific
   assert.match(propertyDetailV2Css, /\.hd-feature-list li svg\s*\{[^}]*color:\s*var\(--hd-brass\)/s);
   assert.match(propertyDetailViewSource, /className="hd-spec-icon"><Icon size=\{18\} aria-hidden="true" \/>/);
   assert.match(propertyDetailViewSource, /className="hd-feature-list"/);
-  assert.match(propertyDetailViewSource, /features\.map\(\(feature\) => <li key=\{feature\}><Check size=\{16\} aria-hidden="true" \/>/);
+  assert.match(propertyDetailViewSource, /features\.map\(\(feature\) => \{\s*const FeatureIcon = amenityIconForFeature\(feature\);[\s\S]*?<FeatureIcon size=\{17\} strokeWidth=\{1\.9\} aria-hidden="true" \/>/s);
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
