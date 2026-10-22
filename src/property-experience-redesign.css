@@ -697,3 +697,310 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
     grid-template-areas: "aside main" !important;
   }
 }
+
+/* ==========================================================================
+   Compact premium detail layout
+   Keeps every data point and action, while reducing vertical waste.
+   ========================================================================== */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .property-detail-content.hd-content-grid {
+  gap: 15px !important;
+  align-items: start !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-main-column {
+  gap: 12px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-section {
+  padding: 18px !important;
+  border-radius: 18px !important;
+  box-shadow: 0 6px 19px rgb(22 42 58 / 3.5%) !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-section-heading {
+  gap: 9px !important;
+  margin-bottom: 11px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-section-heading h2 {
+  font-size: clamp(1.02rem, 1rem + .2vw, 1.2rem) !important;
+  line-height: 1.55 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-section-eyebrow {
+  margin-bottom: 1px !important;
+  font-size: .68rem !important;
+}
+
+/* Compact accordion headers and information tiles */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-spec-accordion > summary,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-amenity-accordion > summary,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .property-secondary-services-summary,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .property-tool-category-summary {
+  min-height: 45px !important;
+  padding: 9px 13px !important;
+  font-size: .83rem !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-spec-grid {
+  gap: 0 14px !important;
+  padding: 2px 12px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-spec-item {
+  grid-template-columns: 30px minmax(0, 1fr) !important;
+  grid-template-rows: auto auto !important;
+  column-gap: 8px !important;
+  padding: 9px 1px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-spec-icon {
+  grid-row: 1 / span 2 !important;
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 9px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-spec-label {
+  font-size: .70rem !important;
+  line-height: 1.55 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-spec-item > strong {
+  font-size: .81rem !important;
+  line-height: 1.55 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-feature-list {
+  gap: 6px 10px !important;
+  padding: 10px 13px 13px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-feature-list li {
+  gap: 7px !important;
+  font-size: .79rem !important;
+  line-height: 1.75 !important;
+}
+
+/* Consultant contact card: compact two-column identity, full-width actions */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-aside-column {
+  gap: 9px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card {
+  display: grid !important;
+  grid-template-columns: 42px minmax(0, 1fr) !important;
+  align-items: center !important;
+  column-gap: 11px !important;
+  row-gap: 3px !important;
+  padding: 15px !important;
+  border-radius: 18px !important;
+  text-align: right !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-kicker {
+  grid-column: 1 / -1 !important;
+  margin: 0 0 5px !important;
+  font-size: .70rem !important;
+  line-height: 1.6 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-avatar {
+  grid-column: 1 !important;
+  grid-row: 2 / span 3 !important;
+  width: 42px !important;
+  height: 42px !important;
+  margin: 0 !important;
+  border-radius: 12px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card h2 {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  align-self: end !important;
+  margin: 0 !important;
+  font-size: .96rem !important;
+  line-height: 1.55 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card > p {
+  grid-column: 2 !important;
+  grid-row: 3 !important;
+  align-self: center !important;
+  margin: 0 !important;
+  font-size: .72rem !important;
+  line-height: 1.5 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-phone {
+  grid-column: 2 !important;
+  grid-row: 4 !important;
+  justify-content: flex-start !important;
+  margin: 0 !important;
+  font-size: .78rem !important;
+  line-height: 1.5 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions {
+  grid-column: 1 / -1 !important;
+  grid-row: 5 !important;
+  gap: 7px !important;
+  margin-top: 8px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-actions .hd-button {
+  min-height: 37px !important;
+  padding: 6px 8px !important;
+  border-radius: 10px !important;
+  font-size: .75rem !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-note {
+  grid-column: 1 / -1 !important;
+  grid-row: 6 !important;
+  margin: 3px 0 0 !important;
+  padding-top: 7px !important;
+  font-size: .69rem !important;
+  line-height: 1.6 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-viewing-request {
+  grid-column: 1 / -1 !important;
+  grid-row: 7 !important;
+  margin-top: 5px !important;
+  gap: 6px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-viewing-request .property-viewing-trigger {
+  min-height: 38px !important;
+  padding: 7px 10px !important;
+  border-radius: 10px !important;
+  font-size: .77rem !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-aside-note,
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-aside-meta {
+  padding: 12px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 13px rgb(22 42 58 / 3%) !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-aside-note p {
+  font-size: .73rem !important;
+  line-height: 1.75 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-aside-meta {
+  gap: 7px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-aside-meta p {
+  gap: 6px !important;
+  font-size: .72rem !important;
+}
+
+/* Tighter description and map block */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-description-copy {
+  font-size: .88rem !important;
+  line-height: 1.95 !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-description-copy p {
+  margin-bottom: 8px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-updated-meta {
+  gap: 6px 12px !important;
+  margin-top: 12px !important;
+  padding-top: 10px !important;
+  font-size: .72rem !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-map-frame iframe {
+  height: 245px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-map-frame > p {
+  padding: 8px 10px !important;
+  font-size: .71rem !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-map-link {
+  margin-top: 9px !important;
+  padding: 8px 10px !important;
+  font-size: .78rem !important;
+}
+
+/* Shorter feature cards, closer group rhythm, smaller related-card gutters */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .property-new-feature {
+  margin-top: 14px !important;
+  padding: 17px !important;
+  border-radius: 17px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .property-new-feature-head {
+  gap: 10px !important;
+  margin-bottom: 11px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .property-nearby-grid {
+  gap: 8px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .property-nearby-card {
+  gap: 9px !important;
+  padding: 10px 11px !important;
+  border-radius: 12px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-related-section {
+  margin-top: 18px !important;
+  padding: 19px !important;
+  border-radius: 20px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-related-grid {
+  gap: 12px !important;
+}
+
+/* Small screens: keep the compact contact identity readable, not cramped */
+@media (max-width: 620px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-section {
+    padding: 14px !important;
+    border-radius: 15px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-card {
+    padding: 13px !important;
+    grid-template-columns: 38px minmax(0, 1fr) !important;
+    column-gap: 9px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-consultant-avatar {
+    width: 38px !important;
+    height: 38px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-spec-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    padding-inline: 10px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-map-frame iframe {
+    height: 205px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-new-feature {
+    padding: 13px !important;
+  }
+}
