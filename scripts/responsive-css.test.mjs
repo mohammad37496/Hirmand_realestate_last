@@ -268,6 +268,10 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
   const galleryLightboxStyles = [propertyDetailV2Css, propertyDetailLuxuryCss, propertyExperienceRedesignCss].join("\n");
   assert.doesNotMatch(galleryLightboxStyles, /\.hd-lightbox-(?:prev|next|close)[^{]*\{[^}]*\b(?:width|min-width):\s*(?:38|42)px\b[^}]*\}/is,
     "mobile lightbox controls must not fall below the 44px touch target");
+  assert.match(propertyDetailLuxuryCss, /@media \(max-width:\s*760px\)[\s\S]*?div\.property-gallery-wrap\.hd-gallery-wrap > div\.property-gallery\.hd-gallery\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)\s*!important/s,
+    "the phone layout must override the high-specificity desktop gallery grid");
+  assert.match(propertyDecisionToolsCss, /\.property-decision-metrics \.is-highlight\s*\{[^}]*flex-wrap:\s*wrap/s,
+    "the savings label must wrap above long prices on phones");
   assert.match(propertyDetailV2Css, /\.hd-lightbox-media img,\s*\.hd-lightbox-media video\s*\{[^}]*object-fit:\s*contain/s);
   assert.match(propertyDetailViewSource, /className="hd-video-thumb"/, "video thumbnails must have a visible play marker");
   assert.match(propertyDetailViewSource, /<Play size=\{14\} fill="currentColor" aria-hidden="true" \/>/,
