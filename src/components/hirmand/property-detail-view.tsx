@@ -477,7 +477,6 @@ function Gallery({ property }: { property: Property }) {
                       className="hd-gallery-expand property-gallery-open"
                       onClick={() => setLightboxOpen(true)}
                       aria-label="نمایش تصویر در اندازهٔ بزرگ"
-                      title="نمایش تصویر در اندازهٔ بزرگ"
                     >
                       <span className="hd-gallery-expand-icon" aria-hidden="true">
                         <Maximize2 size={17} strokeWidth={2.1} />

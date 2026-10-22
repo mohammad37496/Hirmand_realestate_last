@@ -205,50 +205,6 @@
     pointer-events: none !important;
   }
 
-  /* Icon-only expand action: reachable, unobtrusive, and never stretched. */
-  html body:has(main#top.property-detail-page.hd-property-detail-v2)
-  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main .hd-gallery-expand {
-    display: inline-grid !important;
-    place-items: center !important;
-    position: absolute !important;
-    inset: auto auto 8px 8px !important;
-    z-index: 9 !important;
-    width: 44px !important;
-    min-width: 44px !important;
-    max-width: 44px !important;
-    height: 44px !important;
-    min-height: 44px !important;
-    max-height: 44px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 1px solid rgb(255 255 255 / 42%) !important;
-    border-radius: 13px !important;
-    background: rgb(15 35 51 / 88%) !important;
-    color: #fff !important;
-    box-shadow: 0 5px 17px rgb(4 17 28 / 23%) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    transform: none !important;
-    cursor: pointer !important;
-  }
-
-  html body:has(main#top.property-detail-page.hd-property-detail-v2)
-  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand-label {
-    display: none !important;
-  }
-
-  html body:has(main#top.property-detail-page.hd-property-detail-v2)
-  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand-icon {
-    display: grid !important;
-    place-items: center !important;
-    width: 31px !important;
-    height: 31px !important;
-    border: 1px solid rgb(244 213 153 / 34%) !important;
-    border-radius: 9px !important;
-    background: linear-gradient(145deg, #e4c17c, #b88942) !important;
-    color: #152d3d !important;
-  }
-
   /* Translucent navigation cluster floats on the image's bottom edge. */
   html body:has(main#top.property-detail-page.hd-property-detail-v2)
   main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-controls {
@@ -892,6 +848,17 @@
     border-radius: 9px !important;
     background: linear-gradient(145deg, #e4c17c, #b88942) !important;
     color: #152d3d !important;
+  }
+
+  /* Mobile gallery must expose only the current zoom control.
+     Suppress any legacy-only button and any repeated expand button. */
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  .property-gallery-main.hd-gallery-main .property-gallery-open:not(.hd-gallery-expand),
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  .property-gallery-main.hd-gallery-main .hd-gallery-stage > .hd-gallery-expand ~ .hd-gallery-expand {
+    display: none !important;
   }
 
   /* Navigation has three non-overlapping hit areas: previous / count / next. */
