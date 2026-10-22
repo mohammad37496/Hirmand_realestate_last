@@ -354,7 +354,7 @@ main.hd-property-detail-v2 .hd-back-link,
 main.hd-property-detail-v2 .hd-copy-link { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 8px 12px; border: 1px solid var(--market-line); border-radius: 9px; background: #fff; color: var(--market-ink); font-weight: 750; text-decoration: none; }
 main.hd-property-detail-v2 .hd-related-section { margin-top: 20px; padding: clamp(17px, 2vw, 24px); }
 main.hd-property-detail-v2 .hd-related-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-main.hd-property-detail-v2 .hd-mobile-actions { display: none; }
+html body:has(main.hd-property-detail-v2) .hd-mobile-actions { display: none; }
 main.hd-property-detail-v2 .property-tool-center { margin-top: 20px !important; }
 main.hd-property-detail-v2 .hd-tools-intro { color: var(--market-muted); font-size: .88rem; }
 main.hd-property-detail-v2 .property-tool-category-content,
@@ -399,7 +399,7 @@ main.hd-property-detail-v2 .hd-empty-inline { color: var(--market-muted); }
   main.hd-property-detail-v2 .hd-back-row { margin: 0 12px; }
   main.hd-property-detail-v2 .hd-related-grid { grid-template-columns: minmax(0, 1fr); }
   main.hd-property-detail-v2 .hd-map-frame iframe { min-height: 230px !important; }
-  main.hd-property-detail-v2 .hd-mobile-actions {
+  html body:has(main.hd-property-detail-v2) .hd-mobile-actions {
     position: fixed !important;
     z-index: 1000 !important;
     inset-inline: 0 !important;
@@ -413,7 +413,7 @@ main.hd-property-detail-v2 .hd-empty-inline { color: var(--market-muted); }
     box-shadow: 0 -5px 22px rgb(23 38 52 / 9%) !important;
     backdrop-filter: blur(12px);
   }
-  main.hd-property-detail-v2 .hd-mobile-actions > * {
+  html body:has(main.hd-property-detail-v2) .hd-mobile-actions > * {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -429,9 +429,9 @@ main.hd-property-detail-v2 .hd-empty-inline { color: var(--market-muted); }
     font-weight: 850 !important;
     text-decoration: none !important;
   }
-  main.hd-property-detail-v2 .hd-mobile-actions .hd-mobile-call { border-color: var(--market-brand) !important; background: var(--market-brand) !important; color: #fff !important; }
-  main.hd-property-detail-v2 .hd-mobile-actions .hd-mobile-whatsapp { border-color: #b9e4ce !important; background: #effaf3 !important; color: var(--market-brand-dark) !important; }
-  main.hd-property-detail-v2 .hd-mobile-actions svg { flex: 0 0 auto; }
+  html body:has(main.hd-property-detail-v2) .hd-mobile-actions .hd-mobile-call { border-color: var(--market-brand) !important; background: var(--market-brand) !important; color: #fff !important; }
+  html body:has(main.hd-property-detail-v2) .hd-mobile-actions .hd-mobile-whatsapp { border-color: #b9e4ce !important; background: #effaf3 !important; color: var(--market-brand-dark) !important; }
+  html body:has(main.hd-property-detail-v2) .hd-mobile-actions svg { flex: 0 0 auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   main.hd-property-detail-v2 *,
