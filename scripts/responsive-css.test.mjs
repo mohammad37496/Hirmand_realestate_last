@@ -22,6 +22,7 @@ const propertyDecisionToolsCss = fs.readFileSync(new URL("../src/property-decisi
 const propertyScenarioToolsCss = fs.readFileSync(new URL("../src/property-scenario-tools.css", import.meta.url), "utf8");
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
+const responsiveSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
 const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.css", import.meta.url), "utf8");
@@ -285,7 +286,10 @@ testRunner.test("property detail uses one consistent icon treatment for specific
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
-  assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 414, 430, 768, 1024, 1440\]/);
+  assert.match(browserSmoke, /const viewportMatrix = \[/, "browser smoke must use explicit width and height scenarios");
+  for (const scenario of ["width: 320, height: 568", "width: 360, height: 640", "width: 375, height: 667", "width: 390, height: 844", "width: 412, height: 652", "width: 412, height: 732", "width: 430, height: 932", "width: 768, height: 1024", "width: 1024, height: 768", "width: 1280, height: 900", "width: 1440, height: 900", "width: 1920, height: 1080"]) {
+    assert.ok(browserSmoke.includes(scenario), `responsive matrix should include ${scenario}`);
+  }
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
@@ -370,4 +374,37 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
     "the thumbnail marker must use a visible, decorative play icon");
   assert.doesNotMatch(propertyDetailViewSource, /تصویر نمونهٔ دسته‌بندی؛ عکس واقعی این ملک نیست|hd-gallery-fallback-note/,
     "the category fallback disclaimer must not be shown on property images");
+});
+
+
+testRunner.test("responsive guardrails are loaded after every other site stylesheet", () => {
+  const stylesheetLinks = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: (\w+) \}/g)]
+    .map((match) => match[1]);
+  assert.equal(
+    stylesheetLinks.at(-1),
+    "responsiveHardeningCss",
+    "the responsive guardrail stylesheet must be last so later redesign layers cannot undo it",
+  );
+});
+
+testRunner.test("responsive browser smoke covers the required viewport matrix", () => {
+  const matrix = responsiveSmoke.match(/const viewportMatrix = \[([\s\S]*?)\];/);
+  assert.ok(matrix, "responsive smoke must define an explicit width/height viewport matrix");
+  const pairs = [...matrix[1].matchAll(/width: (\d+), height: (\d+)/g)]
+    .map((match) => [Number(match[1]), Number(match[2])]);
+  const required = [
+    [320, 568], [360, 640], [375, 667], [390, 844],
+    [412, 652], [412, 732], [430, 932],
+    [768, 1024], [1024, 768],
+    [1280, 900], [1440, 900], [1920, 1080],
+  ];
+  for (const [width, height] of required) {
+    assert.ok(
+      pairs.some((pair) => pair[0] === width && pair[1] === height),
+      `responsive smoke is missing the ${width}x${height} viewport`,
+    );
+  }
+  assert.match(responsiveSmoke, /await page\.setViewportSize\(\{ width, height \}\)/);
+  assert.match(responsiveSmoke, /viewportMatrix\.length/);
+  assert.ok(responsiveSmoke.includes("`${routeFileName(route)}-${width}x${height}.png`"));
 });
