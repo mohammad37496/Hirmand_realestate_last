@@ -286,7 +286,10 @@ testRunner.test("property detail uses one consistent icon treatment for specific
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
-  assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 414, 430, 768, 1024, 1440\]/);
+  assert.match(browserSmoke, /const viewportMatrix = \[/, "browser smoke must use explicit width and height scenarios");
+  for (const scenario of ["width: 320, height: 568", "width: 360, height: 640", "width: 375, height: 667", "width: 390, height: 844", "width: 412, height: 652", "width: 412, height: 732", "width: 430, height: 932", "width: 768, height: 1024", "width: 1024, height: 768", "width: 1280, height: 900", "width: 1440, height: 900", "width: 1920, height: 1080"]) {
+    assert.ok(browserSmoke.includes(scenario), `responsive matrix should include ${scenario}`);
+  }
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
