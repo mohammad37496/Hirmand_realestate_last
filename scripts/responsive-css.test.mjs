@@ -48,6 +48,27 @@ testRunner.test("mobile property gallery suppresses duplicate and legacy zoom co
   );
 });
 
+testRunner.test("mobile property specifications use a compact two-column layout", () => {
+  const mobileSpecStyles = propertyGalleryMobileCss.slice(
+    propertyGalleryMobileCss.indexOf("Compact property specifications: two legible columns on phone screens"),
+  );
+  assert.match(
+    mobileSpecStyles,
+    /@media\s*\(max-width:\s*760px\)[\s\S]*?\.property-specs-accordion-body\.hd-spec-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)\s*!important;/is,
+    "property specifications must render in two columns on mobile",
+  );
+  assert.match(
+    mobileSpecStyles,
+    /\.property-specs-accordion-body\.hd-spec-grid\s*>\s*\.hd-spec-item\s*\{[^}]*min-height:\s*70px\s*!important;[\s\S]*?border-radius:\s*12px\s*!important;/is,
+    "each mobile spec should use a compact, distinct card",
+  );
+  assert.match(
+    mobileSpecStyles,
+    /\.property-specs-accordion-body\.hd-spec-grid\s*>\s*\.hd-spec-item\s*>\s*strong\s*\{[^}]*font-size:\s*12px\s*!important;/is,
+    "mobile spec values must remain readable without inflating row height",
+  );
+});
+
 testRunner.test("mobile property gallery hides the expand icon and keeps the zoom label", () => {
   assert.doesNotMatch(
     propertyGalleryMobileCss,
