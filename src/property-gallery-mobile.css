@@ -2035,8 +2035,6 @@
     right: 10px !important;
     bottom: auto !important;
     left: auto !important;
-    inset-inline-start: auto !important;
-    inset-inline-end: 10px !important;
     grid-area: auto !important;
     display: flex !important;
     flex-direction: column !important;
