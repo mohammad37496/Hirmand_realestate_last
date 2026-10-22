@@ -348,7 +348,7 @@ table {
     height: 285px !important;
   }
 
-  .property-detail-page .property-gallery-rail {
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-rail {
     grid-auto-flow: column !important;
     grid-auto-columns: 74px !important;
     grid-template-columns: none !important;
@@ -358,8 +358,8 @@ table {
     overflow-y: hidden !important;
   }
 
-  .property-detail-page .property-gallery-thumb,
-  .property-detail-page .property-gallery-thumb:nth-of-type(n + 5) {
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-thumb,
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-thumb:nth-of-type(n + 5) {
     display: block !important;
     width: 74px !important;
     height: 58px !important;
