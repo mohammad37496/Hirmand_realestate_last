@@ -588,19 +588,32 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs {
     grid-area: thumbs !important;
     display: flex !important;
-    flex-direction: row !important;
-    gap: 7px !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 8px !important;
     width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
     max-height: none !important;
-    padding: 0 !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
+    padding: 0 1px 2px !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    direction: rtl !important;
+    scroll-snap-type: none !important;
   }
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb {
-    flex: 0 0 70px !important;
-    width: 70px !important;
-    height: 62px !important;
-    border-radius: 10px !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 84px !important;
+    min-height: 78px !important;
+    max-height: none !important;
+    border-radius: 14px !important;
+    scroll-snap-align: none !important;
   }
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-content-grid > .hd-main-column > .hd-section,
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-content-grid > .hd-main-column .hd-section {
@@ -1857,10 +1870,10 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
   .hd-lightbox .hd-lightbox-prev,
   html body:has(main#top.property-detail-page.hd-property-detail-v2)
   .hd-lightbox .hd-lightbox-next {
-    width: 42px !important;
-    height: 42px !important;
-    min-width: 42px !important;
-    min-height: 42px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
   }
   html body:has(main#top.property-detail-page.hd-property-detail-v2)
   .hd-lightbox .hd-lightbox-prev > svg,
@@ -1924,10 +1937,10 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
   .hd-lightbox .hd-lightbox-close {
     top: max(10px, env(safe-area-inset-top)) !important;
     right: max(10px, env(safe-area-inset-right)) !important;
-    width: 42px !important;
-    height: 42px !important;
-    min-width: 42px !important;
-    min-height: 42px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
   }
 }
 

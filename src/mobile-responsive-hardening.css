@@ -1885,7 +1885,7 @@ svg {
 
   /* The thumbnail rail is a predictable touch carousel: equal tiles, no
      wrapped rows, no hidden fifth item, and enough room to see that it scrolls. */
-  .property-detail-page .property-gallery-rail {
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-rail {
     display: flex !important;
     flex-flow: row nowrap !important;
     align-items: center !important;
@@ -1909,12 +1909,12 @@ svg {
     -webkit-mask-image: none !important;
   }
 
-  .property-detail-page .property-gallery-rail::-webkit-scrollbar {
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-rail::-webkit-scrollbar {
     display: none !important;
   }
 
-  .property-detail-page .property-gallery-thumb,
-  .property-detail-page .property-gallery-thumb:nth-of-type(n + 5) {
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-thumb,
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-thumb:nth-of-type(n + 5) {
     position: relative !important;
     display: block !important;
     flex: 0 0 76px !important;
@@ -1934,13 +1934,13 @@ svg {
     transform: none !important;
   }
 
-  .property-detail-page .property-gallery-thumb.is-active {
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-thumb.is-active {
     border: 2px solid var(--hr-brass-fill, #b78b46) !important;
     box-shadow: 0 0 0 3px var(--hr-brass-soft, rgb(183 139 70 / 16%)) !important;
   }
 
-  .property-detail-page .property-gallery-thumb img,
-  .property-detail-page .property-gallery-thumb video {
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-thumb img,
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-thumb video {
     display: block !important;
     width: 100% !important;
     height: 100% !important;
@@ -1950,7 +1950,7 @@ svg {
     object-position: center !important;
   }
 
-  .property-detail-page .property-gallery-thumb-video {
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-thumb-video {
     position: absolute !important;
     inset: 5px auto auto 5px !important;
     z-index: 3 !important;
@@ -1965,7 +1965,7 @@ svg {
     pointer-events: none !important;
   }
 
-  .property-detail-page .property-gallery-thumb-number {
+  .property-detail-page:not(.hd-property-detail-v2) .property-gallery-thumb-number {
     z-index: 2 !important;
     min-width: 22px !important;
     min-height: 22px !important;
@@ -2112,7 +2112,7 @@ svg {
    final selector at the same specificity as that legacy rule so mobile ratios
    actually win in the rendered page, not only in source-level CSS tests. */
 @media (max-width: 720px) {
-  body:has(.property-detail-page) .property-detail-page .property-gallery-wrap .property-gallery .property-gallery-main {
+  body:has(.property-detail-page:not(.hd-property-detail-v2)) .property-detail-page:not(.hd-property-detail-v2) .property-gallery-wrap .property-gallery .property-gallery-main {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
@@ -2121,7 +2121,7 @@ svg {
 }
 
 @media (max-width: 360px) {
-  body:has(.property-detail-page) .property-detail-page .property-gallery-wrap .property-gallery .property-gallery-main {
+  body:has(.property-detail-page:not(.hd-property-detail-v2)) .property-detail-page:not(.hd-property-detail-v2) .property-gallery-wrap .property-gallery .property-gallery-main {
     height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
