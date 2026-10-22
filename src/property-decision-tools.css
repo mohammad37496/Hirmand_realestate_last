@@ -31,3 +31,29 @@
 @media (max-width:1600px){.property-decision-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
 @media (max-width:1000px){.property-decision-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media (max-width:720px){.property-decision-grid{grid-template-columns:1fr;}.property-decision-card{padding:18px;}}
+
+/* Keep the savings label readable instead of squeezing it beside a long price. */
+@media (max-width: 720px) {
+  .property-decision-metrics .is-highlight {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px 10px;
+  }
+  .property-decision-metrics .is-highlight > span {
+    display: block;
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+  .property-decision-metrics .is-highlight > strong {
+    flex: 0 1 auto;
+    max-width: 100%;
+    margin-inline-start: auto;
+    overflow-wrap: anywhere;
+  }
+}
+
