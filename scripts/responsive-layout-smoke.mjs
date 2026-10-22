@@ -308,6 +308,7 @@ try {
             const firstThumb = rail?.querySelector(".hd-gallery-thumb, .property-gallery-thumb");
             const thumbRect = firstThumb?.getBoundingClientRect();
             const railStyle = rail ? getComputedStyle(rail) : null;
+            const railRect = rail?.getBoundingClientRect();
             const railThumbs = rail ? [...rail.querySelectorAll(".hd-gallery-thumb, .property-gallery-thumb")] : [];
             const railThumbRects = railThumbs.slice(0, 4).map((thumb) => {
               const rect = thumb.getBoundingClientRect();
@@ -353,10 +354,17 @@ try {
                 visible: mediaRect.width > 0 && mediaRect.height > 0 && mediaStyle?.visibility !== "hidden",
               } : null,
               thumb: thumbRect ? { width: Math.round(thumbRect.width), height: Math.round(thumbRect.height) } : null,
-              rail: rail && railStyle ? {
+              rail: rail && railStyle && railRect ? {
+                position: railStyle.position,
+                bounds: {
+                  left: Math.round(railRect.left), right: Math.round(railRect.right),
+                  top: Math.round(railRect.top), bottom: Math.round(railRect.bottom),
+                  width: Math.round(railRect.width), height: Math.round(railRect.height),
+                },
                 display: railStyle.display, flexDirection: railStyle.flexDirection, gridAutoFlow: railStyle.gridAutoFlow,
                 overflowX: railStyle.overflowX, overflowY: railStyle.overflowY,
-                scrollWidth: rail.scrollWidth, clientWidth: rail.clientWidth, thumbRects: railThumbRects,
+                scrollWidth: rail.scrollWidth, clientWidth: rail.clientWidth,
+                scrollHeight: rail.scrollHeight, clientHeight: rail.clientHeight, thumbRects: railThumbRects,
               } : null,
               openButton: openRect ? {
                 width: Math.round(openRect.width),
@@ -387,14 +395,30 @@ try {
           const rail = metrics.propertyGallery.rail;
           const thumbs = rail.thumbRects;
           if (thumbs.length > 1) {
-            if (rail.display === "flex" && rail.flexDirection !== "column") {
-              failures.push(`${route} @ ${width}px: mobile thumbnail list is flex-direction=${rail.flexDirection}, not vertical`);
+            if (rail.display !== "flex" || rail.flexDirection !== "column") {
+              failures.push(`${route} @ ${width}px: floating thumbnail rail is not a vertical flex list (display=${rail.display}, direction=${rail.flexDirection})`);
+            }
+            if (rail.position !== "absolute") {
+              failures.push(`${route} @ ${width}px: mobile thumbnail rail should overlay the image instead of adding document height (position=${rail.position})`);
+            }
+            const image = metrics.propertyGallery.main;
+            if (rail.bounds && (
+              rail.bounds.left < image.left - 1 || rail.bounds.right > image.right + 1 ||
+              rail.bounds.top < image.top - 1 || rail.bounds.bottom > image.bottom + 1
+            )) {
+              failures.push(`${route} @ ${width}px: floating thumbnail rail escapes the main image: ${JSON.stringify(rail.bounds)} vs ${JSON.stringify(image)}`);
             }
             if (rail.display === "grid" && rail.gridAutoFlow === "column") {
               failures.push(`${route} @ ${width}px: mobile thumbnail grid fills columns horizontally`);
             }
             if (rail.scrollWidth > rail.clientWidth + 1 || ["auto", "scroll"].includes(rail.overflowX)) {
-              failures.push(`${route} @ ${width}px: thumbnail list requires horizontal scrolling (scrollWidth=${rail.scrollWidth}, clientWidth=${rail.clientWidth}, overflowX=${rail.overflowX})`);
+              failures.push(`${route} @ ${width}px: thumbnail rail allows horizontal scrolling (scrollWidth=${rail.scrollWidth}, clientWidth=${rail.clientWidth}, overflowX=${rail.overflowX})`);
+            }
+            if (rail.scrollHeight > rail.clientHeight + 1 && !["auto", "scroll"].includes(rail.overflowY)) {
+              failures.push(`${route} @ ${width}px: remaining thumbnails cannot be reached with vertical scrolling (scrollHeight=${rail.scrollHeight}, clientHeight=${rail.clientHeight}, overflowY=${rail.overflowY})`);
+            }
+            if (thumbs.some((thumb) => thumb.width < 44 || thumb.height < 44)) {
+              failures.push(`${route} @ ${width}px: floating thumbnail touch targets fall below 44px: ${JSON.stringify(thumbs.slice(0, 3))}`);
             }
             const first = thumbs[0], second = thumbs[1];
             if (second.top <= first.top || Math.abs(second.left - first.left) > 4 || Math.abs(second.width - first.width) > 4) {
@@ -425,7 +449,7 @@ try {
           if (gallery.media?.objectFit && gallery.media.objectFit !== "contain") {
             failures.push(`${route} @ ${width}px: uploaded property media is cropped with object-fit=${gallery.media.objectFit}`);
           }
-          if (gallery.thumb && (gallery.thumb.width < 60 || gallery.thumb.height < 48)) {
+          if (gallery.thumb && (gallery.thumb.width < 44 || gallery.thumb.height < 44)) {
             failures.push(`${route} @ ${width}px: property gallery thumbnail is too small: ${JSON.stringify(gallery.thumb)}`);
           }
           if (gallery.openButton && (
