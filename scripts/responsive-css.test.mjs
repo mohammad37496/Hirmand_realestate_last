@@ -311,7 +311,7 @@ testRunner.test("property detail uses one consistent icon treatment for specific
   assert.match(propertyDetailV2Css, /\.hd-feature-list li svg\s*\{[^}]*color:\s*var\(--hd-brass\)/s);
   assert.match(propertyDetailViewSource, /className="hd-spec-icon"><Icon size=\{18\} aria-hidden="true" \/>/);
   assert.match(propertyDetailViewSource, /className="hd-feature-list"/);
-  assert.match(propertyDetailViewSource, /features\.map\(\(feature\) => <li key=\{feature\}><Check size=\{16\} aria-hidden="true" \/>/);
+  assert.match(propertyDetailViewSource, /features\.map\(\(feature\) => \{\s*const FeatureIcon = amenityIconForFeature\(feature\);[\s\S]*?<FeatureIcon size=\{17\} strokeWidth=\{1\.9\} aria-hidden="true" \/>/s);
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
