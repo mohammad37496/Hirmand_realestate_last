@@ -1870,10 +1870,10 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
   .hd-lightbox .hd-lightbox-prev,
   html body:has(main#top.property-detail-page.hd-property-detail-v2)
   .hd-lightbox .hd-lightbox-next {
-    width: 42px !important;
-    height: 42px !important;
-    min-width: 42px !important;
-    min-height: 42px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
   }
   html body:has(main#top.property-detail-page.hd-property-detail-v2)
   .hd-lightbox .hd-lightbox-prev > svg,
@@ -1937,10 +1937,10 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
   .hd-lightbox .hd-lightbox-close {
     top: max(10px, env(safe-area-inset-top)) !important;
     right: max(10px, env(safe-area-inset-right)) !important;
-    width: 42px !important;
-    height: 42px !important;
-    min-width: 42px !important;
-    min-height: 42px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
   }
 }
 
