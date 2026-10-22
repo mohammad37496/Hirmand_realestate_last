@@ -4,7 +4,21 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl = process.argv[2] ?? process.env.RESPONSIVE_SMOKE_BASE_URL ?? "http://127.0.0.1:8081";
-const viewportWidths = [320, 360, 375, 390, 414, 430, 768, 1024, 1440];
+const viewportMatrix = [
+  { width: 320, height: 568 },
+  { width: 360, height: 640 },
+  { width: 375, height: 667 },
+  { width: 390, height: 844 },
+  { width: 412, height: 652 },
+  { width: 412, height: 732 },
+  { width: 414, height: 896 },
+  { width: 430, height: 932 },
+  { width: 768, height: 1024 }, // tablet portrait
+  { width: 1024, height: 768 }, // tablet landscape
+  { width: 1280, height: 900 },
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+];
 const propertyId = process.env.BROWSER_SMOKE_PROPERTY_ID || "browser-smoke-property-001";
 const propertySlug = process.env.BROWSER_SMOKE_PROPERTY_SLUG || "آپارتمان-تست-ناوبری-۱۴۰۵-browser-smoke";
 const routes = [
@@ -56,7 +70,7 @@ const screenshotRoutes = new Set([
   "/tools/rahn-rent",
   "/admin",
 ]);
-const screenshotWidths = new Set([320, 390, 430, 768, 1024]);
+const screenshotWidths = new Set([320, 390, 412, 430, 768, 1024, 1440]);
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -207,13 +221,14 @@ try {
         }
       }
 
-      for (const width of viewportWidths) {
-        await page.setViewportSize({ width, height: 900 });
+      for (const { width, height } of viewportMatrix) {
+        await page.setViewportSize({ width, height });
         await page.evaluate(() => new Promise((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(resolve)),
         ));
         const metrics = await page.evaluate(() => {
           const viewport = window.innerWidth;
+          const viewportHeight = window.innerHeight;
           const rootWidth = Math.max(
             document.documentElement?.scrollWidth ?? 0,
             document.body?.scrollWidth ?? 0,
@@ -381,6 +396,7 @@ try {
 
           return {
             viewport,
+            viewportHeight,
             rootWidth,
             overflow,
             offenders: offenders.slice(0, 8),
@@ -396,61 +412,61 @@ try {
           const thumbs = rail.thumbRects;
           if (thumbs.length > 1) {
             if (rail.display !== "flex" || rail.flexDirection !== "column") {
-              failures.push(`${route} @ ${width}px: floating thumbnail rail is not a vertical flex list (display=${rail.display}, direction=${rail.flexDirection})`);
+              failures.push(`${route} @ ${width}x${height}px: floating thumbnail rail is not a vertical flex list (display=${rail.display}, direction=${rail.flexDirection})`);
             }
             if (rail.position !== "absolute") {
-              failures.push(`${route} @ ${width}px: mobile thumbnail rail should overlay the image instead of adding document height (position=${rail.position})`);
+              failures.push(`${route} @ ${width}x${height}px: mobile thumbnail rail should overlay the image instead of adding document height (position=${rail.position})`);
             }
             const image = metrics.propertyGallery.main;
             if (rail.bounds && (
               rail.bounds.left < image.left - 1 || rail.bounds.right > image.right + 1 ||
               rail.bounds.top < image.top - 1 || rail.bounds.bottom > image.bottom + 1
             )) {
-              failures.push(`${route} @ ${width}px: floating thumbnail rail escapes the main image: ${JSON.stringify(rail.bounds)} vs ${JSON.stringify(image)}`);
+              failures.push(`${route} @ ${width}x${height}px: floating thumbnail rail escapes the main image: ${JSON.stringify(rail.bounds)} vs ${JSON.stringify(image)}`);
             }
             if (rail.display === "grid" && rail.gridAutoFlow === "column") {
-              failures.push(`${route} @ ${width}px: mobile thumbnail grid fills columns horizontally`);
+              failures.push(`${route} @ ${width}x${height}px: mobile thumbnail grid fills columns horizontally`);
             }
             if (rail.scrollWidth > rail.clientWidth + 1 || ["auto", "scroll"].includes(rail.overflowX)) {
-              failures.push(`${route} @ ${width}px: thumbnail rail allows horizontal scrolling (scrollWidth=${rail.scrollWidth}, clientWidth=${rail.clientWidth}, overflowX=${rail.overflowX})`);
+              failures.push(`${route} @ ${width}x${height}px: thumbnail rail allows horizontal scrolling (scrollWidth=${rail.scrollWidth}, clientWidth=${rail.clientWidth}, overflowX=${rail.overflowX})`);
             }
             if (rail.scrollHeight > rail.clientHeight + 1 && !["auto", "scroll"].includes(rail.overflowY)) {
-              failures.push(`${route} @ ${width}px: remaining thumbnails cannot be reached with vertical scrolling (scrollHeight=${rail.scrollHeight}, clientHeight=${rail.clientHeight}, overflowY=${rail.overflowY})`);
+              failures.push(`${route} @ ${width}x${height}px: remaining thumbnails cannot be reached with vertical scrolling (scrollHeight=${rail.scrollHeight}, clientHeight=${rail.clientHeight}, overflowY=${rail.overflowY})`);
             }
             if (thumbs.some((thumb) => thumb.width < 44 || thumb.height < 44)) {
-              failures.push(`${route} @ ${width}px: floating thumbnail touch targets fall below 44px: ${JSON.stringify(thumbs.slice(0, 3))}`);
+              failures.push(`${route} @ ${width}x${height}px: floating thumbnail touch targets fall below 44px: ${JSON.stringify(thumbs.slice(0, 3))}`);
             }
             const first = thumbs[0], second = thumbs[1];
             if (second.top <= first.top || Math.abs(second.left - first.left) > 4 || Math.abs(second.width - first.width) > 4) {
-              failures.push(`${route} @ ${width}px: thumbnail cards are not stacked in one vertical column: ${JSON.stringify(thumbs.slice(0, 3))}`);
+              failures.push(`${route} @ ${width}x${height}px: thumbnail cards are not stacked in one vertical column: ${JSON.stringify(thumbs.slice(0, 3))}`);
             }
           }
         }
 
         summaries.push({ route, ...metrics });
         if (metrics.overflow > 1) {
-          failures.push(`${route} @ ${width}px: horizontal overflow ${metrics.overflow}px; elements=${JSON.stringify(metrics.offenders)}`);
+          failures.push(`${route} @ ${width}x${height}px: horizontal overflow ${metrics.overflow}px; elements=${JSON.stringify(metrics.offenders)}`);
         }
         if (metrics.brokenWords.length) {
-          failures.push(`${route} @ ${width}px: text appears split letter-by-letter; elements=${JSON.stringify(metrics.brokenWords)}`);
+          failures.push(`${route} @ ${width}x${height}px: text appears split letter-by-letter; elements=${JSON.stringify(metrics.brokenWords)}`);
         }
 
         if (metrics.propertyGallery && width <= 430) {
           const gallery = metrics.propertyGallery;
           if (gallery.stage.ratio < 1.0 || gallery.stage.ratio > 1.95) {
-            failures.push(`${route} @ ${width}px: property media stage ratio ${gallery.stage.ratio} is outside a reasonable mobile frame range (1.0–1.95)`);
+            failures.push(`${route} @ ${width}x${height}px: property media stage ratio ${gallery.stage.ratio} is outside a reasonable mobile frame range (1.0–1.95)`);
           }
           if (gallery.stage.left < -2 || gallery.stage.right > width + 2) {
-            failures.push(`${route} @ ${width}px: property media stage escapes the viewport: ${JSON.stringify(gallery.stage)}`);
+            failures.push(`${route} @ ${width}x${height}px: property media stage escapes the viewport: ${JSON.stringify(gallery.stage)}`);
           }
           if (!gallery.media?.visible || gallery.media.width < gallery.stage.width * 0.8 || gallery.media.height < gallery.stage.height * 0.8) {
-            failures.push(`${route} @ ${width}px: active property media is missing or not filling its stage: ${JSON.stringify(gallery.media)}`);
+            failures.push(`${route} @ ${width}x${height}px: active property media is missing or not filling its stage: ${JSON.stringify(gallery.media)}`);
           }
           if (gallery.media?.objectFit && gallery.media.objectFit !== "contain") {
-            failures.push(`${route} @ ${width}px: uploaded property media is cropped with object-fit=${gallery.media.objectFit}`);
+            failures.push(`${route} @ ${width}x${height}px: uploaded property media is cropped with object-fit=${gallery.media.objectFit}`);
           }
           if (gallery.thumb && (gallery.thumb.width < 44 || gallery.thumb.height < 44)) {
-            failures.push(`${route} @ ${width}px: property gallery thumbnail is too small: ${JSON.stringify(gallery.thumb)}`);
+            failures.push(`${route} @ ${width}x${height}px: property gallery thumbnail is too small: ${JSON.stringify(gallery.thumb)}`);
           }
           if (gallery.openButton && (
             gallery.openButton.width < 44 ||
@@ -461,11 +477,11 @@ try {
             gallery.openButton.top < gallery.stage.top - 1 ||
             gallery.openButton.bottom > gallery.stage.bottom + 1
           )) {
-            failures.push(`${route} @ ${width}px: gallery full-screen control is too small, stretched, or outside the image: ${JSON.stringify(gallery.openButton)}`);
+            failures.push(`${route} @ ${width}x${height}px: gallery full-screen control is too small, stretched, or outside the image: ${JSON.stringify(gallery.openButton)}`);
           }
           const intersects = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
           if (gallery.openButton && gallery.navButtons.some((button) => intersects(gallery.openButton, button))) {
-            failures.push(`${route} @ ${width}px: fullscreen and previous/next gallery controls overlap`);
+            failures.push(`${route} @ ${width}x${height}px: fullscreen and previous/next gallery controls overlap`);
           }
           if (gallery.navButtons.some((button) =>
             button.width < 44 || button.height < 44 ||
@@ -474,22 +490,22 @@ try {
             button.top < (gallery.main?.top ?? gallery.stage.top) - 1 ||
             button.bottom > (gallery.main?.bottom ?? gallery.stage.bottom) + 1
           )) {
-            failures.push(`${route} @ ${width}px: gallery navigation buttons are too small or overlap the viewport edge: ${JSON.stringify(gallery.navButtons)}`);
+            failures.push(`${route} @ ${width}x${height}px: gallery navigation buttons are too small or overlap the viewport edge: ${JSON.stringify(gallery.navButtons)}`);
           }
           if (gallery.videoControls.some((button) => button.width < 44 || button.height < 44)) {
-            failures.push(`${route} @ ${width}px: video controls are below 40px touch targets: ${JSON.stringify(gallery.videoControls)}`);
+            failures.push(`${route} @ ${width}x${height}px: video controls are below 40px touch targets: ${JSON.stringify(gallery.videoControls)}`);
           }
         }
 
         if ((screenshotRoutes.has(route) || route.startsWith("/properties/") || route.startsWith("/file/")) && screenshotWidths.has(width)) {
-          const fileName = `${routeFileName(route)}-${width}.png`;
+          const fileName = `${routeFileName(route)}-${width}x${height}.png`;
           await page.screenshot({
             path: path.join(outputDir, fileName),
             fullPage: true,
             animations: "disabled",
             timeout: 20_000,
           }).catch((error) => {
-            summaries.push({ route, width, screenshotWarning: error.message });
+            summaries.push({ route, width, height, screenshotWarning: error.message });
           });
         }
       }
@@ -508,8 +524,8 @@ try {
 }
 
 const smallTargetWarnings = summaries.filter((entry) => entry.smallTargets?.length);
-console.log(`[responsive-smoke] ${routes.length} routes × ${viewportWidths.length} widths = ${routes.length * viewportWidths.length} responsive checks`);
-console.log(`[responsive-smoke] target widths: ${viewportWidths.join(", ")}`);
+console.log(`[responsive-smoke] ${routes.length} routes × ${viewportMatrix.length} viewport scenarios = ${routes.length * viewportMatrix.length} responsive checks`);
+console.log(`[responsive-smoke] viewport matrix: ${viewportMatrix.map(({ width, height }) => `${width}x${height}`).join(", ")}`);
 console.log(`[responsive-smoke] screenshots directory: ${outputDir}`);
 if (smallTargetWarnings.length) {
   console.warn(`[responsive-smoke] small interactive targets found in ${smallTargetWarnings.length} route/width checks (examples follow):`);
