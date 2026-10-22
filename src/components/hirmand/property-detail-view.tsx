@@ -5,10 +5,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowUpDown,
   Bath,
   BedDouble,
   Building2,
   CalendarDays,
+  Camera,
   CarFront,
   Check,
   ChevronLeft,
@@ -17,6 +19,7 @@ import {
   Compass,
   DoorOpen,
   ExternalLink,
+  Flame,
   ImageOff,
   Info,
   Layers3,
@@ -24,12 +27,20 @@ import {
   MapPinned,
   Maximize2,
   MessageCircle,
+  Network,
+  PanelsTopLeft,
   Phone,
   Play,
   Ruler,
   ShieldCheck,
+  Snowflake,
+  Sun,
+  Trees,
+  Video,
   Warehouse,
+  Wifi,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { PropertyActions } from "@/components/hirmand/property-actions";
 import { PropertyConvertSlider } from "@/components/hirmand/property-convert-slider";
@@ -111,6 +122,34 @@ import {
   labelForOption,
 } from "@/lib/property-options";
 import "@/property-gallery-mobile.css";
+
+function amenityIconForFeature(feature: string): LucideIcon {
+  const normalized = feature
+    .toLocaleLowerCase("fa-IR")
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/\u200c/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (/(بالکن|تراس|نور\s?گیر|آفتاب\s?گیر)/.test(normalized)) return Sun;
+  if (/(آیفون تصویری|آیفون|دربازکن تصویری|اینترکام)/.test(normalized)) return Video;
+  if (/(سیستم مرکزی|سیستم هوشمند|هوشمند|شبکه مرکزی)/.test(normalized)) return Network;
+  if (/(آسانسور|بالابر)/.test(normalized)) return ArrowUpDown;
+  if (/(پارکینگ|جای پارک)/.test(normalized)) return CarFront;
+  if (/(انباری|انبار)/.test(normalized)) return Warehouse;
+  if (/(کمد دیواری|کمد)/.test(normalized)) return DoorOpen;
+  if (/(سرمایش|کولر|اسپیلت|تهویه سرد)/.test(normalized)) return Snowflake;
+  if (/(گرمایش|بخاری|شوفاژ|پکیج|رادیاتور)/.test(normalized)) return Flame;
+  if (/(اینترنت|وای\s?فای|\bwifi\b)/.test(normalized)) return Wifi;
+  if (/(دوربین|مداربسته)/.test(normalized)) return Camera;
+  if (/(امنیت|نگهبان|دزدگیر)/.test(normalized)) return ShieldCheck;
+  if (/(باغچه|حیاط|فضای سبز|باغ)/.test(normalized)) return Trees;
+  if (/(حمام|سرویس بهداشتی|سرویس و حمام|وان)/.test(normalized)) return Bath;
+  if (/(کابینت|کف\s?پوش|سرامیک|پارکت)/.test(normalized)) return PanelsTopLeft;
+
+  return Check;
+}
 
 const TRANSACTION_LABEL: Record<Property["transactionType"], string> = {
   buy: "خرید",
@@ -883,7 +922,15 @@ export function PropertyDetailView({
                 <details className="property-spec-amenities hd-amenity-accordion">
                   <summary><span>امکانات و ویژگی‌ها</span><ChevronLeft size={19} aria-hidden="true" /></summary>
                   <ul className="hd-feature-list">
-                    {features.map((feature) => <li key={feature}><Check size={16} aria-hidden="true" /><span>{feature}</span></li>)}
+                    {features.map((feature) => {
+                      const FeatureIcon = amenityIconForFeature(feature);
+                      return (
+                        <li key={feature} data-amenity={feature}>
+                          <FeatureIcon size={17} strokeWidth={1.9} aria-hidden="true" />
+                          <span>{feature}</span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </details>
               ) : null}
