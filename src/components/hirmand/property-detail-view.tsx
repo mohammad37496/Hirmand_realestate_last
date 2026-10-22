@@ -93,7 +93,7 @@ import "@/property-detail-page.css";
 import "@/property-detail-page-luxury.css";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import type { Property } from "@/lib/properties";
-import { getPropertyFallbackImages, getPropertyFallbackLegacyImages, isPropertyFallbackImage } from "@/lib/property-fallback-images";
+import { getPropertyFallbackImages, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { isVideoUrl, mediaSourceCandidates } from "@/lib/media";
 import { formatToman, parseAmount } from "@/lib/money";
 import { formatPersianDate } from "@/lib/persian-date";
@@ -389,21 +389,18 @@ function Gallery({ property }: { property: Property }) {
     () => storedImages.filter((src) => !isPropertyFallbackImage(src)),
     [storedImages],
   );
-  // Real listing photos always take precedence. If there are none, show the
-  // curated set for the property's category so the gallery has working next /
-  // previous controls. Each generated JPG has a checked-in SVG fallback below.
+  // Real listing photos always take precedence. If there are none, use the
+  // whole local JPG set for the property's category; old SVG fallbacks stored
+  // in earlier records must not override the real-photo gallery.
   const categoryFallbackImages = useMemo(
     () => getPropertyFallbackImages(property.propertyType),
     [property.propertyType],
   );
-  const legacyFallbackImages = useMemo(
-    () => getPropertyFallbackLegacyImages(property.propertyType),
-    [property.propertyType],
-  );
   const images = propertyImages.length ? propertyImages : categoryFallbackImages;
   const fallbackForImage = (src: string, index: number) => {
-    if (!isPropertyFallbackImage(src) || !legacyFallbackImages.length) return undefined;
-    return legacyFallbackImages[index % legacyFallbackImages.length];
+    if (!isPropertyFallbackImage(src)) return undefined;
+    const alternatives = categoryFallbackImages.filter((candidate) => candidate !== src);
+    return alternatives.length ? alternatives[index % alternatives.length] : undefined;
   };
   const [activeIndex, setActiveIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
