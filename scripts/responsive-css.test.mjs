@@ -54,20 +54,17 @@ testRunner.test("property amenities render contextual icons", () => {
     /function amenityIconForFeature\(feature: string\): LucideIcon\s*\{/,
     "amenities should select an icon from the feature label",
   );
-  assert.match(
-    propertyDetailViewSource,
-    /if \(\/\([^)]*بالکن[^)]*\)\/\.test\(normalized\)\) return Sun;/,
+  assert.ok(
+    propertyDetailViewSource.includes("if (/(بالکن|تراس|نور\\s?گیر|آفتاب\\s?گیر)/.test(normalized)) return Sun;"),
     "balconies and terraces should use a matching icon",
   );
-  assert.match(
-    propertyDetailViewSource,
-    /if \(\/\([^)]*آیفون تصویری[^)]*\)\/\.test\(normalized\)\) return Video;/,
-    "video intercom should use a video icon",
+  assert.ok(
+    propertyDetailViewSource.includes("if (/(آیفون تصویری|آیفون|دربازکن تصویری|اینترکام)/.test(normalized)) return Video;"),
+    "video intercom amenities should use a video icon",
   );
-  assert.match(
-    propertyDetailViewSource,
-    /if \(\/\([^)]*سیستم مرکزی[^)]*\)\/\.test\(normalized\)\) return Network;/,
-    "central system should use a network icon",
+  assert.ok(
+    propertyDetailViewSource.includes("if (/(سیستم مرکزی|سیستم هوشمند|هوشمند|شبکه مرکزی)/.test(normalized)) return Network;"),
+    "central system amenities should use a network icon",
   );
   assert.match(
     propertyDetailViewSource,
