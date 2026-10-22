@@ -48,21 +48,31 @@ testRunner.test("mobile property gallery suppresses duplicate and legacy zoom co
   );
 });
 
-testRunner.test("mobile property gallery keeps one accessible zoom button", () => {
+testRunner.test("mobile property gallery hides the expand icon and keeps the zoom label", () => {
   assert.doesNotMatch(
     propertyGalleryMobileCss,
     /\.hd-gallery-stage\s*>\s*\.hd-gallery-expand\.property-gallery-open\s*\{[^}]*display:\s*none\s*!important;/is,
-    "the primary zoom button must not be hidden on mobile",
+    "the zoom button itself must stay visible on mobile",
   );
   assert.match(
     propertyGalleryMobileCss,
-    /main#top\.property-detail-page\.hd-property-detail-v2\s+\.property-gallery-main\.hd-gallery-main\s+\.hd-gallery-expand\s*\{[^}]*top:\s*9px\s*!important;[\s\S]*?width:\s*44px\s*!important;[\s\S]*?height:\s*44px\s*!important;/is,
-    "the mobile zoom control must remain a visible, 44px square floating control",
+    /\.property-gallery-main\.hd-gallery-main\s+\.hd-gallery-expand\s*\.hd-gallery-expand-icon\s*\{[^}]*display:\s*none\s*!important;/is,
+    "the expand icon must be hidden on mobile",
+  );
+  assert.match(
+    propertyGalleryMobileCss,
+    /\.property-gallery-main\.hd-gallery-main\s+\.hd-gallery-expand\s*\.hd-gallery-expand-label\s*\{[^}]*display:\s*inline\s*!important;/is,
+    "the zoom label must remain visible on mobile",
+  );
+  assert.match(
+    propertyGalleryMobileCss,
+    /\.property-gallery-main\.hd-gallery-main\s+\.hd-gallery-expand\s*\{[^}]*height:\s*44px\s*!important;[\s\S]*?padding:\s*0 12px\s*!important;/is,
+    "the mobile zoom button must remain a readable, touch-sized text control",
   );
   assert.equal(
     (propertyDetailViewSource.match(/className="hd-gallery-expand property-gallery-open"/g) ?? []).length,
     1,
-    "there must be one and only one zoom button in the property-gallery markup",
+    "there must be exactly one zoom button in the property-gallery markup",
   );
 });
 
