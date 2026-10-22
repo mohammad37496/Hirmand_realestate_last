@@ -93,7 +93,7 @@ import "@/property-detail-page.css";
 import "@/property-detail-page-luxury.css";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import type { Property } from "@/lib/properties";
-import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
+import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { isVideoUrl, mediaSourceCandidates } from "@/lib/media";
 import { formatToman, parseAmount } from "@/lib/money";
 import { formatPersianDate } from "@/lib/persian-date";
@@ -387,9 +387,14 @@ function Gallery({ property }: { property: Property }) {
     () => storedImages.filter((src) => !isPropertyFallbackImage(src)),
     [storedImages],
   );
-  // If the database only contains a known category fallback, show it honestly
-  // with an explicit on-image notice instead of pretending the gallery is real.
-  const images = propertyImages.length ? propertyImages : storedImages;
+  // If no media was uploaded, use a checked-in, same-origin image for this
+  // property's category. Keep real listing media first, and keep any previously
+  // stored category fallback visible with an explicit on-image notice.
+  const images = propertyImages.length
+    ? propertyImages
+    : storedImages.length
+      ? storedImages
+      : [getPropertyFallbackImage(property.propertyType, property.id)];
   const [activeIndex, setActiveIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
