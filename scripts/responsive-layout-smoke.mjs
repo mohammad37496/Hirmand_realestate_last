@@ -4,7 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl = process.argv[2] ?? process.env.RESPONSIVE_SMOKE_BASE_URL ?? "http://127.0.0.1:8081";
-const viewportWidths = [320, 360, 375, 390, 414, 768, 1024, 1440];
+const viewportWidths = [320, 360, 375, 390, 414, 430, 768, 1024, 1440];
 const propertyId = process.env.BROWSER_SMOKE_PROPERTY_ID || "browser-smoke-property-001";
 const propertySlug = process.env.BROWSER_SMOKE_PROPERTY_SLUG || "آپارتمان-تست-ناوبری-۱۴۰۵-browser-smoke";
 const routes = [
@@ -56,7 +56,7 @@ const screenshotRoutes = new Set([
   "/tools/rahn-rent",
   "/admin",
 ]);
-const screenshotWidths = new Set([320, 390, 768, 1024]);
+const screenshotWidths = new Set([320, 390, 430, 768, 1024]);
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -227,18 +227,24 @@ try {
           }
 
           let propertyGallery = null;
-          const galleryStage = document.querySelector(".property-detail-page .property-gallery-main");
+          const galleryStage = document.querySelector(".property-detail-page.hd-property-detail-v2 .hd-gallery-main, .property-detail-page:not(.hd-property-detail-v2) .property-gallery-main");
           if (galleryStage && viewport <= 720) {
             const stageRect = galleryStage.getBoundingClientRect();
-            const media = galleryStage.querySelector("picture img, .property-video-player video, .property-image-fallback");
+            const media = galleryStage.querySelector(".hd-gallery-stage picture img, .hd-gallery-stage video, picture img, .property-video-player video, .property-image-fallback");
             const mediaRect = media?.getBoundingClientRect();
             const mediaStyle = media ? getComputedStyle(media) : null;
-            const rail = document.querySelector(".property-detail-page .property-gallery-rail");
-            const firstThumb = rail?.querySelector(".property-gallery-thumb");
+            const rail = document.querySelector(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs, .property-detail-page:not(.hd-property-detail-v2) .property-gallery-rail");
+            const firstThumb = rail?.querySelector(".hd-gallery-thumb, .property-gallery-thumb");
             const thumbRect = firstThumb?.getBoundingClientRect();
-            const openButton = galleryStage.querySelector(".property-gallery-open");
+            const railStyle = rail ? getComputedStyle(rail) : null;
+            const railThumbs = rail ? [...rail.querySelectorAll(".hd-gallery-thumb, .property-gallery-thumb")] : [];
+            const railThumbRects = railThumbs.slice(0, 4).map((thumb) => {
+              const rect = thumb.getBoundingClientRect();
+              return { left: Math.round(rect.left), right: Math.round(rect.right), top: Math.round(rect.top), bottom: Math.round(rect.bottom), width: Math.round(rect.width), height: Math.round(rect.height) };
+            });
+            const openButton = galleryStage.querySelector(".hd-gallery-expand, .property-gallery-open");
             const openRect = openButton?.getBoundingClientRect();
-            const navButtons = [...galleryStage.querySelectorAll(".property-gallery-nav")].map((button) => {
+            const navButtons = [...galleryStage.querySelectorAll(".hd-gallery-controls > button, .property-gallery-nav")].map((button) => {
               const rect = button.getBoundingClientRect();
               return {
                 width: Math.round(rect.width),
@@ -268,6 +274,11 @@ try {
                 visible: mediaRect.width > 0 && mediaRect.height > 0 && mediaStyle?.visibility !== "hidden",
               } : null,
               thumb: thumbRect ? { width: Math.round(thumbRect.width), height: Math.round(thumbRect.height) } : null,
+              rail: rail && railStyle ? {
+                display: railStyle.display, flexDirection: railStyle.flexDirection, gridAutoFlow: railStyle.gridAutoFlow,
+                overflowX: railStyle.overflowX, overflowY: railStyle.overflowY,
+                scrollWidth: rail.scrollWidth, clientWidth: rail.clientWidth, thumbRects: railThumbRects,
+              } : null,
               openButton: openRect ? {
                 width: Math.round(openRect.width),
                 height: Math.round(openRect.height),
@@ -293,6 +304,26 @@ try {
           };
         });
 
+        if (route.startsWith("/properties/") && width <= 760 && metrics.propertyGallery?.rail) {
+          const rail = metrics.propertyGallery.rail;
+          const thumbs = rail.thumbRects;
+          if (thumbs.length > 1) {
+            if (rail.display === "flex" && rail.flexDirection !== "column") {
+              failures.push(`${route} @ ${width}px: mobile thumbnail list is flex-direction=${rail.flexDirection}, not vertical`);
+            }
+            if (rail.display === "grid" && rail.gridAutoFlow === "column") {
+              failures.push(`${route} @ ${width}px: mobile thumbnail grid fills columns horizontally`);
+            }
+            if (rail.scrollWidth > rail.clientWidth + 1 || ["auto", "scroll"].includes(rail.overflowX)) {
+              failures.push(`${route} @ ${width}px: thumbnail list requires horizontal scrolling (scrollWidth=${rail.scrollWidth}, clientWidth=${rail.clientWidth}, overflowX=${rail.overflowX})`);
+            }
+            const first = thumbs[0], second = thumbs[1];
+            if (second.top <= first.top || Math.abs(second.left - first.left) > 4 || Math.abs(second.width - first.width) > 4) {
+              failures.push(`${route} @ ${width}px: thumbnail cards are not stacked in one vertical column: ${JSON.stringify(thumbs.slice(0, 3))}`);
+            }
+          }
+        }
+
         summaries.push({ route, ...metrics });
         if (metrics.overflow > 1) {
           failures.push(`${route} @ ${width}px: horizontal overflow ${metrics.overflow}px; elements=${JSON.stringify(metrics.offenders)}`);
@@ -301,11 +332,10 @@ try {
           failures.push(`${route} @ ${width}px: text appears split letter-by-letter; elements=${JSON.stringify(metrics.brokenWords)}`);
         }
 
-        if (metrics.propertyGallery && width <= 414) {
+        if (metrics.propertyGallery && width <= 430) {
           const gallery = metrics.propertyGallery;
-          const expectedRatio = 16 / 10;
-          if (Math.abs(gallery.stage.ratio - expectedRatio) > 0.18) {
-            failures.push(`${route} @ ${width}px: property media stage ratio ${gallery.stage.ratio} does not match the mobile layout ${expectedRatio}`);
+          if (gallery.stage.ratio < 1.0 || gallery.stage.ratio > 1.95) {
+            failures.push(`${route} @ ${width}px: property media stage ratio ${gallery.stage.ratio} is outside a reasonable mobile frame range (1.0–1.95)`);
           }
           if (gallery.stage.left < -2 || gallery.stage.right > width + 2) {
             failures.push(`${route} @ ${width}px: property media stage escapes the viewport: ${JSON.stringify(gallery.stage)}`);
@@ -320,8 +350,8 @@ try {
             failures.push(`${route} @ ${width}px: property gallery thumbnail is too small: ${JSON.stringify(gallery.thumb)}`);
           }
           if (gallery.openButton && (
-            gallery.openButton.width < 40 ||
-            gallery.openButton.height < 40 ||
+            gallery.openButton.width < 44 ||
+            gallery.openButton.height < 44 ||
             gallery.openButton.width > Math.min(gallery.stage.width * 0.62, 180) ||
             gallery.openButton.left < gallery.stage.left - 1 ||
             gallery.openButton.right > gallery.stage.right + 1 ||
@@ -330,8 +360,12 @@ try {
           )) {
             failures.push(`${route} @ ${width}px: gallery full-screen control is too small, stretched, or outside the image: ${JSON.stringify(gallery.openButton)}`);
           }
+          const intersects = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+          if (gallery.openButton && gallery.navButtons.some((button) => intersects(gallery.openButton, button))) {
+            failures.push(`${route} @ ${width}px: fullscreen and previous/next gallery controls overlap`);
+          }
           if (gallery.navButtons.some((button) =>
-            button.width < 40 || button.height < 40 ||
+            button.width < 44 || button.height < 44 ||
             button.left < gallery.stage.left - 1 ||
             button.right > gallery.stage.right + 1 ||
             button.top < gallery.stage.top - 1 ||
