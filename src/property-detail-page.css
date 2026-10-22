@@ -394,7 +394,7 @@
   .hd-lightbox { gap: 8px; padding-right: 8px; padding-left: 8px; }
   .hd-lightbox-prev { right: 7px; }
   .hd-lightbox-next { left: 7px; }
-  .hd-lightbox-prev, .hd-lightbox-next { width: 38px; height: 42px; }
+  .hd-lightbox-prev, .hd-lightbox-next { width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
   .hd-lightbox-media img, .hd-lightbox-media video { max-width: 100%; max-height: 78vh; }
 }
 @media (max-width: 420px) {
