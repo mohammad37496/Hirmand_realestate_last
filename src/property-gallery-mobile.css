@@ -1802,3 +1802,309 @@
     transition: none !important;
   }
 }
+
+
+/* ==========================================================================
+   HIRMAND MOBILE GALLERY — VERTICAL THUMBNAIL LIST OVERRIDE
+   User preference: move through the additional photo cards vertically.
+   Keep the hero image and its navigation controls unchanged.
+   ========================================================================== */
+@media (max-width: 760px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-wrap.hd-gallery-wrap > .property-gallery.hd-gallery {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas: "main" "thumbs" !important;
+    grid-auto-flow: row !important;
+    gap: 12px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs {
+    grid-area: thumbs !important;
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    position: relative !important;
+    inset: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 1px 2px !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    direction: rtl !important;
+    scroll-snap-type: none !important;
+    overscroll-behavior: auto !important;
+    scrollbar-width: auto !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs-heading {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 34px !important;
+    margin: 0 0 1px !important;
+    padding: 0 2px !important;
+    color: #203849 !important;
+    font-size: 14px !important;
+    font-weight: 900 !important;
+    line-height: 1.7 !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs-heading-title {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs-heading-title::before {
+    content: "";
+    display: block;
+    flex: 0 0 4px;
+    width: 4px;
+    height: 18px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #d9bc82, #a67b36);
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs-heading-count {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 27px !important;
+    padding: 3px 9px !important;
+    border: 1px solid #e8ddc8 !important;
+    border-radius: 999px !important;
+    background: #fffefa !important;
+    color: #756044 !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    line-height: 1.6 !important;
+    white-space: nowrap !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb {
+    display: grid !important;
+    grid-template-columns: 90px minmax(0, 1fr) 28px !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    grid-template-areas: "preview info status" !important;
+    align-items: center !important;
+    justify-content: stretch !important;
+    gap: 10px !important;
+    position: relative !important;
+    inset: auto !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 84px !important;
+    min-height: 84px !important;
+    max-height: 84px !important;
+    margin: 0 !important;
+    padding: 6px !important;
+    overflow: hidden !important;
+    border: 1px solid #e5dccb !important;
+    border-radius: 14px !important;
+    background: linear-gradient(135deg, #fffefa 0%, #f8f4eb 100%) !important;
+    color: #203849 !important;
+    box-shadow: 0 3px 10px rgb(24 45 62 / 5%), inset 0 1px 0 rgb(255 255 255 / 92%) !important;
+    direction: rtl !important;
+    text-align: right !important;
+    scroll-snap-align: none !important;
+    transform: none !important;
+    transition: border-color .16s ease, box-shadow .16s ease, background .16s ease !important;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb.is-active {
+    border-color: #b98e49 !important;
+    background: linear-gradient(135deg, #fff9ed, #f7efdf) !important;
+    box-shadow: 0 0 0 2px rgb(185 142 73 / 15%), 0 5px 14px rgb(24 45 62 / 6%) !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb:focus-visible {
+    outline: 3px solid rgb(185 142 73 / 55%) !important;
+    outline-offset: 2px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview {
+    grid-area: preview !important;
+    display: block !important;
+    position: relative !important;
+    inset: auto !important;
+    width: 90px !important;
+    min-width: 90px !important;
+    max-width: 90px !important;
+    height: 70px !important;
+    min-height: 70px !important;
+    max-height: 70px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid rgb(24 45 62 / 8%) !important;
+    border-radius: 10px !important;
+    background: #eee7db !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview > img,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview > .hd-image-missing,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview > .hd-video-thumb {
+    display: grid !important;
+    position: relative !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: cover !important;
+    object-position: center !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-info {
+    grid-area: info !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-align: right !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-title {
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    color: #203849 !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    line-height: 1.6 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-description {
+    display: block !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    color: #6d7983 !important;
+    font-size: 11px !important;
+    font-weight: 650 !important;
+    line-height: 1.6 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-status {
+    grid-area: status !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid #ebe2d2 !important;
+    border-radius: 9px !important;
+    background: #fff !important;
+    color: #84909a !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb.is-active .hd-gallery-thumb-status {
+    border-color: #e0c58e !important;
+    background: #f3e3bf !important;
+    color: #76531c !important;
+  }
+}
+
+@media (max-width: 420px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb {
+    grid-template-columns: 78px minmax(0, 1fr) 26px !important;
+    gap: 8px !important;
+    height: 78px !important;
+    min-height: 78px !important;
+    max-height: 78px !important;
+    padding: 5px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview {
+    width: 78px !important;
+    min-width: 78px !important;
+    max-width: 78px !important;
+    height: 66px !important;
+    min-height: 66px !important;
+    max-height: 66px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb {
+    grid-template-columns: 68px minmax(0, 1fr) 24px !important;
+    gap: 7px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview {
+    width: 68px !important;
+    min-width: 68px !important;
+    max-width: 68px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-status {
+    width: 24px !important;
+    min-width: 24px !important;
+    max-width: 24px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    max-height: 24px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb {
+    transition: none !important;
+  }
+}
