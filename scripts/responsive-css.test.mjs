@@ -48,11 +48,21 @@ testRunner.test("mobile property gallery suppresses duplicate and legacy zoom co
   );
 });
 
-testRunner.test("mobile property gallery hides the zoom button", () => {
+testRunner.test("mobile property gallery keeps one accessible zoom button", () => {
+  assert.doesNotMatch(
+    propertyGalleryMobileCss,
+    /\.hd-gallery-stage\s*>\s*\.hd-gallery-expand\.property-gallery-open\s*\{[^}]*display:\s*none\s*!important;/is,
+    "the primary zoom button must not be hidden on mobile",
+  );
   assert.match(
     propertyGalleryMobileCss,
-    /@media\s*\(max-width:\s*760px\)[\s\S]*?\.property-gallery-main\.hd-gallery-main\s+\.hd-gallery-stage\s*>\s*\.hd-gallery-expand\.property-gallery-open\s*\{[^}]*display:\s*none\s*!important;/is,
-    "the zoom/fullscreen button must be hidden in the mobile layout",
+    /main#top\.property-detail-page\.hd-property-detail-v2\s+\.property-gallery-main\.hd-gallery-main\s+\.hd-gallery-expand\s*\{[^}]*top:\s*9px\s*!important;[\s\S]*?width:\s*44px\s*!important;[\s\S]*?height:\s*44px\s*!important;/is,
+    "the mobile zoom control must remain a visible, 44px square floating control",
+  );
+  assert.equal(
+    (propertyDetailViewSource.match(/className="hd-gallery-expand property-gallery-open"/g) ?? []).length,
+    1,
+    "there must be one and only one zoom button in the property-gallery markup",
   );
 });
 

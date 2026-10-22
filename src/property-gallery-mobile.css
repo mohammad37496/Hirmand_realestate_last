@@ -2170,13 +2170,3 @@
     transition: none !important;
   }
 }
-
-/* The user-facing zoom/fullscreen button is intentionally omitted on phones.
-   Keep desktop behavior unchanged. */
-@media (max-width: 760px) {
-  html body:has(main#top.property-detail-page.hd-property-detail-v2)
-  main#top.property-detail-page.hd-property-detail-v2
-  .property-gallery-main.hd-gallery-main .hd-gallery-stage > .hd-gallery-expand.property-gallery-open {
-    display: none !important;
-  }
-}
