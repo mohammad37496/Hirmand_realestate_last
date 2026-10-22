@@ -1336,3 +1336,245 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) .property-det
     transition-duration: .01ms !important;
   }
 }
+
+
+/* ==========================================================================
+   HIRMAND — gallery expand control + clean lightbox controls
+   Responsive, accessible and scoped to the property detail page.
+   ========================================================================== */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 9px !important;
+  min-width: 0 !important;
+  min-height: 46px !important;
+  max-width: calc(100% - 24px) !important;
+  padding: 7px 14px 7px 8px !important;
+  border: 1px solid rgb(255 255 255 / 27%) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(135deg, rgb(12 31 47 / 96%), rgb(27 52 69 / 91%)) !important;
+  color: #fff !important;
+  box-shadow: 0 10px 26px rgb(6 18 29 / 28%), inset 0 1px 0 rgb(255 255 255 / 9%) !important;
+  backdrop-filter: blur(16px) saturate(145%);
+  -webkit-backdrop-filter: blur(16px) saturate(145%);
+  font-size: .82rem !important;
+  font-weight: 800 !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgb(244 213 153 / 35%);
+  border-radius: 9px;
+  background: linear-gradient(145deg, #e5c17d, #b78b43);
+  color: #172d3c;
+  box-shadow: 0 3px 9px rgb(0 0 0 / 14%), inset 0 1px 0 rgb(255 255 255 / 45%);
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand-icon svg {
+  display: block;
+  flex: 0 0 auto;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand:hover {
+  border-color: rgb(244 213 153 / 65%) !important;
+  background: linear-gradient(135deg, #10283a, #263f50) !important;
+  box-shadow: 0 14px 32px rgb(6 18 29 / 34%), inset 0 1px 0 rgb(255 255 255 / 12%) !important;
+  transform: translateY(-2px);
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand:active {
+  transform: translateY(0) scale(.985);
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand:focus-visible {
+  outline: 3px solid #e9c47f !important;
+  outline-offset: 3px !important;
+}
+
+/* Keep the close control in its own top corner and the arrows at mid-height.
+   This prevents the close icon from appearing over a previous/next control. */
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 99999 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) auto !important;
+  align-items: stretch !important;
+  justify-items: stretch !important;
+  gap: 8px !important;
+  overflow: hidden !important;
+  padding:
+    max(16px, env(safe-area-inset-top, 0px))
+    max(18px, env(safe-area-inset-right, 0px))
+    max(14px, env(safe-area-inset-bottom, 0px))
+    max(18px, env(safe-area-inset-left, 0px)) !important;
+  background: rgb(7 17 28 / 96%) !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-close {
+  position: absolute !important;
+  top: max(16px, env(safe-area-inset-top, 0px)) !important;
+  right: max(18px, env(safe-area-inset-right, 0px)) !important;
+  left: auto !important;
+  bottom: auto !important;
+  z-index: 20 !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 48px !important;
+  height: 48px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgb(255 255 255 / 24%) !important;
+  border-radius: 15px !important;
+  background: rgb(255 255 255 / 10%) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 20%) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transform: none !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-prev,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-next {
+  position: absolute !important;
+  top: 50% !important;
+  z-index: 12 !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 48px !important;
+  height: 48px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid rgb(255 255 255 / 25%) !important;
+  border-radius: 15px !important;
+  background: rgb(255 255 255 / 10%) !important;
+  color: #fff !important;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 20%) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transform: translateY(-50%) !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-prev {
+  right: max(20px, env(safe-area-inset-right, 0px)) !important;
+  left: auto !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-next {
+  left: max(20px, env(safe-area-inset-left, 0px)) !important;
+  right: auto !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  display: grid !important;
+  place-items: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 66px 74px 12px !important;
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media img,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media video {
+  display: block !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+  border-radius: 8px !important;
+  box-shadow: 0 16px 50px rgb(0 0 0 / 30%);
+}
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-count {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  justify-self: center !important;
+  align-self: end !important;
+  margin: 0 !important;
+  padding: 7px 14px !important;
+  border: 1px solid rgb(255 255 255 / 15%) !important;
+  border-radius: 999px !important;
+  background: rgb(255 255 255 / 8%) !important;
+  color: rgb(255 255 255 / 92%) !important;
+  font-size: .82rem !important;
+  line-height: 1.5 !important;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+@media (max-width: 620px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand {
+    left: 9px !important;
+    bottom: 9px !important;
+    min-height: 45px !important;
+    max-width: calc(100% - 18px) !important;
+    gap: 8px !important;
+    padding: 6px 11px 6px 7px !important;
+    border-radius: 13px !important;
+    font-size: .78rem !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand-icon {
+    flex-basis: 30px;
+    width: 30px;
+    height: 30px;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox {
+    padding:
+      max(12px, env(safe-area-inset-top, 0px))
+      max(8px, env(safe-area-inset-right, 0px))
+      max(10px, env(safe-area-inset-bottom, 0px))
+      max(8px, env(safe-area-inset-left, 0px)) !important;
+    gap: 6px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-close {
+    top: max(12px, env(safe-area-inset-top, 0px)) !important;
+    right: max(10px, env(safe-area-inset-right, 0px)) !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 13px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-prev,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-next {
+    width: 42px !important;
+    height: 46px !important;
+    border-radius: 13px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-prev {
+    right: 7px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-next {
+    left: 7px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media {
+    padding: 62px 42px 8px !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media img,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media video {
+    max-width: 100% !important;
+    max-height: 100% !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-expand {
+    transition: none !important;
+  }
+}
