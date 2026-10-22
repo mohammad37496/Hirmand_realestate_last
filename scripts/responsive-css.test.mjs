@@ -254,6 +254,12 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
     "each compact thumbnail must keep an accessible touch target");
   assert.match(propertyGalleryMobileCss, /\.hd-gallery-thumbs-heading,[\s\S]*?\.hd-gallery-thumb-status\s*\{[^}]*display:\s*none\s*!important/s,
     "mobile thumbnail headings, repeated descriptions and status icons should not consume space");
+  assert.match(browserSmoke, /rail\.position !== "absolute"/,
+    "browser smoke must confirm the compact rail overlays the main image");
+  assert.match(browserSmoke, /rail\.scrollHeight > rail\.clientHeight/,
+    "browser smoke must confirm off-screen thumbnails remain vertically reachable");
+  assert.match(browserSmoke, /gallery\.thumb\.width < 44 \|\| gallery\.thumb\.height < 44/,
+    "browser smoke must preserve minimum 44px thumbnail touch targets");
   assert.match(propertyDetailV2Css, /\.hd-gallery-thumbs\s*\{[^}]*flex-direction:\s*column/is,
     "the detail page mobile stylesheet must not define a horizontal rail");
   const v2GalleryStyles = [propertyGalleryMobileCss, propertyDetailLuxuryCss, propertyExperienceRedesignCss, propertyDetailV2Css].join("\n");
