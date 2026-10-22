@@ -2208,3 +2208,76 @@
     line-height: 1.4 !important;
   }
 }
+
+/* Compact property specifications: two legible columns on phone screens. */
+@media (max-width: 760px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-specs-accordion-body.hd-spec-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    gap: 7px !important;
+    min-width: 0 !important;
+    padding: 9px 10px 12px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-specs-accordion-body.hd-spec-grid > .hd-spec-item {
+    display: grid !important;
+    grid-template-columns: 26px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    align-content: center !important;
+    align-items: start !important;
+    column-gap: 7px !important;
+    row-gap: 2px !important;
+    min-width: 0 !important;
+    min-height: 70px !important;
+    padding: 8px !important;
+    border: 1px solid #ebe2d3 !important;
+    border-radius: 12px !important;
+    background: #fffdfa !important;
+    box-shadow: 0 2px 7px rgb(24 43 56 / 3%) !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-specs-accordion-body.hd-spec-grid > .hd-spec-item > .hd-spec-icon {
+    display: grid !important;
+    grid-column: 1 !important;
+    grid-row: 1 / span 2 !important;
+    align-self: center !important;
+    justify-self: center !important;
+    width: 26px !important;
+    min-width: 26px !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    border-radius: 8px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-specs-accordion-body.hd-spec-grid > .hd-spec-item > .hd-spec-label {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    color: #697786 !important;
+    font-size: 11px !important;
+    font-weight: 650 !important;
+    line-height: 1.55 !important;
+    text-align: right !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-specs-accordion-body.hd-spec-grid > .hd-spec-item > strong {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    color: #152d3d !important;
+    font-size: 12px !important;
+    font-weight: 850 !important;
+    line-height: 1.55 !important;
+    text-align: right !important;
+    overflow-wrap: anywhere !important;
+  }
+}
