@@ -49,5 +49,6 @@ export default defineEventHandler(async (event) => {
   return {
     available: Object.keys(renditions).length > 0,
     renditions,
+    processing: record.processing === true,
   };
 });

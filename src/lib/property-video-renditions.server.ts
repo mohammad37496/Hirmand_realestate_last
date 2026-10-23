@@ -21,6 +21,14 @@ export type PropertyVideoRendition = {
   pathname: string;
 };
 
+export type PropertyVideoRenditionFile = {
+  quality: PropertyVideoQuality;
+  isHighest: boolean;
+  path: string;
+  contentType: "video/mp4";
+  pathname: string;
+};
+
 type VideoDimensions = { width: number; height: number };
 
 function inputExtension(contentType: string): string {
@@ -165,5 +173,68 @@ export async function* createPropertyVideoRenditions(input: {
     }
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/**
+ * Disk-backed rendition pipeline for large uploads. Unlike the legacy Buffer
+ * generator above, this never reads a source or output video into RAM. The
+ * caller owns workDir and is responsible for uploading and then deleting files.
+ */
+export async function* createPropertyVideoRenditionFiles(input: {
+  inputPath: string;
+  contentType: string;
+  pathname: string;
+  workDir: string;
+}): AsyncGenerator<PropertyVideoRenditionFile> {
+  if (!input.contentType.startsWith("video/")) return;
+  const ffmpeg = resolveBundledFfmpeg();
+  if (!ffmpeg || !existsSync(ffmpeg)) return;
+
+  let dimensions: VideoDimensions;
+  try {
+    const probed = await execFileAsync(ffmpeg, [
+      "-hide_banner", "-i", input.inputPath, "-frames:v", "1", "-an", "-f", "null", "-",
+    ], { timeout: 45_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true });
+    const parsed = parseDimensions(String(probed.stderr ?? ""));
+    if (!parsed) throw new Error("FFmpeg اطلاعات وضوح ویدئو را برنگرداند.");
+    dimensions = parsed;
+  } catch (error) {
+    const details = error && typeof error === "object"
+      ? String((error as { stderr?: unknown }).stderr ?? "")
+      : "";
+    const parsed = parseDimensions(details);
+    if (!parsed) throw new Error("وضوح ویدئو قابل تشخیص نیست: " + formatFfmpegExecutionError(error));
+    dimensions = parsed;
+  }
+
+  const qualities = supportedQualities(dimensions);
+  for (let qualityIndex = 0; qualityIndex < qualities.length; qualityIndex += 1) {
+    const quality = qualities[qualityIndex]!;
+    const outputPath = join(input.workDir, quality.quality + "p.mp4");
+    const args = [
+      "-hide_banner", "-loglevel", "error", "-y", "-filter_threads", "1", "-threads", "1",
+      "-i", input.inputPath, "-map", "0:v:0", "-map", "0:a?", "-vf",
+      `scale=w='min(${quality.maxWidth},iw)':h='min(${quality.maxHeight},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2`,
+      "-c:v", "libx264", "-preset", "veryfast", "-crf", String(quality.crf),
+      "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
+      "-map_metadata", "-1", "-threads", "1", outputPath,
+    ];
+    try {
+      await execFileAsync(ffmpeg, args, {
+        timeout: 12 * 60 * 1000,
+        maxBuffer: 8 * 1024 * 1024,
+        windowsHide: true,
+      });
+    } catch (error) {
+      throw new Error(`ساخت نسخه ${quality.quality}p ویدئو ناموفق بود: ${formatFfmpegExecutionError(error)}`);
+    }
+    yield {
+      quality: quality.quality,
+      isHighest: qualityIndex === qualities.length - 1,
+      path: outputPath,
+      contentType: "video/mp4",
+      pathname: `${basePath(input.pathname)}-${quality.quality}p.mp4`,
+    };
   }
 }

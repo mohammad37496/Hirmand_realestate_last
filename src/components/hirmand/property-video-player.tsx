@@ -3,7 +3,7 @@ import { SlidersHorizontal } from "lucide-react";
 import "@/property-video-player.css";
 
 type Quality = "auto" | "480" | "720" | "1080";
-type RenditionsResponse = { available?: boolean; renditions?: Record<string, string> };
+type RenditionsResponse = { available?: boolean; processing?: boolean; renditions?: Record<string, string> };
 type NetworkConnection = EventTarget & {
   effectiveType?: string;
   downlink?: number;
@@ -56,27 +56,40 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
     setNetworkHint("");
 
     const loadRenditions = async () => {
-      try {
-        const response = await fetch("/api/property-video-renditions?src=" + encodeURIComponent(src), {
-          headers: { accept: "application/json" },
-          credentials: "same-origin",
-        });
-        if (!response.ok) return;
-        const payload = await response.json() as RenditionsResponse;
-        if (cancelled || !payload.available || !payload.renditions) return;
-        const next: Partial<Record<Exclude<Quality, "auto">, string>> = {};
-        for (const option of QUALITY_ORDER) {
-          const candidate = payload.renditions[option];
-          if (typeof candidate === "string" && candidate.trim()) next[option] = candidate;
+      // Large videos finish their upload first; their quality ladder is built in
+      // the background. Poll only while the server explicitly reports a job,
+      // never for legacy videos without a manifest.
+      for (let attempt = 0; attempt < 180 && !cancelled; attempt += 1) {
+        try {
+          const response = await fetch("/api/property-video-renditions?src=" + encodeURIComponent(src), {
+            headers: { accept: "application/json" },
+            credentials: "same-origin",
+          });
+          if (!response.ok) return;
+          const payload = await response.json() as RenditionsResponse;
+          if (cancelled) return;
+          const next: Partial<Record<Exclude<Quality, "auto">, string>> = {};
+          if (payload.available && payload.renditions) {
+            for (const option of QUALITY_ORDER) {
+              const candidate = payload.renditions[option];
+              if (typeof candidate === "string" && candidate.trim()) next[option] = candidate;
+            }
+          }
+          if (Object.keys(next).length) {
+            setRenditions(next);
+            setAutoQuality(networkQuality());
+            setPlaybackUrl((current) => current === src
+              ? next[networkQuality()] ?? next["720"] ?? next["480"] ?? next["1080"] ?? src
+              : current);
+          }
+          if (!payload.processing) return;
+          await new Promise((resolve) => setTimeout(resolve, 5_000));
+        } catch {
+          // A temporary request failure should not stop a pending quality job;
+          // keep the original video playable and retry on the next poll.
+          if (cancelled) return;
+          await new Promise((resolve) => setTimeout(resolve, 5_000));
         }
-        if (Object.keys(next).length) {
-          setRenditions(next);
-          setAutoQuality(networkQuality());
-          setPlaybackUrl(next[networkQuality()] ?? next["720"] ?? next["480"] ?? next["1080"] ?? src);
-        }
-      } catch {
-        // Existing video records and transient API errors safely keep the source
-        // and browser-native controls without a fake quality selector.
       }
     };
     void loadRenditions();

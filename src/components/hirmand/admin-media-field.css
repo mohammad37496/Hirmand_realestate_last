@@ -167,6 +167,14 @@
   background: linear-gradient(90deg, #b28c48, #dec58f);
   transition: width 180ms ease;
 }
+.hirmand-media-progress-status {
+  display: block;
+  margin-top: 7px;
+  color: #68778b;
+  font-size: 0.75rem;
+  line-height: 1.8;
+  text-align: center;
+}
 .hirmand-media-spin {
   animation: hirmand-media-rotate 1s linear infinite;
 }

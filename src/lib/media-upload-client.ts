@@ -120,6 +120,8 @@ export async function uploadInChunks(options: {
   /** Extra JSON fields sent with the `begin` message (title, artist, …). */
   payload?: Record<string, unknown>;
   onProgress?: (percentage: number) => void;
+  /** Describe the current server-side phase while byte progress is capped at 99%. */
+  onStatus?: (status: string) => void;
   signal?: AbortSignal;
   /** Shown when the server refuses the file's type or size. */
   rejectedMessage?: string;
@@ -132,12 +134,14 @@ export async function uploadInChunks(options: {
     contentType,
     payload,
     onProgress,
+    onStatus,
     signal,
   } = options;
   const maxCompletionAttempts = options.retryCompletion ? 3 : 1;
   const rejected = options.rejectedMessage ?? "فایل انتخاب‌شده قابل آپلود نیست.";
 
   onProgress?.(0);
+  onStatus?.("آماده‌سازی آپلود…");
 
   const beginResponse = await fetch(endpoint, {
     method: "POST",
@@ -180,50 +184,75 @@ export async function uploadInChunks(options: {
         Math.min(start + chunkSize, file.size),
       );
 
-      const chunkResponse = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/octet-stream",
-          "x-upload-id": uploadId,
-          "x-upload-index": String(index),
-        },
-        body: slice,
-        signal,
-      });
-
-      const chunkAcknowledgement =
-        (await readJson(chunkResponse)) as Record<string, unknown> | null;
-      if (!chunkResponse.ok) {
-        throw new Error(
-          responseMessage(
-            chunkAcknowledgement,
-            `ارسال بخش ${index + 1} از ${totalChunks} انجام نشد.`,
-          ),
-        );
-      }
-
       const expectedBytesReceived = sent + slice.size;
-      if (
-        !chunkAcknowledgement ||
-        chunkAcknowledgement.uploadId !== uploadId ||
-        Number(chunkAcknowledgement.receivedChunks) < index + 1 ||
-        Number(chunkAcknowledgement.bytesReceived) !==
-          expectedBytesReceived
-      ) {
-        throw new Error(
-          `سرور دریافت بخش ${index + 1} را با حجم کامل تأیید نکرد. اتصال یا ذخیره‌سازی فایل را بررسی و دوباره تلاش کنید.`,
-        );
+      let acknowledged = false;
+      let lastFailure: unknown;
+      // The server treats a repeated chunk index as idempotent. Retry transient
+      // network/5xx failures because the first request may have reached storage
+      // even when its acknowledgement was lost.
+      for (let attempt = 0; attempt < 3 && !acknowledged; attempt += 1) {
+        try {
+          const chunkResponse = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "content-type": "application/octet-stream",
+              "x-upload-id": uploadId,
+              "x-upload-index": String(index),
+            },
+            body: slice,
+            signal,
+          });
+          const chunkAcknowledgement =
+            (await readJson(chunkResponse)) as Record<string, unknown> | null;
+          if (!chunkResponse.ok) {
+            const message = responseMessage(
+              chunkAcknowledgement,
+              `ارسال بخش ${index + 1} از ${totalChunks} انجام نشد.`,
+            );
+            if (chunkResponse.status < 500) {
+              const permanentError = new Error(message);
+              permanentError.name = "PermanentUploadError";
+              throw permanentError;
+            }
+            if (attempt === 2) throw new Error(message);
+            lastFailure = new Error(message);
+          } else if (
+            !chunkAcknowledgement ||
+            chunkAcknowledgement.uploadId !== uploadId ||
+            Number(chunkAcknowledgement.receivedChunks) < index + 1 ||
+            Number(chunkAcknowledgement.bytesReceived) !== expectedBytesReceived
+          ) {
+            throw new Error(
+              `سرور دریافت بخش ${index + 1} را با حجم کامل تأیید نکرد. اتصال یا ذخیره‌سازی فایل را بررسی و دوباره تلاش کنید.`,
+            );
+          } else {
+            acknowledged = true;
+          }
+        } catch (error) {
+          if (signal?.aborted) throw error;
+          if (error instanceof Error && error.name === "PermanentUploadError") throw error;
+          lastFailure = error;
+          if (attempt === 2) throw error;
+        }
+        if (!acknowledged) {
+          onStatus?.(`تلاش دوباره برای ارسال بخش ${index + 1} از ${totalChunks}…`);
+          await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+        }
       }
+
+      if (!acknowledged) throw lastFailure instanceof Error ? lastFailure : new Error("ارسال بخش فایل انجام نشد.");
 
       sent = expectedBytesReceived;
       if (totalBytes > 0) {
         onProgress?.(Math.min(99, Math.round((sent / totalBytes) * 100)));
       }
+      onStatus?.("در حال ارسال فایل…");
     }
 
     // Finalization can succeed on the server while its response is lost.
     // Routes that opt in must make finish idempotent, so the same uploadId can
     // recover the same receipt without creating a second object or record.
+    onStatus?.("فایل ارسال شد؛ در حال ثبت نهایی و اعمال واترمارک در صورت فعال بودن…");
     let completeResponse: Response | null = null;
     for (
       let attempt = 0;
@@ -255,6 +284,7 @@ export async function uploadInChunks(options: {
           completeResponse.status >= 500) &&
         attempt + 1 < maxCompletionAttempts
       ) {
+        onStatus?.("سرور هنوز در حال پردازش فایل است؛ در حال بررسی دوباره…");
         await new Promise((resolve) =>
           setTimeout(resolve, 500 * (attempt + 1)),
         );
@@ -288,6 +318,7 @@ export async function uploadInChunks(options: {
     }
 
     onProgress?.(100);
+    onStatus?.("آپلود کامل شد.");
     return {
       uploadId,
       totalChunks,
@@ -329,6 +360,7 @@ export async function uploadPropertyMedia(options: {
   contentType?: string;
   assetKind: PropertyMediaKind;
   onProgress?: (percentage: number) => void;
+  onStatus?: (status: string) => void;
   signal?: AbortSignal;
   rejectedMessage?: string;
   /** Apply a permanent logo watermark to this upload, if enabled. */
@@ -347,6 +379,7 @@ export async function uploadPropertyMedia(options: {
       watermarkPosition: options.watermark?.position ?? "bottom-right",
     },
     onProgress: options.onProgress,
+    onStatus: options.onStatus,
     signal: options.signal,
     rejectedMessage: options.rejectedMessage ?? "آپلود رسانه پذیرفته نشد.",
     retryCompletion: true,

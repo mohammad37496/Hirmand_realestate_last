@@ -29,13 +29,16 @@ import {
 } from "@/lib/admin-rate-limit.server";
 import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
 import { watermarkPropertyMediaFile } from "@/lib/property-media-file-processing.server";
-import { mkdtemp, open, rm, stat } from "node:fs/promises";
+import { copyFile, mkdtemp, open, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deleteLiaraObject, liaraStorageConfigured, putLiaraObjectFromFile } from "@/lib/liara-object-storage.server";
 import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
 import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
-import { createPropertyVideoRenditions } from "@/lib/property-video-renditions.server";
+import {
+  createPropertyVideoRenditions,
+  createPropertyVideoRenditionFiles,
+} from "@/lib/property-video-renditions.server";
 import type { PropertyWatermarkPosition, PropertyWatermarkSettings } from "@/lib/property-watermark";
 import {
   deleteStoredMedia,
@@ -53,6 +56,90 @@ const MAX_FLOOR_PLAN_BYTES = 15 * 1024 * 1024;
 const MAX_IN_MEMORY_COMPLETION_BYTES = 100 * 1024 * 1024;
 const CHUNKS_PER_DISK_BATCH = 16;
 const SIGNATURE_PROBE_BYTES = 32;
+
+function videoExtension(contentType: string): string {
+  return contentType === "video/webm" ? ".webm"
+    : contentType === "video/quicktime" ? ".mov"
+    : ".mp4";
+}
+
+/**
+ * Start optional large-video quality processing after the original upload has
+ * been durably saved and its receipt returned. Copying the source first lets
+ * the request clean up its temporary directory without waiting for FFmpeg.
+ */
+async function queueLargeVideoRenditions(input: {
+  sourcePath: string;
+  sourceUrl: string;
+  contentType: string;
+  pathname: string;
+}): Promise<void> {
+  if (!input.contentType.startsWith("video/")) return;
+  const sql = await getSql();
+  await sql.query(
+    `insert into property_video_renditions (source_url, renditions)
+     values ($1, $2::jsonb)
+     on conflict (source_url) do update
+       set renditions = excluded.renditions, created_at = current_timestamp`,
+    [input.sourceUrl, JSON.stringify({ processing: true })],
+  );
+  const workDir = await mkdtemp(join(tmpdir(), "hirmand-video-quality-job-"));
+  const inputPath = join(workDir, "source" + videoExtension(input.contentType));
+  try {
+    await copyFile(input.sourcePath, inputPath);
+  } catch (error) {
+    await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+    await sql.query(
+      `update property_video_renditions set renditions = $2::jsonb, created_at = current_timestamp where source_url = $1`,
+      [input.sourceUrl, JSON.stringify({ processing: false })],
+    ).catch(() => undefined);
+    console.warn("[property-media] could not stage background quality job:", error instanceof Error ? error.message : error);
+    return;
+  }
+
+  void (async () => {
+    const renditionUrls: Record<string, string> = {};
+    try {
+      for await (const rendition of createPropertyVideoRenditionFiles({
+        inputPath,
+        contentType: input.contentType,
+        pathname: input.pathname,
+        workDir,
+      })) {
+        const storedUrl = await putLiaraObjectFromFile({
+          key: rendition.pathname,
+          filePath: rendition.path,
+          contentType: rendition.contentType,
+        });
+        if (!storedUrl) throw new Error("Liara Object Storage rejected a video quality variant.");
+        renditionUrls[rendition.quality] = mediaUrlForBrowser(storedUrl, rendition.contentType);
+        // Publish each available quality as soon as it is stored; the player
+        // can offer 480p while 720p/1080p are still being encoded.
+        await sql.query(
+          `insert into property_video_renditions (source_url, renditions)
+           values ($1, $2::jsonb)
+           on conflict (source_url) do update
+             set renditions = excluded.renditions, created_at = current_timestamp`,
+          [input.sourceUrl, JSON.stringify({ ...renditionUrls, processing: true })],
+        );
+      }
+    } catch (error) {
+      console.warn(
+        `[property-media] background quality processing failed for ${input.sourceUrl}:`,
+        error instanceof Error ? error.message : error,
+      );
+    } finally {
+      await sql.query(
+        `update property_video_renditions
+         set renditions = (renditions - 'processing') || '{"processing": false}'::jsonb,
+             created_at = current_timestamp
+         where source_url = $1`,
+        [input.sourceUrl],
+      ).catch(() => undefined);
+      await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  })();
+}
 
 const GALLERY_TYPES = new Set([
   "image/jpeg",
@@ -505,7 +592,6 @@ async function completeLargePropertyMediaUpload(
       sizeBytes: finalStat.size,
       watermarkApplied,
       watermarkPosition: watermarkApplied ? resolveWatermarkPosition(session.watermark_position) : null,
-      // Quality variants are intentionally omitted for large files to keep memory bounded.
     };
 
     await sql.query(
@@ -526,10 +612,23 @@ async function completeLargePropertyMediaUpload(
         error instanceof Error ? error.message : error,
       );
     });
+    // Encoding alternate qualities is deliberately off the critical upload
+    // path. The original (or permanently watermarked original) is already
+    // durable, so the admin form can finish instead of appearing stuck at 99%.
+    if (finalContentType.startsWith("video/")) {
+      await queueLargeVideoRenditions({
+        sourcePath: finalPath,
+        sourceUrl: url,
+        contentType: finalContentType,
+        pathname: finalPathname,
+      }).catch((error) => {
+        console.warn("[property-media] could not queue video qualities:", error instanceof Error ? error.message : error);
+      });
+    }
     return result;
   } catch (error) {
-    if (storedUrl && !receiptSaved) {
-      await deleteLiaraObject(finalPathname).catch(() => undefined);
+    if (!receiptSaved) {
+      if (storedUrl) await deleteLiaraObject(finalPathname).catch(() => undefined);
     }
     throw error;
   } finally {

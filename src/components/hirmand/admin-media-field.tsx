@@ -46,6 +46,7 @@ type UploadProgress = {
   progress: number;
   index: number;
   total: number;
+  status: string;
 };
 
 const MAX_IMAGE_DIMENSION = 4096;
@@ -370,8 +371,10 @@ export function AdminMediaField({
           progress: percentage,
           index,
           total,
+          status: percentage >= 99 ? "در حال ثبت نهایی رسانه…" : "در حال ارسال بخش‌های فایل…",
         });
       },
+      onStatus: (status) => setProgress((current) => current ? { ...current, status } : current),
     });
     return { url: result.url, savedBytes: optimised.savedBytes };
   }
@@ -406,7 +409,7 @@ export function AdminMediaField({
 
     uploadingRef.current = true;
     setUploading(true);
-    setProgress({ name: files[0]!.name, progress: 0, index: 1, total: files.length });
+    setProgress({ name: files[0]!.name, progress: 0, index: 1, total: files.length, status: "آماده‌سازی آپلود…" });
     const added: string[] = [];
     const failedRows: FailedUpload[] = [];
     let savedBytes = 0;
@@ -419,6 +422,7 @@ export function AdminMediaField({
           progress: 0,
           index: index + 1,
           total: files.length,
+          status: "آماده‌سازی آپلود…",
         });
         try {
           const uploaded = await uploadOne(file, index + 1, files.length);
@@ -475,7 +479,7 @@ export function AdminMediaField({
     uploadingRef.current = true;
     setUploading(true);
     setFailed((current) => current.filter((item) => item.id !== entry.id));
-    setProgress({ name: entry.name, progress: 0, index: 1, total: 1 });
+    setProgress({ name: entry.name, progress: 0, index: 1, total: 1, status: "آماده‌سازی آپلود…" });
     try {
       const uploaded = await uploadOne(entry.file, 1, 1);
       setItems([
@@ -661,6 +665,7 @@ export function AdminMediaField({
             <div className="hirmand-media-progress" role="progressbar" aria-valuenow={progress.progress} aria-valuemin={0} aria-valuemax={100} aria-label="پیشرفت آپلود">
               <span style={{ width: `${Math.max(0, Math.min(100, progress.progress))}%` }} />
             </div>
+            <small className="hirmand-media-progress-status" role="status">{progress.status}</small>
           </div>
         ) : (
           <small>JPG، PNG، WebP، GIF، AVIF، MP4، WebM و MOV · حداکثر ۱ گیگابایت برای هر فایل</small>
