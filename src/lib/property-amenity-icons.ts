@@ -61,7 +61,7 @@ import {
   type PropertyCoolingSystem,
   type PropertyHeatingSystem,
   type PropertyOtherAmenity,
-} from "@/lib/property-options";
+} from "./property-options.ts";
 
 /**
  * Visual metadata belongs in the UI, not in PostgreSQL. The database stores
