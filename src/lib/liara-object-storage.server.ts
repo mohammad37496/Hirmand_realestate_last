@@ -7,6 +7,7 @@
  */
 
 import { createHash, createHmac } from "node:crypto";
+import { open, stat } from "node:fs/promises";
 
 const SERVICE = "s3";
 const REGION = "";
@@ -93,7 +94,7 @@ function hmacSigningKey(secret: string, dateStamp: string): Buffer {
 }
 
 function signedRequest(input: {
-  method: "GET" | "PUT" | "DELETE";
+  method: "GET" | "PUT" | "POST" | "DELETE";
   url: URL;
   accessKey: string;
   secretKey: string;
@@ -129,10 +130,15 @@ function signedRequest(input: {
     )
     .join("");
   const signedHeaders = sortedHeaders.map(([key]) => key).join(";");
+  const canonicalQuery = Array.from(input.url.searchParams.entries())
+    .map(([key, value]) => [rfc3986(key), rfc3986(value)] as const)
+    .sort(([keyA, valueA], [keyB, valueB]) => keyA.localeCompare(keyB) || valueA.localeCompare(valueB))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
   const canonicalRequest = [
     input.method,
     canonicalUri,
-    "",
+    canonicalQuery,
     canonicalHeaders,
     signedHeaders,
     payloadHash,
@@ -163,7 +169,7 @@ function signedRequest(input: {
     signature;
 
   let requestBody: ArrayBuffer | undefined;
-  if (input.method === "PUT") {
+  if (input.body !== undefined) {
     requestBody = new ArrayBuffer(payload.byteLength);
     new Uint8Array(requestBody).set(payload);
   }
@@ -339,4 +345,152 @@ export function liaraObjectKeyFromBrowserProxy(
   } catch {
     return null;
   }
+}
+
+
+async function multipartRequest(input: {
+  config: LiaraConfig;
+  method: "POST" | "PUT" | "DELETE";
+  url: URL;
+  body?: Buffer;
+  contentType?: string;
+}): Promise<Response> {
+  const request = signedRequest({
+    method: input.method,
+    url: input.url,
+    accessKey: input.config.accessKey,
+    secretKey: input.config.secretKey,
+    ...(input.body !== undefined ? { body: input.body } : {}),
+    ...(input.contentType ? { contentType: input.contentType } : {}),
+  });
+  return fetch(input.url, request);
+}
+
+function decodeXmlValue(value: string): string {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+/**
+ * Upload a disk-backed object with S3 multipart upload. Memory is bounded by a
+ * single 8 MiB part instead of the full file, so large property videos do not
+ * require multi-gigabyte Buffer allocations inside the 1 GiB Liara app.
+ */
+export async function putLiaraObjectFromFile(input: {
+  key: string;
+  filePath: string;
+  contentType: string;
+}): Promise<string | null> {
+  const config = readConfig();
+  if (!config) return null;
+
+  const fileInfo = await stat(input.filePath);
+  if (!fileInfo.isFile() || fileInfo.size <= 0) {
+    throw new Error("فایل موقت برای ذخیره‌سازی پیدا نشد یا خالی است.");
+  }
+
+  const partSize = 8 * 1024 * 1024; // S3 multipart minimum is 5 MiB except the last part.
+  const totalParts = Math.ceil(fileInfo.size / partSize);
+  if (totalParts > 10_000) throw new Error("تعداد بخش‌های فایل از محدودیت ذخیره‌سازی بیشتر است.");
+
+  let uploadId: string | null = null;
+  const partEtags: Array<{ partNumber: number; etag: string }> = [];
+  const file = await open(input.filePath, "r");
+  try {
+    const initiateUrl = objectUrl(config, input.key);
+    initiateUrl.searchParams.set("uploads", "");
+    const initiated = await multipartRequest({
+      config,
+      method: "POST",
+      url: initiateUrl,
+    });
+    const initiateBody = await initiated.text().catch(() => "");
+    if (!initiated.ok) {
+      throw new Error(`شروع آپلود چندبخشی Liara ناموفق بود (HTTP ${initiated.status}): ${initiateBody.slice(0, 300)}`);
+    }
+    const idMatch = initiateBody.match(/<UploadId>([\\s\\S]*?)<\\/UploadId>/i);
+    uploadId = idMatch ? decodeXmlValue(idMatch[1]!.trim()) : null;
+    if (!uploadId) throw new Error("Liara شناسه آپلود چندبخشی برنگرداند.");
+
+    for (let partNumber = 1, position = 0; position < fileInfo.size; partNumber += 1) {
+      const expectedLength = Math.min(partSize, fileInfo.size - position);
+      const partBuffer = Buffer.allocUnsafe(expectedLength);
+      let readLength = 0;
+      while (readLength < expectedLength) {
+        const result = await file.read(
+          partBuffer,
+          readLength,
+          expectedLength - readLength,
+          position + readLength,
+        );
+        if (result.bytesRead === 0) throw new Error("خواندن بخش فایل موقت پیش از پایان فایل متوقف شد.");
+        readLength += result.bytesRead;
+      }
+
+      const partUrl = objectUrl(config, input.key);
+      partUrl.searchParams.set("partNumber", String(partNumber));
+      partUrl.searchParams.set("uploadId", uploadId);
+      const uploaded = await multipartRequest({
+        config,
+        method: "PUT",
+        url: partUrl,
+        body: partBuffer,
+        contentType: input.contentType || "application/octet-stream",
+      });
+      const responseBody = await uploaded.text().catch(() => "");
+      if (!uploaded.ok) {
+        throw new Error(`آپلود بخش ${partNumber} به Liara ناموفق بود (HTTP ${uploaded.status}): ${responseBody.slice(0, 300)}`);
+      }
+      const etag = uploaded.headers.get("etag")?.trim();
+      if (!etag) throw new Error(`Liara برای بخش ${partNumber} شناسه ETag برنگرداند.`);
+      partEtags.push({ partNumber, etag });
+      position += expectedLength;
+    }
+  } catch (error) {
+    if (uploadId) {
+      const abortUrl = objectUrl(config, input.key);
+      abortUrl.searchParams.set("uploadId", uploadId);
+      await multipartRequest({ config, method: "DELETE", url: abortUrl }).catch(() => undefined);
+    }
+    console.warn(
+      "[liara-storage] multipart file upload failed:",
+      error instanceof Error ? error.message : error,
+    );
+    throw error;
+  } finally {
+    await file.close();
+  }
+
+  if (!uploadId || partEtags.length !== totalParts) {
+    throw new Error("آپلود چندبخشی Liara کامل نشد.");
+  }
+
+  const completeXml =
+    "<CompleteMultipartUpload>" +
+    partEtags.map(({ partNumber, etag }) =>
+      `<Part><PartNumber>${partNumber}</PartNumber><ETag>${etag.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</ETag></Part>`,
+    ).join("") +
+    "</CompleteMultipartUpload>";
+  const completeUrl = objectUrl(config, input.key);
+  completeUrl.searchParams.set("uploadId", uploadId);
+  const completed = await multipartRequest({
+    config,
+    method: "POST",
+    url: completeUrl,
+    body: Buffer.from(completeXml, "utf8"),
+    contentType: "application/xml",
+  });
+  const completeBody = await completed.text().catch(() => "");
+  if (!completed.ok || /<Error(?:\\s|>)/i.test(completeBody)) {
+    const abortUrl = objectUrl(config, input.key);
+    abortUrl.searchParams.set("uploadId", uploadId);
+    await multipartRequest({ config, method: "DELETE", url: abortUrl }).catch(() => undefined);
+    throw new Error(`اتمام آپلود چندبخشی Liara ناموفق بود (HTTP ${completed.status}): ${completeBody.slice(0, 300)}`);
+  }
+
+  return objectUrl(config, input.key).toString();
 }
