@@ -50,8 +50,9 @@ type UploadProgress = {
 
 const MAX_IMAGE_DIMENSION = 4096;
 const IMAGE_QUALITY = 0.94;
-const MAX_IMAGE_FILE_BYTES = 100 * 1024 * 1024;
-const MAX_VIDEO_FILE_BYTES = 100 * 1024 * 1024;
+const MAX_IMAGE_FILE_BYTES = 1024 * 1024 * 1024;
+const MAX_VIDEO_FILE_BYTES = 1024 * 1024 * 1024;
+const MAX_IMAGE_OPTIMIZATION_BYTES = 100 * 1024 * 1024;
 
 const ACCEPTED_TYPES = new Set([
   "image/jpeg",
@@ -147,7 +148,11 @@ async function loadImageDimensions(file: File): Promise<{
 
 /** Optimisation is best-effort. Original bytes are always retained on failure. */
 async function optimiseImage(file: File): Promise<{ file: File; savedBytes: number }> {
+  // Very large originals must not be decoded into a browser bitmap: a 1 GiB
+  // source image can require several GiB of RAM while decoding. The server uses
+  // its disk-backed pipeline for these files instead.
   if (
+    file.size > MAX_IMAGE_OPTIMIZATION_BYTES ||
     !file.type.startsWith("image/") ||
     file.type === "image/gif" ||
     file.type === "image/svg+xml"
@@ -344,8 +349,8 @@ export function AdminMediaField({
     const maxBytes = originalType.startsWith("video/") ? MAX_VIDEO_FILE_BYTES : MAX_IMAGE_FILE_BYTES;
     if (file.size > maxBytes) {
       throw new Error(originalType.startsWith("video/")
-        ? "حجم هر ویدئو باید حداکثر ۱۰۰ مگابایت باشد."
-        : "حجم هر تصویر باید حداکثر ۱۰۰ مگابایت باشد.");
+        ? "حجم هر ویدئو باید حداکثر ۱ گیگابایت باشد."
+        : "حجم هر تصویر باید حداکثر ۱ گیگابایت باشد.");
     }
 
     const optimised = await optimiseImage(file);
@@ -389,8 +394,8 @@ export function AdminMediaField({
     if (oversized) {
       const isVideo = resolveClientMime(oversized).startsWith("video/");
       toast.error(isVideo
-        ? `حجم ویدئو «${oversized.name}» بیش از ۱۰۰ مگابایت است.`
-        : `حجم تصویر «${oversized.name}» بیش از ۱۰۰ مگابایت است.`);
+        ? `حجم ویدئو «${oversized.name}» بیش از ۱ گیگابایت است.`
+        : `حجم تصویر «${oversized.name}» بیش از ۱ گیگابایت است.`);
       return;
     }
     const unsupported = files.find((file) => !resolveClientMime(file));
@@ -527,7 +532,7 @@ export function AdminMediaField({
         <div>
           <span className="hirmand-media-eyebrow">رسانه‌های فایل</span>
           <h3>تصاویر و ویدیوهای ملک</h3>
-          <p>تصاویر تا ۱۰۰ مگابایت با وضوح حداکثر ۴۰۹۶ پیکسل و کیفیت بالا؛ ویدئوها تا ۱۰۰ مگابایت. رسانه‌ها پس از ذخیرهٔ فایل ملک ثبت می‌شوند.</p>
+          <p>تصاویر تا ۱ گیگابایت با وضوح حداکثر ۴۰۹۶ پیکسل و کیفیت بالا؛ ویدئوها تا ۱ گیگابایت. رسانه‌ها پس از ذخیرهٔ فایل ملک ثبت می‌شوند.</p>
         </div>
         <div className="hirmand-media-count" aria-live="polite">
           <strong>{items.length.toLocaleString("fa-IR")}</strong>
@@ -658,7 +663,7 @@ export function AdminMediaField({
             </div>
           </div>
         ) : (
-          <small>JPG، PNG، WebP، GIF، AVIF، MP4، WebM و MOV · حداکثر ۲۵ مگابایت برای هر فایل</small>
+          <small>JPG، PNG، WebP، GIF، AVIF، MP4، WebM و MOV · حداکثر ۱ گیگابایت برای هر فایل</small>
         )}
       </div>
 

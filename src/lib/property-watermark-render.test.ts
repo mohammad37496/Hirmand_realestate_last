@@ -10,6 +10,7 @@ import { promisify } from "node:util";
 
 import { applyPropertyImageWatermarkServer } from "./property-image-watermark.server.ts";
 import { applyPropertyVideoWatermark } from "./property-video-watermark.server.ts";
+import { watermarkPropertyMediaFile } from "./property-media-file-processing.server.ts";
 import type { PropertyWatermarkSettings } from "./property-watermark.ts";
 import {
   formatFfmpegExecutionError,
@@ -182,6 +183,57 @@ test("watermarked outputs stay visible and video processing is bounded for Liara
   assert.match(videoSource, /"-filter_threads",\s*"1"/, "video filter threads should be bounded");
   assert.match(videoSource, /output\.subarray\(4, 8\)\.toString\("latin1"\) !== "ftyp"/, "only a valid MP4 should be reported as watermarked");
 });
+
+
+test(
+  "disk-backed watermarking creates valid image and video files without Buffer-returning APIs",
+  { skip: CAN_RENDER ? false : "FFmpeg/logo/font are not provisioned in this environment" },
+  async () => {
+    const workDir = await mkdtemp(join(tmpdir(), "hirmand-watermark-file-test-"));
+    try {
+      const jpegPath = join(workDir, "source.jpg");
+      await execFileAsync(FFMPEG, [
+        "-hide_banner", "-loglevel", "error", "-y",
+        "-f", "lavfi", "-i", "color=c=0x101820:size=1200x900",
+        "-frames:v", "1", "-q:v", "3", jpegPath,
+      ]);
+      const imageResult = await watermarkPropertyMediaFile({
+        inputPath: jpegPath,
+        contentType: "image/jpeg",
+        pathname: "properties/uploads/large-photo.jpg",
+        workDir,
+        settings: SETTINGS,
+      });
+      assert.equal(imageResult.contentType, "image/webp");
+      assert.match(imageResult.pathname, /-watermarked\.webp$/);
+      const imageBytes = await readFile(imageResult.path);
+      assert.equal(imageBytes.subarray(0, 4).toString("latin1"), "RIFF");
+      assert.equal(imageBytes.subarray(8, 12).toString("latin1"), "WEBP");
+
+      const videoPath = join(workDir, "source.mp4");
+      await execFileAsync(FFMPEG, [
+        "-hide_banner", "-loglevel", "error", "-y",
+        "-f", "lavfi", "-i", "color=c=blue:s=640x360:r=25",
+        "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-an", videoPath,
+      ]);
+      const videoResult = await watermarkPropertyMediaFile({
+        inputPath: videoPath,
+        contentType: "video/mp4",
+        pathname: "properties/uploads/large-clip.mp4",
+        workDir,
+        settings: SETTINGS,
+      });
+      assert.equal(videoResult.contentType, "video/mp4");
+      assert.match(videoResult.pathname, /-watermarked\.mp4$/);
+      const videoBytes = await readFile(videoResult.path);
+      assert.equal(videoBytes.subarray(4, 8).toString("latin1"), "ftyp");
+      assert.ok(videoBytes.length > 0);
+    } finally {
+      await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  },
+);
 
 test(
   "a real JPEG is permanently watermarked into a valid WebP",

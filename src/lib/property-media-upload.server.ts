@@ -28,6 +28,11 @@ import {
   tooManyAttemptsError,
 } from "@/lib/admin-rate-limit.server";
 import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
+import { watermarkPropertyMediaFile } from "@/lib/property-media-file-processing.server";
+import { mkdtemp, open, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { deleteLiaraObject, liaraStorageConfigured, putLiaraObjectFromFile } from "@/lib/liara-object-storage.server";
 import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
 import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
 import { createPropertyVideoRenditions } from "@/lib/property-video-renditions.server";
@@ -40,9 +45,13 @@ import {
 } from "@/lib/media-store.server";
 
 const CHUNK_SIZE = 2 * 1024 * 1024;
-const MAX_GALLERY_IMAGE_BYTES = 100 * 1024 * 1024;
-const MAX_GALLERY_VIDEO_BYTES = 100 * 1024 * 1024;
+const MAX_GALLERY_IMAGE_BYTES = 1024 * 1024 * 1024;
+const MAX_GALLERY_VIDEO_BYTES = 1024 * 1024 * 1024;
 const MAX_FLOOR_PLAN_BYTES = 15 * 1024 * 1024;
+// Keep ordinary uploads on the existing buffered pipeline; larger objects use
+// disk-backed processing and S3 multipart upload instead.
+const MAX_IN_MEMORY_COMPLETION_BYTES = 100 * 1024 * 1024;
+const CHUNKS_PER_DISK_BATCH = 16;
 const SIGNATURE_PROBE_BYTES = 32;
 
 const GALLERY_TYPES = new Set([
@@ -224,7 +233,13 @@ async function beginUpload(
   }
   if (sizeBytes > maxBytes) {
     throw httpError(
-      `حجم فایل بیش از ${Math.round(maxBytes / 1024 / 1024)} مگابایت است.`,
+      `حجم فایل بیش از ${maxBytes >= 1024 * 1024 * 1024 ? `${Math.round(maxBytes / 1024 / 1024 / 1024).toLocaleString("fa-IR")} گیگابایت` : `${Math.round(maxBytes / 1024 / 1024).toLocaleString("fa-IR")} مگابایت`} است.`,
+    );
+  }
+  if (sizeBytes > MAX_IN_MEMORY_COMPLETION_BYTES && !liaraStorageConfigured()) {
+    throw httpError(
+      "برای آپلود فایل‌های بزرگ‌تر از ۱۰۰ مگابایت، تنظیم Object Storage هیرمند در Liara لازم است. فایل انتخاب‌شده هنوز ارسال نشده است.",
+      503,
     );
   }
 
@@ -313,35 +328,40 @@ async function receiveChunk(
   const sql = await getSql();
   // Only accept writes while the session is pending. Each chunk is idempotent:
   // a network retry replaces the same index instead of duplicating bytes.
-  const inserted = await sql.query<UploadSession>(
-    `insert into property_media_upload_chunks (upload_id, chunk_index, data)
-     select $1, $2, $3
-     where exists (
-       select 1 from property_media_upload_sessions
-       where id = $1 and state = 'pending'
-     )
-     on conflict (upload_id, chunk_index) do update set data = excluded.data
-     returning upload_id`,
-    [uploadId, index, bytes],
-  );
-  if (!inserted.length) throw httpError("نشست آپلود بسته شده است؛ دوباره تلاش کنید.", 409);
-
+  // Keep counters incremental. Recounting/summing every previous chunk after
+  // every request is quadratic and would scan hundreds of GiB of staged bytes
+  // during a single 1 GiB upload. A retried chunk is already durable, so DO
+  // NOTHING on conflict and only increment counters for a newly inserted row.
   const totals = await sql.query<UploadSession>(
-    `update property_media_upload_sessions
-     set received_chunks = (
-           select count(*) from property_media_upload_chunks where upload_id = $1
-         ),
-         bytes_received = (
-           select coalesce(sum(octet_length(data)), 0)
-           from property_media_upload_chunks where upload_id = $1
-         ),
+    `with inserted as (
+       insert into property_media_upload_chunks (upload_id, chunk_index, data)
+       select $1, $2, $3
+       where exists (
+         select 1 from property_media_upload_sessions
+         where id = $1 and state = 'pending'
+       )
+       on conflict (upload_id, chunk_index) do nothing
+       returning upload_id
+     )
+     update property_media_upload_sessions as session
+     set received_chunks = coalesce(session.received_chunks, 0)
+           + (select count(*)::integer from inserted),
+         bytes_received = coalesce(session.bytes_received, 0)
+           + case when exists (select 1 from inserted) then $4::bigint else 0 end,
          updated_at = current_timestamp
-     where id = $1 and state = 'pending'
+     where session.id = $1 and session.state = 'pending'
+       and (
+         exists (select 1 from inserted)
+         or exists (
+           select 1 from property_media_upload_chunks
+           where upload_id = $1 and chunk_index = $2
+         )
+       )
      returning received_chunks, bytes_received, total_chunks, total_bytes`,
-    [uploadId],
+    [uploadId, index, bytes, bytes.length],
   );
   const row = totals[0];
-  if (!row) throw httpError("نشست آپلود در حال نهایی‌سازی است؛ دوباره تلاش کنید.", 409);
+  if (!row) throw httpError("نشست آپلود بسته شده است؛ دوباره تلاش کنید.", 409);
 
   return {
     uploadId,
@@ -350,6 +370,171 @@ async function receiveChunk(
     totalChunks: Number(row.total_chunks) || 0,
     totalBytes: Number(row.total_bytes) || 0,
   };
+}
+
+
+/**
+ * Finalize large property media without creating whole-file Buffer copies.
+ * Chunks are read from Postgres in bounded batches, streamed into a temporary
+ * file, optionally watermarked by FFmpeg using disk paths, then sent to Liara
+ * through S3 multipart upload. Large videos omit the optional rendition ladder
+ * to avoid holding several encoded gigabyte-sized files in memory.
+ */
+async function completeLargePropertyMediaUpload(
+  uploadId: string,
+  session: UploadSession,
+  totalChunks: number,
+  totalBytes: number,
+): Promise<Record<string, unknown>> {
+  const sql = await getSql();
+  const contentType = String(session.content_type ?? "");
+  const assetKind = String(session.asset_kind ?? "gallery");
+  const watermarkEnabled = session.watermark_enabled === true || String(session.watermark_enabled) === "true";
+  const watermarkRequested = watermarkEnabled && assetKind === "gallery";
+  const sourcePathname = String(session.pathname ?? "");
+  const extension = contentType === "video/webm" ? ".webm"
+    : contentType === "video/quicktime" ? ".mov"
+    : contentType === "video/mp4" ? ".mp4"
+    : contentType === "image/jpeg" ? ".jpg"
+    : contentType === "image/png" ? ".png"
+    : contentType === "image/webp" ? ".webp"
+    : contentType === "image/avif" ? ".avif"
+    : contentType === "image/gif" ? ".gif" : ".bin";
+
+  const workDir = await mkdtemp(join(tmpdir(), "hirmand-property-media-large-"));
+  const sourcePath = join(workDir, "source" + extension);
+  let finalPath = sourcePath;
+  let finalContentType = contentType;
+  let finalPathname = sourcePathname;
+  let storedUrl: string | null = null;
+  let receiptSaved = false;
+
+  try {
+    const output = await open(sourcePath, "w");
+    let bytesWritten = 0;
+    try {
+      for (let start = 0; start < totalChunks; start += CHUNKS_PER_DISK_BATCH) {
+        const end = Math.min(totalChunks, start + CHUNKS_PER_DISK_BATCH);
+        const rows = await sql.query<UploadSession>(
+          `select chunk_index, data from property_media_upload_chunks
+           where upload_id = $1 and chunk_index >= $2 and chunk_index < $3
+           order by chunk_index asc`,
+          [uploadId, start, end],
+        );
+        if (rows.length !== end - start) {
+          throw httpError("ترتیب بخش‌های فایل ناقص است؛ لطفاً دوباره آپلود کنید.");
+        }
+        for (let offset = 0; offset < rows.length; offset += 1) {
+          const row = rows[offset]!;
+          if (Number(row.chunk_index) !== start + offset) {
+            throw httpError("ترتیب بخش‌های فایل ناقص است؛ لطفاً دوباره آپلود کنید.");
+          }
+          const bytes = asBytes(row.data);
+          if (!bytes.length) throw httpError("یکی از بخش‌های فایل خالی است.");
+          let written = 0;
+          while (written < bytes.length) {
+            const result = await output.write(bytes, written, bytes.length - written, null);
+            if (!result.bytesWritten) throw new Error("نوشتن فایل موقت ناقص ماند.");
+            written += result.bytesWritten;
+          }
+          bytesWritten += bytes.length;
+        }
+      }
+    } finally {
+      await output.close();
+    }
+    if (bytesWritten !== totalBytes) {
+      throw httpError("حجم فایل پس از سرهم‌بندی صحیح نیست.");
+    }
+
+    const sourceHandle = await open(sourcePath, "r");
+    try {
+      const probe = Buffer.alloc(SIGNATURE_PROBE_BYTES);
+      const read = await sourceHandle.read(probe, 0, probe.length, 0);
+      if (!contentMatchesDeclaredType(probe.subarray(0, read.bytesRead), contentType)) {
+        await sql.query("delete from property_media_upload_sessions where id = $1", [uploadId]);
+        throw httpError("محتوای واقعی فایل با نوع تصویر یا ویدیوی انتخاب‌شده مطابقت ندارد.", 415);
+      }
+    } finally {
+      await sourceHandle.close();
+    }
+
+    let watermarkApplied = false;
+    if (watermarkRequested) {
+      try {
+        const processed = await watermarkPropertyMediaFile({
+          inputPath: sourcePath,
+          contentType,
+          pathname: sourcePathname,
+          workDir,
+          settings: uploadWatermarkSettings(resolveWatermarkPosition(session.watermark_position)),
+        });
+        finalPath = processed.path;
+        finalContentType = processed.contentType;
+        finalPathname = processed.pathname;
+        watermarkApplied = true;
+      } catch (error) {
+        console.error(
+          `[property-media] large-file watermark failed for ${uploadId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        throw httpError(
+          contentType.startsWith("video/")
+            ? "پردازش واترمارک ویدئوی بزرگ انجام نشد؛ فایل ذخیره نشد. واترمارک را خاموش کنید یا ویدئوی کوتاه‌تری انتخاب کنید."
+            : "پردازش واترمارک تصویر بزرگ انجام نشد؛ فایل ذخیره نشد. واترمارک را خاموش کنید یا تصویر دیگری انتخاب کنید.",
+          422,
+        );
+      }
+    }
+
+    const finalStat = await stat(finalPath);
+    storedUrl = await putLiaraObjectFromFile({
+      key: finalPathname,
+      filePath: finalPath,
+      contentType: finalContentType,
+    });
+    if (!storedUrl) {
+      throw httpError("ذخیره‌سازی فایل بزرگ در Liara Object Storage انجام نشد؛ تنظیمات دسترسی و فضای ذخیره‌سازی را بررسی کنید.", 503);
+    }
+
+    const url = mediaUrlForBrowser(storedUrl, finalContentType);
+    const result: Record<string, unknown> = {
+      url,
+      storage: "object-store",
+      mediaType: finalContentType,
+      assetKind,
+      sizeBytes: finalStat.size,
+      watermarkApplied,
+      watermarkPosition: watermarkApplied ? resolveWatermarkPosition(session.watermark_position) : null,
+      // Quality variants are intentionally omitted for large files to keep memory bounded.
+    };
+
+    await sql.query(
+      `update property_media_upload_sessions
+       set state = 'completed', stored_url = $2, stored_storage = 'object-store',
+           stored_media_id = null, completion_result = $3::jsonb,
+           completion_started_at = null, updated_at = current_timestamp
+       where id = $1`,
+      [uploadId, url, JSON.stringify(result)],
+    );
+    receiptSaved = true;
+    await sql.query(
+      "delete from property_media_upload_chunks where upload_id = $1",
+      [uploadId],
+    ).catch((error) => {
+      console.warn(
+        "[property-media] completed large-upload chunk cleanup failed:",
+        error instanceof Error ? error.message : error,
+      );
+    });
+    return result;
+  } catch (error) {
+    if (storedUrl && !receiptSaved) {
+      await deleteLiaraObject(finalPathname).catch(() => undefined);
+    }
+    throw error;
+  } finally {
+    await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+  }
 }
 
 async function completeUpload(
@@ -419,6 +604,20 @@ async function completeUpload(
     throw httpError(
       `فایل کامل دریافت نشد (${receivedChunks.toLocaleString("fa-IR")} از ${totalChunks.toLocaleString("fa-IR")} بخش). دوباره تلاش کنید.`,
     );
+  }
+
+  if (totalBytes > MAX_IN_MEMORY_COMPLETION_BYTES) {
+    try {
+      return await completeLargePropertyMediaUpload(uploadId, session, totalChunks, totalBytes);
+    } catch (error) {
+      await sql.query(
+        `update property_media_upload_sessions
+         set state = 'pending', completion_started_at = null, updated_at = current_timestamp
+         where id = $1 and state = 'completing'`,
+        [uploadId],
+      ).catch(() => undefined);
+      throw error;
+    }
   }
 
   let stored: StoredMedia | null = null;
