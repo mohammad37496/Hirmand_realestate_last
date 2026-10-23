@@ -177,7 +177,7 @@ test("compact logo watermark supports all four corners without a text footer", (
 test("watermarked outputs stay visible and video processing is bounded for Liara", () => {
   assert.match(imageSource, /Math\.round\(90 \* size\)/, "image logo should remain visible in scaled property cards");
   assert.match(videoSource, /Math\.round\(90 \* settings\.size\)/, "video logo should remain visible in scaled previews");
-  assert.match(videoSource, /scale='min\(1280,iw\)':'min\(720,ih\)'/, "large phone videos should be downscaled before overlay");
+  assert.match(videoSource, /scale='min\(1920,iw\)':'min\(1080,ih\)'/, "large phone videos should be downscaled before overlay");
   assert.match(videoSource, /"-preset",\s*"ultrafast"/, "video encoder should prioritize low request CPU time");
   assert.match(videoSource, /"-filter_threads",\s*"1"/, "video filter threads should be bounded");
   assert.match(videoSource, /output\.subarray\(4, 8\)\.toString\("latin1"\) !== "ftyp"/, "only a valid MP4 should be reported as watermarked");
