@@ -37,6 +37,7 @@ import { PropertyConvertSlider } from "@/components/hirmand/property-convert-sli
 import { PropertyMarketComparison } from "@/components/hirmand/property-market-comparison";
 import { PropertyViewingRequest } from "@/components/hirmand/property-viewing-request";
 import { PropertyVirtualTour } from "@/components/hirmand/property-virtual-tour";
+import { PropertyVideoPlayer } from "@/components/hirmand/property-video-player";
 import { PropertyQuestions } from "@/components/hirmand/property-questions";
 import { PropertyOpenHouse } from "@/components/hirmand/property-open-house";
 import { PropertyFloorPlan } from "@/components/hirmand/property-floor-plan";
@@ -450,13 +451,11 @@ function Gallery({ property }: { property: Property }) {
     if (isVideoUrl(src)) {
       const candidates = mediaSourceCandidates(src);
       return (
-        <video
+        <PropertyVideoPlayer
           className="hd-gallery-video"
           src={candidates[0] || src}
-          controls
-          playsInline
+          title={"ویدئوی فایل " + alt}
           preload={priority ? "metadata" : "none"}
-          aria-label={"ویدئوی فایل " + alt}
         />
       );
     }
