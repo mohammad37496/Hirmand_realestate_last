@@ -28,6 +28,7 @@ import homepagePolishCss from "../components/hirmand/homepage-polish.css?url";
 import propertiesDivarRedesignCss from "../properties-divar-redesign.css?url";
 import propertiesFiltersRedesignCss from "../properties-filters-redesign.css?url";
 import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
+import musicPlayerRedesignCss from "../music-player-redesign.css?url";
 import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css?url";
 import propertyExperienceRedesignCss from "../property-experience-redesign.css?url";
 
@@ -80,6 +81,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: propertiesMarketplacePolishCss },
       { rel: "stylesheet", href: propertyExperienceRedesignCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
+      { rel: "stylesheet", href: musicPlayerRedesignCss },
     ],
   }),
   component: RootDocument,
