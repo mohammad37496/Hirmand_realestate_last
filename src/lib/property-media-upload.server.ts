@@ -28,6 +28,12 @@ import {
   tooManyAttemptsError,
 } from "@/lib/admin-rate-limit.server";
 import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
+import {
+  MAX_PROPERTY_FLOOR_PLAN_BYTES,
+  MAX_PROPERTY_GALLERY_IMAGE_BYTES,
+  MAX_PROPERTY_GALLERY_VIDEO_BYTES,
+  MAX_PROPERTY_MEDIA_IN_MEMORY_COMPLETION_BYTES,
+} from "@/lib/property-media-upload-limits";
 import { watermarkPropertyMediaFile } from "@/lib/property-media-file-processing.server";
 import { mkdtemp, open, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -45,12 +51,8 @@ import {
 } from "@/lib/media-store.server";
 
 const CHUNK_SIZE = 2 * 1024 * 1024;
-const MAX_GALLERY_IMAGE_BYTES = 1024 * 1024 * 1024;
-const MAX_GALLERY_VIDEO_BYTES = 1024 * 1024 * 1024;
-const MAX_FLOOR_PLAN_BYTES = 15 * 1024 * 1024;
-// Keep ordinary uploads on the existing buffered pipeline; larger objects use
-// disk-backed processing and S3 multipart upload instead.
-const MAX_IN_MEMORY_COMPLETION_BYTES = 100 * 1024 * 1024;
+// Keep ordinary uploads on the buffered pipeline; larger objects use the
+// disk-backed processing and S3 multipart upload path instead.
 const CHUNKS_PER_DISK_BATCH = 16;
 const SIGNATURE_PROBE_BYTES = 32;
 
@@ -207,10 +209,10 @@ async function beginUpload(
   const contentType = resolveType(filename, declared, kind);
   const sizeBytes = Number(body.sizeBytes);
   const maxBytes = kind === "floor-plan"
-    ? MAX_FLOOR_PLAN_BYTES
+    ? MAX_PROPERTY_FLOOR_PLAN_BYTES
     : contentType?.startsWith("video/")
-      ? MAX_GALLERY_VIDEO_BYTES
-      : MAX_GALLERY_IMAGE_BYTES;
+      ? MAX_PROPERTY_GALLERY_VIDEO_BYTES
+      : MAX_PROPERTY_GALLERY_IMAGE_BYTES;
   const watermarkEnabled = kind === "gallery" && body.watermarkEnabled === true;
   const watermarkPosition = resolveWatermarkPosition(body.watermarkPosition);
 
@@ -236,7 +238,7 @@ async function beginUpload(
       `حجم فایل بیش از ${maxBytes >= 1024 * 1024 * 1024 ? `${Math.round(maxBytes / 1024 / 1024 / 1024).toLocaleString("fa-IR")} گیگابایت` : `${Math.round(maxBytes / 1024 / 1024).toLocaleString("fa-IR")} مگابایت`} است.`,
     );
   }
-  if (sizeBytes > MAX_IN_MEMORY_COMPLETION_BYTES && !liaraStorageConfigured()) {
+  if (sizeBytes > MAX_PROPERTY_MEDIA_IN_MEMORY_COMPLETION_BYTES && !liaraStorageConfigured()) {
     throw httpError(
       "برای آپلود فایل‌های بزرگ‌تر از ۱۰۰ مگابایت، تنظیم Object Storage هیرمند در Liara لازم است. فایل انتخاب‌شده هنوز ارسال نشده است.",
       503,
@@ -606,7 +608,7 @@ async function completeUpload(
     );
   }
 
-  if (totalBytes > MAX_IN_MEMORY_COMPLETION_BYTES) {
+  if (totalBytes > MAX_PROPERTY_MEDIA_IN_MEMORY_COMPLETION_BYTES) {
     try {
       return await completeLargePropertyMediaUpload(uploadId, session, totalChunks, totalBytes);
     } catch (error) {
