@@ -19,6 +19,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef, isVideoUrl, mediaSourceCandidates } from "@/lib/media";
+import {
+  MAX_PROPERTY_GALLERY_IMAGE_BYTES,
+  MAX_PROPERTY_GALLERY_VIDEO_BYTES,
+} from "@/lib/property-media-upload-limits";
 import { uploadErrorMessage, uploadPropertyMedia } from "@/lib/media-upload-client";
 import type { PropertyType } from "@/lib/properties";
 import type { PropertyWatermarkPosition } from "@/lib/property-watermark";
@@ -50,8 +54,8 @@ type UploadProgress = {
 
 const MAX_IMAGE_DIMENSION = 4096;
 const IMAGE_QUALITY = 0.94;
-const MAX_IMAGE_FILE_BYTES = 1024 * 1024 * 1024;
-const MAX_VIDEO_FILE_BYTES = 1024 * 1024 * 1024;
+const MAX_IMAGE_FILE_BYTES = MAX_PROPERTY_GALLERY_IMAGE_BYTES;
+const MAX_VIDEO_FILE_BYTES = MAX_PROPERTY_GALLERY_VIDEO_BYTES;
 const MAX_IMAGE_OPTIMIZATION_BYTES = 100 * 1024 * 1024;
 
 const ACCEPTED_TYPES = new Set([
