@@ -40,8 +40,8 @@ import {
 } from "@/lib/media-store.server";
 
 const CHUNK_SIZE = 2 * 1024 * 1024;
-const MAX_GALLERY_IMAGE_BYTES = 100 * 1024 * 1024;
-const MAX_GALLERY_VIDEO_BYTES = 100 * 1024 * 1024;
+const MAX_GALLERY_IMAGE_BYTES = 1024 * 1024 * 1024;
+const MAX_GALLERY_VIDEO_BYTES = 1024 * 1024 * 1024;
 const MAX_FLOOR_PLAN_BYTES = 15 * 1024 * 1024;
 const SIGNATURE_PROBE_BYTES = 32;
 
@@ -224,7 +224,7 @@ async function beginUpload(
   }
   if (sizeBytes > maxBytes) {
     throw httpError(
-      `حجم فایل بیش از ${Math.round(maxBytes / 1024 / 1024)} مگابایت است.`,
+      `حجم فایل بیش از ${maxBytes >= 1024 * 1024 * 1024 ? `${Math.round(maxBytes / 1024 / 1024 / 1024).toLocaleString("fa-IR")} گیگابایت` : `${Math.round(maxBytes / 1024 / 1024).toLocaleString("fa-IR")} مگابایت`} است.`,
     );
   }
 
