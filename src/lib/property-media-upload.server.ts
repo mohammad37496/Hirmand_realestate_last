@@ -466,7 +466,7 @@ async function completeUpload(
         );
         if (contentType.startsWith("image/")) {
           const watermarked = await applyPropertyImageWatermarkServer({
-            data: Buffer.from(finalData),
+            data: Buffer.isBuffer(finalData) ? finalData : Buffer.from(finalData),
             contentType: finalContentType,
             pathname: finalPathname,
             settings,
@@ -479,7 +479,7 @@ async function completeUpload(
             /-watermarked\.webp$/i.test(finalPathname);
         } else if (contentType.startsWith("video/")) {
           const watermarked = await applyPropertyVideoWatermark({
-            data: Buffer.from(finalData),
+            data: Buffer.isBuffer(finalData) ? finalData : Buffer.from(finalData),
             contentType: finalContentType,
             pathname: finalPathname,
             settings,
@@ -517,7 +517,7 @@ async function completeUpload(
     let url: string;
     if (finalContentType.startsWith("video/")) {
       const generated = await createPropertyVideoRenditions({
-        data: Buffer.from(finalData),
+        data: Buffer.isBuffer(finalData) ? finalData : Buffer.from(finalData),
         contentType: finalContentType,
         pathname: finalPathname,
       });
