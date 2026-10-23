@@ -52,6 +52,7 @@ const MAX_IMAGE_DIMENSION = 4096;
 const IMAGE_QUALITY = 0.94;
 const MAX_IMAGE_FILE_BYTES = 1024 * 1024 * 1024;
 const MAX_VIDEO_FILE_BYTES = 1024 * 1024 * 1024;
+const MAX_IMAGE_OPTIMIZATION_BYTES = 100 * 1024 * 1024;
 
 const ACCEPTED_TYPES = new Set([
   "image/jpeg",
@@ -147,7 +148,11 @@ async function loadImageDimensions(file: File): Promise<{
 
 /** Optimisation is best-effort. Original bytes are always retained on failure. */
 async function optimiseImage(file: File): Promise<{ file: File; savedBytes: number }> {
+  // Very large originals must not be decoded into a browser bitmap: a 1 GiB
+  // source image can require several GiB of RAM while decoding. The server uses
+  // its disk-backed pipeline for these files instead.
   if (
+    file.size > MAX_IMAGE_OPTIMIZATION_BYTES ||
     !file.type.startsWith("image/") ||
     file.type === "image/gif" ||
     file.type === "image/svg+xml"
