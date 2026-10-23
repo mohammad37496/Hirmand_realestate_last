@@ -20,12 +20,35 @@ export default defineEventHandler(async (event) => {
     return { available: false, renditions: {} };
   }
 
+  // Older property records may store the raw Liara URL while the browser uses
+  // the same-origin proxy (or vice versa). Try both equivalent forms so the
+  // quality manifest is not silently missed because of URL representation.
+  const sourceCandidates = new Set([sourceUrl]);
+  try {
+    const parsedSource = new URL(sourceUrl, "https://hirmand.invalid");
+    if (parsedSource.origin === "https://hirmand.invalid" && parsedSource.pathname === "/api/liara-media") {
+      const target = parsedSource.searchParams.get("url");
+      if (target && /^https:\/\//i.test(target)) sourceCandidates.add(target);
+    } else if (/^https:\/\//i.test(sourceUrl)) {
+      const proxy = "/api/liara-media?url=" + encodeURIComponent(sourceUrl) + "&type=video";
+      sourceCandidates.add(proxy);
+    }
+  } catch {
+    // The original validation above already rejects malformed source URLs.
+  }
+
   const sql = await getSql();
-  const rows = await sql.query<{ renditions?: unknown }>(
-    "select renditions from property_video_renditions where source_url = $1 limit 1",
-    [sourceUrl],
-  );
-  const value = rows[0]?.renditions;
+  let value: unknown;
+  for (const candidate of sourceCandidates) {
+    const rows = await sql.query<{ renditions?: unknown }>(
+      "select renditions from property_video_renditions where source_url = $1 limit 1",
+      [candidate],
+    );
+    if (rows[0]?.renditions != null) {
+      value = rows[0].renditions;
+      break;
+    }
+  }
   let parsed: unknown = value;
   if (typeof value === "string") {
     try {
