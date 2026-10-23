@@ -330,41 +330,27 @@ async function receiveChunk(
   // a network retry replaces the same index instead of duplicating bytes.
   // Keep counters incremental. Recounting/summing every previous chunk after
   // every request is quadratic and would scan hundreds of GiB of staged bytes
-  // during a single 1 GiB upload. An insert is counted once; an idempotent retry
-  // replaces the existing chunk without changing the counters.
+  // during a single 1 GiB upload. PostgreSQL's xmax distinguishes a new insert
+  // from an idempotent ON CONFLICT update so retries do not double-count.
   const totals = await sql.query<UploadSession>(
-    `with inserted as (
+    `with upserted as (
        insert into property_media_upload_chunks (upload_id, chunk_index, data)
        select $1, $2, $3
        where exists (
          select 1 from property_media_upload_sessions
          where id = $1 and state = 'pending'
        )
-       on conflict (upload_id, chunk_index) do nothing
-       returning upload_id
-     ), replaced as (
-       update property_media_upload_chunks
-       set data = $3
-       where upload_id = $1 and chunk_index = $2
-         and not exists (select 1 from inserted)
-         and exists (
-           select 1 from property_media_upload_sessions
-           where id = $1 and state = 'pending'
-         )
-       returning upload_id
-     ), accepted as (
-       select upload_id from inserted
-       union all
-       select upload_id from replaced
+       on conflict (upload_id, chunk_index) do update set data = excluded.data
+       returning upload_id, (xmax = 0) as was_inserted
      )
      update property_media_upload_sessions as session
      set received_chunks = coalesce(session.received_chunks, 0)
-           + (select count(*)::integer from inserted),
+           + (select count(*)::integer from upserted where was_inserted),
          bytes_received = coalesce(session.bytes_received, 0)
-           + case when exists (select 1 from inserted) then $4::bigint else 0 end,
+           + case when exists (select 1 from upserted where was_inserted) then $4::bigint else 0 end,
          updated_at = current_timestamp
      where session.id = $1 and session.state = 'pending'
-       and exists (select 1 from accepted)
+       and exists (select 1 from upserted)
      returning received_chunks, bytes_received, total_chunks, total_bytes`,
     [uploadId, index, bytes, bytes.length],
   );
