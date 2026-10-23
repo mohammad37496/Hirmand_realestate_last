@@ -74,7 +74,7 @@ function supportedQualities(dimensions: VideoDimensions): Array<{
  * selection. Inputs are never upscaled; a video below 480p remains as uploaded
  * and therefore does not advertise quality choices it cannot actually provide.
  */
-export async function createPropertyVideoRenditions(input: {
+export async function* createPropertyVideoRenditions(input: {
   data: Buffer;
   contentType: string;
   pathname: string;
