@@ -412,7 +412,7 @@ export async function putLiaraObjectFromFile(input: {
     if (!initiated.ok) {
       throw new Error(`شروع آپلود چندبخشی Liara ناموفق بود (HTTP ${initiated.status}): ${initiateBody.slice(0, 300)}`);
     }
-    const idMatch = initiateBody.match(/<UploadId>([\\s\\S]*?)<\\/UploadId>/i);
+    const idMatch = initiateBody.match(/<UploadId>([\s\S]*?)<\/UploadId>/i);
     uploadId = idMatch ? decodeXmlValue(idMatch[1]!.trim()) : null;
     if (!uploadId) throw new Error("Liara شناسه آپلود چندبخشی برنگرداند.");
 
