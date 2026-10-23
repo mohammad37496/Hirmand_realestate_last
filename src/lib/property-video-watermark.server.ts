@@ -137,7 +137,7 @@ export async function applyPropertyVideoWatermark(
     const alpha = opacityAlpha(settings.opacity).toFixed(3);
     // Downscale high-resolution phone footage before overlay/encoding to avoid
     // CPU and memory spikes during the synchronous upload-finalization request.
-    const videoScale = "scale='min(1280,iw)':'min(720,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2";
+    const videoScale = "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2";
     const filters: string[] = [];
     const panelParts = settings.showText
       ? [`drawbox=x=iw*0.52:y=ih*0.84:w=iw*0.46:h=ih*0.13:color=0x081320@${alpha}:t=fill`]
@@ -204,7 +204,7 @@ export async function applyPropertyVideoWatermark(
       "-preset",
       "ultrafast",
       "-crf",
-      "27",
+      "23",
       "-pix_fmt",
       "yuv420p",
       "-c:a",

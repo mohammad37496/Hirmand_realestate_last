@@ -48,9 +48,10 @@ type UploadProgress = {
   total: number;
 };
 
-const MAX_IMAGE_DIMENSION = 2560;
-const IMAGE_QUALITY = 0.82;
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 4096;
+const IMAGE_QUALITY = 0.94;
+const MAX_IMAGE_FILE_BYTES = 100 * 1024 * 1024;
+const MAX_VIDEO_FILE_BYTES = 100 * 1024 * 1024;
 
 const ACCEPTED_TYPES = new Set([
   "image/jpeg",
@@ -340,7 +341,12 @@ export function AdminMediaField({
       throw new Error("برای حفظ انیمیشن GIF، واترمارک دائمی ممکن نیست؛ واترمارک را خاموش کنید یا تصویر ثابت انتخاب کنید.");
     }
     if (file.size <= 0) throw new Error("فایل انتخاب‌شده خالی است.");
-    if (file.size > MAX_FILE_BYTES) throw new Error("حجم هر فایل باید حداکثر ۲۵ مگابایت باشد.");
+    const maxBytes = originalType.startsWith("video/") ? MAX_VIDEO_FILE_BYTES : MAX_IMAGE_FILE_BYTES;
+    if (file.size > maxBytes) {
+      throw new Error(originalType.startsWith("video/")
+        ? "حجم هر ویدئو باید حداکثر ۱۰۰ مگابایت باشد."
+        : "حجم هر تصویر باید حداکثر ۱۰۰ مگابایت باشد.");
+    }
 
     const optimised = await optimiseImage(file);
     const contentType = resolveClientMime(optimised.file) || originalType;
@@ -375,8 +381,16 @@ export function AdminMediaField({
       toast.error(`حداکثر ${MAX_PROPERTY_MEDIA.toLocaleString("fa-IR")} رسانه برای هر فایل ملک مجاز است.`);
       return;
     }
-    if (files.some((file) => file.size > MAX_FILE_BYTES)) {
-      toast.error("حجم هر فایل باید حداکثر ۲۵ مگابایت باشد.");
+    const oversized = files.find((file) => {
+      const type = resolveClientMime(file);
+      const maxBytes = type.startsWith("video/") ? MAX_VIDEO_FILE_BYTES : MAX_IMAGE_FILE_BYTES;
+      return file.size > maxBytes;
+    });
+    if (oversized) {
+      const isVideo = resolveClientMime(oversized).startsWith("video/");
+      toast.error(isVideo
+        ? `حجم ویدئو «${oversized.name}» بیش از ۱۰۰ مگابایت است.`
+        : `حجم تصویر «${oversized.name}» بیش از ۱۰۰ مگابایت است.`);
       return;
     }
     const unsupported = files.find((file) => !resolveClientMime(file));
@@ -513,7 +527,7 @@ export function AdminMediaField({
         <div>
           <span className="hirmand-media-eyebrow">رسانه‌های فایل</span>
           <h3>تصاویر و ویدیوهای ملک</h3>
-          <p>فایل را انتخاب کنید یا بکشید و اینجا رها کنید. رسانه‌ها پس از ذخیرهٔ فایل ملک ثبت می‌شوند.</p>
+          <p>تصاویر تا ۱۰۰ مگابایت با وضوح حداکثر ۴۰۹۶ پیکسل و کیفیت بالا؛ ویدئوها تا ۱۰۰ مگابایت. رسانه‌ها پس از ذخیرهٔ فایل ملک ثبت می‌شوند.</p>
         </div>
         <div className="hirmand-media-count" aria-live="polite">
           <strong>{items.length.toLocaleString("fa-IR")}</strong>

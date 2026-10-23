@@ -30,6 +30,7 @@ import {
 import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
 import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
 import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
+import { createPropertyVideoRenditions } from "@/lib/property-video-renditions.server";
 import type { PropertyWatermarkPosition, PropertyWatermarkSettings } from "@/lib/property-watermark";
 import {
   deleteStoredMedia,
@@ -39,7 +40,8 @@ import {
 } from "@/lib/media-store.server";
 
 const CHUNK_SIZE = 2 * 1024 * 1024;
-const MAX_GALLERY_BYTES = 25 * 1024 * 1024;
+const MAX_GALLERY_IMAGE_BYTES = 100 * 1024 * 1024;
+const MAX_GALLERY_VIDEO_BYTES = 100 * 1024 * 1024;
 const MAX_FLOOR_PLAN_BYTES = 15 * 1024 * 1024;
 const SIGNATURE_PROBE_BYTES = 32;
 
@@ -195,7 +197,11 @@ async function beginUpload(
   const kind = uploadKind(body.assetKind) ?? "gallery";
   const contentType = resolveType(filename, declared, kind);
   const sizeBytes = Number(body.sizeBytes);
-  const maxBytes = kind === "floor-plan" ? MAX_FLOOR_PLAN_BYTES : MAX_GALLERY_BYTES;
+  const maxBytes = kind === "floor-plan"
+    ? MAX_FLOOR_PLAN_BYTES
+    : contentType?.startsWith("video/")
+      ? MAX_GALLERY_VIDEO_BYTES
+      : MAX_GALLERY_IMAGE_BYTES;
   const watermarkEnabled = kind === "gallery" && body.watermarkEnabled === true;
   const watermarkPosition = resolveWatermarkPosition(body.watermarkPosition);
 
@@ -416,6 +422,9 @@ async function completeUpload(
   }
 
   let stored: StoredMedia | null = null;
+  const storedVideoRenditions: StoredMedia[] = [];
+  let renditionManifestSource: string | null = null;
+  let completionReceiptSaved = false;
   try {
     const chunkRows = await sql.query<UploadSession>(
       `select chunk_index, data from property_media_upload_chunks
@@ -457,7 +466,7 @@ async function completeUpload(
         );
         if (contentType.startsWith("image/")) {
           const watermarked = await applyPropertyImageWatermarkServer({
-            data: Buffer.from(finalData),
+            data: Buffer.isBuffer(finalData) ? finalData : Buffer.from(finalData),
             contentType: finalContentType,
             pathname: finalPathname,
             settings,
@@ -470,7 +479,7 @@ async function completeUpload(
             /-watermarked\.webp$/i.test(finalPathname);
         } else if (contentType.startsWith("video/")) {
           const watermarked = await applyPropertyVideoWatermark({
-            data: Buffer.from(finalData),
+            data: Buffer.isBuffer(finalData) ? finalData : Buffer.from(finalData),
             contentType: finalContentType,
             pathname: finalPathname,
             settings,
@@ -501,16 +510,70 @@ async function completeUpload(
       }
     }
 
-    // A deterministic id makes database fallback recoverable when the response
-    // or receipt update is interrupted. Transformation occurs before storage so
-    // the published URL always points at the final bytes.
-    stored = await storeMedia({
-      id: uploadId,
-      pathname: finalPathname,
-      data: finalData,
-      contentType: finalContentType,
-    });
-    const url = mediaUrlForBrowser(stored.url, finalContentType);
+    // Videos are encoded into genuine 480p / 720p / 1080p MP4 variants.
+    // The highest available variant remains the gallery URL, preserving the
+    // existing property.images URL contract for old forms and property records.
+    let videoRenditionUrls: Record<string, string> | null = null;
+    let url: string;
+    if (finalContentType.startsWith("video/")) {
+      const urls: Record<string, string> = {};
+      let highestQuality: string | null = null;
+      let renditionCount = 0;
+      for await (const rendition of createPropertyVideoRenditions({
+        data: Buffer.isBuffer(finalData) ? finalData : Buffer.from(finalData),
+        contentType: finalContentType,
+        pathname: finalPathname,
+      })) {
+        renditionCount += 1;
+        const isHighest = rendition.isHighest;
+        const storedRendition = await storeMedia({
+          ...(isHighest ? { id: uploadId } : {}),
+          pathname: rendition.pathname,
+          data: rendition.data,
+          contentType: rendition.contentType,
+        });
+        storedVideoRenditions.push(storedRendition);
+        urls[rendition.quality] = mediaUrlForBrowser(storedRendition.url, rendition.contentType);
+        if (isHighest) {
+          highestQuality = rendition.quality;
+          stored = storedRendition;
+          finalContentType = rendition.contentType;
+          finalPathname = rendition.pathname;
+        }
+      }
+
+      if (renditionCount > 0 && highestQuality && stored) {
+        videoRenditionUrls = urls;
+        url = urls[highestQuality]!;
+        renditionManifestSource = url;
+        await sql.query(
+          `insert into property_video_renditions (source_url, renditions)
+           values ($1, $2::jsonb)
+           on conflict (source_url) do update
+             set renditions = excluded.renditions, created_at = current_timestamp`,
+          [url, JSON.stringify(urls)],
+        );
+      } else {
+        // When the source is below 480p or an optional FFmpeg runtime is absent,
+        // store the original video exactly as uploaded and omit the quality menu.
+        stored = await storeMedia({
+          id: uploadId,
+          pathname: finalPathname,
+          data: finalData,
+          contentType: finalContentType,
+        });
+        url = mediaUrlForBrowser(stored.url, finalContentType);
+      }
+    } else {
+      stored = await storeMedia({
+        id: uploadId,
+        pathname: finalPathname,
+        data: finalData,
+        contentType: finalContentType,
+      });
+      url = mediaUrlForBrowser(stored.url, finalContentType);
+    }
+
     const result: Record<string, unknown> = {
       url,
       storage: stored.storage,
@@ -519,6 +582,7 @@ async function completeUpload(
       sizeBytes: finalData.length,
       watermarkApplied,
       watermarkPosition: watermarkApplied ? resolveWatermarkPosition(session.watermark_position) : null,
+      ...(videoRenditionUrls ? { qualitySelectorAvailable: true } : {}),
     };
 
     await sql.query(
@@ -535,6 +599,7 @@ async function completeUpload(
         JSON.stringify(result),
       ],
     );
+    completionReceiptSaved = true;
     await sql.query(
       "delete from property_media_upload_chunks where upload_id = $1",
       [uploadId],
@@ -562,7 +627,19 @@ async function completeUpload(
         [uploadId],
       ).catch(() => undefined);
     }
-    if (stored && errorStatus === 415) {
+    if (storedVideoRenditions.length && !completionReceiptSaved) {
+      if (renditionManifestSource) {
+        await sql.query(
+          "delete from property_video_renditions where source_url = $1",
+          [renditionManifestSource],
+        ).catch(() => undefined);
+      }
+      await Promise.all(
+        storedVideoRenditions.map((rendition) =>
+          deleteStoredMedia(rendition.url).catch(() => undefined),
+        ),
+      );
+    } else if (stored && errorStatus === 415) {
       await deleteStoredMedia(stored.url).catch(() => undefined);
     }
     console.error(
