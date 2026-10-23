@@ -51,7 +51,7 @@ type UploadProgress = {
 const MAX_IMAGE_DIMENSION = 4096;
 const IMAGE_QUALITY = 0.94;
 const MAX_IMAGE_FILE_BYTES = 100 * 1024 * 1024;
-const MAX_VIDEO_FILE_BYTES = 200 * 1024 * 1024;
+const MAX_VIDEO_FILE_BYTES = 100 * 1024 * 1024;
 
 const ACCEPTED_TYPES = new Set([
   "image/jpeg",
@@ -344,7 +344,7 @@ export function AdminMediaField({
     const maxBytes = originalType.startsWith("video/") ? MAX_VIDEO_FILE_BYTES : MAX_IMAGE_FILE_BYTES;
     if (file.size > maxBytes) {
       throw new Error(originalType.startsWith("video/")
-        ? "حجم هر ویدئو باید حداکثر ۲۰۰ مگابایت باشد."
+        ? "حجم هر ویدئو باید حداکثر ۱۰۰ مگابایت باشد."
         : "حجم هر تصویر باید حداکثر ۱۰۰ مگابایت باشد.");
     }
 
@@ -389,7 +389,7 @@ export function AdminMediaField({
     if (oversized) {
       const isVideo = resolveClientMime(oversized).startsWith("video/");
       toast.error(isVideo
-        ? `حجم ویدئو «${oversized.name}» بیش از ۲۰۰ مگابایت است.`
+        ? `حجم ویدئو «${oversized.name}» بیش از ۱۰۰ مگابایت است.`
         : `حجم تصویر «${oversized.name}» بیش از ۱۰۰ مگابایت است.`);
       return;
     }
@@ -527,7 +527,7 @@ export function AdminMediaField({
         <div>
           <span className="hirmand-media-eyebrow">رسانه‌های فایل</span>
           <h3>تصاویر و ویدیوهای ملک</h3>
-          <p>تصاویر تا ۱۰۰ مگابایت با وضوح حداکثر ۴۰۹۶ پیکسل و کیفیت بالا؛ ویدئوها تا ۲۰۰ مگابایت. رسانه‌ها پس از ذخیرهٔ فایل ملک ثبت می‌شوند.</p>
+          <p>تصاویر تا ۱۰۰ مگابایت با وضوح حداکثر ۴۰۹۶ پیکسل و کیفیت بالا؛ ویدئوها تا ۱۰۰ مگابایت. رسانه‌ها پس از ذخیرهٔ فایل ملک ثبت می‌شوند.</p>
         </div>
         <div className="hirmand-media-count" aria-live="polite">
           <strong>{items.length.toLocaleString("fa-IR")}</strong>
