@@ -94,6 +94,7 @@ import "@/property-risk-radar.css";
 import "@/property-deal-room.css";
 import "@/property-detail-page.css";
 import "@/property-detail-page-luxury.css";
+import "@/property-detail-page-pro-v2.css";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import type { Property } from "@/lib/properties";
 import { getPropertyFallbackImages, isPropertyFallbackImage } from "@/lib/property-fallback-images";

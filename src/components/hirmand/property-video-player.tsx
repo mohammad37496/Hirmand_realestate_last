@@ -211,8 +211,10 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
             onChange={(event) => changeQuality(event.currentTarget.value as Quality)}
           >
             <option value="auto">اتوماتیک (بر اساس سرعت اینترنت)</option>
-            {QUALITY_ORDER.filter((option) => renditions[option]).map((option) => (
-              <option value={option} key={option}>{faQuality(option)}p</option>
+            {QUALITY_ORDER.map((option) => (
+              <option value={option} key={option} disabled={!renditions[option]}>
+                {faQuality(option)}p{renditions[option] ? "" : " · آماده نیست"}
+              </option>
             ))}
           </select>
           <span className="hd-gallery-quality-current" aria-live="polite">
@@ -222,7 +224,7 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
           </span>
           {networkHint ? <span className="hd-gallery-quality-hint">{networkHint}</span> : null}
           {isProcessingQualities ? <span className="hd-gallery-quality-hint" role="status">در حال آماده‌سازی کیفیت‌های دیگر؛ پخش ویدئو ادامه دارد…</span> : null}
-          {!isProcessingQualities && !hasQualityChoices ? <span className="hd-gallery-quality-hint">فعلاً فقط کیفیت اصلی این ویدئو موجود است.</span> : null}
+          {!isProcessingQualities && !hasQualityChoices ? <span className="hd-gallery-quality-hint">برای این ویدئو هنوز نسخه‌های کم‌حجم‌تر ساخته نشده‌اند؛ کیفیت اصلی قابل پخش است.</span> : null}
       </div>
     </div>
   );
