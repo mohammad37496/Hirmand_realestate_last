@@ -330,27 +330,33 @@ async function receiveChunk(
   // a network retry replaces the same index instead of duplicating bytes.
   // Keep counters incremental. Recounting/summing every previous chunk after
   // every request is quadratic and would scan hundreds of GiB of staged bytes
-  // during a single 1 GiB upload. PostgreSQL's xmax distinguishes a new insert
-  // from an idempotent ON CONFLICT update so retries do not double-count.
+  // during a single 1 GiB upload. A retried chunk is already durable, so DO
+  // NOTHING on conflict and only increment counters for a newly inserted row.
   const totals = await sql.query<UploadSession>(
-    `with upserted as (
+    `with inserted as (
        insert into property_media_upload_chunks (upload_id, chunk_index, data)
        select $1, $2, $3
        where exists (
          select 1 from property_media_upload_sessions
          where id = $1 and state = 'pending'
        )
-       on conflict (upload_id, chunk_index) do update set data = excluded.data
-       returning upload_id, (xmax = 0) as was_inserted
+       on conflict (upload_id, chunk_index) do nothing
+       returning upload_id
      )
      update property_media_upload_sessions as session
      set received_chunks = coalesce(session.received_chunks, 0)
-           + (select count(*)::integer from upserted where was_inserted),
+           + (select count(*)::integer from inserted),
          bytes_received = coalesce(session.bytes_received, 0)
-           + case when exists (select 1 from upserted where was_inserted) then $4::bigint else 0 end,
+           + case when exists (select 1 from inserted) then $4::bigint else 0 end,
          updated_at = current_timestamp
      where session.id = $1 and session.state = 'pending'
-       and exists (select 1 from upserted)
+       and (
+         exists (select 1 from inserted)
+         or exists (
+           select 1 from property_media_upload_chunks
+           where upload_id = $1 and chunk_index = $2
+         )
+       )
      returning received_chunks, bytes_received, total_chunks, total_bytes`,
     [uploadId, index, bytes, bytes.length],
   );
