@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import {
@@ -43,30 +43,6 @@ function parseDimensions(text: string): VideoDimensions | null {
   return { width, height };
 }
 
-async function probeDimensions(ffmpeg: string, inputPath: string): Promise<VideoDimensions> {
-  try {
-    await execFileAsync(ffmpeg, [
-      "-hide_banner",
-      "-i", inputPath,
-      "-frames:v", "1",
-      "-an",
-      "-f", "null",
-      "-",
-    ], {
-      timeout: 45_000,
-      maxBuffer: 2 * 1024 * 1024,
-      windowsHide: true,
-    });
-  } catch (error) {
-    const detail = error && typeof error === "object"
-      ? String((error as { stderr?: unknown }).stderr ?? "")
-      : "";
-    const dimensions = parseDimensions(detail);
-    if (dimensions) return dimensions;
-    throw new Error("ویدئو قابل خواندن نیست یا اطلاعات وضوح آن قابل تشخیص نیست.");
-  }
-  throw new Error("FFmpeg اطلاعات وضوح ویدئو را برنگرداند.");
-}
 
 function supportedQualities(dimensions: VideoDimensions): Array<{
   quality: PropertyVideoQuality;
@@ -116,24 +92,16 @@ export async function createPropertyVideoRenditions(input: {
 
     let dimensions: VideoDimensions;
     try {
-      await execFileAsync(ffmpeg, [
-        "-hide_banner",
-        "-i", inputPath,
-        "-frames:v", "1",
-        "-an",
-        "-f", "null",
-        "-",
+      const probed = await execFileAsync(ffmpeg, [
+        "-hide_banner", "-i", inputPath, "-frames:v", "1", "-an", "-f", "null", "-",
       ], {
         timeout: 45_000,
         maxBuffer: 2 * 1024 * 1024,
         windowsHide: true,
       });
-      // FFmpeg commonly reports its probe information on stderr. For a
-      // successful one-frame decode, stdout/stderr are returned directly.
-      const probed = await execFileAsync(ffmpeg, [
-        "-hide_banner", "-i", inputPath, "-frames:v", "1", "-an", "-f", "null", "-",
-      ], { timeout: 45_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true });
-      dimensions = parseDimensions(String(probed.stderr ?? "")) ?? { width: 1920, height: 1080 };
+      const parsed = parseDimensions(String(probed.stderr ?? ""));
+      if (!parsed) throw new Error("FFmpeg اطلاعات وضوح ویدئو را برنگرداند.");
+      dimensions = parsed;
     } catch (error) {
       const details = error && typeof error === "object"
         ? String((error as { stderr?: unknown }).stderr ?? "")
