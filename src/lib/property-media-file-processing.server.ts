@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { stat, writeFile } from "node:fs/promises";
+import { open, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { contentMatchesDeclaredType } from "./file-signature.server.ts";
@@ -39,17 +39,6 @@ function filterPath(value: string): string {
     .replaceAll("\\", "\\\\")
     .replaceAll(":", "\\:")
     .replaceAll("'", "\\'");
-}
-
-function imageExtension(contentType: string): string {
-  switch (contentType) {
-    case "image/jpeg": return ".jpg";
-    case "image/png": return ".png";
-    case "image/webp": return ".webp";
-    case "image/avif": return ".avif";
-    case "image/gif": return ".gif";
-    default: return ".img";
-  }
 }
 
 function basePath(pathname: string): string {
@@ -183,7 +172,6 @@ export async function watermarkPropertyMediaFile(input: {
 
   const outputStat = await stat(outputPath);
   if (!outputStat.size) throw new Error("خروجی واترمارک خالی است.");
-  const { open } = await import("node:fs/promises");
   const outputHandle = await open(outputPath, "r");
   try {
     const probe = Buffer.alloc(32);
