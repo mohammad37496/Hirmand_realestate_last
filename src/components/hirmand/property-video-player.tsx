@@ -86,12 +86,12 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
     };
   }, [src]);
 
-  const currentQuality = quality === "auto" ? autoQuality : quality;
+  const currentQuality: Exclude<Quality, "auto"> = quality === "auto"
+    ? (renditions[autoQuality] ? autoQuality : renditions["720"] ? "720" : renditions["480"] ? "480" : "1080")
+    : quality;
   const targetUrl = useMemo(
-    () => quality === "auto"
-      ? renditions[autoQuality] ?? src
-      : renditions[quality] ?? src,
-    [quality, autoQuality, renditions, src],
+    () => renditions[currentQuality] ?? src,
+    [currentQuality, renditions, src],
   );
 
   const changeQuality = useCallback((next: Quality) => {
@@ -186,10 +186,10 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
       />
       {hasQualityChoices ? (
         <div className="hd-gallery-quality-bar">
-          <label className="hd-gallery-quality-label" htmlFor={undefined}>
+          <span className="hd-gallery-quality-label">
             <SlidersHorizontal size={15} aria-hidden="true" />
             <span>کیفیت پخش</span>
-          </label>
+          </span>
           <select
             aria-label="انتخاب کیفیت پخش ویدئو"
             value={quality}
