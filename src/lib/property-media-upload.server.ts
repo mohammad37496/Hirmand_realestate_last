@@ -714,7 +714,14 @@ async function completeUpload(
     // existing property.images URL contract for old forms and property records.
     let videoRenditionUrls: Record<string, string> | null = null;
     let url: string;
-    if (finalContentType.startsWith("video/")) {
+    // MOV uploads are stored directly. Transcoding QuickTime/HEVC sources into
+    // three quality variants can keep the request at 99% for many minutes on
+    // constrained hosting runtimes. Preserve the original upload so the user
+    // gets a completed media URL; MP4/WebM can still use the optional ladder.
+    if (
+      finalContentType.startsWith("video/") &&
+      finalContentType !== "video/quicktime"
+    ) {
       const urls: Record<string, string> = {};
       let highestQuality: string | null = null;
       let renditionCount = 0;
