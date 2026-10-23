@@ -1296,6 +1296,7 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) .property-det
     color: #17613e !important;
   }
 }
+
 @media (max-width: 380px) {
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-summary-facts { grid-template-columns: minmax(0,1fr) !important; }
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-primary-contact { grid-template-columns: minmax(0,1fr) !important; }
@@ -2543,6 +2544,55 @@ main#top.property-detail-page.hd-property-detail-v2 .hd-gallery-thumb-preview > 
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
+  }
+}
+
+/* Final overrides must stay last: keep the embedded watermark clear of controls. */
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-stage .hd-gallery-picture > img.hd-gallery-image {
+  object-fit: contain !important;
+  object-position: center center !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  clip-path: none !important;
+  filter: none !important;
+}
+
+html body:has(main#top.property-detail-page.hd-property-detail-v2)
+main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-stage > .hd-gallery-expand {
+  top: 12px !important;
+  bottom: auto !important;
+  left: 12px !important;
+  z-index: 9 !important;
+}
+
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media img {
+  width: auto !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  clip-path: none !important;
+  filter: none !important;
+}
+
+@media (max-width: 760px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-stage > .hd-gallery-expand {
+    top: 8px !important;
+    bottom: auto !important;
+    left: 8px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .property-gallery-main.hd-gallery-main > .hd-gallery-controls {
+    inset: auto auto 8px 50% !important;
+    width: max-content !important;
+    max-width: calc(100% - 16px) !important;
+    transform: translateX(-50%) !important;
+    justify-content: center !important;
+    z-index: 8 !important;
   }
 }
 

@@ -29,7 +29,7 @@ import {
 } from "@/lib/admin-rate-limit.server";
 import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
 import { watermarkPropertyMediaFile } from "@/lib/property-media-file-processing.server";
-import { copyFile, mkdtemp, open, rm, stat } from "node:fs/promises";
+import { copyFile, mkdtemp, open, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deleteLiaraObject, liaraStorageConfigured, putLiaraObjectFromFile } from "@/lib/liara-object-storage.server";
@@ -914,6 +914,27 @@ async function completeUpload(
         error instanceof Error ? error.message : error,
       );
     });
+
+    // MOV and low-resolution videos skip synchronous transcoding so the upload
+    // can finish promptly. Stage their stored source for the background quality
+    // pipeline used by large uploads, without holding the response open.
+    if (finalContentType.startsWith("video/") && !videoRenditionUrls) {
+      const stagingDir = await mkdtemp(join(tmpdir(), "hirmand-video-quality-stage-"));
+      const sourcePath = join(stagingDir, "source" + videoExtension(finalContentType));
+      try {
+        await writeFile(sourcePath, finalData);
+        await queueLargeVideoRenditions({
+          sourcePath,
+          sourceUrl: url,
+          contentType: finalContentType,
+          pathname: finalPathname,
+        });
+      } catch (error) {
+        console.warn("[property-media] could not queue video qualities:", error instanceof Error ? error.message : error);
+      } finally {
+        await rm(stagingDir, { recursive: true, force: true }).catch(() => undefined);
+      }
+    }
 
     return result;
   } catch (error) {

@@ -43,6 +43,7 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
   const previousPlayback = useRef<{ time: number; wasPlaying: boolean } | null>(null);
   const [quality, setQuality] = useState<Quality>("auto");
   const [renditions, setRenditions] = useState<Partial<Record<Exclude<Quality, "auto">, string>>>({});
+  const [isProcessingQualities, setIsProcessingQualities] = useState(false);
   const [autoQuality, setAutoQuality] = useState<Exclude<Quality, "auto">>("720");
   const [playbackUrl, setPlaybackUrl] = useState(src);
   const [networkHint, setNetworkHint] = useState("");
@@ -50,6 +51,7 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
   useEffect(() => {
     let cancelled = false;
     setRenditions({});
+    setIsProcessingQualities(false);
     setQuality("auto");
     setAutoQuality(networkQuality());
     setPlaybackUrl(src);
@@ -68,6 +70,7 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
           if (!response.ok) return;
           const payload = await response.json() as RenditionsResponse;
           if (cancelled) return;
+          setIsProcessingQualities(payload.processing === true);
           const next: Partial<Record<Exclude<Quality, "auto">, string>> = {};
           if (payload.available && payload.renditions) {
             for (const option of QUALITY_ORDER) {
@@ -197,8 +200,7 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
         aria-label={title}
         onWaiting={lowerQualityOnStall}
       />
-      {hasQualityChoices ? (
-        <div className="hd-gallery-quality-bar">
+      <div className="hd-gallery-quality-bar">
           <span className="hd-gallery-quality-label">
             <SlidersHorizontal size={15} aria-hidden="true" />
             <span>کیفیت پخش</span>
@@ -214,11 +216,14 @@ export function PropertyVideoPlayer({ src, title, className = "hd-gallery-video"
             ))}
           </select>
           <span className="hd-gallery-quality-current" aria-live="polite">
-            {quality === "auto" ? `خودکار · ${faQuality(currentQuality)}p` : `${faQuality(quality)}p`}
+            {quality === "auto"
+              ? hasQualityChoices ? `خودکار · ${faQuality(currentQuality)}p` : "خودکار · کیفیت اصلی"
+              : `${faQuality(quality)}p`}
           </span>
           {networkHint ? <span className="hd-gallery-quality-hint">{networkHint}</span> : null}
-        </div>
-      ) : null}
+          {isProcessingQualities ? <span className="hd-gallery-quality-hint" role="status">در حال آماده‌سازی کیفیت‌های دیگر؛ پخش ویدئو ادامه دارد…</span> : null}
+          {!isProcessingQualities && !hasQualityChoices ? <span className="hd-gallery-quality-hint">فعلاً فقط کیفیت اصلی این ویدئو موجود است.</span> : null}
+      </div>
     </div>
   );
 }
