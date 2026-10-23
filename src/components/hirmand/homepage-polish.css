@@ -470,3 +470,183 @@
   }
 }
 
+
+
+/* Mobile category cards: image-first, readable, thumb-friendly layout. */
+@media (max-width: 600px) {
+  .site-home .home-property-categories {
+    padding-top: 28px;
+    scroll-margin-top: 82px;
+  }
+
+  .site-home .home-property-categories .section-head {
+    margin-bottom: 18px;
+  }
+
+  .site-home .home-property-categories .section-head h2 {
+    max-width: 19ch;
+    font-size: clamp(1.35rem, 1.12rem + 1.1vw, 1.65rem);
+    line-height: 1.55;
+    text-wrap: pretty;
+  }
+
+  .site-home .home-property-categories .section-head p {
+    margin-top: 8px;
+    font-size: 0.84rem;
+    line-height: 1.9;
+  }
+
+  .site-home .home-property-categories .type-grid-categories {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .site-home .home-property-categories .type-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--gold-line, rgb(192 138 42 / 18%));
+    border-radius: 20px;
+    background: var(--surface, #fff);
+    box-shadow: 0 8px 24px rgb(20 31 45 / 6%);
+  }
+
+  .site-home .home-property-categories .type-card-media {
+    display: block;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: var(--surface-soft, #f2eee7);
+  }
+
+  .site-home .home-property-categories .type-card-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .site-home .home-property-categories .type-card-media-badge {
+    inset-inline-start: 12px;
+    inset-inline-end: auto;
+    inset-block-end: 12px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .site-home .home-property-categories .type-body {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 16px 17px;
+  }
+
+  .site-home .home-property-categories .type-card-title-row {
+    align-items: center;
+    gap: 9px;
+  }
+
+  .site-home .home-property-categories .type-card-title-row .icon-box {
+    display: grid;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border-radius: 11px;
+  }
+
+  .site-home .home-property-categories .type-card-title-row h3 {
+    font-size: 0.98rem;
+    line-height: 1.7;
+    font-weight: 850;
+    overflow-wrap: normal;
+    text-wrap: pretty;
+  }
+
+  .site-home .home-property-categories .type-card-description {
+    flex: 0 0 auto;
+    font-size: 0.81rem;
+    line-height: 1.9;
+    overflow-wrap: break-word;
+  }
+
+  .site-home .home-property-categories .type-card-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 3px;
+  }
+
+  .site-home .home-property-categories .type-card-actions a {
+    display: flex;
+    min-width: 0;
+    min-height: 46px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 10px;
+    border-radius: 11px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    line-height: 1.65;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: normal;
+  }
+
+  .site-home .home-property-categories .type-card-actions .type-card-request-link {
+    border-color: var(--gold-line);
+    background: var(--surface, #fff);
+  }
+
+  .site-home .home-property-categories .type-card-media:focus-visible,
+  .site-home .home-property-categories .type-card-actions a:focus-visible {
+    outline: 3px solid rgb(192 138 42 / 58%);
+    outline-offset: -3px;
+  }
+
+  .site-home .home-discovery-footer {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .site-home .home-discovery-types-link {
+    justify-content: center;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 380px) {
+  .site-home .home-property-categories .type-body {
+    padding: 14px 13px 15px;
+  }
+
+  .site-home .home-property-categories .type-card-actions {
+    gap: 7px;
+  }
+
+  .site-home .home-property-categories .type-card-actions a {
+    padding-inline: 7px;
+    font-size: 0.72rem;
+  }
+}
+
+@media (hover: none) and (max-width: 600px) {
+  .site-home .home-property-categories .type-card:hover {
+    transform: none;
+    box-shadow: 0 8px 24px rgb(20 31 45 / 6%);
+  }
+
+  .site-home .home-property-categories .type-card:hover .type-card-media img {
+    transform: none;
+  }
+}
