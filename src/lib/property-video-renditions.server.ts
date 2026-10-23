@@ -15,6 +15,7 @@ export type PropertyVideoQuality = "480" | "720" | "1080";
 
 export type PropertyVideoRendition = {
   quality: PropertyVideoQuality;
+  isHighest: boolean;
   data: Buffer;
   contentType: "video/mp4";
   pathname: string;
@@ -77,13 +78,14 @@ export async function createPropertyVideoRenditions(input: {
   data: Buffer;
   contentType: string;
   pathname: string;
-}): Promise<PropertyVideoRendition[] | null> {
-  if (!input.contentType.startsWith("video/")) return null;
+}): AsyncGenerator<PropertyVideoRendition> {
+  if (!input.contentType.startsWith("video/")) return;
 
   const ffmpeg = resolveBundledFfmpeg();
-  if (!ffmpeg || !existsSync(ffmpeg)) {
-    throw new Error("ابزار تبدیل کیفیت ویدئو (FFmpeg) در محیط سرور در دسترس نیست.");
-  }
+  // Development may run on Windows/macOS where the deploy-only Linux binary
+  // is intentionally not provisioned. Never let the optional quality ladder
+  // make ordinary video uploads fail in that case.
+  if (!ffmpeg || !existsSync(ffmpeg)) return;
 
   const workDir = await mkdtemp(join(tmpdir(), "hirmand-video-quality-"));
   const inputPath = join(workDir, "source" + inputExtension(input.contentType));
@@ -114,10 +116,10 @@ export async function createPropertyVideoRenditions(input: {
     }
 
     const qualities = supportedQualities(dimensions);
-    if (!qualities.length) return null;
+    if (!qualities.length) return;
 
-    const outputs: PropertyVideoRendition[] = [];
-    for (const quality of qualities) {
+    for (let qualityIndex = 0; qualityIndex < qualities.length; qualityIndex += 1) {
+      const quality = qualities[qualityIndex]!;
       const outputPath = join(workDir, quality.quality + "p.mp4");
       const args = [
         "-hide_banner", "-loglevel", "error", "-y",
@@ -153,15 +155,14 @@ export async function createPropertyVideoRenditions(input: {
       if (data.length < 12 || data.subarray(4, 8).toString("latin1") !== "ftyp") {
         throw new Error(`خروجی ${quality.quality}p یک فایل MP4 معتبر نیست.`);
       }
-      outputs.push({
+      yield {
         quality: quality.quality,
+        isHighest: qualityIndex === qualities.length - 1,
         data,
         contentType: "video/mp4",
         pathname: `${basePath(input.pathname)}-${quality.quality}p.mp4`,
-      });
+      };
     }
-
-    return outputs;
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
   }
