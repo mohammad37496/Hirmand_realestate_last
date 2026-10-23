@@ -178,17 +178,17 @@ function moneyLabel(value: string | null | undefined): string {
 }
 
 function priceLines(property: Property): PriceLine[] {
-  const deposit = moneyLabel(property.deposit);
-  const rent = moneyLabel(property.rent);
-  const price = moneyLabel(property.price);
+  const deposit = parseAmount(cleanText(property.deposit)) > 0 ? moneyLabel(property.deposit) : "";
+  const rent = parseAmount(cleanText(property.rent)) > 0 ? moneyLabel(property.rent) : "";
+  const price = parseAmount(cleanText(property.price)) > 0 ? moneyLabel(property.price) : "";
   const rows: PriceLine[] = [];
 
   if (property.transactionType === "rent") {
-    if (cleanText(property.deposit)) rows.push({ label: "مبلغ رهن", value: deposit + " تومان" });
-    if (cleanText(property.rent)) rows.push({ label: "اجارهٔ ماهانه", value: rent + " تومان" });
+    if (deposit) rows.push({ label: "مبلغ رهن", value: deposit + " تومان" });
+    if (rent) rows.push({ label: "اجارهٔ ماهانه", value: rent + " تومان" });
   } else if (property.transactionType === "mortgage") {
-    if (cleanText(property.deposit)) rows.push({ label: "مبلغ رهن", value: deposit + " تومان" });
-  } else if (cleanText(property.price)) {
+    if (deposit) rows.push({ label: "مبلغ رهن", value: deposit + " تومان" });
+  } else if (price) {
     rows.push({
       label: property.transactionType === "sell" ? "قیمت فروش" : "قیمت خرید",
       value: price + " تومان",
@@ -735,6 +735,11 @@ export function PropertyDetailView({
   const exactCoordinates = hasValidCoordinates(property.latitude, property.longitude);
   const publishedDate = formatDate(property.publishedAt || property.createdAt);
   const updatedDate = formatDate(property.updatedAt);
+  const descriptionParagraphs = cleanText(property.description)
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+  const expandableDescription = cleanText(property.description).length > 900 && descriptionParagraphs.length > 2;
   const code = cleanText(property.id).slice(-8).toUpperCase();
   const prices = priceLines(property);
   const perMeter = pricePerMeter(property);
@@ -954,7 +959,17 @@ export function PropertyDetailView({
               </div>
               {cleanText(property.description) ? (
                 <div className="hd-description-copy">
-                  {property.description.split(/\n\s*\n/).map((paragraph, index) => cleanText(paragraph) ? <p key={index}>{paragraph.trim()}</p> : null)}
+                  {(expandableDescription ? descriptionParagraphs.slice(0, 2) : descriptionParagraphs).map((paragraph, index) => (
+                    <p key={index}>{paragraph}</p>
+                  ))}
+                  {expandableDescription ? (
+                    <details className="hd-description-more">
+                      <summary>ادامهٔ توضیحات ملک</summary>
+                      {descriptionParagraphs.slice(2).map((paragraph, index) => (
+                        <p key={`more-${index}`}>{paragraph}</p>
+                      ))}
+                    </details>
+                  ) : null}
                 </div>
               ) : <p className="hd-empty-inline">برای این فایل توضیحی ثبت نشده است. برای دریافت اطلاعات تکمیلی با مشاور تماس بگیرید.</p>}
               <div className="hd-updated-meta">

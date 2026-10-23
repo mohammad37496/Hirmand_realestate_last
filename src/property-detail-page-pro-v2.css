@@ -146,6 +146,45 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
   overflow-wrap: anywhere !important;
 }
 
+html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-description-more {
+  display: grid;
+  gap: 12px;
+  padding-top: 13px;
+  border-top: 1px solid #eee7dc;
+}
+
+html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-description-more > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  justify-self: start;
+  min-height: 42px;
+  padding: 8px 13px;
+  border: 1px solid #e3d2b0;
+  border-radius: 11px;
+  background: #fbf3e4;
+  color: #785821;
+  font-size: .82rem;
+  font-weight: 850;
+  cursor: pointer;
+  list-style: none;
+}
+
+html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-description-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-description-more > summary::after {
+  content: "⌄";
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-description-more[open] > summary::after {
+  content: "⌃";
+}
+
 html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-updated-meta {
   display: flex !important;
   flex-wrap: wrap !important;
@@ -272,6 +311,21 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
   line-height: 1.95 !important;
 }
 
+/* The detail page already has its own consultant CTA and mobile contact bar. */
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .quick-actions,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .floating-call-menu {
+  display: none !important;
+}
+
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) {
+  right: 18px !important;
+  left: auto !important;
+  width: min(400px, calc(100vw - 36px)) !important;
+  max-width: min(400px, calc(100vw - 36px)) !important;
+  bottom: 18px !important;
+  transform: none !important;
+}
+
 @media (max-width: 720px) {
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-section {
     padding: 17px !important;
@@ -299,8 +353,59 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
     line-height: 2.05 !important;
   }
 
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-description-more > summary {
+    width: 100%;
+  }
+
   html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.property-detail-page.hd-property-detail-v2 .hd-map-frame iframe {
     min-height: 245px !important;
+  }
+
+  /* Keep the shared player compact above the page's fixed contact controls. */
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) {
+    right: 8px !important;
+    left: 8px !important;
+    inset-inline-start: 8px !important;
+    inset-inline-end: 8px !important;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    max-width: none !important;
+    padding: 5px 8px 6px !important;
+    border-radius: 14px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-player-main {
+    min-height: 38px !important;
+    gap: 6px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-cover {
+    flex-basis: 34px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    border-radius: 10px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-transport button,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-compact-actions button {
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    border-radius: 9px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-transport .music-play {
+    width: 34px !important;
+    min-width: 34px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-progress-row,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-player-error {
+    display: none !important;
   }
 }
 

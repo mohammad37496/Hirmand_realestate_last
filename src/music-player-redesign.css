@@ -787,12 +787,10 @@ body:has(.music-player:not(.music-player-empty):not(.is-hidden)) .floating-call-
     top: auto !important;
     right: 18px !important;
     left: auto !important;
-    inset-inline-end: 18px !important;
-    inset-inline-start: auto !important;
     bottom: 18px !important;
     transform: none !important;
-    width: min(450px, calc(100vw - 36px)) !important;
-    max-width: min(450px, calc(100vw - 36px)) !important;
+    width: min(400px, calc(100vw - 36px)) !important;
+    max-width: min(400px, calc(100vw - 36px)) !important;
     padding: 9px 11px 8px !important;
     border-radius: 17px !important;
   }
