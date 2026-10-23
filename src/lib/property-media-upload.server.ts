@@ -516,39 +516,35 @@ async function completeUpload(
     let videoRenditionUrls: Record<string, string> | null = null;
     let url: string;
     if (finalContentType.startsWith("video/")) {
-      const generated = await createPropertyVideoRenditions({
+      const urls: Record<string, string> = {};
+      let highestQuality: string | null = null;
+      let renditionCount = 0;
+      for await (const rendition of createPropertyVideoRenditions({
         data: Buffer.isBuffer(finalData) ? finalData : Buffer.from(finalData),
         contentType: finalContentType,
         pathname: finalPathname,
-      });
-
-      if (generated?.length) {
-        const highestQuality = generated[generated.length - 1]!;
-        const urls: Record<string, string> = {};
-        let highestStored: StoredMedia | null = null;
-
-        for (const rendition of generated) {
-          const isHighest = rendition.quality === highestQuality.quality;
-          const storedRendition = await storeMedia({
-            ...(isHighest ? { id: uploadId } : {}),
-            pathname: rendition.pathname,
-            data: rendition.data,
-            contentType: rendition.contentType,
-          });
-          storedVideoRenditions.push(storedRendition);
-          urls[rendition.quality] = mediaUrlForBrowser(storedRendition.url, rendition.contentType);
-          if (isHighest) {
-            highestStored = storedRendition;
-            finalData = rendition.data;
-            finalContentType = rendition.contentType;
-            finalPathname = rendition.pathname;
-          }
+      })) {
+        renditionCount += 1;
+        const isHighest = rendition.isHighest;
+        const storedRendition = await storeMedia({
+          ...(isHighest ? { id: uploadId } : {}),
+          pathname: rendition.pathname,
+          data: rendition.data,
+          contentType: rendition.contentType,
+        });
+        storedVideoRenditions.push(storedRendition);
+        urls[rendition.quality] = mediaUrlForBrowser(storedRendition.url, rendition.contentType);
+        if (isHighest) {
+          highestQuality = rendition.quality;
+          stored = storedRendition;
+          finalContentType = rendition.contentType;
+          finalPathname = rendition.pathname;
         }
+      }
 
-        if (!highestStored) throw new Error("نسخه اصلی ویدئو ساخته نشد.");
-        stored = highestStored;
+      if (renditionCount > 0 && highestQuality && stored) {
         videoRenditionUrls = urls;
-        url = urls[highestQuality.quality]!;
+        url = urls[highestQuality]!;
         renditionManifestSource = url;
         await sql.query(
           `insert into property_video_renditions (source_url, renditions)
@@ -558,8 +554,8 @@ async function completeUpload(
           [url, JSON.stringify(urls)],
         );
       } else {
-        // Very small source videos are preserved without upscaling or pretending
-        // to offer a higher playback quality than they contain.
+        // When the source is below 480p or an optional FFmpeg runtime is absent,
+        // store the original video exactly as uploaded and omit the quality menu.
         stored = await storeMedia({
           id: uploadId,
           pathname: finalPathname,
