@@ -10,8 +10,6 @@
   right: auto !important;
   bottom: 20px !important;
   left: 50% !important;
-  inset-inline-start: 50% !important;
-  inset-inline-end: auto !important;
   transform: translateX(-50%) !important;
   width: min(790px, calc(100vw - 36px)) !important;
   max-width: calc(100vw - 36px) !important;
