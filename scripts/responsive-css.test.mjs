@@ -378,14 +378,20 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
 });
 
 
-testRunner.test("responsive guardrails are loaded after every other site stylesheet", () => {
+testRunner.test("responsive guardrails load before the scoped final music-player layer", () => {
   const stylesheetLinks = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: (\w+) \}/g)]
     .map((match) => match[1]);
   assert.equal(
-    stylesheetLinks.at(-1),
+    stylesheetLinks.at(-2),
     "responsiveHardeningCss",
-    "the responsive guardrail stylesheet must be last so later redesign layers cannot undo it",
+    "the responsive guardrail stylesheet must remain the last general-purpose layer",
   );
+  assert.equal(
+    stylesheetLinks.at(-1),
+    "musicPlayerRedesignCss",
+    "the player-only final layer must load last to correct the dock without undoing other responsive guardrails",
+  );
+  assert.match(rootRoute, /import musicPlayerRedesignCss from "\.\.\/music-player-redesign\.css\?url";/);
 });
 
 testRunner.test("responsive browser smoke covers the required viewport matrix", () => {
