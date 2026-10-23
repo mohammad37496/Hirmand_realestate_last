@@ -31,6 +31,7 @@ import {
   Warehouse,
   X,
 } from "lucide-react";
+import { getPropertyFeatureIcon } from "@/lib/property-amenity-icons";
 import { PropertyActions } from "@/components/hirmand/property-actions";
 import { PropertyConvertSlider } from "@/components/hirmand/property-convert-slider";
 import { PropertyMarketComparison } from "@/components/hirmand/property-market-comparison";
@@ -883,7 +884,15 @@ export function PropertyDetailView({
                 <details className="property-spec-amenities hd-amenity-accordion">
                   <summary><span>امکانات و ویژگی‌ها</span><ChevronLeft size={19} aria-hidden="true" /></summary>
                   <ul className="hd-feature-list">
-                    {features.map((feature) => <li key={feature}><Check size={16} aria-hidden="true" /><span>{feature}</span></li>)}
+                    {features.map((feature) => {
+                      const Icon = getPropertyFeatureIcon(feature);
+                      return (
+                        <li key={feature}>
+                          <span className="hd-feature-icon" aria-hidden="true"><Icon size={18} /></span>
+                          <span>{feature}</span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </details>
               ) : null}

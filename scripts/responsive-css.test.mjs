@@ -279,10 +279,11 @@ testRunner.test("rebuilt property specifications keep Hirmand colors and respons
 
 testRunner.test("property detail uses one consistent icon treatment for specifications and amenities", () => {
   assert.match(propertyDetailV2Css, /\.hd-spec-icon\s*\{[^}]*background:\s*#f5f0e7;[^}]*color:\s*var\(--hd-brass\)/s);
-  assert.match(propertyDetailV2Css, /\.hd-feature-list li svg\s*\{[^}]*color:\s*var\(--hd-brass\)/s);
+  assert.match(propertyDetailV2Css, /\.hd-feature-icon\s*\{[^}]*background:\s*#f8efdc;[^}]*color:\s*var\(--hd-navy\)/s);
   assert.match(propertyDetailViewSource, /className="hd-spec-icon"><Icon size=\{18\} aria-hidden="true" \/>/);
   assert.match(propertyDetailViewSource, /className="hd-feature-list"/);
-  assert.match(propertyDetailViewSource, /features\.map\(\(feature\) => <li key=\{feature\}><Check size=\{16\} aria-hidden="true" \/>/);
+  assert.match(propertyDetailViewSource, /getPropertyFeatureIcon\(feature\)/);
+  assert.match(propertyDetailViewSource, /className="hd-feature-icon"/);
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
