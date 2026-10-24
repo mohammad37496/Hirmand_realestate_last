@@ -157,7 +157,7 @@ export function SiteMusicPlayer() {
   };
 
   const handleTrackEnded = () => {
-    if (repeatMode === "one" && audioRef.current) {
+    if ((repeatMode === "one" || (tracks.length === 1 && repeatMode === "all")) && audioRef.current) {
       audioRef.current.currentTime = 0;
       void audioRef.current.play().catch(() => setPlaying(false));
       return;
