@@ -7,7 +7,7 @@
   position: fixed !important;
   z-index: 120 !important;
   top: auto !important;
-  right: auto !important;
+  right: max(12px, env(safe-area-inset-right)) !important;
   bottom: 20px !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
@@ -873,16 +873,16 @@ body:has(.music-player:not(.music-player-empty):not(.is-hidden)) .floating-call-
   }
 }
 
-/* FINAL OVERRIDE: keep the desktop music player compact at the lower-left.
+/* FINAL OVERRIDE: keep the desktop music player compact at the lower-right.
    This is intentionally last because several legacy styles use !important. */
 @media (min-width: 721px) {
   .music-player:not(.music-player-empty),
   html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) {
     top: auto !important;
-    left: max(12px, env(safe-area-inset-left)) !important;
-    right: auto !important;
-    inset-inline-start: max(12px, env(safe-area-inset-left)) !important;
-    inset-inline-end: auto !important;
+    left: auto !important;
+    right: max(12px, env(safe-area-inset-right)) !important;
+    inset-inline-start: auto !important;
+    inset-inline-end: max(12px, env(safe-area-inset-right)) !important;
     bottom: max(12px, env(safe-area-inset-bottom)) !important;
     transform: none !important;
     width: min(240px, calc(100vw - 24px)) !important;
