@@ -874,6 +874,7 @@ body:has(.music-player:not(.music-player-empty):not(.is-hidden)) .floating-call-
 }
 
 /* SINGLE GLOBAL DOCK: identical position and compact dimensions on every page. */
+html body:has(.music-player:not(.music-player-empty)) .music-player:not(.music-player-empty),
 .music-player:not(.music-player-empty),
 html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) {
   position: fixed !important;
