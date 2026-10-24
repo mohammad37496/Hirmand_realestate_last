@@ -316,19 +316,19 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
 }
 
 
-/* Compact floating music player: bottom-left on desktop and mobile. */
+/* Compact floating music player: bottom-right on desktop, compact on mobile. */
 .music-player {
   position: fixed !important;
-  left: max(16px, env(safe-area-inset-left)) !important;
-  right: auto !important;
+  right: max(12px, env(safe-area-inset-right)) !important;
+  left: auto !important;
   bottom: max(16px, env(safe-area-inset-bottom)) !important;
   z-index: 1200 !important;
-  width: min(280px, calc(100vw - 32px)) !important;
-  max-width: calc(100vw - 32px) !important;
-  padding: 10px 12px 8px !important;
+  width: min(240px, calc(100vw - 24px)) !important;
+  max-width: calc(100vw - 24px) !important;
+  padding: 7px 9px 6px !important;
   border-radius: 16px !important;
   box-shadow: 0 12px 34px rgb(18 35 48 / 22%) !important;
-  font-size: 12px !important;
+  font-size: 11px !important;
 }
 .music-player .music-player-main {
   display: flex !important;
@@ -337,10 +337,10 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
   min-width: 0 !important;
 }
 .music-player .music-cover {
-  flex: 0 0 36px !important;
-  width: 36px !important;
-  height: 36px !important;
-  min-width: 36px !important;
+  flex: 0 0 30px !important;
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
   border-radius: 10px !important;
 }
 .music-player .music-meta {
@@ -376,17 +376,17 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
 }
 .music-player .music-transport button,
 .music-player .music-compact-actions button {
-  flex: 0 0 28px !important;
-  width: 28px !important;
-  height: 28px !important;
-  min-width: 28px !important;
+  flex: 0 0 24px !important;
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
   padding: 5px !important;
 }
 .music-player .music-transport .music-play {
-  flex-basis: 32px !important;
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px !important;
+  flex-basis: 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
 }
 .music-player .music-compact-actions {
   gap: 2px !important;
@@ -419,32 +419,32 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
     left: max(12px, env(safe-area-inset-left)) !important;
     right: auto !important;
     bottom: max(12px, env(safe-area-inset-bottom)) !important;
-    width: min(260px, calc(100vw - 24px)) !important;
+    width: min(230px, calc(100vw - 24px)) !important;
     max-width: calc(100vw - 24px) !important;
-    padding: 8px 9px 7px !important;
+    padding: 6px 7px 5px !important;
     border-radius: 14px !important;
   }
   .music-player .music-player-main {
     gap: 6px !important;
   }
   .music-player .music-cover {
-    flex-basis: 32px !important;
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
+    flex-basis: 28px !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
   }
   .music-player .music-transport button,
   .music-player .music-compact-actions button {
+    flex-basis: 23px !important;
+    width: 23px !important;
+    height: 23px !important;
+    min-width: 23px !important;
+  }
+  .music-player .music-transport .music-play {
     flex-basis: 26px !important;
     width: 26px !important;
     height: 26px !important;
     min-width: 26px !important;
-  }
-  .music-player .music-transport .music-play {
-    flex-basis: 30px !important;
-    width: 30px !important;
-    height: 30px !important;
-    min-width: 30px !important;
   }
 }
 @media (max-width: 380px) {
