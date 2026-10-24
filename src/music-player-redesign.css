@@ -7,7 +7,7 @@
   position: fixed !important;
   z-index: 120 !important;
   top: auto !important;
-  right: max(12px, env(safe-area-inset-right)) !important;
+  right: auto !important;
   bottom: 20px !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
@@ -873,64 +873,74 @@ body:has(.music-player:not(.music-player-empty):not(.is-hidden)) .floating-call-
   }
 }
 
-/* FINAL OVERRIDE: keep the desktop music player compact at the lower-right.
-   This is intentionally last because several legacy styles use !important. */
-@media (min-width: 721px) {
-  .music-player:not(.music-player-empty),
-  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) {
-    top: auto !important;
-    left: auto !important;
-    right: max(12px, env(safe-area-inset-right)) !important;
-    inset-inline-start: auto !important;
-    inset-inline-end: max(12px, env(safe-area-inset-right)) !important;
-    bottom: max(12px, env(safe-area-inset-bottom)) !important;
-    transform: none !important;
-    width: min(240px, calc(100vw - 24px)) !important;
-    max-width: min(240px, calc(100vw - 24px)) !important;
-    min-height: 0 !important;
-    padding: 6px 8px 7px !important;
-    border-radius: 14px !important;
-  }
+/* SINGLE GLOBAL DOCK: identical position and compact dimensions on every page. */
+.music-player:not(.music-player-empty),
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) {
+  position: fixed !important;
+  z-index: 120 !important;
+  top: auto !important;
+  right: max(12px, env(safe-area-inset-right)) !important;
+  left: auto !important;
+  inset-inline-start: auto !important;
+  inset-inline-end: max(12px, env(safe-area-inset-right)) !important;
+  bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  transform: none !important;
+  box-sizing: border-box !important;
+  width: min(240px, calc(100vw - 24px)) !important;
+  max-width: min(240px, calc(100vw - 24px)) !important;
+  min-height: 0 !important;
+  padding: 6px 8px 7px !important;
+  border-radius: 14px !important;
+}
 
-  .music-player:not(.music-player-empty) .music-player-main {
-    gap: 6px !important;
-    min-height: 34px !important;
-  }
+.music-player:not(.music-player-empty) .music-player-main,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-player-main {
+  gap: 6px !important;
+  min-height: 34px !important;
+}
 
-  .music-player:not(.music-player-empty) .music-cover {
-    flex-basis: 30px !important;
-    width: 30px !important;
-    min-width: 30px !important;
-    height: 30px !important;
-  }
+.music-player:not(.music-player-empty) .music-cover,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-cover {
+  flex-basis: 30px !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  height: 30px !important;
+}
 
-  .music-player:not(.music-player-empty) .music-transport button,
-  .music-player:not(.music-player-empty) .music-compact-actions button {
-    width: 24px !important;
-    min-width: 24px !important;
-    height: 24px !important;
-    min-height: 24px !important;
-  }
+.music-player:not(.music-player-empty) .music-transport button,
+.music-player:not(.music-player-empty) .music-compact-actions button,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-transport button,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-compact-actions button {
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+}
 
-  .music-player:not(.music-player-empty) .music-transport .music-play,
-  .music-player:not(.music-player-empty) .music-play {
-    width: 28px !important;
-    min-width: 28px !important;
-    height: 28px !important;
-    min-height: 28px !important;
-  }
+.music-player:not(.music-player-empty) .music-transport .music-play,
+.music-player:not(.music-player-empty) .music-play,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-transport .music-play,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-play {
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+}
 
-  .music-player:not(.music-player-empty) .music-meta {
-    flex: 1 1 50px !important;
-    max-width: 78px !important;
-  }
+.music-player:not(.music-player-empty) .music-meta,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-meta {
+  flex: 1 1 50px !important;
+  max-width: 78px !important;
+}
 
-  .music-player:not(.music-player-empty) .music-meta strong {
-    font-size: .68rem !important;
-  }
+.music-player:not(.music-player-empty) .music-meta strong,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-meta strong {
+  font-size: .68rem !important;
+}
 
-  .music-player:not(.music-player-empty) .music-meta > span,
-  .music-player:not(.music-player-empty) .music-meta small {
-    font-size: .56rem !important;
-  }
+.music-player:not(.music-player-empty) .music-meta > span,
+.music-player:not(.music-player-empty) .music-meta small,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-meta > span,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-meta small {
+  font-size: .56rem !important;
 }
