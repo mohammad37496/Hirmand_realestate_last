@@ -267,6 +267,9 @@ export function AdminMusicManager() {
             payload: { title: trackTitle, artist: trackArtist },
             signal: new AbortController().signal,
             rejectedMessage: "فایل انتخاب‌شده برای آپلود پذیرفته نشد.",
+            // Music finalization keeps a replay receipt server-side, so a lost
+            // response can be retried safely without inserting a duplicate row.
+            retryCompletion: true,
             onProgress: (percentage) => {
               setUploadProgress(Math.round(((index + percentage / 100) / filesToUpload.length) * 100));
               setStage("آهنگ " + (index + 1) + " از " + filesToUpload.length + " · " + percentage + "%");
