@@ -42,5 +42,29 @@ function collectMediaUrls(
 }
 
 export function extractDivarMediaUrls(value: unknown): string[] {
-  return Array.from(new Set(collectMediaUrls(value))).slice(0, MAX_DIVAR_MEDIA_SCAN);
+  const candidates = collectMediaUrls(value);
+  const byPhoto = new Map<string, string>();
+
+  for (const candidate of candidates) {
+    try {
+      const url = new URL(candidate);
+      const filename = url.pathname.split("/").filter(Boolean).at(-1) ?? "";
+      // Divar embeds several CDN renditions of the same photo in its detail
+      // payload (thumbnail, webp and full-size). The stable filename/photo ID
+      // identifies the photo; counting each rendition inflated gallery counts.
+      const photoId = filename.replace(/\.(?:jpe?g|png|gif|webp|avif)$/i, "").toLowerCase();
+      const key = photoId || url.pathname;
+      const previous = byPhoto.get(key);
+      const isThumbnail = /(?:thumbnail|thumb|small|medium)/i.test(url.pathname);
+      const previousIsThumbnail = previous
+        ? /(?:thumbnail|thumb|small|medium)/i.test(new URL(previous).pathname)
+        : true;
+      if (!previous || (previousIsThumbnail && !isThumbnail)) byPhoto.set(key, url.toString());
+    } catch {
+      // collectMediaUrls already validates these URLs; ignore any malformed
+      // value defensively rather than letting one item abort the whole gallery.
+    }
+  }
+
+  return Array.from(byPhoto.values()).slice(0, MAX_DIVAR_MEDIA_SCAN);
 }

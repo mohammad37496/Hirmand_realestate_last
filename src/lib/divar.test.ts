@@ -50,6 +50,18 @@ test("extractDivarMediaUrls does not mistake a normal Divar listing URL for an i
   assert.deepEqual(urls, ["https://divar.ir/images/sample.jpg"]);
 });
 
+test("extractDivarMediaUrls counts each photo once across thumbnail and full-size renditions", () => {
+  const photoIds = Array.from({ length: 8 }, (_, index) => `photo-${index + 1}.webp`);
+  const payload = {
+    thumbnails: photoIds.map((id) => `https://s100.divarcdn.com/static/photo/webp_thumbnail/${id}`),
+    gallery: photoIds.map((id) => `https://img.divarcdn.com/static/photo/webp/${id}`),
+  };
+
+  const urls = extractDivarMediaUrls(payload);
+  assert.equal(urls.length, 8);
+  assert.ok(urls.every((url) => url.includes("/webp/")));
+});
+
 test("Divar coordinates support scaled E7 keys and underscore-separated variants", () => {
   assert.deepEqual(
     findDivarCoordinates({
