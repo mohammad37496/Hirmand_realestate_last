@@ -1,8 +1,7 @@
-import { createRootRoute, HeadContent, Link, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
-import { MusicPlayer } from "@/components/hirmand/music-player";
 import { SITE } from "@/lib/site";
 import { trackPublic404 } from "@/lib/seo-redirects";
 import appCss from "../styles.css?url";
@@ -28,7 +27,6 @@ import homepagePolishCss from "../components/hirmand/homepage-polish.css?url";
 import propertiesDivarRedesignCss from "../properties-divar-redesign.css?url";
 import propertiesFiltersRedesignCss from "../properties-filters-redesign.css?url";
 import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
-import musicPlayerRedesignCss from "../music-player-redesign.css?url";
 import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css?url";
 import propertyExperienceRedesignCss from "../property-experience-redesign.css?url";
 
@@ -81,7 +79,6 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: propertiesMarketplacePolishCss },
       { rel: "stylesheet", href: propertyExperienceRedesignCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
-      { rel: "stylesheet", href: musicPlayerRedesignCss },
     ],
   }),
   component: RootDocument,
@@ -99,10 +96,6 @@ function PwaRegistrar() {
 }
 
 function RootDocument() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const isAdminPath =
-    pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/admin-");
-
   return (
     <html lang="fa" dir="rtl" className="js antialiased" suppressHydrationWarning>
       <head>
@@ -113,7 +106,6 @@ function RootDocument() {
         <PreviewHostBridge />
         <AuthProvider>
           <Outlet />
-          {!isAdminPath && <MusicPlayer />}
         </AuthProvider>
         <Scripts />
       </body>
