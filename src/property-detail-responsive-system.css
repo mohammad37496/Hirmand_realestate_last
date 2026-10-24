@@ -316,14 +316,14 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
 }
 
 
-/* Compact floating music player: bottom-right on desktop and mobile. */
+/* Compact floating music player: bottom-left on desktop and mobile. */
 .music-player {
   position: fixed !important;
-  right: max(16px, env(safe-area-inset-right)) !important;
-  left: auto !important;
+  left: max(16px, env(safe-area-inset-left)) !important;
+  right: auto !important;
   bottom: max(16px, env(safe-area-inset-bottom)) !important;
   z-index: 1200 !important;
-  width: min(320px, calc(100vw - 32px)) !important;
+  width: min(280px, calc(100vw - 32px)) !important;
   max-width: calc(100vw - 32px) !important;
   padding: 10px 12px 8px !important;
   border-radius: 16px !important;
@@ -416,10 +416,10 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
 }
 @media (max-width: 760px) {
   .music-player {
-    right: max(12px, env(safe-area-inset-right)) !important;
-    left: auto !important;
+    left: max(12px, env(safe-area-inset-left)) !important;
+    right: auto !important;
     bottom: max(12px, env(safe-area-inset-bottom)) !important;
-    width: min(292px, calc(100vw - 24px)) !important;
+    width: min(260px, calc(100vw - 24px)) !important;
     max-width: calc(100vw - 24px) !important;
     padding: 8px 9px 7px !important;
     border-radius: 14px !important;
@@ -451,7 +451,8 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) main#top.prop
   .music-player {
     width: calc(100vw - 20px) !important;
     max-width: calc(100vw - 20px) !important;
-    right: max(10px, env(safe-area-inset-right)) !important;
+    left: max(10px, env(safe-area-inset-left)) !important;
+    right: auto !important;
     bottom: max(10px, env(safe-area-inset-bottom)) !important;
   }
   .music-player .music-compact-actions button[aria-label="تنظیمات پخش"] {
