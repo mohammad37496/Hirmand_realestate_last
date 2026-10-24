@@ -167,6 +167,16 @@ export const saveConsultant = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAdmin();
     const sql = await getSql();
+    // Keep property contact cards synchronized with the consultant record.
+    // Property records currently store a snapshot of contact_name/contact_phone;
+    // without this sync, changing a consultant's phone in the admin panel leaves
+    // already-assigned properties showing the old number.
+    const existing = await sql.query<{ name: string }>(
+      `select name from consultants where id = $1 limit 1`,
+      [data.id],
+    );
+    const previousName = String(existing[0]?.name ?? "").trim();
+
     await sql.query(
       `insert into consultants
         (id, name, role, phone, phone_display, icon, bio, whatsapp, telegram, eitaa, instagram, rubika, bale, igap, soroush, sort_order, is_active, updated_at)
@@ -209,6 +219,18 @@ export const saveConsultant = createServerFn({ method: "POST" })
         data.isActive,
       ],
     );
+
+    if (previousName) {
+      await sql.query(
+        `update properties
+            set contact_name = $1,
+                contact_phone = $2,
+                updated_at = current_timestamp
+          where lower(trim(contact_name)) = lower(trim($3))`,
+        [data.name.trim(), data.phone.trim(), previousName],
+      );
+    }
+
     return { ok: true };
   });
 
