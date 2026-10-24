@@ -40,21 +40,31 @@ export function SiteMusicPlayer() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState("");
+  const selectedTrackId = useRef<string | null>(null);
+  const requestVersion = useRef(0);
+
+  selectedTrackId.current = tracks[index]?.id ?? null;
 
   const loadTracks = useCallback(async () => {
+    const version = ++requestVersion.current;
     try {
       const response = await fetch("/api/music", { headers: { accept: "application/json" } });
       if (!response.ok) throw new Error("فهرست موسیقی دریافت نشد.");
       const data = (await response.json()) as { tracks?: PublicTrack[] };
       const next = Array.isArray(data.tracks)
-        ? data.tracks.filter((track) => track.id && (track.stream || track.src))
+        ? data.tracks.filter((track) => track && typeof track.id === "string" && track.id && (track.stream || track.src))
         : [];
+      if (version !== requestVersion.current) return;
+      const previousId = selectedTrackId.current;
+      const preservedIndex = previousId ? next.findIndex((track) => track.id === previousId) : -1;
+      if (previousId && preservedIndex < 0) setPlaying(false);
       setTracks(next);
-      setIndex((current) => Math.min(current, Math.max(0, next.length - 1)));
+      setIndex(preservedIndex >= 0 ? preservedIndex : (current) => Math.min(current, Math.max(0, next.length - 1)));
+      if (next.length) setError("");
     } catch {
-      setError("دریافت فهرست موسیقی ممکن نشد.");
+      if (version === requestVersion.current) setError("دریافت فهرست موسیقی ممکن نشد.");
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, []);
 
@@ -76,7 +86,16 @@ export function SiteMusicPlayer() {
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !source) return;
+    if (!audio) return;
+    if (!source) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      setPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
+      return;
+    }
     audio.pause();
     audio.src = source;
     audio.load();
@@ -133,12 +152,13 @@ export function SiteMusicPlayer() {
         onPlay={() => setPlaying(true)}
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
         onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+        onPause={() => setPlaying(false)}
         onEnded={() => tracks.length > 1 ? changeTrack(1) : setPlaying(false)}
-        onError={() => { if (activeTrack) setError("دریافت فایل صوتی ممکن نشد. اتصال سایت یا فایل را بررسی کنید."); }}
+        onError={() => { if (activeTrack) { setPlaying(false); setError("دریافت فایل صوتی ممکن نشد. اتصال سایت یا فایل را بررسی کنید."); } }}
       />
       {tracks.length === 0 ? (
         <div className="music-player-empty-copy" aria-live="polite">
-          <Music2 size={18} /> {loading ? "در حال بارگذاری موسیقی…" : "به‌زودی با موسیقی هیرمند"}
+          <Music2 size={18} /> {loading ? "در حال بارگذاری موسیقی…" : error || "به‌زودی با موسیقی هیرمند"}
         </div>
       ) : (
         <>

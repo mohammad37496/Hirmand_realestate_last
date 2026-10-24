@@ -91,6 +91,18 @@ export default defineEventHandler(async (event) => {
     }
 
     if (!upstream.ok) {
+      if (upstream.status === 416) {
+        const headers: Record<string, string> = {
+          "cache-control": CACHE_CONTROL,
+          "accept-ranges": upstream.headers.get("accept-ranges") || "bytes",
+          "content-disposition": "inline",
+          "content-type": upstream.headers.get("content-type") || String(row.mime_type || "audio/mpeg"),
+          "x-content-type-options": "nosniff",
+        };
+        copyHeader(upstream, headers, "content-range");
+        copyHeader(upstream, headers, "content-length");
+        return new Response(upstream.body, { status: 416, headers });
+      }
       const status = upstream.status === 404 ? 404 : 502;
       throw createError({
         statusCode: status,

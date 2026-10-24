@@ -388,10 +388,10 @@ testRunner.test("responsive guardrails load before the scoped final music-player
   );
   assert.equal(
     stylesheetLinks.at(-1),
-    "musicPlayerRedesignCss",
+    "musicPlayerCss",
     "the player-only final layer must load last to correct the dock without undoing other responsive guardrails",
   );
-  assert.match(rootRoute, /import musicPlayerRedesignCss from "\.\.\/music-player-redesign\.css\?url";/);
+  assert.match(rootRoute, /import musicPlayerCss from "\.\.\/music-player\.css\?url";/);
 });
 
 testRunner.test("responsive browser smoke covers the required viewport matrix", () => {

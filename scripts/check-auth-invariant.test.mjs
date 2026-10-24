@@ -99,7 +99,9 @@ test("the CLI reports rather than silently passing when run via a symlink", asyn
   // A check whose exit code is the whole signal must never no-op to 0 because
   // process.argv[1] came in through a symlinked path.
   const link = join(mkdtempSync(join(tmpdir(), "auth-invariant-link-")), "scripts");
-  symlinkSync(join(projectRoot(), "scripts"), link);
+  // Windows can block symbolic-link creation without Developer Mode; a
+  // directory junction exercises the same realpath behavior without elevation.
+  symlinkSync(join(projectRoot(), "scripts"), link, "junction");
   const error = await promisify(execFile)(process.execPath, [
     join(link, "check-auth-invariant.mjs"),
     "--dev-url",

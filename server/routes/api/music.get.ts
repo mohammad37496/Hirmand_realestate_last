@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   const rows = await sql.query<Record<string, unknown>>(
     `select id, title, artist, url, position
      from music_tracks where active = true
-     order by position asc, created_at asc`,
+     order by position asc, created_at desc`,
   );
 
   return {
