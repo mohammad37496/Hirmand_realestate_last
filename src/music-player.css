@@ -1,7 +1,7 @@
 /* Hirmand's single global music dock: compact on desktop, touch-first on mobile. */
 .music-player-float {
   position: fixed !important;
-  inset: auto 20px 20px auto !important;
+  inset: auto auto 20px 20px !important;
   z-index: 1150 !important;
   box-sizing: border-box;
   width: 330px !important;
@@ -74,7 +74,9 @@ body:has(.music-player-float:not(.music-player-empty)) .floating-call-menu { bot
 
 @media (max-width: 720px) {
   .music-player-float {
-    inset: auto 10px calc(78px + env(safe-area-inset-bottom)) 10px !important;
+    inset: auto auto calc(78px + env(safe-area-inset-bottom)) 10px !important;
+    right: 10px !important;
+    left: 10px !important;
     width: auto !important;
     height: auto;
     min-height: 116px;
