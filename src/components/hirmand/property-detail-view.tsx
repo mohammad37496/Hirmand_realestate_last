@@ -580,7 +580,10 @@ function Gallery({ property }: { property: Property }) {
 }
 
 function RelatedPropertyCard({ property }: { property: Property }) {
-  const image = (property.images ?? []).find((src) => cleanText(src) && !isPropertyFallbackImage(src) && !isVideoUrl(src));
+  const realImage = (property.images ?? []).find((src) => cleanText(src) && !isPropertyFallbackImage(src) && !isVideoUrl(src));
+  // Related cards should use the same local category photos as the main gallery
+  // when a listing has no uploaded photos, rather than showing a false empty state.
+  const image = realImage || getPropertyFallbackImages(property.propertyType)[0];
   const prices = priceLines(property);
   const specs = [
     property.areaM2 != null ? property.areaM2.toLocaleString("fa-IR") + " متر" : "",
