@@ -95,6 +95,9 @@ export function MusicPlayer() {
   const playRequestedRef = useRef(false);
   const sourceCandidatesRef = useRef<string[]>([]);
   const sourceIndexRef = useRef(0);
+  // A media error and play() rejection can fire for the same failure. Keep
+  // them from advancing the fallback list twice or reporting a false failure.
+  const fallbackSwitchingRef = useRef(false);
 
   const [manifest, setManifest] = useState<MusicManifest>({ tracks: [] });
   const [index, setIndex] = useState(0);
@@ -190,8 +193,9 @@ export function MusicPlayer() {
     const candidates = sourceCandidatesRef.current;
     const nextIndex = sourceIndexRef.current + 1;
 
-    if (!audio || nextIndex >= candidates.length) return false;
+    if (!audio || fallbackSwitchingRef.current || nextIndex >= candidates.length) return false;
 
+    fallbackSwitchingRef.current = true;
     sourceIndexRef.current = nextIndex;
     setLoadError(false);
     setAutoplayBlocked(false);
@@ -209,6 +213,7 @@ export function MusicPlayer() {
     const candidates = sourceCandidatesFor(currentTrack);
     sourceCandidatesRef.current = candidates;
     sourceIndexRef.current = 0;
+    fallbackSwitchingRef.current = false;
     setCurrentTime(0);
     setDuration(0);
     setBuffered(0);
@@ -308,16 +313,22 @@ export function MusicPlayer() {
       setAutoplayBlocked(false);
       setLoadError(false);
     } catch (error) {
+      // onError may already be handling this same failed source. Let that
+      // single fallback attempt finish instead of racing it from play().
+      if (fallbackSwitchingRef.current) return;
+
       if (switchToFallbackSource()) {
         try {
           await waitForMediaReady(audio);
           await audio.play();
+          fallbackSwitchingRef.current = false;
           playRequestedRef.current = false;
           setIsPlaying(true);
           setAutoplayBlocked(false);
           setLoadError(false);
           return;
         } catch (fallbackError) {
+          fallbackSwitchingRef.current = false;
           playRequestedRef.current = false;
           setIsPlaying(false);
           if (isAutoplayBlocked(fallbackError)) setAutoplayBlocked(true);
@@ -331,7 +342,7 @@ export function MusicPlayer() {
       if (isAutoplayBlocked(error)) setAutoplayBlocked(true);
       else setLoadError(true);
     } finally {
-      setIsBuffering(false);
+      if (!fallbackSwitchingRef.current) setIsBuffering(false);
     }
   }
 
@@ -473,17 +484,31 @@ export function MusicPlayer() {
         onPause={() => setIsPlaying(false)}
         onEnded={handleEnded}
         onError={() => {
+          // Ignore the error event emitted by a source we are already replacing.
+          if (fallbackSwitchingRef.current) return;
           if (playRequestedRef.current && switchToFallbackSource()) {
             const fallback = audioRef.current;
             if (fallback) {
               void waitForMediaReady(fallback)
                 .then(() => fallback.play())
+                .then(() => {
+                  fallbackSwitchingRef.current = false;
+                  playRequestedRef.current = false;
+                  setIsPlaying(true);
+                  setAutoplayBlocked(false);
+                  setLoadError(false);
+                  setIsBuffering(false);
+                })
                 .catch((error) => {
+                  fallbackSwitchingRef.current = false;
                   playRequestedRef.current = false;
                   setIsPlaying(false);
+                  setIsBuffering(false);
                   if (isAutoplayBlocked(error)) setAutoplayBlocked(true);
                   else setLoadError(true);
                 });
+            } else {
+              fallbackSwitchingRef.current = false;
             }
             return;
           }
