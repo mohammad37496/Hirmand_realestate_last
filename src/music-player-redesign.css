@@ -882,7 +882,7 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player
   right: max(12px, env(safe-area-inset-right)) !important;
   left: auto !important;
   inset-inline-start: auto !important;
-  inset-inline-end: max(12px, env(safe-area-inset-right)) !important;
+  inset-inline-end: auto !important;
   bottom: max(12px, env(safe-area-inset-bottom)) !important;
   transform: none !important;
   box-sizing: border-box !important;
