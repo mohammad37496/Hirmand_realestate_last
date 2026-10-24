@@ -873,30 +873,118 @@ body:has(.music-player:not(.music-player-empty):not(.is-hidden)) .floating-call-
   }
 }
 
-/* SINGLE GLOBAL DOCK: same desktop dimensions as the property-detail player. */
+/* SINGLE GLOBAL PLAYER: one component and one responsive layout on every public route. */
 html body:has(.music-player:not(.music-player-empty)) .music-player:not(.music-player-empty),
 .music-player:not(.music-player-empty),
 html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) {
   position: fixed !important;
-  z-index: 120 !important;
+  z-index: 1200 !important;
   top: auto !important;
   right: max(12px, env(safe-area-inset-right)) !important;
   left: auto !important;
-  inset-inline-start: auto !important;
-  inset-inline-end: auto !important;
   bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  width: min(400px, calc(100vw - 24px)) !important;
+  max-width: min(400px, calc(100vw - 24px)) !important;
+  min-height: 0 !important;
+  padding: 12px 16px 10px !important;
+  border-radius: 22px !important;
   transform: none !important;
   box-sizing: border-box !important;
 }
 
-@media (min-width: 721px) {
+html body:has(.music-player:not(.music-player-empty)) .music-player:not(.music-player-empty) .music-player-main,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-player-main,
+.music-player:not(.music-player-empty) .music-player-main {
+  min-height: 46px !important;
+  gap: 8px !important;
+}
+
+html body:has(.music-player:not(.music-player-empty)) .music-player:not(.music-player-empty) .music-cover,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-cover,
+.music-player:not(.music-player-empty) .music-cover {
+  flex: 0 0 46px !important;
+  width: 46px !important;
+  min-width: 46px !important;
+  height: 46px !important;
+}
+
+html body:has(.music-player:not(.music-player-empty)) .music-player:not(.music-player-empty) .music-transport button,
+html body:has(.music-player:not(.music-player-empty)) .music-player:not(.music-player-empty) .music-compact-actions button,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-transport button,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-compact-actions button,
+.music-player:not(.music-player-empty) .music-transport button,
+.music-player:not(.music-player-empty) .music-compact-actions button {
+  flex-basis: 38px !important;
+  width: 38px !important;
+  min-width: 38px !important;
+  height: 38px !important;
+  min-height: 38px !important;
+}
+
+html body:has(.music-player:not(.music-player-empty)) .music-player:not(.music-player-empty) .music-transport .music-play,
+html body:has(.music-player:not(.music-player-empty)) .music-player:not(.music-player-empty) .music-play,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-transport .music-play,
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-play,
+.music-player:not(.music-player-empty) .music-transport .music-play,
+.music-player:not(.music-player-empty) .music-play {
+  flex-basis: 46px !important;
+  width: 46px !important;
+  min-width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+}
+
+html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-progress-row,
+.music-player:not(.music-player-empty) .music-progress-row {
+  display: grid !important;
+}
+
+@media (max-width: 720px) {
   html body:has(.music-player:not(.music-player-empty)) .music-player:not(.music-player-empty),
-  .music-player:not(.music-player-empty),
-  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) {
-    width: min(400px, calc(100vw - 36px)) !important;
-    max-width: min(400px, calc(100vw - 36px)) !important;
-    min-height: 0 !important;
-    padding: 12px 16px 10px !important;
-    border-radius: 22px !important;
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty),
+  .music-player:not(.music-player-empty) {
+    right: max(10px, env(safe-area-inset-right)) !important;
+    left: max(10px, env(safe-area-inset-left)) !important;
+    bottom: max(12px, env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    max-width: none !important;
+    padding: 8px 10px !important;
+    border-radius: 16px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-player-main,
+  .music-player:not(.music-player-empty) .music-player-main {
+    min-height: 38px !important;
+    gap: 6px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-cover,
+  .music-player:not(.music-player-empty) .music-cover {
+    flex-basis: 36px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-transport button,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-compact-actions button,
+  .music-player:not(.music-player-empty) .music-transport button,
+  .music-player:not(.music-player-empty) .music-compact-actions button {
+    flex-basis: 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 34px !important;
+    min-height: 34px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-transport .music-play,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .music-player:not(.music-player-empty) .music-play,
+  .music-player:not(.music-player-empty) .music-transport .music-play,
+  .music-player:not(.music-player-empty) .music-play {
+    flex-basis: 38px !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
   }
 }
