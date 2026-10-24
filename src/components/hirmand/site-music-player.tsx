@@ -145,7 +145,7 @@ export function SiteMusicPlayer() {
   if (pathname.startsWith("/admin")) return null;
 
   return (
-    <aside className={`music-player music-player-float${tracks.length ? "" : " music-player-empty"}${expanded ? " is-expanded" : ""}`} aria-label="پخش موسیقی هیرمند">
+    <aside className={`music-player-float${tracks.length ? "" : " music-player-float-empty"}${expanded ? " is-expanded" : ""}`} aria-label="پخش موسیقی هیرمند">
       <audio
         ref={audioRef}
         preload="metadata"
