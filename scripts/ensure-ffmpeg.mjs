@@ -20,7 +20,10 @@ const TARGET_PATH = join(TARGET_DIR, process.platform === "win32" ? "ffmpeg.exe"
 const FONT_VERSION = "v33.003";
 const FONT_DIR = join(PROJECT_ROOT, ".runtime", "fonts");
 const FONT_PATH = join(FONT_DIR, "Vazirmatn-Regular.ttf");
-const FONT_URL = `https://raw.githubusercontent.com/rastikerdar/vazirmatn/${FONT_VERSION}/fonts/ttf/Vazirmatn-Regular.ttf`;
+const FONT_URLS = [
+  `https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@${FONT_VERSION}/fonts/ttf/Vazirmatn-Regular.ttf`,
+  `https://raw.githubusercontent.com/rastikerdar/vazirmatn/${FONT_VERSION}/fonts/ttf/Vazirmatn-Regular.ttf`,
+];
 const FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972";
 
 const ASSETS = {
@@ -129,9 +132,25 @@ async function ensureWatermarkFont() {
   }
 
   if (!existsSync(FONT_PATH)) {
-    console.log(`[font] Downloading verified Vazirmatn ${FONT_VERSION} TrueType font…`);
-    const buffer = await download(FONT_URL, 0, "Vazirmatn font");
-    verifyGitBlob(buffer, FONT_GIT_BLOB_SHA1);
+    console.log(`[font] Downloading verified Vazirmatn ${FONT_VERSION} TrueType font from redundant mirrors…`);
+    let buffer = null;
+    const failures = [];
+    for (const url of FONT_URLS) {
+      try {
+        const candidate = await download(url, 0, "Vazirmatn font");
+        verifyGitBlob(candidate, FONT_GIT_BLOB_SHA1);
+        buffer = candidate;
+        console.log(`[font] Downloaded font from ${new URL(url).host}.`);
+        break;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push(`${new URL(url).host}: ${message}`);
+        console.warn(`[font] Mirror failed (${new URL(url).host}): ${message}`);
+      }
+    }
+    if (!buffer) {
+      throw new Error(`Could not download checksum-verified Vazirmatn font from any mirror. ${failures.join(" | ")}`);
+    }
     const tempPath = `${FONT_PATH}.tmp-${process.pid}`;
     try {
       writeFileSync(tempPath, buffer);
