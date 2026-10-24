@@ -67,6 +67,14 @@ export type ChunkedUploadConfig = {
   unsupportedTypeMessage: string;
   sizeLimitMessage: (limitMb: number) => string;
   textFields?: TextField[];
+  /** Recover a completed business record if its short-lived upload receipt was pruned. */
+  recoverCompleted?: (input: {
+    uploadId: string;
+    filename: string;
+    contentType: string;
+    sizeBytes: number;
+    text: Record<string, string>;
+  }) => Promise<Record<string, unknown> | null>;
   /** Called once every chunk arrived; persists the business record. */
   finish: (input: {
     stored: StoredMedia;
@@ -268,25 +276,92 @@ export async function handleChunkedUpload(
       text[field.column] = value;
     }
 
-    // Count only a syntactically valid, type- and size-accepted begin request.
-    // Keep each upload pathway's quota independent so customer submissions,
-    // area photos and admin property galleries do not block one another.
-    // This bucket stays separate from login and other sensitive admin APIs.
+    const totalChunks = Math.max(1, Math.ceil(sizeBytes / chunkSize));
+    const requestedUploadId = typeof payload.uploadId === "string" ? payload.uploadId.trim() : "";
+    if (requestedUploadId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedUploadId)) {
+      throw httpError("شناسهٔ تلاش مجدد معتبر نیست.");
+    }
+    const uploadId = requestedUploadId || crypto.randomUUID();
+    const sql = await getSql();
+
+    // A stable client ID lets a retry recover the same upload session and its
+    // receipt after a lost response. Validate the immutable metadata before
+    // reusing an ID; never let one upload ID be repurposed for another file.
+    const existingRows = requestedUploadId
+      ? await sql.query<SessionRow>(
+          "select * from media_upload_sessions where id = $1 and kind = $2 limit 1",
+          [uploadId, config.kind],
+        )
+      : [];
+    const existing = existingRows[0];
+    if (!existing && requestedUploadId && config.recoverCompleted) {
+      const recovered = await config.recoverCompleted({
+        uploadId,
+        filename,
+        contentType,
+        sizeBytes,
+        text,
+      });
+      if (recovered) {
+        return {
+          uploadId,
+          totalChunks,
+          totalBytes: sizeBytes,
+          completed: true,
+          response: recovered,
+        };
+      }
+    }
+    if (existing) {
+      const expectedPathSuffix = "-" + safePathSegment(filename);
+      const sameRequest =
+        String(existing.pathname ?? "").endsWith(expectedPathSuffix) &&
+        String(existing.content_type ?? "") === contentType &&
+        String(existing.title ?? "") === (text.title ?? "") &&
+        String(existing.artist ?? "") === (text.artist ?? "") &&
+        Number(existing.total_bytes) === sizeBytes &&
+        Number(existing.total_chunks) === totalChunks;
+      if (!sameRequest) throw httpError("این شناسه قبلاً برای فایل دیگری استفاده شده است.", 409);
+
+      const receipt = existing.completion_result;
+      if (receipt && typeof receipt === "object") {
+        return {
+          uploadId,
+          totalChunks: Number(existing.total_chunks) || totalChunks,
+          totalBytes: Number(existing.total_bytes) || sizeBytes,
+          completed: true,
+          response: {
+            ...(receipt as Record<string, unknown>),
+            storage: String(existing.stored_storage ?? "database"),
+          },
+        };
+      }
+      return {
+        uploadId,
+        chunkSize,
+        totalChunks: Number(existing.total_chunks) || totalChunks,
+        totalBytes: Number(existing.total_bytes) || sizeBytes,
+        maxBytes: config.maxBytes,
+        assembled: Boolean(existing.stored_url),
+      };
+    }
+
+    // Count only a syntactically valid, type- and size-accepted new begin.
+    // Retries of a known upload ID reuse its existing session without consuming
+    // another begin quota slot.
     const attempt = await consumeAdminAttempt(
       `media-upload:begin:${config.pathPrefix}:${clientFingerprint(event)}`,
       30,
     );
     if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
 
-    const totalChunks = Math.max(1, Math.ceil(sizeBytes / chunkSize));
-    const uploadId = crypto.randomUUID();
     const pathname = `${config.pathPrefix}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${safePathSegment(filename)}`;
-    const sql = await getSql();
 
     await sql.query(
       `insert into media_upload_sessions
          (id, pathname, content_type, title, artist, total_chunks, total_bytes, kind)
-       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+       values ($1, $2, $3, $4, $5, $6, $7, $8)
+       on conflict (id) do nothing`,
       [
         uploadId,
         pathname,
@@ -299,14 +374,42 @@ export async function handleChunkedUpload(
       ],
     );
 
+    const confirmedRows = await sql.query<SessionRow>(
+      "select * from media_upload_sessions where id = $1 and kind = $2 limit 1",
+      [uploadId, config.kind],
+    );
+    const confirmed = confirmedRows[0];
+    if (!confirmed) throw httpError("نشست آپلود ایجاد نشد؛ دوباره تلاش کنید.", 503);
+    const sameRequest =
+      String(confirmed.pathname ?? "").endsWith("-" + safePathSegment(filename)) &&
+      String(confirmed.content_type ?? "") === contentType &&
+      String(confirmed.title ?? "") === (text.title ?? "") &&
+      String(confirmed.artist ?? "") === (text.artist ?? "") &&
+      Number(confirmed.total_bytes) === sizeBytes &&
+      Number(confirmed.total_chunks) === totalChunks;
+    if (!sameRequest) throw httpError("این شناسه قبلاً برای فایل دیگری استفاده شده است.", 409);
+    if (confirmed.completion_result && typeof confirmed.completion_result === "object") {
+      return {
+        uploadId,
+        totalChunks: Number(confirmed.total_chunks) || totalChunks,
+        totalBytes: Number(confirmed.total_bytes) || sizeBytes,
+        completed: true,
+        response: {
+          ...(confirmed.completion_result as Record<string, unknown>),
+          storage: String(confirmed.stored_storage ?? "database"),
+        },
+      };
+    }
+
     void pruneStaleUploadSessions().catch(() => undefined);
 
     return {
       uploadId,
       chunkSize,
-      totalChunks,
-      totalBytes: sizeBytes,
+      totalChunks: Number(confirmed.total_chunks) || totalChunks,
+      totalBytes: Number(confirmed.total_bytes) || sizeBytes,
       maxBytes: config.maxBytes,
+      assembled: Boolean(confirmed.stored_url),
     };
   }
 

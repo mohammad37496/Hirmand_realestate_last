@@ -140,7 +140,19 @@ export function mapTrackRow(row: Record<string, unknown>): MusicTrack {
   };
 }
 
+export async function findMusicTrackById(id: string): Promise<MusicTrack | null> {
+  if (dbSource === "unconfigured") return null;
+  const sql = await getSql();
+  const rows = await sql.query<Record<string, unknown>>(
+    `select id, title, artist, url, mime_type, size_bytes, active, position, created_at
+     from music_tracks where id = $1 limit 1`,
+    [id],
+  );
+  return rows[0] ? mapTrackRow(rows[0]) : null;
+}
+
 export async function insertMusicTrack(input: {
+  id?: string;
   title: string;
   artist: string;
   url: string;
@@ -158,9 +170,10 @@ export async function insertMusicTrack(input: {
        $1, $2, $3, $4, $5, $6, $7,
        coalesce((select max(position) + 1 from music_tracks), 0)
      )
+     on conflict (id) do update set id = music_tracks.id
      returning id, title, artist, url, mime_type, size_bytes, active, position, created_at`,
     [
-      crypto.randomUUID(),
+      input.id ?? crypto.randomUUID(),
       input.title,
       input.artist,
       input.url,

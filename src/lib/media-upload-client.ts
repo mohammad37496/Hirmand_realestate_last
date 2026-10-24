@@ -24,6 +24,9 @@ type BeginResponse = {
   maxBytes?: number;
   statusMessage?: string;
   message?: string;
+  completed?: boolean;
+  assembled?: boolean;
+  response?: Record<string, unknown>;
 };
 
 /**
@@ -113,6 +116,11 @@ export function uploadErrorMessage(
   return fallback;
 }
 
+function uploadRequestSignal(signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(45_000);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 export async function uploadInChunks(options: {
   endpoint: string;
   file: File;
@@ -127,6 +135,8 @@ export async function uploadInChunks(options: {
   rejectedMessage?: string;
   /** Replays finalization for routes whose finish step is idempotent. */
   retryCompletion?: boolean;
+  /** Stable ID retained by the caller so a retry can recover an ambiguous finish. */
+  uploadId?: string;
 }): Promise<ChunkedUploadResult> {
   const {
     endpoint,
@@ -137,7 +147,7 @@ export async function uploadInChunks(options: {
     onStatus,
     signal,
   } = options;
-  const maxCompletionAttempts = options.retryCompletion ? 3 : 1;
+  const maxCompletionAttempts = options.retryCompletion ? 5 : 1;
   const rejected = options.rejectedMessage ?? "فایل انتخاب‌شده قابل آپلود نیست.";
 
   onProgress?.(0);
@@ -148,12 +158,13 @@ export async function uploadInChunks(options: {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       action: "begin",
+      ...(options.uploadId ? { uploadId: options.uploadId } : {}),
       filename: file.name,
       contentType,
       sizeBytes: file.size,
       ...(payload ?? {}),
     }),
-    signal,
+    signal: uploadRequestSignal(signal),
   });
 
   const begin = (await readJson(beginResponse)) as BeginResponse | null;
@@ -163,6 +174,16 @@ export async function uploadInChunks(options: {
   }
 
   const uploadId = begin.uploadId;
+  if (begin.completed && begin.response && typeof begin.response === "object") {
+    onProgress?.(100);
+    onStatus?.("آپلود قبلی با موفقیت ثبت شده بود؛ نتیجه بازیابی شد.");
+    return {
+      uploadId,
+      totalChunks: Number(begin.totalChunks) || 0,
+      totalBytes: Number(begin.totalBytes) || file.size,
+      response: begin.response,
+    };
+  }
   const chunkSize =
     Number(begin.chunkSize) || 2 * 1024 * 1024;
   const totalChunks = Math.max(
@@ -174,7 +195,7 @@ export async function uploadInChunks(options: {
   try {
     let sent = 0;
     for (
-      let index = 0;
+      let index = begin.assembled ? totalChunks : 0;
       index < totalChunks;
       index += 1
     ) {
@@ -200,7 +221,7 @@ export async function uploadInChunks(options: {
               "x-upload-index": String(index),
             },
             body: slice,
-            signal,
+            signal: uploadRequestSignal(signal),
           });
           const chunkAcknowledgement =
             (await readJson(chunkResponse)) as Record<string, unknown> | null;
@@ -264,7 +285,7 @@ export async function uploadInChunks(options: {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ action: "complete", uploadId }),
-          signal,
+          signal: uploadRequestSignal(signal),
         });
       } catch (error) {
         if (signal?.aborted || attempt + 1 >= maxCompletionAttempts)
@@ -326,13 +347,17 @@ export async function uploadInChunks(options: {
       response: (complete ?? {}) as Record<string, unknown>,
     };
   } catch (error) {
-    // Never leave a half-filled session behind.
-    void fetch(endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "abort", uploadId }),
-      keepalive: true,
-    }).catch(() => undefined);
+    // For retryable uploads, retain the session and its receipt/chunks under the
+    // stable ID. The server prunes stale sessions; aborting here would destroy
+    // the only way to recover a successful-but-unacknowledged finalization.
+    if (!options.retryCompletion) {
+      void fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "abort", uploadId }),
+        keepalive: true,
+      }).catch(() => undefined);
+    }
     throw error;
   }
 }

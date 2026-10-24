@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
+import { parseMusicFilename } from "@/lib/music-filename";
 
 type AdminMusicTrack = {
   id: string;
@@ -27,6 +28,125 @@ type AdminMusicTrack = {
   createdAt: string;
 };
 
+type PersistedUploadItem = {
+  file: Blob;
+  name: string;
+  type: string;
+  lastModified: number;
+  uploadId: string;
+  metadata: { title: string; artist: string };
+  message: string;
+};
+
+const MUSIC_UPLOAD_QUEUE_DB = "hirmand-admin-music-upload-queue";
+let musicQueueWriteTail: Promise<void> = Promise.resolve();
+
+function openMusicUploadQueueDb(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === "undefined") return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const request = indexedDB.open(MUSIC_UPLOAD_QUEUE_DB, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains("queue")) {
+        request.result.createObjectStore("queue", { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
+  });
+}
+
+async function writeMusicUploadQueueNow(
+  files: File[],
+  uploadIds: string[],
+  metadata: Array<{ title: string; artist: string }>,
+  messages: string[],
+) {
+  const db = await openMusicUploadQueueDb();
+  if (!db) return;
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction("queue", "readwrite");
+      const store = transaction.objectStore("queue");
+      if (!files.length) store.delete("active");
+      else {
+        const items: PersistedUploadItem[] = files.map((file, index) => ({
+          file,
+          name: file.name,
+          type: file.type,
+          lastModified: file.lastModified,
+          uploadId: uploadIds[index] ?? crypto.randomUUID(),
+          metadata: metadata[index] ?? parseMusicFilename(file.name),
+          message: messages[index] ?? "",
+        }));
+        store.put({ id: "active", items });
+      }
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  } catch (error) {
+    console.warn("[music-upload] Browser queue persistence unavailable", error);
+  } finally {
+    db.close();
+  }
+}
+
+function persistMusicUploadQueue(
+  files: File[],
+  uploadIds: string[],
+  metadata: Array<{ title: string; artist: string }>,
+  messages: string[],
+) {
+  // IndexedDB writes are serialized so rapid metadata edits cannot let an older
+  // write finish last and overwrite the newest title/artist or queue contents.
+  const snapshot = {
+    files: [...files],
+    uploadIds: [...uploadIds],
+    metadata: metadata.map((item) => ({ ...item })),
+    messages: [...messages],
+  };
+  const write = () => writeMusicUploadQueueNow(
+    snapshot.files,
+    snapshot.uploadIds,
+    snapshot.metadata,
+    snapshot.messages,
+  );
+  musicQueueWriteTail = musicQueueWriteTail.then(write, write);
+  return musicQueueWriteTail;
+}
+
+async function readMusicUploadQueue(): Promise<{
+  files: File[];
+  uploadIds: string[];
+  metadata: Array<{ title: string; artist: string }>;
+  messages: string[];
+} | null> {
+  const db = await openMusicUploadQueueDb();
+  if (!db) return null;
+  try {
+    const record = await new Promise<{ items?: PersistedUploadItem[] } | undefined>((resolve, reject) => {
+      const request = db.transaction("queue", "readonly").objectStore("queue").get("active");
+      request.onsuccess = () => resolve(request.result as { items?: PersistedUploadItem[] } | undefined);
+      request.onerror = () => reject(request.error);
+    });
+    const items = Array.isArray(record?.items) ? record.items : [];
+    const valid = items.filter((item) => item?.file instanceof Blob && typeof item.name === "string" && typeof item.uploadId === "string");
+    if (!valid.length) return null;
+    return {
+      files: valid.map((item) => new File([item.file], item.name, { type: item.type, lastModified: item.lastModified })),
+      uploadIds: valid.map((item) => item.uploadId),
+      metadata: valid.map((item) => item.metadata ?? parseMusicFilename(item.name)),
+      messages: valid.map((item) => item.message ?? ""),
+    };
+  } catch (error) {
+    console.warn("[music-upload] Could not restore browser upload queue", error);
+    return null;
+  } finally {
+    db.close();
+  }
+}
+
 const AUDIO_MIME_TYPES: Record<string, string> = {
   mp3: "audio/mpeg",
   ogg: "audio/ogg",
@@ -36,33 +156,6 @@ const AUDIO_MIME_TYPES: Record<string, string> = {
   aac: "audio/aac",
 };
 
-
-/** Extract metadata from names such as "001 - Yo_Yo_Ma_Title.mp3". */
-function parseMusicFilename(filename: string): { title: string; artist: string } {
-  const withoutExtension = filename.replace(/\.[^.]+$/, "");
-  const cleaned = withoutExtension.replace(/^\s*\d+\s*[-_.—]+\s*/, "").trim();
-  const normalized = cleaned.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
-  const artistPrefixes = ["Yo Yo Ma", "Carl Davis", "Anja Lechner"];
-  const lower = normalized.toLocaleLowerCase();
-  const matchedArtist = artistPrefixes.find((name) =>
-    lower === name.toLocaleLowerCase() || lower.startsWith(name.toLocaleLowerCase() + " "),
-  );
-  let artist = "";
-  let title = normalized;
-  if (matchedArtist) {
-    artist = normalized.slice(0, matchedArtist.length).trim();
-    title = normalized.slice(matchedArtist.length).trim();
-  } else {
-    const words = normalized.split(" ");
-    if (words.length >= 3) {
-      artist = words.slice(0, 2).join(" ");
-      title = words.slice(2).join(" ");
-    }
-  }
-  title = title.replace(/\s*[,;]\s*/g, ", ").replace(/\s+/g, " ").trim();
-  artist = artist.replace(/\s+/g, " ").trim();
-  return { title: title || normalized || "آهنگ بدون عنوان", artist };
-}
 
 function formatSize(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "—";
@@ -103,8 +196,12 @@ export function AdminMusicManager() {
   const [artist, setArtist] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedUploadIds, setSelectedUploadIds] = useState<string[]>([]);
+  const [selectedMetadata, setSelectedMetadata] = useState<Array<{ title: string; artist: string }>>([]);
   const [retryPending, setRetryPending] = useState(false);
+  const [queueReady, setQueueReady] = useState(false);
   const [failedUploadMessages, setFailedUploadMessages] = useState<string[]>([]);
+  const [retryingIndex, setRetryingIndex] = useState<number | null>(null);
   const [batchStatus, setBatchStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -119,6 +216,17 @@ export function AdminMusicManager() {
   const [savingOrder, setSavingOrder] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const busyRef = useRef(false);
+
+  function newUploadId() {
+    return crypto.randomUUID();
+  }
+
+  function updateQueueMetadata(index: number, patch: Partial<{ title: string; artist: string }>) {
+    const next = selectedMetadata.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item);
+    setSelectedMetadata(next);
+    void persistMusicUploadQueue(selectedFiles, selectedUploadIds, next, failedUploadMessages);
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,6 +253,23 @@ export function AdminMusicManager() {
 
   useEffect(() => {
     void load();
+    void readMusicUploadQueue().then((queue) => {
+      if (queue) {
+        const restoredMessages = queue.messages.map((message, index) =>
+          message || (queue.files[index]!.name + ": وضعیت آپلود تأیید نشده؛ برای ادامه تلاش کنید"),
+        );
+        setSelectedFiles(queue.files);
+        setSelectedUploadIds(queue.uploadIds);
+        setSelectedMetadata(queue.metadata);
+        setFailedUploadMessages(restoredMessages);
+        setRetryPending(queue.files.length > 0);
+        setFile(queue.files.length === 1 ? queue.files[0]! : null);
+        if (queue.files.length === 1) {
+          setTitle(queue.metadata[0]?.title ?? "");
+          setArtist(queue.metadata[0]?.artist ?? "");
+        }
+      }
+    }).finally(() => setQueueReady(true));
     return () => {
       audioRef.current?.pause();
       audioRef.current = null;
@@ -227,14 +352,10 @@ export function AdminMusicManager() {
 
   async function uploadTrack(event: FormEvent) {
     event.preventDefault();
+    if (busyRef.current) return;
     const filesToUpload = selectedFiles.length > 0 ? selectedFiles : file ? [file] : [];
     if (filesToUpload.length === 0) {
       toast.error("یک یا چند فایل صوتی انتخاب کنید.");
-      return;
-    }
-    const invalidFiles = filesToUpload.filter((item) => !normalizedAudioFile(item));
-    if (invalidFiles.length > 0) {
-      toast.error("این فرمت پشتیبانی نمی‌شود: " + invalidFiles.map((item) => item.name).join("، "));
       return;
     }
     setBusy(true);
@@ -244,18 +365,30 @@ export function AdminMusicManager() {
     const uploaded: AdminMusicTrack[] = [];
     const failures: string[] = [];
     const failedFiles: File[] = [];
+    const failedUploadIds: string[] = [];
+    const failedMetadata: Array<{ title: string; artist: string }> = [];
+    const idsToUpload = selectedUploadIds.length === filesToUpload.length
+      ? selectedUploadIds
+      : filesToUpload.map(() => newUploadId());
+    const metadataToUpload = selectedMetadata.length === filesToUpload.length
+      ? selectedMetadata
+      : filesToUpload.map((item) => parseMusicFilename(item.name));
+    busyRef.current = true;
     try {
       for (let index = 0; index < filesToUpload.length; index += 1) {
         const originalFile = filesToUpload[index]!;
-        const normalized = normalizedAudioFile(originalFile);
-        if (!normalized) {
-          failures.push(originalFile.name + ": فرمت پشتیبانی نمی‌شود");
-          continue;
-        }
-        const parsed = parseMusicFilename(originalFile.name);
+        const parsed = metadataToUpload[index]!;
         const useManualMetadata = filesToUpload.length === 1;
         const trackTitle = (useManualMetadata && title.trim() ? title.trim() : parsed.title).slice(0, 160);
         const trackArtist = (useManualMetadata && artist.trim() ? artist.trim() : parsed.artist).slice(0, 120);
+        const normalized = normalizedAudioFile(originalFile);
+        if (!normalized) {
+          failures.push(originalFile.name + ": فرمت پشتیبانی نمی‌شود");
+          failedFiles.push(originalFile);
+          failedUploadIds.push(idsToUpload[index]!);
+          failedMetadata.push({ title: trackTitle, artist: trackArtist });
+          continue;
+        }
         setBatchStatus("آهنگ " + (index + 1) + " از " + filesToUpload.length + ": " + originalFile.name);
         setStage("در حال آپلود آهنگ " + (index + 1) + " از " + filesToUpload.length + "…");
         setUploadProgress(Math.round((index / filesToUpload.length) * 100));
@@ -265,6 +398,7 @@ export function AdminMusicManager() {
             file: normalized.file,
             contentType: normalized.mimeType,
             payload: { title: trackTitle, artist: trackArtist },
+            uploadId: idsToUpload[index],
             signal: new AbortController().signal,
             rejectedMessage: "فایل انتخاب‌شده برای آپلود پذیرفته نشد.",
             // Music finalization keeps a replay receipt server-side, so a lost
@@ -281,16 +415,31 @@ export function AdminMusicManager() {
         } catch (error) {
           failures.push(originalFile.name + ": " + uploadErrorMessage(error, "آپلود ناموفق"));
           failedFiles.push(originalFile);
+          failedUploadIds.push(idsToUpload[index]!);
+          failedMetadata.push({ title: trackTitle, artist: trackArtist });
         }
       }
-      if (uploaded.length > 0) setTracks((prev) => [...prev, ...uploaded]);
+      if (uploaded.length > 0) setTracks((prev) => {
+        const knownIds = new Set(prev.map((track) => track.id));
+        const next = [...prev];
+        for (const track of uploaded) {
+          if (!knownIds.has(track.id)) {
+            knownIds.add(track.id);
+            next.push(track);
+          }
+        }
+        return next;
+      });
       if (failures.length === 0) {
         setTitle("");
         setArtist("");
         setFile(null);
         setSelectedFiles([]);
+        setSelectedUploadIds([]);
+        setSelectedMetadata([]);
         setRetryPending(false);
         setFailedUploadMessages([]);
+        void persistMusicUploadQueue([], [], [], []);
         if (inputRef.current) inputRef.current.value = "";
         toast.success(uploaded.length.toLocaleString("fa-IR") + " آهنگ آپلود و به فهرست سایت اضافه شد.");
       } else {
@@ -298,15 +447,19 @@ export function AdminMusicManager() {
         // The next submit therefore retries the failed queue without re-uploading
         // tracks that were already accepted by the server.
         setSelectedFiles(failedFiles);
+        setSelectedUploadIds(failedUploadIds);
+        setSelectedMetadata(failedMetadata);
         setFile(failedFiles.length === 1 ? failedFiles[0]! : null);
         setRetryPending(true);
         setFailedUploadMessages(failures);
+        void persistMusicUploadQueue(failedFiles, failedUploadIds, failedMetadata, failures);
         if (inputRef.current) inputRef.current.value = "";
         toast.error(uploaded.length + " آهنگ موفق، " + failures.length + " آهنگ ناموفق. " + failures.slice(0, 2).join(" | "));
       }
     } catch (error) {
       toast.error(uploadErrorMessage(error, "آپلود آهنگ انجام نشد."));
     } finally {
+      busyRef.current = false;
       setBusy(false);
       setUploadProgress(0);
       setStage("");
@@ -316,22 +469,26 @@ export function AdminMusicManager() {
 
   async function retryFailedFile(index: number) {
     const originalFile = selectedFiles[index];
-    if (!originalFile || busy) return;
+    if (!originalFile || busyRef.current) return;
     const normalized = normalizedAudioFile(originalFile);
     if (!normalized) {
-      setFailedUploadMessages((messages) => messages.map((message, itemIndex) =>
+      const nextMessages = failedUploadMessages.map((message, itemIndex) =>
         itemIndex === index ? originalFile.name + ": فرمت پشتیبانی نمی‌شود" : message,
-      ));
+      );
+      setFailedUploadMessages(nextMessages);
+      void persistMusicUploadQueue(selectedFiles, selectedUploadIds, selectedMetadata, nextMessages);
       toast.error("فرمت این فایل صوتی پشتیبانی نمی‌شود.");
       return;
     }
 
+    busyRef.current = true;
+    setRetryingIndex(index);
     setBusy(true);
     setUploadProgress(0);
     setBatchStatus(originalFile.name);
     setStage("در حال تلاش مجدد برای همین آهنگ…");
     try {
-      const parsed = parseMusicFilename(originalFile.name);
+      const parsed = selectedMetadata[index] ?? parseMusicFilename(originalFile.name);
       const result = await uploadInChunks({
         endpoint: "/api/music-upload",
         file: normalized.file,
@@ -340,6 +497,7 @@ export function AdminMusicManager() {
           title: (parsed.title || "آهنگ بدون عنوان").slice(0, 160),
           artist: parsed.artist.slice(0, 120),
         },
+        uploadId: selectedUploadIds[index],
         signal: new AbortController().signal,
         rejectedMessage: "فایل انتخاب‌شده برای آپلود پذیرفته نشد.",
         retryCompletion: true,
@@ -351,11 +509,19 @@ export function AdminMusicManager() {
       const track = result.response.track as AdminMusicTrack | undefined;
       if (!track) throw new Error("ثبت آهنگ در کتابخانه انجام نشد.");
 
-      setTracks((prev) => [...prev, track]);
+      setTracks((prev) => prev.some((item) => item.id === track.id) ? prev : [...prev, track]);
       const remainingFiles = selectedFiles.filter((_, itemIndex) => itemIndex !== index);
       const remainingMessages = failedUploadMessages.filter((_, itemIndex) => itemIndex !== index);
       setSelectedFiles(remainingFiles);
+      setSelectedUploadIds(selectedUploadIds.filter((_, itemIndex) => itemIndex !== index));
+      setSelectedMetadata(selectedMetadata.filter((_, itemIndex) => itemIndex !== index));
       setFailedUploadMessages(remainingMessages);
+      void persistMusicUploadQueue(
+        remainingFiles,
+        selectedUploadIds.filter((_, itemIndex) => itemIndex !== index),
+        selectedMetadata.filter((_, itemIndex) => itemIndex !== index),
+        remainingMessages,
+      );
       setFile(remainingFiles.length === 1 ? remainingFiles[0]! : null);
       setRetryPending(remainingFiles.length > 0);
       if (remainingFiles.length === 0) {
@@ -366,11 +532,15 @@ export function AdminMusicManager() {
       toast.success("آهنگ «" + parsed.title + "» با موفقیت آپلود شد.");
     } catch (error) {
       const message = originalFile.name + ": " + uploadErrorMessage(error, "آپلود ناموفق");
-      setFailedUploadMessages((messages) => messages.map((item, itemIndex) =>
+      const nextMessages = failedUploadMessages.map((item, itemIndex) =>
         itemIndex === index ? message : item,
-      ));
+      );
+      setFailedUploadMessages(nextMessages);
+      void persistMusicUploadQueue(selectedFiles, selectedUploadIds, selectedMetadata, nextMessages);
       toast.error("آپلود «" + originalFile.name + "» ناموفق بود؛ فایل برای تلاش بعدی نگه داشته شد.");
     } finally {
+      busyRef.current = false;
+      setRetryingIndex(null);
       setBusy(false);
       setUploadProgress(0);
       setStage("");
@@ -488,7 +658,10 @@ export function AdminMusicManager() {
             <span>عنوان آهنگ</span>
             <input
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                if (selectedFiles.length === 1) updateQueueMetadata(0, { title: e.target.value });
+              }}
               maxLength={160}
               placeholder="مثلاً شب‌های اصفهان"
             />
@@ -498,7 +671,10 @@ export function AdminMusicManager() {
             <span>خواننده / هنرمند</span>
             <input
               value={artist}
-              onChange={(e) => setArtist(e.target.value)}
+              onChange={(e) => {
+                setArtist(e.target.value);
+                if (selectedFiles.length === 1) updateQueueMetadata(0, { artist: e.target.value });
+              }}
               maxLength={120}
               placeholder="نام خواننده"
             />
@@ -510,22 +686,31 @@ export function AdminMusicManager() {
               ref={inputRef}
               id="admin-music-file"
               type="file"
+              disabled={!queueReady || busy || retryPending}
               accept=".mp3,.ogg,.oga,.wav,.m4a,.aac,audio/*"
               multiple
               onChange={(e) => {
                 const files = Array.from(e.target.files ?? []);
-                setSelectedFiles(files);
-                setRetryPending(false);
-                setFailedUploadMessages([]);
-                setFile(files.length === 1 ? files[0]! : null);
-                if (files.length !== 1) {
+                if (!files.length) return;
+                const nextFiles = retryPending ? [...selectedFiles, ...files] : files;
+                const nextIds = retryPending ? [...selectedUploadIds, ...files.map(() => newUploadId())] : files.map(() => newUploadId());
+                const nextMetadata = retryPending
+                  ? [...selectedMetadata, ...files.map((item) => parseMusicFilename(item.name))]
+                  : files.map((item) => parseMusicFilename(item.name));
+                setSelectedFiles(nextFiles);
+                setSelectedUploadIds(nextIds);
+                setSelectedMetadata(nextMetadata);
+                setRetryPending(retryPending);
+                if (!retryPending) setFailedUploadMessages([]);
+                setFile(nextFiles.length === 1 ? nextFiles[0]! : null);
+                if (nextFiles.length === 1) {
+                  setTitle(nextMetadata[0]!.title);
+                  setArtist(nextMetadata[0]!.artist);
+                } else {
                   setTitle("");
                   setArtist("");
-                } else {
-                  const parsed = parseMusicFilename(files[0]!.name);
-                  setTitle(parsed.title);
-                  setArtist(parsed.artist);
                 }
+                void persistMusicUploadQueue(nextFiles, nextIds, nextMetadata, retryPending ? failedUploadMessages : []);
               }}
             />
             <span className={selectedFiles.length > 0 || file ? "admin-music-file-card is-selected" : "admin-music-file-card"}>
@@ -560,8 +745,8 @@ export function AdminMusicManager() {
                       disabled={busy}
                       onClick={() => void retryFailedFile(index)}
                     >
-                      {busy ? <Loader2 size={14} className="admin-spin" /> : <Upload size={14} />}
-                      تلاش مجدد همین فایل
+                      {retryingIndex === index ? <Loader2 size={14} className="admin-spin" /> : <Upload size={14} />}
+                      {retryingIndex === index ? "در حال تلاش…" : "تلاش مجدد همین فایل"}
                     </button>
                   </li>
                 ))}
@@ -569,14 +754,19 @@ export function AdminMusicManager() {
             </div>
           ) : null}
 
-          {selectedFiles.length > 1 && !busy ? (
+          {selectedFiles.length > 1 && !busy && !retryPending ? (
             <div className="admin-music-batch-preview" aria-label="پیش‌نمایش اطلاعات استخراج‌شده">
-              <strong>پیش‌نمایش نام‌ها</strong>
-              {selectedFiles.slice(0, 5).map((item) => {
-                const parsed = parseMusicFilename(item.name);
-                return <div key={item.name + item.lastModified}><span>{parsed.title}</span><small>{parsed.artist || "هنرمند شناسایی نشد"}</small></div>;
+              <strong>پیش‌نمایش قابل ویرایش عنوان و هنرمند</strong>
+              {selectedFiles.map((item, index) => {
+                const parsed = selectedMetadata[index] ?? parseMusicFilename(item.name);
+                return (
+                  <div className="admin-music-batch-item" key={selectedUploadIds[index] ?? item.name + item.lastModified}>
+                    <small className="admin-music-batch-filename">{item.name}</small>
+                    <label><span>عنوان</span><input maxLength={160} value={parsed.title} onChange={(event) => updateQueueMetadata(index, { title: event.target.value })} /></label>
+                    <label><span>هنرمند</span><input maxLength={120} value={parsed.artist} onChange={(event) => updateQueueMetadata(index, { artist: event.target.value })} /></label>
+                  </div>
+                );
               })}
-              {selectedFiles.length > 5 ? <small>و {(selectedFiles.length - 5).toLocaleString("fa-IR")} فایل دیگر…</small> : null}
             </div>
           ) : null}
 
@@ -590,7 +780,7 @@ export function AdminMusicManager() {
             </div>
           ) : null}
 
-          <button type="submit" className="btn-gold" disabled={busy || (selectedFiles.length === 0 && !file)}>
+          <button type="submit" className="btn-gold" disabled={!queueReady || busy || (selectedFiles.length === 0 && !file)}>
             {busy ? <Loader2 size={16} className="admin-spin" /> : <Upload size={16} />}
             {busy ? "در حال آپلود…" : retryPending ? `تلاش مجدد برای ${selectedFiles.length.toLocaleString("fa-IR")} آهنگ ناموفق` : selectedFiles.length > 1 ? `آپلود ${selectedFiles.length.toLocaleString("fa-IR")} آهنگ` : "آپلود و انتشار آهنگ"}
           </button>
@@ -780,7 +970,7 @@ const MUSIC_ADMIN_CSS = `
 .admin-music-summary>span{display:flex;flex-direction:column;gap:2px;padding:10px 14px;border:1px solid rgb(0 0 0 / .12);border-radius:14px;background:rgb(0 0 0 / .03);min-width:110px}
 .admin-music-summary strong{font-size:1rem;color:#111315}
 .admin-music-summary small{color:rgb(0 0 0 / .58);font-size:.7rem}
-.admin-music-batch-preview{grid-column:1/-1;display:grid;gap:7px;padding:12px 14px;border:1px solid #d9e1e8;border-radius:12px;background:#f8fafc;color:#122333;font-size:.8rem}.admin-music-batch-preview>div{display:flex;gap:12px;justify-content:space-between;align-items:baseline;padding-top:6px;border-top:1px solid #e5eaf0}.admin-music-batch-preview>div span{min-width:0;overflow-wrap:anywhere}.admin-music-batch-preview small{color:#66717d;flex-shrink:0}.admin-music-file-card{display:flex;align-items:center;gap:10px;min-height:62px;padding:10px 14px;border:1px dashed rgb(0 0 0 / .22);border-radius:14px;background:rgb(0 0 0 / .02);cursor:pointer;transition:border-color .15s,background .15s;color:#111315}
+.admin-music-batch-preview{grid-column:1/-1;display:grid;gap:9px;padding:12px 14px;border:1px solid #d9e1e8;border-radius:12px;background:#f8fafc;color:#122333;font-size:.8rem;max-height:420px;overflow:auto}.admin-music-batch-item{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding-top:9px;border-top:1px solid #e5eaf0}.admin-music-batch-filename{grid-column:1/-1;overflow-wrap:anywhere;color:#66717d}.admin-music-batch-item label{display:grid;gap:4px;min-width:0}.admin-music-batch-item label span{font-size:.72rem;color:#66717d}.admin-music-batch-item input{width:100%;min-width:0;padding:8px 9px;border:1px solid #d5dde5;border-radius:8px;background:#fff;color:#122333;font:inherit;font-size:.8rem}.admin-music-file-card{display:flex;align-items:center;gap:10px;min-height:62px;padding:10px 14px;border:1px dashed rgb(0 0 0 / .22);border-radius:14px;background:rgb(0 0 0 / .02);cursor:pointer;transition:border-color .15s,background .15s;color:#111315}
 .admin-music-retry-notice{grid-column:1/-1;padding:12px 14px;border:1px solid #e4c68c;border-radius:12px;background:#fffaf0;color:#5c4212;font-size:.8rem;line-height:1.8}.admin-music-retry-notice p{margin:4px 0 8px}.admin-music-retry-notice ul{margin:0;padding-inline-start:20px;overflow-wrap:anywhere}.admin-music-retry-notice li+li{margin-top:7px}.admin-music-failed-list li{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.admin-music-failed-list li>span{min-width:0;flex:1;overflow-wrap:anywhere}.admin-music-retry-one{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:6px 10px;border:1px solid #c08a2a;border-radius:9px;background:#fff;color:#76500e;font:inherit;font-size:.75rem;font-weight:700;cursor:pointer;flex-shrink:0}.admin-music-retry-one:hover:not(:disabled){background:#fff1d6}.admin-music-retry-one:disabled{opacity:.6;cursor:wait}
 .admin-music-file-card:hover{border-color:rgba(183,123,72,.55);background:rgb(0 0 0 / .045)}
 .admin-music-file-card.is-selected{border-style:solid;border-color:#111315;background:rgb(0 0 0 / .06)}

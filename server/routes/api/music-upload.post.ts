@@ -8,6 +8,7 @@ import {
   AUDIO_CHUNK_BYTES,
   MAX_AUDIO_BYTES,
   insertMusicTrack,
+  findMusicTrackById,
   mimeFromFilename,
 } from "@/lib/music-library.server";
 
@@ -50,8 +51,27 @@ export default defineEventHandler(async (event) => {
       { column: "title", label: "عنوان آهنگ", required: true, maxLength: 160 },
       { column: "artist", label: "نام هنرمند", maxLength: 120 },
     ],
+    recoverCompleted: async ({ uploadId, contentType, sizeBytes, text }) => {
+      const track = await findMusicTrackById(uploadId);
+      if (!track) return null;
+      const expectedTitle = text.title.trim() || "آهنگ بدون عنوان";
+      const expectedArtist = text.artist.trim();
+      if (
+        track.title !== expectedTitle ||
+        track.artist !== expectedArtist ||
+        track.sizeBytes !== sizeBytes ||
+        track.mimeType !== contentType
+      ) {
+        throw createError({ statusCode: 409, statusMessage: "این شناسه قبلاً برای آهنگ دیگری ثبت شده است." });
+      }
+      return { track };
+    },
     finish: async ({ stored, session, text, totalBytes }) => {
       const track = await insertMusicTrack({
+        // The upload session is the idempotency key for this music record. If
+        // the database committed the row but the response/receipt write was
+        // lost, finalization returns the same track instead of inserting a twin.
+        id: String(session.id),
         title: text.title.trim() || "آهنگ بدون عنوان",
         artist: text.artist.trim(),
         url: stored.url,
