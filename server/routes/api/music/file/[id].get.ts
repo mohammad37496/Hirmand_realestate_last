@@ -63,6 +63,8 @@ export default defineEventHandler(async (event) => {
 
   // Database-backed media already has a correct same-origin Range endpoint.
   if (isDatabaseMediaUrl(target)) {
+    // The database media endpoint is same-origin and supports byte ranges, so
+    // browsers can seek within a track without relying on an external host.
     return new Response(null, {
       status: 307,
       headers: {

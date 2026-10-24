@@ -2,6 +2,7 @@ import { createRootRoute, HeadContent, Link, Outlet, Scripts } from "@tanstack/r
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { SiteMusicPlayer } from "@/components/hirmand/site-music-player";
 import { SITE } from "@/lib/site";
 import { trackPublic404 } from "@/lib/seo-redirects";
 import appCss from "../styles.css?url";
@@ -29,6 +30,7 @@ import propertiesFiltersRedesignCss from "../properties-filters-redesign.css?url
 import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
 import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css?url";
 import propertyExperienceRedesignCss from "../property-experience-redesign.css?url";
+import musicPlayerCss from "../music-player.css?url";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -79,6 +81,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: propertiesMarketplacePolishCss },
       { rel: "stylesheet", href: propertyExperienceRedesignCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
+      { rel: "stylesheet", href: musicPlayerCss },
     ],
   }),
   component: RootDocument,
@@ -107,6 +110,7 @@ function RootDocument() {
         <AuthProvider>
           <Outlet />
         </AuthProvider>
+        <SiteMusicPlayer />
         <Scripts />
       </body>
     </html>

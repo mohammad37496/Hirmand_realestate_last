@@ -182,6 +182,8 @@ export async function storeAssembledUpload(input: {
   pathname: string;
   contentType: string;
   sessionId: string;
+  /** Keep the durable database copy as the final source; useful for same-origin audio playback. */
+  forceDatabaseStorage?: boolean;
   transform?: AssembledUploadTransform;
 }): Promise<StoredMedia> {
   requireDatabase();
@@ -279,7 +281,7 @@ export async function storeAssembledUpload(input: {
     [input.sessionId, stored.url, stored.storage, stored.id],
   );
 
-  if (dataResult.size > 0 && dataResult.size <= MAX_OFFLOAD_BYTES) {
+  if (!input.forceDatabaseStorage && dataResult.size > 0 && dataResult.size <= MAX_OFFLOAD_BYTES) {
     let remoteUrl: string | null = null;
 
     if (liaraStorageConfigured()) {

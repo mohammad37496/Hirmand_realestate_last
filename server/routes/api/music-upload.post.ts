@@ -32,6 +32,9 @@ export default defineEventHandler(async (event) => {
   return handleChunkedUpload(event, {
     kind: "audio",
     pathPrefix: "music",
+    // Audio must keep working from this site's own origin even if international
+    // CDN/object-store endpoints become unreachable.
+    forceDatabaseStorage: true,
     maxBytes: MAX_AUDIO_BYTES,
     chunkSize: AUDIO_CHUNK_BYTES,
     resolveContentType: ({ filename, declared }) => {

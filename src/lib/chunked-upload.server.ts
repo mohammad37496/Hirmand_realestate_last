@@ -56,6 +56,8 @@ export type ChunkedUploadConfig = {
   kind: string;
   /** Public submissions deliberately skip admin-session auth but keep same-origin and rate limiting. */
   access?: "admin" | "public";
+  /** Keep media on the application's own origin instead of offloading it to a CDN. */
+  forceDatabaseStorage?: boolean;
   /** Path prefix for stored objects, e.g. `music` or `properties/uploads`. */
   pathPrefix: string;
   maxBytes: number;
@@ -417,6 +419,7 @@ export async function handleChunkedUpload(
         pathname: String(session.pathname),
         contentType: String(session.content_type),
         sessionId: uploadId,
+        forceDatabaseStorage: config.forceDatabaseStorage === true,
         transform: config.transform
           ? (input) => config.transform!({
               ...input,
