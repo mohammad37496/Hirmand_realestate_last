@@ -655,6 +655,33 @@ export const getPublishedPropertyById = createServerFn({ method: "GET" })
     );
   });
 
+// Consultant contact details are editable from the admin consultant panel, while
+// properties historically stored a copy of the consultant's name and phone.
+// Refresh those snapshots once per server process so existing property pages
+// pick up the current consultant phone without requiring every property to be
+// edited and saved again.
+let assignedPropertyContactsSync: Promise<void> | null = null;
+
+async function syncAssignedPropertyContacts(sql: Awaited<ReturnType<typeof getSql>>) {
+  if (!assignedPropertyContactsSync) {
+    assignedPropertyContactsSync = sql.query(
+      `update properties as p
+          set contact_name = c.name,
+              contact_phone = c.phone,
+              updated_at = current_timestamp
+         from consultants as c
+        where lower(trim(p.contact_name)) = lower(trim(c.name))
+          and c.is_active = true
+          and (p.contact_phone is distinct from c.phone
+            or p.contact_name is distinct from c.name)`,
+    ).then(() => undefined).catch((error) => {
+      assignedPropertyContactsSync = null;
+      console.warn("[properties] consultant contact sync failed", error);
+    });
+  }
+  await assignedPropertyContactsSync;
+}
+
 export const getPublishedProperty = createServerFn({ method: "GET" })
   .validator(z.object({ slug: z.string().min(1).max(220) }))
   .handler(async ({ data }) => {
@@ -665,6 +692,7 @@ export const getPublishedProperty = createServerFn({ method: "GET" })
       60_000,
       async () => {
         const sql = await getSql();
+        await syncAssignedPropertyContacts(sql);
         const decodedCandidates = decodeSlugCandidates(data.slug);
 
         // Canonical/encoded slugs hit the unique slug index first.
