@@ -7,6 +7,9 @@ import {
   Music2,
   Pause,
   Play,
+  Repeat,
+  Repeat1,
+  Shuffle,
   SkipBack,
   SkipForward,
   Volume2,
@@ -37,6 +40,9 @@ export function SiteMusicPlayer() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(0.7);
+  const [shuffle, setShuffle] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("all");
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState("");
@@ -118,8 +124,10 @@ export function SiteMusicPlayer() {
   }, [playing, source]);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.muted = muted;
-  }, [muted]);
+    if (!audioRef.current) return;
+    audioRef.current.muted = muted;
+    audioRef.current.volume = volume;
+  }, [muted, volume]);
 
   const togglePlayback = () => {
     const audio = audioRef.current;
@@ -138,8 +146,31 @@ export function SiteMusicPlayer() {
 
   const changeTrack = (step: number) => {
     if (!tracks.length) return;
-    setIndex((current) => (current + step + tracks.length) % tracks.length);
+    setIndex((current) => {
+      if (shuffle && step > 0 && tracks.length > 1) {
+        const choices = tracks.map((_, i) => i).filter((i) => i !== current);
+        return choices[Math.floor(Math.random() * choices.length)] ?? current;
+      }
+      return (current + step + tracks.length) % tracks.length;
+    });
     setPlaying(true);
+  };
+
+  const handleTrackEnded = () => {
+    if (repeatMode === "one" && audioRef.current) {
+      audioRef.current.currentTime = 0;
+      void audioRef.current.play().catch(() => setPlaying(false));
+      return;
+    }
+    if (index < tracks.length - 1 || repeatMode === "all" || shuffle) {
+      changeTrack(1);
+      return;
+    }
+    setPlaying(false);
+  };
+
+  const cycleRepeatMode = () => {
+    setRepeatMode((mode) => mode === "all" ? "one" : mode === "one" ? "off" : "all");
   };
 
   if (pathname.startsWith("/admin")) return null;
@@ -153,7 +184,7 @@ export function SiteMusicPlayer() {
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
         onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
         onPause={() => setPlaying(false)}
-        onEnded={() => tracks.length > 1 ? changeTrack(1) : setPlaying(false)}
+        onEnded={handleTrackEnded}
         onError={() => { if (activeTrack) { setPlaying(false); setError("دریافت فایل صوتی ممکن نشد. اتصال سایت یا فایل را بررسی کنید."); } }}
       />
       {tracks.length === 0 ? (
@@ -197,7 +228,21 @@ export function SiteMusicPlayer() {
                   {trackIndex === index && playing ? <Pause size={15} /> : <Play size={15} />}
                 </button>
               ))}
-              <button type="button" className="music-player-float-volume" onClick={() => setMuted((value) => !value)}>{muted ? <VolumeX size={16} /> : <Volume2 size={16} />}{muted ? "روشن کردن صدا" : "بی‌صدا کردن"}</button>
+              <div className="music-player-options" aria-label="تنظیمات پخش">
+                <button type="button" className={shuffle ? "is-active" : ""} onClick={() => setShuffle((value) => !value)} aria-pressed={shuffle} title="پخش تصادفی" aria-label="پخش تصادفی">
+                  <Shuffle size={16} /><span>تصادفی</span>
+                </button>
+                <button type="button" className={repeatMode !== "off" ? "is-active" : ""} onClick={cycleRepeatMode} aria-pressed={repeatMode !== "off"} title={repeatMode === "all" ? "تکرار همه آهنگ‌ها" : repeatMode === "one" ? "تکرار همین آهنگ" : "بدون تکرار"} aria-label={repeatMode === "all" ? "تکرار همه آهنگ‌ها" : repeatMode === "one" ? "تکرار همین آهنگ" : "فعال کردن تکرار"}>
+                  {repeatMode === "one" ? <Repeat1 size={16} /> : <Repeat size={16} />}<span>{repeatMode === "all" ? "تکرار همه" : repeatMode === "one" ? "تکرار آهنگ" : "بدون تکرار"}</span>
+                </button>
+              </div>
+              <div className="music-player-volume-control">
+                <button type="button" className="music-player-volume-toggle" onClick={() => setMuted((value) => !value)} aria-label={muted ? "روشن کردن صدا" : "قطع صدا"} title={muted ? "روشن کردن صدا" : "قطع صدا"}>
+                  {muted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
+                </button>
+                <input aria-label="کم و زیاد کردن صدا" type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} style={{ "--music-volume": `${(muted ? 0 : volume) * 100}%` } as React.CSSProperties} onChange={(event) => { const next = Number(event.target.value); setVolume(next); setMuted(next === 0); }} />
+                <span>{Math.round((muted ? 0 : volume) * 100).toLocaleString("fa-IR")}%</span>
+              </div>
             </div>
           ) : null}
         </>
