@@ -51,6 +51,7 @@ test("retryable uploads retain the same server session instead of aborting it on
   assert.match(route, /recoverCompleted: async/);
   assert.match(route, /findMusicTrackById\(uploadId\)/);
   assert.match(client, /if \(begin\.completed && begin\.response/);
+  assert.match(client, /begin\.uploadId !== options\.uploadId/);
   assert.match(client, /let index = begin\.assembled \? totalChunks : 0/);
   assert.match(client, /AbortSignal\.timeout\(45_000\)/);
   assert.match(client, /options\.retryCompletion \? 5 : 1/);

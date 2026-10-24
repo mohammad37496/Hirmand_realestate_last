@@ -1,4 +1,4 @@
-import { isAllowedMediaRef } from "@/lib/media";
+import { isAllowedMediaRef } from "./media.ts";
 import type { PropertyWatermarkPosition } from "@/lib/property-watermark";
 
 /**
@@ -171,6 +171,9 @@ export async function uploadInChunks(options: {
 
   if (!beginResponse.ok || !begin?.uploadId) {
     throw new Error(responseMessage(begin, rejected));
+  }
+  if (options.uploadId && begin.uploadId !== options.uploadId) {
+    throw new Error("سرور شناسهٔ پایدار تلاش مجدد را تأیید نکرد؛ فایل از صف حذف نشد.");
   }
 
   const uploadId = begin.uploadId;
