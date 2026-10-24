@@ -375,6 +375,14 @@ export function AdminMusicManager() {
       : filesToUpload.map((item) => parseMusicFilename(item.name));
     busyRef.current = true;
     try {
+      // Persist before the first network request so a refresh during a slow
+      // upload can restore the exact files, metadata and stable IDs.
+      await persistMusicUploadQueue(
+        filesToUpload,
+        idsToUpload,
+        metadataToUpload,
+        retryPending ? failedUploadMessages : [],
+      );
       for (let index = 0; index < filesToUpload.length; index += 1) {
         const originalFile = filesToUpload[index]!;
         const parsed = metadataToUpload[index]!;
@@ -488,6 +496,7 @@ export function AdminMusicManager() {
     setBatchStatus(originalFile.name);
     setStage("در حال تلاش مجدد برای همین آهنگ…");
     try {
+      await persistMusicUploadQueue(selectedFiles, selectedUploadIds, selectedMetadata, failedUploadMessages);
       const parsed = selectedMetadata[index] ?? parseMusicFilename(originalFile.name);
       const result = await uploadInChunks({
         endpoint: "/api/music-upload",

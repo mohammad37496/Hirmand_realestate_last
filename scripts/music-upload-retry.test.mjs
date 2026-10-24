@@ -83,4 +83,6 @@ test("retry queue displays a separate error and action for every failed file", (
   assert.match(manager, /indexedDB\.open\(MUSIC_UPLOAD_QUEUE_DB, 1\)/);
   assert.match(manager, /new File\(\[item\.file\]/);
   assert.match(manager, /persistMusicUploadQueue\(failedFiles, failedUploadIds, failedMetadata, failures\)/);
+  assert.match(manager, /await persistMusicUploadQueue\(\s*filesToUpload,/);
+  assert.match(manager, /await persistMusicUploadQueue\(selectedFiles, selectedUploadIds, selectedMetadata, failedUploadMessages\)/);
 });
