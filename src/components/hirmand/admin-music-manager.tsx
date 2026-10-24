@@ -36,6 +36,34 @@ const AUDIO_MIME_TYPES: Record<string, string> = {
   aac: "audio/aac",
 };
 
+
+/** Extract metadata from names such as "001 - Yo_Yo_Ma_Title.mp3". */
+function parseMusicFilename(filename: string): { title: string; artist: string } {
+  const withoutExtension = filename.replace(/\.[^.]+$/, "");
+  const cleaned = withoutExtension.replace(/^\s*\d+\s*[-_.—]+\s*/, "").trim();
+  const normalized = cleaned.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  const artistPrefixes = ["Yo Yo Ma", "Carl Davis", "Anja Lechner"];
+  const lower = normalized.toLocaleLowerCase();
+  const matchedArtist = artistPrefixes.find((name) =>
+    lower === name.toLocaleLowerCase() || lower.startsWith(name.toLocaleLowerCase() + " "),
+  );
+  let artist = "";
+  let title = normalized;
+  if (matchedArtist) {
+    artist = normalized.slice(0, matchedArtist.length).trim();
+    title = normalized.slice(matchedArtist.length).trim();
+  } else {
+    const words = normalized.split(" ");
+    if (words.length >= 3) {
+      artist = words.slice(0, 2).join(" ");
+      title = words.slice(2).join(" ");
+    }
+  }
+  title = title.replace(/\s*[,;]\s*/g, ", ").replace(/\s+/g, " ").trim();
+  artist = artist.replace(/\s+/g, " ").trim();
+  return { title: title || normalized || "آهنگ بدون عنوان", artist };
+}
+
 function formatSize(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "—";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " کیلوبایت";
@@ -74,6 +102,8 @@ export function AdminMusicManager() {
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [batchStatus, setBatchStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
@@ -192,60 +222,78 @@ export function AdminMusicManager() {
     setCurrentTime(audio.currentTime);
   }
 
+
   async function uploadTrack(event: FormEvent) {
     event.preventDefault();
-
-    if (!file) {
-      toast.error("یک فایل صوتی انتخاب کنید.");
+    const filesToUpload = selectedFiles.length > 0 ? selectedFiles : file ? [file] : [];
+    if (filesToUpload.length === 0) {
+      toast.error("یک یا چند فایل صوتی انتخاب کنید.");
       return;
     }
-    if (!title.trim()) {
-      toast.error("عنوان آهنگ را وارد کنید.");
+    const invalidFiles = filesToUpload.filter((item) => !normalizedAudioFile(item));
+    if (invalidFiles.length > 0) {
+      toast.error("این فرمت پشتیبانی نمی‌شود: " + invalidFiles.map((item) => item.name).join("، "));
       return;
     }
-
-    const normalized = normalizedAudioFile(file);
-    if (!normalized) {
-      toast.error("فرمت فایل صوتی پشتیبانی نمی‌شود. MP3، OGG، WAV، M4A یا AAC انتخاب کنید.");
-      return;
-    }
-
     setBusy(true);
     setUploadProgress(0);
     setStage("در حال آماده‌سازی…");
-
-    const controller = new AbortController();
-
+    setBatchStatus("");
+    const uploaded: AdminMusicTrack[] = [];
+    const failures: string[] = [];
     try {
-      const result = await uploadInChunks({
-        endpoint: "/api/music-upload",
-        file: normalized.file,
-        contentType: normalized.mimeType,
-        payload: { title: title.trim(), artist: artist.trim() },
-        signal: controller.signal,
-        rejectedMessage: "فایل انتخاب‌شده برای آپلود پذیرفته نشد.",
-        onProgress: (percentage) => {
-          setUploadProgress(percentage);
-          setStage(percentage >= 100 ? "در حال پردازش فایل…" : `در حال آپلود… ${percentage}%`);
-        },
-      });
-
-      const track = result.response.track as AdminMusicTrack | undefined;
-      if (!track) throw new Error("ثبت آهنگ در کتابخانه انجام نشد.");
-
-      setTracks((prev) => [...prev, track]);
+      for (let index = 0; index < filesToUpload.length; index += 1) {
+        const originalFile = filesToUpload[index]!;
+        const normalized = normalizedAudioFile(originalFile);
+        if (!normalized) {
+          failures.push(originalFile.name + ": فرمت پشتیبانی نمی‌شود");
+          continue;
+        }
+        const parsed = parseMusicFilename(originalFile.name);
+        const useManualMetadata = filesToUpload.length === 1;
+        const trackTitle = (useManualMetadata && title.trim() ? title.trim() : parsed.title).slice(0, 160);
+        const trackArtist = (useManualMetadata && artist.trim() ? artist.trim() : parsed.artist).slice(0, 120);
+        setBatchStatus("آهنگ " + (index + 1) + " از " + filesToUpload.length + ": " + originalFile.name);
+        setStage("در حال آپلود آهنگ " + (index + 1) + " از " + filesToUpload.length + "…");
+        setUploadProgress(Math.round((index / filesToUpload.length) * 100));
+        try {
+          const result = await uploadInChunks({
+            endpoint: "/api/music-upload",
+            file: normalized.file,
+            contentType: normalized.mimeType,
+            payload: { title: trackTitle, artist: trackArtist },
+            signal: new AbortController().signal,
+            rejectedMessage: "فایل انتخاب‌شده برای آپلود پذیرفته نشد.",
+            onProgress: (percentage) => {
+              setUploadProgress(Math.round(((index + percentage / 100) / filesToUpload.length) * 100));
+              setStage("آهنگ " + (index + 1) + " از " + filesToUpload.length + " · " + percentage + "%");
+            },
+          });
+          const track = result.response.track as AdminMusicTrack | undefined;
+          if (!track) throw new Error("ثبت آهنگ در کتابخانه انجام نشد.");
+          uploaded.push(track);
+        } catch (error) {
+          failures.push(originalFile.name + ": " + uploadErrorMessage(error, "آپلود ناموفق"));
+        }
+      }
+      if (uploaded.length > 0) setTracks((prev) => [...prev, ...uploaded]);
       setTitle("");
       setArtist("");
       setFile(null);
+      setSelectedFiles([]);
       if (inputRef.current) inputRef.current.value = "";
-
-      toast.success("آهنگ آپلود و به فهرست سایت اضافه شد.");
+      if (failures.length === 0) {
+        toast.success(uploaded.length.toLocaleString("fa-IR") + " آهنگ آپلود و به فهرست سایت اضافه شد.");
+      } else {
+        toast.error(uploaded.length + " آهنگ موفق، " + failures.length + " آهنگ ناموفق. " + failures.slice(0, 2).join(" | "));
+      }
     } catch (error) {
       toast.error(uploadErrorMessage(error, "آپلود آهنگ انجام نشد."));
     } finally {
       setBusy(false);
       setUploadProgress(0);
       setStage("");
+      setBatchStatus("");
     }
   }
 
@@ -338,8 +386,8 @@ export function AdminMusicManager() {
             <span className="kicker">کتابخانه موسیقی</span>
             <h2>آپلود آهنگ برای پلیر سایت</h2>
             <p>
-              فایل صوتی را انتخاب کن؛ آپلود به‌صورت قطعه‌قطعه انجام می‌شود، درصد واقعی
-              پیشرفت را می‌بینی و فایل بلافاصله در پلیر سایت قابل پخش است.
+              می‌توانی چند آهنگ را یک‌جا انتخاب کنی. نام خواننده و عنوان هر آهنگ از نام فایل
+              استخراج می‌شود و فایل‌ها به‌ترتیب آپلود می‌شوند؛ برای یک فایل، عنوان و هنرمند را هم می‌توانی دستی وارد کنی.
             </p>
           </div>
           <div className="admin-music-summary">
@@ -382,23 +430,49 @@ export function AdminMusicManager() {
               id="admin-music-file"
               type="file"
               accept=".mp3,.ogg,.oga,.wav,.m4a,.aac,audio/*"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              multiple
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                setSelectedFiles(files);
+                setFile(files.length === 1 ? files[0]! : null);
+                if (files.length !== 1) {
+                  setTitle("");
+                  setArtist("");
+                } else {
+                  const parsed = parseMusicFilename(files[0]!.name);
+                  setTitle(parsed.title);
+                  setArtist(parsed.artist);
+                }
+              }}
             />
-            <span className={file ? "admin-music-file-card is-selected" : "admin-music-file-card"}>
+            <span className={selectedFiles.length > 0 || file ? "admin-music-file-card is-selected" : "admin-music-file-card"}>
               <span className="admin-music-file-icon">
                 <FileAudio size={18} />
               </span>
               <span className="admin-music-file-copy">
-                <strong>{file ? file.name : "انتخاب فایل صوتی"}</strong>
+                <strong>{selectedFiles.length > 1 ? `${selectedFiles.length.toLocaleString("fa-IR")} فایل صوتی انتخاب شد` : file ? file.name : "انتخاب یک یا چند فایل صوتی"}</strong>
                 <small>
-                  {file
-                    ? `${formatSize(file.size)} · ${audioMimeType(file) || "فرمت نامشخص"}`
-                    : "MP3 / OGG / WAV / M4A / AAC · حداکثر ۳۲ مگابایت"}
+                  {selectedFiles.length > 1
+                    ? `عنوان و هنرمند از نام هر فایل استخراج می‌شود · ${formatSize(selectedFiles.reduce((sum, item) => sum + item.size, 0))} مجموع`
+                    : file
+                      ? `${formatSize(file.size)} · ${audioMimeType(file) || "فرمت نامشخص"} · عنوان و هنرمند از نام فایل استخراج شد`
+                      : "MP3 / OGG / WAV / M4A / AAC · حداکثر ۳۲ مگابایت برای هر فایل"}
                 </small>
               </span>
               <Upload size={16} />
             </span>
           </label>
+
+          {selectedFiles.length > 1 && !busy ? (
+            <div className="admin-music-batch-preview" aria-label="پیش‌نمایش اطلاعات استخراج‌شده">
+              <strong>پیش‌نمایش نام‌ها</strong>
+              {selectedFiles.slice(0, 5).map((item) => {
+                const parsed = parseMusicFilename(item.name);
+                return <div key={item.name + item.lastModified}><span>{parsed.title}</span><small>{parsed.artist || "هنرمند شناسایی نشد"}</small></div>;
+              })}
+              {selectedFiles.length > 5 ? <small>و {(selectedFiles.length - 5).toLocaleString("fa-IR")} فایل دیگر…</small> : null}
+            </div>
+          ) : null}
 
           {busy ? (
             <div className="admin-music-upload-progress" role="status">
@@ -406,12 +480,13 @@ export function AdminMusicManager() {
                 <span style={{ width: uploadProgress + "%" }} />
               </div>
               <small>{stage || "در حال آپلود…"}</small>
+              {batchStatus ? <small>{batchStatus}</small> : null}
             </div>
           ) : null}
 
-          <button type="submit" className="btn-gold" disabled={busy || !file}>
+          <button type="submit" className="btn-gold" disabled={busy || (selectedFiles.length === 0 && !file)}>
             {busy ? <Loader2 size={16} className="admin-spin" /> : <Upload size={16} />}
-            {busy ? "در حال آپلود…" : "آپلود و انتشار آهنگ"}
+            {busy ? "در حال آپلود…" : selectedFiles.length > 1 ? `آپلود ${selectedFiles.length.toLocaleString("fa-IR")} آهنگ` : "آپلود و انتشار آهنگ"}
           </button>
         </form>
       </section>
@@ -599,7 +674,7 @@ const MUSIC_ADMIN_CSS = `
 .admin-music-summary>span{display:flex;flex-direction:column;gap:2px;padding:10px 14px;border:1px solid rgb(0 0 0 / .12);border-radius:14px;background:rgb(0 0 0 / .03);min-width:110px}
 .admin-music-summary strong{font-size:1rem;color:#111315}
 .admin-music-summary small{color:rgb(0 0 0 / .58);font-size:.7rem}
-.admin-music-file-card{display:flex;align-items:center;gap:10px;min-height:62px;padding:10px 14px;border:1px dashed rgb(0 0 0 / .22);border-radius:14px;background:rgb(0 0 0 / .02);cursor:pointer;transition:border-color .15s,background .15s;color:#111315}
+.admin-music-batch-preview{grid-column:1/-1;display:grid;gap:7px;padding:12px 14px;border:1px solid #d9e1e8;border-radius:12px;background:#f8fafc;color:#122333;font-size:.8rem}.admin-music-batch-preview>div{display:flex;gap:12px;justify-content:space-between;align-items:baseline;padding-top:6px;border-top:1px solid #e5eaf0}.admin-music-batch-preview>div span{min-width:0;overflow-wrap:anywhere}.admin-music-batch-preview small{color:#66717d;flex-shrink:0}.admin-music-file-card{display:flex;align-items:center;gap:10px;min-height:62px;padding:10px 14px;border:1px dashed rgb(0 0 0 / .22);border-radius:14px;background:rgb(0 0 0 / .02);cursor:pointer;transition:border-color .15s,background .15s;color:#111315}
 .admin-music-file-card:hover{border-color:rgba(183,123,72,.55);background:rgb(0 0 0 / .045)}
 .admin-music-file-card.is-selected{border-style:solid;border-color:#111315;background:rgb(0 0 0 / .06)}
 .admin-music-file-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:rgb(0 0 0 / .06);flex:0 0 auto}
