@@ -242,17 +242,26 @@ export function MusicPlayer() {
           setIsPlaying(true);
         })
         .catch(async (error) => {
+          // The audio error event may already own the fallback attempt.
+          if (fallbackSwitchingRef.current) return;
+
           if (switchToFallbackSource()) {
             void waitForMediaReady(audio)
               .then(() => audio.play())
               .then(
                 () => {
+                  fallbackSwitchingRef.current = false;
                   playRequestedRef.current = false;
                   setIsPlaying(true);
+                  setAutoplayBlocked(false);
+                  setLoadError(false);
+                  setIsBuffering(false);
                 },
                 (fallbackError) => {
+                  fallbackSwitchingRef.current = false;
                   playRequestedRef.current = false;
                   setIsPlaying(false);
+                  setIsBuffering(false);
                   if (isAutoplayBlocked(fallbackError)) setAutoplayBlocked(true);
                   else setLoadError(true);
                 },
