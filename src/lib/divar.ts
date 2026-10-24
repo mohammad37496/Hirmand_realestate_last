@@ -3,7 +3,7 @@ import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { SITE, TEAM } from "@/lib/site";
 import { dbSource, getSql, type Sql } from "@/lib/db";
-import { mediaUrlForBrowser, storeMedia } from "@/lib/media-store.server";
+import { deleteStoredMedia, mediaUrlForBrowser, storeMedia } from "@/lib/media-store.server";
 import { detectRasterImageType, isAllowedDivarImageUrl, isDivarRemoteHost, isVideoUrl } from "@/lib/media";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -791,6 +791,17 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
       continue;
     }
     if (result.failure) failures.push(result.failure);
+  }
+
+  // A failed import/repair must not leave the successfully downloaded subset
+  // orphaned in durable storage. The caller will keep the existing gallery (if
+  // any) untouched and can retry the complete operation later.
+  if (failures.length > 0 && images.length > 0) {
+    const cleanup = await Promise.allSettled(images.map((url) => deleteStoredMedia(url)));
+    const cleanupFailures = cleanup.filter((result) => result.status === "rejected").length;
+    if (cleanupFailures > 0) {
+      console.warn("[divar] failed to clean up partial media import", { cleanupFailures });
+    }
   }
 
   return { images, stored, failures, sourceImages: safeUrls };

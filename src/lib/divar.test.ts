@@ -62,6 +62,27 @@ test("extractDivarMediaUrls counts each photo once across thumbnail and full-siz
   assert.ok(urls.every((url) => url.includes("/webp/")));
 });
 
+test("extractDivarMediaUrls does not collapse unrelated media with the same generic filename", () => {
+  const urls = extractDivarMediaUrls({
+    gallery: [
+      "https://img.divarcdn.com/static/photo/webp/photo-1.webp",
+      "https://img.divarcdn.com/static/photo/webp/photo-2.webp",
+      "https://img.divarcdn.com/custom/image.jpg",
+      "https://img.divarcdn.com/other/image.jpg",
+    ],
+  });
+
+  assert.equal(urls.length, 4);
+  assert.ok(urls.includes("https://img.divarcdn.com/custom/image.jpg"));
+  assert.ok(urls.includes("https://img.divarcdn.com/other/image.jpg"));
+});
+
+test("property media limit accommodates a full Divar gallery and video", async () => {
+  const { MAX_PROPERTY_MEDIA } = await import("./media.ts");
+  assert.equal(DIVAR_MAX_PUBLISHED_IMAGES, 80);
+  assert.equal(MAX_PROPERTY_MEDIA, DIVAR_MAX_PUBLISHED_IMAGES);
+});
+
 test("extractDivarMediaUrls scans past a thumbnail-heavy prefix to find the full gallery", () => {
   const photoIds = Array.from({ length: 60 }, (_, index) => `photo-${index + 1}.webp`);
   const payload = {

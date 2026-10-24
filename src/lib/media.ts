@@ -2,7 +2,9 @@
 export const DB_MEDIA_PATH = "/api/media/";
 
 /** Media slots a property gallery can hold. */
-export const MAX_PROPERTY_MEDIA = 20;
+// Divar listings may contain up to 60 photos and an additional video. Keep
+// property validation and the admin editor capable of preserving that gallery.
+export const MAX_PROPERTY_MEDIA = 80;
 
 const DIVAR_MEDIA_DOMAINS = ["divar.ir", "divar.com", "divarcdn.com"] as const;
 
