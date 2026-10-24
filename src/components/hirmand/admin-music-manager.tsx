@@ -314,6 +314,70 @@ export function AdminMusicManager() {
     }
   }
 
+  async function retryFailedFile(index: number) {
+    const originalFile = selectedFiles[index];
+    if (!originalFile || busy) return;
+    const normalized = normalizedAudioFile(originalFile);
+    if (!normalized) {
+      setFailedUploadMessages((messages) => messages.map((message, itemIndex) =>
+        itemIndex === index ? originalFile.name + ": فرمت پشتیبانی نمی‌شود" : message,
+      ));
+      toast.error("فرمت این فایل صوتی پشتیبانی نمی‌شود.");
+      return;
+    }
+
+    setBusy(true);
+    setUploadProgress(0);
+    setBatchStatus(originalFile.name);
+    setStage("در حال تلاش مجدد برای همین آهنگ…");
+    try {
+      const parsed = parseMusicFilename(originalFile.name);
+      const result = await uploadInChunks({
+        endpoint: "/api/music-upload",
+        file: normalized.file,
+        contentType: normalized.mimeType,
+        payload: {
+          title: (parsed.title || "آهنگ بدون عنوان").slice(0, 160),
+          artist: parsed.artist.slice(0, 120),
+        },
+        signal: new AbortController().signal,
+        rejectedMessage: "فایل انتخاب‌شده برای آپلود پذیرفته نشد.",
+        retryCompletion: true,
+        onProgress: (percentage) => {
+          setUploadProgress(percentage);
+          setStage("تلاش مجدد برای همین آهنگ · " + percentage + "%");
+        },
+      });
+      const track = result.response.track as AdminMusicTrack | undefined;
+      if (!track) throw new Error("ثبت آهنگ در کتابخانه انجام نشد.");
+
+      setTracks((prev) => [...prev, track]);
+      const remainingFiles = selectedFiles.filter((_, itemIndex) => itemIndex !== index);
+      const remainingMessages = failedUploadMessages.filter((_, itemIndex) => itemIndex !== index);
+      setSelectedFiles(remainingFiles);
+      setFailedUploadMessages(remainingMessages);
+      setFile(remainingFiles.length === 1 ? remainingFiles[0]! : null);
+      setRetryPending(remainingFiles.length > 0);
+      if (remainingFiles.length === 0) {
+        setTitle("");
+        setArtist("");
+        if (inputRef.current) inputRef.current.value = "";
+      }
+      toast.success("آهنگ «" + parsed.title + "» با موفقیت آپلود شد.");
+    } catch (error) {
+      const message = originalFile.name + ": " + uploadErrorMessage(error, "آپلود ناموفق");
+      setFailedUploadMessages((messages) => messages.map((item, itemIndex) =>
+        itemIndex === index ? message : item,
+      ));
+      toast.error("آپلود «" + originalFile.name + "» ناموفق بود؛ فایل برای تلاش بعدی نگه داشته شد.");
+    } finally {
+      setBusy(false);
+      setUploadProgress(0);
+      setStage("");
+      setBatchStatus("");
+    }
+  }
+
   /** Rewrites the playlist order on the server from the locally arranged list. */
   async function persistOrder(next: AdminMusicTrack[]) {
     setSavingOrder(true);
@@ -486,7 +550,22 @@ export function AdminMusicManager() {
             <div className="admin-music-retry-notice" role="status">
               <strong>{selectedFiles.length.toLocaleString("fa-IR")} آهنگ ناموفق برای تلاش مجدد نگه داشته شد</strong>
               <p>ترتیب انتخاب حفظ شده است؛ آهنگ‌های موفق دوباره آپلود نمی‌شوند. با زدن دکمهٔ زیر فقط همین موارد دوباره ارسال می‌شوند.</p>
-              <ul>{failedUploadMessages.map((message) => <li key={message}>{message}</li>)}</ul>
+              <ul className="admin-music-failed-list">
+                {failedUploadMessages.map((message, index) => (
+                  <li key={selectedFiles[index]?.name + "-" + selectedFiles[index]?.lastModified}>
+                    <span>{message}</span>
+                    <button
+                      type="button"
+                      className="admin-music-retry-one"
+                      disabled={busy}
+                      onClick={() => void retryFailedFile(index)}
+                    >
+                      {busy ? <Loader2 size={14} className="admin-spin" /> : <Upload size={14} />}
+                      تلاش مجدد همین فایل
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
 
@@ -702,7 +781,7 @@ const MUSIC_ADMIN_CSS = `
 .admin-music-summary strong{font-size:1rem;color:#111315}
 .admin-music-summary small{color:rgb(0 0 0 / .58);font-size:.7rem}
 .admin-music-batch-preview{grid-column:1/-1;display:grid;gap:7px;padding:12px 14px;border:1px solid #d9e1e8;border-radius:12px;background:#f8fafc;color:#122333;font-size:.8rem}.admin-music-batch-preview>div{display:flex;gap:12px;justify-content:space-between;align-items:baseline;padding-top:6px;border-top:1px solid #e5eaf0}.admin-music-batch-preview>div span{min-width:0;overflow-wrap:anywhere}.admin-music-batch-preview small{color:#66717d;flex-shrink:0}.admin-music-file-card{display:flex;align-items:center;gap:10px;min-height:62px;padding:10px 14px;border:1px dashed rgb(0 0 0 / .22);border-radius:14px;background:rgb(0 0 0 / .02);cursor:pointer;transition:border-color .15s,background .15s;color:#111315}
-.admin-music-retry-notice{grid-column:1/-1;padding:12px 14px;border:1px solid #e4c68c;border-radius:12px;background:#fffaf0;color:#5c4212;font-size:.8rem;line-height:1.8}.admin-music-retry-notice p{margin:4px 0 8px}.admin-music-retry-notice ul{margin:0;padding-inline-start:20px;overflow-wrap:anywhere}.admin-music-retry-notice li+li{margin-top:3px}
+.admin-music-retry-notice{grid-column:1/-1;padding:12px 14px;border:1px solid #e4c68c;border-radius:12px;background:#fffaf0;color:#5c4212;font-size:.8rem;line-height:1.8}.admin-music-retry-notice p{margin:4px 0 8px}.admin-music-retry-notice ul{margin:0;padding-inline-start:20px;overflow-wrap:anywhere}.admin-music-retry-notice li+li{margin-top:7px}.admin-music-failed-list li{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.admin-music-failed-list li>span{min-width:0;flex:1;overflow-wrap:anywhere}.admin-music-retry-one{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:6px 10px;border:1px solid #c08a2a;border-radius:9px;background:#fff;color:#76500e;font:inherit;font-size:.75rem;font-weight:700;cursor:pointer;flex-shrink:0}.admin-music-retry-one:hover:not(:disabled){background:#fff1d6}.admin-music-retry-one:disabled{opacity:.6;cursor:wait}
 .admin-music-file-card:hover{border-color:rgba(183,123,72,.55);background:rgb(0 0 0 / .045)}
 .admin-music-file-card.is-selected{border-style:solid;border-color:#111315;background:rgb(0 0 0 / .06)}
 .admin-music-file-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:rgb(0 0 0 / .06);flex:0 0 auto}
