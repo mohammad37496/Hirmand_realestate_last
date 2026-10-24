@@ -3,8 +3,8 @@ import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { SITE, TEAM } from "@/lib/site";
 import { dbSource, getSql, type Sql } from "@/lib/db";
-import { storeMedia } from "@/lib/media-store.server";
-import { detectRasterImageType, isAllowedDivarImageUrl, isDivarRemoteHost } from "@/lib/media";
+import { mediaUrlForBrowser, storeMedia } from "@/lib/media-store.server";
+import { detectRasterImageType, isAllowedDivarImageUrl, isDivarRemoteHost, isVideoUrl } from "@/lib/media";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
@@ -31,6 +31,7 @@ const DETAIL_BATCH = 4;
 /** Shared with the admin panel so the gallery cap and the health badge agree. */
 const MAX_IMAGES = DIVAR_MAX_PUBLISHED_IMAGES;
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 128 * 1024 * 1024;
 /** A `running` sync row older than this was crashed, not still working. */
 const SYNC_RUN_STALE_MS = 10 * 60 * 1000;
 const MAX_SYNC_RUNS = 6;
@@ -572,13 +573,13 @@ function slugify(value: string) {
 }
 
 type DivarImageDownload = {
-  /** Media successfully hosted by Hirmand storage. */
+  /** Images/videos successfully hosted by Hirmand storage. */
   images: string[];
-  /** How many images were copied onto our own storage. */
+  /** How many media files were copied onto our own storage. */
   stored: number;
-  /** Original Divar URLs that could not be downloaded; public pages proxy these URLs. */
+  /** Original Divar URLs that could not be downloaded; imports fail closed on these. */
   failures: { source: string; reason: string }[];
-  /** Sanitized original source URLs, kept as a guaranteed gallery fallback. */
+  /** Sanitized Divar URLs attempted by this import. */
   sourceImages: string[];
 };
 
@@ -593,10 +594,10 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
     {
       label: "direct",
       url: source,
-      timeoutMs: 6_000,
+      timeoutMs: isVideoUrl(source) ? 30_000 : 8_000,
       direct: true,
       headers: {
-        accept: "image/avif,image/webp,image/apng,image/png,image/jpeg,image/*;q=0.8",
+        accept: "image/avif,image/webp,image/apng,image/png,image/jpeg,image/*,video/mp4,video/webm,video/quicktime;q=0.8,*/*;q=0.5",
         "accept-language": "fa-IR,fa;q=0.9,en;q=0.8",
         referer: DIVAR_WEB + "/v/" + token,
         "user-agent":
@@ -605,15 +606,13 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
     },
   ];
 
-  const detectImageType = (bytes: Buffer, _headerType: string) =>
-    detectRasterImageType(bytes);
-
-  const readBoundedResponse = async (response: Response): Promise<Buffer> => {
+  const readBoundedResponse = async (response: Response, video: boolean): Promise<Buffer> => {
+    const maxBytes = video ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
     const declaredLength = Number(response.headers.get("content-length") ?? 0);
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_IMAGE_BYTES) {
-      throw new Error("حجم اعلام‌شده تصویر بیش از ۱۲ مگابایت بود");
+    if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+      throw new Error(video ? "حجم ویدئو بیش از ۱۲۸ مگابایت بود" : "حجم تصویر بیش از ۱۲ مگابایت بود");
     }
-    if (!response.body) throw new Error("پاسخ تصویر بدون بدنه بود");
+    if (!response.body) throw new Error("پاسخ رسانه بدون بدنه بود");
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let total = 0;
@@ -623,9 +622,9 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
         if (done) break;
         if (!value) continue;
         total += value.byteLength;
-        if (total > MAX_IMAGE_BYTES) {
+        if (total > maxBytes) {
           await reader.cancel();
-          throw new Error("حجم تصویر بیش از ۱۲ مگابایت بود");
+          throw new Error(video ? "حجم ویدئو بیش از ۱۲۸ مگابایت بود" : "حجم تصویر بیش از ۱۲ مگابایت بود");
         }
         chunks.push(value);
       }
@@ -675,7 +674,8 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
   };
 
   const downloadOne = async (source: string, index: number) => {
-    let lastReason = "تصویر قابل دریافت نبود";
+    let lastReason = "رسانه قابل دریافت نبود";
+    const videoByUrl = isVideoUrl(source);
 
     for (const candidate of candidatesFor(source)) {
       try {
@@ -686,20 +686,36 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
           continue;
         }
 
-        const bytes = await readBoundedResponse(response);
+        const headerType = (response.headers.get("content-type") ?? "").split(";", 1)[0]!.trim().toLowerCase();
+        const isVideo = videoByUrl || headerType.startsWith("video/");
+        const bytes = await readBoundedResponse(response, isVideo);
         if (!bytes.length) {
           lastReason = candidate.label + ": فایل خالی بود";
           continue;
         }
 
-        const type = detectImageType(bytes, response.headers.get("content-type") ?? "");
+        let type: string = detectRasterImageType(bytes);
+        if (!type && isVideo) {
+          // Validate video container signatures instead of trusting a remote
+          // content-type header (which could otherwise store an HTML error page).
+          if (bytes.length >= 12 && bytes.toString("ascii", 4, 8) === "ftyp") {
+            type = bytes.toString("ascii", 8, 12).toLowerCase() === "qt  " ? "video/quicktime" : "video/mp4";
+          } else if (bytes.length >= 4 && bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))) {
+            type = "video/webm";
+          } else if (bytes.length >= 4 && bytes.toString("ascii", 0, 4) === "OggS") {
+            type = "video/ogg";
+          }
+        }
         if (!type) {
-          lastReason = candidate.label + ": محتوای دریافتی تصویر معتبر نبود";
+          lastReason = candidate.label + ": محتوای دریافتی رسانه معتبر نبود";
           continue;
         }
 
-        const extension =
-          type === "image/png"
+        const extension = type === "video/quicktime" ? "mov"
+          : type === "video/webm" ? "webm"
+          : type === "video/ogg" ? "ogg"
+          : type === "video/mp4" ? "mp4"
+          : type === "image/png"
             ? "png"
             : type === "image/webp"
               ? "webp"
@@ -721,9 +737,12 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
             extension,
           data: bytes,
           contentType: type,
+          // Divar imports should use configured Liara storage or our database,
+          // never silently offload to a foreign third-party Blob service.
+          allowLegacyBlob: false,
         });
 
-        return { index, url: stored.url, failure: null as null | { source: string; reason: string } };
+        return { index, url: mediaUrlForBrowser(stored.url, type), failure: null as null | { source: string; reason: string } };
       } catch (error) {
         lastReason =
           candidate.label +
@@ -745,9 +764,7 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
     failure: { source: string; reason: string } | null;
   }> = [];
 
-  const safeUrls = Array.from(
-    new Set(urls.filter(isAllowedDivarImageUrl)),
-  ).slice(0, MAX_IMAGES);
+  const safeUrls = Array.from(new Set(urls.filter(isAllowedDivarImageUrl))).slice(0, MAX_IMAGES);
   const concurrency = 6;
 
   for (let startIndex = 0; startIndex < safeUrls.length; startIndex += concurrency) {
@@ -1486,16 +1503,18 @@ export const importDivarFile = createServerFn({ method: "POST" })
         const uploadResult = shouldRefreshImages
           ? await uploadDivarImages(token, images)
           : { images: [] as string[], stored: 0, failures: [] as { source: string; reason: string }[], sourceImages: images };
-        // Hosted copies first, then any source still needed to keep the gallery
-        // complete. Nothing that already worked is dropped.
-        const fallbackSourceImages = uploadResult.sourceImages.filter((url) =>
-          uploadResult.failures.some((failure) => failure.source === url),
-        );
+        // Never publish remote Divar URLs as a fallback: the requested contract
+        // is that imported media is downloaded and stored by Hirmand itself.
+        // Keep the previous published gallery untouched when a repair is partial.
+        if (uploadResult.failures.length > 0) {
+          throw new Error(
+            `دانلود ${uploadResult.failures.length} رسانه از ${uploadResult.sourceImages.length} رسانه دیوار ناموفق بود؛ فایل منتشرشده تغییر نکرد. اتصال سرور به CDN دیوار را بررسی و دوباره تلاش کنید.`,
+          );
+        }
         const finalImages = Array.from(
           new Set([
             ...hostedCurrentImages,
             ...uploadResult.images.filter((url) => !isDivarSourceUrl(url)),
-            ...fallbackSourceImages,
           ]),
         ).slice(0, MAX_IMAGES);
 
@@ -1543,15 +1562,17 @@ export const importDivarFile = createServerFn({ method: "POST" })
     }
 
     const importedResult = await uploadDivarImages(token, images);
-    // Hosted copies come first; sources we could not copy keep the gallery
-    // complete and are rendered through our own image proxy.
-    const failedSourceImages = importedResult.sourceImages.filter((url) =>
-      importedResult.failures.some((failure) => failure.source === url),
-    );
+    // Do not mark a partial import as successful or publish a gallery that
+    // still depends on Divar being reachable by each visitor. Retry is safe:
+    // the property row is not written until every source image is hosted.
+    if (importedResult.failures.length > 0) {
+      throw new Error(
+        `دانلود ${importedResult.failures.length} رسانه از ${importedResult.sourceImages.length} رسانه دیوار ناموفق بود؛ ملک ثبت نشد. اتصال سرور به CDN دیوار را بررسی و دوباره تلاش کنید.`,
+      );
+    }
     const importedImages = Array.from(
       new Set([
         ...importedResult.images.filter((url) => !isDivarSourceUrl(url)),
-        ...failedSourceImages,
       ]),
     ).slice(0, MAX_IMAGES);
 

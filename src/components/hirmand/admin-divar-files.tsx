@@ -220,19 +220,19 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
         setBusyStage(staffMode ? "ثبت پیش‌نویس در هیرمند…" : "انتشار در سایت…");
         const total = Number(result.imageCount) || 0;
         if (staffMode) {
-          toast.success(`فایل به‌صورت پیش‌نویس ثبت شد؛ ${fa(total)} تصویر پیدا شد و انتشار نیاز به تأیید مدیر دارد.`);
+          toast.success(`فایل به‌صورت پیش‌نویس ثبت شد؛ ${fa(total)} رسانه پیدا شد و انتشار نیاز به تأیید مدیر دارد.`);
         } else if (result.imageFailures > 0) {
           toast.warning(
-            `فایل منتشر شد؛ ${fa(Number(result.hostedImageCount) || 0)} تصویر روی فضای سایت ذخیره شد و ${fa(result.imageFailures)} تصویر با منبع اصلی نمایش داده می‌شود.`,
+            `فایل منتشر شد؛ ${fa(Number(result.hostedImageCount) || 0)} رسانه روی فضای سایت ذخیره شد.`,
           );
         } else if (total > 0) {
           toast.success(
             result.alreadyImported
-              ? `تصاویر تکمیل شد؛ مجموعه کامل ${fa(total)} تصویر روی سایت منتشر است.`
-              : `فایل در سایت منتشر شد و ${fa(total)} تصویر ذخیره شد.`,
+              ? `گالری تکمیل شد؛ مجموعه کامل ${fa(total)} رسانه روی سایت منتشر است.`
+              : `فایل در سایت منتشر شد و ${fa(total)} رسانه ذخیره شد.`,
           );
         } else {
-          toast.info("فایل در سایت منتشر شد، اما آگهی دیوار تصویری نداشت.");
+          toast.info("فایل در سایت منتشر شد، اما آگهی دیوار تصویر یا ویدئویی نداشت.");
         }
       }
       return true;
@@ -269,7 +269,7 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
       const result = await approveDivarFile({ data: { id: file.id, force } });
       toast.success(
         result.refetched
-          ? `«${file.title}» تأیید دستی شد و ${fa(result.imageCount)} تصویر آگهی بازخوانی شد.`
+          ? `«${file.title}» تأیید دستی شد و ${fa(result.imageCount)} رسانه آگهی بازخوانی شد.`
           : "فایل به فهرست آماده انتشار منتقل شد، اما بازخوانی آگهی از دیوار ممکن نشد.",
       );
       await load();
@@ -523,11 +523,10 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
           <span className="kicker">منبع فایل · Divar</span>
           <h2>فایل‌های دیوار</h2>
           <p>
-            فایل‌های شخصی اصفهان از دیوار جمع‌آوری می‌شوند، فیلتر مشاور/آژانس روی آن‌ها اجرا
-            می‌شود و بعد از تأیید، تمام تصاویر آگهی روی فضای سایت منتشر می‌شوند. تصویری که CDN
-            دیوار ندهد با منبع اصلی و پروکسی اختصاصی سایت نمایش داده می‌شود تا هیچ گالری‌ای ناقص
-            نماند. هر آگهی ردشده را می‌توانید دستی بررسی و در صورت نیاز تأیید کنید و هر گالری
-            ناقص را با «تکمیل تصاویر» ترمیم کنید.
+            فایل‌های شخصی اصفهان از دیوار جمع‌آوری می‌شوند و بعد از تأیید، تصاویر و ویدئوهای قابل
+            دریافت مستقیماً از CDN خود دیوار روی فضای ذخیره‌سازی هیرمند یا پایگاه داده ذخیره
+            می‌شوند. اگر دریافت حتی یک رسانه ناموفق باشد، انتشار ناقص انجام نمی‌شود و می‌توانید
+            با «تکمیل تصاویر» دوباره تلاش کنید. هر آگهی ردشده را نیز می‌توانید دستی بررسی کنید.
           </p>
         </div>
         <div className="divar-hero-actions">
@@ -691,7 +690,7 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
 
       <div className="divar-note">
         <ImageIcon size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} />
-        در این فهرست {fa(withImages)} فایل تصویر دارد و مجموعاً {fa(totalImages)} تصویر منبع وجود
+        در این فهرست {fa(withImages)} فایل رسانه دارد و مجموعاً {fa(totalImages)} رسانه منبع وجود
         دارد. میانگین کامل‌بودن اطلاعات {fa(averageScore)}٪ است.
         {tab === "imported" ? (
           <>

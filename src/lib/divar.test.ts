@@ -62,6 +62,30 @@ test("extractDivarMediaUrls counts each photo once across thumbnail and full-siz
   assert.ok(urls.every((url) => url.includes("/webp/")));
 });
 
+test("extractDivarMediaUrls scans past a thumbnail-heavy prefix to find the full gallery", () => {
+  const photoIds = Array.from({ length: 60 }, (_, index) => `photo-${index + 1}.webp`);
+  const payload = {
+    thumbnails: photoIds.map((id) => `https://s100.divarcdn.com/static/photo/webp_thumbnail/${id}`),
+    gallery: photoIds.map((id) => `https://img.divarcdn.com/static/photo/webp/${id}`),
+  };
+
+  const urls = extractDivarMediaUrls(payload);
+  assert.equal(urls.length, 60);
+  assert.ok(urls.every((url) => url.includes("/webp/")));
+});
+
+test("extractDivarMediaUrls retains a Divar-hosted video alongside photos", () => {
+  const urls = extractDivarMediaUrls({
+    gallery: [
+      "https://img.divarcdn.com/static/photo/webp/photo-1.webp",
+      "https://img.divarcdn.com/static/video/property-clip.mp4",
+    ],
+  });
+
+  assert.equal(urls.length, 2);
+  assert.ok(urls.some((url) => url.endsWith("property-clip.mp4")));
+});
+
 test("Divar coordinates support scaled E7 keys and underscore-separated variants", () => {
   assert.deepEqual(
     findDivarCoordinates({
@@ -231,7 +255,7 @@ test("a short published gallery is flagged for repair", () => {
   const health = divarGalleryHealth(makeFile({ publishedImageCount: 2 }));
   assert.equal(health.level, "partial");
   assert.equal(health.needsRepair, true);
-  assert.equal(health.label, "۲ / ۵ تصویر منتشرشده");
+  assert.equal(health.label, "۲ / ۵ رسانه منتشرشده");
 });
 
 test("a published listing with no gallery is 'missing' and repairable", () => {
@@ -242,12 +266,17 @@ test("a published listing with no gallery is 'missing' and repairable", () => {
   assert.equal(health.needsRepair, true);
 });
 
-test("gallery expectations stop at the publish cap so images never look permanently missing", () => {
+test("gallery health expects all 60 Divar photos rather than an artificial 20-photo cap", () => {
   const long = { sourceImageCount: 60, publishedImageCount: 20 };
-  assert.equal(divarGalleryHealth(makeFile(long)).expected, DIVAR_MAX_PUBLISHED_IMAGES);
-  assert.equal(divarGalleryHealth(makeFile(long)).needsRepair, false);
+  assert.equal(DIVAR_MAX_PUBLISHED_IMAGES, 80);
+  assert.equal(divarGalleryHealth(makeFile(long)).expected, 60);
+  assert.equal(divarGalleryHealth(makeFile(long)).needsRepair, true);
   assert.equal(
-    divarGalleryHealth(makeFile({ ...long, publishedImageCount: 19 })).needsRepair,
+    divarGalleryHealth(makeFile({ ...long, publishedImageCount: 60 })).needsRepair,
+    false,
+  );
+  assert.equal(
+    divarGalleryHealth(makeFile({ ...long, publishedImageCount: 59 })).needsRepair,
     true,
   );
 });
@@ -258,7 +287,7 @@ test("an ad that is not on the site yet is never marked repairable", () => {
   );
   assert.equal(health.level, "complete");
   assert.equal(health.needsRepair, false);
-  assert.equal(health.label, "۵ تصویر در آگهی");
+  assert.equal(health.label, "۵ رسانه در آگهی");
 
   const imageless = divarGalleryHealth(
     makeFile({ filterStatus: "accepted", sourceImageCount: 0, publishedImageCount: 0 }),

@@ -15,8 +15,8 @@ import type {
   DivarTransaction,
 } from "./divar";
 
-/** Divar advertises up to 60 photos, but only this many are ever published. */
-export const DIVAR_MAX_PUBLISHED_IMAGES = 20;
+/** Keep every media item Divar exposes (up to 60 photos plus video media). */
+export const DIVAR_MAX_PUBLISHED_IMAGES = 80;
 
 export const DIVAR_TRANSACTION_LABELS: Record<DivarTransaction, string> = {
   sell: "فروش",
@@ -102,8 +102,8 @@ export function divarGalleryHealth(file: {
       needsRepair: false,
       label:
         file.sourceImageCount > 0
-          ? `${file.sourceImageCount.toLocaleString("fa-IR")} تصویر در آگهی`
-          : "آگهی بدون تصویر",
+          ? `${file.sourceImageCount.toLocaleString("fa-IR")} رسانه در آگهی`
+          : "آگهی بدون رسانه",
     };
   }
 
@@ -115,7 +115,7 @@ export function divarGalleryHealth(file: {
       remote,
       level: published > 0 ? "complete" : "empty",
       needsRepair: false,
-      label: published > 0 ? `${published.toLocaleString("fa-IR")} تصویر` : "بدون تصویر",
+      label: published > 0 ? `${published.toLocaleString("fa-IR")} رسانه` : "بدون رسانه",
     };
   }
 
@@ -129,7 +129,7 @@ export function divarGalleryHealth(file: {
     remote,
     level,
     needsRepair: level !== "complete",
-    label: `${Math.min(published, expected).toLocaleString("fa-IR")} / ${expected.toLocaleString("fa-IR")} تصویر منتشرشده`,
+    label: `${Math.min(published, expected).toLocaleString("fa-IR")} / ${expected.toLocaleString("fa-IR")} رسانه منتشرشده`,
   };
 }
 
@@ -169,7 +169,7 @@ export function divarCompleteness(file: {
   const hasImages = file.sourceImageCount > 0 || file.publishedImageCount > 0 || file.images.length > 0;
 
   const checks: Array<[boolean, string]> = [
-    [hasImages, "تصویر"],
+    [hasImages, "تصویر یا ویدئو"],
     [hasPrice, file.transactionType === "rent" ? "رهن/اجاره" : "قیمت"],
     [Boolean(file.areaM2), "متراژ"],
     [Boolean(file.bedrooms), "تعداد خواب"],
@@ -440,8 +440,8 @@ export function divarFilesToCsv(files: DivarFile[], siteUrl = ""): string {
     "قیمت",
     "رهن",
     "اجاره",
-    "تعداد تصویر آگهی",
-    "تصویر منتشرشده",
+    "تعداد رسانه آگهی",
+    "رسانه منتشرشده",
     "امتیاز کامل بودن",
     "کمبودها",
     "املاک‌کننده",

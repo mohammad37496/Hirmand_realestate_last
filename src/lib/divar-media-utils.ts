@@ -1,6 +1,11 @@
 import { isAllowedDivarImageUrl } from "./media.ts";
 
-const MAX_DIVAR_MEDIA_SCAN = 60;
+// The payload commonly contains several renditions per photo. Bound raw
+// traversal separately from the final media count so thumbnails appearing
+// first cannot consume the entire scan budget and hide full-size URLs.
+const MAX_DIVAR_MEDIA_CANDIDATES = 1_000;
+// Divar can expose up to 60 photos plus a video item in the same ad.
+const MAX_DIVAR_MEDIA_SCAN = 80;
 
 function collectMediaUrls(
   value: unknown,
@@ -8,7 +13,7 @@ function collectMediaUrls(
   keyHint = "",
   depth = 0,
 ): string[] {
-  if (depth > 10 || out.length >= MAX_DIVAR_MEDIA_SCAN) return out;
+  if (depth > 12 || out.length >= MAX_DIVAR_MEDIA_CANDIDATES) return out;
 
   if (typeof value === "string") {
     if (isAllowedDivarImageUrl(value)) {

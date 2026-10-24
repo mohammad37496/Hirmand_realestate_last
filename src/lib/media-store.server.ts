@@ -99,6 +99,8 @@ export async function storeMedia(input: {
   contentType: string;
   /** Optional deterministic id used by idempotent upload sessions. */
   id?: string;
+  /** Skip legacy foreign Blob storage for sources that must stay on Hirmand/Liara/DB. */
+  allowLegacyBlob?: boolean;
 }): Promise<StoredMedia> {
   const bytes = toBytes(input.data);
   const contentType = input.contentType || "application/octet-stream";
@@ -133,7 +135,7 @@ export async function storeMedia(input: {
   }
 
   // Legacy Vercel Blob remains a compatibility path for existing deployments.
-  if (blobConfigured()) {
+  if (input.allowLegacyBlob !== false && blobConfigured()) {
     const url = await putToObjectStore(input.pathname, bytes, contentType);
     if (url) return { url, storage: "object-store", id: null };
   }
