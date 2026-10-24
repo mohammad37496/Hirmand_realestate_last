@@ -2596,3 +2596,34 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox 
   }
 }
 
+
+
+/* Desktop lightbox sizing: prevent high-resolution property photos from
+   expanding beyond a comfortable viewport-sized viewing area. */
+@media (min-width: 761px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: calc(100dvh - 124px) !important;
+    min-height: 0 !important;
+    padding: 58px 76px 12px !important;
+    overflow: hidden !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media img,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2) .hd-lightbox .hd-lightbox-media video {
+    display: block !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: min(100%, calc(100vw - 220px)) !important;
+    max-height: calc(100dvh - 190px) !important;
+    object-fit: contain !important;
+    object-position: center center !important;
+  }
+}
