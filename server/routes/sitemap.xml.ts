@@ -15,7 +15,9 @@ const FINANCE_TOOL_PATHS = [
   "/tools/loan",
 ] as const;
 
-const SITE = (process.env.VITE_SITE_URL || "https://www.hirmandrealestate.ir").replace(/\/$/, "");
+const SITE = (process.env.VITE_SITE_URL || "https://hirmandrealestate.ir")
+  .replace(/^(https?:\/\/)www\./i, "$1")
+  .replace(/\/$/, "");
 
 function escapeXml(value: string) {
   return value

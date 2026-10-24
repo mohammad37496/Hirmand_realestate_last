@@ -6,7 +6,7 @@ export const SITE = {
   shortName: "هیرمند",
   nameEn: "HIRMAND REAL ESTATE CONSULTANTS",
   title: "املاک هیرمند | خرید، فروش، رهن و اجاره ملک در اصفهان",
-  url: (typeof import.meta !== "undefined" && import.meta.env?.VITE_SITE_URL) || "https://www.hirmandrealestate.ir",
+  url: (((typeof import.meta !== "undefined" && import.meta.env?.VITE_SITE_URL) || "https://hirmandrealestate.ir").replace(/^(https?:\/\/)www\./i, "$1").replace(/\/$/, "")),
   description:
     "گروه مشاورین املاک هیرمند در اصفهان؛ خرید، فروش، رهن و اجاره آپارتمان، ویلا، زمین، اداری و تجاری با مشاوره تخصصی و همراهی از انتخاب تا قرارداد.",
   sloganStrong: "خانه، فقط یک مکان نیست",
