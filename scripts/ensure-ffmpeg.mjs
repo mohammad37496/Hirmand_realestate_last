@@ -20,6 +20,10 @@ const TARGET_PATH = join(TARGET_DIR, process.platform === "win32" ? "ffmpeg.exe"
 const FONT_VERSION = "v33.003";
 const FONT_DIR = join(PROJECT_ROOT, ".runtime", "fonts");
 const FONT_PATH = join(FONT_DIR, "Vazirmatn-Regular.ttf");
+// Keep the exact, checksum-pinned TTF in the source tree. Liara's isolated
+// build environment must not need GitHub/CDN access just to render Persian
+// watermarks. The copy in .runtime is the canonical runtime location.
+const BUNDLED_FONT_PATH = join(PROJECT_ROOT, "public", "fonts", "Vazirmatn-Regular.ttf");
 const FONT_URLS = [
   `https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@${FONT_VERSION}/fonts/ttf/Vazirmatn-Regular.ttf`,
   `https://raw.githubusercontent.com/rastikerdar/vazirmatn/${FONT_VERSION}/fonts/ttf/Vazirmatn-Regular.ttf`,
@@ -106,6 +110,27 @@ async function download(url, redirects = 0, label = "FFmpeg") {
   return Buffer.from(await response.arrayBuffer());
 }
 
+function isTransientDownloadError(error) {
+  if (error instanceof TypeError) return true; // fetch wraps socket/connect failures as TypeError
+  const message = error instanceof Error ? error.message : String(error);
+  return /download timed out|HTTP (?:408|429|5\d{2})\b|ECONNRESET|ECONNREFUSED|UND_ERR_(?:CONNECT_TIMEOUT|SOCKET|BODY_TIMEOUT)/i.test(message);
+}
+
+/** Retry transient transport failures, but never retry integrity/capability failures. */
+async function downloadWithRetry(url, label = "FFmpeg", attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await download(url, 0, label);
+    } catch (error) {
+      if (attempt === attempts || !isTransientDownloadError(error)) throw error;
+      const delayMs = 500 * 2 ** (attempt - 1);
+      console.warn(`[${label.toLowerCase()}] Transient download error (attempt ${attempt}/${attempts}); retrying in ${delayMs}ms.`);
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, delayMs));
+    }
+  }
+  throw new Error(`${label} download exhausted its retry budget.`);
+}
+
 function verifyGitBlob(buffer, expected) {
   const header = Buffer.from(`blob ${buffer.length}\0`);
   const actual = createHash("sha1").update(Buffer.concat([header, buffer])).digest("hex");
@@ -132,33 +157,46 @@ async function ensureWatermarkFont() {
   }
 
   if (!existsSync(FONT_PATH)) {
-    console.log(`[font] Downloading verified Vazirmatn ${FONT_VERSION} TrueType font from redundant mirrors…`);
-    let buffer = null;
-    const failures = [];
-    for (const url of FONT_URLS) {
+    if (existsSync(BUNDLED_FONT_PATH)) {
+      const bundled = readFileSync(BUNDLED_FONT_PATH);
+      verifyGitBlob(bundled, FONT_GIT_BLOB_SHA1);
+      const tempPath = `${FONT_PATH}.tmp-${process.pid}`;
       try {
-        const candidate = await download(url, 0, "Vazirmatn font");
-        verifyGitBlob(candidate, FONT_GIT_BLOB_SHA1);
-        buffer = candidate;
-        console.log(`[font] Downloaded font from ${new URL(url).host}.`);
-        break;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        failures.push(`${new URL(url).host}: ${message}`);
-        console.warn(`[font] Mirror failed (${new URL(url).host}): ${message}`);
+        writeFileSync(tempPath, bundled);
+        renameSync(tempPath, FONT_PATH);
+      } finally {
+        rmSync(tempPath, { force: true });
       }
+      console.log(`[font] Using bundled checksum-verified Vazirmatn ${FONT_VERSION} TrueType font; no build-time network access required.`);
+    } else {
+      console.warn(`[font] Bundled TTF is missing; attempting checksum-verified ${FONT_VERSION} fallback mirrors.`);
+      let buffer = null;
+      const failures = [];
+      for (const url of FONT_URLS) {
+        try {
+          const candidate = await downloadWithRetry(url, "Vazirmatn font");
+          verifyGitBlob(candidate, FONT_GIT_BLOB_SHA1);
+          buffer = candidate;
+          console.log(`[font] Downloaded font from ${new URL(url).host}.`);
+          break;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          failures.push(`${new URL(url).host}: ${message}`);
+          console.warn(`[font] Mirror failed (${new URL(url).host}): ${message}`);
+        }
+      }
+      if (!buffer) {
+        throw new Error(`Could not download checksum-verified Vazirmatn font from any mirror. ${failures.join(" | ")}`);
+      }
+      const tempPath = `${FONT_PATH}.tmp-${process.pid}`;
+      try {
+        writeFileSync(tempPath, buffer);
+        renameSync(tempPath, FONT_PATH);
+      } finally {
+        rmSync(tempPath, { force: true });
+      }
+      console.log("[font] Ready with checksum-verified Persian TTF font.");
     }
-    if (!buffer) {
-      throw new Error(`Could not download checksum-verified Vazirmatn font from any mirror. ${failures.join(" | ")}`);
-    }
-    const tempPath = `${FONT_PATH}.tmp-${process.pid}`;
-    try {
-      writeFileSync(tempPath, buffer);
-      renameSync(tempPath, FONT_PATH);
-    } finally {
-      rmSync(tempPath, { force: true });
-    }
-    console.log("[font] Ready with checksum-verified Persian TTF font.");
   }
 
   return FONT_PATH;
@@ -209,7 +247,7 @@ export async function ensureFfmpegBinary() {
   const url = `${baseUrl}/${RELEASE_TAG}/${asset.name}`;
 
   console.log(`[ffmpeg] Downloading verified ${asset.name}…`);
-  let archive = await download(url);
+  let archive = await downloadWithRetry(url, "FFmpeg");
   verify(archive, asset.sha256);
 
   mkdirSync(TARGET_DIR, { recursive: true });

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -14,6 +15,23 @@ const deployEnv = await readFile(
 test("FFmpeg download has a finite timeout and an actionable timeout error", () => {
   assert.match(ffmpegDownloader, /AbortSignal\.timeout\(timeoutMs\)/);
   assert.match(ffmpegDownloader, /\$\{label\} download timed out after/);
+  assert.match(ffmpegDownloader, /async function downloadWithRetry\(url, label = "FFmpeg", attempts = 3\)/);
+  assert.match(ffmpegDownloader, /await downloadWithRetry\(url, "FFmpeg"\)/);
+  assert.match(ffmpegDownloader, /HTTP \(\?:408\|429\|5\\d\{2\}\)/);
+});
+
+test("watermark TTF is bundled, license-attributed, and checksum-verified without build-time network", async () => {
+  const font = await readFile(new URL("../public/fonts/Vazirmatn-Regular.ttf", import.meta.url));
+  const license = await readFile(new URL("../public/fonts/OFL.txt", import.meta.url), "utf8");
+  const gitBlob = createHash("sha1")
+    .update(Buffer.concat([Buffer.from(`blob ${font.length}${String.fromCharCode(0)}`), font]))
+    .digest("hex");
+
+  assert.deepEqual([...font.subarray(0, 4)], [0, 1, 0, 0], "bundled asset must be a TrueType font");
+  assert.equal(gitBlob, "64e4a8189557a17b63fd7a77794207483e592972");
+  assert.match(license, /SIL OPEN FONT LICENSE Version 1\.1/);
+  assert.match(ffmpegDownloader, /BUNDLED_FONT_PATH/);
+  assert.match(ffmpegDownloader, /Using bundled checksum-verified Vazirmatn/);
 });
 
 test("npm build does not repeat fallback image downloads", () => {

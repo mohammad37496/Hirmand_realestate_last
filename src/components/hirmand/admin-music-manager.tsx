@@ -103,6 +103,8 @@ export function AdminMusicManager() {
   const [artist, setArtist] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [retryPending, setRetryPending] = useState(false);
+  const [failedUploadMessages, setFailedUploadMessages] = useState<string[]>([]);
   const [batchStatus, setBatchStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -241,6 +243,7 @@ export function AdminMusicManager() {
     setBatchStatus("");
     const uploaded: AdminMusicTrack[] = [];
     const failures: string[] = [];
+    const failedFiles: File[] = [];
     try {
       for (let index = 0; index < filesToUpload.length; index += 1) {
         const originalFile = filesToUpload[index]!;
@@ -274,17 +277,28 @@ export function AdminMusicManager() {
           uploaded.push(track);
         } catch (error) {
           failures.push(originalFile.name + ": " + uploadErrorMessage(error, "آپلود ناموفق"));
+          failedFiles.push(originalFile);
         }
       }
       if (uploaded.length > 0) setTracks((prev) => [...prev, ...uploaded]);
-      setTitle("");
-      setArtist("");
-      setFile(null);
-      setSelectedFiles([]);
-      if (inputRef.current) inputRef.current.value = "";
       if (failures.length === 0) {
+        setTitle("");
+        setArtist("");
+        setFile(null);
+        setSelectedFiles([]);
+        setRetryPending(false);
+        setFailedUploadMessages([]);
+        if (inputRef.current) inputRef.current.value = "";
         toast.success(uploaded.length.toLocaleString("fa-IR") + " آهنگ آپلود و به فهرست سایت اضافه شد.");
       } else {
+        // Keep only failed File objects, in their original selection order.
+        // The next submit therefore retries the failed queue without re-uploading
+        // tracks that were already accepted by the server.
+        setSelectedFiles(failedFiles);
+        setFile(failedFiles.length === 1 ? failedFiles[0]! : null);
+        setRetryPending(true);
+        setFailedUploadMessages(failures);
+        if (inputRef.current) inputRef.current.value = "";
         toast.error(uploaded.length + " آهنگ موفق، " + failures.length + " آهنگ ناموفق. " + failures.slice(0, 2).join(" | "));
       }
     } catch (error) {
@@ -434,6 +448,8 @@ export function AdminMusicManager() {
               onChange={(e) => {
                 const files = Array.from(e.target.files ?? []);
                 setSelectedFiles(files);
+                setRetryPending(false);
+                setFailedUploadMessages([]);
                 setFile(files.length === 1 ? files[0]! : null);
                 if (files.length !== 1) {
                   setTitle("");
@@ -453,15 +469,23 @@ export function AdminMusicManager() {
                 <strong>{selectedFiles.length > 1 ? `${selectedFiles.length.toLocaleString("fa-IR")} فایل صوتی انتخاب شد` : file ? file.name : "انتخاب یک یا چند فایل صوتی"}</strong>
                 <small>
                   {selectedFiles.length > 1
-                    ? `عنوان و هنرمند از نام هر فایل استخراج می‌شود · ${formatSize(selectedFiles.reduce((sum, item) => sum + item.size, 0))} مجموع`
+                    ? `${retryPending ? "فقط فایل‌های ناموفق، با همان ترتیب قبلی · " : "عنوان و هنرمند از نام هر فایل استخراج می‌شود · "}${formatSize(selectedFiles.reduce((sum, item) => sum + item.size, 0))} مجموع`
                     : file
-                      ? `${formatSize(file.size)} · ${audioMimeType(file) || "فرمت نامشخص"} · عنوان و هنرمند از نام فایل استخراج شد`
+                      ? `${retryPending ? "آپلود مجدد فایل ناموفق · " : ""}${formatSize(file.size)} · ${audioMimeType(file) || "فرمت نامشخص"} · عنوان و هنرمند از نام فایل استخراج شد`
                       : "MP3 / OGG / WAV / M4A / AAC · حداکثر ۳۲ مگابایت برای هر فایل"}
                 </small>
               </span>
               <Upload size={16} />
             </span>
           </label>
+
+          {retryPending && failedUploadMessages.length > 0 ? (
+            <div className="admin-music-retry-notice" role="status">
+              <strong>{selectedFiles.length.toLocaleString("fa-IR")} آهنگ ناموفق برای تلاش مجدد نگه داشته شد</strong>
+              <p>ترتیب انتخاب حفظ شده است؛ آهنگ‌های موفق دوباره آپلود نمی‌شوند. با زدن دکمهٔ زیر فقط همین موارد دوباره ارسال می‌شوند.</p>
+              <ul>{failedUploadMessages.map((message) => <li key={message}>{message}</li>)}</ul>
+            </div>
+          ) : null}
 
           {selectedFiles.length > 1 && !busy ? (
             <div className="admin-music-batch-preview" aria-label="پیش‌نمایش اطلاعات استخراج‌شده">
@@ -486,7 +510,7 @@ export function AdminMusicManager() {
 
           <button type="submit" className="btn-gold" disabled={busy || (selectedFiles.length === 0 && !file)}>
             {busy ? <Loader2 size={16} className="admin-spin" /> : <Upload size={16} />}
-            {busy ? "در حال آپلود…" : selectedFiles.length > 1 ? `آپلود ${selectedFiles.length.toLocaleString("fa-IR")} آهنگ` : "آپلود و انتشار آهنگ"}
+            {busy ? "در حال آپلود…" : retryPending ? `تلاش مجدد برای ${selectedFiles.length.toLocaleString("fa-IR")} آهنگ ناموفق` : selectedFiles.length > 1 ? `آپلود ${selectedFiles.length.toLocaleString("fa-IR")} آهنگ` : "آپلود و انتشار آهنگ"}
           </button>
         </form>
       </section>
@@ -675,6 +699,7 @@ const MUSIC_ADMIN_CSS = `
 .admin-music-summary strong{font-size:1rem;color:#111315}
 .admin-music-summary small{color:rgb(0 0 0 / .58);font-size:.7rem}
 .admin-music-batch-preview{grid-column:1/-1;display:grid;gap:7px;padding:12px 14px;border:1px solid #d9e1e8;border-radius:12px;background:#f8fafc;color:#122333;font-size:.8rem}.admin-music-batch-preview>div{display:flex;gap:12px;justify-content:space-between;align-items:baseline;padding-top:6px;border-top:1px solid #e5eaf0}.admin-music-batch-preview>div span{min-width:0;overflow-wrap:anywhere}.admin-music-batch-preview small{color:#66717d;flex-shrink:0}.admin-music-file-card{display:flex;align-items:center;gap:10px;min-height:62px;padding:10px 14px;border:1px dashed rgb(0 0 0 / .22);border-radius:14px;background:rgb(0 0 0 / .02);cursor:pointer;transition:border-color .15s,background .15s;color:#111315}
+.admin-music-retry-notice{grid-column:1/-1;padding:12px 14px;border:1px solid #e4c68c;border-radius:12px;background:#fffaf0;color:#5c4212;font-size:.8rem;line-height:1.8}.admin-music-retry-notice p{margin:4px 0 8px}.admin-music-retry-notice ul{margin:0;padding-inline-start:20px;overflow-wrap:anywhere}.admin-music-retry-notice li+li{margin-top:3px}
 .admin-music-file-card:hover{border-color:rgba(183,123,72,.55);background:rgb(0 0 0 / .045)}
 .admin-music-file-card.is-selected{border-style:solid;border-color:#111315;background:rgb(0 0 0 / .06)}
 .admin-music-file-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:rgb(0 0 0 / .06);flex:0 0 auto}
