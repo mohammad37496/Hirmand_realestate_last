@@ -29,6 +29,7 @@ const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.c
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
+const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
 const propertyDetailMobileCss = fs.readFileSync(new URL("../src/property-detail-mobile-redesign.css", import.meta.url), "utf8");
 const propertyDetailV2Css = fs.readFileSync(new URL("../src/property-detail-page.css", import.meta.url), "utf8");
 const propertyGalleryMobileCss = fs.readFileSync(new URL("../src/property-gallery-mobile.css", import.meta.url), "utf8");
@@ -36,6 +37,50 @@ const propertyDetailLuxuryCss = fs.readFileSync(new URL("../src/property-detail-
 const propertyExperienceRedesignCss = fs.readFileSync(new URL("../src/property-experience-redesign.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
+
+testRunner.test("property marketplace mobile refinement stays scoped and below tablet widths", () => {
+  const marker = "/* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */";
+  const mobilePass = responsiveCss.slice(responsiveCss.indexOf(marker));
+  assert.ok(mobilePass.length > 0, "the final marketplace mobile pass must be present");
+  assert.match(mobilePass, /@media\s*\(max-width:\s*620px\)/);
+  assert.match(mobilePass, /@media\s*\(max-width:\s*380px\)/);
+  assert.match(mobilePass, /@media\s*\(min-width:\s*621px\)/);
+  assert.doesNotMatch(mobilePass, /(^|[},]\s*)(?:html|body|#root|\.site-nav|\.property-detail-page)\s*[,{]/m,
+    "the final refinement must not style the global shell or other page routes");
+  assert.match(rootRoute, /propertiesMarketplacePolishCss[\s\S]*propertyExperienceRedesignCss[\s\S]*responsiveHardeningCss/,
+    "mobile marketplace refinements must load after the page's base marketplace CSS");
+});
+
+testRunner.test("property marketplace mobile cards keep full-width image ratios and touch actions", () => {
+  const marker = "/* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */";
+  const mobilePass = responsiveCss.slice(responsiveCss.indexOf(marker));
+  assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s+\.pcard-media\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10;[^}]*min-height:\s*0;/s);
+  assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s+\.pcard-media\s+img\s*\{[^}]*object-fit:\s*cover;/s);
+  assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s+\.pcard-actions\s*>\s*\*\s*\{[^}]*min-height:\s*40px;/s);
+  assert.match(mobilePass, /\.pf-page\s+\.pf-more\s+\.btn-ghost\s*\{[^}]*min-height:\s*44px;/s);
+});
+
+testRunner.test("property marketplace mobile controls retain working search, filter, sort and view handlers", () => {
+  assert.match(propertiesRoute, /value=\{q\}\s+onChange=\{\(e\) => setQ\(e\.target\.value\)\}/s,
+    "search must remain bound to the existing query state");
+  assert.match(propertiesRoute, /onClick=\{\(\) => setMobileFiltersOpen\(true\)\}/,
+    "the filter drawer must remain reachable from the mobile toolbar");
+  assert.match(propertiesRoute, /value=\{sort\}\s+onChange=\{\(e\) => setSort\(e\.target\.value as PropertySort\)\}/s,
+    "sorting must remain connected to the existing state");
+  assert.match(propertiesRoute, /onClick=\{\(\) => setViewMode\("list"\)\}[\s\S]*?onClick=\{\(\) => setViewMode\("grid"\)\}[\s\S]*?onClick=\{\(\) => setViewMode\("split"\)\}/s,
+    "list, grid and map mode controls must remain interactive");
+  assert.match(propertiesMarketplaceCss, /\.pf-page\s+\.pf-grid\.is-list-view\s*>\s*\.pcard/,
+    "the existing list-mode card styling must remain available on larger screens");
+});
+
+testRunner.test("property marketplace mobile map and horizontal tool strips have bounded scrolling", () => {
+  const marker = "/* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */";
+  const mobilePass = responsiveCss.slice(responsiveCss.indexOf(marker));
+  assert.match(mobilePass, /\.pf-page\s+\.pf-quick\s*\{[^}]*overflow-x:\s*auto;[^}]*overscroll-behavior-inline:\s*contain;/s);
+  assert.match(mobilePass, /\.pf-page\s+\.pf-tools\s*\{[^}]*overflow-x:\s*auto;[^}]*overscroll-behavior-inline:\s*contain;/s);
+  assert.match(mobilePass, /\.pf-page\s+\.pf-map-divar-layout\s+\.pf-map-panel\s*\{[^}]*height:\s*min\(48vh,\s*390px\);/s);
+  assert.match(mobilePass, /\.pf-page\s+\.pf-map-divar-layout\s+\.pf-map-canvas\s*\{[^}]*min-height:\s*280px;[^}]*height:\s*100%;/s);
+});
 testRunner.test("mobile property gallery suppresses duplicate and legacy zoom controls", () => {
   assert.match(
     propertyGalleryMobileCss,
