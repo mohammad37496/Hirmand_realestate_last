@@ -2639,13 +2639,6 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
     min-width: 44px !important;
     padding-inline: 8px !important;
   }
-  .pf-page .pf-grid > .pcard .pcard-actions .property-action {
-    flex: 0 0 44px !important;
-    width: 44px !important;
-    min-width: 44px !important;
-    height: 44px !important;
-    min-height: 44px !important;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
