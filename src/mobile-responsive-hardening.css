@@ -3126,7 +3126,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
   .pf-page .pf-grid.is-list-view > .pcard { grid-template-columns: 104px minmax(0, 1fr) !important; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-media { width: 104px !important; min-width: 104px !important; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-body { padding: 8px 7px 52px !important; }
-  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions { inset-inline-start: 104px !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions { inset-inline-start: 112px !important; }
 }
 
 /* Tablets and narrow laptops need the same small dock so it cannot cover the
@@ -3504,7 +3504,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   .pf-page .pf-grid.is-list-view > .pcard { grid-template-columns: 104px minmax(0, 1fr) !important; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-media { width: 104px !important; min-width: 104px !important; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-body { padding: 8px 7px 52px !important; }
-  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions { inset-inline-start: 104px !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions { inset-inline-start: 112px !important; }
 }
 
 /* Final mobile listing treatment: reference-style navy masthead, gold search
