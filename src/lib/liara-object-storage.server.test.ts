@@ -3,7 +3,41 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { putLiaraObjectFromFile } from "./liara-object-storage.server.ts";
+import {
+  isAllowedLiaraMediaKey,
+  liaraMediaProxyUrl,
+  putLiaraObjectFromFile,
+} from "./liara-object-storage.server.ts";
+
+test("Divar image objects are served through the same-origin Liara media proxy", () => {
+  const previousEnv = {
+    endpoint: process.env.LIARA_ENDPOINT,
+    bucket: process.env.LIARA_BUCKET_NAME,
+    access: process.env.LIARA_ACCESS_KEY,
+    secret: process.env.LIARA_SECRET_KEY,
+  };
+  try {
+    process.env.LIARA_ENDPOINT = "https://storage.example.test";
+    process.env.LIARA_BUCKET_NAME = "hirmand-test-bucket";
+    process.env.LIARA_ACCESS_KEY = "test-access-key";
+    process.env.LIARA_SECRET_KEY = "test-secret-key";
+    const source = "https://storage.example.test/hirmand-test-bucket/properties/divar/token/01-photo.webp";
+    assert.equal(isAllowedLiaraMediaKey("properties/divar/token/01-photo.webp"), true);
+    assert.equal(
+      liaraMediaProxyUrl(source, "image/webp"),
+      "/api/liara-media?url=" + encodeURIComponent(source),
+    );
+  } finally {
+    if (previousEnv.endpoint === undefined) delete process.env.LIARA_ENDPOINT;
+    else process.env.LIARA_ENDPOINT = previousEnv.endpoint;
+    if (previousEnv.bucket === undefined) delete process.env.LIARA_BUCKET_NAME;
+    else process.env.LIARA_BUCKET_NAME = previousEnv.bucket;
+    if (previousEnv.access === undefined) delete process.env.LIARA_ACCESS_KEY;
+    else process.env.LIARA_ACCESS_KEY = previousEnv.access;
+    if (previousEnv.secret === undefined) delete process.env.LIARA_SECRET_KEY;
+    else process.env.LIARA_SECRET_KEY = previousEnv.secret;
+  }
+});
 
 test("Liara disk uploads use bounded multipart parts and complete the object", async () => {
   const previousEnv = {

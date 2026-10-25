@@ -315,6 +315,9 @@ export function isAllowedLiaraMediaKey(value: string): boolean {
   }
   return [
     "properties/uploads/",
+    // Divar imports use their own stable prefix and must also be served through
+    // the same-origin proxy because the Liara bucket is private.
+    "properties/divar/",
     "properties/customer-submissions/",
     "areas/uploads/",
   ].some((prefix) => key.startsWith(prefix) && key.length > prefix.length);

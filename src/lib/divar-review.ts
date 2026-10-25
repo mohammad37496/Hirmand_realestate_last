@@ -253,10 +253,7 @@ const deleteSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(500),
 });
 
-/**
- * Removes draft Divar rows. Published files are protected: deleting the row
- * would orphan the live listing, so it is skipped and reported back instead.
- */
+/** Removes Divar rows; published properties are first moved to the recoverable trash. */
 export const deleteDivarFiles = createServerFn({ method: "POST" })
   .validator(deleteSchema)
   .handler(async ({ data }) => {
@@ -268,12 +265,61 @@ export const deleteDivarFiles = createServerFn({ method: "POST" })
       throw new Error("DATABASE_URL تنظیم نشده است.");
     }
     const sql = await getSql();
-    const rows = await sql.query<Record<string, unknown>>(
+    const selected = await sql.query<Record<string, unknown>>(
+      `select id, imported_property_id
+         from divar_files
+        where id = any($1::text[])`,
+      [data.ids],
+    );
+    const publishedPropertyIds = Array.from(new Set(
+      selected
+        .map((row) => row.imported_property_id == null ? "" : String(row.imported_property_id))
+        .filter(Boolean),
+    ));
+
+    let unpublished = 0;
+    if (publishedPropertyIds.length) {
+      const trashed = await sql.query<{ id: string }>(
+        `update properties
+            set deleted_at = current_timestamp,
+                deleted_from_status = status,
+                status = 'archived',
+                featured = false,
+                featured_until = null,
+                updated_at = current_timestamp
+          where id = any($1::text[]) and deleted_at is null
+          returning id`,
+        [publishedPropertyIds],
+      );
+      unpublished = trashed.length;
+      await sql.query(
+        `insert into property_change_history (property_id, action, before_state, after_state)
+         select p.id, 'deleted', jsonb_build_object('status', p.deleted_from_status), null
+           from properties p
+          where p.id = any($1::text[]) and p.deleted_at is not null`,
+        [publishedPropertyIds],
+      ).catch(() => {});
+      await sql.query(
+        `update divar_files
+            set filter_status = 'accepted',
+                imported_property_id = null,
+                imported_at = null,
+                updated_at = current_timestamp
+          where id = any($1::text[])`,
+        [selected.filter((row) => row.imported_property_id != null).map((row) => String(row.id))],
+      );
+    }
+
+    const rows = await sql.query<{ id: string }>(
       `delete from divar_files
         where id = any($1::text[])
           and filter_status <> 'imported'
         returning id`,
       [data.ids],
     );
-    return { deleted: rows.length, skipped: Math.max(0, data.ids.length - rows.length) };
+    return {
+      deleted: rows.length,
+      unpublished,
+      skipped: Math.max(0, data.ids.length - selected.length),
+    };
   });

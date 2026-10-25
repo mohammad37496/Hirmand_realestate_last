@@ -319,10 +319,9 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
     try {
       const result = await deleteDivarFiles({ data: { ids } });
       toast.success(
-        `${fa(result.deleted)} فایل حذف شد.` +
-          (result.skipped > 0
-            ? ` ${fa(result.skipped)} فایل منتشرشده محفوظ ماند؛ ابتدا آن‌ها را از فهرست فایل‌های سایت حذف کنید.`
-            : ""),
+        `${fa(result.deleted)} فایل از صف دیوار حذف شد.` +
+          (result.unpublished > 0 ? ` ${fa(result.unpublished)} ملک منتشرشده به سطل بازیابی منتقل شد.` : "") +
+          (result.skipped > 0 ? ` ${fa(result.skipped)} مورد پیدا نشد.` : ""),
       );
       setSelection((prev) => prev.filter((id) => !ids.includes(id)));
       await load();
@@ -926,7 +925,7 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
                   <ShieldCheck size={15} /> تأیید دستی گروهی
                 </button>
               ) : null}
-{!staffMode && tab !== "imported" ? (
+{!staffMode ? (
                 <button
                   type="button"
                   className="btn-ghost"
@@ -1277,16 +1276,21 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
                         </button>
                       ) : null}
 
-                      {!staffMode && file.filterStatus !== "imported" ? (
+                      {!staffMode ? (
                         <button
                           type="button"
                           className="btn-ghost"
                           disabled={busy || syncing || Boolean(bulk)}
                           onClick={() =>
-                            void removeFiles([file.id], `حذف «${file.title}» از فهرست دیوار؟`)
+                            void removeFiles(
+                              [file.id],
+                              file.filterStatus === "imported"
+                                ? `«${file.title}» از سایت به سطل بازیابی منتقل و از صف دیوار خارج شود؟`
+                                : `حذف «${file.title}» از فهرست دیوار؟`,
+                            )
                           }
-                          title="حذف از فهرست دیوار"
-                          aria-label="حذف از فهرست دیوار"
+                          title={file.filterStatus === "imported" ? "انتقال ملک منتشرشده به سطل بازیابی و حذف از صف دیوار" : "حذف از فهرست دیوار"}
+                          aria-label={file.filterStatus === "imported" ? "حذف ملک منتشرشده از سایت" : "حذف از فهرست دیوار"}
                         >
                           <Trash2 size={15} />
                         </button>
