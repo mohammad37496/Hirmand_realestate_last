@@ -527,7 +527,7 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "compact property actions must be a single scrollable flex row rather than a wrapping grid");
   assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-action \{[^}]*min-width: 44px !important;[^}]*min-height: 44px !important;/s,
     "property action controls must preserve 44px hit targets at narrow phone widths");
-  assert.match(finalParityPass, /body:has\(\.pf-page\) \.action-menu\.floating-call-menu \{[^}]*left: auto !important;[^}]*right: 12px !important;[^}]*bottom: calc\(78px \+ env\(safe-area-inset-bottom\)\) !important;/s,
+  assert.match(finalParityPass, /html:has\(\.pf-page\) body:has\(\.pf-page\) \.action-menu\.floating-call-menu \{[^}]*left: auto !important;[^}]*right: 12px !important;[^}]*bottom: calc\(78px \+ env\(safe-area-inset-bottom\)\) !important;/s,
     "the floating contact control should sit opposite the music dock and above the mobile navigation");
   assert.match(responsiveSmoke, /floating contact control leaves the safe area above mobile navigation/,
     "browser smoke should catch contact controls that overlap the bottom navigation");

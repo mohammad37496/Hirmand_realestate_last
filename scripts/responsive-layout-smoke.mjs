@@ -611,6 +611,9 @@ try {
           if (contact && (contact.left < -1 || contact.right > width + 1 || contact.top < -1 || contact.bottom > height - 72)) {
             failures.push(`/properties @ ${width}x${height}px: floating contact control leaves the safe area above mobile navigation (${JSON.stringify({ contact, viewport: { width, height }, bottomSafeEdge: height - 72 })})`);
           }
+          if (contact && Math.abs(contact.bottom - dock.bottom) > 8) {
+            failures.push(`/properties @ ${width}x${height}px: floating contact control is not aligned with the compact music dock and may cover listing filters (${JSON.stringify({ dock, contact })})`);
+          }
         }
 
         if (metrics.propertyGallery && width <= 430) {

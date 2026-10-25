@@ -3215,7 +3215,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
     font-weight: 900 !important;
     cursor: pointer !important;
   }
-  body:has(.pf-page) .action-menu.floating-call-menu {
+  html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     left: auto !important;
     right: 12px !important;
     bottom: calc(78px + env(safe-area-inset-bottom)) !important;
