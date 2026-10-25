@@ -2626,6 +2626,21 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
   }
 }
 
+/* Keep every frequently used listing control comfortable to tap on phones. */
+@media (max-width: 640px) {
+  .pf-page .pf-sort .pf-select,
+  .pf-page .pf-views button,
+  .pf-page .pf-tools > a,
+  .pf-page .pf-tools > button,
+  .pf-page .pf-tools > select {
+    min-height: 44px !important;
+  }
+  .pf-page .pf-views button {
+    min-width: 44px !important;
+    padding-inline: 8px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .footer:has(.footer-shell) *,
   .footer:has(.footer-shell) *::before,
@@ -3766,4 +3781,26 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     max-width: calc(100vw - 24px) !important;
   }
   html:has(.pf-page) .action-menu.floating-call-menu > button { max-width: 100%; }
+}
+
+/* Last-mile mobile overrides must follow the legacy responsive layers above. */
+@media (max-width: 640px) {
+  .pf-page {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-inline: 0 !important;
+  }
+  .pf-page .pf-sort .pf-select,
+  .pf-page .pf-views button,
+  .pf-page .pf-tools > a,
+  .pf-page .pf-tools > button,
+  .pf-page .pf-tools > select {
+    min-height: 44px !important;
+  }
+  .pf-page .pf-views button {
+    min-width: 44px !important;
+    padding-inline: 8px !important;
+  }
 }

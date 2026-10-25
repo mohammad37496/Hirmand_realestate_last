@@ -433,7 +433,7 @@ function PropertiesIndexPage() {
     // Keep the listing-first default in sync when a responsive preview changes viewport size.
     const mobileQuery = window.matchMedia("(max-width: 620px)");
     const applyMobileDefault = () => {
-      if (mobileQuery.matches) setViewMode((current) => current === "list" ? current : "list");
+      if (mobileQuery.matches) setViewMode((current) => current === "grid" ? "list" : current);
     };
     applyMobileDefault();
     mobileQuery.addEventListener("change", applyMobileDefault);
