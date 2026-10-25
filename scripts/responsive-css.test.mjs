@@ -72,9 +72,9 @@ testRunner.test("property marketplace mobile cards keep full-width image ratios 
   assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s+\.pcard-actions\s+\.property-action\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*min-height:\s*44px;/s,
     "each mobile listing action should have a 44px touch target");
   assert.deepEqual(
-    [...responsiveCss.matchAll(/\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{ inset-inline-start: (\d+)px !important; \}/g)].map((match) => match[1]),
-    ["112", "112"],
-    "the narrow-phone action rail must start after the actual 112px minimum photo column to avoid covering the image",
+    [...responsiveCss.matchAll(/\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{ inset-inline-start: (max\(112px, 36%\)) !important; \}/g)].map((match) => match[1]),
+    ["max(112px, 36%)", "max(112px, 36%)"],
+    "the narrow-phone action rail must track the photo's max(112px, 36%) column to avoid covering the image at every phone width",
   );
   assert.match(mobilePass, /\.pf-page\s+\.pf-more\s+\.btn-ghost\s*\{[^}]*min-height:\s*44px;/s);
 });
@@ -543,6 +543,8 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "property actions should stay on one compact horizontal strip instead of doubling card height");
   assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{[^}]*position: absolute !important;[^}]*top: auto !important;[^}]*bottom: 0 !important;[^}]*height: 52px !important;/s,
     "property actions should occupy the card's text column without adding a second full-width row");
+  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{[^}]*inset-inline-start: 36% !important;/s,
+    "the action rail must follow the 36% image column at widths above 380px");
   assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-actions(?:-compact)? \{[^}]*flex-wrap: nowrap !important;/s,
     "mobile property actions should remain horizontally reachable in a single row");
   assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-actions(?:-compact)? \{[^}]*display: flex !important;[^}]*position: static !important;[^}]*flex-wrap: nowrap !important;/s,
@@ -585,7 +587,7 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "the 44px floating-control height requirement should be scoped to phones, preserving tablet and desktop player sizing");
   assert.match(responsiveSmoke, /if \(width <= 1024\) \{\s*const undersized = dock\.buttons\.filter/,
     "44px music-control touch targets should be enforced on phones and tablets without penalizing desktop mouse controls");
-  assert.match(finalParityPass, /@media \(max-width: 380px\) \{[\s\S]*?grid-template-columns: 104px minmax\(0, 1fr\) !important;[\s\S]*?pcard-actions \{ inset-inline-start: 112px !important;/s,
+  assert.match(finalParityPass, /@media \(max-width: 380px\) \{[\s\S]*?grid-template-columns: 104px minmax\(0, 1fr\) !important;[\s\S]*?pcard-actions \{ inset-inline-start: max\(112px, 36%\) !important;/s,
     "the 320–380px card image and action column must stay aligned with the narrower image width");
   assert.match(responsiveCss, /@media \(min-width: 641px\) and \(max-width: 1024px\) \{[\s\S]*?music-player-float:not\(\.music-player-float-empty\) \{[\s\S]*?width: 112px !important;[\s\S]*?height: 54px !important;/s,
     "tablet and narrow-laptop listings should use the compact music dock too");
