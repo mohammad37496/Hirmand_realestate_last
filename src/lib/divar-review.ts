@@ -15,6 +15,8 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
+import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { deleteDivarRows } from "./divar-delete.server";
 import {
   CATEGORIES,
@@ -266,5 +268,17 @@ export const deleteDivarFiles = createServerFn({ method: "POST" })
       throw new Error("DATABASE_URL تنظیم نشده است.");
     }
     const sql = await getSql();
-    return deleteDivarRows(sql, data.ids);
+    const result = await deleteDivarRows(sql, data.ids);
+
+    // Invalidate cached public property reads as soon as a published listing is trashed.
+    if (result.unpublished > 0) clearPropertyReadCache();
+
+    await writeAdminAuditLog({
+      action: "divar.files_deleted",
+      entityType: "divar_file",
+      actor: String(claims?.displayName ?? claims?.role ?? "admin"),
+      metadata: { requestedIds: Array.from(new Set(data.ids)), deleted: result.deleted, unpublished: result.unpublished, skipped: result.skipped },
+    });
+
+    return result;
   });
