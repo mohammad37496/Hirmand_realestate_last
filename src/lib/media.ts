@@ -53,6 +53,7 @@ function isLiaraStorageUrl(value: string): boolean {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
     const liaraHost =
+      host.endsWith(".liara.site") ||
       host.endsWith(".liara.space") ||
       host.endsWith(".liara.ir") ||
       host.endsWith(".liara.cloud");

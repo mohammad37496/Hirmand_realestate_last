@@ -7,10 +7,25 @@ const privateLiaraImage =
   "https://storage.iran.liara.space/hirmand/properties/uploads/apartment-01.jpg";
 const privateLiaraVideo =
   "https://storage.iran.liara.space/hirmand/properties/uploads/tour-01.mp4";
+const privateLiaraSiteDivarImage =
+  "https://storage.c2.liara.site/hirmand-realestate/properties/divar/AamRuq0I/01-photo.webp";
+const privateLiaraSiteLegacyImage =
+  "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/gallery/photo.webp";
 
 test("private Liara property images are routed through the same-origin media proxy", () => {
   assert.deepEqual(mediaSourceCandidates(privateLiaraImage, fallback), [
     "/api/liara-media?url=" + encodeURIComponent(privateLiaraImage),
+    fallback,
+  ]);
+});
+
+test("Liara .site objects from both Divar and legacy gallery prefixes use the private proxy", () => {
+  assert.deepEqual(mediaSourceCandidates(privateLiaraSiteDivarImage, fallback), [
+    "/api/liara-media?url=" + encodeURIComponent(privateLiaraSiteDivarImage),
+    fallback,
+  ]);
+  assert.deepEqual(mediaSourceCandidates(privateLiaraSiteLegacyImage, fallback), [
+    "/api/liara-media?url=" + encodeURIComponent(privateLiaraSiteLegacyImage),
     fallback,
   ]);
 });
