@@ -404,6 +404,26 @@ try {
             }
           }
 
+          const primaryTargets = [];
+          if (viewport <= 430) {
+            const primarySelectors = ".pf-quick .pf-chip,.pf-views button,.pf-filter-clear-all,.pf-mobile-reference-more,.pf-mobile-reference-reset,.pf-filter-btn,.pf-close,.pf-show-results,.pf-tools > a,.pf-tools > button,.pf-tools > select,.pf-sort .pf-select,.pf-mobile-search-cta,.pf-grid.is-list-view > .pcard .pcard-actions .property-action";
+            for (const element of document.querySelectorAll(primarySelectors)) {
+              const style = getComputedStyle(element);
+              if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+              if (element.closest(".leaflet-container, .maplibregl-map")) continue;
+              const rect = element.getBoundingClientRect();
+              if (rect.width < 1 || rect.height < 1) continue;
+              if (rect.width < 44 || rect.height < 44) {
+                primaryTargets.push({
+                  element: element.tagName.toLowerCase() + (typeof element.className === "string" && element.className.trim() ? "." + element.className.trim().split(/\s+/).slice(0, 2).join(".") : ""),
+                  width: Math.round(rect.width),
+                  height: Math.round(rect.height),
+                  text: (element.innerText || element.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ").slice(0, 50),
+                });
+              }
+            }
+          }
+
           const dock = document.querySelector(".music-player-float:not(.music-player-float-empty)");
           const dockRect = dock?.getBoundingClientRect();
           const dockButtons = dock ? [...dock.querySelectorAll("button")].map((button) => {
@@ -521,6 +541,7 @@ try {
             offenders: offenders.slice(0, 8),
             brokenWords: brokenWords.slice(0, 8),
             smallTargets: smallTargets.slice(0, 8),
+            primaryTargets: primaryTargets.slice(0, 12),
             musicDock,
             floatingContact,
             propertyGallery,
@@ -571,6 +592,9 @@ try {
         if (metrics.brokenWords.length) {
           failures.push(`${route} @ ${width}x${height}px: text appears split letter-by-letter; elements=${JSON.stringify(metrics.brokenWords)}`);
         }
+        if (route === "/properties" && width <= 430 && metrics.primaryTargets?.length) {
+          failures.push(`/properties @ ${width}x${height}px: primary listing controls below 44px touch targets (${JSON.stringify(metrics.primaryTargets)})`);
+        }
         if (route === "/properties" && width <= 640 && metrics.musicDock) {
           const dock = metrics.musicDock;
           if (dock.left < -1 || dock.right > width + 1 || dock.top < -1 || dock.bottom > height + 1) {
@@ -583,6 +607,9 @@ try {
           const contact = metrics.floatingContact;
           if (contact && dock.left < contact.right && dock.right > contact.left && dock.top < contact.bottom && dock.bottom > contact.top) {
             failures.push(`/properties @ ${width}x${height}px: music dock overlaps the floating contact control (${JSON.stringify({ dock, contact })})`);
+          }
+          if (contact && (contact.left < -1 || contact.right > width + 1 || contact.top < -1 || contact.bottom > height - 72)) {
+            failures.push(`/properties @ ${width}x${height}px: floating contact control leaves the safe area above mobile navigation (${JSON.stringify({ contact, viewport: { width, height }, bottomSafeEdge: height - 72 })})`);
           }
         }
 

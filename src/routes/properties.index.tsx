@@ -1479,7 +1479,7 @@ function PropertiesIndexPage() {
                 </small>
               </div>
               {activeFilterCount ? (
-                <button type="button" onClick={resetFilters}>پاک‌کردن همه</button>
+                <button type="button" className="pf-filter-clear-all" onClick={resetFilters}>پاک‌کردن همه</button>
               ) : null}
             </div>
 

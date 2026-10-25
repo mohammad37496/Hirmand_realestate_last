@@ -54,6 +54,10 @@ testRunner.test("property marketplace mobile refinement stays scoped and below t
     "the mobile marketplace must reclaim the global stable scrollbar gutter without changing other routes");
   assert.match(propertiesRoute, /if\s*\(window\.matchMedia\("\(max-width:\s*620px\)"\)\.matches\)\s*setViewMode\("list"\)/,
     "mobile visitors should land on property listings while retaining the map as an explicit view");
+  assert.match(propertiesRoute, /className="pf-filter-clear-all"/,
+    "the active-filter reset control should have a stable selector for accessible mobile sizing");
+  assert.match(mobilePass, /\.pf-filter-overview \.pf-filter-clear-all \{[^}]*min-height: 44px !important;/s,
+    "the active-filter reset control should remain a 44px target on narrow phones");
 });
 
 testRunner.test("property marketplace mobile cards keep full-width image ratios and touch actions", () => {
@@ -519,6 +523,20 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "property actions should occupy the card's text column without adding a second full-width row");
   assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-actions(?:-compact)? \{[^}]*flex-wrap: nowrap !important;/s,
     "mobile property actions should remain horizontally reachable in a single row");
+  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-actions(?:-compact)? \{[^}]*display: flex !important;[^}]*position: static !important;[^}]*flex-wrap: nowrap !important;/s,
+    "compact property actions must be a single scrollable flex row rather than a wrapping grid");
+  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-action \{[^}]*min-width: 44px !important;[^}]*min-height: 44px !important;/s,
+    "property action controls must preserve 44px hit targets at narrow phone widths");
+  assert.match(finalParityPass, /body:has\(\.pf-page\) \.action-menu\.floating-call-menu \{[^}]*left: auto !important;[^}]*right: 12px !important;[^}]*bottom: calc\(78px \+ env\(safe-area-inset-bottom\)\) !important;/s,
+    "the floating contact control should sit opposite the music dock and above the mobile navigation");
+  assert.match(responsiveSmoke, /floating contact control leaves the safe area above mobile navigation/,
+    "browser smoke should catch contact controls that overlap the bottom navigation");
+  assert.match(finalParityPass, /\.pf-page \.pf-quick \.pf-chip \{ min-height: 44px !important; \}/,
+    "quick filters should retain full-size touch targets on phones");
+  assert.match(finalParityPass, /\.pf-page \.pf-views button \{ min-width: 44px !important; min-height: 44px !important; \}/,
+    "view-switch buttons should retain full-size touch targets on phones");
+  assert.match(responsiveSmoke, /primary listing controls below 44px touch targets/,
+    "browser smoke should validate the primary marketplace controls, not only the music dock");
   assert.match(finalParityPass, /\.pcard-actions \.property-action \{[^}]*flex: 0 0 44px !important;[^}]*min-width: 44px !important;[^}]*min-height: 44px !important;/s,
     "mobile property action buttons must not shrink below the 44px touch target");
   assert.match(responsiveSmoke, /actionsBounds\.left < card\.mediaBounds\.right && card\.actionsBounds\.right > card\.mediaBounds\.left/,
