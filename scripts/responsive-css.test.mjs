@@ -121,6 +121,11 @@ testRunner.test("property search browser smoke explicitly selects map view befor
     "fixture/shared URL, invalid filter and empty-result checks should all establish map view explicitly");
 });
 
+testRunner.test("property search browser smoke waits for the resolved empty state, not its loading placeholder", () => {
+  assert.match(propertySearchBrowserSmoke, /const emptyState = empty\.locator\("\.pf-map-list-empty"\)\.filter\(\{ hasText: \/پیدا نشد\/ \}\);[\s\S]*?await emptyState\.waitFor\(\{ state: "visible", timeout: timeoutMs \}\)/,
+    "no-match assertions should wait until the search request resolves to the explicit empty state");
+});
+
 testRunner.test("property-local question log hydrates before reading browser storage", () => {
   assert.match(propertyQuestionLogSource, /useState<QuestionItem\[]>\(\[\]\)/,
     "the question log must use the same initial rows for server and browser rendering");

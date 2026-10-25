@@ -101,8 +101,9 @@ try {
   emptyUrl.searchParams.set("q", "عبارت-آزمایشی-بدون-نتیجه-۷۸۹۱۲۳");
   await empty.goto(emptyUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
   await openMapView(empty);
-  await empty.locator(".pf-map-list-empty").waitFor({ state: "visible", timeout: timeoutMs });
-  assert.match(await empty.locator(".pf-map-list-empty").innerText(), /پیدا نشد/);
+  const emptyState = empty.locator(".pf-map-list-empty").filter({ hasText: /پیدا نشد/ });
+  await emptyState.waitFor({ state: "visible", timeout: timeoutMs });
+  assert.match(await emptyState.innerText(), /پیدا نشد/);
   assert.equal(await empty.locator(".pf-map-item-copy strong").filter({ hasText: title }).count(), 0);
   console.log("[property-search-smoke] no-match query rendered the empty-results state");
 
