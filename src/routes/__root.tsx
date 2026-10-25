@@ -29,6 +29,7 @@ import propertiesDivarRedesignCss from "../properties-divar-redesign.css?url";
 import propertiesFiltersRedesignCss from "../properties-filters-redesign.css?url";
 import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
 import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css?url";
+import propertiesHirmandSignatureCss from "../properties-hirmand-signature.css?url";
 import propertyExperienceRedesignCss from "../property-experience-redesign.css?url";
 import musicPlayerCss from "../music-player.css?url";
 
@@ -80,6 +81,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: propertiesFiltersRedesignCss },
       { rel: "stylesheet", href: propertiesMarketplacePolishCss },
       { rel: "stylesheet", href: propertyExperienceRedesignCss },
+      { rel: "stylesheet", href: propertiesHirmandSignatureCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
       { rel: "stylesheet", href: musicPlayerCss },
     ],
