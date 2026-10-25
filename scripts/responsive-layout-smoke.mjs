@@ -152,6 +152,8 @@ try {
           const mediaRect = media?.getBoundingClientRect();
           const imageRect = image?.getBoundingClientRect();
           const actions = card.querySelector(".pcard-actions");
+          const cardRect = card.getBoundingClientRect();
+          const actionsRect = actions?.getBoundingClientRect();
           const actionButtons = [...card.querySelectorAll(".pcard-actions .property-action")].map((button) => {
             const rect = button.getBoundingClientRect();
             return { width: Math.round(rect.width), height: Math.round(rect.height) };
@@ -159,6 +161,9 @@ try {
           return {
             imageFrameDelta: mediaRect && imageRect ? Math.abs(mediaRect.height - imageRect.height) : 0,
             actionsPosition: actions ? getComputedStyle(actions).position : "missing",
+            mediaBounds: mediaRect ? { left: Math.round(mediaRect.left), right: Math.round(mediaRect.right) } : null,
+            actionsBounds: actionsRect ? { left: Math.round(actionsRect.left), right: Math.round(actionsRect.right), top: Math.round(actionsRect.top), bottom: Math.round(actionsRect.bottom) } : null,
+            cardBounds: { left: Math.round(cardRect.left), right: Math.round(cardRect.right), bottom: Math.round(cardRect.bottom) },
             actionButtons,
           };
         }));
@@ -166,8 +171,11 @@ try {
           if (card.imageFrameDelta > 2) {
             failures.push(`/properties @ 320px: property image does not fill its media frame (${card.imageFrameDelta}px gap)`);
           }
-          if (card.actionsPosition !== "static") {
-            failures.push("/properties @ 320px: property action buttons still overlay the listing photo");
+          if (card.mediaBounds && card.actionsBounds && card.actionsBounds.left < card.mediaBounds.right && card.actionsBounds.right > card.mediaBounds.left) {
+            failures.push(`/properties @ 320px: property action buttons overlap the listing photo (${JSON.stringify({ media: card.mediaBounds, actions: card.actionsBounds })})`);
+          }
+          if (card.actionsBounds && (card.actionsBounds.left < card.cardBounds.left - 1 || card.actionsBounds.right > card.cardBounds.right + 1 || card.actionsBounds.bottom > card.cardBounds.bottom + 1)) {
+            failures.push(`/properties @ 320px: property actions escape the card bounds (${JSON.stringify({ card: card.cardBounds, actions: card.actionsBounds })})`);
           }
           if (card.actionButtons.some((target) => target.width < 44 || target.height < 44)) {
             failures.push(`/properties @ 320px: property action target is below 44px (${JSON.stringify(card.actionButtons)})`);

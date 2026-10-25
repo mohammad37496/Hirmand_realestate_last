@@ -502,8 +502,6 @@ testRunner.test("mobile property marketplace follows compact reference-style sta
 
 testRunner.test("global music dock is compact and page-scoped over the mobile property list", () => {
   const finalPass = responsiveCss.slice(responsiveCss.lastIndexOf("/* Keep the global music dock from obscuring mobile listing cards; playback stays available. */"));
-  assert.match(finalPass, /body:has\(\.pf-page\) \.music-player-float:not\(\.music-player-float-empty\) \{[^}]*width: min\(292px, calc\(100vw - 20px\)\) !important;[^}]*height: 68px !important;[^}]*min-height: 68px !important;/s,
-    "the music dock should be compact only on the mobile property listing");
   assert.match(finalPass, /body:has\(\.pf-page\).*\.music-player-float-progress \{\s*display: none !important;/s,
     "the dock should hide its progress row to avoid obscuring the listing");
   const finalParityPass = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final parity pass: restore the reference's dark marketplace masthead"));
@@ -521,6 +519,12 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "property actions should occupy the card's text column without adding a second full-width row");
   assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-actions(?:-compact)? \{[^}]*flex-wrap: nowrap !important;/s,
     "mobile property actions should remain horizontally reachable in a single row");
+  assert.match(finalParityPass, /\.pcard-actions \.property-action \{[^}]*flex: 0 0 44px !important;[^}]*min-width: 44px !important;[^}]*min-height: 44px !important;/s,
+    "mobile property action buttons must not shrink below the 44px touch target");
+  assert.match(responsiveSmoke, /actionsBounds\.left < card\.mediaBounds\.right && card\.actionsBounds\.right > card\.mediaBounds\.left/,
+    "the browser smoke must check actual action/photo overlap instead of rejecting all absolute positioning");
+  assert.match(responsiveSmoke, /\.pcard-actions \.property-action/,
+    "the responsive browser smoke must measure the real property action targets");
   assert.match(finalParityPass, /\.music-player-float:not\(\.music-player-float-empty\) \{[^}]*height: 54px !important;[^}]*min-height: 54px !important;/s,
     "the collapsed music dock should fit below the filter/category area without covering listing content");
   assert.match(finalParityPass, /\.music-player-float:not\(\.music-player-float-empty\) \{[^}]*width: 112px !important;/s,
@@ -531,4 +535,6 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "the compact music dock must preserve 44px touch targets for playback controls");
   assert.match(finalParityPass, /\.music-player-utility \{[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
     "the playlist toggle must retain a 44px touch target");
+  assert.match(finalParityPass, /@media \(max-width: 380px\) \{[\s\S]*?grid-template-columns: 104px minmax\(0, 1fr\) !important;[\s\S]*?pcard-actions \{ inset-inline-start: 104px !important;/s,
+    "the 320–380px card image and action column must stay aligned with the narrower image width");
 });

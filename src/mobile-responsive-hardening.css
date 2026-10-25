@@ -3344,6 +3344,13 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
     width: max-content !important;
     max-width: none !important;
   }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action {
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
   body:has(.pf-page) .music-player-float:not(.music-player-float-empty) .music-player-disc {
     width: 28px !important;
     height: 28px !important;
@@ -3367,4 +3374,11 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
     right: auto !important;
     width: min(292px, calc(100vw - 20px)) !important;
   }
+}
+
+@media (max-width: 380px) {
+  .pf-page .pf-grid.is-list-view > .pcard { grid-template-columns: 104px minmax(0, 1fr) !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media { width: 104px !important; min-width: 104px !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-body { padding: 8px 7px 52px !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions { inset-inline-start: 104px !important; }
 }
