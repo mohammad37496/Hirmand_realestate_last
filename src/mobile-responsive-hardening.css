@@ -2858,7 +2858,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
   .pf-page .pf-quick { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 7px; }
   .pf-page .pf-quick::-webkit-scrollbar { display: none; }
   .pf-page .pf-quick > span { display: none; }
-  .pf-page .pf-quick .pf-chip { flex: 0 0 auto; min-height: 44px; font-size: .68rem; }
+  .pf-page .pf-main .pf-quick .pf-chip { flex: 0 0 auto; min-height: 44px !important; font-size: .68rem; }
   .pf-page .pf-results-head { display: grid; gap: 8px; padding: 10px 2px; border: 0; background: transparent; }
   .pf-page .pf-count { display: flex; align-items: baseline; gap: 6px; }
   .pf-page .pf-count strong { color: #152c41; font-size: 1.04rem; }

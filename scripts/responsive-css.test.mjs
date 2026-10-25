@@ -486,6 +486,6 @@ testRunner.test("final reference-inspired mobile controls retain 44px touch targ
     "mobile search and numeric inputs must remain touch-friendly");
   assert.match(finalMobilePass, /\.pf-mobile-reference-actions button \{[^}]*min-height: 44px;/s,
     "mobile filter and reset actions must remain touch-friendly");
-  assert.match(finalMobilePass, /\.pf-page \.pf-quick \.pf-chip \{[^}]*min-height: 44px;/s,
+  assert.match(finalMobilePass, /\.pf-page \.pf-main \.pf-quick \.pf-chip \{[^}]*min-height: 44px !important;/s,
     "horizontally scrollable quick filters must remain easy to tap");
 });
