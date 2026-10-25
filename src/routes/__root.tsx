@@ -31,7 +31,6 @@ import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
 import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css?url";
 import propertyExperienceRedesignCss from "../property-experience-redesign.css?url";
 import musicPlayerCss from "../music-player.css?url";
-import propertiesMobileReferenceCss from "../properties-mobile-reference.css?url";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -83,7 +82,6 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: propertyExperienceRedesignCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
       { rel: "stylesheet", href: musicPlayerCss },
-      { rel: "stylesheet", href: propertiesMobileReferenceCss },
     ],
   }),
   component: RootDocument,
