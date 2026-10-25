@@ -576,3 +576,16 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
   assert.match(responsiveCss, /html:has\(\.pf-page\) body:has\(\.pf-page\) \.action-menu\.floating-call-menu \{\s*bottom: calc\(78px \+ env\(safe-area-inset-bottom\)\) !important;/s,
     "the floating contact action should stay in the bottom corner opposite the music dock at every viewport");
 });
+
+testRunner.test("mobile grid mode remains distinct and the floating contact shortcut stays available", () => {
+  const gridPass = responsiveCss.slice(responsiveCss.lastIndexOf("/* The grid/list toggle changes the card layout"));
+  assert.match(gridPass, /\.pf-page \.pf-grid:not\(\.is-list-view\) > \.pcard > \.pcard-link \{[^}]*grid-template-columns: minmax\(0, 1fr\) !important;/s,
+    "grid mode should restore a vertical image-first card instead of inheriting horizontal list layout");
+  assert.match(gridPass, /\.pf-page \.pf-grid:not\(\.is-list-view\) > \.pcard \.pcard-media \{[^}]*aspect-ratio: 16 \/ 10 !important;/s,
+    "grid mode should give listing images a stable landscape ratio");
+  const finalMobile = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final mobile listing treatment:"));
+  assert.match(finalMobile, /\.action-menu\.floating-call-menu \{[^}]*display: flex !important;/s,
+    "the listing redesign must preserve the floating contact shortcut");
+  assert.doesNotMatch(finalMobile, /\.action-menu\.floating-call-menu\s*\{[^}]*display:\s*none\s*!important;/s,
+    "the listing page must not hide the floating contact shortcut on phones");
+});

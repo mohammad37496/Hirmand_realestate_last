@@ -2639,6 +2639,13 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
     min-width: 44px !important;
     padding-inline: 8px !important;
   }
+  .pf-page .pf-grid > .pcard .pcard-actions .property-action {
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3742,7 +3749,16 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   .pf-page .pf-more { margin-top: 10px !important; }
   .pf-page .pf-more .btn-ghost { width: 100%; min-height: 45px; border-radius: 11px; }
   html:has(.pf-page) .music-player-float-empty { display: none !important; }
-  html:has(.pf-page) .action-menu.floating-call-menu { display: none !important; }
+  /* Keep the existing contact shortcut available alongside the music dock. */
+  html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
+    display: flex !important;
+    position: fixed !important;
+    left: auto !important;
+    right: 12px !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    z-index: 120 !important;
+    max-width: calc(100vw - 24px) !important;
+  }
 }
 
 @media (max-width: 380px) {
@@ -3755,6 +3771,40 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   .pf-page .pf-count span { display: none; }
   .pf-page .pf-sort > span { display: none; }
   .pf-page .pf-mobile-reference-range { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* The grid/list toggle changes the card layout as well as its active state. */
+@media (max-width: 640px) {
+  .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-link {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+  }
+  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-media {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 16 / 10 !important;
+  }
+  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-media img {
+    min-height: 0 !important;
+    aspect-ratio: 16 / 10 !important;
+  }
+  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-body {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    padding: 12px !important;
+  }
+  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-actions {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    position: static !important;
+    height: auto !important;
+    min-height: 52px !important;
+    overflow-x: auto !important;
+    padding: 6px 9px !important;
+  }
 }
 
 @media (max-width: 380px) {
@@ -3802,5 +3852,12 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   .pf-page .pf-views button {
     min-width: 44px !important;
     padding-inline: 8px !important;
+  }
+  .pf-page .pf-grid > .pcard .pcard-actions .property-action {
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
   }
 }
