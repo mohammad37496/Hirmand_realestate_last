@@ -128,6 +128,7 @@ export async function downloadDivarMedia(token: string, urls: string[], dependen
     const videoByUrl = isVideoUrl(source);
 
     for (const candidate of candidatesFor(source)) {
+      let storedUrlForCleanup: string | null = null;
       try {
         const response = await fetchCandidate(candidate);
 
@@ -191,9 +192,19 @@ export async function downloadDivarMedia(token: string, urls: string[], dependen
           // never silently offload to a foreign third-party Blob service.
           allowLegacyBlob: false,
         });
-
-        return { index, url: dependencies.mediaUrlForBrowser(stored.url, type), failure: null as null | { source: string; reason: string } };
+        storedUrlForCleanup = stored.url;
+        const browserUrl = dependencies.mediaUrlForBrowser(stored.url, type);
+        if (!browserUrl || (stored.url.startsWith("https://") && browserUrl === stored.url)) {
+          throw new Error("نشانی امن نمایش رسانه از فضای ذخیره‌سازی ساخته نشد");
+        }
+        storedUrlForCleanup = null;
+        return { index, url: browserUrl, failure: null as null | { source: string; reason: string } };
       } catch (error) {
+        if (storedUrlForCleanup) {
+          await dependencies.deleteStoredMedia(storedUrlForCleanup, { throwOnFailure: true }).catch((cleanupError) => {
+            console.warn("[divar] could not clean up media after URL conversion failure", cleanupError instanceof Error ? cleanupError.message : "unknown error");
+          });
+        }
         lastReason =
           candidate.label +
           ": " +

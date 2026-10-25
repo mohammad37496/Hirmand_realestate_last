@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { PGlite } from "@electric-sql/pglite";
 import { extractDivarMedia, extractDivarMediaUrls } from "./divar-media-utils.ts";
+import { deleteDivarRows } from "./divar-delete.server.ts";
 import { getDivarAgencyReason } from "./divar-agency-filter.ts";
 import { findDivarCoordinates } from "./divar-coordinate-utils.ts";
 import { isDivarRemoteHost, mediaSourceCandidates } from "./media.ts";
@@ -106,7 +108,7 @@ test("Divar media download retries transient CDN errors and rejects HTML error p
         storageWrites += 1;
         return { url: `https://storage.example.test/hirmand-test-bucket/${input.pathname}` };
       },
-      mediaUrlForBrowser: (url: string) => url,
+      mediaUrlForBrowser: (url: string) => "/api/liara-media?url=" + encodeURIComponent(url),
       deleteStoredMedia: async () => undefined,
     };
     const retried = await downloadDivarMedia("retry-token", [source], dependencies);
@@ -161,6 +163,117 @@ test("a partial Divar media download cleans up successful objects before reporti
     assert.match(cleanup[0] ?? "", /^\/api\/liara-media\?url=/);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("a stored Divar object is removed if a safe browser URL cannot be generated", async () => {
+  const originalFetch = globalThis.fetch;
+  const removed: string[] = [];
+  try {
+    globalThis.fetch = (async () => new Response(Buffer.from("RIFF0000WEBP", "ascii"), {
+      status: 200,
+      headers: { "content-type": "image/webp" },
+    })) as typeof fetch;
+    const result = await downloadDivarMedia("proxy-failure-token", ["https://img.divarcdn.com/static/photo/photo.webp"], {
+      storeMedia: async (input) => ({ url: `https://storage.example.test/hirmand-test-bucket/${input.pathname}` }),
+      // Returning a private Liara URL unchanged is not a valid browser delivery URL.
+      mediaUrlForBrowser: (url) => url,
+      deleteStoredMedia: async (url) => { removed.push(url); },
+    });
+    assert.equal(result.images.length, 0);
+    assert.equal(result.stored, 0);
+    assert.equal(result.failures.length, 1);
+    assert.equal(removed.length, 1);
+    assert.match(removed[0] ?? "", /^https:\/\/storage\.example\.test\//);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Divar single and bulk removal atomically trash linked properties, audit them, and preserve galleries on restore", async () => {
+  const db = new PGlite("memory://");
+  try {
+    await db.exec(`
+      create table properties (
+        id text primary key,
+        deleted_at timestamptz,
+        deleted_from_status text,
+        status text not null,
+        featured boolean not null default false,
+        featured_until timestamptz,
+        updated_at timestamptz not null default current_timestamp,
+        images jsonb not null default '[]'::jsonb
+      );
+      create table divar_files (id text primary key, imported_property_id text, filter_status text not null);
+      create table property_change_history (property_id text, action text, before_state jsonb, after_state jsonb);
+      insert into properties(id,status,featured,images) values
+        ('p1','published',true,'["/api/liara-media?url=one.webp"]'::jsonb),
+        ('p3','published',true,'["/api/liara-media?url=three.webp"]'::jsonb);
+      insert into properties(id,status,deleted_at,deleted_from_status,images) values
+        ('p2','archived',current_timestamp,'published','["/api/liara-media?url=two.webp"]'::jsonb);
+      insert into divar_files(id,imported_property_id,filter_status) values
+        ('d1','p1','imported'), ('d2','p2','imported'), ('d3',null,'accepted'), ('d4','p3','imported');
+    `);
+    const sql = {
+      query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> => {
+        const result = await db.query<T>(text, params as any[]);
+        return result.rows;
+      },
+    };
+
+    const bulk = await deleteDivarRows(sql, ["d1", "d2", "d3", "missing", "d1"]);
+    assert.deepEqual(bulk, { deleted: 3, unpublished: 1, skipped: 1 });
+    const single = await deleteDivarRows(sql, ["d4"]);
+    assert.deepEqual(single, { deleted: 1, unpublished: 1, skipped: 0 });
+
+    const remainingRows = await db.query<{ count: number }>("select count(*)::int as count from divar_files");
+    assert.equal(remainingRows.rows[0]?.count, 0);
+    const trashed = await db.query<{ id: string; status: string; deleted_at: string | null; featured: boolean; images: string[] }>(
+      "select id,status,deleted_at,featured,images from properties order by id",
+    );
+    const p1 = trashed.rows.find((row) => row.id === "p1");
+    const p2 = trashed.rows.find((row) => row.id === "p2");
+    const p3 = trashed.rows.find((row) => row.id === "p3");
+    assert.equal(p1?.status, "archived");
+    assert.ok(p1?.deleted_at);
+    assert.equal(p1?.featured, false);
+    assert.deepEqual(p1?.images, ["/api/liara-media?url=one.webp"]);
+    assert.ok(p2?.deleted_at, "a previously trashed property stays in trash");
+    assert.equal(p2?.status, "archived");
+    assert.deepEqual(p2?.images, ["/api/liara-media?url=two.webp"]);
+    assert.equal(p3?.status, "archived");
+    assert.ok(p3?.deleted_at);
+    assert.deepEqual(p3?.images, ["/api/liara-media?url=three.webp"]);
+    const history = await db.query<{ count: number }>("select count(*)::int as count from property_change_history where action='deleted'");
+    assert.equal(history.rows[0]?.count, 2, "only newly trashed properties get a deletion audit record");
+
+    const restore = async (id: string, canPublish: boolean) => db.query<{ status: string }>(
+      `update properties
+          set status = case
+            when deleted_from_status = 'published' and $2::boolean = false then 'draft'
+            when deleted_from_status in ('draft','published','archived') then deleted_from_status
+            else 'draft'
+          end,
+          deleted_at = null,
+          deleted_from_status = null,
+          updated_at = current_timestamp
+        where id = $1 and deleted_at is not null
+        returning status`,
+      [id, canPublish],
+    );
+    const restoredP1 = await restore("p1", false);
+    const restoredP3 = await restore("p3", true);
+    assert.equal(restoredP1.rows[0]?.status, "draft", "restore without publish permission does not republish a live listing");
+    assert.equal(restoredP3.rows[0]?.status, "published");
+    const restored = await db.query<{ id: string; deleted_at: string | null; images: string[] }>(
+      "select id,deleted_at,images from properties where id = any($1::text[]) order by id",
+      [["p1", "p3"]],
+    );
+    assert.equal(restored.rows.every((row) => row.deleted_at === null), true);
+    assert.deepEqual(restored.rows.find((row) => row.id === "p1")?.images, ["/api/liara-media?url=one.webp"]);
+    assert.deepEqual(restored.rows.find((row) => row.id === "p3")?.images, ["/api/liara-media?url=three.webp"]);
+  } finally {
+    await db.close();
   }
 });
 
