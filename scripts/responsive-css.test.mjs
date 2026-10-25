@@ -83,6 +83,8 @@ testRunner.test("property marketplace mobile controls retain working search, fil
     "sorting must remain connected to the existing state");
   assert.match(propertiesRoute, /onClick=\{\(\) => setViewMode\("list"\)\}[\s\S]*?onClick=\{\(\) => setViewMode\("grid"\)\}[\s\S]*?onClick=\{\(\) => setViewMode\("split"\)\}/s,
     "list, grid and map mode controls must remain interactive");
+  assert.match(propertiesRoute, /aria-pressed=\{viewMode === "list"\}[\s\S]*?aria-pressed=\{viewMode === "grid"\}[\s\S]*?aria-pressed=\{viewMode === "split"\}/s,
+    "view mode buttons must expose their selected state to assistive technology");
   assert.match(propertiesMarketplaceCss, /\.pf-page\s+\.pf-grid\.is-list-view\s*>\s*\.pcard/,
     "the existing list-mode card styling must remain available on larger screens");
   assert.match(responsiveSmoke, /mobileMarketplace\.rootWidth\s*<\s*mobileMarketplace\.viewportWidth\s*-\s*1/,

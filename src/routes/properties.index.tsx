@@ -1886,13 +1886,13 @@ function PropertiesIndexPage() {
                   </select>
                 </label>
                 <div className="pf-views" role="group" aria-label="نحوه نمایش فایل‌ها">
-                  <button type="button" className={viewMode === "list" ? "is-active" : ""} onClick={() => setViewMode("list")}>
+                  <button type="button" className={viewMode === "list" ? "is-active" : ""} aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")}>
                     <List size={15} /> <span>لیستی</span>
                   </button>
-                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} onClick={() => setViewMode("grid")}>
+                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")}>
                     <LayoutGrid size={15} /> <span>شبکه‌ای</span>
                   </button>
-                  <button type="button" className={viewMode === "split" ? "is-active" : ""} onClick={() => setViewMode("split")}>
+                  <button type="button" className={viewMode === "split" ? "is-active" : ""} aria-pressed={viewMode === "split"} onClick={() => setViewMode("split")}>
                     <MapPinned size={15} /> <span>نقشه</span>
                   </button>
                 </div>
