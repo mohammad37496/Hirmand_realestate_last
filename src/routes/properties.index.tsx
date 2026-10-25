@@ -1385,6 +1385,58 @@ function PropertiesIndexPage() {
           </div>
         </header>
 
+        <section className="pf-mobile-reference-filters" aria-label="جست‌وجوی سریع فایل‌های ملکی">
+          <label className="pf-mobile-reference-field pf-mobile-reference-query">
+            <span>جستجو</span>
+            <input
+              value={q}
+              onChange={(event) => setQ(event.target.value)}
+              placeholder="عنوان، محله یا کد فایل…"
+              aria-label="جست‌وجوی عنوان، محله یا کد فایل"
+            />
+          </label>
+          <label className="pf-mobile-reference-field">
+            <span>نوع معامله</span>
+            <select value={transactionType} onChange={(event) => setTransactionType(event.target.value as PropertyTransaction | "")}>
+              <option value="">همهٔ معاملات</option>
+              {SERVICES.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+            </select>
+          </label>
+          <div className="pf-mobile-reference-field">
+            <span>محدوده</span>
+            <button type="button" className="pf-mobile-reference-neighborhood" onClick={() => { setNeighborhoodQuery(""); setNeighborhoodPickerOpen(true); }}>
+              <MapPin size={15} aria-hidden="true" />
+              <span>{neighborhood || "همهٔ محله‌ها"}</span>
+              <Search size={14} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="pf-mobile-reference-range">
+            <label className="pf-mobile-reference-field">
+              <span>حداقل قیمت (تومان)</span>
+              <input inputMode="numeric" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="بدون محدودیت" />
+            </label>
+            <label className="pf-mobile-reference-field">
+              <span>حداکثر قیمت (تومان)</span>
+              <input inputMode="numeric" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="بدون محدودیت" />
+            </label>
+            <label className="pf-mobile-reference-field">
+              <span>حداقل متراژ</span>
+              <input inputMode="numeric" value={minArea} onChange={(event) => setMinArea(event.target.value)} placeholder="مثلاً ۸۰ متر" />
+            </label>
+            <label className="pf-mobile-reference-field">
+              <span>حداکثر متراژ</span>
+              <input inputMode="numeric" value={maxArea} onChange={(event) => setMaxArea(event.target.value)} placeholder="بدون محدودیت" />
+            </label>
+          </div>
+          <div className="pf-mobile-reference-actions">
+            <button type="button" className="pf-mobile-reference-more" onClick={() => setMobileFiltersOpen(true)}>
+              <SlidersHorizontal size={15} /> فیلترهای بیشتر
+              {activeFilterCount ? <span>{fa(activeFilterCount)}</span> : null}
+            </button>
+            <button type="button" className="pf-mobile-reference-reset" onClick={resetFilters}>پاک کردن</button>
+          </div>
+        </section>
+
         {mobileFiltersOpen ? (
           <button
             type="button"
