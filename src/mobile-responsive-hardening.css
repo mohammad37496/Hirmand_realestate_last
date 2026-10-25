@@ -2818,7 +2818,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
   .pf-mobile-reference-neighborhood {
     width: 100%;
     min-width: 0;
-    min-height: 42px;
+    min-height: 44px;
     padding: 8px 9px;
     border: 1px solid #dce2e6;
     border-radius: 9px;
@@ -2842,7 +2842,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
     align-items: center;
     justify-content: center;
     gap: 7px;
-    min-height: 43px;
+    min-height: 44px;
     padding: 8px 11px;
     border-radius: 10px;
     font: inherit;
@@ -2858,7 +2858,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
   .pf-page .pf-quick { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 7px; }
   .pf-page .pf-quick::-webkit-scrollbar { display: none; }
   .pf-page .pf-quick > span { display: none; }
-  .pf-page .pf-quick .pf-chip { flex: 0 0 auto; min-height: 35px; font-size: .68rem; }
+  .pf-page .pf-quick .pf-chip { flex: 0 0 auto; min-height: 44px; font-size: .68rem; }
   .pf-page .pf-results-head { display: grid; gap: 8px; padding: 10px 2px; border: 0; background: transparent; }
   .pf-page .pf-count { display: flex; align-items: baseline; gap: 6px; }
   .pf-page .pf-count strong { color: #152c41; font-size: 1.04rem; }
@@ -2928,7 +2928,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
   .pf-page .pf-grid > .pcard .pcard-actions { grid-column: 1; grid-row: 2; display: flex; justify-content: flex-start; gap: 6px; padding: 6px 9px; border-top: 1px solid #edf0f2; }
   .pf-page .pf-grid > .pcard .pcard-actions .property-actions,
   .pf-page .pf-grid > .pcard .pcard-actions .property-actions-compact { flex-direction: row; gap: 5px; }
-  .pf-page .pf-grid > .pcard .pcard-actions .property-action { width: 34px; height: 34px; min-height: 34px; }
+  .pf-page .pf-grid > .pcard .pcard-actions .property-action { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; }
   .pf-page .pf-grid > .pcard .pcard-badges { top: 6px; right: 6px; gap: 3px; }
   .pf-page .pf-grid > .pcard .pcard-badge { padding: 3px 5px; font-size: .54rem; }
   .pf-page .pf-grid > .pcard .pcard-badge-discount { top: 45px; right: 6px; }

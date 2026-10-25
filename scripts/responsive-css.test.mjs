@@ -476,3 +476,16 @@ testRunner.test("responsive browser smoke covers the required viewport matrix", 
   assert.match(responsiveSmoke, /viewportMatrix\.length/);
   assert.ok(responsiveSmoke.includes("`${routeFileName(route)}-${width}x${height}.png`"));
 });
+
+
+testRunner.test("final reference-inspired mobile controls retain 44px touch targets", () => {
+  const finalMobilePass = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final reference-inspired mobile layout for the /properties marketplace. */"));
+  assert.match(finalMobilePass, /\.pf-page \.pf-grid > \.pcard \.pcard-actions \.property-action \{[^}]*width: 44px; height: 44px; min-height: 44px;/s,
+    "the final reference card override must not shrink property action buttons below the touch target");
+  assert.match(finalMobilePass, /\.pf-mobile-reference-field input,[\s\S]*?min-height: 44px;/s,
+    "mobile search and numeric inputs must remain touch-friendly");
+  assert.match(finalMobilePass, /\.pf-mobile-reference-actions button \{[^}]*min-height: 44px;/s,
+    "mobile filter and reset actions must remain touch-friendly");
+  assert.match(finalMobilePass, /\.pf-page \.pf-quick \.pf-chip \{[^}]*min-height: 44px;/s,
+    "horizontally scrollable quick filters must remain easy to tap");
+});
