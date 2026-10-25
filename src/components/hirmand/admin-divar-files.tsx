@@ -461,9 +461,10 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
     sortBy !== "newest";
 
   const withImages = sourceVisible.filter(
-    (file) => file.sourceImageCount > 0 || file.images.length > 0,
+    (file) => file.sourceImageCount > 0 || file.sourceVideoCount > 0 || file.images.length > 0,
   ).length;
   const totalImages = sourceVisible.reduce((sum, file) => sum + file.sourceImageCount, 0);
+  const totalVideos = sourceVisible.reduce((sum, file) => sum + file.sourceVideoCount, 0);
   const needsRepairCount = sourceVisible.filter(
     (file) => divarGalleryHealth(file).needsRepair,
   ).length;
@@ -690,8 +691,8 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
 
       <div className="divar-note">
         <ImageIcon size={15} style={{ verticalAlign: "middle", marginInlineEnd: 6 }} />
-        در این فهرست {fa(withImages)} فایل رسانه دارد و مجموعاً {fa(totalImages)} رسانه منبع وجود
-        دارد. میانگین کامل‌بودن اطلاعات {fa(averageScore)}٪ است.
+        در این فهرست {fa(withImages)} فایل رسانه دارد؛ {fa(totalImages)} تصویر و {fa(totalVideos)} ویدئو
+        از منبع شناسایی شده است. میانگین کامل‌بودن اطلاعات {fa(averageScore)}٪ است.
         {tab === "imported" ? (
           <>
             {" "}
@@ -1143,20 +1144,21 @@ export function AdminDivarFiles({ staffMode = false }: { staffMode?: boolean } =
                         <Clock3 size={13} /> آخرین مشاهده:{" "}
                         {new Date(file.lastSeenAt).toLocaleDateString("fa-IR")}
                       </span>
-                      {file.filterStatus === "imported" && file.publishedImageCount > 0 ? (
+                      {file.filterStatus === "imported" && (file.publishedImageCount > 0 || file.publishedVideoCount > 0) ? (
                         <span className="divar-hosted-badge">
                           <BadgeCheck size={12} /> {fa(file.publishedHostedImageCount)} تصویر
-                          میزبانی‌شده
+                          میزبانی‌شده{file.publishedHostedVideoCount > 0 ? ` · ${fa(file.publishedHostedVideoCount)} ویدئو` : ""}
                         </span>
                       ) : null}
-                      {file.publishedRemoteImageCount > 0 ? (
+                      {file.publishedRemoteImageCount > 0 || file.publishedRemoteVideoCount > 0 ? (
                         <span className="divar-remote-badge">
                           {fa(file.publishedRemoteImageCount)} تصویر با منبع دیوار
+                          {file.publishedRemoteVideoCount > 0 ? ` · ${fa(file.publishedRemoteVideoCount)} ویدئو` : ""}
                         </span>
                       ) : null}
-                      {file.sourceImageCount > DIVAR_MAX_PUBLISHED_IMAGES ? (
+                      {file.sourceImageCount + file.sourceVideoCount > DIVAR_MAX_PUBLISHED_IMAGES ? (
                         <span className="divar-mini">
-                          {fa(DIVAR_MAX_PUBLISHED_IMAGES)} تصویر نخست منتشر می‌شود
+                          بیش از سقف {fa(DIVAR_MAX_PUBLISHED_IMAGES)} رسانه؛ انتشار تا بررسی کامل متوقف می‌شود
                         </span>
                       ) : null}
                     </div>

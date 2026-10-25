@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { extractDivarMediaUrls } from "./divar-media-utils.ts";
+import { extractDivarMedia, extractDivarMediaUrls } from "./divar-media-utils.ts";
 import { getDivarAgencyReason } from "./divar-agency-filter.ts";
 import { findDivarCoordinates } from "./divar-coordinate-utils.ts";
 import { isDivarRemoteHost, mediaSourceCandidates } from "./media.ts";
@@ -105,6 +105,79 @@ test("extractDivarMediaUrls retains a Divar-hosted video alongside photos", () =
 
   assert.equal(urls.length, 2);
   assert.ok(urls.some((url) => url.endsWith("property-clip.mp4")));
+});
+
+test("the real eight-photo carousel shape excludes Divar UI icons and map images", () => {
+  const photoIds = [
+    "6df1cb6f-9fb9-4c02-ace8-a367f9265d92",
+    "825f9311-44ac-4bb0-834e-dc242aaf44aa",
+    "4ca516d1-81a4-4319-b68e-fd1574bb496b",
+    "352f65de-30ea-4d17-8e13-cfbfd2d742a8",
+    "8897a680-b282-4b3e-ba8d-75d263d090d0",
+    "1a4a36ba-327e-4460-ab62-a19f08f0a160",
+    "06409228-2dc0-4126-98ee-a8adacc0fcf9",
+    "70ca5931-74b8-445e-8018-e01e20715894",
+  ];
+  const payload = {
+    sections: [{
+      section_name: "IMAGE",
+      widgets: [{
+        widget_type: "IMAGE_CAROUSEL",
+        data: {
+          items: photoIds.map((id) => ({
+            image: {
+              url: `https://s100.divarcdn.com/static/photo/neda/webp_post/photo/${id}.webp`,
+              thumbnail_url: `https://s100.divarcdn.com/static/photo/neda/webp_thumbnail/thumb/${id}.webp`,
+            },
+          })),
+          tooltip_data: {
+            icon: {
+              image_url_dark: "https://s100.divarcdn.com/static/imgs/widget-icons/dark/fullscreen.png",
+              image_url_light: "https://s100.divarcdn.com/static/imgs/widget-icons/light/fullscreen.png",
+            },
+            text: "۸",
+          },
+        },
+      }],
+    }],
+    map_image: "https://mapimage.divarcdn.com/v8/mapimage?encrypted_data=sample",
+    seo: { image_url: `https://s100.divarcdn.com/static/photo/neda/post/photo/${photoIds[0]}.jpg` },
+  };
+
+  const result = extractDivarMedia(payload);
+  assert.equal(result.truncatedCandidates, false);
+  assert.equal(result.urls.length, 8);
+  assert.ok(result.urls.every((url) => url.includes("/static/photo/") && !url.includes("webp_thumbnail")));
+});
+
+test("extractDivarMedia reports when the bounded candidate scan truncates input", () => {
+  const urls = Array.from({ length: 5_100 }, (_, index) =>
+    `https://img.divarcdn.com/static/photo/webp/photo-${index}.webp`,
+  );
+  const result = extractDivarMedia({ gallery: urls });
+  assert.equal(result.truncatedCandidates, true);
+  assert.equal(result.urls.length, 5_000);
+});
+
+test("extractDivarMedia ignores external, insecure, UI and empty gallery values", () => {
+  const result = extractDivarMedia({
+    gallery: [
+      "http://s100.divarcdn.com/static/photo/photo.jpg",
+      "https://divarcdn.com.attacker.example/static/photo/fake.jpg",
+      "https://example.com/property.jpg",
+      "https://s100.divarcdn.com/static/imgs/widget-icons/dark/photo.png",
+      "https://mapimage.divarcdn.com/v8/mapimage?encrypted_data=sample",
+    ],
+  });
+  assert.deepEqual(result.urls, []);
+  assert.equal(result.truncatedCandidates, false);
+});
+
+test("extractDivarMedia flags an uninspected nested branch instead of claiming completeness", () => {
+  let deeplyNested: unknown = "https://s100.divarcdn.com/static/photo/photo.webp";
+  for (let depth = 0; depth < 15; depth += 1) deeplyNested = { child: deeplyNested };
+  const result = extractDivarMedia({ gallery: deeplyNested });
+  assert.equal(result.truncatedCandidates, true);
 });
 
 test("Divar coordinates support scaled E7 keys and underscore-separated variants", () => {
@@ -244,9 +317,13 @@ function makeFile(overrides: Partial<DivarFile> = {}): DivarFile {
     features: ["پارکینگ"],
     images: ["/api/media-proxy?url=x"],
     sourceImageCount: 5,
+    sourceVideoCount: 0,
     publishedImageCount: 5,
+    publishedVideoCount: 0,
     publishedHostedImageCount: 5,
+    publishedHostedVideoCount: 0,
     publishedRemoteImageCount: 0,
+    publishedRemoteVideoCount: 0,
     sellerName: "علی",
     sellerType: "شخصی",
     sourceUrl: "https://divar.ir/v/abc123",
@@ -300,6 +377,26 @@ test("gallery health expects all 60 Divar photos rather than an artificial 20-ph
     divarGalleryHealth(makeFile({ ...long, publishedImageCount: 59 })).needsRepair,
     true,
   );
+});
+
+test("gallery health never marks a listing complete when source media exceeds publish cap", () => {
+  const health = divarGalleryHealth(makeFile({ sourceImageCount: 81, publishedImageCount: 80 }));
+  assert.equal(health.expected, 81);
+  assert.equal(health.published, 80);
+  assert.equal(health.level, "partial");
+  assert.equal(health.needsRepair, true);
+});
+
+test("gallery health counts source and published videos separately but includes them in parity", () => {
+  const health = divarGalleryHealth(makeFile({
+    sourceImageCount: 8,
+    sourceVideoCount: 1,
+    publishedImageCount: 8,
+    publishedVideoCount: 0,
+  }));
+  assert.equal(health.expected, 9);
+  assert.equal(health.published, 8);
+  assert.equal(health.level, "partial");
 });
 
 test("an ad that is not on the site yet is never marked repairable", () => {

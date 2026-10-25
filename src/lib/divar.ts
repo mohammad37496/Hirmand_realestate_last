@@ -10,7 +10,7 @@ import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { isMoneyText, normalizeMoneyText } from "@/lib/property-input-normalization";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
-import { extractDivarMediaUrls } from "./divar-media-utils";
+import { extractDivarMedia } from "./divar-media-utils";
 import { getDivarAgencyReason } from "./divar-agency-filter";
 export { getDivarAgencyReason } from "./divar-agency-filter";
 import { findDivarCoordinates } from "./divar-coordinate-utils";
@@ -64,10 +64,14 @@ export type DivarFile = {
   description: string;
   features: string[];
   images: string[];
+  sourceVideoCount: number;
   sourceImageCount: number;
+  publishedVideoCount: number;
   publishedImageCount: number;
   publishedHostedImageCount: number;
+  publishedHostedVideoCount: number;
   publishedRemoteImageCount: number;
+  publishedRemoteVideoCount: number;
   sellerName: string | null;
   sellerType: string | null;
   sourceUrl: string;
@@ -140,9 +144,13 @@ export type ParsedListing = Omit<
   | "createdAt"
   | "updatedAt"
   | "sourceImageCount"
+  | "sourceVideoCount"
   | "publishedImageCount"
+  | "publishedVideoCount"
   | "publishedHostedImageCount"
+  | "publishedHostedVideoCount"
   | "publishedRemoteImageCount"
+  | "publishedRemoteVideoCount"
   | "manualOverride"
 >;
 
@@ -381,7 +389,11 @@ export function parseDivarListing(
   const elevator = /آسانسور/u.test(featureBlob) && !/بدون آسانسور|آسانسور ندارد/u.test(featureBlob);
   const storage = /انباری/u.test(featureBlob) && !/بدون انباری|انباری ندارد/u.test(featureBlob);
 
-  const images = extractDivarMediaUrls(detail);
+  const mediaExtraction = extractDivarMedia(detail);
+  if (mediaExtraction.truncatedCandidates) {
+    throw new Error("ساختار رسانه‌های آگهی از سقف ایمن بررسی عبور کرد؛ برای جلوگیری از ثبت گالری ناقص، آگهی ذخیره نشد.");
+  }
+  const images = mediaExtraction.urls;
   const coordinates = findDivarCoordinates(detail);
 
   const title = String(webInfo.title ?? "فایل دیوار").trim();
@@ -764,7 +776,13 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
     failure: { source: string; reason: string } | null;
   }> = [];
 
-  const safeUrls = Array.from(new Set(urls.filter(isAllowedDivarImageUrl))).slice(0, MAX_IMAGES);
+  if (urls.some((url) => !isAllowedDivarImageUrl(url))) {
+    throw new Error("فهرست رسانه‌های آگهی شامل نشانی غیرمجاز است؛ برای جلوگیری از درخواست ناامن، دریافت متوقف شد.");
+  }
+  const safeUrls = Array.from(new Set(urls));
+  if (safeUrls.length > MAX_IMAGES) {
+    throw new Error(`این آگهی ${safeUrls.length} رسانهٔ یکتا دارد و از سقف فعلی ${MAX_IMAGES} رسانه بیشتر است؛ هیچ رسانه‌ای حذف نشد و برای جلوگیری از انتشار ناقص، عملیات متوقف شد.`);
+  }
   const concurrency = 6;
 
   for (let startIndex = 0; startIndex < safeUrls.length; startIndex += concurrency) {
@@ -820,6 +838,12 @@ function parseJsonArray(value: unknown): string[] {
 }
 
 function mapRow(row: Record<string, unknown>): DivarFile {
+  const sourceMedia = parseJsonArray(row.images);
+  const publishedMedia = parseJsonArray(row.published_images);
+  const sourceImages = sourceMedia.filter((url) => !isVideoUrl(url));
+  const sourceVideos = sourceMedia.filter(isVideoUrl);
+  const publishedImages = publishedMedia.filter((url) => !isVideoUrl(url));
+  const publishedVideos = publishedMedia.filter(isVideoUrl);
   return {
     id: String(row.id),
     token: String(row.token),
@@ -843,17 +867,19 @@ function mapRow(row: Record<string, unknown>): DivarFile {
     rent: row.rent == null ? null : String(row.rent),
     description: String(row.description ?? ""),
     features: parseJsonArray(row.features),
-    images: parseJsonArray(row.images),
-    sourceImageCount: Number(row.source_image_count) || parseJsonArray(row.images).length,
-    publishedImageCount: Number(row.published_image_count) || 0,
+    images: sourceMedia,
+    sourceImageCount: sourceImages.length,
+    sourceVideoCount: sourceVideos.length,
+    publishedImageCount: publishedImages.length,
+    publishedVideoCount: publishedVideos.length,
     publishedHostedImageCount: (() => {
-      const publishedImages = parseJsonArray(row.published_images);
       return publishedImages.filter((url) => !isDivarSourceUrl(url)).length;
     })(),
+    publishedHostedVideoCount: publishedVideos.filter((url) => !isDivarSourceUrl(url)).length,
     publishedRemoteImageCount: (() => {
-      const publishedImages = parseJsonArray(row.published_images);
       return publishedImages.filter(isDivarSourceUrl).length;
     })(),
+    publishedRemoteVideoCount: publishedVideos.filter(isDivarSourceUrl).length,
     sellerName: row.seller_name == null ? null : String(row.seller_name),
     sellerType: row.seller_type == null ? null : String(row.seller_type),
     sourceUrl: String(row.source_url),
@@ -1453,7 +1479,7 @@ export const importDivarFile = createServerFn({ method: "POST" })
     const token = String(row.token);
     let originalImages = parseJsonArray(row.images);
 
-    if (data.repair === true || originalImages.length === 0) {
+    if (data.repair === true || row.filter_status !== "imported" || originalImages.length === 0) {
       try {
         const detail = await fetchJson<Record<string, unknown>>(
           `${DIVAR_API}/posts-v2/web/${encodeURIComponent(token)}`,
@@ -1471,7 +1497,17 @@ export const importDivarFile = createServerFn({ method: "POST" })
           throw new Error("این فایل دوباره توسط فیلتر مشاور/آژانس رد شد.");
         }
 
-        const freshImages = extractDivarMediaUrls(detail);
+        const extraction = extractDivarMedia(detail);
+        if (extraction.truncatedCandidates) {
+          throw new Error("ساختار رسانه‌های آگهی از سقف ایمن بررسی عبور کرد؛ رسانه‌های قبلی حفظ شدند.");
+        }
+        const freshImages = extraction.urls;
+        if (freshImages.length === 0) {
+          throw new Error("در آگهی مبدأ هیچ رسانه قابل تأییدی پیدا نشد؛ برای جلوگیری از ثبت یا جایگزینی گالری ناقص، رسانه‌های قبلی حفظ شدند.");
+        }
+        if (freshImages.length > MAX_IMAGES) {
+          throw new Error(`آگهی ${freshImages.length} رسانهٔ یکتا دارد و از سقف ${MAX_IMAGES} رسانه بیشتر است؛ رسانه‌های قبلی حفظ شدند.`);
+        }
         if (freshImages.length) {
           originalImages = freshImages;
           await sql.query(
@@ -1484,11 +1520,17 @@ export const importDivarFile = createServerFn({ method: "POST" })
         }
       } catch (error) {
         if (error instanceof Error && error.message.includes("دوباره توسط فیلتر")) throw error;
+        if (data.repair === true || row.filter_status !== "imported" || originalImages.length === 0) {
+          throw new Error(`بازخوانی رسانه‌های آگهی از دیوار ناموفق بود؛ رسانه‌های قبلی تغییر نکردند. ${error instanceof Error ? error.message : "خطای ناشناخته"}`);
+        }
         console.warn("[divar] image refresh failed", token, error);
       }
     }
 
-    const images = originalImages.slice(0, MAX_IMAGES);
+    const images = originalImages;
+    if (images.length > MAX_IMAGES) {
+      throw new Error(`این آگهی ${images.length} رسانهٔ یکتا دارد و از سقف فعلی ${MAX_IMAGES} رسانه بیشتر است؛ هیچ رسانه‌ای حذف نشد و عملیات متوقف شد.`);
+    }
 
     if (existingPropertyId) {
       const propertyRows = await sql.query<Record<string, unknown>>(
@@ -1511,8 +1553,14 @@ export const importDivarFile = createServerFn({ method: "POST" })
           currentImages.length === 0 ||
           missingImages > 0 ||
           hasRemoteSourceImages;
+        const shouldReplaceGallery = data.repair === true || currentImages.length === 0 || hasRemoteSourceImages;
+        const mediaToUpload = shouldReplaceGallery
+          ? images
+          : missingImages > 0
+            ? images.slice(currentImages.length)
+            : [];
         const uploadResult = shouldRefreshImages
-          ? await uploadDivarImages(token, images)
+          ? await uploadDivarImages(token, mediaToUpload)
           : { images: [] as string[], stored: 0, failures: [] as { source: string; reason: string }[], sourceImages: images };
         // Never publish remote Divar URLs as a fallback: the requested contract
         // is that imported media is downloaded and stored by Hirmand itself.
@@ -1522,12 +1570,15 @@ export const importDivarFile = createServerFn({ method: "POST" })
             `دانلود ${uploadResult.failures.length} رسانه از ${uploadResult.sourceImages.length} رسانه دیوار ناموفق بود؛ فایل منتشرشده تغییر نکرد. اتصال سرور به CDN دیوار را بررسی و دوباره تلاش کنید.`,
           );
         }
-        const finalImages = Array.from(
-          new Set([
-            ...hostedCurrentImages,
-            ...uploadResult.images.filter((url) => !isDivarSourceUrl(url)),
-          ]),
-        ).slice(0, MAX_IMAGES);
+        const finalImages = shouldReplaceGallery
+          ? uploadResult.images.filter((url) => !isDivarSourceUrl(url))
+          : Array.from(new Set([
+              ...hostedCurrentImages,
+              ...uploadResult.images.filter((url) => !isDivarSourceUrl(url)),
+            ]));
+        if (finalImages.length > MAX_IMAGES) {
+          throw new Error(`گالری نهایی ${finalImages.length} رسانه دارد و از سقف ${MAX_IMAGES} بیشتر است؛ گالری قبلی حفظ شد.`);
+        }
 
         await sql.query(
           `update properties
@@ -1581,11 +1632,9 @@ export const importDivarFile = createServerFn({ method: "POST" })
         `دانلود ${importedResult.failures.length} رسانه از ${importedResult.sourceImages.length} رسانه دیوار ناموفق بود؛ ملک ثبت نشد. اتصال سرور به CDN دیوار را بررسی و دوباره تلاش کنید.`,
       );
     }
-    const importedImages = Array.from(
-      new Set([
-        ...importedResult.images.filter((url) => !isDivarSourceUrl(url)),
-      ]),
-    ).slice(0, MAX_IMAGES);
+    const importedImages = Array.from(new Set(
+      importedResult.images.filter((url) => !isDivarSourceUrl(url)),
+    ));
 
     const id = existingPropertyId ? existingPropertyId : crypto.randomUUID();
     const propertyType = propertyTypeToSite(String(row.property_type) as DivarPropertyType);

@@ -59,7 +59,7 @@ export const DIVAR_ORIENTATION_LABELS: Record<
 export type DivarGalleryLevel = "complete" | "partial" | "missing" | "empty";
 
 export type DivarGalleryHealth = {
-  /** `source` images found on the Divar ad (capped at the publish limit). */
+  /** Total source media items found on Divar, including photos and videos. */
   expected: number;
   /** Images actually attached to the published site listing. */
   published: number;
@@ -81,28 +81,38 @@ export type DivarGalleryHealth = {
  */
 export function divarGalleryHealth(file: {
   sourceImageCount: number;
+  sourceVideoCount?: number;
   publishedImageCount: number;
+  publishedVideoCount?: number;
   publishedHostedImageCount: number;
+  publishedHostedVideoCount?: number;
   publishedRemoteImageCount: number;
+  publishedRemoteVideoCount?: number;
   filterStatus: DivarFilterStatus;
 }): DivarGalleryHealth {
-  const expected = Math.min(Math.max(file.sourceImageCount, 0), DIVAR_MAX_PUBLISHED_IMAGES);
-  const published = Math.max(file.publishedImageCount, 0);
-  const hosted = Math.max(file.publishedHostedImageCount, 0);
-  const remote = Math.max(file.publishedRemoteImageCount, 0);
+  const sourceVideos = Math.max(file.sourceVideoCount ?? 0, 0);
+  const publishedVideos = Math.max(file.publishedVideoCount ?? 0, 0);
+  const expectedRaw = Math.max(file.sourceImageCount, 0) + sourceVideos;
+  // Never cap the health target: a listing with 81 source media and 80
+  // published items is partial, not complete. The import path separately
+  // refuses to publish above its explicit limit.
+  const expected = expectedRaw;
+  const published = Math.max(file.publishedImageCount, 0) + publishedVideos;
+  const hosted = Math.max(file.publishedHostedImageCount, 0) + Math.max(file.publishedHostedVideoCount ?? 0, 0);
+  const remote = Math.max(file.publishedRemoteImageCount, 0) + Math.max(file.publishedRemoteVideoCount ?? 0, 0);
 
   if (file.filterStatus !== "imported") {
-    const level: DivarGalleryLevel = file.sourceImageCount > 0 ? "complete" : "empty";
+    const level: DivarGalleryLevel = expectedRaw > 0 ? "complete" : "empty";
     return {
-      expected: file.sourceImageCount,
+      expected: expectedRaw,
       published,
       hosted,
       remote,
       level,
       needsRepair: false,
       label:
-        file.sourceImageCount > 0
-          ? `${file.sourceImageCount.toLocaleString("fa-IR")} رسانه در آگهی`
+        expectedRaw > 0
+          ? `${expectedRaw.toLocaleString("fa-IR")} رسانه در آگهی`
           : "آگهی بدون رسانه",
     };
   }
@@ -308,7 +318,7 @@ export function filterDivarFiles(files: DivarFile[], filters: DivarFilters): Div
     if (filters.neighborhood !== "all" && file.neighborhood !== filters.neighborhood) {
       return false;
     }
-    if (filters.onlyWithImages && file.sourceImageCount === 0 && file.images.length === 0) {
+    if (filters.onlyWithImages && file.sourceImageCount === 0 && file.sourceVideoCount === 0 && file.images.length === 0) {
       return false;
     }
     if (needsRepairOnly && !divarGalleryHealth(file).needsRepair) return false;
