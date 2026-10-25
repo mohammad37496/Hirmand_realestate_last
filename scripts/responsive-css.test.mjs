@@ -489,3 +489,13 @@ testRunner.test("final reference-inspired mobile controls retain 44px touch targ
   assert.match(finalMobilePass, /\.pf-page \.pf-main \.pf-quick \.pf-chip \{[^}]*min-height: 44px !important;/s,
     "horizontally scrollable quick filters must remain easy to tap");
 });
+
+testRunner.test("mobile property marketplace follows compact reference-style stacked filters and horizontal RTL cards", () => {
+  const finalPass = responsiveCss.slice(responsiveCss.lastIndexOf("/* Reference-aligned mobile marketplace pass:"));
+  assert.match(finalPass, /\.pf-page \.pf-mobile-reference-filters \{[^}]*grid-template-columns: minmax\(0, 1fr\) !important;/s,
+    "mobile filters should stack in the compact reference flow");
+  assert.match(finalPass, /\.pf-page \.pf-grid\.is-list-view > \.pcard \{[^}]*grid-template-columns: 118px minmax\(0, 1fr\) !important;[^}]*grid-template-areas: "media body" "actions actions"/s,
+    "mobile list cards should place the image on the RTL leading side with details beside it");
+  assert.match(finalPass, /\.pf-page \.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-action \{[^}]*min-height: 44px !important;/s,
+    "horizontal mobile cards must preserve 44px action targets");
+});
