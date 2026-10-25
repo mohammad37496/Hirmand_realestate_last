@@ -192,3 +192,62 @@
 @media (prefers-reduced-motion: reduce) {
   .pf-page *, .pf-page *::before, .pf-page *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Reference alignment: navy/gold Hirmand masthead and a calm white search surface.
+   Responsive hardening loads after this file and remains authoritative on phones. */
+.pf-page .pf-hero {
+  position: relative;
+  overflow: hidden;
+  border-color: #203b53 !important;
+  background:
+    radial-gradient(ellipse at 8% 100%, rgb(192 138 42 / 16%), transparent 38%),
+    linear-gradient(130deg, #193952, #0b1a2b 76%) !important;
+  box-shadow: 0 12px 30px rgb(11 26 43 / 12%) !important;
+}
+.pf-page .pf-hero::before { background: linear-gradient(180deg, #f0d38d, #c08a2a) !important; }
+.pf-page .pf-kicker {
+  border-color: rgb(231 189 94 / 30%) !important;
+  background: rgb(231 189 94 / 10%) !important;
+  color: #f0d38d !important;
+}
+.pf-page .pf-hero-copy h1 { color: #fff !important; }
+.pf-page .pf-hero-copy p { color: rgb(245 248 250 / 78%) !important; }
+.pf-page .pf-stats > div {
+  border-color: rgb(255 255 255 / 14%) !important;
+  background: rgb(255 255 255 / 6%) !important;
+  box-shadow: none !important;
+}
+.pf-page .pf-stats dt { color: rgb(245 248 250 / 68%) !important; }
+.pf-page .pf-stats dd { color: #f4d58d !important; }
+.pf-page .pf-filter-btn {
+  border-color: #b78325 !important;
+  background: linear-gradient(145deg, #c9973c, #b78325) !important;
+  color: #10263b !important;
+  box-shadow: 0 5px 14px rgb(0 0 0 / 12%) !important;
+}
+.pf-page .pf-filter-btn > span { background: #10263b !important; color: #f5d995 !important; }
+.pf-page .pf-mobile-reference-filters {
+  border-color: #e0e5e9;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 5px 18px rgb(11 26 43 / 4%);
+}
+.pf-page .pf-mobile-reference-field > span { color: #617181; }
+.pf-page .pf-mobile-reference-field input,
+.pf-page .pf-mobile-reference-field select,
+.pf-page .pf-mobile-reference-neighborhood {
+  border-color: #dfe5e9;
+  background: #fdfefe;
+  color: #172b3f;
+}
+.pf-page .pf-mobile-reference-more {
+  border-color: #b78325;
+  background: #c08a2a;
+  color: #10263b;
+}
+.pf-page .pf-grid > .pcard { border-color: #e0e5e9; }
+.pf-page .pf-grid > .pcard:hover { border-color: #d6bd83; }
+
+@media (max-width: 980px) {
+  .pf-page .pf-hero { border-radius: 17px; }
+}

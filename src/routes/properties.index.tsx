@@ -428,10 +428,16 @@ function PropertiesIndexPage() {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchId, setSavedSearchId] = useState("");
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("grid");
   useEffect(() => {
-    // Listings are the primary mobile task; keep the map available as an explicit view.
-    if (window.matchMedia("(max-width: 620px)").matches) setViewMode("list");
+    // Keep the listing-first default in sync when a responsive preview changes viewport size.
+    const mobileQuery = window.matchMedia("(max-width: 620px)");
+    const applyMobileDefault = () => {
+      if (mobileQuery.matches) setViewMode((current) => current === "grid" ? "list" : current);
+    };
+    applyMobileDefault();
+    mobileQuery.addEventListener("change", applyMobileDefault);
+    return () => mobileQuery.removeEventListener("change", applyMobileDefault);
   }, []);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [desktopFilterViewport, setDesktopFilterViewport] = useState(false);

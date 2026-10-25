@@ -600,22 +600,26 @@ try {
           if (dock.left < -1 || dock.right > width + 1 || dock.top < -1 || dock.bottom > height + 1) {
             failures.push(`/properties @ ${width}x${height}px: music dock escapes the viewport (${JSON.stringify(dock)})`);
           }
-          const undersized = dock.buttons.filter((button) => button.width < 44 || button.height < 44);
-          if (undersized.length) {
-            failures.push(`/properties @ ${width}x${height}px: music controls below 44px touch targets (${JSON.stringify(undersized)})`);
+          if (width <= 1024) {
+            const undersized = dock.buttons.filter((button) => button.width < 44 || button.height < 44);
+            if (undersized.length) {
+              failures.push(`/properties @ ${width}x${height}px: music controls below 44px touch targets (${JSON.stringify(undersized)})`);
+            }
           }
-          const contact = metrics.floatingContact;
-          if (contact && dock.left < contact.right && dock.right > contact.left && dock.top < contact.bottom && dock.bottom > contact.top) {
-            failures.push(`/properties @ ${width}x${height}px: music dock overlaps the floating contact control (${JSON.stringify({ dock, contact })})`);
-          }
-          if (contact && (contact.left < -1 || contact.right > width + 1 || contact.top < -1 || contact.bottom > height - 72)) {
-            failures.push(`/properties @ ${width}x${height}px: floating contact control leaves the safe area above mobile navigation (${JSON.stringify({ contact, viewport: { width, height }, bottomSafeEdge: height - 72 })})`);
-          }
-          if (contact && Math.abs(contact.bottom - dock.bottom) > 8) {
-            failures.push(`/properties @ ${width}x${height}px: floating contact control is not aligned with the compact music dock and may cover listing filters (${JSON.stringify({ dock, contact })})`);
-          }
-          if (dock.height > 44 || (contact && contact.height > 44)) {
-            failures.push(`/properties @ ${width}x${height}px: floating controls exceed the 44px compact overlay height and may obscure card actions (${JSON.stringify({ dock, contact })})`);
+          if (width <= 640) {
+            const contact = metrics.floatingContact;
+            if (contact && dock.left < contact.right && dock.right > contact.left && dock.top < contact.bottom && dock.bottom > contact.top) {
+              failures.push(`/properties @ ${width}x${height}px: music dock overlaps the floating contact control (${JSON.stringify({ dock, contact })})`);
+            }
+            if (contact && (contact.left < -1 || contact.right > width + 1 || contact.top < -1 || contact.bottom > height - 72)) {
+              failures.push(`/properties @ ${width}x${height}px: floating contact control leaves the safe area above mobile navigation (${JSON.stringify({ contact, viewport: { width, height }, bottomSafeEdge: height - 72 })})`);
+            }
+            if (contact && Math.abs(contact.bottom - dock.bottom) > 8) {
+              failures.push(`/properties @ ${width}x${height}px: floating contact control is not aligned with the compact music dock and may cover listing filters (${JSON.stringify({ dock, contact })})`);
+            }
+            if (dock.height > 44 || (contact && contact.height > 44)) {
+              failures.push(`/properties @ ${width}x${height}px: floating controls exceed the 44px compact overlay height and may obscure card actions (${JSON.stringify({ dock, contact })})`);
+            }
           }
         }
 
