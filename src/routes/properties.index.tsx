@@ -1355,6 +1355,13 @@ function PropertiesIndexPage() {
               </div>
             </dl>
           </div>
+          <button
+            type="button"
+            className="pf-mobile-search-cta"
+            onClick={() => document.querySelector<HTMLInputElement>(".pf-mobile-reference-query input")?.focus()}
+          >
+            جستجوی فایل
+          </button>
 
           <div className="pf-toolbar">
             <label className="pf-search">

@@ -291,22 +291,21 @@ try {
           // The interaction checks above deliberately open the map and filter
           // drawer. Reset those transient states before capturing comparison
           // screenshots so each viewport represents the normal listing page.
-          const closeFilter = page.locator(".pf-sidebar.is-open .pf-close").first();
-          if (await closeFilter.isVisible().catch(() => false)) {
-            const backdrop = page.locator(".pf-backdrop").first();
-            if (await backdrop.isVisible().catch(() => false)) {
-              await backdrop.click({ position: { x: 1, y: Math.min(100, height - 1) } }).catch(() => undefined);
-            }
-            if (await closeFilter.isVisible().catch(() => false)) await closeFilter.click().catch(() => undefined);
-            await page.waitForFunction(
-              () => document.querySelector(".pf-filter-btn")?.getAttribute("aria-expanded") !== "true",
-              null,
-              { timeout: 2_000 },
-            ).catch(() => undefined);
-          }
-          const listView = page.locator(".pf-views button").nth(0);
-          if (await listView.isVisible().catch(() => false) && !(await listView.evaluate((el) => el.classList.contains("is-active")))) {
-            await listView.click().catch(() => undefined);
+          await page.evaluate(() => {
+            const close = document.querySelector(".pf-sidebar.is-open .pf-close");
+            if (close instanceof HTMLButtonElement) close.click();
+            const listView = [...document.querySelectorAll(".pf-views button")].find((button) =>
+              button.textContent?.includes("لیستی") || button.querySelector("svg")?.getAttribute("aria-label") === "لیستی",
+            );
+            if (listView instanceof HTMLButtonElement && !listView.classList.contains("is-active")) listView.click();
+          });
+          await page.waitForFunction(
+            () => !document.querySelector(".pf-sidebar.is-open") && document.querySelector(".pf-filter-btn")?.getAttribute("aria-expanded") !== "true",
+            null,
+            { timeout: 2_000 },
+          ).catch(() => undefined);
+          if (await page.locator(".pf-sidebar.is-open").count()) {
+            failures.push(`/properties @ ${width}px: filter drawer remained open after responsive interactions`);
           }
           await page.waitForTimeout(120);
         }
