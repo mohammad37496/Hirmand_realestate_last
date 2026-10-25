@@ -400,12 +400,13 @@ try {
           const dockRect = dock?.getBoundingClientRect();
           const dockButtons = dock ? [...dock.querySelectorAll("button")].map((button) => {
             const rect = button.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0) return null;
             return {
               label: button.getAttribute("aria-label") || "",
               width: Math.round(rect.width),
               height: Math.round(rect.height),
             };
-          }) : [];
+          }).filter(Boolean) : [];
           const contact = document.querySelector(".action-menu.floating-call-menu");
           const contactRect = contact?.getBoundingClientRect();
           const musicDock = dock && dockRect ? {
@@ -625,9 +626,13 @@ try {
 
         if ((screenshotRoutes.has(route) || route.startsWith("/properties/") || route.startsWith("/file/")) && screenshotWidths.has(width)) {
           const fileName = `${routeFileName(route)}-${width}x${height}.png`;
+          if (route === "/properties") {
+            await page.evaluate(() => window.scrollTo(0, 0));
+            await page.waitForTimeout(80);
+          }
           await page.screenshot({
             path: path.join(outputDir, fileName),
-            fullPage: true,
+            fullPage: route !== "/properties",
             animations: "disabled",
             timeout: 20_000,
           }).catch((error) => {

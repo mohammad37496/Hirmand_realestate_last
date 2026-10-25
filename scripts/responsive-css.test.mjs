@@ -517,10 +517,16 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "mobile price and area ranges should follow the reference's single-column form rhythm");
   assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{[^}]*overflow-x: auto !important;/s,
     "property actions should stay on one compact horizontal strip instead of doubling card height");
+  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{[^}]*position: absolute !important;[^}]*top: auto !important;[^}]*bottom: 0 !important;[^}]*height: 52px !important;/s,
+    "property actions should occupy the card's text column without adding a second full-width row");
   assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-actions(?:-compact)? \{[^}]*flex-wrap: nowrap !important;/s,
     "mobile property actions should remain horizontally reachable in a single row");
   assert.match(finalParityPass, /\.music-player-float:not\(\.music-player-float-empty\) \{[^}]*height: 54px !important;[^}]*min-height: 54px !important;/s,
     "the collapsed music dock should fit below the filter/category area without covering listing content");
+  assert.match(finalParityPass, /\.music-player-float:not\(\.music-player-float-empty\) \{[^}]*width: 112px !important;/s,
+    "the collapsed music dock should occupy only a small corner of the mobile listing");
+  assert.match(finalParityPass, /\.music-player-float-meta,[\s\S]*?\.music-player-float-controls button:not\(\.music-player-float-play\) \{\s*display: none !important;/s,
+    "the mobile mini-player should keep play and playlist controls while avoiding a wide overlay");
   assert.match(finalParityPass, /\.music-player-float-controls button \{[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
     "the compact music dock must preserve 44px touch targets for playback controls");
   assert.match(finalParityPass, /\.music-player-utility \{[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
