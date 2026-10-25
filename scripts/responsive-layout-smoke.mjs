@@ -595,7 +595,7 @@ try {
         if (route === "/properties" && width <= 430 && metrics.primaryTargets?.length) {
           failures.push(`/properties @ ${width}x${height}px: primary listing controls below 44px touch targets (${JSON.stringify(metrics.primaryTargets)})`);
         }
-        if (route === "/properties" && width <= 640 && metrics.musicDock) {
+        if (route === "/properties" && metrics.musicDock) {
           const dock = metrics.musicDock;
           if (dock.left < -1 || dock.right > width + 1 || dock.top < -1 || dock.bottom > height + 1) {
             failures.push(`/properties @ ${width}x${height}px: music dock escapes the viewport (${JSON.stringify(dock)})`);
@@ -613,6 +613,9 @@ try {
           }
           if (contact && Math.abs(contact.bottom - dock.bottom) > 8) {
             failures.push(`/properties @ ${width}x${height}px: floating contact control is not aligned with the compact music dock and may cover listing filters (${JSON.stringify({ dock, contact })})`);
+          }
+          if (dock.height > 44 || (contact && contact.height > 44)) {
+            failures.push(`/properties @ ${width}x${height}px: floating controls exceed the 44px compact overlay height and may obscure card actions (${JSON.stringify({ dock, contact })})`);
           }
         }
 

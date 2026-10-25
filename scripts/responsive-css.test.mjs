@@ -547,8 +547,8 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "the browser smoke must check actual action/photo overlap instead of rejecting all absolute positioning");
   assert.match(responsiveSmoke, /\.pcard-actions \.property-action/,
     "the responsive browser smoke must measure the real property action targets");
-  assert.match(finalParityPass, /\.music-player-float:not\(\.music-player-float-empty\) \{[^}]*height: 54px !important;[^}]*min-height: 54px !important;/s,
-    "the collapsed music dock should fit below the filter/category area without covering listing content");
+  assert.match(finalParityPass, /\.music-player-float:not\(\.music-player-float-empty\) \{[^}]*height: 44px !important;[^}]*min-height: 44px !important;/s,
+    "the collapsed music dock should use the smallest touch-safe height to reduce overlap with listing content");
   assert.match(finalParityPass, /\.music-player-float:not\(\.music-player-float-empty\) \{[^}]*width: 112px !important;/s,
     "the collapsed music dock should occupy only a small corner of the mobile listing");
   assert.match(finalParityPass, /\.music-player-float-meta,[\s\S]*?\.music-player-float-controls button:not\(\.music-player-float-play\) \{\s*display: none !important;/s,
@@ -557,6 +557,16 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "the compact music dock must preserve 44px touch targets for playback controls");
   assert.match(finalParityPass, /\.music-player-utility \{[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
     "the playlist toggle must retain a 44px touch target");
+  assert.match(finalParityPass, /html:has\(\.pf-page\) body:has\(\.pf-page\) \.action-menu\.floating-call-menu \{[^}]*height: 44px !important;[^}]*min-height: 44px !important;[^}]*padding: 0 12px !important;/s,
+    "the floating contact control should shrink to a 44px-high touch target instead of covering card actions");
   assert.match(finalParityPass, /@media \(max-width: 380px\) \{[\s\S]*?grid-template-columns: 104px minmax\(0, 1fr\) !important;[\s\S]*?pcard-actions \{ inset-inline-start: 104px !important;/s,
     "the 320–380px card image and action column must stay aligned with the narrower image width");
+  assert.match(responsiveCss, /@media \(min-width: 641px\) and \(max-width: 1024px\) \{[\s\S]*?music-player-float:not\(\.music-player-float-empty\) \{[\s\S]*?width: 112px !important;[\s\S]*?height: 54px !important;/s,
+    "tablet and narrow-laptop listings should use the compact music dock too");
+  assert.match(responsiveCss, /@media \(min-width: 641px\) and \(max-width: 1024px\) \{[\s\S]*?\.pf-page \.pcard-actions \.property-action \{[^}]*width: 44px !important;[^}]*min-width: 44px !important;[^}]*height: 44px !important;[^}]*min-height: 44px !important;/s,
+    "tablet property action buttons should keep 44px targets without changing wide desktop cards");
+  assert.match(responsiveCss, /@media \(min-width: 1025px\) \{[\s\S]*?music-player-float:not\(\.music-player-float-empty\) \{[\s\S]*?height: 84px !important;/s,
+    "wide desktop listings should keep the full player while hiding the progress row and reducing height");
+  assert.match(responsiveCss, /html:has\(\.pf-page\) body:has\(\.pf-page\) \.action-menu\.floating-call-menu \{\s*bottom: calc\(78px \+ env\(safe-area-inset-bottom\)\) !important;/s,
+    "the floating contact action should stay in the bottom corner opposite the music dock at every viewport");
 });
