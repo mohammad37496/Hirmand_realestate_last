@@ -3344,7 +3344,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
     display: flex !important;
     min-height: 52px !important;
     height: 52px !important;
-    padding: 4px 7px !important;
+    padding: 4px 0 !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
     scrollbar-width: none !important;
@@ -3357,6 +3357,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
     display: flex !important;
     position: static !important;
     flex-wrap: nowrap !important;
+    flex: 0 0 max-content !important;
     width: max-content !important;
     max-width: none !important;
     margin: 0 !important;

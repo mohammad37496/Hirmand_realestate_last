@@ -539,6 +539,10 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "browser smoke should validate the primary marketplace controls, not only the music dock");
   assert.match(finalParityPass, /\.pcard-actions \.property-action \{[^}]*flex: 0 0 44px !important;[^}]*min-width: 44px !important;[^}]*min-height: 44px !important;/s,
     "mobile property action buttons must not shrink below the 44px touch target");
+  assert.match(finalParityPass, /\.pf-page \.pf-grid\.is-list-view > \.pcard \.pcard-actions \{[^}]*padding: 4px 0 !important;/s,
+    "the horizontally scrolling action strip must not clip the first 44px button with side padding");
+  assert.match(finalParityPass, /\.property-actions(?:-compact)? \{[^}]*flex: 0 0 max-content !important;[^}]*width: max-content !important;/s,
+    "the action group must retain its intrinsic width so it scrolls as one row");
   assert.match(responsiveSmoke, /actionsBounds\.left < card\.mediaBounds\.right && card\.actionsBounds\.right > card\.mediaBounds\.left/,
     "the browser smoke must check actual action/photo overlap instead of rejecting all absolute positioning");
   assert.match(responsiveSmoke, /\.pcard-actions \.property-action/,
