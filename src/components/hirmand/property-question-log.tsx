@@ -11,7 +11,7 @@ type QuestionItem = {
   answer: string;
 };
 
-function defaultQuestions(property: Property): string[] {
+function defaultQuestions(property: Pick<Property, "transactionType" | "parking" | "areaM2">): string[] {
   const questions = [
     "وضعیت سند و مدارک اصلی ملک چیست؟",
     "آخرین وضعیت بدهی، رهن، بازداشت یا محدودیت ملک چیست؟",
@@ -27,18 +27,18 @@ function defaultQuestions(property: Property): string[] {
   return Array.from(new Set(questions)).slice(0, 7);
 }
 
-function readItems(property: Property): QuestionItem[] {
+function readItems(propertyId: string, defaults: string[]): QuestionItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(KEY_PREFIX + property.id);
+    const raw = localStorage.getItem(KEY_PREFIX + propertyId);
     const parsed = raw ? JSON.parse(raw) : null;
-    if (!Array.isArray(parsed)) return defaultQuestions(property).map((question, index) => ({ id: "q" + index, question, answer: "" }));
+    if (!Array.isArray(parsed)) return defaults.map((question, index) => ({ id: "q" + index, question, answer: "" }));
     return parsed
       .filter((item): item is QuestionItem => Boolean(item) && typeof item === "object" && typeof item.question === "string")
       .map((item) => ({ id: item.id || crypto.randomUUID(), question: item.question.slice(0, 260), answer: typeof item.answer === "string" ? item.answer.slice(0, 800) : "" }))
       .slice(0, 20);
   } catch {
-    return defaultQuestions(property).map((question, index) => ({ id: "q" + index, question, answer: "" }));
+    return defaults.map((question, index) => ({ id: "q" + index, question, answer: "" }));
   }
 }
 
@@ -47,11 +47,15 @@ export function PropertyQuestionLog({ property }: { property: Property }) {
   // browser-local, so read it only after hydration has completed.
   const [items, setItems] = useState<QuestionItem[]>([]);
   const [loadedPropertyId, setLoadedPropertyId] = useState<string | null>(null);
+  const defaults = useMemo(
+    () => defaultQuestions({ transactionType: property.transactionType, parking: property.parking, areaM2: property.areaM2 }),
+    [property.transactionType, property.parking, property.areaM2],
+  );
 
   useEffect(() => {
-    setItems(readItems(property));
+    setItems(readItems(property.id, defaults));
     setLoadedPropertyId(property.id);
-  }, [property.id]);
+  }, [property.id, defaults]);
 
   useEffect(() => {
     if (loadedPropertyId !== property.id) return;

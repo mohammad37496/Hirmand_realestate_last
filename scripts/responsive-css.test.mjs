@@ -30,7 +30,6 @@ const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
-const propertyDetailMobileCss = fs.readFileSync(new URL("../src/property-detail-mobile-redesign.css", import.meta.url), "utf8");
 const propertyDetailV2Css = fs.readFileSync(new URL("../src/property-detail-page.css", import.meta.url), "utf8");
 const propertyGalleryMobileCss = fs.readFileSync(new URL("../src/property-gallery-mobile.css", import.meta.url), "utf8");
 const propertyDetailLuxuryCss = fs.readFileSync(new URL("../src/property-detail-page-luxury.css", import.meta.url), "utf8");
@@ -112,7 +111,7 @@ testRunner.test("property marketplace mobile map and horizontal tool strips have
 testRunner.test("property-local question log hydrates before reading browser storage", () => {
   assert.match(propertyQuestionLogSource, /useState<QuestionItem\[]>\(\[\]\)/,
     "the question log must use the same initial rows for server and browser rendering");
-  assert.match(propertyQuestionLogSource, /useEffect\(\(\) => \{\s*setItems\(readItems\(property\)\);\s*setLoadedPropertyId\(property\.id\);\s*\}, \[property\.id\]\)/s,
+  assert.match(propertyQuestionLogSource, /useEffect\(\(\) => \{\s*setItems\(readItems\(property\.id, defaults\)\);\s*setLoadedPropertyId\(property\.id\);\s*\}, \[property\.id, defaults\]\)/s,
     "saved questions should load after hydration and follow the active property");
   assert.match(propertyQuestionLogSource, /if \(loadedPropertyId !== property\.id\) return;[\s\S]*?localStorage\.setItem/,
     "the initial empty state must not overwrite the saved log before it has loaded");
