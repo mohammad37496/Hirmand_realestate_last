@@ -100,6 +100,11 @@ try {
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
     try {
+      // The route's initial view is chosen during mount from matchMedia. Start
+      // the listing at a real phone viewport so the smoke test observes the
+      // same first-render state as a mobile visitor (not desktop state resized
+      // after hydration).
+      if (route === "/properties") await page.setViewportSize({ width: 320, height: 568 });
       const response = await page.goto(new URL(route, baseUrl).toString(), {
         waitUntil: "domcontentloaded",
         timeout: 30_000,
@@ -282,6 +287,29 @@ try {
 
       for (const { width, height } of viewportMatrix) {
         await page.setViewportSize({ width, height });
+        if (route === "/properties" && width <= 640) {
+          // The interaction checks above deliberately open the map and filter
+          // drawer. Reset those transient states before capturing comparison
+          // screenshots so each viewport represents the normal listing page.
+          const closeFilter = page.locator(".pf-sidebar.is-open .pf-close").first();
+          if (await closeFilter.isVisible().catch(() => false)) {
+            const backdrop = page.locator(".pf-backdrop").first();
+            if (await backdrop.isVisible().catch(() => false)) {
+              await backdrop.click({ position: { x: 1, y: Math.min(100, height - 1) } }).catch(() => undefined);
+            }
+            if (await closeFilter.isVisible().catch(() => false)) await closeFilter.click().catch(() => undefined);
+            await page.waitForFunction(
+              () => document.querySelector(".pf-filter-btn")?.getAttribute("aria-expanded") !== "true",
+              null,
+              { timeout: 2_000 },
+            ).catch(() => undefined);
+          }
+          const listView = page.locator(".pf-views button").nth(0);
+          if (await listView.isVisible().catch(() => false) && !(await listView.evaluate((el) => el.classList.contains("is-active")))) {
+            await listView.click().catch(() => undefined);
+          }
+          await page.waitForTimeout(120);
+        }
         await page.evaluate(() => new Promise((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(resolve)),
         ));
@@ -368,6 +396,30 @@ try {
               }
             }
           }
+
+          const dock = document.querySelector(".music-player-float:not(.music-player-float-empty)");
+          const dockRect = dock?.getBoundingClientRect();
+          const dockButtons = dock ? [...dock.querySelectorAll("button")].map((button) => {
+            const rect = button.getBoundingClientRect();
+            return {
+              label: button.getAttribute("aria-label") || "",
+              width: Math.round(rect.width),
+              height: Math.round(rect.height),
+            };
+          }) : [];
+          const contact = document.querySelector(".action-menu.floating-call-menu");
+          const contactRect = contact?.getBoundingClientRect();
+          const musicDock = dock && dockRect ? {
+            left: Math.round(dockRect.left), right: Math.round(dockRect.right),
+            top: Math.round(dockRect.top), bottom: Math.round(dockRect.bottom),
+            width: Math.round(dockRect.width), height: Math.round(dockRect.height),
+            buttons: dockButtons,
+          } : null;
+          const floatingContact = contact && contactRect ? {
+            left: Math.round(contactRect.left), right: Math.round(contactRect.right),
+            top: Math.round(contactRect.top), bottom: Math.round(contactRect.bottom),
+            width: Math.round(contactRect.width), height: Math.round(contactRect.height),
+          } : null;
 
           let propertyGallery = null;
           const galleryMain = document.querySelector(".property-detail-page.hd-property-detail-v2 .hd-gallery-main, .property-detail-page:not(.hd-property-detail-v2) .property-gallery-main");
@@ -461,6 +513,8 @@ try {
             offenders: offenders.slice(0, 8),
             brokenWords: brokenWords.slice(0, 8),
             smallTargets: smallTargets.slice(0, 8),
+            musicDock,
+            floatingContact,
             propertyGallery,
             title: document.title,
           };
@@ -508,6 +562,20 @@ try {
         }
         if (metrics.brokenWords.length) {
           failures.push(`${route} @ ${width}x${height}px: text appears split letter-by-letter; elements=${JSON.stringify(metrics.brokenWords)}`);
+        }
+        if (route === "/properties" && width <= 640 && metrics.musicDock) {
+          const dock = metrics.musicDock;
+          if (dock.left < -1 || dock.right > width + 1 || dock.top < -1 || dock.bottom > height + 1) {
+            failures.push(`/properties @ ${width}x${height}px: music dock escapes the viewport (${JSON.stringify(dock)})`);
+          }
+          const undersized = dock.buttons.filter((button) => button.width < 44 || button.height < 44);
+          if (undersized.length) {
+            failures.push(`/properties @ ${width}x${height}px: music controls below 44px touch targets (${JSON.stringify(undersized)})`);
+          }
+          const contact = metrics.floatingContact;
+          if (contact && dock.left < contact.right && dock.right > contact.left && dock.top < contact.bottom && dock.bottom > contact.top) {
+            failures.push(`/properties @ ${width}x${height}px: music dock overlaps the floating contact control (${JSON.stringify({ dock, contact })})`);
+          }
         }
 
         if (metrics.propertyGallery && width <= 430) {

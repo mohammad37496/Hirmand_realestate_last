@@ -506,4 +506,23 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "the music dock should be compact only on the mobile property listing");
   assert.match(finalPass, /body:has\(\.pf-page\).*\.music-player-float-progress \{\s*display: none !important;/s,
     "the dock should hide its progress row to avoid obscuring the listing");
+  const finalParityPass = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final parity pass: restore the reference's dark marketplace masthead"));
+  assert.match(finalParityPass, /\.pf-page \.pf-hero \{[^}]*background: linear-gradient\(145deg, #193a55 0%, #0b1a2b 78%\) !important;/s,
+    "the mobile marketplace masthead should retain the navy/gold reference hierarchy");
+  assert.match(propertiesRoute, /className="pf-mobile-search-cta"[\s\S]*?\.pf-mobile-reference-query input[\s\S]*?\.focus\(\)/,
+    "the reference-style gold search action should focus the real property search input");
+  assert.match(finalParityPass, /\.pf-page \.pf-hero-copy p \{[^}]*display: block !important;/s,
+    "the mobile hero should retain its explanatory copy like the reference page");
+  assert.match(finalParityPass, /\.pf-page \.pf-mobile-reference-range \{[^}]*grid-template-columns: minmax\(0, 1fr\) !important;/s,
+    "mobile price and area ranges should follow the reference's single-column form rhythm");
+  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{[^}]*overflow-x: auto !important;/s,
+    "property actions should stay on one compact horizontal strip instead of doubling card height");
+  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-actions(?:-compact)? \{[^}]*flex-wrap: nowrap !important;/s,
+    "mobile property actions should remain horizontally reachable in a single row");
+  assert.match(finalParityPass, /\.music-player-float:not\(\.music-player-float-empty\) \{[^}]*height: 54px !important;[^}]*min-height: 54px !important;/s,
+    "the collapsed music dock should fit below the filter/category area without covering listing content");
+  assert.match(finalParityPass, /\.music-player-float-controls button \{[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
+    "the compact music dock must preserve 44px touch targets for playback controls");
+  assert.match(finalParityPass, /\.music-player-utility \{[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
+    "the playlist toggle must retain a 44px touch target");
 });
