@@ -2636,6 +2636,9 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
 }
 /* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */
 @media (max-width: 620px) {
+  /* The legacy global stable gutter leaves a dead 15px strip on mobile. */
+  html:has(.pf-page) { scrollbar-gutter: auto; }
+
   .pf-page {
     box-sizing: border-box;
     width: 100% !important;
@@ -2687,13 +2690,42 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
   .pf-page .pf-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 12px; }
   .pf-page .pf-grid > .pcard { border-radius: 16px; box-shadow: 0 4px 14px rgb(11 26 43 / 5%); }
   .pf-page .pf-grid > .pcard .pcard-media { aspect-ratio: 16 / 10; min-height: 0; }
-  .pf-page .pf-grid > .pcard .pcard-media img { width: 100%; height: 100%; object-fit: cover; }
+  .pf-page .pf-grid > .pcard .pcard-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .pf-page .pf-grid.is-list-view > .pcard { display: flex; flex-direction: column; }
   .pf-page .pf-grid.is-list-view > .pcard > .pcard-link { display: flex; flex-direction: column; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-media { width: 100%; min-height: 0; aspect-ratio: 16 / 10; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media img { height: 100%; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-body { width: 100%; }
-  .pf-page .pf-grid > .pcard .pcard-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-  .pf-page .pf-grid > .pcard .pcard-actions > * { min-height: 40px; }
+  .pf-page .pf-grid > .pcard > .pcard-actions {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    padding: 9px 12px 12px;
+    border-top: 1px solid #edf0f0;
+    background: #fffefa;
+  }
+  .pf-page .pf-grid > .pcard .pcard-actions .property-actions-compact {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+  }
+  .pf-page .pf-grid > .pcard .pcard-actions .property-action {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    border: 1px solid #e0e5e7;
+    border-radius: 10px;
+    background: #f8f9f8;
+    color: #32475a;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
   .pf-page .pf-more .btn-ghost { width: 100%; min-height: 44px; }
 
   .pf-page .pf-map-divar-layout { border-radius: 15px; }
@@ -2717,6 +2749,12 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
   .pf-page .pf-map-divar-layout .pf-map-item { grid-template-columns: 56px minmax(0, 1fr) 11px; gap: 5px; padding-inline: 5px; }
   .pf-page .pf-map-divar-layout .pf-map-item-media { width: 56px; height: 56px; }
   .pf-page .pf-map-card-row { grid-template-columns: minmax(0, 1fr) 38px; }
+  html:has(.pf-page) .action-menu.floating-call-menu {
+    width: max-content;
+    max-width: calc(100vw - 24px);
+  }
+  .pf-page .pf-quick,
+  .pf-page .pf-tools { margin-inline: -10px; padding-inline: 10px; }
 }
 
 @media (min-width: 621px) {

@@ -58,6 +58,7 @@ const routes = [
   `/file/${encodeURIComponent(propertyId)}`,
   `/v/${encodeURIComponent(propertySlug)}/${encodeURIComponent(propertyId)}`,
 ];
+const selectedRoutes = process.env.RESPONSIVE_SMOKE_ONLY_PROPERTIES === "1" ? ["/properties"] : routes;
 
 const screenshotRoutes = new Set([
   "/",
@@ -76,6 +77,9 @@ fs.mkdirSync(outputDir, { recursive: true });
 
 const browser = await chromium.launch({
   headless: true,
+  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim()
+    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.trim() }
+    : {}),
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
 });
 const failures = [];
@@ -86,7 +90,7 @@ function routeFileName(route) {
 }
 
 try {
-  for (const route of routes) {
+  for (const route of selectedRoutes) {
     const page = await browser.newPage({
       viewport: { width: 320, height: 900 },
       deviceScaleFactor: 1,
@@ -110,6 +114,61 @@ try {
 
       // Exercise the mobile filter drawer and neighborhood picker at 320px.
       if (route === "/properties") {
+        await page.waitForFunction(
+          () => document.querySelectorAll(".pf-views button").length === 3,
+          null,
+          { timeout: 8_000 },
+        ).catch(() => undefined);
+        await page.waitForTimeout(300);
+        const mobileMarketplace = await page.evaluate(() => ({
+          viewportWidth: window.innerWidth,
+          rootWidth: document.documentElement.getBoundingClientRect().width,
+          activeViewIndex: [...document.querySelectorAll(".pf-views button")].findIndex((button) => button.classList.contains("is-active")),
+          hasMap: Boolean(document.querySelector(".pf-map-divar-layout")),
+        }));
+        if (mobileMarketplace.rootWidth < mobileMarketplace.viewportWidth - 1) {
+          failures.push(`/properties @ 320px: page root is ${mobileMarketplace.rootWidth}px wide for a ${mobileMarketplace.viewportWidth}px viewport`);
+        }
+        if (mobileMarketplace.activeViewIndex !== 0 || mobileMarketplace.hasMap) {
+          failures.push(`/properties @ 320px: initial mobile view should prioritize listings instead of opening the map workspace (${JSON.stringify(mobileMarketplace)})`);
+        }
+        const viewButtons = page.locator(".pf-views button");
+        await viewButtons.nth(2).click();
+        if (!(await page.locator(".pf-map-divar-layout").count())) {
+          failures.push("/properties @ 320px: selecting map view did not open the map/list workspace");
+        }
+        await viewButtons.nth(0).click();
+        if (await page.locator(".pf-map-divar-layout").count()) {
+          failures.push("/properties @ 320px: returning to listings did not close the map workspace");
+        }
+        const mobileCards = await page.locator(".pf-grid > .pcard").evaluateAll((cards) => cards.map((card) => {
+          const media = card.querySelector(".pcard-media");
+          const image = media?.querySelector("img");
+          const mediaRect = media?.getBoundingClientRect();
+          const imageRect = image?.getBoundingClientRect();
+          const actions = card.querySelector(".pcard-actions");
+          const actionButtons = [...card.querySelectorAll(".pcard-actions .property-action")].map((button) => {
+            const rect = button.getBoundingClientRect();
+            return { width: Math.round(rect.width), height: Math.round(rect.height) };
+          });
+          return {
+            imageFrameDelta: mediaRect && imageRect ? Math.abs(mediaRect.height - imageRect.height) : 0,
+            actionsPosition: actions ? getComputedStyle(actions).position : "missing",
+            actionButtons,
+          };
+        }));
+        for (const card of mobileCards) {
+          if (card.imageFrameDelta > 2) {
+            failures.push(`/properties @ 320px: property image does not fill its media frame (${card.imageFrameDelta}px gap)`);
+          }
+          if (card.actionsPosition !== "static") {
+            failures.push("/properties @ 320px: property action buttons still overlay the listing photo");
+          }
+          if (card.actionButtons.some((target) => target.width < 44 || target.height < 44)) {
+            failures.push(`/properties @ 320px: property action target is below 44px (${JSON.stringify(card.actionButtons)})`);
+          }
+        }
+
         const filterButton = page.locator(".pf-filter-btn").first();
         if (await filterButton.isVisible().catch(() => false)) {
           await filterButton.waitFor({ state: "visible" });
@@ -524,7 +583,7 @@ try {
 }
 
 const smallTargetWarnings = summaries.filter((entry) => entry.smallTargets?.length);
-console.log(`[responsive-smoke] ${routes.length} routes × ${viewportMatrix.length} viewport scenarios = ${routes.length * viewportMatrix.length} responsive checks`);
+console.log(`[responsive-smoke] ${selectedRoutes.length} routes × ${viewportMatrix.length} viewport scenarios = ${selectedRoutes.length * viewportMatrix.length} responsive checks`);
 console.log(`[responsive-smoke] viewport matrix: ${viewportMatrix.map(({ width, height }) => `${width}x${height}`).join(", ")}`);
 console.log(`[responsive-smoke] screenshots directory: ${outputDir}`);
 if (smallTargetWarnings.length) {

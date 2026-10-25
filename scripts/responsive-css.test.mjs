@@ -41,22 +41,32 @@ const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirm
 testRunner.test("property marketplace mobile refinement stays scoped and below tablet widths", () => {
   const marker = "/* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */";
   const mobilePass = responsiveCss.slice(responsiveCss.indexOf(marker));
+  const mobilePassWithoutRouteScopedRoot = mobilePass.replace(/html:has\(\.pf-page\)\s*\{[^}]*\}/g, "");
   assert.ok(mobilePass.length > 0, "the final marketplace mobile pass must be present");
   assert.match(mobilePass, /@media\s*\(max-width:\s*620px\)/);
   assert.match(mobilePass, /@media\s*\(max-width:\s*380px\)/);
   assert.match(mobilePass, /@media\s*\(min-width:\s*621px\)/);
-  assert.doesNotMatch(mobilePass, /(^|[},]\s*)(?:html|body|#root|\.site-nav|\.property-detail-page)\s*[,{]/m,
+  assert.doesNotMatch(mobilePassWithoutRouteScopedRoot, /(^|[},]\s*)(?:html|body|#root|\.site-nav|\.property-detail-page)\s*[,{]/m,
     "the final refinement must not style the global shell or other page routes");
   assert.match(rootRoute, /propertiesMarketplacePolishCss[\s\S]*propertyExperienceRedesignCss[\s\S]*responsiveHardeningCss/,
     "mobile marketplace refinements must load after the page's base marketplace CSS");
+  assert.match(mobilePass, /html:has\(\.pf-page\)\s*\{\s*scrollbar-gutter:\s*auto;\s*\}/,
+    "the mobile marketplace must reclaim the global stable scrollbar gutter without changing other routes");
+  assert.match(propertiesRoute, /if\s*\(window\.matchMedia\("\(max-width:\s*620px\)"\)\.matches\)\s*setViewMode\("list"\)/,
+    "mobile visitors should land on property listings while retaining the map as an explicit view");
 });
 
 testRunner.test("property marketplace mobile cards keep full-width image ratios and touch actions", () => {
   const marker = "/* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */";
   const mobilePass = responsiveCss.slice(responsiveCss.indexOf(marker));
   assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s+\.pcard-media\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10;[^}]*min-height:\s*0;/s);
-  assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s+\.pcard-media\s+img\s*\{[^}]*object-fit:\s*cover;/s);
-  assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s+\.pcard-actions\s*>\s*\*\s*\{[^}]*min-height:\s*40px;/s);
+  assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s+\.pcard-media\s+img\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*object-fit:\s*cover;/s);
+  assert.match(mobilePass, /\.pf-page\s+\.pf-grid\.is-list-view\s*>\s*\.pcard\s+\.pcard-media\s+img\s*\{[^}]*height:\s*100%;/s,
+    "mobile list cards must fill the 16:10 media frame instead of retaining the legacy fixed 205px image height");
+  assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s*>\s*\.pcard-actions\s*\{[^}]*position:\s*static;[^}]*border-top:/s,
+    "mobile property actions should not cover the listing photo");
+  assert.match(mobilePass, /\.pf-page\s+\.pf-grid\s*>\s*\.pcard\s+\.pcard-actions\s+\.property-action\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;[^}]*min-height:\s*44px;/s,
+    "each mobile listing action should have a 44px touch target");
   assert.match(mobilePass, /\.pf-page\s+\.pf-more\s+\.btn-ghost\s*\{[^}]*min-height:\s*44px;/s);
 });
 
@@ -71,6 +81,12 @@ testRunner.test("property marketplace mobile controls retain working search, fil
     "list, grid and map mode controls must remain interactive");
   assert.match(propertiesMarketplaceCss, /\.pf-page\s+\.pf-grid\.is-list-view\s*>\s*\.pcard/,
     "the existing list-mode card styling must remain available on larger screens");
+  assert.match(responsiveSmoke, /mobileMarketplace\.rootWidth\s*<\s*mobileMarketplace\.viewportWidth\s*-\s*1/,
+    "the browser smoke must detect a root width that leaves a blank strip beside the mobile viewport");
+  assert.match(responsiveSmoke, /mobileMarketplace\.activeViewIndex\s*!==\s*0\s*\|\|\s*mobileMarketplace\.hasMap/,
+    "the browser smoke must verify that the initial mobile state shows listings rather than the map");
+  assert.match(responsiveSmoke, /viewButtons\.nth\(2\)\.click\(\)[\s\S]*?viewButtons\.nth\(0\)\.click\(\)/,
+    "the browser smoke must exercise map-to-list mode switching");
 });
 
 testRunner.test("property marketplace mobile map and horizontal tool strips have bounded scrolling", () => {

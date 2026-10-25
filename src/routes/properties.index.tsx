@@ -429,6 +429,10 @@ function PropertiesIndexPage() {
   const [savedSearchId, setSavedSearchId] = useState("");
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
+  useEffect(() => {
+    // Listings are the primary mobile task; keep the map available as an explicit view.
+    if (window.matchMedia("(max-width: 620px)").matches) setViewMode("list");
+  }, []);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [desktopFilterViewport, setDesktopFilterViewport] = useState(false);
   const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
