@@ -499,3 +499,11 @@ testRunner.test("mobile property marketplace follows compact reference-style sta
   assert.match(finalPass, /\.pf-page \.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-action \{[^}]*min-height: 44px !important;/s,
     "horizontal mobile cards must preserve 44px action targets");
 });
+
+testRunner.test("global music dock is compact and page-scoped over the mobile property list", () => {
+  const finalPass = responsiveCss.slice(responsiveCss.lastIndexOf("/* Keep the global music dock from obscuring mobile listing cards; playback stays available. */"));
+  assert.match(finalPass, /body:has\(\.pf-page\) \.music-player-float:not\(\.music-player-float-empty\) \{[^}]*width: min\(292px, calc\(100vw - 20px\)\) !important;[^}]*height: 68px !important;[^}]*min-height: 68px !important;/s,
+    "the music dock should be compact only on the mobile property listing");
+  assert.match(finalPass, /body:has\(\.pf-page\).*\.music-player-float-progress \{\s*display: none !important;/s,
+    "the dock should hide its progress row to avoid obscuring the listing");
+});

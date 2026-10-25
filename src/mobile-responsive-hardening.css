@@ -3136,3 +3136,33 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
   .pf-page .pf-grid.is-list-view > .pcard .pcard-media { width: 104px !important; min-width: 104px !important; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-body { padding: 9px 8px 7px !important; }
 }
+
+/* Keep the global music dock from obscuring mobile listing cards; playback stays available. */
+@media (max-width: 640px) {
+  body:has(.pf-page) .music-player-float:not(.music-player-float-empty) {
+    left: 10px !important;
+    right: auto !important;
+    bottom: calc(70px + env(safe-area-inset-bottom)) !important;
+    width: min(292px, calc(100vw - 20px)) !important;
+    height: 68px !important;
+    min-height: 68px !important;
+    padding: 5px 8px !important;
+    border-radius: 13px !important;
+    box-shadow: 0 8px 24px rgb(8 19 32 / 24%) !important;
+  }
+  body:has(.pf-page) .music-player-float:not(.music-player-float-empty) .music-player-float-head {
+    height: 21px !important;
+  }
+  body:has(.pf-page) .music-player-float:not(.music-player-float-empty) .music-player-float-track {
+    margin-top: 2px !important;
+    gap: 5px !important;
+  }
+  body:has(.pf-page) .music-player-float:not(.music-player-float-empty) .music-player-disc {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 8px !important;
+  }
+  body:has(.pf-page) .music-player-float:not(.music-player-float-empty) .music-player-float-progress {
+    display: none !important;
+  }
+}
