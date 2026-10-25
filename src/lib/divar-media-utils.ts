@@ -14,6 +14,46 @@ export type DivarMediaExtraction = {
 
 type Collector = { urls: string[]; truncated: boolean };
 
+function hasPotentialMedia(
+  value: unknown,
+  keyHint: string,
+  depth = 0,
+  budget = { remaining: MAX_DIVAR_MEDIA_CANDIDATES },
+): boolean {
+  budget.remaining -= 1;
+  if (budget.remaining < 0) return true;
+  if (depth > 64) return value !== null && typeof value === "object";
+
+  if (typeof value === "string" && isAllowedDivarImageUrl(value)) {
+    try {
+      const url = new URL(value);
+      const pathname = url.pathname.toLowerCase();
+      const looksMediaKey = /image|photo|picture|thumbnail|media|gallery|cover/i.test(keyHint);
+      const looksVideoKey = /video|movie|clip/i.test(keyHint);
+      const looksImagePath = /\.(?:jpe?g|png|gif|webp|avif)(?:$|\/)/i.test(pathname);
+      const isUiAsset = pathname.includes("/static/imgs/") || pathname.includes("mapimage");
+      return !isUiAsset && (
+        /\/static\/photo\//i.test(pathname) ||
+        isVideoUrl(value) ||
+        (looksImagePath && looksMediaKey) ||
+        (looksVideoKey && !pathname.includes("/widget-icons/"))
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((item) => hasPotentialMedia(item, keyHint, depth + 1, budget));
+  }
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).some(([key, item]) =>
+      hasPotentialMedia(item, `${keyHint} ${key}`, depth + 1, budget),
+    );
+  }
+  return false;
+}
+
 function collectMediaUrls(
   value: unknown,
   state: Collector = { urls: [], truncated: false },
@@ -22,9 +62,9 @@ function collectMediaUrls(
 ): Collector {
   if (state.truncated) return state;
   if (depth > 12) {
-    // A nested branch was not inspected. Fail closed at the caller rather
-    // than allowing an apparently complete gallery from a partial traversal.
-    if (value !== null && typeof value === "object") state.truncated = true;
+    // Only fail closed when the skipped branch contains potential gallery
+    // media. Divar has unrelated deeply nested UI metadata in real payloads.
+    if (hasPotentialMedia(value, keyHint)) state.truncated = true;
     return state;
   }
 
