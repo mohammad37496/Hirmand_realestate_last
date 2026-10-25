@@ -23,6 +23,7 @@ const propertyScenarioToolsCss = fs.readFileSync(new URL("../src/property-scenar
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
+const propertySearchBrowserSmoke = fs.readFileSync(new URL("./property-search-browser-smoke.mjs", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
 const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.css", import.meta.url), "utf8");
@@ -111,6 +112,13 @@ testRunner.test("property marketplace mobile map and horizontal tool strips have
   assert.match(mobilePass, /\.pf-page\s+\.pf-tools\s*\{[^}]*overflow-x:\s*auto;[^}]*overscroll-behavior-inline:\s*contain;/s);
   assert.match(mobilePass, /\.pf-page\s+\.pf-map-divar-layout\s+\.pf-map-panel\s*\{[^}]*height:\s*min\(48vh,\s*390px\);/s);
   assert.match(mobilePass, /\.pf-page\s+\.pf-map-divar-layout\s+\.pf-map-canvas\s*\{[^}]*min-height:\s*280px;[^}]*height:\s*100%;/s);
+});
+
+testRunner.test("property search browser smoke explicitly selects map view before checking map results", () => {
+  assert.match(propertySearchBrowserSmoke, /async function openMapView\(page\)[\s\S]*?mapButton\.click\(\)[\s\S]*?\.pf-map-divar-layout/s,
+    "map-result assertions should first switch to the actual map view instead of relying on a default mode");
+  assert.equal((propertySearchBrowserSmoke.match(/await openMapView\((?:page|invalid|empty)\)/g) ?? []).length, 3,
+    "fixture/shared URL, invalid filter and empty-result checks should all establish map view explicitly");
 });
 
 testRunner.test("property-local question log hydrates before reading browser storage", () => {
