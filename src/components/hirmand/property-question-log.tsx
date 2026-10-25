@@ -43,15 +43,24 @@ function readItems(property: Property): QuestionItem[] {
 }
 
 export function PropertyQuestionLog({ property }: { property: Property }) {
-  const [items, setItems] = useState<QuestionItem[]>(() => readItems(property));
+  // Keep the server and the first browser render identical. The saved log is
+  // browser-local, so read it only after hydration has completed.
+  const [items, setItems] = useState<QuestionItem[]>([]);
+  const [loadedPropertyId, setLoadedPropertyId] = useState<string | null>(null);
 
   useEffect(() => {
+    setItems(readItems(property));
+    setLoadedPropertyId(property.id);
+  }, [property.id]);
+
+  useEffect(() => {
+    if (loadedPropertyId !== property.id) return;
     try {
       localStorage.setItem(KEY_PREFIX + property.id, JSON.stringify(items));
     } catch {
       // Keep working in memory when browser storage is unavailable.
     }
-  }, [items, property.id]);
+  }, [items, property.id, loadedPropertyId]);
 
   const answered = useMemo(() => items.filter((item) => item.answer.trim()).length, [items]);
 

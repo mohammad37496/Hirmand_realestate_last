@@ -37,6 +37,7 @@ const propertyDetailLuxuryCss = fs.readFileSync(new URL("../src/property-detail-
 const propertyExperienceRedesignCss = fs.readFileSync(new URL("../src/property-experience-redesign.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
+const propertyQuestionLogSource = fs.readFileSync(new URL("../src/components/hirmand/property-question-log.tsx", import.meta.url), "utf8");
 
 testRunner.test("property marketplace mobile refinement stays scoped and below tablet widths", () => {
   const marker = "/* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */";
@@ -93,6 +94,10 @@ testRunner.test("property marketplace mobile controls retain working search, fil
     "the browser smoke must verify that the initial mobile state shows listings rather than the map");
   assert.match(responsiveSmoke, /viewButtons\.nth\(2\)\.click\(\)[\s\S]*?viewButtons\.nth\(0\)\.click\(\)/,
     "the browser smoke must exercise map-to-list mode switching");
+  assert.match(responsiveSmoke, /buttons\.length === 3 && buttons\[0\]\?\.getAttribute\("aria-pressed"\) === "true"/,
+    "the browser smoke must wait for React hydration and the mobile default before clicking view controls");
+  assert.match(responsiveSmoke, /card\.actionsBounds\.top < card\.mediaBounds\.bottom && card\.actionsBounds\.bottom > card\.mediaBounds\.top/,
+    "photo/action overlap must be checked in both dimensions to avoid false positives for stacked grid cards");
 });
 
 testRunner.test("property marketplace mobile map and horizontal tool strips have bounded scrolling", () => {
@@ -102,6 +107,17 @@ testRunner.test("property marketplace mobile map and horizontal tool strips have
   assert.match(mobilePass, /\.pf-page\s+\.pf-tools\s*\{[^}]*overflow-x:\s*auto;[^}]*overscroll-behavior-inline:\s*contain;/s);
   assert.match(mobilePass, /\.pf-page\s+\.pf-map-divar-layout\s+\.pf-map-panel\s*\{[^}]*height:\s*min\(48vh,\s*390px\);/s);
   assert.match(mobilePass, /\.pf-page\s+\.pf-map-divar-layout\s+\.pf-map-canvas\s*\{[^}]*min-height:\s*280px;[^}]*height:\s*100%;/s);
+});
+
+testRunner.test("property-local question log hydrates before reading browser storage", () => {
+  assert.match(propertyQuestionLogSource, /useState<QuestionItem\[]>\(\[\]\)/,
+    "the question log must use the same initial rows for server and browser rendering");
+  assert.match(propertyQuestionLogSource, /useEffect\(\(\) => \{\s*setItems\(readItems\(property\)\);\s*setLoadedPropertyId\(property\.id\);\s*\}, \[property\.id\]\)/s,
+    "saved questions should load after hydration and follow the active property");
+  assert.match(propertyQuestionLogSource, /if \(loadedPropertyId !== property\.id\) return;[\s\S]*?localStorage\.setItem/,
+    "the initial empty state must not overwrite the saved log before it has loaded");
+  assert.doesNotMatch(propertyQuestionLogSource, /useState<QuestionItem\[]>\(\(\) => readItems\(property\)\)/,
+    "browser-local storage must not be read by the initial render");
 });
 testRunner.test("mobile property gallery suppresses duplicate and legacy zoom controls", () => {
   assert.match(

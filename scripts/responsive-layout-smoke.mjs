@@ -120,11 +120,17 @@ try {
       // Exercise the mobile filter drawer and neighborhood picker at 320px.
       if (route === "/properties") {
         await page.waitForFunction(
-          () => document.querySelectorAll(".pf-views button").length === 3,
+          () => {
+            const buttons = [...document.querySelectorAll(".pf-views button")];
+            return buttons.length === 3 && buttons[0]?.getAttribute("aria-pressed") === "true";
+          },
           null,
           { timeout: 8_000 },
         ).catch(() => undefined);
-        await page.waitForTimeout(300);
+        // The buttons are present in SSR HTML before React hydrates them. Wait
+        // for the mobile default state so this test does not click inert SSR
+        // markup and report a false interaction failure.
+        await page.waitForTimeout(150);
         const mobileMarketplace = await page.evaluate(() => ({
           viewportWidth: window.innerWidth,
           rootWidth: document.documentElement.getBoundingClientRect().width,
@@ -161,7 +167,7 @@ try {
           return {
             imageFrameDelta: mediaRect && imageRect ? Math.abs(mediaRect.height - imageRect.height) : 0,
             actionsPosition: actions ? getComputedStyle(actions).position : "missing",
-            mediaBounds: mediaRect ? { left: Math.round(mediaRect.left), right: Math.round(mediaRect.right) } : null,
+            mediaBounds: mediaRect ? { left: Math.round(mediaRect.left), right: Math.round(mediaRect.right), top: Math.round(mediaRect.top), bottom: Math.round(mediaRect.bottom) } : null,
             actionsBounds: actionsRect ? { left: Math.round(actionsRect.left), right: Math.round(actionsRect.right), top: Math.round(actionsRect.top), bottom: Math.round(actionsRect.bottom) } : null,
             cardBounds: { left: Math.round(cardRect.left), right: Math.round(cardRect.right), bottom: Math.round(cardRect.bottom) },
             actionButtons,
@@ -171,7 +177,7 @@ try {
           if (card.imageFrameDelta > 2) {
             failures.push(`/properties @ 320px: property image does not fill its media frame (${card.imageFrameDelta}px gap)`);
           }
-          if (card.mediaBounds && card.actionsBounds && card.actionsBounds.left < card.mediaBounds.right && card.actionsBounds.right > card.mediaBounds.left) {
+          if (card.mediaBounds && card.actionsBounds && card.actionsBounds.left < card.mediaBounds.right && card.actionsBounds.right > card.mediaBounds.left && card.actionsBounds.top < card.mediaBounds.bottom && card.actionsBounds.bottom > card.mediaBounds.top) {
             failures.push(`/properties @ 320px: property action buttons overlap the listing photo (${JSON.stringify({ media: card.mediaBounds, actions: card.actionsBounds })})`);
           }
           if (card.actionsBounds && (card.actionsBounds.left < card.cardBounds.left - 1 || card.actionsBounds.right > card.cardBounds.right + 1 || card.actionsBounds.bottom > card.cardBounds.bottom + 1)) {
