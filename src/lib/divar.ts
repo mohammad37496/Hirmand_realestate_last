@@ -838,7 +838,11 @@ function parseJsonArray(value: unknown): string[] {
 }
 
 function mapRow(row: Record<string, unknown>): DivarFile {
-  const sourceMedia = parseJsonArray(row.images);
+  // Normalize legacy rows on read too: older imports persisted CDN icons,
+  // map images and thumbnail renditions. Do not keep showing their raw JSON
+  // array length as the source gallery count while an admin is reviewing it.
+  const storedSourceMedia = parseJsonArray(row.images);
+  const sourceMedia = extractDivarMedia(storedSourceMedia).urls;
   const publishedMedia = parseJsonArray(row.published_images);
   const sourceImages = sourceMedia.filter((url) => !isVideoUrl(url));
   const sourceVideos = sourceMedia.filter(isVideoUrl);
