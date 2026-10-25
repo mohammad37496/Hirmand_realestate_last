@@ -6,7 +6,7 @@
     "display": "اصفهان"
   },
   "sourceUrl": "https://api.divar.ir/v8/places/cities/4/districts",
-  "fetchedAt": "2026-10-15T17:38:26.392Z",
+  "fetchedAt": "2026-10-25T06:16:11.369Z",
   "districts": [
     {
       "id": 1593,
@@ -54,6 +54,22 @@
         32.7295647,
         51.6491852,
         32.7314568
+      ]
+    },
+    {
+      "id": 4634,
+      "name": "زردنجان",
+      "slug": "zardenjan",
+      "second_slug": "zardenjan",
+      "default_location": {
+        "latitude": 32.56493,
+        "longitude": 51.7885933
+      },
+      "bbox": [
+        51.7794418,
+        32.551693,
+        51.8009033,
+        32.5765
       ]
     },
     {
@@ -670,8 +686,8 @@
       "slug": "baharestan-esfahan",
       "second_slug": "baharestan-isfahan",
       "default_location": {
-        "latitude": 32.5062332,
-        "longitude": 51.7482605
+        "latitude": 32.5060577,
+        "longitude": 51.7481651
       },
       "bbox": [
         51.622345,
@@ -2030,8 +2046,8 @@
       "slug": "sarvoshbaderan",
       "second_slug": "sarvoshbaderan",
       "default_location": {
-        "latitude": 32.5770226,
-        "longitude": 51.821228
+        "latitude": 32.5775833,
+        "longitude": 51.8225861
       },
       "bbox": [
         51.7771111,
