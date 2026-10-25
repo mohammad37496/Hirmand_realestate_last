@@ -48,7 +48,8 @@ jobs:
             TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
           fi
 
-          liara deploy \
+          set +e
+          timeout --signal=TERM --kill-after=30s 20m liara deploy \
             --app="${APP_NAME}" \
             --api-token="${LIARA_TOKEN}" \
             "${TEAM_ARGS[@]}" \
@@ -57,6 +58,12 @@ jobs:
             --no-app-logs \
             --message="Deploy ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}" \
             --debug
+          DEPLOY_STATUS=$?
+          set -e
+          if [[ "${DEPLOY_STATUS}" -eq 124 ]]; then
+            echo "::error::Liara CLI did not finish within 20 minutes. The last CLI phase above distinguishes source upload/fetch from remote build/runtime output; the failure hook will collect bounded diagnostics."
+          fi
+          exit "${DEPLOY_STATUS}"
 
       # Opt-in collection prevents routine deployments from copying general
       # application logs to GitHub. A commit containing [diagnose-upload] enables

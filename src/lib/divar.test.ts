@@ -5,6 +5,8 @@ import { getDivarAgencyReason } from "./divar-agency-filter.ts";
 import { findDivarCoordinates } from "./divar-coordinate-utils.ts";
 import { isDivarRemoteHost, mediaSourceCandidates } from "./media.ts";
 import type { DivarFile } from "./divar.ts";
+import { downloadDivarMedia } from "./divar-media-download.ts";
+import { liaraMediaProxyUrl } from "./liara-object-storage.server.ts";
 import {
   DIVAR_MAX_PUBLISHED_IMAGES,
   divarCompleteness,
@@ -18,6 +20,149 @@ import {
   sortDivarFiles,
   EMPTY_DIVAR_FILTERS,
 } from "./divar-status.ts";
+
+test("Divar media download validates bytes, stores once, and returns the private Liara proxy URL", async () => {
+  const previousEnv = {
+    endpoint: process.env.LIARA_ENDPOINT,
+    bucket: process.env.LIARA_BUCKET_NAME,
+    access: process.env.LIARA_ACCESS_KEY,
+    secret: process.env.LIARA_SECRET_KEY,
+  };
+  const originalFetch = globalThis.fetch;
+  const source = "https://img.divarcdn.com/static/photo/sample.webp";
+  const webp = Buffer.from("RIFF0000WEBP", "ascii");
+  const stored: Array<{ pathname: string; bytes: Buffer; contentType: string }> = [];
+  let imageDownloads = 0;
+
+  try {
+    process.env.LIARA_ENDPOINT = "https://storage.example.test";
+    process.env.LIARA_BUCKET_NAME = "hirmand-test-bucket";
+    process.env.LIARA_ACCESS_KEY = "test-access-key";
+    process.env.LIARA_SECRET_KEY = "test-secret-key";
+    globalThis.fetch = (async () => {
+      imageDownloads += 1;
+      return new Response(webp, { status: 200, headers: { "content-type": "image/webp" } });
+    }) as typeof fetch;
+
+    const result = await downloadDivarMedia("test-token", [source, source], {
+      storeMedia: async (input) => {
+        stored.push({ pathname: input.pathname, bytes: Buffer.from(input.data), contentType: input.contentType });
+        return { url: `https://storage.example.test/hirmand-test-bucket/${input.pathname}` };
+      },
+      mediaUrlForBrowser: liaraMediaProxyUrl,
+      deleteStoredMedia: async () => undefined,
+    });
+
+    assert.equal(imageDownloads, 1, "duplicate source URLs should only be fetched once");
+    assert.equal(result.sourceImages.length, 1);
+    assert.equal(result.stored, 1);
+    assert.equal(result.images.length, 1);
+    assert.equal(result.failures.length, 0);
+    assert.match(result.images[0] ?? "", /^\/api\/liara-media\?url=/);
+    const storedUrl = new URL(decodeURIComponent((result.images[0] ?? "").split("url=")[1] ?? ""));
+    assert.match(storedUrl.pathname, /\/properties\/divar\/test-token\/01-[0-9a-f-]+\.webp$/i);
+    assert.equal(stored[0]?.bytes.equals(webp), true);
+    assert.equal(stored[0]?.contentType, "image/webp");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousEnv.endpoint === undefined) delete process.env.LIARA_ENDPOINT;
+    else process.env.LIARA_ENDPOINT = previousEnv.endpoint;
+    if (previousEnv.bucket === undefined) delete process.env.LIARA_BUCKET_NAME;
+    else process.env.LIARA_BUCKET_NAME = previousEnv.bucket;
+    if (previousEnv.access === undefined) delete process.env.LIARA_ACCESS_KEY;
+    else process.env.LIARA_ACCESS_KEY = previousEnv.access;
+    if (previousEnv.secret === undefined) delete process.env.LIARA_SECRET_KEY;
+    else process.env.LIARA_SECRET_KEY = previousEnv.secret;
+  }
+});
+
+test("Divar media download retries transient CDN errors and rejects HTML error pages", async () => {
+  const previousEnv = {
+    endpoint: process.env.LIARA_ENDPOINT,
+    bucket: process.env.LIARA_BUCKET_NAME,
+    access: process.env.LIARA_ACCESS_KEY,
+    secret: process.env.LIARA_SECRET_KEY,
+  };
+  const originalFetch = globalThis.fetch;
+  const source = "https://img.divarcdn.com/static/photo/retry.webp";
+  const webp = Buffer.from("RIFF0000WEBP", "ascii");
+  let imageDownloads = 0;
+  let storageWrites = 0;
+
+  try {
+    process.env.LIARA_ENDPOINT = "https://storage.example.test";
+    process.env.LIARA_BUCKET_NAME = "hirmand-test-bucket";
+    process.env.LIARA_ACCESS_KEY = "test-access-key";
+    process.env.LIARA_SECRET_KEY = "test-secret-key";
+    globalThis.fetch = (async () => {
+      imageDownloads += 1;
+      if (imageDownloads === 1) return new Response("temporary", { status: 503 });
+      if (imageDownloads === 2) return new Response(webp, { status: 200, headers: { "content-type": "image/webp" } });
+      return new Response("<html>error</html>", { status: 200, headers: { "content-type": "text/html" } });
+    }) as typeof fetch;
+
+    const dependencies = {
+      storeMedia: async (input: { pathname: string; data: Buffer | Uint8Array; contentType: string }) => {
+        storageWrites += 1;
+        return { url: `https://storage.example.test/hirmand-test-bucket/${input.pathname}` };
+      },
+      mediaUrlForBrowser: (url: string) => url,
+      deleteStoredMedia: async () => undefined,
+    };
+    const retried = await downloadDivarMedia("retry-token", [source], dependencies);
+    assert.equal(imageDownloads, 2);
+    assert.equal(retried.stored, 1);
+    assert.equal(retried.failures.length, 0);
+
+    imageDownloads = 2;
+    const invalid = await downloadDivarMedia("invalid-token", ["https://img.divarcdn.com/static/photo/invalid.webp"], dependencies);
+    assert.equal(invalid.stored, 0);
+    assert.equal(invalid.images.length, 0);
+    assert.equal(invalid.failures.length, 1);
+    assert.match(invalid.failures[0]?.reason ?? "", /معتبر نبود/);
+    assert.equal(storageWrites, 1, "invalid HTML payloads must never be uploaded as images");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousEnv.endpoint === undefined) delete process.env.LIARA_ENDPOINT;
+    else process.env.LIARA_ENDPOINT = previousEnv.endpoint;
+    if (previousEnv.bucket === undefined) delete process.env.LIARA_BUCKET_NAME;
+    else process.env.LIARA_BUCKET_NAME = previousEnv.bucket;
+    if (previousEnv.access === undefined) delete process.env.LIARA_ACCESS_KEY;
+    else process.env.LIARA_ACCESS_KEY = previousEnv.access;
+    if (previousEnv.secret === undefined) delete process.env.LIARA_SECRET_KEY;
+    else process.env.LIARA_SECRET_KEY = previousEnv.secret;
+  }
+});
+
+test("a partial Divar media download cleans up successful objects before reporting failure", async () => {
+  const originalFetch = globalThis.fetch;
+  const webp = Buffer.from("RIFF0000WEBP", "ascii");
+  const cleanup: string[] = [];
+  try {
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.pathname.includes("good")) {
+        return new Response(webp, { status: 200, headers: { "content-type": "image/webp" } });
+      }
+      return new Response("<html>expired URL</html>", { status: 200, headers: { "content-type": "text/html" } });
+    }) as typeof fetch;
+    const result = await downloadDivarMedia("partial-token", [
+      "https://img.divarcdn.com/static/photo/good.webp",
+      "https://img.divarcdn.com/static/photo/bad.webp",
+    ], {
+      storeMedia: async (input) => ({ url: `https://storage.example.test/hirmand-test-bucket/${input.pathname}` }),
+      mediaUrlForBrowser: (url) => "/api/liara-media?url=" + encodeURIComponent(url),
+      deleteStoredMedia: async (url) => { cleanup.push(url); },
+    });
+    assert.equal(result.failures.length, 1);
+    assert.equal(result.stored, 1);
+    assert.equal(result.images.length, 1);
+    assert.equal(cleanup.length, 1, "the successfully stored subset is removed so failed imports cannot orphan media");
+    assert.match(cleanup[0] ?? "", /^\/api\/liara-media\?url=/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
 
 test("extractDivarMediaUrls finds nested CDN image URLs even when the leaf key is generic", () => {
   const urls = extractDivarMediaUrls({

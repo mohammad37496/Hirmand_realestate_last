@@ -265,61 +265,51 @@ export const deleteDivarFiles = createServerFn({ method: "POST" })
       throw new Error("DATABASE_URL تنظیم نشده است.");
     }
     const sql = await getSql();
-    const selected = await sql.query<Record<string, unknown>>(
-      `select id, imported_property_id
-         from divar_files
-        where id = any($1::text[])`,
-      [data.ids],
-    );
-    const publishedPropertyIds = Array.from(new Set(
-      selected
-        .map((row) => row.imported_property_id == null ? "" : String(row.imported_property_id))
-        .filter(Boolean),
-    ));
-
-    let unpublished = 0;
-    if (publishedPropertyIds.length) {
-      const trashed = await sql.query<{ id: string }>(
-        `update properties
+    const ids = Array.from(new Set(data.ids));
+    // Keep trashing the published property, writing its audit record and
+    // removing the Divar queue row in one database statement. A partial failure
+    // must not unlink the source row while leaving the live property published.
+    const result = await sql.query<{
+      deleted: number;
+      unpublished: number;
+      selected: number;
+    }>(
+      `with selected as materialized (
+         select id, imported_property_id
+           from divar_files
+          where id = any($1::text[])
+       ), trashed as (
+         update properties p
             set deleted_at = current_timestamp,
-                deleted_from_status = status,
+                deleted_from_status = p.status,
                 status = 'archived',
                 featured = false,
                 featured_until = null,
                 updated_at = current_timestamp
-          where id = any($1::text[]) and deleted_at is null
-          returning id`,
-        [publishedPropertyIds],
-      );
-      unpublished = trashed.length;
-      await sql.query(
-        `insert into property_change_history (property_id, action, before_state, after_state)
-         select p.id, 'deleted', jsonb_build_object('status', p.deleted_from_status), null
-           from properties p
-          where p.id = any($1::text[]) and p.deleted_at is not null`,
-        [publishedPropertyIds],
-      ).catch(() => {});
-      await sql.query(
-        `update divar_files
-            set filter_status = 'accepted',
-                imported_property_id = null,
-                imported_at = null,
-                updated_at = current_timestamp
-          where id = any($1::text[])`,
-        [selected.filter((row) => row.imported_property_id != null).map((row) => String(row.id))],
-      );
-    }
-
-    const rows = await sql.query<{ id: string }>(
-      `delete from divar_files
-        where id = any($1::text[])
-          and filter_status <> 'imported'
-        returning id`,
-      [data.ids],
+           from selected s
+          where p.id = s.imported_property_id
+            and p.deleted_at is null
+          returning p.id, p.deleted_from_status
+       ), history as (
+         insert into property_change_history (property_id, action, before_state, after_state)
+         select t.id, 'deleted', jsonb_build_object('status', t.deleted_from_status), null
+           from trashed t
+         returning property_id
+       ), deleted as (
+         delete from divar_files d
+          using selected s
+          where d.id = s.id
+          returning d.id
+       )
+       select (select count(*)::int from deleted) as deleted,
+              (select count(*)::int from trashed) as unpublished,
+              (select count(*)::int from selected) as selected`,
+      [ids],
     );
+    const counts = result[0] ?? { deleted: 0, unpublished: 0, selected: 0 };
     return {
-      deleted: rows.length,
-      unpublished,
-      skipped: Math.max(0, data.ids.length - selected.length),
+      deleted: Number(counts.deleted) || 0,
+      unpublished: Number(counts.unpublished) || 0,
+      skipped: Math.max(0, ids.length - (Number(counts.selected) || 0)),
     };
   });

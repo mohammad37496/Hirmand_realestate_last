@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   isAllowedLiaraMediaKey,
+  liaraObjectKeyFromBrowserProxy,
+  liaraObjectKeyFromUrl,
   liaraMediaProxyUrl,
+  putLiaraObject,
   putLiaraObjectFromFile,
 } from "./liara-object-storage.server.ts";
 
@@ -23,11 +26,69 @@ test("Divar image objects are served through the same-origin Liara media proxy",
     process.env.LIARA_SECRET_KEY = "test-secret-key";
     const source = "https://storage.example.test/hirmand-test-bucket/properties/divar/token/01-photo.webp";
     assert.equal(isAllowedLiaraMediaKey("properties/divar/token/01-photo.webp"), true);
+    assert.equal(isAllowedLiaraMediaKey("properties/divar/../private.webp"), false);
+    assert.equal(liaraObjectKeyFromUrl(source), "properties/divar/token/01-photo.webp");
     assert.equal(
       liaraMediaProxyUrl(source, "image/webp"),
       "/api/liara-media?url=" + encodeURIComponent(source),
     );
+    assert.equal(
+      liaraObjectKeyFromBrowserProxy(liaraMediaProxyUrl(source, "image/webp")),
+      "properties/divar/token/01-photo.webp",
+    );
   } finally {
+    if (previousEnv.endpoint === undefined) delete process.env.LIARA_ENDPOINT;
+    else process.env.LIARA_ENDPOINT = previousEnv.endpoint;
+    if (previousEnv.bucket === undefined) delete process.env.LIARA_BUCKET_NAME;
+    else process.env.LIARA_BUCKET_NAME = previousEnv.bucket;
+    if (previousEnv.access === undefined) delete process.env.LIARA_ACCESS_KEY;
+    else process.env.LIARA_ACCESS_KEY = previousEnv.access;
+    if (previousEnv.secret === undefined) delete process.env.LIARA_SECRET_KEY;
+    else process.env.LIARA_SECRET_KEY = previousEnv.secret;
+  }
+});
+
+test("Divar media bytes are sent to the configured Liara object key with the detected MIME type", async () => {
+  const previousEnv = {
+    endpoint: process.env.LIARA_ENDPOINT,
+    bucket: process.env.LIARA_BUCKET_NAME,
+    access: process.env.LIARA_ACCESS_KEY,
+    secret: process.env.LIARA_SECRET_KEY,
+  };
+  const originalFetch = globalThis.fetch;
+  const payload = Buffer.from("RIFF0000WEBP", "ascii");
+  const received: Array<{ method: string; pathname: string; contentType: string; bytes: number }> = [];
+  try {
+    process.env.LIARA_ENDPOINT = "https://storage.example.test";
+    process.env.LIARA_BUCKET_NAME = "hirmand-test-bucket";
+    process.env.LIARA_ACCESS_KEY = "test-access-key";
+    process.env.LIARA_SECRET_KEY = "test-secret-key";
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const body = init?.body;
+      received.push({
+        method: String(init?.method ?? "GET"),
+        pathname: url.pathname,
+        contentType: new Headers(init?.headers).get("content-type") ?? "",
+        bytes: body instanceof ArrayBuffer ? body.byteLength : ArrayBuffer.isView(body) ? body.byteLength : 0,
+      });
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    const result = await putLiaraObject({
+      key: "properties/divar/test-token/01-photo.webp",
+      body: payload,
+      contentType: "image/webp",
+    });
+
+    assert.equal(result, "https://storage.example.test/hirmand-test-bucket/properties/divar/test-token/01-photo.webp");
+    const captured = (received as unknown as Array<{ method: string; pathname: string; contentType: string; bytes: number }>)[0]!;
+    assert.equal(captured.method, "PUT");
+    assert.equal(captured.pathname, "/hirmand-test-bucket/properties/divar/test-token/01-photo.webp");
+    assert.equal(captured.contentType, "image/webp");
+    assert.equal(captured.bytes, payload.byteLength);
+  } finally {
+    globalThis.fetch = originalFetch;
     if (previousEnv.endpoint === undefined) delete process.env.LIARA_ENDPOINT;
     else process.env.LIARA_ENDPOINT = previousEnv.endpoint;
     if (previousEnv.bucket === undefined) delete process.env.LIARA_BUCKET_NAME;
