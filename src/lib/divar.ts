@@ -815,7 +815,7 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
   // orphaned in durable storage. The caller will keep the existing gallery (if
   // any) untouched and can retry the complete operation later.
   if (failures.length > 0 && images.length > 0) {
-    const cleanup = await Promise.allSettled(images.map((url) => deleteStoredMedia(url)));
+    const cleanup = await Promise.allSettled(images.map((url) => deleteStoredMedia(url, { throwOnFailure: true })));
     const cleanupFailures = cleanup.filter((result) => result.status === "rejected").length;
     if (cleanupFailures > 0) {
       console.warn("[divar] failed to clean up partial media import", { cleanupFailures });

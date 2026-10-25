@@ -272,7 +272,8 @@ export async function getLiaraObject(input: {
 }
 
 export async function deleteLiaraObject(key: string): Promise<void> {
-  await send({ method: "DELETE", key });
+  const deleted = await send({ method: "DELETE", key });
+  if (!deleted) throw new Error("Liara Object Storage delete request did not complete successfully");
 }
 
 export function liaraObjectKeyFromUrl(

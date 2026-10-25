@@ -325,6 +325,7 @@ export async function storeAssembledUpload(input: {
 
 export async function deleteStoredMedia(
   url: string | null | undefined,
+  options: { throwOnFailure?: boolean } = {},
 ): Promise<void> {
   if (!url) return;
 
@@ -334,6 +335,7 @@ export async function deleteStoredMedia(
       await deleteLiaraObject(liaraKey);
     } catch (error) {
       console.warn("[media] Liara Object Storage delete failed", error);
+      if (options.throwOnFailure) throw error;
     }
     return;
   }
@@ -347,6 +349,7 @@ export async function deleteStoredMedia(
       await sql.query("delete from media_objects where id = $1", [id]);
     } catch (error) {
       console.warn("[media] database delete failed", error);
+      if (options.throwOnFailure) throw error;
     }
     return;
   }
@@ -362,6 +365,7 @@ export async function deleteStoredMedia(
     }
   } catch (error) {
     console.warn("[media] object store delete failed", error);
+    if (options.throwOnFailure) throw error;
   }
 }
 
