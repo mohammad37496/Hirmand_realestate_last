@@ -115,7 +115,7 @@ try {
       ...process.env,
       PROPERTY_CARD_BROWSER_BASE_URL: baseUrl,
       PROPERTY_CARD_VISUAL_BASE_URL: `${baseUrl}/properties`,
-      PROPERTY_CARD_VISUAL_SCREENSHOT_DIR: join(dbDir, "screenshots"),
+      PROPERTY_CARD_VISUAL_SCREENSHOT_DIR: process.env.PROPERTY_CARD_VISUAL_SCREENSHOT_DIR || join(dbDir, "screenshots"),
     },
     stdio: "inherit",
     windowsHide: true,

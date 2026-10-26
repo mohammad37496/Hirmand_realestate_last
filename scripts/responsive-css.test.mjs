@@ -801,4 +801,13 @@ testRunner.test("desktop Hirmand card polish keeps the footer action rail bounde
     "list-view actions must remain in a separate footer row");
   assert.match(packageJson, /"test:property-card-visual":\s*"node scripts\/property-card-local-browser\.test\.mjs visual"/,
     "the desktop visual QA must be repeatable against the local app and isolated property fixtures through an npm script");
+  const desktopListPolish = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Desktop list view: compact, editorial property rows"));
+  assert.match(desktopListPolish, /^\/\* Desktop list view:[\s\S]*?@media\s*\(min-width:\s*1024px\)/,
+    "the editorial list-row redesign must be scoped to desktop widths and leave tablet/mobile layout rules intact");
+  assert.match(desktopListPolish, /grid-template-columns:\s*clamp\(220px,\s*23vw,\s*290px\)\s+minmax\(0,\s*1fr\)/,
+    "desktop list cards must use a controlled landscape image column and a flexible readable information column");
+  assert.match(desktopListPolish, /\.pcard-footer-with-actions[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/,
+    "desktop list footers must reserve separate space for location/details and the action rail");
+  assert.match(desktopListPolish, /\.pcard-footer-with-actions \.property-action\s*\{[^}]*width:\s*36px !important;[^}]*min-width:\s*36px !important;[^}]*height:\s*36px !important;/s,
+    "the compact desktop footer must keep all eight action targets large enough to use comfortably");
 });

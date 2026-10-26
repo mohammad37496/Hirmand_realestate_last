@@ -39,13 +39,31 @@ try {
 
   // The browser uses the real local component and controlled PGlite property
   // fixtures; only the compiled CSS asset is replaced at its normal import slot.
-  await page.waitForTimeout(250);
-  if (await page.locator(".pf-grid").evaluate((grid) => grid.classList.contains("is-list-view"))) {
-    await page.locator(".pf-views button").filter({ hasText: "شبکه‌ای" }).click();
-    await page.waitForFunction(() => !document.querySelector(".pf-grid")?.classList.contains("is-list-view"), null, { timeout: timeoutMs });
+  // The directory now intentionally defaults to list view. Wait for the
+  // hydrated view controls, then switch explicitly using their pressed state;
+  // SSR markup alone is not proof that React has attached the click handler.
+  const viewButtons = page.locator(".pf-views button");
+  const gridButton = viewButtons.filter({ hasText: "شبکه‌ای" });
+  await gridButton.waitFor({ state: "visible", timeout: timeoutMs });
+  await page.waitForFunction(() => {
+    const button = [...document.querySelectorAll(".pf-views button")].find((item) => item.textContent?.includes("شبکه‌ای"));
+    return button?.getAttribute("aria-pressed") === "false" && document.querySelector(".pf-grid.is-list-view");
+  }, null, { timeout: timeoutMs });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await gridButton.click();
+    try {
+      await page.waitForFunction(() => {
+        const button = [...document.querySelectorAll(".pf-views button")].find((item) => item.textContent?.includes("شبکه‌ای"));
+        return button?.getAttribute("aria-pressed") === "true" && !document.querySelector(".pf-grid")?.classList.contains("is-list-view");
+      }, null, { timeout: 1500 });
+      break;
+    } catch (error) {
+      if (attempt === 4) throw error;
+      await page.waitForTimeout(250);
+    }
   }
 
-  const desktopWidths = [768, 1024, 1199, 1200, 1280, 1440, 1920];
+  const desktopWidths = [1024, 1199, 1200, 1280, 1440, 1920];
   for (const width of desktopWidths) {
     await page.setViewportSize({ width, height: 1000 });
     await page.waitForFunction(() => {
@@ -136,59 +154,123 @@ try {
   await page.screenshot({ path: `${screenshotDir}/working-tree-1440-grid-card-footer.png`, fullPage: false });
   const initialUrl = page.url();
   const before = await favorite.getAttribute("aria-pressed");
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(120);
+  const initialCardStyle = await firstCard.evaluate((card) => ({ border: getComputedStyle(card).borderColor, shadow: getComputedStyle(card).boxShadow }));
   await favorite.focus();
   await page.waitForTimeout(260);
-  const focusStyle = await firstCard.evaluate((card) => ({ border: getComputedStyle(card).borderColor, transform: getComputedStyle(card).transform }));
-  assert.notEqual(focusStyle.transform, "none", "keyboard focus inside the card should surface the focus-within state");
+  const focusStyle = await firstCard.evaluate((card) => ({ border: getComputedStyle(card).borderColor, shadow: getComputedStyle(card).boxShadow, transform: getComputedStyle(card).transform }));
+  assert.notEqual(focusStyle.border, initialCardStyle.border, "keyboard focus inside the card should change the focus-within border");
+  assert.notEqual(focusStyle.shadow, initialCardStyle.shadow, "keyboard focus inside the card should strengthen the card shadow");
   await favorite.click();
   await page.waitForTimeout(100);
   const after = await favorite.getAttribute("aria-pressed");
   assert.notEqual(after, before, "favorite action must toggle its real pressed state");
   assert.equal(page.url(), initialUrl, "clicking a card action must not activate the parent property link");
   await firstCard.hover();
-  const hover = await firstCard.evaluate((card) => ({ border: getComputedStyle(card).borderColor, transform: getComputedStyle(card).transform }));
-  assert.notEqual(hover.transform, "none", "desktop hover should visibly lift the card");
+  const hover = await firstCard.evaluate((card) => ({ border: getComputedStyle(card).borderColor, shadow: getComputedStyle(card).boxShadow, transform: getComputedStyle(card).transform }));
+  assert.notEqual(hover.border, initialCardStyle.border, "desktop hover should apply the Hirmand-gold border");
+  assert.notEqual(hover.shadow, initialCardStyle.shadow, "desktop hover should strengthen the card shadow");
   await page.screenshot({ path: `${screenshotDir}/working-tree-1440-hover-focus.png`, fullPage: false });
   console.log(`[desktop-card-visual] focus/hover/click: focus=${JSON.stringify(focusStyle)}, hover=${JSON.stringify(hover)}, favorite ${before}→${after}, URL unchanged`);
 
-  await page.locator(".pf-views button").filter({ hasText: "لیستی" }).click();
-  await page.waitForFunction(() => document.querySelector(".pf-grid")?.classList.contains("is-list-view"), null, { timeout: timeoutMs });
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await firstCard.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(200);
-  const listFooter = await firstCard.evaluate((card) => {
-    const footer = card.querySelector(":scope > .pcard-footer-with-actions");
-    const rail = footer?.querySelector(":scope > .pcard-actions-footer");
-    const location = footer?.querySelector(".pcard-location");
-    const details = footer?.querySelector(".pcard-details-link");
-    const rect = (element) => {
-      if (!element) return null;
-      const r = element.getBoundingClientRect();
-      const s = getComputedStyle(element);
-      return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, visible: s.display !== "none" && s.visibility !== "hidden" && Number(s.opacity) > 0 };
-    };
-    const buttons = [...(rail?.querySelectorAll(".property-action") ?? [])].map(rect);
-    return { footer: rect(footer), rail: rect(rail), location: rect(location), details: rect(details), buttons, scrollWidth: card.scrollWidth, clientWidth: card.clientWidth };
-  });
-  assert.ok(listFooter.footer?.height > 0 && listFooter.rail?.height > 0, "list-view footer and action row must be visible");
-  assert.equal(listFooter.buttons.length, 8, "list-view card must keep all eight actions");
-  assert.ok(listFooter.scrollWidth <= listFooter.clientWidth + 1, "list-view card must not overflow horizontally");
-  assert.ok(listFooter.location?.visible && listFooter.details?.visible, "list-view location and details link must both remain visible");
-  assert.ok(listFooter.rail.top >= Math.max(listFooter.location.bottom, listFooter.details.bottom) - 1, "list-view action rail must remain below the location and details link");
-  for (const button of listFooter.buttons) {
-    assert.ok(button.width > 0 && button.height > 0 && button.left >= listFooter.rail.left - 1 && button.right <= listFooter.rail.right + 1, "list-view actions must stay inside their rail");
+  const listButton = viewButtons.filter({ hasText: "لیستی" });
+  await listButton.click();
+  await page.waitForFunction(() => {
+    const button = [...document.querySelectorAll(".pf-views button")].find((item) => item.textContent?.includes("لیستی"));
+    return button?.getAttribute("aria-pressed") === "true" && document.querySelector(".pf-grid.is-list-view");
+  }, null, { timeout: timeoutMs });
+  for (const width of desktopWidths) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await firstCard.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(100);
+    const listLayout = await cards.evaluateAll((nodes) => nodes.map((card) => {
+      const rect = (element) => {
+        if (!element) return null;
+        const r = element.getBoundingClientRect();
+        const s = getComputedStyle(element);
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height, visible: s.display !== "none" && s.visibility !== "hidden" && Number(s.opacity) > 0 };
+      };
+      const footer = card.querySelector(":scope > .pcard-footer-with-actions");
+      const rail = footer?.querySelector(":scope > .pcard-actions-footer");
+      const location = footer?.querySelector(".pcard-location");
+      const details = footer?.querySelector(".pcard-details-link");
+      const image = card.querySelector(".pcard-media img");
+      return {
+        title: card.querySelector(".pcard-title")?.textContent?.trim(),
+        card: rect(card), footer: rect(footer), rail: rect(rail), location: rect(location), details: rect(details), image: rect(image),
+        buttons: [...(rail?.querySelectorAll(".property-action") ?? [])].map((button) => ({ ...rect(button), label: button.getAttribute("aria-label") })),
+        scrollWidth: card.scrollWidth, clientWidth: card.clientWidth,
+      };
+    }));
+    assert.ok(listLayout.length > 0, `list mode must keep real cards visible at ${width}px`);
+    for (const [index, item] of listLayout.entries()) {
+      assert.ok(item.title, `list card ${index + 1} must retain its title at ${width}px`);
+      assert.ok(item.image?.visible && item.image.width > 0 && item.image.height >= 180, `list card ${index + 1} must keep a controlled landscape photo at ${width}px`);
+      assert.ok(item.footer?.height > 0 && item.rail?.height > 0, `list card ${index + 1} footer/action rail must be visible at ${width}px`);
+      assert.ok(item.footer.top >= item.image.bottom - 1, `list card ${index + 1} footer must remain below the image at ${width}px`);
+      assert.equal(item.buttons.length, 8, `list card ${index + 1} must retain all eight actions at ${width}px`);
+      assert.ok(item.scrollWidth <= item.clientWidth + 1, `list card ${index + 1} must not overflow horizontally at ${width}px`);
+      assert.ok(item.location?.visible && item.details?.visible, `list card ${index + 1} location/details must remain visible at ${width}px`);
+      assert.ok(item.rail.top >= Math.max(item.location.bottom, item.details.bottom) - 1, `list card ${index + 1} action rail must sit below location/details at ${width}px`);
+      const overlap = item.location.left < item.details.right && item.location.right > item.details.left && item.location.top < item.details.bottom && item.location.bottom > item.details.top;
+      assert.equal(overlap, false, `list card ${index + 1} location and details must not overlap at ${width}px`);
+      for (const button of item.buttons) {
+        assert.ok(button.visible && button.width >= 34 && button.height >= 34, `list action ${button.label} must keep a usable target at ${width}px`);
+        assert.ok(button.left >= item.rail.left - 1 && button.right <= item.rail.right + 1, `list action ${button.label} must stay within its rail at ${width}px`);
+      }
+    }
+    await page.screenshot({ path: `${screenshotDir}/working-tree-${width}-list.png`, fullPage: false });
+    console.log(`[desktop-card-visual] ${width}px list mode: ${listLayout.length} cards, loaded landscape layout, eight usable actions, footer geometry valid`);
   }
-  await page.screenshot({ path: `${screenshotDir}/working-tree-1440-list-card-footer.png`, fullPage: false });
-  console.log("[desktop-card-visual] 1440px list mode: visible location/details, eight bounded actions, no horizontal overflow");
 
-  await page.locator(".pf-views button").filter({ hasText: "شبکه‌ای" }).click();
-  await page.waitForFunction(() => !document.querySelector(".pf-grid")?.classList.contains("is-list-view"), null, { timeout: timeoutMs });
+  // The new 220–290px image split is intentionally desktop-only. Existing
+  // tablet list-card geometry must remain in control below 1024px.
+  for (const width of [768, 820, 1023]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const tabletLayout = await firstCard.evaluate((card) => ({
+      columns: getComputedStyle(card).gridTemplateColumns,
+      width: card.clientWidth,
+      scrollWidth: card.scrollWidth,
+      actionCount: card.querySelectorAll(":scope > .pcard-footer-with-actions .property-action").length,
+    }));
+    assert.ok(!tabletLayout.columns.includes("clamp(220px"), `tablet ${width}px must not receive the desktop-only image split`);
+    assert.ok(tabletLayout.width > 0 && tabletLayout.scrollWidth <= tabletLayout.width + 1, `tablet ${width}px list card must remain bounded`);
+    assert.equal(tabletLayout.actionCount, 8, `tablet ${width}px list card must retain all eight actions`);
+    console.log(`[desktop-card-visual] ${width}px tablet guard: existing card columns retained, eight actions bounded`);
+  }
+
+  await gridButton.click();
+  await page.waitForFunction(() => {
+    const button = [...document.querySelectorAll(".pf-views button")].find((item) => item.textContent?.includes("شبکه‌ای"));
+    return button?.getAttribute("aria-pressed") === "true" && !document.querySelector(".pf-grid")?.classList.contains("is-list-view");
+  }, null, { timeout: timeoutMs });
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     // Reload at each mobile width so the check covers the real SSR/hydration
     // path at that viewport, rather than relying only on a desktop resize event.
     await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
     await cards.first().waitFor({ state: "visible", timeout: timeoutMs });
+    const mobileGridButton = page.locator(".pf-views button").filter({ hasText: "شبکه‌ای" });
+    await mobileGridButton.waitFor({ state: "visible", timeout: timeoutMs });
+    await page.waitForFunction(() => {
+      const button = [...document.querySelectorAll(".pf-views button")].find((item) => item.textContent?.includes("شبکه‌ای"));
+      return button?.getAttribute("aria-pressed") === "false" && document.querySelector(".pf-grid.is-list-view");
+    }, null, { timeout: timeoutMs });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await mobileGridButton.click();
+      try {
+        await page.waitForFunction(() => {
+          const button = [...document.querySelectorAll(".pf-views button")].find((item) => item.textContent?.includes("شبکه‌ای"));
+          return button?.getAttribute("aria-pressed") === "true" && !document.querySelector(".pf-grid")?.classList.contains("is-list-view");
+        }, null, { timeout: 1500 });
+        break;
+      } catch (error) {
+        if (attempt === 4) throw error;
+        await page.waitForTimeout(250);
+      }
+    }
     await page.waitForFunction(() => {
       const controls = [...document.querySelectorAll("article.pcard .pcard-actions, article.pcard .property-action")];
       return controls.every((element) => {
@@ -212,8 +294,8 @@ try {
     await page.screenshot({ path: `${screenshotDir}/working-tree-mobile-${width}.png`, fullPage: false });
     console.log(`[desktop-card-visual] ${width}px mobile: ${mobileLayout.length} cards visible, action rail not visible, footer bounded`);
   }
-  assert.match(css, /@media\s*\((?:min-width:\s*768px|width\s*>=\s*768px)\)/, "desktop refinements must stay behind the desktop breakpoint");
-  console.log("[desktop-card-visual] 390px mobile screenshot captured; new layout rules are scoped to min-width 768px");
+  assert.match(css, /@media\s*\((?:min-width:\s*1024px|width\s*>=\s*1024px)\)/, "desktop refinements must stay behind the desktop breakpoint and leave tablet widths untouched");
+  console.log("[desktop-card-visual] 390px mobile screenshot captured; new layout rules are scoped to min-width 1024px");
 
   assert.deepEqual(pageErrors, [], "browser QA must not produce uncaught runtime errors");
   console.log("[desktop-card-visual] PASS");

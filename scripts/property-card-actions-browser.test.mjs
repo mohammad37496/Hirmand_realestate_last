@@ -143,13 +143,24 @@ try {
     { timeout: timeoutMs },
   );
   const mobileGridToggle = page.locator(".pf-views button").nth(1);
-  await mobileGridToggle.click();
-  await page.waitForFunction(
-    () => document.querySelector(".pf-grid")?.classList.contains("is-list-view") === false &&
-      document.querySelectorAll(".pf-views button")[1]?.getAttribute("aria-pressed") === "true",
-    null,
-    { timeout: timeoutMs },
-  );
+  // The initial HTML is server-rendered in list mode; the first click can land
+  // before React has hydrated. Retry briefly against the real pressed state
+  // instead of waiting 30 seconds for a click that could not be handled.
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await mobileGridToggle.click();
+    try {
+      await page.waitForFunction(
+        () => document.querySelector(".pf-grid")?.classList.contains("is-list-view") === false &&
+          document.querySelectorAll(".pf-views button")[1]?.getAttribute("aria-pressed") === "true",
+        null,
+        { timeout: 1500 },
+      );
+      break;
+    } catch (error) {
+      if (attempt === 4) throw error;
+      await page.waitForTimeout(250);
+    }
+  }
   await page.waitForTimeout(800);
 
   // Mobile: check the actual hydrated DOM, not computed CSS visibility.
@@ -383,6 +394,16 @@ try {
   await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
   await page.waitForFunction(() => document.querySelector("article.pcard")?.querySelectorAll(".pcard-actions .property-action").length === 8, null, { timeout: timeoutMs });
   await page.waitForFunction(() => document.querySelector("article.pcard .pcard-actions .property-action:nth-child(8)")?.getAttribute("aria-pressed") === "true", null, { timeout: timeoutMs });
+  // Reload resets the route to its new list-view default. Return to grid mode
+  // explicitly before asserting that the desktop-only action subtree unmounts
+  // below 768px; list mode intentionally retains its footer operations.
+  await page.locator(".pf-views button").nth(1).click();
+  await page.waitForFunction(
+    () => document.querySelector(".pf-grid")?.classList.contains("is-list-view") === false &&
+      document.querySelectorAll(".pf-views button")[1]?.getAttribute("aria-pressed") === "true",
+    null,
+    { timeout: timeoutMs },
+  );
   console.log(
     "[property-card-browser] desktop actions work: favorite add/remove, native share and fallback, valid PNG intro card, QR preview/download, intro sheet, ad copy, print, compare add/remove and full-list guard",
   );
