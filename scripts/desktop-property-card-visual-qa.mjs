@@ -178,10 +178,37 @@ try {
   await page.screenshot({ path: `${screenshotDir}/working-tree-1440-list-card-footer.png`, fullPage: false });
   console.log("[desktop-card-visual] 1440px list mode: visible location/details, eight bounded actions, no horizontal overflow");
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(3500);
-  await page.waitForTimeout(150);
-  await page.screenshot({ path: `${screenshotDir}/working-tree-mobile-390.png`, fullPage: false });
+  await page.locator(".pf-views button").filter({ hasText: "شبکه‌ای" }).click();
+  await page.waitForFunction(() => !document.querySelector(".pf-grid")?.classList.contains("is-list-view"), null, { timeout: timeoutMs });
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    // Reload at each mobile width so the check covers the real SSR/hydration
+    // path at that viewport, rather than relying only on a desktop resize event.
+    await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await cards.first().waitFor({ state: "visible", timeout: timeoutMs });
+    await page.waitForFunction(() => {
+      const controls = [...document.querySelectorAll("article.pcard .pcard-actions, article.pcard .property-action")];
+      return controls.every((element) => {
+        const style = getComputedStyle(element);
+        return style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0;
+      });
+    }, null, { timeout: timeoutMs });
+    await page.waitForTimeout(150);
+    const mobileLayout = await cards.evaluateAll((nodes) => nodes.map((card) => ({
+      title: card.querySelector(".pcard-title")?.textContent?.trim(),
+      width: card.clientWidth,
+      scrollWidth: card.scrollWidth,
+      footer: card.querySelector(":scope > .pcard-footer")?.getBoundingClientRect().toJSON(),
+    })));
+    assert.ok(mobileLayout.length > 0, `mobile cards must remain visible at ${width}px`);
+    for (const [index, card] of mobileLayout.entries()) {
+      assert.ok(card.title, `mobile card ${index + 1} must retain its title at ${width}px`);
+      assert.ok(card.width > 0 && card.scrollWidth <= card.width + 1, `mobile card ${index + 1} must not overflow horizontally at ${width}px`);
+      assert.ok(card.footer?.height > 0, `mobile card ${index + 1} footer must remain visible at ${width}px`);
+    }
+    await page.screenshot({ path: `${screenshotDir}/working-tree-mobile-${width}.png`, fullPage: false });
+    console.log(`[desktop-card-visual] ${width}px mobile: ${mobileLayout.length} cards visible, action rail not visible, footer bounded`);
+  }
   assert.match(css, /@media\s*\((?:min-width:\s*768px|width\s*>=\s*768px)\)/, "desktop refinements must stay behind the desktop breakpoint");
   console.log("[desktop-card-visual] 390px mobile screenshot captured; new layout rules are scoped to min-width 768px");
 

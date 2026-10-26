@@ -612,6 +612,18 @@ try {
   await page.waitForURL((url) => url.pathname === new URL(detailHref, baseUrl).pathname, { timeout: timeoutMs });
   const detailPage = page.locator(".property-detail-page");
   await detailPage.waitFor({ state: "visible", timeout: timeoutMs });
+  await page.waitForFunction(
+    ({ title }) => {
+      const page = document.querySelector(".property-detail-page");
+      return Boolean(
+        page &&
+        page.getAttribute("aria-busy") !== "true" &&
+        page.innerText.includes(title),
+      );
+    },
+    { title: detailTitle },
+    { timeout: timeoutMs },
+  );
   assert.ok((await detailPage.innerText()).includes(detailTitle), "details page must render the selected property's actual title");
   console.log("[property-card-browser] details link opens the matching local property record and renders its title");
 
