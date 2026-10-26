@@ -4810,6 +4810,129 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   pointer-events: none !important;
 }
 
+/* Unified responsive card layout. Keep the photo, property details and action
+   controls in separate layout rows at every phone/tablet width so the controls
+   never cover the title, price or specifications. This final contract follows
+   the older responsive patches above and wins their absolute-position rules. */
+@media (max-width: 720px) {
+  body:has(.pf-page) .pf-page .pf-grid > .pcard,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    isolation: isolate !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-link,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-link {
+    position: relative !important;
+    display: flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-media,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-media {
+    position: relative !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    aspect-ratio: 16 / 10 !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-media picture,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-media picture,
+  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-media img,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-media img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    object-fit: cover !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-body,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-body {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 13px 13px 14px !important;
+    overflow: visible !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions {
+    position: relative !important;
+    inset: auto !important;
+    z-index: 4 !important;
+    display: block !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 9px 10px 10px !important;
+    border-top: 1px solid #e4e9ed !important;
+    background: #f8f9fa !important;
+    overflow: visible !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions,
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions-compact,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions-compact {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    gap: 7px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action {
+    position: relative !important;
+    display: inline-grid !important;
+    place-items: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid #dce3e8 !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    color: #19334a !important;
+    box-shadow: 0 1px 2px rgb(11 26 43 / 4%) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action svg,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action svg {
+    width: 17px !important;
+    height: 17px !important;
+    flex-basis: 17px !important;
+  }
+}
+
 /* Compact property-card action rail on phones: keep all eight tools visible
    while reducing the amount of card height they consume. */
 @media (max-width: 640px) {
