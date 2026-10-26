@@ -517,6 +517,17 @@ testRunner.test("mobile property directory matches the compact reference layout 
   assert.match(mobileReferenceCss, /@media \(max-width: 380px\)[\s\S]*?grid-template-columns: 102px minmax\(0, 1fr\)/);
 });
 
+testRunner.test("the final mobile reference card layout overrides legacy stacked-card rules", () => {
+  const mobileReferenceCss = fs.readFileSync(new URL("../src/properties-mobile-reference.css", import.meta.url), "utf8");
+  const finalContract = mobileReferenceCss.slice(mobileReferenceCss.lastIndexOf("/* Final mobile reference contract."));
+  assert.match(finalContract, /body:has\(\.pf-page\) \.pf-page \.pf-grid\.is-list-view > \.pcard\s*\{[\s\S]*?grid-template-columns: 116px minmax\(0, 1fr\) !important;/,
+    "the mobile list view must use a horizontal photo/details card at reference widths");
+  assert.match(finalContract, /\.pcard > \.pcard-link\s*\{[\s\S]*?display: contents !important;/,
+    "the card link must allow the image and details to occupy separate grid columns");
+  assert.match(finalContract, /\.pcard > \.pcard-actions\s*\{[\s\S]*?grid-column: 1 \/ -1 !important;[\s\S]*?grid-row: 2 !important;/,
+    "card actions must remain in a separate full-width row beneath the content");
+});
+
 testRunner.test("responsive browser smoke covers the required viewport matrix", () => {
   const matrix = responsiveSmoke.match(/const viewportMatrix = \[([\s\S]*?)\];/);
   assert.ok(matrix, "responsive smoke must define an explicit width/height viewport matrix");
