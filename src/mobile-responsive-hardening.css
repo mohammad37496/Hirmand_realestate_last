@@ -4382,3 +4382,60 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   }
 
 }
+/* Final mobile action-rail polish: wins over legacy responsive overrides. */
+@media (max-width: 640px) {
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions {
+    background: linear-gradient(180deg, #fff 0%, #f8fafc 100%) !important;
+    border-top: 1px solid #e8edf2 !important;
+    padding: 4px 7px !important;
+    scrollbar-width: none !important;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-action,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions .property-action {
+    box-sizing: border-box !important;
+    flex: 0 0 38px !important;
+    width: 38px !important;
+    min-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    border: 1px solid #e0e6ed !important;
+    border-radius: 11px !important;
+    background: #fff !important;
+    color: #26384b !important;
+    box-shadow: 0 1px 2px rgb(15 35 55 / 5%) !important;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease !important;
+  }
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-action.is-active,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-action[aria-pressed="true"],
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions .property-action.is-active,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions .property-action[aria-pressed="true"] {
+    border-color: #d5b36c !important;
+    background: #fbf3e2 !important;
+    color: #8b641b !important;
+    box-shadow: inset 0 0 0 1px rgb(213 179 108 / 18%) !important;
+  }
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-action:focus-visible,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions .property-action:focus-visible {
+    outline: 2px solid #b98a35 !important;
+    outline-offset: 2px !important;
+  }
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-action:active,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions .property-action:active {
+    transform: scale(.96);
+  }
+}
+@media (max-width: 380px) {
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-action,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions .property-action {
+    flex-basis: 35px !important;
+    width: 35px !important;
+    min-width: 35px !important;
+    height: 35px !important;
+    min-height: 35px !important;
+    border-radius: 10px !important;
+  }
+}
