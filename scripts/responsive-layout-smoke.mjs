@@ -495,7 +495,10 @@ try {
               if (element.closest(".leaflet-container, .maplibregl-map")) continue;
               const rect = element.getBoundingClientRect();
               if (rect.width < 1 || rect.height < 1) continue;
-              if (rect.width < 44 || rect.height < 44) {
+              // Chromium can report a 43.98px border box after fractional
+              // parent layout/transform even when the CSS hit target is 44px.
+              // Use the same half-pixel tolerance as the card action contract.
+              if (rect.width < 43.5 || rect.height < 43.5) {
                 primaryTargets.push({
                   element: element.tagName.toLowerCase() + (typeof element.className === "string" && element.className.trim() ? "." + element.className.trim().split(/\s+/).slice(0, 2).join(".") : ""),
                   width: Math.round(rect.width),
