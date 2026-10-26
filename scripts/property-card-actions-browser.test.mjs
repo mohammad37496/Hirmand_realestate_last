@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { readFile, readdir } from "node:fs/promises";
 import { chromium } from "playwright";
 
 const baseUrl =
-  process.env.PROPERTY_CARD_BROWSER_BASE_URL || "http://127.0.0.1:8081";
+  process.env.PROPERTY_CARD_BROWSER_BASE_URL || "https://hirmandrealestate.ir";
 const timeoutMs = Number(
   process.env.PROPERTY_CARD_BROWSER_TIMEOUT_MS || 30_000,
 );
+const builtAssets = await readdir(new URL("../.output/public/assets/", import.meta.url));
+const builtCssName = builtAssets.find((name) => /^properties-mobile-reference-.*\.css$/.test(name));
+assert.ok(builtCssName, "run the production build before browser QA so the test uses the current compiled card stylesheet");
+const compiledCardCss = await readFile(new URL(`../.output/public/assets/${builtCssName}`, import.meta.url), "utf8");
 
 let browser;
 const pageErrors = [];
@@ -30,7 +35,7 @@ try {
     permissions: ["clipboard-read", "clipboard-write"],
   });
   const serverResponse = await context.request.get(
-    new URL("/", baseUrl).toString(),
+    new URL("/properties", baseUrl).toString(),
     { timeout: timeoutMs },
   );
   assert.equal(
@@ -45,12 +50,15 @@ try {
     "server HTML must not emit operation controls before viewport detection",
   );
   await context.addInitScript(() => {
-    window.__propertyActionCalls = { shares: [], clipboard: [], prints: 0 };
+    window.__propertyActionCalls = {
+      shares: [], clipboard: [], prints: 0,
+      allowNativeShare: true,
+    };
     Object.defineProperty(navigator, "share", {
       configurable: true,
-      value: async (payload) => {
+      get: () => window.__propertyActionCalls.allowNativeShare ? async (payload) => {
         window.__propertyActionCalls.shares.push(payload);
-      },
+      } : undefined,
     });
     Object.defineProperty(navigator, "canShare", {
       configurable: true,
@@ -71,6 +79,9 @@ try {
 
   const page = await context.newPage();
   page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.route("**/assets/properties-mobile-reference-*.css", async (route) => {
+    await route.fulfill({ status: 200, contentType: "text/css; charset=utf-8", body: compiledCardCss });
+  });
   page.on("console", (message) => {
     if (
       message.type() === "error" &&
@@ -82,13 +93,22 @@ try {
     }
   });
 
-  const response = await page.goto(new URL("/", baseUrl).toString(), {
+  const response = await page.goto(new URL("/properties", baseUrl).toString(), {
     waitUntil: "domcontentloaded",
     timeout: timeoutMs,
   });
   assert.equal(response?.status(), 200, "home page should load successfully");
   const cards = page.locator("article.pcard");
   await cards.first().waitFor({ state: "visible", timeout: timeoutMs });
+  // The listing defaults to list mode on narrow screens, where the eight
+  // operations intentionally live in each card footer. Switch to grid mode
+  // before asserting the mobile grid contract (no action subtree).
+  await page.locator(".pf-views button").nth(1).click();
+  await page.waitForFunction(
+    () => !document.querySelector(".pf-grid")?.classList.contains("is-list-view"),
+    null,
+    { timeout: timeoutMs },
+  );
   await page.waitForTimeout(800);
 
   // Mobile: check the actual hydrated DOM, not computed CSS visibility.
@@ -168,6 +188,14 @@ try {
     null,
     { timeout: timeoutMs },
   );
+  await page.evaluate(() => { window.__propertyActionCalls.allowNativeShare = false; });
+  await actionButtons.nth(1).click();
+  await page.waitForFunction(
+    () => window.__propertyActionCalls.clipboard.length === 1,
+    null,
+    { timeout: timeoutMs },
+  );
+  await page.evaluate(() => { window.__propertyActionCalls.allowNativeShare = true; });
 
   await actionButtons.nth(2).click();
   await page.waitForFunction(
@@ -190,7 +218,7 @@ try {
 
   await actionButtons.nth(5).click();
   await page.waitForFunction(
-    () => window.__propertyActionCalls.clipboard.length === 1,
+    () => window.__propertyActionCalls.clipboard.length === 2,
     null,
     { timeout: timeoutMs },
   );
@@ -218,6 +246,23 @@ try {
     true,
     "favorite action should persist to localStorage",
   );
+  await favorite.click();
+  await page.waitForFunction(
+    (button) => button.getAttribute("aria-pressed") === "false",
+    await favorite.elementHandle(),
+    { timeout: timeoutMs },
+  );
+  assert.equal(
+    await page.evaluate(() => JSON.parse(localStorage.getItem("hirmand-favorite-properties") || "[]").length),
+    0,
+    "favorite action should remove the saved property when toggled off",
+  );
+  await favorite.click();
+  await page.waitForFunction(
+    (button) => button.getAttribute("aria-pressed") === "true",
+    await favorite.elementHandle(),
+    { timeout: timeoutMs },
+  );
   assert.equal(
     await page.evaluate(
       () =>
@@ -227,8 +272,25 @@ try {
     true,
     "compare action should persist to localStorage",
   );
+  await compare.click();
+  await page.waitForFunction(
+    (button) => button.getAttribute("aria-pressed") === "false",
+    await compare.elementHandle(),
+    { timeout: timeoutMs },
+  );
+  assert.equal(
+    await page.evaluate(() => JSON.parse(localStorage.getItem("hirmand-compare-properties") || "[]").length),
+    0,
+    "compare action should remove the property when toggled off",
+  );
+  await compare.click();
+  await page.waitForFunction(
+    (button) => button.getAttribute("aria-pressed") === "true",
+    await compare.elementHandle(),
+    { timeout: timeoutMs },
+  );
   console.log(
-    "[property-card-browser] desktop actions work: favorite, share, intro card, QR, intro sheet, copy, print, compare",
+    "[property-card-browser] desktop actions work: favorite add/remove, share with clipboard fallback, intro card, QR, intro sheet, copy, print, compare add/remove",
   );
 
   // Resizing back to mobile must unmount the whole action subtree; resizing up
@@ -271,7 +333,7 @@ try {
   // resize path above: the server omits viewport-dependent controls and React
   // mounts them after matchMedia is read on the client.
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto(new URL("/", baseUrl).toString(), {
+  await page.goto(new URL("/properties", baseUrl).toString(), {
     waitUntil: "commit",
     timeout: timeoutMs,
   });
