@@ -4321,3 +4321,64 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   .property-showcase .property-grid > .pcard .pcard-unit-price { display: none !important; }
   .property-showcase .property-grid > .pcard .pcard-actions { inset-inline-start: max(96px, 35%) !important; height: 46px !important; min-height: 46px !important; }
 }
+
+/* Keep the floating music controls from covering property prices while browsing the home showcase. */
+@media (max-width: 640px) {
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) {
+    top: auto !important;
+    left: auto !important;
+    right: 0 !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    width: 112px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+  }
+
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-head {
+    position: absolute !important;
+    inset: 0 !important;
+    height: 44px !important;
+    pointer-events: none !important;
+  }
+
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-brand-mark,
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-brand-copy,
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-disc,
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-meta,
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-controls button:not(.music-player-float-play) {
+    display: none !important;
+  }
+
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-utility {
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    pointer-events: auto !important;
+  }
+
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-track {
+    margin-top: 0 !important;
+    gap: 0 !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    direction: ltr !important;
+    justify-content: flex-start !important;
+  }
+
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-controls .music-player-float-play {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  body:has(.property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-progress {
+    display: none !important;
+  }
+
+}

@@ -641,6 +641,12 @@ testRunner.test("final compact cards anchor the action rail to the bottom on lis
     "the home action rail must remain inside the text column, clear of the photo");
   assert.match(compactPass, /@media \(max-width: 380px\)[\s\S]*?\.property-showcase \.property-grid > \.pcard \.pcard-actions \{ inset-inline-start: max\(96px, 35%\) !important;/s,
     "very narrow home cards must preserve a clear boundary between actions and media");
+  assert.match(compactPass, /body:has\(\.property-showcase\) \.music-player-float:not\(\.music-player-float-empty\) \{[^}]*width: 112px !important;[^}]*height: 44px !important;/s,
+    "the home music dock must collapse to a compact mobile control so it does not cover listing prices");
+  assert.match(compactPass, /body:has\(\.property-showcase\) \.music-player-float:not\(\.music-player-float-empty\) \{[^}]*left: auto !important;[^}]*right: 0 !important;/s,
+    "the compact home music dock should sit over the image column rather than the price text");
+  assert.match(compactPass, /body:has\(\.property-showcase\) \.music-player-float:not\(\.music-player-float-empty\) \.music-player-float-controls \.music-player-float-play \{[^}]*width: 44px !important;[^}]*height: 44px !important;/s,
+    "the compact home music dock must retain an accessible play target");
   assert.match(propertyShowcaseSource, /property\.builtYear\.toLocaleString\("fa-IR"\)[\s\S]*?ساخت/,
     "property cards should show the construction year when the listing has one");
   assert.match(propertiesDataSource, /built_year, parking, elevator, price, deposit, rent/,
