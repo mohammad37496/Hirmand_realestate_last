@@ -4440,6 +4440,68 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   }
 }
 
+/* The legacy list-view selectors are intentionally very specific and used to
+   put the action rail back on top of the card. Override them at equal-or-higher
+   specificity so the clickable card link cannot sit above the action buttons. */
+@media (max-width: 640px) {
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    align-content: start !important;
+    height: auto !important;
+    min-height: 0 !important;
+    isolation: isolate !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-link {
+    position: relative !important;
+    z-index: 0 !important;
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    z-index: 5 !important;
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    align-self: stretch !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 6px 8px !important;
+    overflow: hidden !important;
+    pointer-events: auto !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-actions,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-actions-compact {
+    position: relative !important;
+    z-index: 1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    pointer-events: auto !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-action {
+    position: relative !important;
+    z-index: 2 !important;
+    pointer-events: auto !important;
+  }
+}
+
 /* Mobile card layers: keep the listing content and its action rail in normal
    document flow. The old absolutely-positioned rail covered the last lines
    of the property details on short/narrow cards. */

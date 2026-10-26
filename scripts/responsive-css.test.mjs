@@ -652,3 +652,13 @@ testRunner.test("final compact cards anchor the action rail to the bottom on lis
   assert.match(propertiesDataSource, /built_year, parking, elevator, price, deposit, rent/,
     "the public property-card query must provide the construction year to both card layouts");
 });
+
+testRunner.test("mobile listing action buttons stay above the card link in a dedicated row", () => {
+  const stackingFix = responsiveCss.slice(responsiveCss.lastIndexOf("/* The legacy list-view selectors are intentionally very specific"));
+  assert.match(stackingFix, /body:has\(\.pf-page\) \.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard > \.pcard-link \{[^}]*grid-row: 1 !important;/s,
+    "the property link must occupy only the first grid row on mobile");
+  assert.match(stackingFix, /body:has\(\.pf-page\) \.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard \.pcard-actions \{[^}]*position: relative !important;[^}]*z-index: 5 !important;[^}]*grid-row: 2 !important;/s,
+    "the action rail must be in its own row and above the link stacking layer");
+  assert.match(stackingFix, /\.pcard-actions \.property-action \{[^}]*pointer-events: auto !important;/s,
+    "action buttons must remain clickable instead of being intercepted by the card link");
+});
