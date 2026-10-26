@@ -694,17 +694,16 @@ testRunner.test("final compact cards anchor the action rail to the bottom on lis
     "the public property-card query must provide the construction year to both card layouts");
 });
 
-testRunner.test("mobile listing action buttons stay above the card link in a dedicated row", () => {
-  const stackingFix = responsiveCss.slice(responsiveCss.lastIndexOf("/* The legacy list-view selectors are intentionally very specific"));
-  assert.match(stackingFix, /body:has\(\.pf-page\) \.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard > \.pcard-link \{[^}]*grid-row: 1 !important;/s,
-    "the property link must occupy only the first grid row on mobile");
-  assert.match(stackingFix, /body:has\(\.pf-page\) \.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard \.pcard-actions \{[^}]*position: relative !important;[^}]*z-index: 5 !important;[^}]*grid-row: 2 !important;/s,
-    "the action rail must be in its own row and above the link stacking layer");
-  assert.match(stackingFix, /\.pcard-actions \.property-action \{[^}]*pointer-events: auto !important;/s,
-    "action buttons must remain clickable instead of being intercepted by the card link");
+testRunner.test("property card operations are absent from mobile DOM and remain available on desktop", () => {
+  assert.match(propertyShowcaseSource, /function useIsDesktopPropertyCard\(\)[\s\S]*?window\.matchMedia\("\(min-width: 768px\)"\)[\s\S]*?media\.addEventListener\("change", update\)[\s\S]*?media\.removeEventListener\("change", update\)/,
+    "the operation rail must respond to viewport changes and clean up its listener");
+  assert.match(propertyShowcaseSource, /const isDesktop = useIsDesktopPropertyCard\(\)[\s\S]*?\{isDesktop \? \([\s\S]*?<div className="pcard-actions" aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?\) : null\}/,
+    "the action component must only be rendered for desktop widths, so mobile does not retain hidden buttons in the DOM");
+  assert.doesNotMatch(propertyShowcaseSource, /className="pcard-actions"[^\n]*style=|pcard-actions[^\n]*display:\s*none/,
+    "mobile removal must be handled by rendering, not CSS hiding");
 });
 
-testRunner.test("final mobile property cards keep full content and all actions in a readable, touch-safe flow", () => {
+testRunner.test("mobile property card content stays readable without relying on the removed operation rail", () => {
   const finalCardContract = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final card contract for phones:"));
   assert.match(finalCardContract, /@media \(max-width: 620px\)/);
   assert.match(finalCardContract, /\.pcard-title \{[^}]*display: block !important;[^}]*overflow: visible !important;[^}]*-webkit-line-clamp: unset !important;[^}]*overflow-wrap: anywhere !important;/s,
@@ -713,14 +712,8 @@ testRunner.test("final mobile property cards keep full content and all actions i
     "purchase and rent price rows should stay inside narrow cards");
   assert.match(finalCardContract, /\.pcard-specs \.pcard-spec \{[^}]*white-space: normal !important;[^}]*overflow-wrap: anywhere !important;/s,
     "cards with variable numbers of specifications should wrap without horizontal overflow");
-  assert.match(finalCardContract, /\.pcard-actions \{[^}]*position: relative !important;[^}]*grid-row: 2 !important;[^}]*overflow: visible !important;/s,
-    "actions should occupy their own in-flow row after the clickable card content");
-  assert.match(finalCardContract, /\.property-actions-compact \{[^}]*display: grid !important;[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\) !important;/s,
-    "all eight operations should be visible in a balanced two-row grid instead of requiring hidden horizontal scrolling");
-  assert.match(finalCardContract, /\.property-action \{[^}]*height: 44px !important;[^}]*min-height: 44px !important;[^}]*pointer-events: auto !important;/s,
-    "every action should preserve a 44px touch target and remain interactive");
-  assert.match(finalCardContract, /\.property-action:focus-visible \{[^}]*outline: 2px solid #c08a2a !important;/s,
-    "keyboard users should have a visible Hirmand gold focus indicator");
+  assert.match(propertyShowcaseSource, /\{isDesktop \? \([\s\S]*?PropertyActions property=\{property\} compact[\s\S]*?\) : null\}/,
+    "the removed operation rail must not be required for readable mobile property content");
 });
 
 testRunner.test("the last compact-phone override preserves 44px property action targets", () => {

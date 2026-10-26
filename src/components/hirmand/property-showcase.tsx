@@ -26,6 +26,19 @@ const PROPERTY_TYPE_LABEL: Record<PropertyType, string> = {
 };
 const TRANSACTION_LABEL: Record<PropertyTransaction, string> = { buy: "خرید", sell: "فروش", rent: "اجاره", mortgage: "رهن" };
 function money(value: string | null) { if (!value) return ""; const parsed = Number(value); return Number.isFinite(parsed) ? formatToman(parsed) : value; }
+function useIsDesktopPropertyCard() {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return isDesktop;
+}
 function unitPriceLabel(property: Property | PropertyCardData) {
   if ((property.transactionType !== "buy" && property.transactionType !== "sell") || !property.price || !property.areaM2 || property.areaM2 <= 0) return "";
   const price = Number(property.price);
@@ -106,6 +119,7 @@ function PropertyImage({
   );
 }
 export function PropertyCard({ property }: { property: Property | PropertyCardData }) {
+  const isDesktop = useIsDesktopPropertyCard();
   const image = imageFor(property);
   const transaction = TRANSACTION_LABEL[property.transactionType];
   const type = PROPERTY_TYPE_LABEL[property.propertyType];
@@ -237,9 +251,11 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
         </div>
       </Link>
 
-      <div className="pcard-actions" aria-label="عملیات فایل">
-        <PropertyActions property={property} compact />
-      </div>
+      {isDesktop ? (
+        <div className="pcard-actions" aria-label="عملیات فایل">
+          <PropertyActions property={property} compact />
+        </div>
+      ) : null}
     </article>
   );
 }
