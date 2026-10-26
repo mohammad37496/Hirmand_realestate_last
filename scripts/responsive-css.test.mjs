@@ -93,6 +93,10 @@ testRunner.test("mobile listing cards keep all property actions in one horizonta
   assert.match(finalMobileCardRules, /\.pcard-actions-footer\s*\{[^}]*overflow-x:\s*auto/s);
   assert.match(finalMobileCardRules, /\.property-actions(?:-compact)?\s*\{[^}]*flex-wrap:\s*nowrap[^}]*width:\s*max-content/s);
   assert.match(finalMobileCardRules, /\.property-action\s*\{[^}]*min-height:\s*44px/);
+  assert.match(finalMobileCardRules, /body:has\(\.site-home\).*\.property-showcase \.property-grid > \.pcard \{[^}]*grid-template-rows:\s*minmax\(138px,\s*auto\)\s+auto/s,
+    "homepage property cards should use the same compact two-column mobile rhythm");
+  assert.match(finalMobileCardRules, /\.pcard-spec-built-year,[\s\S]*?\.pcard-spec-elevator\s*\{\s*display:\s*none/s,
+    "secondary homepage specs should not force an excessively tall mobile card");
 });
 
 testRunner.test("property marketplace mobile controls retain working search, filter, sort and view handlers", () => {

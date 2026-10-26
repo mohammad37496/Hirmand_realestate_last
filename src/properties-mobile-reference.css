@@ -1227,3 +1227,75 @@ body:has(.pf-page) .property-qr-close {
     padding-inline: 7px !important;
   }
 }
+
+/* The homepage reuses the same property card but does not opt into the
+   directory's listView prop. Keep its mobile showcase equally compact. */
+@media (max-width: 640px) {
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard {
+    grid-template-columns: clamp(96px, 29vw, 116px) minmax(0, 1fr) !important;
+    grid-template-rows: minmax(138px, auto) auto !important;
+    align-content: start !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard > .pcard-link {
+    display: contents !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-media,
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-body {
+    grid-row: 1 !important;
+    min-width: 0 !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-media,
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-media img,
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-media picture {
+    min-height: 138px !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-body {
+    gap: 4px !important;
+    padding: 8px !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-title {
+    min-height: 0 !important;
+    font-size: .78rem !important;
+    line-height: 1.65 !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-price-row {
+    gap: 2px !important;
+    padding: 5px 7px !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-unit-price,
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-spec-built-year,
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-spec-parking,
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-spec-elevator {
+    display: none !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-specs {
+    gap: 4px !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard .pcard-specs .pcard-spec {
+    min-height: 24px !important;
+    padding: 3px 5px !important;
+    font-size: .62rem !important;
+  }
+
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard > .pcard-footer {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    margin: 0 !important;
+    padding: 6px 9px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  body:has(.site-home) .site-home .property-showcase .property-grid > .pcard {
+    grid-template-columns: 96px minmax(0, 1fr) !important;
+  }
+}
