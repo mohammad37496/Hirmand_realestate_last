@@ -377,6 +377,31 @@ try {
 
       for (const { width, height } of viewportMatrix) {
         await page.setViewportSize({ width, height });
+        if (route === "/" && width <= 640) {
+          await page.locator(".site-home .hero-inner").waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
+          const homepageMobileGeometry = await page.evaluate(() => {
+            const root = document.documentElement;
+            const heroInner = document.querySelector(".site-home .hero-inner");
+            const heroRect = heroInner?.getBoundingClientRect();
+            const firstContentRect = heroInner?.firstElementChild?.getBoundingClientRect();
+            return {
+              viewportWidth: window.innerWidth,
+              rootWidth: root.getBoundingClientRect().width,
+              scrollWidth: root.scrollWidth,
+              heroInnerHeight: heroRect?.height ?? 0,
+              viewportHeight: window.innerHeight,
+              firstContentOffset: heroRect && firstContentRect ? firstContentRect.top - heroRect.top : Number.POSITIVE_INFINITY,
+              heroInnerMinHeight: heroInner ? getComputedStyle(heroInner).minHeight : "missing",
+              heroInnerJustifyContent: heroInner ? getComputedStyle(heroInner).justifyContent : "missing",
+            };
+          });
+          if (homepageMobileGeometry.rootWidth < homepageMobileGeometry.viewportWidth - 1) {
+            failures.push(`/: mobile homepage leaves a blank viewport strip at ${width}px (${JSON.stringify(homepageMobileGeometry)})`);
+          }
+          if (homepageMobileGeometry.firstContentOffset > 32 || homepageMobileGeometry.heroInnerMinHeight !== "0px" || homepageMobileGeometry.heroInnerJustifyContent !== "flex-start") {
+            failures.push(`/: mobile homepage hero content is still bottom-aligned or has excess top spacing at ${width}px (${JSON.stringify(homepageMobileGeometry)})`);
+          }
+        }
         if (route === "/properties" && width <= 640) {
           // The interaction checks above deliberately open the map and filter
           // drawer. Reset those transient states before capturing comparison

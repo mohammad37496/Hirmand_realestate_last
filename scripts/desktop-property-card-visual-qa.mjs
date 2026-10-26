@@ -322,7 +322,10 @@ try {
       assert.equal(card.buttons.length, 8, `mobile card ${index + 1} must keep all eight operations at ${width}px`);
       assert.ok(card.rail && card.rail.width > 0 && card.rail.left >= card.footer.left - 1 && card.rail.right <= card.footer.right + 1,
         `mobile card ${index + 1} action rail must remain inside its footer at ${width}px: ${JSON.stringify(card)}`);
-      assert.ok(card.buttons.every((button) => button.width >= 44 && button.height >= 44),
+      // Chromium can report a 43.99994px bounding box for a CSS 44px target
+      // after fractional transforms/layout. Allow only 0.01px of rounding;
+      // this is not a meaningful reduction in the touch target.
+      assert.ok(card.buttons.every((button) => button.width >= 43.99 && button.height >= 43.99),
         `mobile card ${index + 1} operations must have 44px targets at ${width}px: ${JSON.stringify(card.buttons)}`);
       assert.ok(card.railOverflowX === "auto" || card.railOverflowX === "scroll",
         `mobile card ${index + 1} action rail must scroll horizontally at ${width}px`);

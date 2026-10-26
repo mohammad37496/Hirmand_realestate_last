@@ -23,6 +23,7 @@ const propertyScenarioToolsCss = fs.readFileSync(new URL("../src/property-scenar
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
+const desktopCardVisualQa = fs.readFileSync(new URL("./desktop-property-card-visual-qa.mjs", import.meta.url), "utf8");
 const propertySearchBrowserSmoke = fs.readFileSync(new URL("./property-search-browser-smoke.mjs", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const propertiesMapSource = fs.readFileSync(new URL("../src/components/hirmand/properties-map.tsx", import.meta.url), "utf8");
@@ -123,6 +124,24 @@ testRunner.test("property marketplace mobile controls retain working search, fil
     "the browser smoke must wait for React hydration and the mobile default before clicking view controls");
   assert.match(responsiveSmoke, /card\.actionsBounds\.top < card\.mediaBounds\.bottom && card\.actionsBounds\.bottom > card\.mediaBounds\.top/,
     "photo/action overlap must be checked in both dimensions to avoid false positives for stacked grid cards");
+});
+
+testRunner.test("mobile homepage reclaims the stable scrollbar gutter and removes the oversized bottom-aligned hero", () => {
+  assert.match(propertiesMobileReferenceCss, /@media \(max-width:\s*640px\)[\s\S]*?html:has\(\.site-home\)\s*\{\s*scrollbar-gutter:\s*auto !important;/,
+    "the homepage must use the full mobile viewport width instead of leaving a stable-gutter strip");
+  assert.match(propertiesMobileReferenceCss, /body:has\(\.site-home\) \.site-home \.hero-inner\s*\{[^}]*min-height:\s*0 !important;[^}]*justify-content:\s*flex-start !important;/s,
+    "the mobile homepage hero must not retain a desktop-sized min-height and bottom-aligned content");
+  assert.match(propertiesMobileReferenceCss, /body:has\(\.site-home\) \.site-home \.hero-search select\s*\{[^}]*grid-column:\s*auto !important;[^}]*height:\s*40px !important;[^}]*min-height:\s*40px !important;/s,
+    "homepage search fields must use the compact two-column rhythm so fixed mobile docks do not cover the submit button on short phones");
+  assert.match(responsiveSmoke, /homepageMobileGeometry\.rootWidth < homepageMobileGeometry\.viewportWidth - 1/,
+    "the responsive browser smoke must fail if the homepage leaves a blank strip beside the viewport");
+  assert.match(responsiveSmoke, /homepageMobileGeometry\.firstContentOffset > 32/,
+    "the responsive browser smoke must detect excess blank space before mobile homepage hero content");
+});
+
+testRunner.test("mobile card visual QA tolerates only sub-hundredth-pixel Chromium rounding on 44px targets", () => {
+  assert.match(desktopCardVisualQa, /button\.width >= 43\.99 && button\.height >= 43\.99/,
+    "the visual QA should accept only subpixel rounding, not genuinely undersized touch targets");
 });
 
 testRunner.test("property marketplace mobile map and horizontal tool strips have bounded scrolling", () => {
