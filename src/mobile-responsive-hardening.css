@@ -4779,3 +4779,33 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     gap: 5px !important;
   }
 }
+
+/* Final icon legibility guard: decorative card layers must never wash out
+   the action icons, whether the rail is over the photo or in normal flow. */
+.pcard > .pcard-actions {
+  isolation: isolate;
+  pointer-events: auto;
+}
+.pcard > .pcard-actions::before,
+.pcard > .pcard-actions::after,
+.pcard > .pcard-actions .property-actions::before,
+.pcard > .pcard-actions .property-actions::after {
+  content: none !important;
+  display: none !important;
+  pointer-events: none !important;
+}
+.pcard > .pcard-actions .property-action {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+.pcard > .pcard-actions .property-action svg {
+  display: block !important;
+  width: 17px !important;
+  height: 17px !important;
+  flex: 0 0 17px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  stroke: currentColor !important;
+  pointer-events: none !important;
+}

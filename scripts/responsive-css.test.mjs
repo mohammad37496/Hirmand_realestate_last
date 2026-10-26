@@ -681,3 +681,12 @@ testRunner.test("final mobile property cards keep full content and all actions i
   assert.match(finalCardContract, /\.property-action:focus-visible \{[^}]*outline: 2px solid #c08a2a !important;/s,
     "keyboard users should have a visible Hirmand gold focus indicator");
 });
+
+testRunner.test("property card action icons stay legible above decorative layers", () => {
+  const iconGuard = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final icon legibility guard:"));
+  assert.ok(iconGuard.length > 0, "the final icon legibility guard must remain the last CSS layer");
+  assert.match(iconGuard, /\.pcard > \.pcard-actions \.property-action svg \{[^}]*opacity: 1 !important;[^}]*visibility: visible !important;[^}]*stroke: currentColor !important;/s,
+    "property action SVGs must remain visible and inherit the high-contrast action color");
+  assert.match(iconGuard, /\.pcard > \.pcard-actions::before,[\s\S]*?content: none !important;[\s\S]*?display: none !important;/s,
+    "decorative pseudo-elements must not cover the action rail");
+});

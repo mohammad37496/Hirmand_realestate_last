@@ -30,6 +30,35 @@
   pointer-events: none;
   background: linear-gradient(180deg, transparent 0%, rgb(8 22 35 / 15%) 100%);
 }
+/* Keep card actions above decorative image overlays and the stretched card link. */
+.pcard > .pcard-actions {
+  z-index: 8;
+  isolation: isolate;
+  pointer-events: auto;
+}
+.pcard > .pcard-actions::before,
+.pcard > .pcard-actions::after {
+  content: none;
+  display: none;
+  pointer-events: none;
+}
+.pcard > .pcard-actions .property-action {
+  position: relative;
+  z-index: 1;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+.pcard > .pcard-actions .property-action svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  opacity: 1;
+  visibility: visible;
+  stroke: currentColor;
+  pointer-events: none;
+}
 .pcard-media img {
   height: 242px;
   object-fit: cover;
