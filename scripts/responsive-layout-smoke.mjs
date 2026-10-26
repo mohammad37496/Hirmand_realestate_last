@@ -116,6 +116,11 @@ try {
       }
       // Give the client enough time to hydrate before interacting with React controls.
       await page.waitForTimeout(500);
+      // Optional local stylesheet injection lets maintainers validate a CSS
+      // candidate against the live DOM/data without pretending it is deployed.
+      for (const cssFile of [process.env.RESPONSIVE_SMOKE_CSS_FILE, process.env.RESPONSIVE_SMOKE_CARD_CSS_FILE].filter(Boolean)) {
+        await page.addStyleTag({ path: path.resolve(cssFile) });
+      }
 
       // Exercise the mobile filter drawer and neighborhood picker at 320px.
       if (route === "/properties") {
@@ -185,6 +190,41 @@ try {
           }
           if (card.actionButtons.some((target) => target.width < 44 || target.height < 44)) {
             failures.push(`/properties @ 320px: property action target is below 44px (${JSON.stringify(card.actionButtons)})`);
+          }
+        }
+
+        const firstCardActions = page.locator(".pf-grid > .pcard").first().locator(".pcard-actions .property-action");
+        const actionNames = await firstCardActions.evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label") || ""));
+        const actionUrl = page.url();
+        for (let index = 0; index < Math.min(8, await firstCardActions.count()); index += 1) {
+          const button = firstCardActions.nth(index);
+          const label = actionNames[index] || `action-${index + 1}`;
+          try {
+            await button.evaluate((element) => element.scrollIntoView({ block: "center", inline: "nearest" }));
+            // Keep the control away from the sticky site header after scrolling.
+            await page.evaluate(() => window.scrollBy(0, -100));
+            await page.waitForTimeout(80);
+            await button.click({ timeout: 5_000 });
+            await page.waitForTimeout(120);
+            if (page.url() !== actionUrl) {
+              failures.push(`/properties @ 320px: action '${label}' navigated to ${page.url()} instead of remaining independent from the property link`);
+              await page.goto(new URL("/properties", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+              await page.waitForTimeout(500);
+              break;
+            }
+            if (index === 3 && await page.locator(".property-qr-dialog").count()) {
+              await page.locator(".property-qr-close").click();
+            }
+            if (index === 4 && await page.locator(".property-brief-dialog").count()) {
+              await page.locator(".property-brief-close").first().click();
+            }
+            if (index === 0 || index === 7) {
+              const pressed = await button.getAttribute("aria-pressed");
+              if (pressed !== "true") failures.push(`/properties @ 320px: action '${label}' did not expose its active state through aria-pressed`);
+            }
+          } catch (error) {
+            failures.push(`/properties @ 320px: action '${label}' did not complete its browser interaction: ${error instanceof Error ? error.message : String(error)}`);
+            await page.keyboard.press("Escape").catch(() => undefined);
           }
         }
 
@@ -589,6 +629,57 @@ try {
               failures.push(`${route} @ ${width}x${height}px: thumbnail cards are not stacked in one vertical column: ${JSON.stringify(thumbs.slice(0, 3))}`);
             }
           }
+        }
+
+        if (route === "/properties") {
+          const viewButtons = page.locator(".pf-views button");
+          for (const { mode, index } of [{ mode: "list", index: 0 }, { mode: "grid", index: 1 }]) {
+            await viewButtons.nth(index).click();
+            await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+            const cardContracts = await page.locator(".pf-grid > .pcard").evaluateAll((cards) => cards.map((card) => {
+              const rect = (element) => {
+                if (!element) return null;
+                const r = element.getBoundingClientRect();
+                return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
+              };
+              const link = rect(card.querySelector(":scope > .pcard-link"));
+              const media = rect(card.querySelector(".pcard-media"));
+              const actions = rect(card.querySelector(":scope > .pcard-actions"));
+              const cardBounds = rect(card);
+              const buttons = [...card.querySelectorAll(":scope > .pcard-actions .property-action")].map((button) => {
+                const r = button.getBoundingClientRect();
+                return {
+                  width: r.width,
+                  height: r.height,
+                  label: button.getAttribute("aria-label"),
+                  tag: button.tagName,
+                  target: button.getAttribute("type"),
+                };
+              });
+              // Allow sub-pixel border rounding where the two in-flow rows
+              // meet; only count a real intersection larger than one CSS px.
+              const overlaps = (a, b) => Boolean(a && b && a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1);
+              return {
+                title: card.querySelector(".pcard-title")?.textContent?.trim() ?? "(untitled)",
+                actionLinkOverlap: overlaps(actions, link),
+                mediaActionOverlap: overlaps(actions, media),
+                actionsEscapeCard: Boolean(actions && cardBounds && (actions.left < cardBounds.left - 1 || actions.right > cardBounds.right + 1 || actions.bottom > cardBounds.bottom + 1)),
+                buttonCount: buttons.length,
+                unlabeledButtons: buttons.filter((button) => !button.label || button.tag !== "BUTTON" || button.target !== "button").length,
+                undersizedActions: buttons.filter((button) => button.width < 44 || button.height < 44),
+              };
+            }));
+            for (const card of cardContracts) {
+              const prefix = `/properties ${mode} view @ ${width}x${height}px, ${card.title}`;
+              if (card.actionLinkOverlap) failures.push(`${prefix}: action rail overlaps the details link hitbox`);
+              if (card.mediaActionOverlap) failures.push(`${prefix}: action rail overlaps the property image`);
+              if (card.actionsEscapeCard) failures.push(`${prefix}: action rail escapes card bounds`);
+              if (card.buttonCount !== 8) failures.push(`${prefix}: expected eight property operations, found ${card.buttonCount}`);
+              if (card.unlabeledButtons) failures.push(`${prefix}: action buttons are missing accessible labels or button types`);
+              if (card.undersizedActions.some((target) => target.width < 43.5 || target.height < 43.5)) failures.push(`${prefix}: action targets below 44px: ${JSON.stringify(card.undersizedActions)}`);
+            }
+          }
+          await viewButtons.nth(0).click();
         }
 
         summaries.push({ route, ...metrics });

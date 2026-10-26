@@ -216,6 +216,8 @@ svg {
   }
 }
 
+
+
 @media (max-width: 420px) {
   .type-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -5036,4 +5038,18 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     -webkit-backdrop-filter: none !important;
     pointer-events: auto !important;
   }
+}
+
+/* Final shared action contract: the last layer wins for list and grid cards
+   on every viewport, including legacy desktop list-view buttons. */
+body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-action,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action {
+  box-sizing: border-box !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-action:focus-visible,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action:focus-visible {
+  outline: 2px solid #c08a2a !important;
+  outline-offset: 2px !important;
 }

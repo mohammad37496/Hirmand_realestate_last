@@ -35,6 +35,7 @@ const propertyDetailV2Css = fs.readFileSync(new URL("../src/property-detail-page
 const propertyGalleryMobileCss = fs.readFileSync(new URL("../src/property-gallery-mobile.css", import.meta.url), "utf8");
 const propertyDetailLuxuryCss = fs.readFileSync(new URL("../src/property-detail-page-luxury.css", import.meta.url), "utf8");
 const propertyExperienceRedesignCss = fs.readFileSync(new URL("../src/property-experience-redesign.css", import.meta.url), "utf8");
+const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
 const propertyQuestionLogSource = fs.readFileSync(new URL("../src/components/hirmand/property-question-log.tsx", import.meta.url), "utf8");
@@ -484,9 +485,19 @@ testRunner.test("responsive guardrails load before the scoped final music-player
   const stylesheetLinks = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: (\w+) \}/g)]
     .map((match) => match[1]);
   assert.equal(
+    stylesheetLinks.indexOf("responsiveHardeningCss") < stylesheetLinks.indexOf("propertiesMobileReferenceCss"),
+    true,
+    "the responsive guardrail stylesheet must load before the page-scoped mobile reference layer",
+  );
+  assert.equal(
     stylesheetLinks.at(-2),
+    "propertiesMobileReferenceCss",
+    "the dedicated mobile listing layer must remain immediately before the scoped music-player layer",
+  );
+  assert.equal(
+    stylesheetLinks.at(-3),
     "responsiveHardeningCss",
-    "the responsive guardrail stylesheet must remain the last general-purpose layer",
+    "the responsive guardrail stylesheet must remain after the general-purpose page layers",
   );
   assert.equal(
     stylesheetLinks.at(-1),
@@ -494,6 +505,16 @@ testRunner.test("responsive guardrails load before the scoped final music-player
     "the player-only final layer must load last to correct the dock without undoing other responsive guardrails",
   );
   assert.match(rootRoute, /import musicPlayerCss from "\.\.\/music-player\.css\?url";/);
+});
+
+testRunner.test("mobile property directory matches the compact reference layout without replacing the listing implementation", () => {
+  const mobileReferenceCss = fs.readFileSync(new URL("../src/properties-mobile-reference.css", import.meta.url), "utf8");
+  assert.match(rootRoute, /import propertiesMobileReferenceCss from "\.\.\/properties-mobile-reference\.css\?url";/);
+  assert.match(mobileReferenceCss, /@media \(max-width: 640px\)[\s\S]*?\.pf-page \.pf-hero[\s\S]*?linear-gradient\(145deg, #193b55 0%, #0b1a2b 76%\)/);
+  assert.match(mobileReferenceCss, /\.pf-grid\.is-list-view > \.pcard[\s\S]*?grid-template-columns: 116px minmax\(0, 1fr\)/);
+  assert.match(mobileReferenceCss, /\.pf-mobile-reference-range[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(mobileReferenceCss, /\.pcard-actions \.property-action[\s\S]*?min-height: 40px !important/);
+  assert.match(mobileReferenceCss, /@media \(max-width: 380px\)[\s\S]*?grid-template-columns: 102px minmax\(0, 1fr\)/);
 });
 
 testRunner.test("responsive browser smoke covers the required viewport matrix", () => {
@@ -710,4 +731,26 @@ testRunner.test("property card action icons stay legible above decorative layers
     "property action SVGs must remain visible and inherit the high-contrast action color");
   assert.match(iconGuard, /\.pcard > \.pcard-actions::before,[\s\S]*?content: none !important;[\s\S]*?display: none !important;/s,
     "decorative pseudo-elements must not cover the action rail");
+});
+
+testRunner.test("the final shared action contract wins the cascade for desktop list cards too", () => {
+  const finalContract = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final shared action contract:"));
+  assert.ok(finalContract.length > 0, "the shared action contract must be the final CSS layer");
+  assert.match(finalContract, /\.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard > \.pcard-actions \.property-action,\s*body:has\(\.property-showcase\)[\s\S]*?min-width: 44px !important;\s*min-height: 44px !important;/s,
+    "all property action buttons must keep a 44px minimum target in both listing views");
+  assert.match(finalContract, /\.property-action:focus-visible[\s\S]*?outline: 2px solid #c08a2a !important;/,
+    "the final action layer must preserve a visible Hirmand-gold keyboard focus ring");
+  assert.match(responsiveSmoke, /actionLinkOverlap[\s\S]*?mediaActionOverlap[\s\S]*?undersizedActions/,
+    "browser smoke must measure link/action and photo/action overlap plus computed target sizes");
+});
+
+testRunner.test("property introduction dialogs are styled on listing pages and remain printable", () => {
+  assert.match(rootRoute, /propertyCardCss/,
+    "property card and action dialog styles must be included in the global route stylesheet links");
+  assert.match(propertyCardCss, /\.property-brief-backdrop\s*\{[^}]*position: fixed !important;[^}]*z-index: 99999 !important;/s,
+    "the property introduction dialog opened from a listing card must overlay card action rails and sticky navigation");
+  assert.match(propertyCardCss, /\.property-brief-close\s*\{[^}]*width: 44px;[^}]*height: 44px;/s,
+    "the dialog close button must have a touch-friendly hit area");
+  assert.match(propertyCardCss, /@media print[\s\S]*?body:has\(\.property-brief-dialog\) \.property-brief-dialog,\s*body:has\(\.property-brief-dialog\) \.property-brief-dialog \*/,
+    "printing a property introduction must isolate the brief from the listing page");
 });

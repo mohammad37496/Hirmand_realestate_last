@@ -1,0 +1,252 @@
+/* Mobile property directory: compact, search-first layout inspired by the
+   supplied Chaharkhane reference while retaining Hirmand's navy and gold. */
+@media (max-width: 640px) {
+  body:has(.pf-page) {
+    background: #f1f3f5 !important;
+  }
+
+  .pf-page {
+    width: 100% !important;
+    max-width: 560px !important;
+    padding: 0 10px calc(92px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .pf-page .pf-hero {
+    margin: 0 -10px 10px !important;
+    padding: 18px 14px 14px !important;
+    border: 0 !important;
+    border-radius: 0 0 17px 17px !important;
+    background: linear-gradient(145deg, #193b55 0%, #0b1a2b 76%) !important;
+    box-shadow: 0 7px 18px rgb(11 26 43 / 13%) !important;
+  }
+
+  .pf-page .pf-kicker {
+    display: inline-flex !important;
+    padding: 5px 9px !important;
+    border: 1px solid rgb(240 211 141 / 28%) !important;
+    border-radius: 999px !important;
+    background: rgb(255 255 255 / 6%) !important;
+    color: #f0d38d !important;
+    font-size: .68rem !important;
+  }
+
+  .pf-page .pf-hero-row {
+    display: block !important;
+    margin-top: 8px !important;
+  }
+
+  .pf-page .pf-hero-copy h1 {
+    margin: 0 !important;
+    color: #fff !important;
+    font-size: 1.3rem !important;
+    font-weight: 900 !important;
+    line-height: 1.65 !important;
+  }
+
+  .pf-page .pf-hero-copy p {
+    margin: 5px 0 0 !important;
+    color: rgb(245 248 250 / 78%) !important;
+    font-size: .73rem !important;
+    line-height: 1.85 !important;
+  }
+
+  .pf-page .pf-stats {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin-top: 12px !important;
+  }
+
+  .pf-page .pf-stats > div {
+    min-width: 0 !important;
+    padding: 7px 5px !important;
+    border: 1px solid rgb(255 255 255 / 14%) !important;
+    border-radius: 10px !important;
+    background: rgb(255 255 255 / 6%) !important;
+    text-align: center !important;
+  }
+
+  .pf-page .pf-stats dt { color: rgb(245 248 250 / 68%) !important; font-size: .59rem !important; }
+  .pf-page .pf-stats dd { color: #f4d58d !important; font-size: .92rem !important; }
+  .pf-page .pf-mobile-search-cta {
+    display: block !important;
+    width: 100% !important;
+    min-height: 44px !important;
+    margin-top: 10px !important;
+    border: 1px solid #d2a346 !important;
+    border-radius: 10px !important;
+    background: linear-gradient(135deg, #f0b323, #d99a12) !important;
+    color: #14283a !important;
+    font-size: .78rem !important;
+    font-weight: 900 !important;
+  }
+
+  .pf-page .pf-toolbar { display: none !important; }
+
+  .pf-page .pf-mobile-reference-filters {
+    display: grid !important;
+    gap: 10px !important;
+    margin: 0 0 12px !important;
+    padding: 12px !important;
+    border: 1px solid #e1e6e9 !important;
+    border-radius: 14px !important;
+    background: #fff !important;
+    box-shadow: 0 4px 14px rgb(11 26 43 / 5%) !important;
+  }
+
+  .pf-page .pf-mobile-reference-field { display: grid !important; gap: 5px !important; min-width: 0 !important; }
+  .pf-page .pf-mobile-reference-field > span { color: #637281 !important; font-size: .66rem !important; font-weight: 750 !important; }
+  .pf-page .pf-mobile-reference-field input,
+  .pf-page .pf-mobile-reference-field select,
+  .pf-page .pf-mobile-reference-neighborhood {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 40px !important;
+    padding: 8px 10px !important;
+    border: 1px solid #dfe5e9 !important;
+    border-radius: 9px !important;
+    background: #fafbfc !important;
+    color: #172b3f !important;
+    font-size: .75rem !important;
+  }
+
+  .pf-page .pf-mobile-reference-range {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+  }
+
+  .pf-page .pf-mobile-reference-actions { display: flex !important; gap: 8px !important; }
+  .pf-page .pf-mobile-reference-more,
+  .pf-page .pf-mobile-reference-reset {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+    min-height: 42px !important;
+    border-radius: 9px !important;
+    font-size: .72rem !important;
+    font-weight: 850 !important;
+  }
+  .pf-page .pf-mobile-reference-more { flex: 1 1 auto !important; border: 1px solid #b78325 !important; background: #c08a2a !important; color: #10263b !important; }
+  .pf-page .pf-mobile-reference-reset { flex: 0 0 auto !important; padding-inline: 13px !important; border: 1px solid #dce3e8 !important; background: #fff !important; color: #4d5d6a !important; }
+
+  .pf-page .pf-layout { display: block !important; margin-top: 0 !important; }
+  .pf-page .pf-sidebar { z-index: 10050 !important; }
+  .pf-page .pf-main { min-width: 0 !important; gap: 10px !important; }
+  .pf-page .pf-quick { display: flex !important; flex-wrap: nowrap !important; gap: 6px !important; overflow-x: auto !important; padding: 7px !important; border-radius: 11px !important; }
+  .pf-page .pf-quick .pf-chip { flex: 0 0 auto !important; min-height: 34px !important; padding-inline: 10px !important; font-size: .68rem !important; }
+  .pf-page .pf-active { padding: 7px !important; border-radius: 10px !important; }
+  .pf-page .pf-results-head { display: grid !important; grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; padding: 10px !important; border: 1px solid #e3e8eb !important; border-radius: 11px !important; background: #fff !important; }
+  .pf-page .pf-head-actions { display: flex !important; flex-wrap: wrap !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important; }
+  .pf-page .pf-sort { display: flex !important; align-items: center !important; gap: 6px !important; font-size: .68rem !important; }
+  .pf-page .pf-sort .pf-select { min-height: 44px !important; max-width: 145px !important; font-size: .7rem !important; }
+  .pf-page .pf-views { display: flex !important; flex: 0 0 auto !important; gap: 3px !important; }
+  .pf-page .pf-views button { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 4px !important; min-height: 44px !important; padding: 5px 7px !important; border-radius: 8px !important; font-size: .63rem !important; }
+  .pf-page .pf-tools { display: flex !important; flex-wrap: nowrap !important; gap: 7px !important; overflow-x: auto !important; padding: 2px 0 5px !important; }
+  .pf-page .pf-tools > a,
+  .pf-page .pf-tools > button,
+  .pf-page .pf-tools > select { flex: 0 0 auto !important; min-height: 44px !important; padding: 6px 10px !important; border-radius: 9px !important; font-size: .68rem !important; }
+
+  .pf-page .pf-grid.is-list-view {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard {
+    display: grid !important;
+    grid-template-columns: 116px minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid #e0e5e9 !important;
+    border-radius: 13px !important;
+    background: #fff !important;
+    box-shadow: 0 3px 12px rgb(11 26 43 / 5%) !important;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-link {
+    display: grid !important;
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    grid-template-columns: subgrid !important;
+    align-items: stretch !important;
+    min-width: 0 !important;
+    gap: 0 !important;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    align-self: stretch !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 126px !important;
+    aspect-ratio: auto !important;
+    overflow: hidden !important;
+    background: #e9edf0 !important;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media picture,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media img { display: block !important; width: 100% !important; height: 100% !important; min-height: 126px !important; object-fit: cover !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-body {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    min-width: 0 !important;
+    padding: 10px 9px 9px !important;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-topline { display: flex !important; flex-wrap: wrap !important; align-items: center !important; gap: 4px 6px !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-meta { gap: 4px !important; font-size: .58rem !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-code { font-size: .57rem !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-title { display: -webkit-box !important; min-height: 0 !important; margin: 0 !important; overflow: hidden !important; color: #152d42 !important; font-size: .76rem !important; font-weight: 900 !important; line-height: 1.75 !important; -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price-row { display: grid !important; gap: 2px !important; margin: 0 !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price-value { color: #1b503b !important; font-size: .75rem !important; font-weight: 950 !important; line-height: 1.65 !important; overflow-wrap: anywhere !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price-label,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-unit-price { font-size: .59rem !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-specs { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; font-size: .58rem !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-specs span { min-height: 22px !important; padding: 3px 5px !important; border: 1px solid #e7ebee !important; border-radius: 6px !important; background: #f7f9fa !important; box-shadow: none !important; font-size: .58rem !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-specs span svg { width: 11px !important; height: 11px !important; flex-basis: 11px !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-footer { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; margin-top: 0 !important; padding-top: 3px !important; font-size: .59rem !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-location { max-width: 100% !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-details-link { display: none !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-badges { top: 6px !important; right: 6px !important; gap: 4px !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-badge { padding: 3px 5px !important; border-radius: 5px !important; font-size: .54rem !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-arrow { display: none !important; }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-actions {
+    position: relative !important;
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    z-index: 2 !important;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 6px 8px !important;
+    border-top: 1px solid #edf0f2 !important;
+    background: #fafbfc !important;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-actions .property-actions,
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-actions .property-actions-compact { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 5px !important; width: 100% !important; }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-actions .property-action { display: inline-grid !important; place-items: center !important; width: 100% !important; min-width: 0 !important; height: 40px !important; min-height: 40px !important; padding: 0 !important; border: 1px solid #dce3e8 !important; border-radius: 8px !important; background: #fff !important; color: #17334b !important; box-shadow: none !important; }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-actions .property-action svg { width: 15px !important; height: 15px !important; }
+  .pf-page .pf-more { padding: 12px 0 20px !important; }
+}
+
+@media (max-width: 380px) {
+  .pf-page .pf-grid.is-list-view > .pcard { grid-template-columns: 102px minmax(0, 1fr) !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-body { padding: 8px 7px !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-title { font-size: .71rem !important; }
+  .pf-page .pf-mobile-reference-range { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-page .pf-grid.is-list-view > .pcard,
+  .pf-page .pf-grid.is-list-view > .pcard * { transition-duration: .01ms !important; }
+}
