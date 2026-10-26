@@ -62,11 +62,29 @@ try {
     Object.defineProperty(navigator, "share", {
       configurable: true,
       get: () => window.__propertyActionCalls.allowNativeShare ? async (payload) => {
+        const files = await Promise.all((payload.files ?? []).map(async (file) => {
+          const signature = [...new Uint8Array(await file.slice(0, 8).arrayBuffer())];
+          const bitmap = await createImageBitmap(file);
+          const width = bitmap.width;
+          const height = bitmap.height;
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext("2d", { willReadFrequently: true });
+          context.drawImage(bitmap, 0, 0);
+          bitmap.close();
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+          let inkPixels = 0;
+          for (let index = 0; index < pixels.length; index += 4) {
+            if (pixels[index + 3] > 0 && (pixels[index] < 235 || pixels[index + 1] < 235 || pixels[index + 2] < 235)) inkPixels += 1;
+          }
+          return { name: file.name, type: file.type, size: file.size, signature, width, height, inkPixels };
+        }));
         window.__propertyActionCalls.shares.push({
           title: payload.title,
           text: payload.text,
           url: payload.url,
-          files: payload.files?.map((file) => ({ name: file.name, type: file.type, size: file.size })),
+          files,
         });
       } : undefined,
     });
@@ -136,6 +154,12 @@ try {
     true,
     "the page should render property cards for the browser test",
   );
+  const fixturePaths = await cards.locator(".pcard-link").evaluateAll((links) => links.map((link) => new URL(link.href).pathname));
+  for (const fixtureSlug of ["qa-apartment-long-title", "qa-rent-villa", "qa-office"]) {
+    assert.ok(fixturePaths.some((path) => path.endsWith(`/properties/${fixtureSlug}`)), `local app must render the controlled PGlite fixture ${fixtureSlug}, not arbitrary site data`);
+  }
+  const fixtureTitles = await cards.locator(".pcard-title").allInnerTexts();
+  assert.ok(fixtureTitles.some((title) => title.includes("آپارتمان")), "the long Persian RTL fixture title must survive database seeding and app rendering");
   assert.equal(
     await page.locator("article.pcard .pcard-actions").count(),
     0,
@@ -177,6 +201,7 @@ try {
 
   const firstCard = cards.first();
   const firstPropertyPath = new URL(await firstCard.locator(".pcard-link").getAttribute("href"), baseUrl).pathname;
+  const firstPropertySlug = decodeURIComponent(firstPropertyPath.split("/").pop() || "");
   const firstPropertyNeighborhood = await firstCard.locator(".pcard-location").innerText();
   const actionButtons = firstCard.locator(".pcard-actions .property-action");
   assert.equal(
@@ -215,6 +240,7 @@ try {
   );
   const nativeShare = await page.evaluate(() => window.__propertyActionCalls.shares[0]);
   assert.equal(nativeShare.title, await firstCard.locator(".pcard-title").innerText(), "share payload title must match the selected property");
+  assert.ok(nativeShare.text.includes(nativeShare.title), "native share text must describe the selected property");
   assert.ok(nativeShare.url.endsWith(firstPropertyPath), "native share payload must link to the selected property's actual detail route");
   await page.evaluate(() => { window.__propertyActionCalls.allowNativeShare = false; });
   await actionButtons.nth(1).click();
@@ -237,6 +263,10 @@ try {
   assert.ok(Array.isArray(shareCardPayload.files) && shareCardPayload.files.length === 1, "intro-card action must generate a shareable file");
   assert.equal(shareCardPayload.files[0].type, "image/png", "intro-card output must be a PNG image");
   assert.ok(shareCardPayload.files[0].size > 100, "intro-card output must contain actual image bytes");
+  assert.equal(shareCardPayload.files[0].name, "hirmand-property-card.png", "intro-card output must use the intended downloadable filename");
+  assert.deepEqual(shareCardPayload.files[0].signature, [137, 80, 78, 71, 13, 10, 26, 10], "intro-card bytes must have a valid PNG signature");
+  assert.ok(shareCardPayload.files[0].width >= 600 && shareCardPayload.files[0].height >= 300, "intro-card PNG must have usable dimensions");
+  assert.ok(shareCardPayload.files[0].inkPixels > 100, "intro-card PNG must contain rendered artwork/text, not a blank image");
 
   await actionButtons.nth(3).click();
   const qrDialog = page.locator(".property-qr-dialog[role='dialog']");
@@ -250,9 +280,10 @@ try {
   const qrDownload = qrDialog.locator("a[href*='api.qrserver.com']");
   assert.equal(await qrDownload.count(), 1, "QR dialog should provide a high-resolution QR download");
   assert.equal(new URL(await qrDownload.getAttribute("href")).searchParams.get("data"), qrImageUrl.searchParams.get("data"), "QR download and preview must encode the same property URL");
+  assert.equal(new URL(await qrDownload.getAttribute("href")).searchParams.get("size"), "1200x1200", "QR download must request the high-resolution output");
   assert.equal(await page.locator(".property-qr-target").innerText(), qrImageUrl.searchParams.get("data"), "QR dialog must show the exact URL encoded in the QR image");
   assert.ok(qrImageUrl.searchParams.get("data").endsWith(firstPropertyPath), "QR payload must target the fixture property's real detail route");
-  await page.waitForFunction((image) => image.complete && image.naturalWidth > 0, await qrImage.elementHandle(), { timeout: timeoutMs });
+  await page.waitForFunction((image) => image.complete && image.naturalWidth >= 360 && image.naturalHeight >= 360, await qrImage.elementHandle(), { timeout: timeoutMs });
   await page.locator(".property-qr-dialog button[aria-label]").first().click();
 
   await actionButtons.nth(4).click();
@@ -272,6 +303,7 @@ try {
   const copiedAdText = await page.evaluate(() => window.__propertyActionCalls.clipboard[1]);
   assert.ok(copiedAdText.includes(nativeShare.title), "copied ad text must contain the property title");
   assert.ok(copiedAdText.includes(firstPropertyNeighborhood.trim()), "copied ad text must contain the property's actual neighborhood");
+  assert.ok(copiedAdText.includes(nativeShare.url), "copied ad text must contain the canonical property detail URL");
 
   await actionButtons.nth(6).click();
   await page.waitForFunction(
@@ -287,14 +319,10 @@ try {
     await compare.elementHandle(),
     { timeout: timeoutMs },
   );
-  assert.equal(
-    await page.evaluate(
-      () =>
-        JSON.parse(localStorage.getItem("hirmand-favorite-properties") || "[]")
-          .length > 0,
-    ),
-    true,
-    "favorite action should persist to localStorage",
+  assert.deepEqual(
+    await page.evaluate(() => JSON.parse(localStorage.getItem("hirmand-favorite-properties") || "[]")),
+    [firstPropertySlug],
+    "favorite action should persist the selected property's slug to localStorage",
   );
   await favorite.click();
   await page.waitForFunction(
@@ -313,14 +341,10 @@ try {
     await favorite.elementHandle(),
     { timeout: timeoutMs },
   );
-  assert.equal(
-    await page.evaluate(
-      () =>
-        JSON.parse(localStorage.getItem("hirmand-compare-properties") || "[]")
-          .length > 0,
-    ),
-    true,
-    "compare action should persist to localStorage",
+  assert.deepEqual(
+    await page.evaluate(() => JSON.parse(localStorage.getItem("hirmand-compare-properties") || "[]")),
+    [firstPropertySlug],
+    "compare action should persist the selected property's slug to localStorage",
   );
   await compare.click();
   await page.waitForFunction(
@@ -339,8 +363,24 @@ try {
     await compare.elementHandle(),
     { timeout: timeoutMs },
   );
+
+  // Verify the actual three-item comparison limit: the handler must reject a
+  // fourth property without changing the stored list or claiming it was added.
+  await page.evaluate(() => localStorage.setItem("hirmand-compare-properties", JSON.stringify(["existing-a", "existing-b", "existing-c"])));
+  await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
+  await page.waitForFunction(() => document.querySelector("article.pcard")?.querySelectorAll(".pcard-actions .property-action").length === 8, null, { timeout: timeoutMs });
+  const compareAtLimit = page.locator("article.pcard").first().locator(".pcard-actions .property-action").nth(7);
+  assert.equal(await compareAtLimit.getAttribute("aria-pressed"), "false", "a property outside a full comparison set must not appear selected");
+  await compareAtLimit.click();
+  await page.waitForTimeout(150);
+  assert.equal(await compareAtLimit.getAttribute("aria-pressed"), "false", "the comparison limit must not mark a fourth property active");
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("hirmand-compare-properties") || "[]")), ["existing-a", "existing-b", "existing-c"], "the comparison limit must preserve the existing three-item list");
+  await page.evaluate((slug) => localStorage.setItem("hirmand-compare-properties", JSON.stringify([slug])), firstPropertySlug);
+  await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
+  await page.waitForFunction(() => document.querySelector("article.pcard")?.querySelectorAll(".pcard-actions .property-action").length === 8, null, { timeout: timeoutMs });
+  await page.waitForFunction(() => document.querySelector("article.pcard .pcard-actions .property-action:nth-child(8)")?.getAttribute("aria-pressed") === "true", null, { timeout: timeoutMs });
   console.log(
-    "[property-card-browser] desktop actions work: favorite add/remove, share with clipboard fallback, intro card, QR, intro sheet, copy, print, compare add/remove",
+    "[property-card-browser] desktop actions work: favorite add/remove, native share and fallback, valid PNG intro card, QR preview/download, intro sheet, ad copy, print, compare add/remove and full-list guard",
   );
 
   // Resizing back to mobile must unmount the whole action subtree; resizing up

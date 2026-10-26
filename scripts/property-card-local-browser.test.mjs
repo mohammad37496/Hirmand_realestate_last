@@ -31,42 +31,59 @@ let serverLog = "";
 
 async function seedDatabase() {
   const db = new PGlite({ dataDir: dbDir });
-  await db.waitReady;
-  await db.exec("create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())");
-  const files = (await readdir(join(root, "migrations"))).filter((name) => name.endsWith(".sql"));
-  const done = (await db.query("select name from _migrations")).rows.map((row) => row.name);
-  for (const migration of pendingMigrations(files, done)) {
-    await db.transaction(async (tx) => {
-      await tx.exec(await readFile(join(root, "migrations", migration.path), "utf8"));
-      await tx.query("insert into _migrations (name) values ($1)", [migration.name]);
-    });
+  try {
+    await db.waitReady;
+    await db.exec("create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())");
+    const files = (await readdir(join(root, "migrations"))).filter((name) => name.endsWith(".sql"));
+    const done = (await db.query("select name from _migrations")).rows.map((row) => row.name);
+    for (const migration of pendingMigrations(files, done)) {
+      await db.transaction(async (tx) => {
+        await tx.exec(await readFile(join(root, "migrations", migration.path), "utf8"));
+        await tx.query("insert into _migrations (name) values ($1)", [migration.name]);
+      });
+    }
+    const fixtures = [
+      ["pcard-fixture-001", "qa-apartment-long-title", "آپارتمان دوخوابه نوساز با نورگیری عالی و دسترسی مناسب در محلهٔ آزمایشی هیرمند", "buy", "apartment", "محلهٔ آزمایشی", 123, 2, 1402, "18500000000"],
+      ["pcard-fixture-002", "qa-rent-villa", "ویلای آزمایشی برای اجاره", "rent", "villa", "محلهٔ دوم", 180, 3, 1400, ""],
+      ["pcard-fixture-003", "qa-office", "دفتر کار آزمایشی", "sell", "office", "محلهٔ سوم", 76, 1, 1398, "7200000000"],
+    ];
+    for (const [id, slug, title, transaction, type, neighborhood, area, bedrooms, year, price] of fixtures) {
+      await db.query(
+        `insert into properties (id, slug, status, title, transaction_type, property_type, neighborhood,
+         area_m2, bedrooms, built_year, price, deposit, rent, description, features, images,
+         contact_name, contact_phone, published_at, created_at, updated_at)
+         values ($1,$2,'published',$3,$4,$5,$6,$7,$8,$9,nullif($10,'')::numeric,null, null,
+         'دادهٔ آزمایشی محلی برای آزمون رابط واقعی کارت ملک.', '[]'::jsonb, '[]'::jsonb,
+         'مشاور آزمایشی','09130000000',now(),now(),now())
+         on conflict (id) do nothing`,
+        [id, slug, title, transaction, type, neighborhood, area, bedrooms, year, price],
+      );
+    }
+    const count = (await db.query("select count(*)::int as count from properties where id like 'pcard-fixture-%' and status='published'")).rows[0]?.count;
+    assert.equal(Number(count), 3, "isolated PGlite database must contain three published property fixtures");
+  } finally {
+    await db.close();
   }
-  const fixtures = [
-    ["pcard-fixture-001", "qa-apartment-long-title", "آپارتمان دوخوابه نوساز با نورگیری عالی و دسترسی مناسب در محلهٔ آزمایشی هیرمند", "buy", "apartment", "محلهٔ آزمایشی", 123, 2, 1402, "18500000000"],
-    ["pcard-fixture-002", "qa-rent-villa", "ویلای آزمایشی برای اجاره", "rent", "villa", "محلهٔ دوم", 180, 3, 1400, ""],
-    ["pcard-fixture-003", "qa-office", "دفتر کار آزمایشی", "sell", "office", "محلهٔ سوم", 76, 1, 1398, "7200000000"],
-  ];
-  for (const [id, slug, title, transaction, type, neighborhood, area, bedrooms, year, price] of fixtures) {
-    await db.query(
-      `insert into properties (id, slug, status, title, transaction_type, property_type, neighborhood,
-       area_m2, bedrooms, built_year, price, deposit, rent, description, features, images,
-       contact_name, contact_phone, published_at, created_at, updated_at)
-       values ($1,$2,'published',$3,$4,$5,$6,$7,$8,$9,nullif($10,'')::numeric,null, null,
-       'دادهٔ آزمایشی محلی برای آزمون رابط واقعی کارت ملک.', '[]'::jsonb, '[]'::jsonb,
-       'مشاور آزمایشی','09130000000',now(),now(),now())
-       on conflict (id) do nothing`,
-      [id, slug, title, transaction, type, neighborhood, area, bedrooms, year, price],
-    );
-  }
-  const count = (await db.query("select count(*)::int as count from properties where id like 'pcard-fixture-%' and status='published'")).rows[0]?.count;
-  assert.equal(Number(count), 3, "isolated PGlite database must contain three published property fixtures");
-  await db.close();
 }
 
 function startServer() {
+  // The application prefers DATABASE_URL over PGLITE_DATA_DIR. Remove every
+  // supported PostgreSQL connection variable so QA cannot connect to or
+  // mutate a developer/deployment database by inheriting the shell environment.
+  const isolatedEnv = { ...process.env };
+  for (const key of [
+    "DATABASE_URL",
+    "DATABASE_URL_UNPOOLED",
+    "POSTGRES_URL",
+    "POSTGRES_URL_NON_POOLING",
+    "POSTGRES_PRISMA_URL",
+    "NEON_DATABASE_URL",
+  ]) {
+    delete isolatedEnv[key];
+  }
   server = spawn(process.execPath, [join(root, "scripts/with-app-env.mjs"), "vite", "dev", "--host", "127.0.0.1", "--port", String(port)], {
     cwd: root,
-    env: { ...process.env, PGLITE_DATA_DIR: dbDir, NODE_ENV: "development", CI: "" },
+    env: { ...isolatedEnv, PGLITE_DATA_DIR: dbDir, NODE_ENV: "development", CI: "" },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
