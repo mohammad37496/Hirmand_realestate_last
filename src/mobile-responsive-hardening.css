@@ -4809,3 +4809,34 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   stroke: currentColor !important;
   pointer-events: none !important;
 }
+
+/* Compact property-card action rail on phones: keep all eight tools visible
+   while reducing the amount of card height they consume. */
+@media (max-width: 640px) {
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions {
+    padding: 6px 8px 7px !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions,
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions-compact,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions-compact {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action {
+    height: 38px !important;
+    min-height: 38px !important;
+    border-radius: 9px !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action svg,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action svg {
+    width: 15px !important;
+    height: 15px !important;
+    flex-basis: 15px !important;
+  }
+}
