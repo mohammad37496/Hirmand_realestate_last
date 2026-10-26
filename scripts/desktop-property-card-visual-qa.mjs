@@ -5,7 +5,7 @@ import { chromium } from "playwright";
 
 const baseUrl = process.env.PROPERTY_CARD_VISUAL_BASE_URL || "https://hirmandrealestate.ir/properties";
 const timeoutMs = Number(process.env.PROPERTY_CARD_BROWSER_TIMEOUT_MS || 30_000);
-const screenshotDir = "screenshots/mission-card-visual-check-20261026";
+const screenshotDir = process.env.PROPERTY_CARD_VISUAL_SCREENSHOT_DIR || "screenshots/mission-card-visual-check-20261026";
 const builtAssets = await readdir(new URL("../.output/public/assets/", import.meta.url));
 const builtCssName = builtAssets.find((name) => /^properties-mobile-reference-.*\.css$/.test(name));
 assert.ok(builtCssName, "run the production build before desktop visual QA so the browser tests the compiled stylesheet");
@@ -42,9 +42,15 @@ try {
     await page.waitForFunction(() => !document.querySelector(".pf-grid")?.classList.contains("is-list-view"), null, { timeout: timeoutMs });
   }
 
-  const desktopWidths = [1024, 1280, 1440, 1920];
+  const desktopWidths = [768, 1024, 1199, 1200, 1280, 1440, 1920];
   for (const width of desktopWidths) {
     await page.setViewportSize({ width, height: 1000 });
+    await page.waitForFunction(() => {
+      const cardsNow = [...document.querySelectorAll("article.pcard")];
+      return cardsNow.length > 0 && cardsNow.every((card) =>
+        card.querySelectorAll(":scope > .pcard-footer > .pcard-actions .property-action").length === 8,
+      );
+    }, null, { timeout: timeoutMs });
     for (let index = 0; index < await cards.count(); index += 1) {
       const card = cards.nth(index);
       await card.scrollIntoViewIfNeeded();
@@ -82,6 +88,7 @@ try {
       assert.ok(item.title, `card ${index + 1} must have a title at ${width}px`);
       assert.ok(item.image?.loaded && item.image.naturalWidth > 0, `card ${index + 1} must display a loaded property image at ${width}px`);
       assert.ok(item.footer?.height > 0 && item.rail?.height > 0, `card ${index + 1} footer and action rail must be visible at ${width}px`);
+      assert.ok(item.footer.top >= item.image.rect.bottom - 1, `card ${index + 1} footer must remain below the property photo at ${width}px`);
       assert.equal(item.buttons.length, 8, `card ${index + 1} must have all eight actions at ${width}px`);
       assert.ok(item.scrollWidth <= item.clientWidth + 1, `card ${index + 1} must not have horizontal overflow at ${width}px`);
       for (const button of item.buttons) {

@@ -5,14 +5,18 @@ import { chromium } from "playwright";
 
 const baseUrl =
   process.env.PROPERTY_CARD_BROWSER_BASE_URL || "https://hirmandrealestate.ir";
+const isLocalApp = ["localhost", "127.0.0.1"].includes(new URL(baseUrl).hostname);
 const timeoutMs = Number(
   process.env.PROPERTY_CARD_BROWSER_TIMEOUT_MS || 30_000,
 );
-const builtAssets = await readdir(new URL("../.output/public/assets/", import.meta.url));
-const builtCssName = builtAssets.find((name) => /^properties-mobile-reference-.*\.css$/.test(name));
-assert.ok(builtCssName, "run the production build before browser QA so the test uses the current compiled card stylesheet");
-const compiledCardCss = await readFile(new URL(`../.output/public/assets/${builtCssName}`, import.meta.url), "utf8");
-console.log(`[property-card-browser] app=${baseUrl}; card CSS=local production build; app/data source=${new URL(baseUrl).origin}`);
+let compiledCardCss;
+if (!isLocalApp) {
+  const builtAssets = await readdir(new URL("../.output/public/assets/", import.meta.url));
+  const builtCssName = builtAssets.find((name) => /^properties-mobile-reference-.*\.css$/.test(name));
+  assert.ok(builtCssName, "run the production build before remote-site CSS QA");
+  compiledCardCss = await readFile(new URL(`../.output/public/assets/${builtCssName}`, import.meta.url), "utf8");
+}
+console.log(`[property-card-browser] app=${baseUrl}; app/data=${isLocalApp ? "local Vite app + isolated PGlite fixture" : new URL(baseUrl).origin}; card CSS=${isLocalApp ? "served by local app" : "local production build injected into live app"}`);
 
 let browser;
 const pageErrors = [];
@@ -58,7 +62,12 @@ try {
     Object.defineProperty(navigator, "share", {
       configurable: true,
       get: () => window.__propertyActionCalls.allowNativeShare ? async (payload) => {
-        window.__propertyActionCalls.shares.push(payload);
+        window.__propertyActionCalls.shares.push({
+          title: payload.title,
+          text: payload.text,
+          url: payload.url,
+          files: payload.files?.map((file) => ({ name: file.name, type: file.type, size: file.size })),
+        });
       } : undefined,
     });
     Object.defineProperty(navigator, "canShare", {
@@ -80,9 +89,11 @@ try {
 
   const page = await context.newPage();
   page.on("pageerror", (error) => pageErrors.push(error.message));
-  await page.route("**/assets/properties-mobile-reference-*.css", async (route) => {
-    await route.fulfill({ status: 200, contentType: "text/css; charset=utf-8", body: compiledCardCss });
-  });
+  if (!isLocalApp) {
+    await page.route("**/assets/properties-mobile-reference-*.css", async (route) => {
+      await route.fulfill({ status: 200, contentType: "text/css; charset=utf-8", body: compiledCardCss });
+    });
+  }
   page.on("console", (message) => {
     if (
       message.type() === "error" &&
@@ -104,9 +115,16 @@ try {
   // The listing defaults to list mode on narrow screens, where the eight
   // operations intentionally live in each card footer. Switch to grid mode
   // before asserting the mobile grid contract (no action subtree).
-  await page.locator(".pf-views button").nth(1).click();
   await page.waitForFunction(
-    () => !document.querySelector(".pf-grid")?.classList.contains("is-list-view"),
+    () => document.querySelector(".pf-grid")?.classList.contains("is-list-view") === true,
+    null,
+    { timeout: timeoutMs },
+  );
+  const mobileGridToggle = page.locator(".pf-views button").nth(1);
+  await mobileGridToggle.click();
+  await page.waitForFunction(
+    () => document.querySelector(".pf-grid")?.classList.contains("is-list-view") === false &&
+      document.querySelectorAll(".pf-views button")[1]?.getAttribute("aria-pressed") === "true",
     null,
     { timeout: timeoutMs },
   );
@@ -158,6 +176,8 @@ try {
   );
 
   const firstCard = cards.first();
+  const firstPropertyPath = new URL(await firstCard.locator(".pcard-link").getAttribute("href"), baseUrl).pathname;
+  const firstPropertyNeighborhood = await firstCard.locator(".pcard-location").innerText();
   const actionButtons = firstCard.locator(".pcard-actions .property-action");
   assert.equal(
     await actionButtons.count(),
@@ -170,6 +190,10 @@ try {
       `desktop action ${index + 1} should have an accessible name`,
     );
   }
+  await actionButtons.nth(0).focus();
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), await actionButtons.nth(0).getAttribute("aria-label"), "keyboard focus must reach the first action in the footer");
+  await page.keyboard.press("Tab");
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), await actionButtons.nth(1).getAttribute("aria-label"), "Tab order must follow the visual action order without jumping into the property link");
   console.log(
     `[property-card-browser] desktop 1280px: all ${await cards.count()} cards expose eight named actions`,
   );
@@ -189,6 +213,9 @@ try {
     null,
     { timeout: timeoutMs },
   );
+  const nativeShare = await page.evaluate(() => window.__propertyActionCalls.shares[0]);
+  assert.equal(nativeShare.title, await firstCard.locator(".pcard-title").innerText(), "share payload title must match the selected property");
+  assert.ok(nativeShare.url.endsWith(firstPropertyPath), "native share payload must link to the selected property's actual detail route");
   await page.evaluate(() => { window.__propertyActionCalls.allowNativeShare = false; });
   await actionButtons.nth(1).click();
   await page.waitForFunction(
@@ -196,6 +223,7 @@ try {
     null,
     { timeout: timeoutMs },
   );
+  assert.equal(await page.evaluate(() => window.__propertyActionCalls.clipboard[0]), nativeShare.url, "share fallback must copy the exact property URL");
   await page.evaluate(() => { window.__propertyActionCalls.allowNativeShare = true; });
 
   await actionButtons.nth(2).click();
@@ -204,6 +232,11 @@ try {
     null,
     { timeout: timeoutMs },
   );
+  const shareCardPayload = await page.evaluate(() => window.__propertyActionCalls.shares[1]);
+  assert.equal(shareCardPayload.title, nativeShare.title, "intro-card share title must match the property");
+  assert.ok(Array.isArray(shareCardPayload.files) && shareCardPayload.files.length === 1, "intro-card action must generate a shareable file");
+  assert.equal(shareCardPayload.files[0].type, "image/png", "intro-card output must be a PNG image");
+  assert.ok(shareCardPayload.files[0].size > 100, "intro-card output must contain actual image bytes");
 
   await actionButtons.nth(3).click();
   const qrDialog = page.locator(".property-qr-dialog[role='dialog']");
@@ -217,6 +250,8 @@ try {
   const qrDownload = qrDialog.locator("a[href*='api.qrserver.com']");
   assert.equal(await qrDownload.count(), 1, "QR dialog should provide a high-resolution QR download");
   assert.equal(new URL(await qrDownload.getAttribute("href")).searchParams.get("data"), qrImageUrl.searchParams.get("data"), "QR download and preview must encode the same property URL");
+  assert.equal(await page.locator(".property-qr-target").innerText(), qrImageUrl.searchParams.get("data"), "QR dialog must show the exact URL encoded in the QR image");
+  assert.ok(qrImageUrl.searchParams.get("data").endsWith(firstPropertyPath), "QR payload must target the fixture property's real detail route");
   await page.waitForFunction((image) => image.complete && image.naturalWidth > 0, await qrImage.elementHandle(), { timeout: timeoutMs });
   await page.locator(".property-qr-dialog button[aria-label]").first().click();
 
@@ -224,6 +259,8 @@ try {
   await page
     .locator(".property-brief-dialog[role='dialog']")
     .waitFor({ state: "visible", timeout: timeoutMs });
+  assert.equal(await page.locator(".property-brief-dialog h2").innerText(), nativeShare.title, "intro sheet must display the selected property's actual title");
+  assert.ok(await page.locator(".property-brief-dialog .property-brief-price").innerText(), "intro sheet must render a price summary");
   await page.locator(".property-brief-dialog .property-brief-close").click();
 
   await actionButtons.nth(5).click();
@@ -232,6 +269,9 @@ try {
     null,
     { timeout: timeoutMs },
   );
+  const copiedAdText = await page.evaluate(() => window.__propertyActionCalls.clipboard[1]);
+  assert.ok(copiedAdText.includes(nativeShare.title), "copied ad text must contain the property title");
+  assert.ok(copiedAdText.includes(firstPropertyNeighborhood.trim()), "copied ad text must contain the property's actual neighborhood");
 
   await actionButtons.nth(6).click();
   await page.waitForFunction(
@@ -523,6 +563,17 @@ try {
   console.log(
     `[property-card-browser] /properties route: ${await listingCards.count()} cards obey mobile removal and desktop eight-action contract`,
   );
+
+  const detailCard = page.locator("article.pcard").first();
+  const detailTitle = await detailCard.locator(".pcard-title").innerText();
+  const detailHref = await detailCard.locator(".pcard-details-link").getAttribute("href");
+  assert.ok(detailHref?.startsWith("/properties/"), "details link must point to the real property detail route");
+  await detailCard.locator(".pcard-details-link").click();
+  await page.waitForURL((url) => url.pathname === new URL(detailHref, baseUrl).pathname, { timeout: timeoutMs });
+  const detailPage = page.locator(".property-detail-page");
+  await detailPage.waitFor({ state: "visible", timeout: timeoutMs });
+  assert.ok((await detailPage.innerText()).includes(detailTitle), "details page must render the selected property's actual title");
+  console.log("[property-card-browser] details link opens the matching local property record and renders its title");
 
   assert.deepEqual(
     pageErrors,

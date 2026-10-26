@@ -799,6 +799,6 @@ testRunner.test("desktop Hirmand card polish keeps the footer action rail bounde
     "narrow desktop cards must wrap eight actions into a four-column rail instead of overflowing");
   assert.match(desktopCardPolish, /\.pf-grid\.is-list-view\s*>\s*\.pcard\s*>\s*\.pcard-footer-with-actions[\s\S]*?\.pcard-actions-footer\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s,
     "list-view actions must remain in a separate footer row");
-  assert.match(packageJson, /"test:property-card-visual":\s*"node scripts\/desktop-property-card-visual-qa\.mjs"/,
-    "the real-data desktop visual QA must be repeatable through an npm script");
+  assert.match(packageJson, /"test:property-card-visual":\s*"node scripts\/property-card-local-browser\.test\.mjs visual"/,
+    "the desktop visual QA must be repeatable against the local app and isolated property fixtures through an npm script");
 });
