@@ -251,6 +251,179 @@
   .pf-page .pf-grid.is-list-view > .pcard * { transition-duration: .01ms !important; }
 }
 
+/* Match the compact, scan-friendly mobile experience on the home page too.
+   The directory already uses horizontal list cards; featured home listings
+   should keep the same image/details rhythm instead of switching to tall cards. */
+@media (max-width: 640px) {
+  body:has(.site-home) .site-home .hero {
+    min-height: 0 !important;
+    padding: 22px 14px 20px !important;
+  }
+
+  body:has(.site-home) .site-home .hero-inner {
+    width: 100% !important;
+    max-width: 560px !important;
+    padding-inline: 0 !important;
+  }
+
+  body:has(.site-home) .site-home .hero h1 {
+    max-width: 18ch !important;
+    margin-inline: auto !important;
+    font-size: clamp(1.35rem, 5vw, 1.8rem) !important;
+    line-height: 1.65 !important;
+  }
+
+  body:has(.site-home) .site-home .hero-search {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    margin-top: 16px !important;
+    padding: 10px !important;
+    border-radius: 14px !important;
+  }
+
+  body:has(.site-home) .site-home .hero-search select {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 42px !important;
+    font-size: .76rem !important;
+  }
+
+  body:has(.site-home) .site-home .hero-search .search-submit {
+    grid-column: 1 / -1 !important;
+    min-height: 44px !important;
+  }
+
+  body:has(.site-home) .site-home .hero-search-hint { font-size: .72rem !important; }
+  body:has(.site-home) .site-home .hero-actions { gap: 8px !important; }
+  body:has(.site-home) .site-home .hero-actions > a { min-height: 42px !important; padding-inline: 10px !important; }
+
+  body:has(.property-showcase) .site-home .property-showcase {
+    width: calc(100% - 20px) !important;
+    max-width: 560px !important;
+    margin: 22px auto 0 !important;
+    padding: 14px 10px !important;
+    border-radius: 16px !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .property-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .property-grid > .pcard {
+    display: grid !important;
+    grid-template-columns: 112px minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid #e0e5e9 !important;
+    border-radius: 12px !important;
+    background: #fff !important;
+    box-shadow: 0 3px 12px rgb(11 26 43 / 5%) !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .property-grid > .pcard > .pcard-link {
+    display: grid !important;
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    grid-template-columns: subgrid !important;
+    gap: 0 !important;
+    min-width: 0 !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .pcard-media {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    align-self: stretch !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 126px !important;
+    aspect-ratio: auto !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .pcard-media picture,
+  body:has(.property-showcase) .site-home .property-showcase .pcard-media img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 126px !important;
+    object-fit: cover !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .pcard-body {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    min-width: 0 !important;
+    padding: 9px 8px !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .pcard-title {
+    display: -webkit-box !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    font-size: .75rem !important;
+    line-height: 1.7 !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .pcard-price-row {
+    gap: 2px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .pcard-price,
+  body:has(.property-showcase) .site-home .property-showcase .pcard-price-value {
+    font-size: .72rem !important;
+    line-height: 1.65 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .pcard-specs {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .pcard-specs span {
+    min-height: 22px !important;
+    padding: 3px 5px !important;
+    font-size: .57rem !important;
+  }
+
+  body:has(.property-showcase) .site-home .property-showcase .pcard > .pcard-footer,
+  body:has(.property-showcase) .site-home .property-showcase .pcard > .pcard-footer-with-actions {
+    grid-column: 1 / -1 !important;
+    min-width: 0 !important;
+    padding: 7px 8px !important;
+    border-top: 1px solid #edf0f2 !important;
+    background: #fafbfc !important;
+  }
+}
+
+@media (max-width: 380px) {
+  body:has(.property-showcase) .site-home .property-showcase .property-grid > .pcard {
+    grid-template-columns: 100px minmax(0, 1fr) !important;
+  }
+  body:has(.property-showcase) .site-home .property-showcase .pcard-body { padding: 8px 7px !important; }
+  body:has(.property-showcase) .site-home .property-showcase .pcard-title { font-size: .7rem !important; }
+}
+
 /* Final mobile reference contract. The shared hardening sheet contains older,
    deliberately high-specificity stacked-card rules; this scoped override keeps
    the reference's horizontal photo/details card while preserving a separate
