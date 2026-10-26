@@ -12,6 +12,7 @@ const builtAssets = await readdir(new URL("../.output/public/assets/", import.me
 const builtCssName = builtAssets.find((name) => /^properties-mobile-reference-.*\.css$/.test(name));
 assert.ok(builtCssName, "run the production build before browser QA so the test uses the current compiled card stylesheet");
 const compiledCardCss = await readFile(new URL(`../.output/public/assets/${builtCssName}`, import.meta.url), "utf8");
+console.log(`[property-card-browser] app=${baseUrl}; card CSS=local production build; app/data source=${new URL(baseUrl).origin}`);
 
 let browser;
 const pageErrors = [];
@@ -205,9 +206,18 @@ try {
   );
 
   await actionButtons.nth(3).click();
-  await page
-    .locator(".property-qr-dialog[role='dialog']")
-    .waitFor({ state: "visible", timeout: timeoutMs });
+  const qrDialog = page.locator(".property-qr-dialog[role='dialog']");
+  await qrDialog.waitFor({ state: "visible", timeout: timeoutMs });
+  const qrImage = qrDialog.locator("img");
+  await qrImage.waitFor({ state: "visible", timeout: timeoutMs });
+  const qrImageUrl = new URL(await qrImage.getAttribute("src"));
+  assert.equal(qrImageUrl.origin, "https://api.qrserver.com", "QR image should use the configured QR generation service");
+  assert.equal(qrImageUrl.pathname, "/v1/create-qr-code/", "QR image should use the QR generation endpoint");
+  assert.match(qrImageUrl.searchParams.get("data") || "", /^https?:\/\//, "QR code payload must encode an absolute property URL");
+  const qrDownload = qrDialog.locator("a[href*='api.qrserver.com']");
+  assert.equal(await qrDownload.count(), 1, "QR dialog should provide a high-resolution QR download");
+  assert.equal(new URL(await qrDownload.getAttribute("href")).searchParams.get("data"), qrImageUrl.searchParams.get("data"), "QR download and preview must encode the same property URL");
+  await page.waitForFunction((image) => image.complete && image.naturalWidth > 0, await qrImage.elementHandle(), { timeout: timeoutMs });
   await page.locator(".property-qr-dialog button[aria-label]").first().click();
 
   await actionButtons.nth(4).click();
