@@ -85,6 +85,16 @@ testRunner.test("property marketplace mobile cards keep full-width image ratios 
   assert.match(mobilePass, /\.pf-page\s+\.pf-more\s+\.btn-ghost\s*\{[^}]*min-height:\s*44px;/s);
 });
 
+testRunner.test("mobile listing cards keep all property actions in one horizontally scrollable touch rail", () => {
+  const finalMobileCardRules = propertiesMobileReferenceCss.slice(
+    propertiesMobileReferenceCss.lastIndexOf("/* Keep the mobile directory scan-friendly"),
+  );
+  assert.match(finalMobileCardRules, /grid-template-rows:\s*minmax\(138px,\s*auto\)\s+auto/);
+  assert.match(finalMobileCardRules, /\.pcard-actions-footer\s*\{[^}]*overflow-x:\s*auto/s);
+  assert.match(finalMobileCardRules, /\.property-actions(?:-compact)?\s*\{[^}]*flex-wrap:\s*nowrap[^}]*width:\s*max-content/s);
+  assert.match(finalMobileCardRules, /\.property-action\s*\{[^}]*min-height:\s*44px/);
+});
+
 testRunner.test("property marketplace mobile controls retain working search, filter, sort and view handlers", () => {
   assert.match(propertiesRoute, /value=\{q\}\s+onChange=\{\(e\) => setQ\(e\.target\.value\)\}/s,
     "search must remain bound to the existing query state");
