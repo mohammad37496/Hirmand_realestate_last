@@ -42,6 +42,7 @@ const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirm
 const propertyQuestionLogSource = fs.readFileSync(new URL("../src/components/hirmand/property-question-log.tsx", import.meta.url), "utf8");
 const propertyShowcaseSource = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertiesDataSource = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
+const packageJson = fs.readFileSync(new URL("../package.json", import.meta.url), "utf8");
 
 testRunner.test("property marketplace mobile refinement stays scoped and below tablet widths", () => {
   const marker = "/* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */";
@@ -782,4 +783,22 @@ testRunner.test("property introduction dialogs are styled on listing pages and r
     "the dialog close button must have a touch-friendly hit area");
   assert.match(propertyCardCss, /@media print[\s\S]*?body:has\(\.property-brief-dialog\) \.property-brief-dialog,\s*body:has\(\.property-brief-dialog\) \.property-brief-dialog \*/,
     "printing a property introduction must isolate the brief from the listing page");
+});
+
+testRunner.test("desktop Hirmand card polish keeps the footer action rail bounded", () => {
+  const desktopCardPolish = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Desktop property cards: a deliberate information hierarchy"));
+  assert.match(desktopCardPolish, /@media\s*\(min-width:\s*768px\)/,
+    "desktop card refinements must be isolated from mobile and tablet rules");
+  assert.match(desktopCardPolish, /\.pf-grid:not\(\.is-list-view\)\s*>\s*\.pcard\s*>\s*\.pcard-footer\s*>\s*\.pcard-actions,[\s\S]*?\{[^}]*position:\s*static;[^}]*grid-column:\s*1\s*\/\s*-1;/s,
+    "grid-view actions must occupy their own footer row rather than overlay the property photo");
+  assert.match(desktopCardPolish, /\.pcard-footer \.property-action\s*\{[^}]*flex:\s*0\s+0\s+30px;[^}]*height:\s*32px;/s,
+    "desktop grid actions must use coordinated, bounded button dimensions");
+  assert.match(desktopCardPolish, /@media\s*\(min-width:\s*1024px\)[\s\S]*?body:has\(\.pf-page\) \.music-player-float:not\(\.music-player-float-empty\)\s*\{[^}]*position:\s*static !important;/s,
+    "the global music dock must leave listing-card footers unobstructed on desktop without changing tablet behavior");
+  assert.match(desktopCardPolish, /@media\s*\(max-width:\s*1199px\)[\s\S]*?grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/,
+    "narrow desktop cards must wrap eight actions into a four-column rail instead of overflowing");
+  assert.match(desktopCardPolish, /\.pf-grid\.is-list-view\s*>\s*\.pcard\s*>\s*\.pcard-footer-with-actions[\s\S]*?\.pcard-actions-footer\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;/s,
+    "list-view actions must remain in a separate footer row");
+  assert.match(packageJson, /"test:property-card-visual":\s*"node scripts\/desktop-property-card-visual-qa\.mjs"/,
+    "the real-data desktop visual QA must be repeatable through an npm script");
 });

@@ -398,6 +398,16 @@ body:has(.pf-page) .property-qr-close {
    action rail in the footer. Keep this scoped to desktop so the carefully
    tuned touch layouts below remain unchanged. */
 @media (min-width: 768px) {
+  /* The global fixed music dock otherwise sits over the first card's footer
+     while browsing listings. Keep it available after the listing in normal
+     flow on desktop so property locations and links remain unobstructed. */
+  @media (min-width: 1024px) {
+    body:has(.pf-page) .music-player-float:not(.music-player-float-empty) {
+      position: static !important;
+      margin: 20px auto 20px 20px;
+    }
+  }
+
   /* List mode uses a landscape image/detail split, but shares the same
      typography, price treatment and footer action rail as the desktop grid. */
   body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-body {
@@ -630,16 +640,17 @@ body:has(.pf-page) .property-qr-close {
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer .property-actions-compact {
     display: flex;
     flex-wrap: nowrap;
-    gap: 6px;
+    gap: 4px;
     width: 100%;
   }
 
   body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-footer .property-action,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer .property-action {
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
-    min-height: 34px;
+    flex: 0 0 30px;
+    width: 30px;
+    min-width: 30px;
+    height: 32px;
+    min-height: 32px;
     border: 1px solid #e1e6e8;
     border-radius: 9px;
     background: #fff;
@@ -654,5 +665,27 @@ body:has(.pf-page) .property-qr-close {
     border-color: #cdb477;
     background: #fbf5e7;
     color: #7b5b20;
+  }
+
+  /* At common laptop widths the filter sidebar leaves narrower cards. Keep
+     all eight actions legible by using two aligned rows instead of squeezing
+     a single row past the card's content box. */
+  @media (max-width: 1199px) {
+    body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-footer .property-actions,
+    body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer .property-actions,
+    body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-footer .property-actions-compact,
+    body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer .property-actions-compact {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-footer .property-action,
+    body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer .property-action {
+      width: 100%;
+      min-width: 0;
+      height: 34px;
+      min-height: 34px;
+    }
   }
 }
