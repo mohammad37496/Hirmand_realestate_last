@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminMobileManagementRouteImport } from './routes/admin-mobile-management'
 import { Route as AreasRouteImport } from './routes/areas'
 import { Route as BudgetMatchRouteImport } from './routes/budget-match'
+import { Route as CardRouteImport } from './routes/card'
 import { Route as CompareRouteImport } from './routes/compare'
 import { Route as ConsultantsRouteImport } from './routes/consultants'
 import { Route as FavoritesRouteImport } from './routes/favorites'
@@ -69,6 +70,11 @@ const AreasRoute = AreasRouteImport.update({
 const BudgetMatchRoute = BudgetMatchRouteImport.update({
   id: '/budget-match',
   path: '/budget-match',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CardRoute = CardRouteImport.update({
+  id: '/card',
+  path: '/card',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CompareRoute = CompareRouteImport.update({
@@ -234,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/admin-mobile-management': typeof AdminMobileManagementRouteWithChildren
   '/areas': typeof AreasRouteWithChildren
   '/budget-match': typeof BudgetMatchRoute
+  '/card': typeof CardRoute
   '/compare': typeof CompareRoute
   '/consultants': typeof ConsultantsRouteWithChildren
   '/favorites': typeof FavoritesRoute
@@ -271,6 +278,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/admin-mobile-management': typeof AdminMobileManagementRouteWithChildren
   '/budget-match': typeof BudgetMatchRoute
+  '/card': typeof CardRoute
   '/compare': typeof CompareRoute
   '/favorites': typeof FavoritesRoute
   '/file-code': typeof FileCodeRoute
@@ -308,6 +316,7 @@ export interface FileRoutesById {
   '/admin-mobile-management': typeof AdminMobileManagementRouteWithChildren
   '/areas': typeof AreasRouteWithChildren
   '/budget-match': typeof BudgetMatchRoute
+  '/card': typeof CardRoute
   '/compare': typeof CompareRoute
   '/consultants': typeof ConsultantsRouteWithChildren
   '/favorites': typeof FavoritesRoute
@@ -348,6 +357,7 @@ export interface FileRouteTypes {
     | '/admin-mobile-management'
     | '/areas'
     | '/budget-match'
+    | '/card'
     | '/compare'
     | '/consultants'
     | '/favorites'
@@ -385,6 +395,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/admin-mobile-management'
     | '/budget-match'
+    | '/card'
     | '/compare'
     | '/favorites'
     | '/file-code'
@@ -421,6 +432,7 @@ export interface FileRouteTypes {
     | '/admin-mobile-management'
     | '/areas'
     | '/budget-match'
+    | '/card'
     | '/compare'
     | '/consultants'
     | '/favorites'
@@ -460,6 +472,7 @@ export interface RootRouteChildren {
   AdminMobileManagementRoute: typeof AdminMobileManagementRouteWithChildren
   AreasRoute: typeof AreasRouteWithChildren
   BudgetMatchRoute: typeof BudgetMatchRoute
+  CardRoute: typeof CardRoute
   CompareRoute: typeof CompareRoute
   ConsultantsRoute: typeof ConsultantsRouteWithChildren
   FavoritesRoute: typeof FavoritesRoute
@@ -514,6 +527,13 @@ declare module '@tanstack/react-router' {
       path: '/areas'
       fullPath: '/areas'
       preLoaderRoute: typeof AreasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/card': {
+      id: '/card'
+      path: '/card'
+      fullPath: '/card'
+      preLoaderRoute: typeof CardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/budget-match': {
@@ -802,6 +822,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminMobileManagementRoute: AdminMobileManagementRouteWithChildren,
   AreasRoute: AreasRouteWithChildren,
   BudgetMatchRoute: BudgetMatchRoute,
+  CardRoute: CardRoute,
   CompareRoute: CompareRoute,
   ConsultantsRoute: ConsultantsRouteWithChildren,
   FavoritesRoute: FavoritesRoute,
