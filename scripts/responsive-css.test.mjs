@@ -662,3 +662,22 @@ testRunner.test("mobile listing action buttons stay above the card link in a ded
   assert.match(stackingFix, /\.pcard-actions \.property-action \{[^}]*pointer-events: auto !important;/s,
     "action buttons must remain clickable instead of being intercepted by the card link");
 });
+
+testRunner.test("final mobile property cards keep full content and all actions in a readable, touch-safe flow", () => {
+  const finalCardContract = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final card contract for phones:"));
+  assert.match(finalCardContract, /@media \(max-width: 620px\)/);
+  assert.match(finalCardContract, /\.pcard-title \{[^}]*display: block !important;[^}]*overflow: visible !important;[^}]*-webkit-line-clamp: unset !important;[^}]*overflow-wrap: anywhere !important;/s,
+    "long Persian property titles should wrap naturally instead of being clipped to two lines");
+  assert.match(finalCardContract, /\.pcard-price-row \{[^}]*min-width: 0 !important;[^}]*max-width: 100% !important;/s,
+    "purchase and rent price rows should stay inside narrow cards");
+  assert.match(finalCardContract, /\.pcard-specs \.pcard-spec \{[^}]*white-space: normal !important;[^}]*overflow-wrap: anywhere !important;/s,
+    "cards with variable numbers of specifications should wrap without horizontal overflow");
+  assert.match(finalCardContract, /\.pcard-actions \{[^}]*position: relative !important;[^}]*grid-row: 2 !important;[^}]*overflow: visible !important;/s,
+    "actions should occupy their own in-flow row after the clickable card content");
+  assert.match(finalCardContract, /\.property-actions-compact \{[^}]*display: grid !important;[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\) !important;/s,
+    "all eight operations should be visible in a balanced two-row grid instead of requiring hidden horizontal scrolling");
+  assert.match(finalCardContract, /\.property-action \{[^}]*height: 44px !important;[^}]*min-height: 44px !important;[^}]*pointer-events: auto !important;/s,
+    "every action should preserve a 44px touch target and remain interactive");
+  assert.match(finalCardContract, /\.property-action:focus-visible \{[^}]*outline: 2px solid #c08a2a !important;/s,
+    "keyboard users should have a visible Hirmand gold focus indicator");
+});
