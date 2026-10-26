@@ -4439,3 +4439,78 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     border-radius: 10px !important;
   }
 }
+
+/* Mobile card layers: keep the listing content and its action rail in normal
+   document flow. The old absolutely-positioned rail covered the last lines
+   of the property details on short/narrow cards. */
+@media (max-width: 640px) {
+  body:has(.pf-page) .pf-page .pf-grid > .pcard,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    align-content: start !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-link,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-link {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-body,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-body {
+    padding-bottom: 8px !important;
+    overflow: visible !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-actions,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    z-index: 1 !important;
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 8px !important;
+    border-top: 1px solid #e8edf2 !important;
+    background: #f8fafc !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-actions .property-actions,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions .property-actions {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 7px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 2px !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-actions .property-actions::-webkit-scrollbar,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-actions .property-actions::-webkit-scrollbar {
+    display: none !important;
+  }
+}
