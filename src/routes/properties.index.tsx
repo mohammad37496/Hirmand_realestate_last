@@ -2057,7 +2057,7 @@ function PropertiesIndexPage() {
                   </div>
                 ) : (
                   <div className={`property-grid pf-grid${viewMode === "list" ? " is-list-view" : ""}`}>
-                    {properties.map((property) => <PropertyCard key={property.id} property={property} />)}
+                    {properties.map((property) => <PropertyCard key={property.id} property={property} listView={viewMode === "list"} />)}
                   </div>
                 )}
 

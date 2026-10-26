@@ -311,11 +311,92 @@ try {
     "public property listing should render cards",
   );
   assert.equal(
-    await page
-      .locator("article.pcard .pcard-actions, article.pcard .property-action")
-      .count(),
+    await listingCards.evaluateAll((items) => items.every((card) => {
+      const footer = card.querySelector(":scope > .pcard-footer-with-actions");
+      return footer?.querySelectorAll(".property-action").length === 8;
+    })),
+    true,
+    "mobile list mode should render all eight operations in each card footer",
+  );
+  await page.locator(".pf-views button").nth(1).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll("article.pcard .pcard-actions, article.pcard .property-action").length === 0,
+    null,
+    { timeout: timeoutMs },
+  );
+  await page.locator(".pf-views button").nth(0).click();
+  const listFooterActions = page.locator(
+    "article.pcard > .pcard-footer-with-actions .property-action",
+  );
+  await listFooterActions.first().waitFor({ state: "visible", timeout: timeoutMs });
+  assert.equal(
+    await listingCards.evaluateAll((items) => items.every((card) => {
+      const footer = card.querySelector(":scope > .pcard-footer-with-actions");
+      return footer?.querySelectorAll(".property-action").length === 8 &&
+        footer.querySelector(".pcard-location") &&
+        footer.querySelector(".pcard-details-link");
+    })),
+    true,
+    "mobile list view should place all eight operations beside location/details in every card footer",
+  );
+  for (const width of [320, 390, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(100);
+    const layout = await listingCards.evaluateAll((items) => items.map((card) => {
+      const footer = card.querySelector(":scope > .pcard-footer-with-actions");
+      const location = footer?.querySelector(".pcard-location");
+      const details = footer?.querySelector(".pcard-details-link");
+      const buttons = [...(footer?.querySelectorAll(".property-action") ?? [])];
+      const rect = (element) => {
+        const value = element.getBoundingClientRect();
+        return { left: value.left, right: value.right, top: value.top, bottom: value.bottom };
+      };
+      return {
+        footer: footer ? rect(footer) : null,
+        location: location ? rect(location) : null,
+        details: details ? rect(details) : null,
+        buttons: buttons.map(rect),
+      };
+    }));
+    assert.equal(layout.length > 0, true, `listing should keep cards at ${width}px`);
+    for (const [index, item] of layout.entries()) {
+      assert.ok(item.footer, `card ${index + 1} should have its own footer at ${width}px`);
+      assert.equal(item.buttons.length, 8, `card ${index + 1} should show eight actions at ${width}px`);
+      for (const button of item.buttons) {
+        assert.ok(button.left >= item.footer.left - 1 && button.right <= item.footer.right + 1,
+          `action should stay within the footer at ${width}px`);
+      }
+      assert.ok(item.location && item.details, `location and details should remain visible at ${width}px`);
+      const overlaps = item.location.left < item.details.right && item.location.right > item.details.left &&
+        item.location.top < item.details.bottom && item.location.bottom > item.details.top;
+      assert.equal(overlaps, false, `location and details must not overlap at ${width}px`);
+    }
+    console.log(`[property-card-browser] list footer ${width}px: eight actions bounded, location/details separated`);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  const footerFavorite = page.locator("article.pcard > .pcard-footer-with-actions .property-action").first();
+  const favoriteBefore = await footerFavorite.getAttribute("aria-pressed");
+  const listingUrlBeforeAction = page.url();
+  await footerFavorite.click();
+  await page.waitForFunction(
+    (previous) => document.querySelector("article.pcard > .pcard-footer-with-actions .property-action")?.getAttribute("aria-pressed") !== previous,
+    favoriteBefore,
+    { timeout: timeoutMs },
+  );
+  assert.notEqual(await footerFavorite.getAttribute("aria-pressed"), favoriteBefore,
+    "footer favorite action should update its pressed state");
+  assert.equal(page.url(), listingUrlBeforeAction,
+    "clicking a footer action must not navigate through the property link");
+  assert.equal(
+    await page.locator("article.pcard > .pcard-link .property-action").count(),
     0,
-    "public listing cards must not render any action controls at 390px",
+    "operation buttons must remain outside the property navigation link",
+  );
+  await page.locator(".pf-views button").nth(1).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll("article.pcard .pcard-actions, article.pcard .property-action").length === 0,
+    null,
+    { timeout: timeoutMs },
   );
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.waitForFunction(

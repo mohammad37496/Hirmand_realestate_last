@@ -220,6 +220,86 @@
   flex-wrap: wrap;
 }
 
+/* In list mode, keep the operation controls in the same footer row as the
+   location/details affordances. The controls are siblings of the card link,
+   so buttons remain valid, independently focusable interactive elements. */
+.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 14px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 18px 14px;
+  border-top: 1px solid #edf0f0;
+  background: #fffefa;
+}
+.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .pcard-location {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .pcard-actions-footer {
+  position: static;
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions,
+.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions-compact {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-action {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border: 1px solid #e1e6e8;
+  border-radius: 9px;
+  background: #fff;
+  color: #425465;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+@media (max-width: 767px) {
+  .pf-page .pf-grid.is-list-view > .pcard {
+    grid-template-columns: minmax(100px, 32%) minmax(0, 1fr) !important;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-link {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    grid-template-columns: minmax(100px, 32%) minmax(0, 1fr) !important;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px 14px 14px;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions,
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions-compact {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+    gap: 6px;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-action {
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    min-height: 40px;
+  }
+}
+
 /* Detail page — one calm system for hero, pricing, sections and sidebar */
 html body:has(main#top.property-detail-page.hd-property-detail-v2) {
   background:

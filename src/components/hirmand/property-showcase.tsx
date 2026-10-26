@@ -118,7 +118,13 @@ function PropertyImage({
     </picture>
   );
 }
-export function PropertyCard({ property }: { property: Property | PropertyCardData }) {
+export function PropertyCard({
+  property,
+  listView = false,
+}: {
+  property: Property | PropertyCardData;
+  listView?: boolean;
+}) {
   const isDesktop = useIsDesktopPropertyCard();
   const image = imageFor(property);
   const transaction = TRANSACTION_LABEL[property.transactionType];
@@ -240,22 +246,32 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
             ) : null}
           </div>
 
-          <div className="pcard-footer">
-            <span className="pcard-location">
-              <MapPinned size={14} /> {property.neighborhood}
-            </span>
-            <span className="pcard-details-link">
-              مشاهده جزئیات <ChevronLeft size={14} />
-            </span>
-          </div>
         </div>
       </Link>
 
-      {isDesktop ? (
-        <div className="pcard-actions" aria-label="عملیات فایل">
-          <PropertyActions property={property} compact />
-        </div>
-      ) : null}
+      <div className={`pcard-footer${listView ? " pcard-footer-with-actions" : ""}`}>
+        <span className="pcard-location">
+          <MapPinned size={14} /> {property.neighborhood}
+        </span>
+        <Link
+          to="/properties/$slug"
+          params={{ slug: property.slug.trim() || property.id }}
+          className="pcard-details-link"
+          data-property-link="true"
+          data-property-id={property.id}
+        >
+          مشاهده جزئیات <ChevronLeft size={14} />
+        </Link>
+        {listView ? (
+          <div className="pcard-actions pcard-actions-footer" aria-label="عملیات فایل">
+            <PropertyActions property={property} compact />
+          </div>
+        ) : isDesktop ? (
+          <div className="pcard-actions" aria-label="عملیات فایل">
+            <PropertyActions property={property} compact />
+          </div>
+        ) : null}
+      </div>
     </article>
   );
 }

@@ -697,8 +697,10 @@ testRunner.test("final compact cards anchor the action rail to the bottom on lis
 testRunner.test("property card operations are absent from mobile DOM and remain available on desktop", () => {
   assert.match(propertyShowcaseSource, /function useIsDesktopPropertyCard\(\)[\s\S]*?window\.matchMedia\("\(min-width: 768px\)"\)[\s\S]*?media\.addEventListener\("change", update\)[\s\S]*?media\.removeEventListener\("change", update\)/,
     "the operation rail must respond to viewport changes and clean up its listener");
-  assert.match(propertyShowcaseSource, /const isDesktop = useIsDesktopPropertyCard\(\)[\s\S]*?\{isDesktop \? \([\s\S]*?<div className="pcard-actions" aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?\) : null\}/,
-    "the action component must only be rendered for desktop widths, so mobile does not retain hidden buttons in the DOM");
+  assert.match(propertyShowcaseSource, /\{listView \? \([\s\S]*?<div className="pcard-actions pcard-actions-footer" aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?\) : isDesktop \? \([\s\S]*?<div className="pcard-actions" aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?\) : null\}/,
+    "list mode should place actions in the footer, while grid mode only mounts the action rail on desktop");
+  assert.match(propertyShowcaseSource, /pcard-footer\$\{listView \? " pcard-footer-with-actions" : ""\}/,
+    "the list-mode footer must have a dedicated layout hook");
   assert.doesNotMatch(propertyShowcaseSource, /className="pcard-actions"[^\n]*style=|pcard-actions[^\n]*display:\s*none/,
     "mobile removal must be handled by rendering, not CSS hiding");
 });
@@ -712,8 +714,8 @@ testRunner.test("mobile property card content stays readable without relying on 
     "purchase and rent price rows should stay inside narrow cards");
   assert.match(finalCardContract, /\.pcard-specs \.pcard-spec \{[^}]*white-space: normal !important;[^}]*overflow-wrap: anywhere !important;/s,
     "cards with variable numbers of specifications should wrap without horizontal overflow");
-  assert.match(propertyShowcaseSource, /\{isDesktop \? \([\s\S]*?PropertyActions property=\{property\} compact[\s\S]*?\) : null\}/,
-    "the removed operation rail must not be required for readable mobile property content");
+  assert.match(propertyShowcaseSource, /<div className="pcard-body">[\s\S]*?<\/div>\s*<\/Link>\s*<div className=\{`pcard-footer/,
+    "the footer and its action buttons must sit outside the property link to preserve valid interactive markup");
 });
 
 testRunner.test("the last compact-phone override preserves 44px property action targets", () => {
