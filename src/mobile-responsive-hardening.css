@@ -3984,67 +3984,67 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
    Chaharkhane reference. Keep the photo on the right and all key facts beside
    it so visitors can scan more listings without repeated full-width images. */
 @media (max-width: 640px) {
-  .pf-page .pf-grid:not(.is-list-view) {
+  .pf-page .pf-grid {
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 10px !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard {
     grid-template-columns: minmax(0, 1fr) !important;
     border-radius: 13px !important;
     box-shadow: 0 2px 9px rgb(16 38 59 / 5%) !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-link {
-    grid-template-columns: minmax(112px, 35%) minmax(0, 1fr) !important;
-    grid-template-rows: minmax(154px, auto) !important;
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-link {
+    grid-template-columns: minmax(96px, 32%) minmax(0, 1fr) !important;
+    grid-template-rows: minmax(128px, auto) !important;
     grid-row: 1 !important;
     direction: rtl !important;
     align-items: stretch !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-media {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-media {
     grid-column: 1 !important;
     grid-row: 1 !important;
     height: 100% !important;
-    min-height: 154px !important;
+    min-height: 128px !important;
     aspect-ratio: auto !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-media img {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-media img {
     width: 100% !important;
     height: 100% !important;
-    min-height: 154px !important;
+    min-height: 128px !important;
     aspect-ratio: auto !important;
     object-fit: cover !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-body {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-body {
     grid-column: 2 !important;
     grid-row: 1 !important;
     gap: 4px !important;
     min-width: 0 !important;
-    padding: 8px 9px !important;
+    padding: 7px 8px 50px !important;
     overflow: hidden !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-topline {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-topline {
     gap: 4px !important;
     align-items: flex-start !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-meta {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-meta {
     gap: 3px 5px !important;
     font-size: .62rem !important;
     line-height: 1.5 !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-meta span,
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-code {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-meta span,
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-code {
     font-size: .58rem !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-title {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-title {
     min-height: 0 !important;
     margin: 0 !important;
     font-size: .78rem !important;
@@ -4055,7 +4055,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     overflow: hidden !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-price-row {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-price-row {
     gap: 1px !important;
     padding: 3px 0 0 !important;
     border: 0 !important;
@@ -4063,29 +4063,29 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     background: transparent !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-price {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-price {
     font-size: .83rem !important;
     line-height: 1.65 !important;
     overflow-wrap: anywhere !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-price-line {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-price-line {
     flex-wrap: wrap !important;
     gap: 2px 5px !important;
     font-size: .72rem !important;
     line-height: 1.6 !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-price-value {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-price-value {
     font-size: .76rem !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-unit-price {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-unit-price {
     font-size: .6rem !important;
     line-height: 1.5 !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-specs {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-specs {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 3px !important;
@@ -4095,7 +4095,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     background: transparent !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-specs span {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-specs span {
     min-height: 23px !important;
     gap: 3px !important;
     padding: 3px 5px !important;
@@ -4106,13 +4106,13 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     font-size: .61rem !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-specs span svg {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-specs span svg {
     width: 11px !important;
     height: 11px !important;
     flex-basis: 11px !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-footer {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-footer {
     gap: 5px !important;
     margin-top: auto !important;
     padding-top: 4px !important;
@@ -4121,37 +4121,42 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     line-height: 1.6 !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-location {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-location {
     max-width: 62% !important;
     gap: 3px !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-details-link {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-details-link {
     gap: 2px !important;
     font-size: .62rem !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-actions {
-    position: static !important;
-    grid-column: 1 !important;
-    grid-row: 2 !important;
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions {
+    position: absolute !important;
+    inset-inline-start: 32% !important;
+    inset-inline-end: 0 !important;
+    bottom: 0 !important;
+    z-index: 2 !important;
+    grid-column: auto !important;
+    grid-row: auto !important;
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    min-height: 42px !important;
-    height: auto !important;
-    padding: 4px 7px !important;
+    min-height: 48px !important;
+    height: 48px !important;
+    padding: 2px 4px !important;
     border-top: 1px solid #edf0f2 !important;
     overflow-x: auto !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-actions .property-actions,
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-actions .property-actions-compact {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-actions,
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-actions-compact {
     flex-direction: row !important;
+    flex-wrap: nowrap !important;
     gap: 5px !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-actions .property-action {
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions .property-action {
     flex: 0 0 44px !important;
     width: 44px !important;
     min-width: 44px !important;
@@ -4161,17 +4166,147 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
 }
 
 @media (max-width: 380px) {
-  .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-link {
-    grid-template-columns: minmax(104px, 34%) minmax(0, 1fr) !important;
-    grid-template-rows: minmax(150px, auto) !important;
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-link {
+    grid-template-columns: minmax(88px, 32%) minmax(0, 1fr) !important;
+    grid-template-rows: minmax(120px, auto) !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-media,
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-media img {
-    min-height: 150px !important;
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-media,
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-media img {
+    min-height: 120px !important;
   }
 
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-body { padding: 7px !important; }
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-title { font-size: .73rem !important; }
-  .pf-page .pf-grid:not(.is-list-view) > .pcard .pcard-price { font-size: .77rem !important; }
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-body { padding: 6px 7px 48px !important; }
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions { inset-inline-start: 32% !important; height: 46px !important; min-height: 46px !important; }
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-title { font-size: .73rem !important; }
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-price { font-size: .77rem !important; }
+}
+
+/* Reuse the compact horizontal card treatment in the home page's live listings.
+   These rules are scoped to the showcase and do not affect desktop cards. */
+@media (max-width: 640px) {
+  .property-showcase .property-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 9px !important;
+  }
+
+  .property-showcase .property-grid > .pcard {
+    position: relative !important;
+    display: block !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    border-radius: 12px !important;
+  }
+
+  .property-showcase .property-grid > .pcard > .pcard-link {
+    display: grid !important;
+    grid-template-columns: minmax(96px, 32%) minmax(0, 1fr) !important;
+    grid-template-rows: minmax(128px, auto) !important;
+    align-items: stretch !important;
+    gap: 0 !important;
+    min-width: 0 !important;
+    direction: rtl !important;
+  }
+
+  .property-showcase .property-grid > .pcard .pcard-media {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 128px !important;
+    aspect-ratio: auto !important;
+  }
+
+  .property-showcase .property-grid > .pcard .pcard-media img,
+  .property-showcase .property-grid > .pcard .pcard-media picture {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 128px !important;
+    object-fit: cover !important;
+  }
+
+  .property-showcase .property-grid > .pcard .pcard-body {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    min-width: 0 !important;
+    gap: 3px !important;
+    padding: 7px 8px 50px !important;
+    overflow: hidden !important;
+  }
+
+  .property-showcase .property-grid > .pcard .pcard-title {
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+    font-size: .73rem !important;
+    line-height: 1.65 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .property-showcase .property-grid > .pcard .pcard-meta,
+  .property-showcase .property-grid > .pcard .pcard-topline { gap: 3px !important; }
+  .property-showcase .property-grid > .pcard .pcard-meta span,
+  .property-showcase .property-grid > .pcard .pcard-code { font-size: .55rem !important; }
+  .property-showcase .property-grid > .pcard .pcard-price-row { gap: 1px !important; min-width: 0 !important; }
+  .property-showcase .property-grid > .pcard .pcard-price,
+  .property-showcase .property-grid > .pcard .pcard-price-value {
+    font-size: .72rem !important;
+    line-height: 1.5 !important;
+    overflow-wrap: anywhere !important;
+  }
+  .property-showcase .property-grid > .pcard .pcard-price-line { flex-wrap: wrap !important; gap: 2px 4px !important; font-size: .6rem !important; }
+  .property-showcase .property-grid > .pcard .pcard-unit-price { font-size: .54rem !important; }
+  .property-showcase .property-grid > .pcard .pcard-specs { gap: 3px !important; flex-wrap: wrap !important; }
+  .property-showcase .property-grid > .pcard .pcard-specs span { min-height: 20px !important; padding: 2px 4px !important; font-size: .55rem !important; }
+  .property-showcase .property-grid > .pcard .pcard-footer { gap: 4px !important; padding-top: 2px !important; font-size: .56rem !important; }
+  .property-showcase .property-grid > .pcard .pcard-details-link { display: none !important; }
+
+  .property-showcase .property-grid > .pcard .pcard-actions {
+    position: absolute !important;
+    inset-inline-start: 32% !important;
+    inset-inline-end: 0 !important;
+    bottom: 0 !important;
+    z-index: 3 !important;
+    display: flex !important;
+    align-items: center !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    padding: 2px 4px !important;
+    overflow-x: auto !important;
+    border-top: 1px solid #edf0f2 !important;
+    background: #fff !important;
+  }
+
+  .property-showcase .property-grid > .pcard .pcard-actions .property-actions,
+  .property-showcase .property-grid > .pcard .pcard-actions .property-actions-compact {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+    width: max-content !important;
+    flex: 0 0 max-content !important;
+  }
+
+  .property-showcase .property-grid > .pcard .pcard-actions .property-action {
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .property-showcase .property-grid > .pcard > .pcard-link {
+    grid-template-columns: minmax(88px, 32%) minmax(0, 1fr) !important;
+    grid-template-rows: minmax(120px, auto) !important;
+  }
+  .property-showcase .property-grid > .pcard .pcard-media,
+  .property-showcase .property-grid > .pcard .pcard-media img,
+  .property-showcase .property-grid > .pcard .pcard-media picture { min-height: 120px !important; }
+  .property-showcase .property-grid > .pcard .pcard-body { padding: 6px 7px 48px !important; }
+  .property-showcase .property-grid > .pcard .pcard-actions { inset-inline-start: 32% !important; height: 46px !important; min-height: 46px !important; }
 }
