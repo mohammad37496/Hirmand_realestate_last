@@ -4,8 +4,12 @@ import { readFile, readdir } from "node:fs/promises";
 import { chromium } from "playwright";
 
 const baseUrl =
-  process.env.PROPERTY_CARD_BROWSER_BASE_URL || "https://hirmandrealestate.ir";
+  process.env.PROPERTY_CARD_BROWSER_BASE_URL || "http://127.0.0.1:8080";
 const isLocalApp = ["localhost", "127.0.0.1"].includes(new URL(baseUrl).hostname);
+assert.ok(
+  isLocalApp,
+  "property-card action QA must target the isolated local app; use npm run test:property-card-browser to start its PGlite fixtures",
+);
 const timeoutMs = Number(
   process.env.PROPERTY_CARD_BROWSER_TIMEOUT_MS || 30_000,
 );

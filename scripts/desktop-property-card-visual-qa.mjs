@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { readFile, readdir, mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 
-const baseUrl = process.env.PROPERTY_CARD_VISUAL_BASE_URL || "https://hirmandrealestate.ir/properties";
+const baseUrl = process.env.PROPERTY_CARD_VISUAL_BASE_URL || "http://127.0.0.1:8080/properties";
+assert.ok(
+  ["localhost", "127.0.0.1", "::1"].includes(new URL(baseUrl).hostname),
+  "visual QA must target the isolated local app; use npm run test:property-card-visual to start its PGlite fixtures",
+);
 const timeoutMs = Number(process.env.PROPERTY_CARD_BROWSER_TIMEOUT_MS || 30_000);
 const screenshotDir = process.env.PROPERTY_CARD_VISUAL_SCREENSHOT_DIR || "screenshots/mission-card-visual-check-20261026";
 const builtAssets = await readdir(new URL("../.output/public/assets/", import.meta.url));
@@ -33,9 +37,8 @@ try {
   await cards.first().waitFor({ state: "visible", timeout: timeoutMs });
   await page.waitForFunction(() => [...document.querySelectorAll("article.pcard img")].some((img) => img.complete && img.naturalWidth > 0), null, { timeout: timeoutMs });
 
-  // The browser keeps the real deployed component, property data and images;
-  // the matching CSS request is fulfilled with this checkout's compiled asset
-  // at its normal position in the stylesheet order.
+  // The browser uses the real local component and controlled PGlite property
+  // fixtures; only the compiled CSS asset is replaced at its normal import slot.
   await page.waitForTimeout(250);
   if (await page.locator(".pf-grid").evaluate((grid) => grid.classList.contains("is-list-view"))) {
     await page.locator(".pf-views button").filter({ hasText: "شبکه‌ای" }).click();
