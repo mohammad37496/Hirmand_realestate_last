@@ -1,4 +1,5 @@
 import { useEffect, useState, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeftRight, FileText, Heart, Image as ImageIcon, Printer, QrCode, Share2, X } from "lucide-react";
 import { toast } from "sonner";
 import type { PropertyCardData } from "@/lib/properties";
@@ -518,7 +519,7 @@ export function PropertyActions({
         {!compact ? <span>{compared ? "در مقایسه" : "مقایسه"}</span> : null}
       </button>
     </div>
-    {briefOpen ? (
+    {briefOpen && typeof document !== "undefined" ? createPortal(
       <div
         className="property-brief-backdrop"
         role="presentation"
@@ -563,10 +564,11 @@ export function PropertyActions({
             </div>
           </div>
         </section>
-      </div>
+      </div>,
+      document.body,
     ) : null}
 
-    {qrOpen ? (
+    {qrOpen && typeof document !== "undefined" ? createPortal(
       <div
         className="property-qr-backdrop"
         role="presentation"
@@ -645,7 +647,8 @@ export function PropertyActions({
             مناسب برای چاپ روی کارت ویزیت، آگهی، شیشه دفتر و ارسال برای مشتری.
           </small>
         </section>
-      </div>
+      </div>,
+      document.body,
     ) : null}
     </>
   );

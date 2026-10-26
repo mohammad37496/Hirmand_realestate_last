@@ -526,6 +526,15 @@ testRunner.test("the final mobile reference card layout overrides legacy stacked
     "the card link must allow the image and details to occupy separate grid columns");
   assert.match(finalContract, /\.pcard > \.pcard-actions\s*\{[\s\S]*?grid-column: 1 \/ -1 !important;[\s\S]*?grid-row: 2 !important;/,
     "card actions must remain in a separate full-width row beneath the content");
+  assert.match(finalContract, /\.property-qr-backdrop,[\s\S]*?\.property-brief-backdrop\s*\{[\s\S]*?z-index: 1000000 !important;/,
+    "QR and property brief dialogs must appear above sticky listing controls");
+  assert.match(finalContract, /\.property-qr-close\s*\{[\s\S]*?min-width: 44px !important;[\s\S]*?min-height: 44px !important;/,
+    "the QR dialog close control must remain touch-accessible on phones");
+  const propertyActions = fs.readFileSync(new URL("../src/components/hirmand/property-actions.tsx", import.meta.url), "utf8");
+  assert.equal((propertyActions.match(/createPortal\(/g) ?? []).length, 2,
+    "QR and property brief dialogs must escape card stacking contexts through a body portal");
+  assert.match(propertyActions, /createPortal\([\s\S]*?document\.body[\s\S]*?createPortal\([\s\S]*?document\.body/,
+    "both listing-card dialogs must render at the document body level");
 });
 
 testRunner.test("responsive browser smoke covers the required viewport matrix", () => {

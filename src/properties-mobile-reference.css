@@ -349,3 +349,20 @@
     grid-template-columns: 102px minmax(0, 1fr) !important;
   }
 }
+
+/* Listing-card dialogs must sit above the sticky header, quick actions and
+   floating dock; otherwise their close controls can be visually present but
+   receive pointer events from the chrome underneath on short phone screens. */
+body .property-qr-backdrop,
+body .property-brief-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000000 !important;
+}
+
+body:has(.pf-page) .property-qr-close {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
