@@ -608,7 +608,10 @@
 .pf-page .pf-grid.is-list-view > .pcard {
   display: grid;
   grid-template-columns: minmax(215px, 29%) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* The first track must retain the photo/content's intrinsic minimum. A
+     zero-minimum 1fr track can collapse under content pressure and let the
+     footer row sit outside the card's clipped box. */
+  grid-template-rows: minmax(228px, auto) auto;
   align-items: stretch;
   overflow: hidden;
 }

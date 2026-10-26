@@ -310,6 +310,20 @@ try {
     true,
     "public property listing should render cards",
   );
+  // Select list mode explicitly: the route can restore a prior view or still
+  // be hydrating when the first card appears, so viewport width alone is not
+  // proof that its list-footer DOM has mounted.
+  await page.locator(".pf-views button").nth(0).click();
+  await page.waitForFunction(
+    () => {
+      const cardsNow = [...document.querySelectorAll(".pf-grid.is-list-view > article.pcard")];
+      return cardsNow.length > 0 && cardsNow.every((card) =>
+        card.querySelector(":scope > .pcard-footer-with-actions")?.querySelectorAll(".property-action").length === 8,
+      );
+    },
+    null,
+    { timeout: timeoutMs },
+  );
   assert.equal(
     await listingCards.evaluateAll((items) => items.every((card) => {
       const footer = card.querySelector(":scope > .pcard-footer-with-actions");
@@ -317,6 +331,22 @@ try {
     })),
     true,
     "mobile list mode should render all eight operations in each card footer",
+  );
+  assert.equal(
+    await listingCards.evaluateAll((items) => items.every((card) => {
+      const footer = card.querySelector(":scope > .pcard-footer-with-actions");
+      if (!footer) return false;
+      const cardBox = card.getBoundingClientRect();
+      const footerBox = footer.getBoundingClientRect();
+      const buttons = [...footer.querySelectorAll(".property-action")];
+      return footerBox.top >= cardBox.top && footerBox.bottom <= cardBox.bottom + 1 &&
+        buttons.every((button) => {
+          const box = button.getBoundingClientRect();
+          return box.width >= 1 && box.height >= 1 && box.top >= footerBox.top && box.bottom <= footerBox.bottom + 1;
+        });
+    })),
+    true,
+    "mobile list footers and all action hit areas must fit inside the card without clipping",
   );
   await page.locator(".pf-views button").nth(1).click();
   await page.waitForFunction(
@@ -367,6 +397,10 @@ try {
           `action should stay within the footer at ${width}px`);
       }
       assert.ok(item.location && item.details, `location and details should remain visible at ${width}px`);
+      assert.ok(item.location.right > item.location.left && item.location.bottom > item.location.top,
+        `location must have a visible box at ${width}px`);
+      assert.ok(item.details.right > item.details.left && item.details.bottom > item.details.top,
+        `details link must have a visible box at ${width}px`);
       const overlaps = item.location.left < item.details.right && item.location.right > item.details.left &&
         item.location.top < item.details.bottom && item.location.bottom > item.details.top;
       assert.equal(overlaps, false, `location and details must not overlap at ${width}px`);

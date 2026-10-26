@@ -215,7 +215,7 @@
   .pf-page .pf-grid.is-list-view > .pcard .pcard-specs span svg { width: 11px !important; height: 11px !important; flex-basis: 11px !important; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-footer { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; margin-top: 0 !important; padding-top: 3px !important; font-size: .59rem !important; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-location { max-width: 100% !important; }
-  .pf-page .pf-grid.is-list-view > .pcard .pcard-details-link { display: none !important; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-details-link { display: inline-flex; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-badges { top: 6px !important; right: 6px !important; gap: 4px !important; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-badge { padding: 3px 5px !important; border-radius: 5px !important; font-size: .54rem !important; }
   .pf-page .pf-grid.is-list-view > .pcard .pcard-arrow { display: none !important; }
@@ -311,6 +311,34 @@
     height: auto !important;
     padding: 9px 8px !important;
     overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 8px 10px !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .pcard-location {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .pcard-details-link {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    gap: 3px !important;
+    overflow-wrap: anywhere !important;
+    white-space: normal !important;
+    font-size: .63rem !important;
+    line-height: 1.6 !important;
   }
 
   body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-actions {

@@ -31,6 +31,7 @@ const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
+const propertiesMobileReferenceCss = fs.readFileSync(new URL("../src/properties-mobile-reference.css", import.meta.url), "utf8");
 const propertyDetailV2Css = fs.readFileSync(new URL("../src/property-detail-page.css", import.meta.url), "utf8");
 const propertyGalleryMobileCss = fs.readFileSync(new URL("../src/property-gallery-mobile.css", import.meta.url), "utf8");
 const propertyDetailLuxuryCss = fs.readFileSync(new URL("../src/property-detail-page-luxury.css", import.meta.url), "utf8");
@@ -703,6 +704,19 @@ testRunner.test("property card operations are absent from mobile DOM and remain 
     "the list-mode footer must have a dedicated layout hook");
   assert.doesNotMatch(propertyShowcaseSource, /className="pcard-actions"[^\n]*style=|pcard-actions[^\n]*display:\s*none/,
     "mobile removal must be handled by rendering, not CSS hiding");
+});
+
+testRunner.test("list-card footer has an intrinsic grid track so card clipping cannot hide it", () => {
+  assert.match(propertiesMarketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\s*\{[^}]*grid-template-rows:\s*minmax\(228px,\s*auto\)\s+auto;[^}]*overflow:\s*hidden;/s,
+    "the list card must reserve an intrinsic first row before its footer row while retaining rounded-edge clipping");
+  assert.match(propertyExperienceRedesignCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-footer-with-actions\s*\{[^}]*grid-row:\s*2;[^}]*display:\s*grid;[^}]*min-width:\s*0;/s,
+    "the location, details link and operations must share a content-sized footer track");
+  assert.match(propertyExperienceRedesignCss, /\.pcard-footer-with-actions \.pcard-actions-footer\s*\{[^}]*position:\s*static;[^}]*grid-column:\s*1\s*\/\s*-1;/s,
+    "the operations container must stay in footer flow instead of overlaying or escaping the card track");
+  assert.match(propertiesMobileReferenceCss, /\.pcard-footer-with-actions \.pcard-details-link\s*\{[^}]*display:\s*inline-flex\s*!important;[^}]*white-space:\s*normal\s*!important;/s,
+    "the mobile list footer must show a wrapping details link beside the property location");
+  assert.match(propertiesMobileReferenceCss, /\.pcard-footer-with-actions \.pcard-location\s*\{[^}]*overflow:\s*visible\s*!important;[^}]*text-overflow:\s*clip\s*!important;/s,
+    "the mobile footer location must wrap instead of being ellipsized or clipped");
 });
 
 testRunner.test("mobile property card content stays readable without relying on the removed operation rail", () => {
