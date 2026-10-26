@@ -38,6 +38,8 @@ const propertyExperienceRedesignCss = fs.readFileSync(new URL("../src/property-e
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
 const propertyQuestionLogSource = fs.readFileSync(new URL("../src/components/hirmand/property-question-log.tsx", import.meta.url), "utf8");
+const propertyShowcaseSource = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
+const propertiesDataSource = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 
 testRunner.test("property marketplace mobile refinement stays scoped and below tablet widths", () => {
   const marker = "/* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */";
@@ -623,4 +625,16 @@ testRunner.test("mobile grid mode remains distinct and the floating contact shor
     "the listing redesign must preserve the floating contact shortcut");
   assert.doesNotMatch(finalMobile, /\.action-menu\.floating-call-menu\s*\{[^}]*display:\s*none\s*!important;/s,
     "the listing page must not hide the floating contact shortcut on phones");
+});
+
+testRunner.test("final compact cards anchor the action rail to the bottom on listings and home", () => {
+  const compactPass = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final mobile listing treatment:"));
+  assert.match(compactPass, /\.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard \.pcard-actions \{[^}]*top: auto !important;[^}]*bottom: 0 !important;/s,
+    "the shared listing action rail must override legacy top offsets before anchoring to the card bottom");
+  assert.match(compactPass, /\.property-showcase \.property-grid > \.pcard \.pcard-actions \{[^}]*top: auto !important;[^}]*bottom: 0 !important;/s,
+    "the home showcase action rail must not overlap the card title and price");
+  assert.match(propertyShowcaseSource, /property\.builtYear\.toLocaleString\("fa-IR"\)[\s\S]*?ساخت/,
+    "property cards should show the construction year when the listing has one");
+  assert.match(propertiesDataSource, /built_year, parking, elevator, price, deposit, rent/,
+    "the public property-card query must provide the construction year to both card layouts");
 });

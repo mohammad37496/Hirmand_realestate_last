@@ -4131,10 +4131,16 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     font-size: .62rem !important;
   }
 
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-spec-parking,
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-spec-elevator {
+    display: none !important;
+  }
+
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions {
     position: absolute !important;
     inset-inline-start: 32% !important;
     inset-inline-end: 0 !important;
+    top: auto !important;
     bottom: 0 !important;
     z-index: 2 !important;
     grid-column: auto !important;
@@ -4177,6 +4183,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   }
 
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-body { padding: 6px 7px 48px !important; }
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-unit-price { display: none !important; }
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions { inset-inline-start: 32% !important; height: 46px !important; min-height: 46px !important; }
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-title { font-size: .73rem !important; }
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-price { font-size: .77rem !important; }
@@ -4261,6 +4268,8 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   .property-showcase .property-grid > .pcard .pcard-unit-price { font-size: .54rem !important; }
   .property-showcase .property-grid > .pcard .pcard-specs { gap: 3px !important; flex-wrap: wrap !important; }
   .property-showcase .property-grid > .pcard .pcard-specs span { min-height: 20px !important; padding: 2px 4px !important; font-size: .55rem !important; }
+  .property-showcase .property-grid > .pcard .pcard-spec-parking,
+  .property-showcase .property-grid > .pcard .pcard-spec-elevator { display: none !important; }
   .property-showcase .property-grid > .pcard .pcard-footer { gap: 4px !important; padding-top: 2px !important; font-size: .56rem !important; }
   .property-showcase .property-grid > .pcard .pcard-details-link { display: none !important; }
 
@@ -4268,6 +4277,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     position: absolute !important;
     inset-inline-start: 32% !important;
     inset-inline-end: 0 !important;
+    top: auto !important;
     bottom: 0 !important;
     z-index: 3 !important;
     display: flex !important;
@@ -4308,5 +4318,6 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   .property-showcase .property-grid > .pcard .pcard-media img,
   .property-showcase .property-grid > .pcard .pcard-media picture { min-height: 120px !important; }
   .property-showcase .property-grid > .pcard .pcard-body { padding: 6px 7px 48px !important; }
+  .property-showcase .property-grid > .pcard .pcard-unit-price { display: none !important; }
   .property-showcase .property-grid > .pcard .pcard-actions { inset-inline-start: 32% !important; height: 46px !important; min-height: 46px !important; }
 }
