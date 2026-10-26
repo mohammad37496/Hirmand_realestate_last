@@ -4138,7 +4138,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
 
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions {
     position: absolute !important;
-    inset-inline-start: 32% !important;
+    inset-inline-start: 35% !important;
     inset-inline-end: 0 !important;
     top: auto !important;
     bottom: 0 !important;
@@ -4184,7 +4184,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
 
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-body { padding: 6px 7px 48px !important; }
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-unit-price { display: none !important; }
-  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions { inset-inline-start: 32% !important; height: 46px !important; min-height: 46px !important; }
+  .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-actions { inset-inline-start: max(104px, 35%) !important; height: 46px !important; min-height: 46px !important; }
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-title { font-size: .73rem !important; }
   .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-price { font-size: .77rem !important; }
 }
@@ -4275,7 +4275,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
 
   .property-showcase .property-grid > .pcard .pcard-actions {
     position: absolute !important;
-    inset-inline-start: 32% !important;
+    inset-inline-start: 35% !important;
     inset-inline-end: 0 !important;
     top: auto !important;
     bottom: 0 !important;
@@ -4319,5 +4319,5 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
   .property-showcase .property-grid > .pcard .pcard-media picture { min-height: 120px !important; }
   .property-showcase .property-grid > .pcard .pcard-body { padding: 6px 7px 48px !important; }
   .property-showcase .property-grid > .pcard .pcard-unit-price { display: none !important; }
-  .property-showcase .property-grid > .pcard .pcard-actions { inset-inline-start: 32% !important; height: 46px !important; min-height: 46px !important; }
+  .property-showcase .property-grid > .pcard .pcard-actions { inset-inline-start: max(96px, 35%) !important; height: 46px !important; min-height: 46px !important; }
 }

@@ -631,8 +631,16 @@ testRunner.test("final compact cards anchor the action rail to the bottom on lis
   const compactPass = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final mobile listing treatment:"));
   assert.match(compactPass, /\.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard \.pcard-actions \{[^}]*top: auto !important;[^}]*bottom: 0 !important;/s,
     "the shared listing action rail must override legacy top offsets before anchoring to the card bottom");
+  assert.match(compactPass, /\.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard \.pcard-actions \{[^}]*inset-inline-start: 35% !important;/s,
+    "the listing action rail must start beyond the actual media column on narrow phones");
+  assert.match(compactPass, /@media \(max-width: 380px\)[\s\S]*?\.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard \.pcard-actions \{ inset-inline-start: max\(104px, 35%\) !important;/s,
+    "narrow listing cards must account for the media column's minimum width so actions never cover the photo");
   assert.match(compactPass, /\.property-showcase \.property-grid > \.pcard \.pcard-actions \{[^}]*top: auto !important;[^}]*bottom: 0 !important;/s,
     "the home showcase action rail must not overlap the card title and price");
+  assert.match(compactPass, /\.property-showcase \.property-grid > \.pcard \.pcard-actions \{[^}]*inset-inline-start: 35% !important;/s,
+    "the home action rail must remain inside the text column, clear of the photo");
+  assert.match(compactPass, /@media \(max-width: 380px\)[\s\S]*?\.property-showcase \.property-grid > \.pcard \.pcard-actions \{ inset-inline-start: max\(96px, 35%\) !important;/s,
+    "very narrow home cards must preserve a clear boundary between actions and media");
   assert.match(propertyShowcaseSource, /property\.builtYear\.toLocaleString\("fa-IR"\)[\s\S]*?ساخت/,
     "property cards should show the construction year when the listing has one");
   assert.match(propertiesDataSource, /built_year, parking, elevator, price, deposit, rent/,
