@@ -25,6 +25,7 @@ const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.met
 const responsiveSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 const propertySearchBrowserSmoke = fs.readFileSync(new URL("./property-search-browser-smoke.mjs", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
+const propertiesMapSource = fs.readFileSync(new URL("../src/components/hirmand/properties-map.tsx", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
 const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.css", import.meta.url), "utf8");
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
@@ -710,15 +711,14 @@ testRunner.test("final compact cards anchor the action rail to the bottom on lis
     "the public property-card query must provide the construction year to both card layouts");
 });
 
-testRunner.test("property card operations are absent from mobile DOM and remain available on desktop", () => {
-  assert.match(propertyShowcaseSource, /function useIsDesktopPropertyCard\(\)[\s\S]*?window\.matchMedia\("\(min-width: 768px\)"\)[\s\S]*?media\.addEventListener\("change", update\)[\s\S]*?media\.removeEventListener\("change", update\)/,
-    "the operation rail must respond to viewport changes and clean up its listener");
-  assert.match(propertyShowcaseSource, /\{listView \? \([\s\S]*?<div className="pcard-actions pcard-actions-footer" aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?\) : isDesktop \? \([\s\S]*?<div className="pcard-actions" aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?\) : null\}/,
-    "list mode should place actions in the footer, while grid mode only mounts the action rail on desktop");
-  assert.match(propertyShowcaseSource, /pcard-footer\$\{listView \? " pcard-footer-with-actions" : ""\}/,
-    "the list-mode footer must have a dedicated layout hook");
-  assert.doesNotMatch(propertyShowcaseSource, /className="pcard-actions"[^\n]*style=|pcard-actions[^\n]*display:\s*none/,
-    "mobile removal must be handled by rendering, not CSS hiding");
+testRunner.test("all property card views keep the full action rail available on mobile", () => {
+  assert.match(propertyShowcaseSource, /<div className="pcard-footer pcard-footer-with-actions">[\s\S]*?<div className=\{`pcard-actions\$\{listView \? " pcard-actions-footer" : ""\}`\} aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>/,
+    "list and grid cards must mount the same complete set of property actions in their footer");
+  const mobileActions = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* All mobile card views keep the complete action set."));
+  assert.match(mobileActions, /\.pcard-footer-with-actions \.property-action,[\s\S]*?width: 44px !important;[^}]*min-width: 44px !important;[^}]*height: 44px !important;[^}]*min-height: 44px !important;/s,
+    "mobile actions must remain 44px touch targets in both list and grid layouts");
+  assert.match(mobileActions, /\.pcard-footer-with-actions > \.pcard-actions[\s\S]*?overflow-x: auto !important;/s,
+    "the complete action rail should scroll horizontally instead of increasing card height or hiding actions");
 });
 
 testRunner.test("list-card footer has an intrinsic grid track so card clipping cannot hide it", () => {
@@ -734,7 +734,7 @@ testRunner.test("list-card footer has an intrinsic grid track so card clipping c
     "the mobile footer location must wrap instead of being ellipsized or clipped");
 });
 
-testRunner.test("mobile property card content stays readable without relying on the removed operation rail", () => {
+testRunner.test("mobile property card content stays readable beside the compact action rail", () => {
   const finalCardContract = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final card contract for phones:"));
   assert.match(finalCardContract, /@media \(max-width: 620px\)/);
   assert.match(finalCardContract, /\.pcard-title \{[^}]*display: block !important;[^}]*overflow: visible !important;[^}]*-webkit-line-clamp: unset !important;[^}]*overflow-wrap: anywhere !important;/s,
@@ -743,7 +743,7 @@ testRunner.test("mobile property card content stays readable without relying on 
     "purchase and rent price rows should stay inside narrow cards");
   assert.match(finalCardContract, /\.pcard-specs \.pcard-spec \{[^}]*white-space: normal !important;[^}]*overflow-wrap: anywhere !important;/s,
     "cards with variable numbers of specifications should wrap without horizontal overflow");
-  assert.match(propertyShowcaseSource, /<div className="pcard-body">[\s\S]*?<\/div>\s*<\/Link>\s*<div className=\{`pcard-footer/,
+  assert.match(propertyShowcaseSource, /<div className="pcard-body">[\s\S]*?<\/div>\s*<\/Link>\s*<div className="pcard-footer pcard-footer-with-actions">/,
     "the footer and its action buttons must sit outside the property link to preserve valid interactive markup");
 });
 
@@ -824,4 +824,33 @@ testRunner.test("desktop Hirmand card polish keeps the footer action rail bounde
     "desktop list footers must reserve separate space for location/details and the action rail");
   assert.match(desktopListPolish, /\.pcard-footer-with-actions \.property-action\s*\{[^}]*width:\s*36px !important;[^}]*min-width:\s*36px !important;[^}]*height:\s*36px !important;/s,
     "the compact desktop footer must keep all eight action targets large enough to use comfortably");
+});
+
+testRunner.test("responsive browser smoke follows the real nested card-footer action DOM", () => {
+  assert.match(responsiveSmoke, /\.pcard-footer-with-actions > \.pcard-actions, \.pcard-footer > \.pcard-actions, \.pcard-actions/,
+    "action geometry must be measured from the actual footer-nested PropertyCard structure");
+  assert.match(responsiveSmoke, /card\.querySelectorAll\("\.pcard-actions \.property-action"\)/,
+    "operation counting must not require actions to be direct children of the article");
+  assert.match(responsiveSmoke, /const expectedButtons = 8/,
+    "the browser smoke must require all eight operations in every view and viewport");
+  assert.match(responsiveSmoke, /if \(width <= 1024 && card\.undersizedActions\.some/,
+    "the 44px hit-area contract should apply to touch devices, not shrink desktop mouse controls");
+  assert.match(responsiveSmoke, /dock\.position === "fixed" && \(dock\.left/,
+    "only a fixed music dock should be checked against viewport bounds; desktop flow placement can extend below the fold");
+});
+
+testRunner.test("opening the map does not silently turn its default viewport into a property filter", () => {
+  assert.match(propertiesMapSource, /const hasUserAdjustedViewport = useRef\(false\)/,
+    "map bounds should only be persisted after an explicit viewport interaction");
+  assert.match(propertiesMapSource, /if \(!viewportReady \|\| !hasUserAdjustedViewport\.current\) return/,
+    "mounting the map must not emit default bounds that hide listings when returning to list mode");
+  assert.match(propertiesMapSource, /hasUserAdjustedViewport\.current = true;[\s\S]*?setView\(\(current\) => \(\{/,
+    "user-driven zooming must continue to persist the intentional map viewport");
+});
+
+testRunner.test("tablet property action buttons stay 44px after desktop card styling loads", () => {
+  const tabletFinal = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Tablet widths are still touch-first."));
+  assert.match(tabletFinal, /@media \(min-width: 641px\) and \(max-width: 1024px\)/);
+  assert.match(tabletFinal, /\.pf-grid > \.pcard \.pcard-actions \.property-action,[\s\S]*?\.property-grid > \.pcard \.pcard-actions \.property-action \{[^}]*width: 44px !important;[^}]*min-width: 44px !important;[^}]*height: 44px !important;[^}]*min-height: 44px !important;/s,
+    "tablet touch targets must win the cascade over the later-loaded desktop 29/36px card rules");
 });

@@ -134,9 +134,8 @@ try {
   assert.equal(response?.status(), 200, "home page should load successfully");
   const cards = page.locator("article.pcard");
   await cards.first().waitFor({ state: "visible", timeout: timeoutMs });
-  // The listing defaults to list mode on narrow screens, where the eight
-  // operations intentionally live in each card footer. Switch to grid mode
-  // before asserting the mobile grid contract (no action subtree).
+  // The listing defaults to list mode on narrow screens. Verify that switching
+  // to grid preserves the full action set rather than removing tools from DOM.
   await page.waitForFunction(
     () => document.querySelector(".pf-grid")?.classList.contains("is-list-view") === true,
     null,
@@ -163,7 +162,7 @@ try {
   }
   await page.waitForTimeout(800);
 
-  // Mobile: check the actual hydrated DOM, not computed CSS visibility.
+  // Mobile: check the actual hydrated DOM and the touch geometry, not just CSS visibility.
   assert.equal(
     (await cards.count()) > 0,
     true,
@@ -175,24 +174,41 @@ try {
   }
   const fixtureTitles = await cards.locator(".pcard-title").allInnerTexts();
   assert.ok(fixtureTitles.some((title) => title.includes("آپارتمان")), "the long Persian RTL fixture title must survive database seeding and app rendering");
-  assert.equal(
-    await page.locator("article.pcard .pcard-actions").count(),
-    0,
-    "mobile property cards must not render an operation rail",
-  );
-  assert.equal(
-    await page.locator("article.pcard .property-action").count(),
-    0,
-    "mobile property cards must not retain any of the eight action buttons in the DOM",
-  );
-  assert.equal(
-    await page.locator("article.pcard .property-actions-compact").count(),
-    0,
-    "mobile property cards must not mount PropertyActions in compact mode",
-  );
-  console.log(
-    `[property-card-browser] mobile 390px: ${await cards.count()} cards; zero action rails/buttons in DOM`,
-  );
+  assert.equal(await page.locator("article.pcard .pcard-actions").count(), await cards.count(),
+    "every mobile grid card must render an action rail");
+  assert.equal(await page.locator("article.pcard .property-action").count(), await cards.count() * 8,
+    "every mobile grid card must retain all eight operations in the DOM");
+  assert.equal(await page.locator("article.pcard .property-actions-compact").count(), await cards.count(),
+    "every mobile grid card must mount the compact action component");
+  const mobileActionGeometry = await cards.first().locator(".pcard-actions .property-action").evaluateAll((buttons) => buttons.map((button) => {
+    const rect = button.getBoundingClientRect();
+    return { label: button.getAttribute("aria-label"), width: rect.width, height: rect.height };
+  }));
+  assert.equal(mobileActionGeometry.length, 8, "mobile grid must expose all eight operations");
+  assert.ok(mobileActionGeometry.every((button) => button.width >= 44 && button.height >= 44),
+    `mobile grid actions must have 44px touch targets: ${JSON.stringify(mobileActionGeometry)}`);
+  const mobileFavorite = cards.first().locator(".pcard-actions .property-action").first();
+  await mobileFavorite.click();
+  await page.waitForFunction((button) => button.getAttribute("aria-pressed") === "true", await mobileFavorite.elementHandle(), { timeout: timeoutMs });
+  await mobileFavorite.click();
+  await page.waitForFunction((button) => button.getAttribute("aria-pressed") === "false", await mobileFavorite.elementHandle(), { timeout: timeoutMs });
+  console.log(`[property-card-browser] mobile 390px grid: ${await cards.count()} cards; 8 actions/card; all targets >=44px; favorite toggles`);
+
+  // Merely opening the map must not make its default viewport an implicit
+  // location filter. Switching back to the list restores the unfiltered cards.
+  const mapUrlBefore = new URL(page.url());
+  assert.equal(mapUrlBefore.searchParams.has("bbox") || mapUrlBefore.searchParams.has("map_bbox"), false,
+    "the initial listing URL must not contain a map viewport filter");
+  await page.locator(".pf-views button").nth(2).click();
+  const mapWorkspace = page.locator(".pf-map-divar-layout");
+  await mapWorkspace.waitFor({ state: "attached", timeout: timeoutMs });
+  await page.locator(".pf-views button").nth(0).click();
+  await mapWorkspace.waitFor({ state: "detached", timeout: timeoutMs });
+  await page.waitForFunction(() => document.querySelectorAll(".pf-grid > .pcard").length === 3, null, { timeout: timeoutMs });
+  const mapUrlAfter = new URL(page.url());
+  assert.equal(mapUrlAfter.searchParams.has("bbox") || mapUrlAfter.searchParams.has("map_bbox"), false,
+    "opening and closing the default map must not leave an accidental bbox filter in the URL");
+  console.log("[property-card-browser] map → list: default map viewport does not filter or hide the three published cards");
 
   // Cross the exact breakpoint and wait for the effect-driven mount.
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -394,9 +410,8 @@ try {
   await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
   await page.waitForFunction(() => document.querySelector("article.pcard")?.querySelectorAll(".pcard-actions .property-action").length === 8, null, { timeout: timeoutMs });
   await page.waitForFunction(() => document.querySelector("article.pcard .pcard-actions .property-action:nth-child(8)")?.getAttribute("aria-pressed") === "true", null, { timeout: timeoutMs });
-  // Reload resets the route to its new list-view default. Return to grid mode
-  // explicitly before asserting that the desktop-only action subtree unmounts
-  // below 768px; list mode intentionally retains its footer operations.
+  // Reload resets the route to list mode. Switch views while retaining the
+  // same eight operations so a layout preference never removes functionality.
   await page.locator(".pf-views button").nth(1).click();
   await page.waitForFunction(
     () => document.querySelector(".pf-grid")?.classList.contains("is-list-view") === false &&
@@ -408,22 +423,20 @@ try {
     "[property-card-browser] desktop actions work: favorite add/remove, native share and fallback, valid PNG intro card, QR preview/download, intro sheet, ad copy, print, compare add/remove and full-list guard",
   );
 
-  // Resizing back to mobile must unmount the whole action subtree; resizing up
-  // again must remount it and restore persisted favorite/compare state.
+  // Resizing across the tablet breakpoint must keep actions mounted and usable;
+  // state remains consistent instead of being lost with a viewport-dependent subtree.
   await page.setViewportSize({ width: 767, height: 844 });
   await page.waitForFunction(
-    () =>
-      document.querySelectorAll(
-        "article.pcard .pcard-actions, article.pcard .property-action",
-      ).length === 0,
+    () => [...document.querySelectorAll("article.pcard")].length > 0 &&
+      [...document.querySelectorAll("article.pcard")].every((card) => card.querySelectorAll(".pcard-actions .property-action").length === 8),
     null,
     { timeout: timeoutMs },
   );
-  assert.equal(
-    await page.locator("article.pcard .property-actions-compact").count(),
-    0,
-    "resizing below 768px must remove the action component from every card",
-  );
+  const tabletButtons = await page.locator("article.pcard .property-action").evaluateAll((buttons) => buttons.map((button) => {
+    const box = button.getBoundingClientRect(); return { width: box.width, height: box.height };
+  }));
+  assert.ok(tabletButtons.every((button) => button.width >= 44 && button.height >= 44),
+    `tablet action controls must remain 44px targets at 767px: ${JSON.stringify(tabletButtons)}`);
 
   await page.setViewportSize({ width: 768, height: 844 });
   await rails.first().waitFor({ state: "attached", timeout: timeoutMs });
@@ -441,12 +454,11 @@ try {
     { timeout: timeoutMs },
   );
   console.log(
-    "[property-card-browser] resize 1280 → 767 → 768px: subtree unmounts/remounts and saved state restores",
+    "[property-card-browser] resize 1280 → 767 → 768px: all actions remain mounted, tablet targets stay 44px, and saved state restores",
   );
 
   // A fresh desktop navigation covers SSR-to-hydration independently of the
-  // resize path above: the server omits viewport-dependent controls and React
-  // mounts them after matchMedia is read on the client.
+  // resize path above; actions must be present after hydration at every width.
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(new URL("/properties", baseUrl).toString(), {
     waitUntil: "commit",
@@ -527,7 +539,8 @@ try {
   );
   await page.locator(".pf-views button").nth(1).click();
   await page.waitForFunction(
-    () => document.querySelectorAll("article.pcard .pcard-actions, article.pcard .property-action").length === 0,
+    () => [...document.querySelectorAll("article.pcard")].length > 0 &&
+      [...document.querySelectorAll("article.pcard")].every((card) => card.querySelectorAll(".pcard-actions .property-action").length === 8),
     null,
     { timeout: timeoutMs },
   );
@@ -551,6 +564,7 @@ try {
     await page.waitForTimeout(100);
     const layout = await listingCards.evaluateAll((items) => items.map((card) => {
       const footer = card.querySelector(":scope > .pcard-footer-with-actions");
+      const rail = footer?.querySelector(":scope > .pcard-actions");
       const location = footer?.querySelector(".pcard-location");
       const details = footer?.querySelector(".pcard-details-link");
       const buttons = [...(footer?.querySelectorAll(".property-action") ?? [])];
@@ -560,6 +574,10 @@ try {
       };
       return {
         footer: footer ? rect(footer) : null,
+        rail: rail ? rect(rail) : null,
+        railClientWidth: rail?.clientWidth ?? 0,
+        railScrollWidth: rail?.scrollWidth ?? 0,
+        railOverflowX: rail ? getComputedStyle(rail).overflowX : "missing",
         location: location ? rect(location) : null,
         details: details ? rect(details) : null,
         buttons: buttons.map(rect),
@@ -569,9 +587,13 @@ try {
     for (const [index, item] of layout.entries()) {
       assert.ok(item.footer, `card ${index + 1} should have its own footer at ${width}px`);
       assert.equal(item.buttons.length, 8, `card ${index + 1} should show eight actions at ${width}px`);
-      for (const button of item.buttons) {
-        assert.ok(button.left >= item.footer.left - 1 && button.right <= item.footer.right + 1,
-          `action should stay within the footer at ${width}px`);
+      assert.ok(item.rail && item.rail.left >= item.footer.left - 1 && item.rail.right <= item.footer.right + 1,
+        `the horizontally scrollable action rail must stay within the footer at ${width}px: ${JSON.stringify(item)}`);
+      assert.ok(item.buttons.every((button) => button.bottom > button.top), `all action targets must have visible geometry at ${width}px`);
+      if (width <= 430) {
+        assert.ok(item.buttons.every((button) => button.bottom - button.top >= 44), `mobile actions must be at least 44px high at ${width}px`);
+        assert.ok(item.railOverflowX === "auto" || item.railOverflowX === "scroll", `mobile action rail must scroll horizontally at ${width}px`);
+        assert.ok(item.railScrollWidth >= item.railClientWidth, `mobile action rail must have a measurable scroll area at ${width}px`);
       }
       assert.ok(item.location && item.details, `location and details should remain visible at ${width}px`);
       assert.ok(item.location.right > item.location.left && item.location.bottom > item.location.top,
@@ -605,7 +627,8 @@ try {
   );
   await page.locator(".pf-views button").nth(1).click();
   await page.waitForFunction(
-    () => document.querySelectorAll("article.pcard .pcard-actions, article.pcard .property-action").length === 0,
+    () => [...document.querySelectorAll("article.pcard")].length > 0 &&
+      [...document.querySelectorAll("article.pcard")].every((card) => card.querySelectorAll(".pcard-actions .property-action").length === 8),
     null,
     { timeout: timeoutMs },
   );
@@ -626,7 +649,7 @@ try {
     { timeout: timeoutMs },
   );
   console.log(
-    `[property-card-browser] /properties route: ${await listingCards.count()} cards obey mobile removal and desktop eight-action contract`,
+    `[property-card-browser] /properties route: ${await listingCards.count()} cards retain all eight actions in list and grid layouts`,
   );
 
   const detailCard = page.locator("article.pcard").first();

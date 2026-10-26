@@ -98,6 +98,7 @@ export function PropertiesMap({
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const appliedViewportResetVersion = useRef(0);
+  const hasUserAdjustedViewport = useRef(false);
   const [view, setView] = useState<MapView>(DEFAULT_VIEW);
   const [size, setSize] = useState<MapSize>({ width: 920, height: 640 });
   const [dragOffset, setDragOffset] = useState<PixelPoint>({ x: 0, y: 0 });
@@ -158,6 +159,10 @@ export function PropertiesMap({
   useEffect(() => {
     if (appliedViewportResetVersion.current === viewportResetVersion) return;
     appliedViewportResetVersion.current = viewportResetVersion;
+    // Parent-driven resets (saved searches / neighborhood selection) already
+    // own the intended bounds. Do not turn the resulting initial render into
+    // an implicit map filter.
+    hasUserAdjustedViewport.current = false;
     if (!viewportResetBounds) {
       setView(DEFAULT_VIEW);
       return;
@@ -186,7 +191,10 @@ export function PropertiesMap({
   }, [centerWorld.x, centerWorld.y, size.width, size.height, view.zoom]);
 
   useEffect(() => {
-    if (!viewportReady) return;
+    // Mounting the map computes a default viewport, but that is not an explicit
+    // location filter. Persist bounds only after a visitor pans, zooms or resets
+    // the map; otherwise switching back to the list silently hides listings.
+    if (!viewportReady || !hasUserAdjustedViewport.current) return;
     onViewportChange?.(viewportBounds);
   }, [viewportReady, viewportBounds, onViewportChange]);
 
@@ -310,6 +318,7 @@ export function PropertiesMap({
     dragOrigin.current = null;
     setDragging(false);
     if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      hasUserAdjustedViewport.current = true;
       const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
       setView((current) => ({ ...current, ...nextCenter }));
     }
@@ -317,6 +326,7 @@ export function PropertiesMap({
   }, [centerWorld.x, centerWorld.y, view.zoom]);
 
   const zoomBy = useCallback((amount: number) => {
+    hasUserAdjustedViewport.current = true;
     setView((current) => ({
       ...current,
       zoom: Math.max(10, Math.min(18, current.zoom + amount)),
@@ -324,6 +334,7 @@ export function PropertiesMap({
   }, []);
 
   const resetMap = useCallback(() => {
+    hasUserAdjustedViewport.current = true;
     const selected = neighborhoods.find((item) => item.name === selectedNeighborhood);
     if (selected?.divarBbox && isValidCoordinateBounds(selected.divarBbox)) {
       const rect = mapRef.current?.getBoundingClientRect();

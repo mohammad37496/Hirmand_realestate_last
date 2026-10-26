@@ -246,7 +246,7 @@ try {
     const button = [...document.querySelectorAll(".pf-views button")].find((item) => item.textContent?.includes("شبکه‌ای"));
     return button?.getAttribute("aria-pressed") === "true" && !document.querySelector(".pf-grid")?.classList.contains("is-list-view");
   }, null, { timeout: timeoutMs });
-  for (const width of [320, 390]) {
+  for (const width of [320, 360, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     // Reload at each mobile width so the check covers the real SSR/hydration
     // path at that viewport, rather than relying only on a desktop resize event.
@@ -272,30 +272,107 @@ try {
       }
     }
     await page.waitForFunction(() => {
-      const controls = [...document.querySelectorAll("article.pcard .pcard-actions, article.pcard .property-action")];
-      return controls.every((element) => {
-        const style = getComputedStyle(element);
-        return style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0;
-      });
+      const cardsNow = [...document.querySelectorAll("article.pcard")];
+      return cardsNow.length > 0 && cardsNow.every((card) => card.querySelectorAll(".pcard-actions .property-action").length === 8);
     }, null, { timeout: timeoutMs });
     await page.waitForTimeout(150);
-    const mobileLayout = await cards.evaluateAll((nodes) => nodes.map((card) => ({
-      title: card.querySelector(".pcard-title")?.textContent?.trim(),
-      width: card.clientWidth,
-      scrollWidth: card.scrollWidth,
-      footer: card.querySelector(":scope > .pcard-footer")?.getBoundingClientRect().toJSON(),
-    })));
+    const mobileLayout = await cards.evaluateAll((nodes) => nodes.map((card) => {
+      const rail = card.querySelector(":scope > .pcard-footer-with-actions > .pcard-actions");
+      const actionRow = rail?.querySelector(".property-actions");
+      const buttons = [...(rail?.querySelectorAll(".property-action") ?? [])];
+      return {
+        title: card.querySelector(".pcard-title")?.textContent?.trim(),
+        width: card.clientWidth,
+        scrollWidth: card.scrollWidth,
+        footer: card.querySelector(":scope > .pcard-footer")?.getBoundingClientRect().toJSON(),
+        rail: rail?.getBoundingClientRect().toJSON(),
+        railClientWidth: rail?.clientWidth ?? 0,
+        railScrollWidth: rail?.scrollWidth ?? 0,
+        railOverflowX: rail ? getComputedStyle(rail).overflowX : "missing",
+        actionRowDisplay: actionRow ? getComputedStyle(actionRow).display : "missing",
+        actionRowWrap: actionRow ? getComputedStyle(actionRow).flexWrap : "missing",
+        actionRowGap: actionRow ? Number.parseFloat(getComputedStyle(actionRow).columnGap) || 0 : 0,
+        actionRowWidth: actionRow?.getBoundingClientRect().width ?? 0,
+        actionRowClientWidth: actionRow?.clientWidth ?? 0,
+        actionRowScrollWidth: actionRow?.scrollWidth ?? 0,
+        buttons: buttons.map((button) => {
+          const box = button.getBoundingClientRect();
+          return { label: button.getAttribute("aria-label"), width: box.width, height: box.height };
+        }),
+      };
+    }));
     assert.ok(mobileLayout.length > 0, `mobile cards must remain visible at ${width}px`);
     for (const [index, card] of mobileLayout.entries()) {
       assert.ok(card.title, `mobile card ${index + 1} must retain its title at ${width}px`);
       assert.ok(card.width > 0 && card.scrollWidth <= card.width + 1, `mobile card ${index + 1} must not overflow horizontally at ${width}px`);
       assert.ok(card.footer?.height > 0, `mobile card ${index + 1} footer must remain visible at ${width}px`);
+      assert.equal(card.buttons.length, 8, `mobile card ${index + 1} must keep all eight operations at ${width}px`);
+      assert.ok(card.rail && card.rail.width > 0 && card.rail.left >= card.footer.left - 1 && card.rail.right <= card.footer.right + 1,
+        `mobile card ${index + 1} action rail must remain inside its footer at ${width}px: ${JSON.stringify(card)}`);
+      assert.ok(card.buttons.every((button) => button.width >= 44 && button.height >= 44),
+        `mobile card ${index + 1} operations must have 44px targets at ${width}px: ${JSON.stringify(card.buttons)}`);
+      assert.ok(card.railOverflowX === "auto" || card.railOverflowX === "scroll",
+        `mobile card ${index + 1} action rail must scroll horizontally at ${width}px`);
+      assert.equal(card.actionRowDisplay, "flex", `mobile card ${index + 1} actions must use a single horizontal row at ${width}px`);
+      assert.equal(card.actionRowWrap, "nowrap", `mobile card ${index + 1} actions must not wrap into extra rows at ${width}px`);
+      const requiredActionWidth = card.buttons.reduce((sum, button) => sum + button.width, 0) + 7 * card.actionRowGap;
+      if (card.railClientWidth + 1 < requiredActionWidth) {
+        assert.ok(card.railScrollWidth > card.railClientWidth, `mobile card ${index + 1} must expose overflowable action tools in a horizontal rail at ${width}px: ${JSON.stringify({ railClientWidth: card.railClientWidth, railScrollWidth: card.railScrollWidth, requiredActionWidth, actionRowWidth: card.actionRowWidth, gap: card.actionRowGap })}`);
+      } else {
+        assert.ok(card.railScrollWidth <= card.railClientWidth + 1, `mobile card ${index + 1} should fit the complete action row without unnecessary scrolling at ${width}px`);
+      }
     }
     await page.screenshot({ path: `${screenshotDir}/working-tree-mobile-${width}.png`, fullPage: false });
-    console.log(`[desktop-card-visual] ${width}px mobile: ${mobileLayout.length} cards visible, action rail not visible, footer bounded`);
+    await cards.first().scrollIntoViewIfNeeded();
+    await page.waitForTimeout(120);
+    await page.screenshot({ path: `${screenshotDir}/working-tree-mobile-${width}-card-actions.png`, fullPage: false });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    console.log(`[desktop-card-visual] ${width}px mobile: ${mobileLayout.length} cards visible, eight 44px actions in bounded horizontal rails`);
+  }
+  // The homepage showcase is a separate card surface; verify its real hydrated
+  // cards keep the same complete action set and do not introduce page overflow.
+  await page.goto(new URL("/", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
+  const homeCards = page.locator(".site-home .property-showcase .property-grid > .pcard");
+  await homeCards.first().waitFor({ state: "visible", timeout: timeoutMs });
+  for (const width of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await homeCards.first().waitFor({ state: "visible", timeout: timeoutMs });
+    const homeGeometry = await homeCards.evaluateAll((nodes) => nodes.map((card) => {
+      const rail = card.querySelector(":scope > .pcard-footer-with-actions > .pcard-actions");
+      const buttons = [...(rail?.querySelectorAll(".property-action") ?? [])];
+      return {
+        title: card.querySelector(".pcard-title")?.textContent?.trim(),
+        width: card.clientWidth,
+        scrollWidth: card.scrollWidth,
+        rail: rail?.getBoundingClientRect().toJSON(),
+        footer: card.querySelector(":scope > .pcard-footer-with-actions")?.getBoundingClientRect().toJSON(),
+        buttons: buttons.map((button) => { const box = button.getBoundingClientRect(); return { width: box.width, height: box.height }; }),
+      };
+    }));
+    assert.ok(homeGeometry.length > 0, `homepage property cards must be visible at ${width}px`);
+    assert.ok(homeGeometry.every((card) => card.title && card.scrollWidth <= card.width + 1), `homepage cards must retain titles without horizontal overflow at ${width}px`);
+    assert.ok(homeGeometry.every((card) => card.buttons.length === 8 && card.buttons.every((button) => button.width >= 44 && button.height >= 44)),
+      `homepage cards must keep eight 44px actions at ${width}px: ${JSON.stringify(homeGeometry.map((card) => card.buttons))}`);
+    assert.ok(homeGeometry.every((card) => card.rail && card.footer && card.rail.left >= card.footer.left - 1 && card.rail.right <= card.footer.right + 1),
+      `homepage action rails must remain inside card footers at ${width}px`);
+    const pageWidth = await page.evaluate(() => ({ innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+    assert.ok(pageWidth.scrollWidth <= pageWidth.innerWidth + 1, `homepage must not create horizontal page overflow at ${width}px: ${JSON.stringify(pageWidth)}`);
+    await homeCards.first().evaluate((element) => element.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }));
+    await page.waitForTimeout(120);
+    const homeVisibility = await homeCards.first().evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return { top: Math.round(rect.top), bottom: Math.round(rect.bottom), height: Math.round(rect.height), display: style.display, visibility: style.visibility, opacity: style.opacity, scrollY: Math.round(window.scrollY) };
+    });
+    assert.ok(homeVisibility.height > 0 && homeVisibility.bottom > 0 && homeVisibility.top < 844 && homeVisibility.display !== "none" && homeVisibility.visibility !== "hidden" && Number(homeVisibility.opacity) > 0,
+      `homepage card must be visibly positioned in the viewport at ${width}px: ${JSON.stringify(homeVisibility)}`);
+    await page.screenshot({ path: `${screenshotDir}/homepage-${width}-card-actions.png`, fullPage: false });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    console.log(`[desktop-card-visual] ${width}px homepage: ${homeGeometry.length} cards, eight 44px actions, no page overflow; visible=${JSON.stringify(homeVisibility)}`);
   }
   assert.match(css, /@media\s*\((?:min-width:\s*1024px|width\s*>=\s*1024px)\)/, "desktop refinements must stay behind the desktop breakpoint and leave tablet widths untouched");
-  console.log("[desktop-card-visual] 390px mobile screenshot captured; new layout rules are scoped to min-width 1024px");
+  console.log("[desktop-card-visual] mobile screenshots captured; desktop-only layout rules remain scoped to desktop widths");
 
   assert.deepEqual(pageErrors, [], "browser QA must not produce uncaught runtime errors");
   console.log("[desktop-card-visual] PASS");

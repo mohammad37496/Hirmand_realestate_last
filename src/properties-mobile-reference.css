@@ -1299,3 +1299,64 @@ body:has(.pf-page) .property-qr-close {
     grid-template-columns: 96px minmax(0, 1fr) !important;
   }
 }
+
+/* All mobile card views keep the complete action set. A single horizontally
+   scrollable icon rail preserves the compact card height without hiding tools. */
+@media (max-width: 640px) {
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions,
+  body:has(.property-showcase) .site-home .property-showcase .property-grid > .pcard > .pcard-footer-with-actions {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 6px 10px !important;
+    min-width: 0 !important;
+    padding: 7px 8px !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions,
+  body:has(.property-showcase) .site-home .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions {
+    grid-column: 1 / -1 !important;
+    display: block !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overscroll-behavior-inline: contain !important;
+    scrollbar-width: thin !important;
+    padding-top: 6px !important;
+    border-top: 1px solid #edf0f2 !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-footer-with-actions .property-actions,
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions,
+  body:has(.property-showcase) .site-home .property-showcase .property-grid > .pcard > .pcard-footer-with-actions .property-actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: max-content !important;
+    min-width: 100% !important;
+    gap: 4px !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-footer-with-actions .property-action,
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-action,
+  body:has(.property-showcase) .site-home .property-showcase .property-grid > .pcard > .pcard-footer-with-actions .property-action {
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
+/* Tablet widths are still touch-first. This layer is intentionally last so
+   the later desktop-card polish cannot shrink tablet action targets to 29/36px. */
+@media (min-width: 641px) and (max-width: 1024px) {
+  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-actions .property-action,
+  body:has(.property-showcase) .site-home .property-showcase .property-grid > .pcard .pcard-actions .property-action {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+}

@@ -58,7 +58,7 @@ const routes = [
   `/file/${encodeURIComponent(propertyId)}`,
   `/v/${encodeURIComponent(propertySlug)}/${encodeURIComponent(propertyId)}`,
 ];
-const selectedRoutes = process.env.RESPONSIVE_SMOKE_ONLY_PROPERTIES === "1" ? ["/properties"] : routes;
+const selectedRoutes = process.env.RESPONSIVE_SMOKE_ONLY_PROPERTIES === "1" ? ["/", "/properties"] : routes;
 
 const screenshotRoutes = new Set([
   "/",
@@ -71,7 +71,7 @@ const screenshotRoutes = new Set([
   "/tools/rahn-rent",
   "/admin",
 ]);
-const screenshotWidths = new Set([320, 390, 412, 430, 768, 1024, 1440]);
+const screenshotWidths = new Set([320, 360, 390, 430, 768, 1024, 1280, 1440, 1920]);
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -124,6 +124,7 @@ try {
 
       // Exercise the mobile filter drawer and neighborhood picker at 320px.
       if (route === "/properties") {
+        await page.locator(".pf-grid > .pcard").first().waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
         await page.waitForFunction(
           () => {
             const buttons = [...document.querySelectorAll(".pf-views button")];
@@ -150,13 +151,15 @@ try {
         }
         const viewButtons = page.locator(".pf-views button");
         await viewButtons.nth(2).click();
-        if (!(await page.locator(".pf-map-divar-layout").count())) {
+        const mapWorkspace = page.locator(".pf-map-divar-layout");
+        if (!(await mapWorkspace.waitFor({ state: "attached", timeout: 5_000 }).then(() => true).catch(() => false))) {
           failures.push("/properties @ 320px: selecting map view did not open the map/list workspace");
         }
         await viewButtons.nth(0).click();
-        if (await page.locator(".pf-map-divar-layout").count()) {
+        if (await mapWorkspace.waitFor({ state: "detached", timeout: 5_000 }).then(() => false).catch(() => true)) {
           failures.push("/properties @ 320px: returning to listings did not close the map workspace");
         }
+        await page.locator(".pf-grid > .pcard").first().waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
         const mobileCards = await page.locator(".pf-grid > .pcard").evaluateAll((cards) => cards.map((card) => {
           const media = card.querySelector(".pcard-media");
           const image = media?.querySelector("img");
@@ -178,6 +181,16 @@ try {
             actionButtons,
           };
         }));
+        if (!mobileCards.length) {
+          const state = await page.evaluate(() => ({
+            activeView: [...document.querySelectorAll(".pf-views button")].findIndex((button) => button.getAttribute("aria-pressed") === "true"),
+            gridCount: document.querySelectorAll(".pf-grid").length,
+            cardCount: document.querySelectorAll("article.pcard").length,
+            mapCount: document.querySelectorAll(".pf-map-divar-layout").length,
+            listingText: document.querySelector(".pf-main")?.innerText?.slice(0, 180) ?? "missing",
+          }));
+          failures.push(`/properties @ 320px: no property cards were rendered; the responsive smoke requires seeded or published property data and must not pass vacuously (${JSON.stringify(state)})`);
+        }
         for (const card of mobileCards) {
           if (card.imageFrameDelta > 2) {
             failures.push(`/properties @ 320px: property image does not fill its media frame (${card.imageFrameDelta}px gap)`);
@@ -267,6 +280,29 @@ try {
           }
           const closeFilters = page.locator(".pf-close").first();
           if (await closeFilters.isVisible().catch(() => false)) await closeFilters.click();
+        }
+      }
+
+      if (route === "/") {
+        await page.locator(".property-showcase .property-grid > .pcard").first().waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
+        const homeCards = page.locator(".property-showcase .property-grid > .pcard");
+        if (!(await homeCards.count())) {
+          failures.push("/ @ 320px: no homepage property cards were rendered; verify the fixture/data source before accepting responsive QA");
+        }
+        const homeFavorite = page.locator(".property-showcase .property-grid > .pcard .pcard-actions .property-action").first();
+        if (await homeFavorite.count()) {
+          await homeFavorite.scrollIntoViewIfNeeded();
+          const before = await homeFavorite.getAttribute("aria-pressed");
+          await homeFavorite.click();
+          const after = await homeFavorite.getAttribute("aria-pressed");
+          if (after === before || after !== "true") {
+            failures.push("/ @ 320px: homepage property favorite action did not toggle to its active state");
+          }
+          await homeFavorite.click();
+          if (await homeFavorite.getAttribute("aria-pressed") !== "false") {
+            failures.push("/ @ 320px: homepage property favorite action did not restore its inactive state");
+          }
+          await page.evaluate(() => window.scrollTo(0, 0));
         }
       }
 
@@ -487,6 +523,7 @@ try {
             left: Math.round(dockRect.left), right: Math.round(dockRect.right),
             top: Math.round(dockRect.top), bottom: Math.round(dockRect.bottom),
             width: Math.round(dockRect.width), height: Math.round(dockRect.height),
+            position: getComputedStyle(dock).position,
             buttons: dockButtons,
           } : null;
           const floatingContact = contact && contactRect ? {
@@ -644,9 +681,11 @@ try {
               };
               const link = rect(card.querySelector(":scope > .pcard-link"));
               const media = rect(card.querySelector(".pcard-media"));
-              const actions = rect(card.querySelector(":scope > .pcard-actions"));
+              // PropertyCard keeps the action rail inside its footer; do not
+              // assume `.pcard-actions` is a direct child of the article.
+              const actions = rect(card.querySelector(".pcard-footer-with-actions > .pcard-actions, .pcard-footer > .pcard-actions, .pcard-actions"));
               const cardBounds = rect(card);
-              const buttons = [...card.querySelectorAll(":scope > .pcard-actions .property-action")].map((button) => {
+              const buttons = [...card.querySelectorAll(".pcard-actions .property-action")].map((button) => {
                 const r = button.getBoundingClientRect();
                 return {
                   width: r.width,
@@ -674,9 +713,26 @@ try {
               if (card.actionLinkOverlap) failures.push(`${prefix}: action rail overlaps the details link hitbox`);
               if (card.mediaActionOverlap) failures.push(`${prefix}: action rail overlaps the property image`);
               if (card.actionsEscapeCard) failures.push(`${prefix}: action rail escapes card bounds`);
-              if (card.buttonCount !== 8) failures.push(`${prefix}: expected eight property operations, found ${card.buttonCount}`);
+              // Every view must keep all eight operations available. On phones
+              // the rail is compact and horizontally scrollable, so grid mode
+              // does not silently remove actions to save card height.
+              const expectedButtons = 8;
+              if (card.buttonCount !== expectedButtons) failures.push(`${prefix}: expected ${expectedButtons} property operations, found ${card.buttonCount}`);
               if (card.unlabeledButtons) failures.push(`${prefix}: action buttons are missing accessible labels or button types`);
-              if (card.undersizedActions.some((target) => target.width < 43.5 || target.height < 43.5)) failures.push(`${prefix}: action targets below 44px: ${JSON.stringify(card.undersizedActions)}`);
+              if (width <= 1024 && card.undersizedActions.some((target) => target.width < 43.5 || target.height < 43.5)) failures.push(`${prefix}: action targets below 44px: ${JSON.stringify(card.undersizedActions)}`);
+            }
+            if (mode === "grid" && width <= 430) {
+              const gridPrefix = `/properties grid view @ ${width}x${height}px`;
+              const gridFavorite = page.locator(".pf-grid > .pcard").first().locator(".pcard-actions .property-action").first();
+              if (await gridFavorite.count()) {
+                const before = await gridFavorite.getAttribute("aria-pressed");
+                await gridFavorite.scrollIntoViewIfNeeded();
+                await gridFavorite.click();
+                const after = await gridFavorite.getAttribute("aria-pressed");
+                if (after === before || after !== "true") failures.push(`${gridPrefix}: grid-view favorite action did not toggle to active`);
+                await gridFavorite.click();
+                if (await gridFavorite.getAttribute("aria-pressed") !== "false") failures.push(`${gridPrefix}: grid-view favorite action did not restore inactive state`);
+              }
             }
           }
           await viewButtons.nth(0).click();
@@ -694,7 +750,7 @@ try {
         }
         if (route === "/properties" && metrics.musicDock) {
           const dock = metrics.musicDock;
-          if (dock.left < -1 || dock.right > width + 1 || dock.top < -1 || dock.bottom > height + 1) {
+          if (dock.position === "fixed" && (dock.left < -1 || dock.right > width + 1 || dock.top < -1 || dock.bottom > height + 1)) {
             failures.push(`/properties @ ${width}x${height}px: music dock escapes the viewport (${JSON.stringify(dock)})`);
           }
           if (width <= 1024) {
@@ -797,6 +853,17 @@ try {
 }
 
 const smallTargetWarnings = summaries.filter((entry) => entry.smallTargets?.length);
+fs.writeFileSync(path.join(outputDir, "report.json"), JSON.stringify({
+  generatedAt: new Date().toISOString(),
+  baseUrl,
+  routes: selectedRoutes,
+  viewportMatrix,
+  checks: selectedRoutes.length * viewportMatrix.length,
+  status: failures.length ? "failed" : "passed",
+  failureCount: failures.length,
+  failures,
+  summaries,
+}, null, 2) + "\n");
 console.log(`[responsive-smoke] ${selectedRoutes.length} routes × ${viewportMatrix.length} viewport scenarios = ${selectedRoutes.length * viewportMatrix.length} responsive checks`);
 console.log(`[responsive-smoke] viewport matrix: ${viewportMatrix.map(({ width, height }) => `${width}x${height}`).join(", ")}`);
 console.log(`[responsive-smoke] screenshots directory: ${outputDir}`);

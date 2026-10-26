@@ -26,19 +26,6 @@ const PROPERTY_TYPE_LABEL: Record<PropertyType, string> = {
 };
 const TRANSACTION_LABEL: Record<PropertyTransaction, string> = { buy: "خرید", sell: "فروش", rent: "اجاره", mortgage: "رهن" };
 function money(value: string | null) { if (!value) return ""; const parsed = Number(value); return Number.isFinite(parsed) ? formatToman(parsed) : value; }
-function useIsDesktopPropertyCard() {
-  const [isDesktop, setIsDesktop] = useState(false);
-
-  useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
-    const update = () => setIsDesktop(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-
-  return isDesktop;
-}
 function unitPriceLabel(property: Property | PropertyCardData) {
   if ((property.transactionType !== "buy" && property.transactionType !== "sell") || !property.price || !property.areaM2 || property.areaM2 <= 0) return "";
   const price = Number(property.price);
@@ -125,7 +112,6 @@ export function PropertyCard({
   property: Property | PropertyCardData;
   listView?: boolean;
 }) {
-  const isDesktop = useIsDesktopPropertyCard();
   const image = imageFor(property);
   const transaction = TRANSACTION_LABEL[property.transactionType];
   const type = PROPERTY_TYPE_LABEL[property.propertyType];
@@ -249,7 +235,7 @@ export function PropertyCard({
         </div>
       </Link>
 
-      <div className={`pcard-footer${listView ? " pcard-footer-with-actions" : ""}`}>
+      <div className="pcard-footer pcard-footer-with-actions">
         <span className="pcard-location">
           <MapPinned size={14} /> {property.neighborhood}
         </span>
@@ -262,15 +248,9 @@ export function PropertyCard({
         >
           مشاهده جزئیات <ChevronLeft size={14} />
         </Link>
-        {listView ? (
-          <div className="pcard-actions pcard-actions-footer" aria-label="عملیات فایل">
-            <PropertyActions property={property} compact />
-          </div>
-        ) : isDesktop ? (
-          <div className="pcard-actions" aria-label="عملیات فایل">
-            <PropertyActions property={property} compact />
-          </div>
-        ) : null}
+        <div className={`pcard-actions${listView ? " pcard-actions-footer" : ""}`} aria-label="عملیات فایل">
+          <PropertyActions property={property} compact />
+        </div>
       </div>
     </article>
   );
