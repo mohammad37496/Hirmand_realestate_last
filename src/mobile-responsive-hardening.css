@@ -2649,6 +2649,7 @@ body:has(.property-detail-page) .property-detail-page nav.property-breadcrumb > 
     animation-duration: 0.01ms !important;
   }
 }
+
 /* Final mobile pass for the /properties marketplace only. Keep desktop rules intact. */
 @media (max-width: 620px) {
   /* The legacy global stable gutter leaves a dead 15px strip on mobile. */
@@ -4506,7 +4507,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
    document flow. The old absolutely-positioned rail covered the last lines
    of the property details on short/narrow cards. */
 @media (max-width: 640px) {
-  body:has(.pf-page) .pf-page .pf-grid > .pcard,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) !important;
@@ -4826,7 +4827,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     isolation: isolate !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-link,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-link,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-link {
     position: relative !important;
     display: flex !important;
@@ -4839,38 +4840,48 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     grid-row: auto !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-media,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-media,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-media {
     position: relative !important;
     flex: 0 0 auto !important;
     width: 100% !important;
     min-width: 0 !important;
+    height: auto !important;
+    max-height: none !important;
     min-height: 0 !important;
     aspect-ratio: 16 / 10 !important;
     overflow: hidden !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-media picture,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-media picture,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-media picture,
-  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-media img,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-media img,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-media img {
     display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
     width: 100% !important;
     height: 100% !important;
     min-height: 0 !important;
     object-fit: cover !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard .pcard-body,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard .pcard-body,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard .pcard-body {
+    position: relative !important;
+    inset: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
     flex: 1 1 auto !important;
     width: 100% !important;
     min-width: 0 !important;
+    height: auto !important;
+    max-height: none !important;
     padding: 13px 13px 14px !important;
     overflow: visible !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions {
     position: relative !important;
     inset: auto !important;
@@ -4888,8 +4899,8 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     overflow: visible !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions,
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions-compact,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-actions,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-actions-compact,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions-compact {
     display: grid !important;
@@ -4904,7 +4915,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     overflow: visible !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-action,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action {
     position: relative !important;
     display: inline-grid !important;
@@ -4925,7 +4936,7 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
     -webkit-backdrop-filter: none !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action svg,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-action svg,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action svg {
     width: 17px !important;
     height: 17px !important;
@@ -4936,30 +4947,93 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
 /* Compact property-card action rail on phones: keep all eight tools visible
    while reducing the amount of card height they consume. */
 @media (max-width: 640px) {
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions {
     padding: 6px 8px 7px !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions,
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions-compact,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-actions,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-actions-compact,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions-compact {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 5px !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-action,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action {
-    height: 38px !important;
-    min-height: 38px !important;
+    /* Keep touch targets consistent with the final 44px accessibility contract. */
+    height: 44px !important;
+    min-height: 44px !important;
     border-radius: 9px !important;
   }
 
-  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action svg,
+  body:has(.pf-page) .pf-page .pf-grid:is(.is-list-view, :not(.is-list-view)) > .pcard > .pcard-actions .property-action svg,
   body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action svg {
     width: 15px !important;
     height: 15px !important;
     flex-basis: 15px !important;
+  }
+}
+
+/* Desktop grid cards also keep their action rail in normal flow. List view
+   retains its dedicated side column; only photo-grid cards and home showcases
+   move the eight actions into a separated, balanced footer row. This is the
+   final desktop card layer, after legacy absolute-position rules. */
+@media (min-width: 721px) {
+  body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-actions,
+  body:has(.property-showcase) .property-showcase .property-grid:not(.is-list-view) > .pcard > .pcard-actions {
+    position: relative !important;
+    inset: auto !important;
+    z-index: 4 !important;
+    display: block !important;
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 10px 12px !important;
+    border-top: 1px solid #e4e9ed !important;
+    background: #f8f9fa !important;
+    overflow: visible !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-actions .property-actions,
+  body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-actions .property-actions-compact,
+  body:has(.property-showcase) .property-showcase .property-grid:not(.is-list-view) > .pcard > .pcard-actions .property-actions,
+  body:has(.property-showcase) .property-showcase .property-grid:not(.is-list-view) > .pcard > .pcard-actions .property-actions-compact {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-actions .property-action,
+  body:has(.property-showcase) .property-showcase .property-grid:not(.is-list-view) > .pcard > .pcard-actions .property-action {
+    position: relative !important;
+    display: inline-grid !important;
+    place-items: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid #dce3e8 !important;
+    border-radius: 10px !important;
+    background: #fff !important;
+    color: #19334a !important;
+    box-shadow: 0 1px 2px rgb(11 26 43 / 4%) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    pointer-events: auto !important;
   }
 }

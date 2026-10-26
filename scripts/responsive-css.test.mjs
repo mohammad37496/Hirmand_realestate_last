@@ -682,6 +682,27 @@ testRunner.test("final mobile property cards keep full content and all actions i
     "keyboard users should have a visible Hirmand gold focus indicator");
 });
 
+testRunner.test("the last compact-phone override preserves 44px property action targets", () => {
+  const compactPhoneOverride = responsiveCss.slice(responsiveCss.lastIndexOf("/* Compact property-card action rail on phones:"));
+  assert.match(compactPhoneOverride, /\.property-action \{[^}]*height: 44px !important;[^}]*min-height: 44px !important;/s,
+    "the final <=640px override must not shrink action buttons below the shared 44px touch target");
+  assert.doesNotMatch(compactPhoneOverride, /\.property-action \{[^}]*height: 3[68]px !important;/s,
+    "late compact styles must not silently override the accessible action height");
+});
+
+testRunner.test("desktop grid and home cards keep action rails separate from property photos", () => {
+  const desktopActionRail = responsiveCss.slice(responsiveCss.lastIndexOf("/* Desktop grid cards also keep their action rail in normal flow."));
+  assert.match(desktopActionRail, /@media \(min-width: 721px\)/);
+  assert.ok(desktopActionRail.includes(".pf-grid:not(.is-list-view) > .pcard > .pcard-actions"),
+    "the desktop grid action rail needs an explicit non-list-view selector");
+  assert.ok(desktopActionRail.includes(".property-grid:not(.is-list-view) > .pcard > .pcard-actions"),
+    "homepage showcase actions need an explicit non-list-view selector");
+  assert.match(desktopActionRail, /position: relative !important;\s*inset: auto !important;/s,
+    "desktop grid action rails should stay in normal flow rather than overlaying property photos");
+  assert.match(desktopActionRail, /\.property-action \{[^}]*height: 44px !important;[^}]*min-height: 44px !important;/s,
+    "desktop grid action controls should remain comfortably clickable");
+});
+
 testRunner.test("property card action icons stay legible above decorative layers", () => {
   const iconGuard = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final icon legibility guard:"));
   assert.ok(iconGuard.length > 0, "the final icon legibility guard must remain the last CSS layer");
