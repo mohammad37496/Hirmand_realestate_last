@@ -729,9 +729,9 @@ try {
                 await gridFavorite.scrollIntoViewIfNeeded();
                 await gridFavorite.click();
                 const after = await gridFavorite.getAttribute("aria-pressed");
-                if (after === before || after !== "true") failures.push(`${gridPrefix}: grid-view favorite action did not toggle to active`);
+                if (after === before || !["true", "false"].includes(after ?? "")) failures.push(`${gridPrefix}: grid-view favorite action did not toggle its pressed state`);
                 await gridFavorite.click();
-                if (await gridFavorite.getAttribute("aria-pressed") !== "false") failures.push(`${gridPrefix}: grid-view favorite action did not restore inactive state`);
+                if (await gridFavorite.getAttribute("aria-pressed") !== before) failures.push(`${gridPrefix}: grid-view favorite action did not restore its original pressed state`);
               }
             }
           }

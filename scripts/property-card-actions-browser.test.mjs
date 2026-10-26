@@ -453,8 +453,14 @@ try {
     null,
     { timeout: timeoutMs },
   );
+  await page.setViewportSize({ width: 1024, height: 768 });
+  const tablet1024Buttons = await page.locator("article.pcard .property-action").evaluateAll((buttons) => buttons.map((button) => {
+    const box = button.getBoundingClientRect(); return { width: box.width, height: box.height };
+  }));
+  assert.ok(tablet1024Buttons.every((button) => button.width >= 44 && button.height >= 44),
+    `tablet action controls must remain 44px targets at 1024px: ${JSON.stringify(tablet1024Buttons)}`);
   console.log(
-    "[property-card-browser] resize 1280 → 767 → 768px: all actions remain mounted, tablet targets stay 44px, and saved state restores",
+    "[property-card-browser] resize 1280 → 767 → 768 → 1024px: all actions remain mounted, tablet targets stay 44px, and saved state restores",
   );
 
   // A fresh desktop navigation covers SSR-to-hydration independently of the

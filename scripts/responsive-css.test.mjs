@@ -851,6 +851,10 @@ testRunner.test("opening the map does not silently turn its default viewport int
 testRunner.test("tablet property action buttons stay 44px after desktop card styling loads", () => {
   const tabletFinal = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Tablet widths are still touch-first."));
   assert.match(tabletFinal, /@media \(min-width: 641px\) and \(max-width: 1024px\)/);
-  assert.match(tabletFinal, /\.pf-grid > \.pcard \.pcard-actions \.property-action,[\s\S]*?\.property-grid > \.pcard \.pcard-actions \.property-action \{[^}]*width: 44px !important;[^}]*min-width: 44px !important;[^}]*height: 44px !important;[^}]*min-height: 44px !important;/s,
-    "tablet touch targets must win the cascade over the later-loaded desktop 29/36px card rules");
+  assert.match(tabletFinal, /\.pf-grid:not\(\.is-list-view\) > \.pcard > \.pcard-footer-with-actions \.pcard-actions \.property-action,[\s\S]*?\.pf-grid\.is-list-view > \.pcard > \.pcard-footer-with-actions \.pcard-actions \.property-action,[\s\S]*?\.property-grid > \.pcard > \.pcard-footer-with-actions \.pcard-actions \.property-action \{[^}]*width: 44px !important;[^}]*min-width: 44px !important;[^}]*height: 44px !important;[^}]*min-height: 44px !important;/s,
+    "high-specificity tablet touch targets must override desktop grid/list footer rules that shrink buttons to 29/36px");
+  assert.match(tabletFinal, /\.pcard-footer-with-actions \.pcard-actions \{[^}]*overflow-x: auto !important;/s,
+    "tablet action rails must scroll internally so 44px controls do not expand the card or page width");
+  assert.match(tabletFinal, /\.pcard-footer-with-actions \.property-actions \{[^}]*display: flex !important;[^}]*flex-wrap: nowrap !important;/s,
+    "tablet action controls must remain in a single horizontal row instead of wrapping into extra card height");
 });

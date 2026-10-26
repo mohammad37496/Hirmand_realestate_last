@@ -99,6 +99,9 @@ try {
         details: rect(footer?.querySelector(".pcard-details-link")),
         image: image ? { rect: rect(image), loaded: image.complete && image.naturalWidth > 0, naturalWidth: image.naturalWidth } : null,
         buttons: actions.map((button) => ({ ...rect(button), label: button.getAttribute("aria-label"), visible: getComputedStyle(button).visibility !== "hidden" && getComputedStyle(button).display !== "none" })),
+        railClientWidth: rail?.clientWidth ?? 0,
+        railScrollWidth: rail?.scrollWidth ?? 0,
+        railOverflowX: rail ? getComputedStyle(rail).overflowX : "missing",
         scrollWidth: card.scrollWidth,
         clientWidth: card.clientWidth,
       };
@@ -112,9 +115,19 @@ try {
       assert.ok(item.footer.top >= item.image.rect.bottom - 1, `card ${index + 1} footer must remain below the property photo at ${width}px`);
       assert.equal(item.buttons.length, 8, `card ${index + 1} must have all eight actions at ${width}px`);
       assert.ok(item.scrollWidth <= item.clientWidth + 1, `card ${index + 1} must not have horizontal overflow at ${width}px`);
+      if (width <= 1024) {
+        assert.ok(item.rail.left >= item.footer.left - 1 && item.rail.right <= item.footer.right + 1,
+          `tablet action rail must stay inside its footer at ${width}px`);
+        assert.ok(item.railOverflowX === "auto" || item.railOverflowX === "scroll",
+          `tablet action rail must scroll internally at ${width}px`);
+        assert.ok(item.buttons.every((button) => button.width >= 44 && button.height >= 44),
+          `tablet actions must remain 44px targets at ${width}px`);
+      }
       for (const button of item.buttons) {
         assert.ok(button.visible && button.width >= 28 && button.height >= 28, `action ${button.label} must remain visible and usable at ${width}px`);
-        assert.ok(button.left >= item.rail.left - 1 && button.right <= item.rail.right + 1, `action ${button.label} must stay within the rail at ${width}px`);
+        if (width > 1024) {
+          assert.ok(button.left >= item.rail.left - 1 && button.right <= item.rail.right + 1, `action ${button.label} must stay within the rail at ${width}px`);
+        }
       }
       for (let leftIndex = 0; leftIndex < item.buttons.length; leftIndex += 1) {
         for (let rightIndex = leftIndex + 1; rightIndex < item.buttons.length; rightIndex += 1) {
