@@ -428,7 +428,9 @@ function PropertiesIndexPage() {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchId, setSavedSearchId] = useState("");
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("grid");
+  // Open the property directory in the compact, scannable list layout by default
+  // on desktop too; visitors can switch to the card grid or map at any time.
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("list");
   useEffect(() => {
     // Keep the listing-first default in sync when a responsive preview changes viewport size.
     const mobileQuery = window.matchMedia("(max-width: 620px)");
