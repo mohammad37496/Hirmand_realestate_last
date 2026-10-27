@@ -18,7 +18,6 @@ import { getPropertyFallbackImage, getPropertyFallbackImageAvif, getPropertyFall
 import { formatToman } from "@/lib/money";
 import type { Property, PropertyCardData, PropertyType, PropertyTransaction } from "@/lib/properties";
 import { isFeaturedActive, listPublishedPropertyCards } from "@/lib/properties";
-import { PropertyActions } from "./property-actions";
 import { Reveal } from "./reveal";
 
 const PROPERTY_TYPE_LABEL: Record<PropertyType, string> = {
@@ -248,9 +247,6 @@ export function PropertyCard({
         >
           مشاهده جزئیات <ChevronLeft size={14} />
         </Link>
-        <div className={`pcard-actions${listView ? " pcard-actions-footer" : ""}`} aria-label="عملیات فایل">
-          <PropertyActions property={property} compact />
-        </div>
       </div>
     </article>
   );
