@@ -2340,3 +2340,68 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
   background: #f8efdf !important;
 }
 
+/* Single compact action rail: one shallow surface, tiny icons, no individual
+   button tiles, and minimal vertical space below each listing photo. */
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions {
+  position: relative !important;
+  inset: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 29px !important;
+  min-height: 29px !important;
+  margin: 4px 10px 0 !important;
+  padding: 2px 4px !important;
+  border: 1px solid #e8e5de !important;
+  border-radius: 8px !important;
+  background: #f8f7f4 !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions,
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions-compact,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions-compact {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 2px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+}
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action {
+  display: inline-grid !important;
+  place-items: center !important;
+  flex: 0 0 23px !important;
+  width: 23px !important;
+  min-width: 23px !important;
+  max-width: 23px !important;
+  height: 23px !important;
+  min-height: 23px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action svg,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action svg {
+  width: 12px !important;
+  height: 12px !important;
+  flex: 0 0 12px !important;
+  stroke-width: 1.8 !important;
+}
+
