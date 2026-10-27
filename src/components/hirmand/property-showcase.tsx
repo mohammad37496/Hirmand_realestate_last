@@ -308,7 +308,6 @@ export function PropertyShowcase({ initialProperties = [] }: { initialProperties
   }
   return <Reveal as="section" className="section property-showcase" id="listings"><SectionHead kicker="فایل‌های فعال" title="ملک‌های موجود هیرمند" text="فایل‌های منتشرشده را ببینید، جزئیات را باز کنید و برای هر ملک مستقیم با مشاور تماس بگیرید." />
     <div className="property-showcase-cta">
-      <Link to="/properties" className="text-link">مشاهده همه فایل‌ها</Link>
       <Link to="/budget-match" className="text-link">جستجوی هوشمند بودجه</Link>
     </div>
     <div className="property-toolbar"><div className="property-toolbar-title"><span className="icon-box sm"><Search size={16} /></span><div><strong>جستجوی فایل</strong><small>{loading ? "در حال جستجو…" : `${properties.length.toLocaleString("fa-IR")} فایل نمایش داده می‌شود`}</small></div></div>
