@@ -476,7 +476,7 @@ try {
   assert.ok(tablet1024Buttons.every((button) => button.width >= 30 && button.height >= 30),
     `tablet grid action controls must retain the existing compact 30px targets at 1024px: ${JSON.stringify(tablet1024Buttons)}`);
   console.log(
-    "[property-card-browser] resize 1280 → 767 → 768 → 1024px: all actions remain mounted, tablet targets stay 44px, and saved state restores",
+    "[property-card-browser] resize 1280 → 767 → 768 → 1024px: all actions remain mounted, tablet grid controls stay compact, and saved state restores",
   );
 
   // A fresh desktop navigation covers SSR-to-hydration independently of the
