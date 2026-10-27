@@ -2138,6 +2138,18 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
 .property-detail-page .hd-actions-wrap .hd-actions-heading {
   margin-bottom: 2px;
 }
+/* List cards use a dedicated footer track; keep the action wrapper in that
+   track while the shared button styling remains centralized below. */
+.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .pcard-actions-footer {
+  position: static;
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
 @media (max-width: 767px) {
   .pcard > .pcard-footer-with-actions {
     gap: 8px 10px !important;
