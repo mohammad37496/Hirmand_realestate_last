@@ -2405,3 +2405,74 @@ body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard
   stroke-width: 1.8 !important;
 }
 
+/* List view: float a shallow action rail over the thumbnail to save a full row. */
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay {
+  position: absolute !important;
+  inset-inline: 4px !important;
+  bottom: 4px !important;
+  z-index: 8 !important;
+  display: block !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  height: 25px !important;
+  min-height: 25px !important;
+  margin: 0 !important;
+  padding: 1px 2px !important;
+  border: 1px solid rgb(255 255 255 / 32%) !important;
+  border-radius: 7px !important;
+  background: rgb(14 31 45 / 76%) !important;
+  box-shadow: 0 2px 7px rgb(0 0 0 / 18%) !important;
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  overflow: hidden !important;
+}
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-actions,
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-actions-compact {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 1px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 21px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+}
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-actions::-webkit-scrollbar,
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-actions-compact::-webkit-scrollbar { display: none !important; }
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action {
+  flex: 0 0 22px !important;
+  width: 22px !important;
+  min-width: 22px !important;
+  max-width: 22px !important;
+  height: 21px !important;
+  min-height: 21px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 5px !important;
+  background: transparent !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action svg {
+  width: 13px !important;
+  height: 13px !important;
+  flex: 0 0 13px !important;
+}
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action:hover,
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action:focus-visible,
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action.is-active,
+body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action[aria-pressed="true"] {
+  background: rgb(255 255 255 / 20%) !important;
+  color: #fff !important;
+}
+
