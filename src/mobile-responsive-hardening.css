@@ -5066,6 +5066,7 @@ body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual {
 body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay {
   position: absolute !important;
   inset-inline: 6px !important;
+  transform: translateX(-8px) !important;
   top: auto !important;
   right: auto !important;
   bottom: 6px !important;
@@ -5150,6 +5151,7 @@ body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pc
 @media (max-width: 640px) {
   body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual > .pcard-actions-list-overlay {
     inset-inline: 4px !important;
+    transform: translateX(-5px) !important;
     bottom: 4px !important;
   }
 
