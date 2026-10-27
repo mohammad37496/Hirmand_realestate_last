@@ -270,10 +270,11 @@ html body .music-player-float.is-collapsed .music-player-restore {
 @media (max-width: 720px) {
   html body .music-player-float-empty {
     top: auto !important;
-    right: 10px !important;
+    right: auto !important;
     bottom: calc(78px + env(safe-area-inset-bottom)) !important;
     left: 10px !important;
-    width: auto !important;
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
     height: 132px !important;
     min-height: 132px !important;
     padding: 9px 10px 7px !important;
@@ -282,7 +283,7 @@ html body .music-player-float.is-collapsed .music-player-restore {
   }
 
   html body .music-player-float.is-collapsed {
-    right: 10px !important;
+    right: auto !important;
     bottom: calc(78px + env(safe-area-inset-bottom)) !important;
     left: 10px !important;
     width: fit-content !important;
@@ -296,10 +297,11 @@ html body .music-player-float.is-collapsed .music-player-restore {
     display: flex !important;
     position: fixed !important;
     top: auto !important;
-    right: 10px !important;
+    right: auto !important;
     bottom: calc(78px + env(safe-area-inset-bottom)) !important;
     left: 10px !important;
-    width: auto !important;
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
     height: 132px !important;
     min-height: 132px !important;
     margin: 0 !important;
@@ -312,10 +314,11 @@ html body .music-player-float.is-collapsed .music-player-restore {
 
   html body .music-player-float:not(.music-player-float-empty) {
     top: auto !important;
-    right: 10px !important;
+    right: auto !important;
     bottom: calc(78px + env(safe-area-inset-bottom)) !important;
     left: 10px !important;
-    width: auto !important;
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
     height: 132px !important;
     min-height: 132px !important;
     padding: 9px 10px 7px !important;
@@ -378,10 +381,11 @@ html body .music-player-float.is-collapsed .music-player-restore {
   html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) {
     position: fixed !important;
     top: auto !important;
-    right: 10px !important;
+    right: auto !important;
     bottom: calc(78px + env(safe-area-inset-bottom)) !important;
     left: 10px !important;
-    width: auto !important;
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
     height: 132px !important;
     min-height: 132px !important;
     margin: 0 !important;
