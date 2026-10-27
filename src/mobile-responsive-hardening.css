@@ -5292,3 +5292,86 @@ body:has(.pcard) .pcard > .pcard-visual > .pcard-actions-list-overlay .property-
     border-radius: 8px !important;
   }
 }
+
+/* Size the overlay rail to the actual photo width in grid cards. The list
+   layout intentionally keeps its proven 30px/28px controls; narrow grid cards
+   use smaller controls so the rail does not dominate or spill past the photo. */
+body:has(.pcard) .pcard > .pcard-visual {
+  container-type: inline-size;
+}
+
+@container (max-width: 260px) {
+  .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action {
+    flex-basis: 26px !important;
+    width: 26px !important;
+    min-width: 26px !important;
+    max-width: 26px !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    border-radius: 7px !important;
+  }
+
+  .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action svg {
+    width: 14px !important;
+    height: 14px !important;
+    flex-basis: 14px !important;
+  }
+
+  .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-actions,
+  .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-actions-compact {
+    gap: 3px !important;
+  }
+}
+
+@container (max-width: 210px) {
+  .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action {
+    flex-basis: 22px !important;
+    width: 22px !important;
+    min-width: 22px !important;
+    max-width: 22px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+    border-radius: 6px !important;
+  }
+
+  .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action svg {
+    width: 12px !important;
+    height: 12px !important;
+    flex-basis: 12px !important;
+  }
+
+  .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-actions,
+  .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-actions-compact {
+    gap: 2px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  @container (max-width: 260px) {
+    .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action {
+      flex-basis: 24px !important;
+      width: 24px !important;
+      min-width: 24px !important;
+      max-width: 24px !important;
+      height: 24px !important;
+      min-height: 24px !important;
+    }
+  }
+
+  @container (max-width: 210px) {
+    .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action {
+      flex-basis: 20px !important;
+      width: 20px !important;
+      min-width: 20px !important;
+      max-width: 20px !important;
+      height: 20px !important;
+      min-height: 20px !important;
+    }
+
+    .property-grid:not(.is-list-view) > .pcard > .pcard-visual > .pcard-actions-list-overlay .property-action svg {
+      width: 11px !important;
+      height: 11px !important;
+      flex-basis: 11px !important;
+    }
+  }
+}
