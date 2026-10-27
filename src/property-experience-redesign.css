@@ -2276,3 +2276,67 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
   .pcard > .pcard-visual > .pcard-actions .property-action { transition: none; }
 }
 
+/* Keep listing actions below the photo in normal flow. The toolbar itself is
+   transparent so it does not cover the image or create a white slab. */
+.pcard > .pcard-actions {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 2 !important;
+  display: block !important;
+  grid-column: 1 / -1;
+  width: auto !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 7px 12px 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  overflow: visible !important;
+}
+.pcard > .pcard-actions .property-actions,
+.pcard > .pcard-actions .property-actions-compact {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 5px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+.pcard > .pcard-actions .property-actions::-webkit-scrollbar,
+.pcard > .pcard-actions .property-actions-compact::-webkit-scrollbar {
+  display: none !important;
+}
+.pcard > .pcard-actions .property-action {
+  flex: 0 0 30px !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.pcard > .pcard-actions .property-action:hover,
+.pcard > .pcard-actions .property-action:focus-visible {
+  background: #f8efdf !important;
+}
+

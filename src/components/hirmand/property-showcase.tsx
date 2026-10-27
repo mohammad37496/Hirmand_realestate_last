@@ -171,9 +171,9 @@ export function PropertyCard({
           </span>
         </div>
         </Link>
-        <div className="pcard-actions" aria-label="عملیات فایل">
-          <PropertyActions property={property} compact />
-        </div>
+      </div>
+      <div className="pcard-actions" aria-label="عملیات فایل">
+        <PropertyActions property={property} compact />
       </div>
 
       <Link
