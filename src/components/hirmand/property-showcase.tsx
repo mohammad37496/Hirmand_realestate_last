@@ -18,6 +18,7 @@ import { getPropertyFallbackImage, getPropertyFallbackImageAvif, getPropertyFall
 import { formatToman } from "@/lib/money";
 import type { Property, PropertyCardData, PropertyType, PropertyTransaction } from "@/lib/properties";
 import { isFeaturedActive, listPublishedPropertyCards } from "@/lib/properties";
+import { PropertyActions } from "./property-actions";
 import { Reveal } from "./reveal";
 
 const PROPERTY_TYPE_LABEL: Record<PropertyType, string> = {
@@ -130,14 +131,15 @@ export function PropertyCard({
 
   return (
     <article className="pcard">
-      <Link
-        to="/properties/$slug"
-        params={{ slug: property.slug.trim() || property.id }}
-        className="pcard-link"
-        data-property-link="true"
-        data-property-id={property.id}
-        aria-label={`مشاهده جزئیات کامل فایل ${property.title}`}
-      >
+      <div className="pcard-visual">
+        <Link
+          to="/properties/$slug"
+          params={{ slug: property.slug.trim() || property.id }}
+          className="pcard-link pcard-media-link"
+          data-property-link="true"
+          data-property-id={property.id}
+          aria-label={`مشاهده جزئیات کامل فایل ${property.title}`}
+        >
         <div className="pcard-media">
           <PropertyImage
             src={image}
@@ -168,7 +170,20 @@ export function PropertyCard({
             <ChevronLeft size={16} />
           </span>
         </div>
+        </Link>
+        <div className="pcard-actions" aria-label="عملیات فایل">
+          <PropertyActions property={property} compact />
+        </div>
+      </div>
 
+      <Link
+        to="/properties/$slug"
+        params={{ slug: property.slug.trim() || property.id }}
+        className="pcard-link pcard-copy-link"
+        data-property-link="true"
+        data-property-id={property.id}
+        aria-label={`مشاهده جزئیات کامل فایل ${property.title}`}
+      >
         <div className="pcard-body">
           <div className="pcard-topline">
             <div className="pcard-meta">

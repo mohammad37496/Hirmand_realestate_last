@@ -2175,3 +2175,104 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
   }
 }
 
+/* Compact property actions live only on the photo, never over card copy or
+   neighbouring cards. Keep the eight controls in one scrollable glass rail. */
+.pcard > .pcard-visual {
+  position: relative;
+  min-width: 0;
+  isolation: isolate;
+}
+.pcard > .pcard-visual > .pcard-media-link {
+  display: block;
+  position: relative;
+  z-index: 1;
+}
+.pcard > .pcard-visual > .pcard-actions {
+  position: absolute !important;
+  inset-inline: 8px !important;
+  bottom: 8px !important;
+  z-index: 6 !important;
+  display: block !important;
+  width: auto !important;
+  max-width: calc(100% - 16px) !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 4px !important;
+  border: 1px solid rgb(255 255 255 / 78%) !important;
+  border-radius: 12px !important;
+  background: rgb(255 255 255 / 94%) !important;
+  box-shadow: 0 3px 14px rgb(12 29 44 / 18%) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  overflow: hidden !important;
+  isolation: isolate;
+}
+.pcard > .pcard-visual > .pcard-actions .property-actions,
+.pcard > .pcard-visual > .pcard-actions .property-actions-compact {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 3px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+.pcard > .pcard-visual > .pcard-actions .property-actions::-webkit-scrollbar { display: none !important; }
+.pcard > .pcard-visual > .pcard-actions .property-action {
+  position: relative !important;
+  display: inline-grid !important;
+  flex: 0 0 30px !important;
+  place-items: center !important;
+  width: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: #233d51 !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transition: background-color .16s ease, color .16s ease, border-color .16s ease;
+}
+.pcard > .pcard-visual > .pcard-actions .property-action svg {
+  display: block !important;
+  width: 16px !important;
+  height: 16px !important;
+  flex: 0 0 16px !important;
+  stroke: currentColor !important;
+}
+.pcard > .pcard-visual > .pcard-actions .property-action:hover,
+.pcard > .pcard-visual > .pcard-actions .property-action:focus-visible {
+  border-color: #e6d4b3 !important;
+  background: #f8efdf !important;
+  color: #795b2b !important;
+}
+.pcard > .pcard-visual > .pcard-actions .property-action.is-active,
+.pcard > .pcard-visual > .pcard-actions .property-action[aria-pressed="true"] {
+  border-color: #e1c99d !important;
+  background: #f4e8d1 !important;
+  color: #79551f !important;
+}
+.pcard > .pcard-visual > .pcard-actions .property-action:focus-visible {
+  outline: 2px solid #b78c4a !important;
+  outline-offset: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pcard > .pcard-visual > .pcard-actions .property-action { transition: none; }
+}
+
