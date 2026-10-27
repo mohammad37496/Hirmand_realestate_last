@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "@tanstack/react-router";
 import {
   ChevronDown,
   ListMusic,
@@ -32,7 +31,6 @@ function clock(value: number) {
 }
 
 export function SiteMusicPlayer() {
-  const pathname = useLocation({ select: (location) => location.pathname });
   const audioRef = useRef<HTMLAudioElement>(null);
   const [tracks, setTracks] = useState<PublicTrack[]>([]);
   const [index, setIndex] = useState(0);
@@ -172,8 +170,6 @@ export function SiteMusicPlayer() {
   const cycleRepeatMode = () => {
     setRepeatMode((mode) => mode === "all" ? "one" : mode === "one" ? "off" : "all");
   };
-
-  if (pathname.startsWith("/admin")) return null;
 
   return (
     <aside className={`music-player-float${tracks.length ? "" : " music-player-float-empty"}${expanded ? " is-expanded" : ""}`} aria-label="پخش موسیقی هیرمند">
