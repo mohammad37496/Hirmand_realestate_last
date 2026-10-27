@@ -171,17 +171,10 @@ export function PropertyCard({
           </span>
         </div>
         </Link>
-        {listView ? (
-          <div className="pcard-actions pcard-actions-list-overlay" aria-label="عملیات فایل">
-            <PropertyActions property={property} compact />
-          </div>
-        ) : null}
-      </div>
-      {!listView ? (
-        <div className="pcard-actions" aria-label="عملیات فایل">
+        <div className="pcard-actions pcard-actions-list-overlay" aria-label="عملیات فایل">
           <PropertyActions property={property} compact />
         </div>
-      ) : null}
+      </div>
 
       <Link
         to="/properties/$slug"
