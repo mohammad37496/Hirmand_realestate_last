@@ -428,18 +428,18 @@ function PropertiesIndexPage() {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchId, setSavedSearchId] = useState("");
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
-  // Open the property directory in the compact, scannable list layout by default
-  // on desktop too; visitors can switch to the card grid or map at any time.
+  // Keep the compact list as the hydration-safe initial state, then choose the
+  // appropriate responsive default after mount: grid on desktop, list on mobile.
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("list");
+  const userSelectedViewMode = useRef(false);
   useEffect(() => {
-    // Keep the listing-first default in sync when a responsive preview changes viewport size.
     const mobileQuery = window.matchMedia("(max-width: 620px)");
-    const applyMobileDefault = () => {
-      if (mobileQuery.matches) setViewMode((current) => current === "grid" ? "list" : current);
+    const applyResponsiveDefault = () => {
+      if (!userSelectedViewMode.current) setViewMode(mobileQuery.matches ? "list" : "grid");
     };
-    applyMobileDefault();
-    mobileQuery.addEventListener("change", applyMobileDefault);
-    return () => mobileQuery.removeEventListener("change", applyMobileDefault);
+    applyResponsiveDefault();
+    mobileQuery.addEventListener("change", applyResponsiveDefault);
+    return () => mobileQuery.removeEventListener("change", applyResponsiveDefault);
   }, []);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [desktopFilterViewport, setDesktopFilterViewport] = useState(false);
@@ -1888,13 +1888,13 @@ function PropertiesIndexPage() {
                   </select>
                 </label>
                 <div className="pf-views" role="group" aria-label="نحوه نمایش فایل‌ها">
-                  <button type="button" className={viewMode === "list" ? "is-active" : ""} aria-pressed={viewMode === "list"} onClick={() => setViewMode("list")}>
+                  <button type="button" className={viewMode === "list" ? "is-active" : ""} aria-pressed={viewMode === "list"} onClick={() => { userSelectedViewMode.current = true; setViewMode("list"); }}>
                     <List size={15} /> <span>لیستی</span>
                   </button>
-                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} aria-pressed={viewMode === "grid"} onClick={() => setViewMode("grid")}>
+                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} aria-pressed={viewMode === "grid"} onClick={() => { userSelectedViewMode.current = true; setViewMode("grid"); }}>
                     <LayoutGrid size={15} /> <span>شبکه‌ای</span>
                   </button>
-                  <button type="button" className={viewMode === "split" ? "is-active" : ""} aria-pressed={viewMode === "split"} onClick={() => setViewMode("split")}>
+                  <button type="button" className={viewMode === "split" ? "is-active" : ""} aria-pressed={viewMode === "split"} onClick={() => { userSelectedViewMode.current = true; setViewMode("split"); }}>
                     <MapPinned size={15} /> <span>نقشه</span>
                   </button>
                 </div>
