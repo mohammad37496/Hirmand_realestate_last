@@ -49,7 +49,7 @@ jobs:
           fi
 
           set +e
-          timeout --signal=TERM --kill-after=30s 20m liara deploy \
+          timeout --signal=TERM --kill-after=30s 35m liara deploy \
             --app="${APP_NAME}" \
             --api-token="${LIARA_TOKEN}" \
             "${TEAM_ARGS[@]}" \
@@ -61,7 +61,7 @@ jobs:
           DEPLOY_STATUS=$?
           set -e
           if [[ "${DEPLOY_STATUS}" -eq 124 ]]; then
-            echo "::error::Liara CLI did not finish within 20 minutes. The last CLI phase above distinguishes source upload/fetch from remote build/runtime output; the failure hook will collect bounded diagnostics."
+            echo "::error::Liara CLI did not finish within 35 minutes. The last CLI phase above distinguishes source upload/fetch from remote build/runtime output; the failure hook will collect bounded diagnostics."
           fi
           exit "${DEPLOY_STATUS}"
 
