@@ -1223,6 +1223,40 @@
     min-width: 0 !important;
   }
 
+  /* The detail-page tools use the same compact icon rail as property cards.
+     Keep four touch-sized controls per row instead of inheriting the legacy
+     two-column, full-width labeled-action layout. */
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-actions-wrap .property-actions-compact {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 44px)) !important;
+    justify-content: start !important;
+    align-items: center !important;
+    gap: 7px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-actions-wrap .property-actions-compact .property-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    max-width: 44px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 12px !important;
+    white-space: nowrap !important;
+  }
+
   html body:has(main#top.property-detail-page.hd-property-detail-v2)
   main#top.property-detail-page.hd-property-detail-v2 .property-actions > *,
   html body:has(main#top.property-detail-page.hd-property-detail-v2)

@@ -861,7 +861,9 @@ export function PropertyDetailView({
 
             <div className="hd-actions-wrap">
               <div className="hd-actions-heading">ابزارهای فایل</div>
-              <PropertyActions property={property} />
+              <div className="pcard-actions" aria-label="عملیات فایل">
+                <PropertyActions property={property} compact />
+              </div>
             </div>
             <p className="hd-contact-note">برای هماهنگی بازدید و دریافت جزئیات تکمیلی، با مشاور فایل تماس بگیرید.</p>
           </div>

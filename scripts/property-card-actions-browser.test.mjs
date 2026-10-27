@@ -111,6 +111,16 @@ try {
 
   const page = await context.newPage();
   page.on("pageerror", (error) => pageErrors.push(error.message));
+  // Keep QR image assertions deterministic and independent of the external QR
+  // provider's uptime; the test still verifies the real URL and encoded data.
+  await page.route("https://api.qrserver.com/v1/create-qr-code/**", async (route) => {
+    const size = new URL(route.request().url()).searchParams.get("size") === "1200x1200" ? 1200 : 360;
+    await route.fulfill({
+      status: 200,
+      contentType: "image/svg+xml",
+      body: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect width="100%" height="100%" fill="white"/><path d="M10 10h${Math.max(10, size - 20)}v${Math.max(10, size - 20)}H10Z" fill="black"/></svg>`,
+    });
+  });
   if (!isLocalApp) {
     await page.route("**/assets/properties-mobile-reference-*.css", async (route) => {
       await route.fulfill({ status: 200, contentType: "text/css; charset=utf-8", body: compiledCardCss });
@@ -679,7 +689,77 @@ try {
     { timeout: timeoutMs },
   );
   assert.ok((await detailPage.innerText()).includes(detailTitle), "details page must render the selected property's actual title");
-  console.log("[property-card-browser] details link opens the matching local property record and renders its title");
+  const detailActions = detailPage.locator(".hd-actions-wrap > .pcard-actions");
+  const detailActionButtons = detailActions.locator(".property-action");
+  await detailActions.waitFor({ state: "visible", timeout: timeoutMs });
+  assert.equal(await detailActionButtons.count(), 8, "property detail tools must expose all eight compact actions");
+  assert.equal(await detailActions.locator(".property-actions-compact").count(), 1,
+    "detail tools must reuse the shared compact PropertyActions renderer");
+  for (const width of [320, 390, 768, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(80);
+    const geometry = await detailActions.evaluate((rail) => {
+      const bounds = (element) => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+      };
+      const buttons = [...rail.querySelectorAll(".property-action")];
+      return {
+        rail: bounds(rail),
+        clientWidth: rail.clientWidth,
+        scrollWidth: rail.scrollWidth,
+        viewportWidth: document.documentElement.clientWidth,
+        buttons: buttons.map((button) => ({ ...bounds(button), label: button.getAttribute("aria-label"), title: button.getAttribute("title"), pressed: button.getAttribute("aria-pressed") })),
+      };
+    });
+    assert.equal(geometry.buttons.length, 8, `detail tools must keep all eight actions at ${width}px`);
+    assert.ok(geometry.rail.left >= -1 && geometry.rail.right <= width + 1,
+      `detail action container must remain inside the viewport at ${width}px: ${JSON.stringify(geometry)}`);
+    assert.ok(geometry.scrollWidth <= geometry.clientWidth + 1,
+      `detail action container must not overflow horizontally at ${width}px: ${JSON.stringify(geometry)}`);
+    assert.ok(geometry.buttons.every((button) => button.label && button.title),
+      `all detail action buttons must retain accessible labels and titles at ${width}px`);
+    assert.ok(geometry.buttons[0].pressed === "true" || geometry.buttons[0].pressed === "false",
+      `favorite must expose its toggle state through aria-pressed at ${width}px`);
+    assert.ok(geometry.buttons[7].pressed === "true" || geometry.buttons[7].pressed === "false",
+      `compare must expose its toggle state through aria-pressed at ${width}px`);
+    assert.ok(geometry.buttons.slice(1, 7).every((button) => button.pressed === null),
+      `momentary detail actions must not be exposed as pressed toggles at ${width}px`);
+    assert.ok(geometry.buttons.every((button) => button.width > 0 && button.height > 0),
+      `all detail action buttons must have visible hit areas at ${width}px`);
+    if (width <= 430) {
+      assert.ok(geometry.buttons.every((button) => button.width >= 44 && button.height >= 44),
+        `detail action targets must remain at least 44px on mobile at ${width}px: ${JSON.stringify(geometry.buttons)}`);
+    } else {
+      assert.ok(geometry.buttons.every((button) => Math.abs(button.width - geometry.buttons[0].width) < 1 && Math.abs(button.height - geometry.buttons[0].height) < 1),
+        `desktop/tablet detail action buttons must have consistent dimensions at ${width}px`);
+    }
+    console.log(`[property-card-browser] detail actions ${width}px: eight accessible targets, bounded layout, no horizontal overflow`);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  const detailFavorite = detailActionButtons.first();
+  const detailFavoriteBefore = await detailFavorite.getAttribute("aria-pressed");
+  await detailFavorite.click();
+  await page.waitForFunction(
+    (previous) => document.querySelector(".hd-actions-wrap > .pcard-actions .property-action")?.getAttribute("aria-pressed") !== previous,
+    detailFavoriteBefore,
+    { timeout: timeoutMs },
+  );
+  assert.notEqual(await detailFavorite.getAttribute("aria-pressed"), detailFavoriteBefore,
+    "detail favorite action must update aria-pressed when activated");
+  const detailFavoriteAfterClick = await detailFavorite.getAttribute("aria-pressed");
+  await detailFavorite.focus();
+  await page.keyboard.press("Space");
+  await page.waitForFunction(
+    (previous) => document.querySelector(".hd-actions-wrap > .pcard-actions .property-action")?.getAttribute("aria-pressed") !== previous,
+    detailFavoriteAfterClick,
+    { timeout: timeoutMs },
+  );
+  assert.equal(await detailFavorite.getAttribute("aria-pressed"), detailFavoriteBefore,
+    "detail favorite action must remain operable by keyboard and restore its pressed state");
+  assert.ok(["true", "false"].includes(await detailActionButtons.nth(7).getAttribute("aria-pressed")),
+    "detail compare action must expose its current toggle state after interaction checks");
+  console.log("[property-card-browser] details link opens the matching property and its eight compact actions remain functional");
 
   assert.deepEqual(
     pageErrors,
