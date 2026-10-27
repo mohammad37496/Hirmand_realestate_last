@@ -757,9 +757,54 @@ try {
   );
   assert.equal(await detailFavorite.getAttribute("aria-pressed"), detailFavoriteBefore,
     "detail favorite action must remain operable by keyboard and restore its pressed state");
-  assert.ok(["true", "false"].includes(await detailActionButtons.nth(7).getAttribute("aria-pressed")),
-    "detail compare action must expose its current toggle state after interaction checks");
-  console.log("[property-card-browser] details link opens the matching property and its eight compact actions remain functional");
+
+  // Exercise every shared operation from the detail-page instance as well as
+  // from listing cards; the compact renderer must not leave any handler wired
+  // only in the card context.
+  await detailActionButtons.nth(1).click();
+  await page.waitForFunction(() => window.__propertyActionCalls.shares.length === 1, null, { timeout: timeoutMs });
+  const detailShare = await page.evaluate(() => window.__propertyActionCalls.shares[0]);
+  assert.ok(detailShare.title.includes(detailTitle), "detail share must describe the current property");
+  assert.ok(detailShare.url.endsWith(new URL(detailHref, baseUrl).pathname), "detail share must target the current detail URL");
+
+  await detailActionButtons.nth(2).click();
+  await page.waitForFunction(() => window.__propertyActionCalls.shares.length === 2, null, { timeout: timeoutMs });
+  const detailCardPayload = await page.evaluate(() => window.__propertyActionCalls.shares[1]);
+  assert.equal(detailCardPayload.files?.[0]?.type, "image/png", "detail intro-card action must generate a shareable PNG");
+  assert.ok(detailCardPayload.files[0].size > 100, "detail intro-card PNG must contain image bytes");
+
+  await detailActionButtons.nth(3).click();
+  const detailQrDialog = page.locator(".property-qr-dialog[role='dialog']");
+  await detailQrDialog.waitFor({ state: "visible", timeout: timeoutMs });
+  const detailQrImage = detailQrDialog.locator("img");
+  await detailQrImage.waitFor({ state: "visible", timeout: timeoutMs });
+  const detailQrUrl = new URL(await detailQrImage.getAttribute("src"));
+  assert.ok(detailQrUrl.searchParams.get("data")?.endsWith(new URL(detailHref, baseUrl).pathname), "detail QR must encode the current property URL");
+  await detailQrDialog.locator("button[aria-label]").first().click();
+
+  await detailActionButtons.nth(4).click();
+  const detailBrief = page.locator(".property-brief-dialog[role='dialog']");
+  await detailBrief.waitFor({ state: "visible", timeout: timeoutMs });
+  assert.ok((await detailBrief.innerText()).includes(detailTitle), "detail brief sheet must describe the current property");
+  await detailBrief.locator(".property-brief-close").click();
+
+  await detailActionButtons.nth(5).click();
+  await page.waitForFunction(() => window.__propertyActionCalls.clipboard.length === 1, null, { timeout: timeoutMs });
+  const detailAdText = await page.evaluate(() => window.__propertyActionCalls.clipboard[0]);
+  assert.ok(detailAdText.includes(detailTitle), "detail copy-ad action must include the current property title");
+  assert.ok(detailAdText.includes(new URL(detailHref, baseUrl).pathname), "detail copy-ad action must include the canonical detail URL");
+
+  await detailActionButtons.nth(6).click();
+  await page.waitForFunction(() => window.__propertyActionCalls.prints === 1, null, { timeout: timeoutMs });
+
+  const detailCompare = detailActionButtons.nth(7);
+  const detailCompareBefore = await detailCompare.getAttribute("aria-pressed");
+  await detailCompare.click();
+  await page.waitForFunction((previous) => document.querySelector(".hd-actions-wrap > .pcard-actions .property-action:nth-child(8)")?.getAttribute("aria-pressed") !== previous, detailCompareBefore, { timeout: timeoutMs });
+  assert.notEqual(await detailCompare.getAttribute("aria-pressed"), detailCompareBefore, "detail compare action must toggle its accessible state");
+  await detailCompare.click();
+  await page.waitForFunction((previous) => document.querySelector(".hd-actions-wrap > .pcard-actions .property-action:nth-child(8)")?.getAttribute("aria-pressed") === previous, detailCompareBefore, { timeout: timeoutMs });
+  console.log("[property-card-browser] detail route executes all eight operations: favorite keyboard toggle, share, PNG card, QR, brief sheet, ad copy, print, and compare toggle");
 
   assert.deepEqual(
     pageErrors,
