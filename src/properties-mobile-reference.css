@@ -1156,6 +1156,99 @@ body:has(.pf-page) .property-qr-close {
   }
 }
 
+/* Desktop list cards use a shared, fixed rhythm so long titles, prices or
+   missing metadata cannot make neighboring rows look uneven. Keep this
+   scoped to the desktop directory list; mobile and grid cards are untouched. */
+@media (min-width: 1024px) {
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard {
+    height: 258px !important;
+    min-height: 258px !important;
+    max-height: 258px !important;
+    grid-template-rows: minmax(0, 1fr) 72px !important;
+    gap: 0 !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-media,
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-media picture,
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-media img {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-body {
+    min-height: 0 !important;
+    gap: 6px !important;
+    padding: 10px 16px !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-topline {
+    min-height: 18px !important;
+    max-height: 22px !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-title {
+    max-height: 3.5em !important;
+    font-size: clamp(.92rem, .86rem + .18vw, 1.02rem) !important;
+    line-height: 1.65 !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-price-row {
+    min-height: 36px !important;
+    max-height: 42px !important;
+    overflow: hidden !important;
+    padding: 5px 9px !important;
+    gap: 4px 12px !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-specs {
+    max-height: 34px !important;
+    overflow: hidden !important;
+    flex-wrap: nowrap !important;
+    gap: 5px !important;
+    padding-top: 5px !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-specs .pcard-spec {
+    min-height: 25px !important;
+    padding: 3px 7px !important;
+    white-space: nowrap !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions {
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    grid-template-rows: 22px 36px !important;
+    gap: 4px 12px !important;
+    padding: 4px 12px 5px !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .pcard-actions-footer {
+    grid-column: 1 / -1 !important;
+    min-height: 0 !important;
+    padding-top: 3px !important;
+    border-top: 1px solid #f0eee8 !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions,
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions-compact {
+    gap: 5px !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-action {
+    width: 32px !important;
+    min-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+  }
+}
+
 /* Keep the mobile directory scan-friendly even when a card exposes every
    file action. The previous four-column action grid wrapped eight controls
    into two rows, making otherwise compact list cards unnecessarily tall. */
