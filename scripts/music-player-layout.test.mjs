@@ -15,9 +15,11 @@ test("the music player is mounted once in the shared root for every route", () =
 
 test("the shared player stays viewport-fixed and uses the reference mobile placement", () => {
   assert.match(css, /html body \.music-player-float:not\(\.music-player-float-empty\)\s*\{[^}]*position:\s*fixed\s*!important;[^}]*bottom:\s*20px\s*!important;[^}]*left:\s*20px\s*!important;/s);
-  assert.match(css, /@media \(max-width:\s*720px\)[\s\S]*?html body \.music-player-float:not\(\.music-player-float-empty\)\s*\{[^}]*right:\s*10px\s*!important;[^}]*bottom:\s*calc\(78px \+ env\(safe-area-inset-bottom\)\)\s*!important;[^}]*left:\s*10px\s*!important;[^}]*height:\s*132px\s*!important;/s);
+  assert.match(css, /@media \(max-width:\s*720px\)[\s\S]*?html body \.music-player-float:not\(\.music-player-float-empty\)\s*\{[^}]*right:\s*auto\s*!important;[^}]*bottom:\s*calc\(78px \+ env\(safe-area-inset-bottom\)\)\s*!important;[^}]*left:\s*10px\s*!important;[^}]*width:\s*calc\(100vw - 20px\)\s*!important;[^}]*height:\s*132px\s*!important;/s);
   assert.match(css, /html body:has\(\.pf-page, \.property-showcase\) \.music-player-float:not\(\.music-player-float-empty\)\s*\{[^}]*position:\s*fixed\s*!important;/s,
     "legacy listing-specific mobile rules must not turn the dock into a scrolling element");
+  assert.match(css, /html body \.music-player-float\.is-collapsed\s*\{[^}]*right:\s*auto\s*!important;[^}]*left:\s*10px\s*!important;/s,
+    "the minimized dock must keep the same viewport edge across route wrappers");
 });
 
 test("the player exposes working collapse and restore controls without unmounting audio", () => {
