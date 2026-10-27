@@ -210,16 +210,6 @@
   gap: 11px;
   padding: 19px 21px;
 }
-.pf-page .pf-grid.is-list-view > .pcard .pcard-actions {
-  padding: 12px 15px;
-  border-top: 1px solid #edf0f0;
-  background: #fffefa;
-}
-.pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions,
-.pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions-compact {
-  flex-wrap: wrap;
-}
-
 /* In list mode, keep the operation controls in the same footer row as the
    location/details affordances. The controls are siblings of the card link,
    so buttons remain valid, independently focusable interactive elements. */
@@ -241,37 +231,6 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .pcard-actions-footer {
-  position: static;
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: flex-start;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions,
-.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions-compact {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-action {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
-  border: 1px solid #e1e6e8;
-  border-radius: 9px;
-  background: #fff;
-  color: #425465;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
 /* Shared property-card footer: location and details first, useful actions in
    a calm, compact toolbar beneath them. Keep the existing action components
    and handlers intact so every control remains independently interactive. */
@@ -318,63 +277,6 @@
   background: #f8f1e4;
   color: #60451f;
 }
-.pcard > .pcard-footer-with-actions > .pcard-actions,
-.pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .pcard-actions-footer {
-  position: static;
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: flex-start;
-  min-width: 0;
-  margin: 0;
-  padding: 9px 0 0;
-  border: 0;
-  border-top: 1px solid #edf0f1;
-  background: transparent;
-}
-.pcard > .pcard-footer-with-actions .property-actions,
-.pcard > .pcard-footer-with-actions .property-actions-compact {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-}
-.pcard > .pcard-footer-with-actions .property-action {
-  display: inline-grid;
-  flex: 0 0 36px;
-  place-items: center;
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
-  padding: 0;
-  border: 1px solid #e1e6e9;
-  border-radius: 10px;
-  background: #fff;
-  color: #435668;
-  box-shadow: 0 1px 2px rgb(18 39 56 / 4%);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, transform 160ms ease;
-}
-.pcard > .pcard-footer-with-actions .property-action:hover,
-.pcard > .pcard-footer-with-actions .property-action:focus-visible {
-  border-color: #c9ab73;
-  background: #fbf5e9;
-  color: #795b2b;
-}
-.pcard > .pcard-footer-with-actions .property-action:focus-visible,
-.pcard > .pcard-footer-with-actions .pcard-details-link:focus-visible {
-  outline: 2px solid #b18a4a;
-  outline-offset: 2px;
-}
-.pcard > .pcard-footer-with-actions .property-action.is-active,
-.pcard > .pcard-footer-with-actions .property-action[aria-pressed="true"] {
-  border-color: #d4bd91;
-  background: #f5ead4;
-  color: #76531e;
-}
 @media (max-width: 767px) {
   .pf-page .pf-grid.is-list-view > .pcard {
     grid-template-columns: minmax(100px, 32%) minmax(0, 1fr) !important;
@@ -390,19 +292,6 @@
     align-self: stretch !important;
     grid-template-columns: minmax(0, 1fr) auto;
     padding: 10px 14px 14px;
-  }
-  .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions,
-  .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-actions-compact {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    width: 100%;
-    gap: 6px;
-  }
-  .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions .property-action {
-    width: 100%;
-    min-width: 0;
-    height: 40px;
-    min-height: 40px;
   }
 }
 
@@ -2146,6 +2035,121 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
   transform: none !important;
   filter: none !important;
   pointer-events: none !important;
+}
+
+/* One predictable action toolbar for every property card and the detail page.
+   Keep it in normal flow below card content so it never covers the photo,
+   badges, prices, or other card layers. */
+.pcard > .pcard-footer-with-actions > .pcard-actions,
+.pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer,
+.property-detail-page .hd-actions-wrap > .pcard-actions {
+  position: static !important;
+  inset: auto !important;
+  z-index: 2;
+  display: flex !important;
+  grid-column: 1 / -1 !important;
+  align-items: center;
+  justify-content: flex-start !important;
+  width: 100%;
+  min-width: 0;
+  margin: 2px 0 0 !important;
+  padding: 9px 0 0 !important;
+  border: 0 !important;
+  border-top: 1px solid #edf0f1 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible;
+  isolation: isolate;
+}
+.pcard > .pcard-footer-with-actions .property-actions,
+.pcard > .pcard-footer-with-actions .property-actions-compact,
+.property-detail-page .hd-actions-wrap .property-actions,
+.property-detail-page .hd-actions-wrap .property-actions-compact {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex: 1 1 auto;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: stretch;
+  gap: 7px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+.pcard > .pcard-footer-with-actions .property-action,
+.property-detail-page .hd-actions-wrap .property-action {
+  position: relative;
+  z-index: 1;
+  display: inline-grid !important;
+  flex: 0 0 auto !important;
+  place-items: center;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e0e6e8 !important;
+  border-radius: 10px !important;
+  background: #fff !important;
+  color: #405466 !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+.pcard > .pcard-footer-with-actions .property-action svg,
+.property-detail-page .hd-actions-wrap .property-action svg {
+  display: block;
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+  pointer-events: none;
+}
+.pcard > .pcard-footer-with-actions .property-action:hover,
+.pcard > .pcard-footer-with-actions .property-action:focus-visible,
+.property-detail-page .hd-actions-wrap .property-action:hover,
+.property-detail-page .hd-actions-wrap .property-action:focus-visible {
+  border-color: #c9ab73 !important;
+  background: #fbf5e9 !important;
+  color: #795b2b !important;
+}
+.pcard > .pcard-footer-with-actions .property-action.is-active,
+.pcard > .pcard-footer-with-actions .property-action[aria-pressed="true"],
+.property-detail-page .hd-actions-wrap .property-action.is-active,
+.property-detail-page .hd-actions-wrap .property-action[aria-pressed="true"] {
+  border-color: #d4bd91 !important;
+  background: #f5ead4 !important;
+  color: #76531e !important;
+}
+.property-detail-page .hd-actions-wrap {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #e7e9e7;
+  border-radius: 13px;
+  background: #fff;
+}
+.property-detail-page .hd-actions-wrap .hd-actions-heading {
+  margin-bottom: 2px;
+}
+@media (max-width: 767px) {
+  .pcard > .pcard-footer-with-actions {
+    gap: 8px 10px !important;
+    padding: 9px 10px 11px !important;
+  }
+  .pcard > .pcard-footer-with-actions .property-action,
+  .property-detail-page .hd-actions-wrap .property-action {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
 }
 @media (max-width: 620px) {
   html body:has(main#top.property-detail-page.hd-property-detail-v2)
