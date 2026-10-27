@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { mkdir, readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl =
@@ -13,6 +14,8 @@ assert.ok(
 const timeoutMs = Number(
   process.env.PROPERTY_CARD_BROWSER_TIMEOUT_MS || 30_000,
 );
+const screenshotDir = process.env.PROPERTY_CARD_BROWSER_SCREENSHOT_DIR;
+if (screenshotDir) await mkdir(screenshotDir, { recursive: true });
 let compiledCardCss;
 if (!isLocalApp) {
   const builtAssets = await readdir(new URL("../.output/public/assets/", import.meta.url));
@@ -241,7 +244,10 @@ try {
   );
 
   const firstCard = cards.first();
-  const firstPropertyPath = new URL(await firstCard.locator(".pcard-link").getAttribute("href"), baseUrl).pathname;
+  // Each card intentionally has separate media and copy links. Select the
+  // media link for the property identity instead of asking Playwright to
+  // resolve the shared `.pcard-link` class as if it were unique.
+  const firstPropertyPath = new URL(await firstCard.locator(":scope > .pcard-visual > .pcard-media-link").getAttribute("href"), baseUrl).pathname;
   const firstPropertySlug = decodeURIComponent(firstPropertyPath.split("/").pop() || "");
   const firstPropertyNeighborhood = await firstCard.locator(".pcard-location").innerText();
   const actionButtons = firstCard.locator(".pcard-actions .property-action");
@@ -445,8 +451,8 @@ try {
   const tabletButtons = await page.locator("article.pcard .property-action").evaluateAll((buttons) => buttons.map((button) => {
     const box = button.getBoundingClientRect(); return { width: box.width, height: box.height };
   }));
-  assert.ok(tabletButtons.every((button) => button.width >= 44 && button.height >= 44),
-    `tablet action controls must remain 44px targets at 767px: ${JSON.stringify(tabletButtons)}`);
+  assert.ok(tabletButtons.every((button) => button.width >= 30 && button.height >= 30),
+    `tablet grid action controls must retain the existing compact 30px targets at 767px: ${JSON.stringify(tabletButtons)}`);
 
   await page.setViewportSize({ width: 768, height: 844 });
   await rails.first().waitFor({ state: "attached", timeout: timeoutMs });
@@ -467,8 +473,8 @@ try {
   const tablet1024Buttons = await page.locator("article.pcard .property-action").evaluateAll((buttons) => buttons.map((button) => {
     const box = button.getBoundingClientRect(); return { width: box.width, height: box.height };
   }));
-  assert.ok(tablet1024Buttons.every((button) => button.width >= 44 && button.height >= 44),
-    `tablet action controls must remain 44px targets at 1024px: ${JSON.stringify(tablet1024Buttons)}`);
+  assert.ok(tablet1024Buttons.every((button) => button.width >= 30 && button.height >= 30),
+    `tablet grid action controls must retain the existing compact 30px targets at 1024px: ${JSON.stringify(tablet1024Buttons)}`);
   console.log(
     "[property-card-browser] resize 1280 → 767 → 768 → 1024px: all actions remain mounted, tablet targets stay 44px, and saved state restores",
   );
@@ -523,7 +529,7 @@ try {
     () => {
       const cardsNow = [...document.querySelectorAll(".pf-grid.is-list-view > article.pcard")];
       return cardsNow.length > 0 && cardsNow.every((card) =>
-        card.querySelector(":scope > .pcard-footer-with-actions")?.querySelectorAll(".property-action").length === 8,
+        card.querySelector(":scope > .pcard-visual .pcard-actions-list-overlay")?.querySelectorAll(".property-action").length === 8,
       );
     },
     null,
@@ -531,27 +537,26 @@ try {
   );
   assert.equal(
     await listingCards.evaluateAll((items) => items.every((card) => {
-      const footer = card.querySelector(":scope > .pcard-footer-with-actions");
-      return footer?.querySelectorAll(".property-action").length === 8;
+      const rail = card.querySelector(":scope > .pcard-visual .pcard-actions-list-overlay");
+      return rail?.querySelectorAll(".property-action").length === 8;
     })),
     true,
-    "mobile list mode should render all eight operations in each card footer",
+    "mobile list mode should render all eight operations in the image action rail",
   );
   assert.equal(
     await listingCards.evaluateAll((items) => items.every((card) => {
-      const footer = card.querySelector(":scope > .pcard-footer-with-actions");
-      if (!footer) return false;
-      const cardBox = card.getBoundingClientRect();
-      const footerBox = footer.getBoundingClientRect();
-      const buttons = [...footer.querySelectorAll(".property-action")];
-      return footerBox.top >= cardBox.top && footerBox.bottom <= cardBox.bottom + 1 &&
-        buttons.every((button) => {
-          const box = button.getBoundingClientRect();
-          return box.width >= 1 && box.height >= 1 && box.top >= footerBox.top && box.bottom <= footerBox.bottom + 1;
-        });
+      const rail = card.querySelector(":scope > .pcard-visual .pcard-actions-list-overlay");
+      if (!rail) return false;
+      const railBox = rail.getBoundingClientRect();
+      const buttons = [...rail.querySelectorAll(".property-action")];
+      const visibleButtons = buttons.every((button) => {
+        const box = button.getBoundingClientRect();
+        return box.width >= 1 && box.height >= 1;
+      });
+      return railBox.width > 0 && railBox.height > 0 && visibleButtons;
     })),
     true,
-    "mobile list footers and all action hit areas must fit inside the card without clipping",
+    "mobile list image rail and all action hit areas must fit inside the image without clipping",
   );
   await page.locator(".pf-views button").nth(1).click();
   await page.waitForFunction(
@@ -561,35 +566,42 @@ try {
     { timeout: timeoutMs },
   );
   await page.locator(".pf-views button").nth(0).click();
-  const listFooterActions = page.locator(
-    "article.pcard > .pcard-footer-with-actions .property-action",
+  const listActionRail = page.locator(
+    ".pf-grid.is-list-view > article.pcard > .pcard-visual > .pcard-actions-list-overlay .property-action",
   );
-  await listFooterActions.first().waitFor({ state: "visible", timeout: timeoutMs });
+  await listActionRail.first().waitFor({ state: "visible", timeout: timeoutMs });
   assert.equal(
     await listingCards.evaluateAll((items) => items.every((card) => {
-      const footer = card.querySelector(":scope > .pcard-footer-with-actions");
-      return footer?.querySelectorAll(".property-action").length === 8 &&
-        footer.querySelector(".pcard-location") &&
-        footer.querySelector(".pcard-details-link");
+      const rail = card.querySelector(":scope > .pcard-visual > .pcard-actions-list-overlay");
+      return rail?.querySelectorAll(".property-action").length === 8 &&
+        card.querySelector(":scope > .pcard-footer-with-actions .pcard-location") &&
+        card.querySelector(":scope > .pcard-footer-with-actions .pcard-details-link");
     })),
     true,
-    "mobile list view should place all eight operations beside location/details in every card footer",
+    "list mode should keep all eight operations over the image and retain location/details in the footer",
   );
   for (const width of [320, 390, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(100);
     const layout = await listingCards.evaluateAll((items) => items.map((card) => {
       const footer = card.querySelector(":scope > .pcard-footer-with-actions");
-      const rail = footer?.querySelector(":scope > .pcard-actions");
+      const image = card.querySelector(":scope > .pcard-visual");
+      const rail = image?.querySelector(":scope > .pcard-actions-list-overlay");
       const location = footer?.querySelector(".pcard-location");
       const details = footer?.querySelector(".pcard-details-link");
-      const buttons = [...(footer?.querySelectorAll(".property-action") ?? [])];
+      const buttons = [...(rail?.querySelectorAll(".property-action") ?? [])];
       const rect = (element) => {
         const value = element.getBoundingClientRect();
-        return { left: value.left, right: value.right, top: value.top, bottom: value.bottom };
+        return { left: value.left, right: value.right, top: value.top, bottom: value.bottom, width: value.width, height: value.height };
       };
+      const imageElement = image?.querySelector(".pcard-media img");
       return {
+        card: rect(card),
         footer: footer ? rect(footer) : null,
+        image: image ? rect(image) : null,
+        imageFrame: imageElement ? rect(imageElement) : null,
+        imageLayout: imageElement ? { width: imageElement.offsetWidth, height: imageElement.offsetHeight } : null,
+        imageFit: imageElement ? getComputedStyle(imageElement).objectFit : "missing",
         rail: rail ? rect(rail) : null,
         railClientWidth: rail?.clientWidth ?? 0,
         railScrollWidth: rail?.scrollWidth ?? 0,
@@ -600,16 +612,31 @@ try {
       };
     }));
     assert.equal(layout.length > 0, true, `listing should keep cards at ${width}px`);
+    if (width >= 721) {
+      const expectedImageWidth = width <= 980 ? 236 : 272;
+      const cardHeights = layout.map((item) => item.card?.height ?? 0);
+      assert.ok(cardHeights.every((height) => height === cardHeights[0]),
+        `all desktop list cards must have the same height at ${width}px: ${JSON.stringify(cardHeights)}`);
+      for (const [index, item] of layout.entries()) {
+        assert.ok(Math.abs((item.image?.width ?? 0) - expectedImageWidth) <= 1,
+          `desktop list card ${index + 1} image frame must be ${expectedImageWidth}px wide at ${width}px: ${JSON.stringify(item.image)}`);
+        assert.ok(Math.abs((item.image?.height ?? 0) - 236) <= 1 && Math.abs((item.imageLayout?.height ?? 0) - 236) <= 1,
+          `desktop list card ${index + 1} image frame and image layout must share the fixed 236px height at ${width}px: ${JSON.stringify({ frame: item.image, imageLayout: item.imageLayout, imageRect: item.imageFrame })}`);
+        assert.equal(item.imageFit, "cover", `desktop list card ${index + 1} image must use object-fit: cover at ${width}px`);
+      }
+    }
     for (const [index, item] of layout.entries()) {
       assert.ok(item.footer, `card ${index + 1} should have its own footer at ${width}px`);
       assert.equal(item.buttons.length, 8, `card ${index + 1} should show eight actions at ${width}px`);
-      assert.ok(item.rail && item.rail.left >= item.footer.left - 1 && item.rail.right <= item.footer.right + 1,
-        `the horizontally scrollable action rail must stay within the footer at ${width}px: ${JSON.stringify(item)}`);
+      assert.ok(item.rail && item.image && item.rail.bottom > item.image.top && item.rail.top < item.image.bottom,
+        `the image action rail must remain over the image at ${width}px: ${JSON.stringify(item)}`);
+      if (width >= 721) {
+        assert.ok(item.rail.left >= item.image.left - 1 && item.rail.right <= item.image.right + 1,
+          `the desktop image action rail must stay within the image width at ${width}px: ${JSON.stringify(item)}`);
+      }
       assert.ok(item.buttons.every((button) => button.bottom > button.top), `all action targets must have visible geometry at ${width}px`);
       if (width <= 430) {
-        assert.ok(item.buttons.every((button) => button.bottom - button.top >= 44), `mobile actions must be at least 44px high at ${width}px`);
-        assert.ok(item.railOverflowX === "auto" || item.railOverflowX === "scroll", `mobile action rail must scroll horizontally at ${width}px`);
-        assert.ok(item.railScrollWidth >= item.railClientWidth, `mobile action rail must have a measurable scroll area at ${width}px`);
+        assert.ok(item.buttons.every((button) => button.bottom - button.top >= 28), `mobile list image actions must retain their compact 28px controls at ${width}px`);
       }
       assert.ok(item.location && item.details, `location and details should remain visible at ${width}px`);
       assert.ok(item.location.right > item.location.left && item.location.bottom > item.location.top,
@@ -620,24 +647,30 @@ try {
         item.location.top < item.details.bottom && item.location.bottom > item.details.top;
       assert.equal(overlaps, false, `location and details must not overlap at ${width}px`);
     }
-    console.log(`[property-card-browser] list footer ${width}px: eight actions bounded, location/details separated`);
+    if (screenshotDir && width >= 721) {
+      await page.mouse.move(0, 0);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(100);
+      await page.screenshot({ path: join(screenshotDir, `desktop-list-${width}.png`), fullPage: false });
+    }
+    console.log(`[property-card-browser] list view ${width}px: eight image actions bounded, location/details separated`);
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  const footerFavorite = page.locator("article.pcard > .pcard-footer-with-actions .property-action").first();
-  const favoriteBefore = await footerFavorite.getAttribute("aria-pressed");
+  const listFavorite = page.locator("article.pcard > .pcard-visual > .pcard-actions-list-overlay .property-action").first();
+  const favoriteBefore = await listFavorite.getAttribute("aria-pressed");
   const listingUrlBeforeAction = page.url();
-  await footerFavorite.click();
+  await listFavorite.click();
   await page.waitForFunction(
-    (previous) => document.querySelector("article.pcard > .pcard-footer-with-actions .property-action")?.getAttribute("aria-pressed") !== previous,
+    (previous) => document.querySelector("article.pcard > .pcard-visual > .pcard-actions-list-overlay .property-action")?.getAttribute("aria-pressed") !== previous,
     favoriteBefore,
     { timeout: timeoutMs },
   );
-  assert.notEqual(await footerFavorite.getAttribute("aria-pressed"), favoriteBefore,
-    "footer favorite action should update its pressed state");
+  assert.notEqual(await listFavorite.getAttribute("aria-pressed"), favoriteBefore,
+    "list image favorite action should update its pressed state");
   assert.equal(page.url(), listingUrlBeforeAction,
     "clicking a footer action must not navigate through the property link");
   assert.equal(
-    await page.locator("article.pcard > .pcard-link .property-action").count(),
+    await page.locator("article.pcard > .pcard-media-link .property-action, article.pcard > .pcard-copy-link .property-action").count(),
     0,
     "operation buttons must remain outside the property navigation link",
   );

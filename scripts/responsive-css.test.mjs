@@ -60,7 +60,7 @@ testRunner.test("property marketplace mobile refinement stays scoped and below t
     "mobile marketplace refinements must load after the page's base marketplace CSS");
   assert.match(mobilePass, /html:has\(\.pf-page\)\s*\{\s*scrollbar-gutter:\s*auto;\s*\}/,
     "the mobile marketplace must reclaim the global stable scrollbar gutter without changing other routes");
-  assert.match(propertiesRoute, /const mobileQuery = window\.matchMedia\("\(max-width:\s*620px\)"\)[\s\S]*?if\s*\(mobileQuery\.matches\)\s*setViewMode\(\(current\)\s*=>\s*current\s*===\s*"grid"\s*\?\s*"list"\s*:\s*current\)[\s\S]*?mobileQuery\.addEventListener\("change",\s*applyMobileDefault\)/,
+  assert.match(propertiesRoute, /const mobileQuery = window\.matchMedia\("\(max-width:\s*620px\)"\)[\s\S]*?const applyResponsiveDefault = \(\) => \{\s*if\s*\(!userSelectedViewMode\.current\)\s*setViewMode\(mobileQuery\.matches\s*\?\s*"list"\s*:\s*"grid"\);\s*\}[\s\S]*?mobileQuery\.addEventListener\("change",\s*applyResponsiveDefault\)/,
     "mobile visitors should land on property listings even when a responsive preview changes viewport, while retaining the map as an explicit view");
   assert.match(propertiesRoute, /className="pf-filter-clear-all"/,
     "the active-filter reset control should have a stable selector for accessible mobile sizing");
@@ -108,7 +108,7 @@ testRunner.test("property marketplace mobile controls retain working search, fil
     "the filter drawer must remain reachable from the mobile toolbar");
   assert.match(propertiesRoute, /value=\{sort\}\s+onChange=\{\(e\) => setSort\(e\.target\.value as PropertySort\)\}/s,
     "sorting must remain connected to the existing state");
-  assert.match(propertiesRoute, /onClick=\{\(\) => setViewMode\("list"\)\}[\s\S]*?onClick=\{\(\) => setViewMode\("grid"\)\}[\s\S]*?onClick=\{\(\) => setViewMode\("split"\)\}/s,
+  assert.match(propertiesRoute, /onClick=\{\(\) => \{\s*userSelectedViewMode\.current = true;\s*setViewMode\("list"\);\s*\}\}[\s\S]*?onClick=\{\(\) => \{\s*userSelectedViewMode\.current = true;\s*setViewMode\("grid"\);\s*\}\}[\s\S]*?onClick=\{\(\) => \{\s*userSelectedViewMode\.current = true;\s*setViewMode\("split"\);\s*\}\}/s,
     "list, grid and map mode controls must remain interactive");
   assert.match(propertiesRoute, /aria-pressed=\{viewMode === "list"\}[\s\S]*?aria-pressed=\{viewMode === "grid"\}[\s\S]*?aria-pressed=\{viewMode === "split"\}/s,
     "view mode buttons must expose their selected state to assistive technology");
@@ -731,13 +731,15 @@ testRunner.test("final compact cards anchor the action rail to the bottom on lis
 });
 
 testRunner.test("all property card views keep the full action rail available on mobile", () => {
-  assert.match(propertyShowcaseSource, /<div className="pcard-footer pcard-footer-with-actions">[\s\S]*?<div className=\{`pcard-actions\$\{listView \? " pcard-actions-footer" : ""\}`\} aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>/,
-    "list and grid cards must mount the same complete set of property actions in their footer");
-  const mobileActions = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* All mobile card views keep the complete action set."));
-  assert.match(mobileActions, /\.pcard-footer-with-actions \.property-action,[\s\S]*?width: 44px !important;[^}]*min-width: 44px !important;[^}]*height: 44px !important;[^}]*min-height: 44px !important;/s,
-    "mobile actions must remain 44px touch targets in both list and grid layouts");
-  assert.match(mobileActions, /\.pcard-footer-with-actions > \.pcard-actions[\s\S]*?overflow-x: auto !important;/s,
-    "the complete action rail should scroll horizontally instead of increasing card height or hiding actions");
+  assert.match(propertyShowcaseSource, /<div className="pcard-visual">[\s\S]*?<div className="pcard-actions pcard-actions-list-overlay" aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?<\/div>[\s\S]*?className="pcard-link pcard-copy-link"/,
+    "the complete action rail must be mounted over the image, outside both property-detail links");
+  assert.match(responsiveCss, /body:has\(\.pf-page\) \.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-visual > \.pcard-actions-list-overlay \.property-actions(?:-compact)? \{[^}]*width: max-content !important;[^}]*overflow-x: auto !important;/s,
+    "the list image rail should keep every action in one non-wrapping, horizontally scrollable row");
+  assert.match(responsiveCss, /@media \(max-width: 640px\)[\s\S]*?body:has\(\.pcard\) \.pcard > \.pcard-visual > \.pcard-actions-list-overlay \.property-action \{[^}]*width: 28px !important;[^}]*height: 28px !important;/s,
+    "the mobile list image rail must retain its existing compact action size");
+  const finalDesktopList = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Final desktop list-card contract for /properties."));
+  assert.match(finalDesktopList, /\.pcard-actions-list-overlay \.property-action \{[^}]*width: 30px !important;[^}]*height: 30px !important;/s,
+    "desktop list actions should use the compact 30px rail controls");
 });
 
 testRunner.test("list-card footer has an intrinsic grid track so card clipping cannot hide it", () => {
