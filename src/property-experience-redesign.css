@@ -2342,7 +2342,7 @@ html body:has(main#top.property-detail-page.hd-property-detail-v2)
 
 /* Single compact action rail: one shallow surface, tiny icons, no individual
    button tiles, and minimal vertical space below each listing photo. */
-body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions,
+body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-actions,
 body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions {
   position: relative !important;
   inset: auto !important;
@@ -2361,8 +2361,8 @@ body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard
   box-shadow: none !important;
   overflow: hidden !important;
 }
-body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions,
-body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-actions-compact,
+body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-actions .property-actions,
+body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-actions .property-actions-compact,
 body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions,
 body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-actions-compact {
   display: flex !important;
@@ -2380,7 +2380,7 @@ body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard
   overflow-y: hidden !important;
   scrollbar-width: none !important;
 }
-body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action,
+body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-actions .property-action,
 body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action {
   display: inline-grid !important;
   place-items: center !important;
@@ -2397,7 +2397,7 @@ body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard
   background: transparent !important;
   box-shadow: none !important;
 }
-body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-actions .property-action svg,
+body:has(.pf-page) .pf-page .pf-grid:not(.is-list-view) > .pcard > .pcard-actions .property-action svg,
 body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-actions .property-action svg {
   width: 12px !important;
   height: 12px !important;
