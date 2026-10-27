@@ -4194,6 +4194,14 @@ html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
 
 /* Reuse the compact horizontal card treatment in the home page's live listings.
    These rules are scoped to the showcase and do not affect desktop cards. */
+@media (min-width: 641px) {
+  /* The homepage cards need enough photo width for the full eight-action rail.
+     Prefer a few readable, balanced cards over squeezing the controls smaller. */
+  .property-showcase .property-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)) !important;
+  }
+}
+
 @media (max-width: 640px) {
   .property-showcase .property-grid {
     grid-template-columns: minmax(0, 1fr) !important;
