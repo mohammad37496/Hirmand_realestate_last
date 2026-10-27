@@ -110,6 +110,328 @@ body:has(.music-player-float:not(.music-player-float-empty)) .floating-call-menu
   .music-player-disc.is-spinning,.music-player-eq i,.music-player-loader { animation: none !important; }
 }
 
+/* One shared dock on every route: keep the reference layout and viewport
+   position stable, including listing/detail pages with legacy mobile rules. */
+html body .music-player-float:not(.music-player-float-empty) {
+  position: fixed !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: 20px !important;
+  left: 20px !important;
+  z-index: 1150 !important;
+  width: 292px !important;
+  height: 132px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 9px 10px 7px !important;
+  border: 1px solid rgb(226 196 140 / 35%) !important;
+  border-radius: 18px !important;
+  background: radial-gradient(circle at 8% 0%, rgb(192 138 42 / 22%), transparent 48%), linear-gradient(145deg, #081320, #17324a) !important;
+  box-shadow: 0 16px 46px rgb(8 19 32 / 32%), inset 0 1px 0 rgb(255 255 255 / 8%) !important;
+  direction: rtl !important;
+}
+
+html body .music-player-float:not(.music-player-float-empty) .music-player-float-head {
+  position: relative !important;
+  inset: auto !important;
+  height: 26px !important;
+  pointer-events: auto !important;
+}
+
+html body .music-player-float:not(.music-player-float-empty) .music-player-brand-mark,
+html body .music-player-float:not(.music-player-float-empty) .music-player-brand-copy,
+html body .music-player-float:not(.music-player-float-empty) .music-player-disc,
+html body .music-player-float:not(.music-player-float-empty) .music-player-float-meta,
+html body .music-player-float:not(.music-player-float-empty) .music-player-float-progress {
+  display: grid !important;
+}
+
+html body .music-player-float:not(.music-player-float-empty) .music-player-float-track {
+  display: flex !important;
+  min-height: 0 !important;
+  margin-top: 6px !important;
+  padding: 0 !important;
+  gap: 7px !important;
+  direction: rtl !important;
+  justify-content: initial !important;
+}
+
+html body .music-player-float:not(.music-player-float-empty) .music-player-float-controls button,
+html body .music-player-float:not(.music-player-float-empty) .music-player-float-controls .music-player-float-play {
+  width: 24px !important;
+  height: 27px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+
+html body .music-player-float:not(.music-player-float-empty) .music-player-float-controls .music-player-float-play {
+  width: 30px !important;
+  height: 30px !important;
+}
+
+html body .music-player-float:not(.music-player-float-empty) .music-player-utility {
+  position: static !important;
+  width: 25px !important;
+  height: 25px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+
+html body .music-player-float:not(.music-player-float-empty) .music-player-float-progress {
+  grid-template-columns: 25px minmax(0, 1fr) 25px !important;
+  margin-top: 4px !important;
+}
+
+html body .music-player-float:not(.music-player-float-empty) .music-player-float-progress span {
+  display: block !important;
+}
+
+/* Keep a stable dock-shaped status visible while the public track list loads
+   or is temporarily unavailable, instead of letting route CSS hide it. */
+html body .music-player-float-empty {
+  position: fixed !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: 20px !important;
+  left: 20px !important;
+  z-index: 1150 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  width: 292px !important;
+  height: 132px !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 9px 10px 7px !important;
+  border: 1px solid rgb(226 196 140 / 35%) !important;
+  border-radius: 18px !important;
+  background: radial-gradient(circle at 8% 0%, rgb(192 138 42 / 22%), transparent 48%), linear-gradient(145deg, #081320, #17324a) !important;
+  box-shadow: 0 16px 46px rgb(8 19 32 / 32%), inset 0 1px 0 rgb(255 255 255 / 8%) !important;
+}
+
+html body .music-player-float-empty::before {
+  display: block !important;
+}
+
+html body .music-player-float-empty .music-player-empty-copy {
+  justify-content: center;
+  max-width: 100%;
+  text-align: center;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  line-height: 1.8;
+}
+
+html body .music-player-hide {
+  display: grid !important;
+}
+
+html body .music-player-restore {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 8px 13px;
+  border: 1px solid rgb(226 196 140 / 35%);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #081320, #17324a);
+  color: #e2c48c;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+html body .music-player-restore strong {
+  color: #fffaf0;
+  font-size: 11px;
+}
+
+html body .music-player-float.is-collapsed {
+  display: block !important;
+  box-sizing: border-box !important;
+  width: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 5px !important;
+  border-radius: 15px !important;
+}
+
+html body .music-player-float.is-collapsed > :not(audio):not(.music-player-restore) {
+  display: none !important;
+}
+
+html body .music-player-float.is-collapsed .music-player-restore {
+  display: flex !important;
+}
+
+@media (max-width: 720px) {
+  html body .music-player-float-empty {
+    top: auto !important;
+    right: 10px !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    left: 10px !important;
+    width: auto !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    padding: 9px 10px 7px !important;
+    border-radius: 17px !important;
+    box-shadow: 0 10px 32px rgb(8 19 32 / 28%) !important;
+  }
+
+  html body .music-player-float.is-collapsed {
+    right: 10px !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    left: 10px !important;
+    width: fit-content !important;
+    max-width: calc(100vw - 20px) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 5px !important;
+  }
+
+  html body:has(.pf-page, .property-showcase) .music-player-float-empty {
+    display: flex !important;
+    position: fixed !important;
+    top: auto !important;
+    right: 10px !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    left: 10px !important;
+    width: auto !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    margin: 0 !important;
+    padding: 9px 10px 7px !important;
+  }
+
+  html body:has(.pf-page, .property-showcase) .music-player-float-empty::before {
+    display: block !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) {
+    top: auto !important;
+    right: 10px !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    left: 10px !important;
+    width: auto !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    padding: 9px 10px 7px !important;
+    border-radius: 17px !important;
+    box-shadow: 0 10px 32px rgb(8 19 32 / 28%) !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-float-head {
+    height: 26px !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-brand-mark {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-disc {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-float-meta strong {
+    font-size: 11px !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-float-meta small {
+    font-size: 9px !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-float-controls {
+    gap: 4px !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-float-controls button {
+    width: 27px !important;
+    height: 30px !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-float-controls .music-player-float-play {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-float-progress {
+    display: grid !important;
+    grid-template-columns: 27px minmax(0, 1fr) 27px !important;
+    margin-top: 4px !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-float-progress span {
+    display: block !important;
+  }
+
+  html body .music-player-float:not(.music-player-float-empty) .music-player-float-playlist {
+    max-height: min(48vh, 360px) !important;
+  }
+
+  /* Page-scoped legacy rules used to collapse this dock on listings. Match
+     their selector weight so the shared layout remains identical there too. */
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) {
+    position: fixed !important;
+    top: auto !important;
+    right: 10px !important;
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    left: 10px !important;
+    width: auto !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    margin: 0 !important;
+    padding: 9px 10px 7px !important;
+  }
+
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-head {
+    position: relative !important;
+    inset: auto !important;
+    height: 26px !important;
+    pointer-events: auto !important;
+  }
+
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-brand-mark,
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-brand-copy,
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-disc,
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-meta,
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-controls button:not(.music-player-float-play),
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-progress {
+    display: grid !important;
+  }
+
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-track {
+    margin-top: 6px !important;
+    gap: 7px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    direction: rtl !important;
+    justify-content: initial !important;
+  }
+
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-utility {
+    position: static !important;
+    width: 25px !important;
+    height: 25px !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+  }
+
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty) .music-player-float-progress {
+    grid-template-columns: 27px minmax(0, 1fr) 27px !important;
+    margin-top: 4px !important;
+  }
+
+  body:has(.music-player-float:not(.music-player-float-empty)) .site-back-top,
+  body:has(.music-player-float:not(.music-player-float-empty)) .floating-call-menu {
+    bottom: calc(224px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
 
 /* Playback options: compact, accessible controls inside the expanded playlist. */
 .music-player-options {

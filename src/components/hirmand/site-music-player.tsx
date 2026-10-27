@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "@tanstack/react-router";
 import {
   ChevronDown,
   ListMusic,
@@ -32,13 +31,13 @@ function clock(value: number) {
 }
 
 export function SiteMusicPlayer() {
-  const pathname = useLocation({ select: (location) => location.pathname });
   const audioRef = useRef<HTMLAudioElement>(null);
   const [tracks, setTracks] = useState<PublicTrack[]>([]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(0.7);
   const [shuffle, setShuffle] = useState(false);
@@ -173,10 +172,8 @@ export function SiteMusicPlayer() {
     setRepeatMode((mode) => mode === "all" ? "one" : mode === "one" ? "off" : "all");
   };
 
-  if (pathname.startsWith("/admin")) return null;
-
   return (
-    <aside className={`music-player-float${tracks.length ? "" : " music-player-float-empty"}${expanded ? " is-expanded" : ""}`} aria-label="پخش موسیقی هیرمند">
+    <aside className={`music-player-float${tracks.length ? "" : " music-player-float-empty"}${expanded ? " is-expanded" : ""}${collapsed ? " is-collapsed" : ""}`} aria-label="پخش موسیقی هیرمند">
       <audio
         ref={audioRef}
         preload="metadata"
@@ -187,6 +184,17 @@ export function SiteMusicPlayer() {
         onEnded={handleTrackEnded}
         onError={() => { if (activeTrack) { setPlaying(false); setError("دریافت فایل صوتی ممکن نشد. اتصال سایت یا فایل را بررسی کنید."); } }}
       />
+      <button
+        type="button"
+        className="music-player-restore"
+        onClick={() => setCollapsed(false)}
+        aria-label="باز کردن پلیر موسیقی"
+      >
+        <Music2 size={18} />
+        <strong>موسیقی هیرمند</strong>
+        {playing ? <Pause size={15} /> : <Play size={15} />}
+      </button>
+      <div className="music-player-full-content">
       {tracks.length === 0 ? (
         <div className="music-player-empty-copy" aria-live="polite">
           <Music2 size={18} /> {loading ? "در حال بارگذاری موسیقی…" : error || "به‌زودی با موسیقی هیرمند"}
@@ -199,7 +207,7 @@ export function SiteMusicPlayer() {
             <button type="button" className="music-player-utility" onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "بستن فهرست" : "نمایش فهرست موسیقی"}>
               {expanded ? <ChevronDown size={17} /> : <ListMusic size={17} />}
             </button>
-            <button type="button" className="music-player-utility music-player-hide" onClick={() => setExpanded(false)} aria-label="جمع کردن پلیر"><X size={15} /></button>
+            <button type="button" className="music-player-utility music-player-hide" onClick={() => { setExpanded(false); setCollapsed(true); }} aria-label="جمع کردن پلیر"><X size={15} /></button>
           </div>
           <div className="music-player-float-track">
             <span className={`music-player-disc${playing ? " is-spinning" : ""}`}><Music2 size={20} /></span>
@@ -247,6 +255,7 @@ export function SiteMusicPlayer() {
           ) : null}
         </>
       )}
+      </div>
     </aside>
   );
 }
