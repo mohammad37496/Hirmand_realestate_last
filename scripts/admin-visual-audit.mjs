@@ -300,13 +300,21 @@ const AUDIT = () => {
       });
     }
 
-    // Touch targets: WCAG 2.2 asks for 24x24; the project brand asks 44px.
+    // Keep the project's 44px standard for admin icon actions on phones;
+    // other controls retain the existing 32px audit floor because their hit
+    // area may be enlarged by a label or an absolutely positioned overlay.
     const area = hitArea(element);
-    if (window.innerWidth <= 640 && (area.width < 32 || area.height < 32)) {
+    const adminIconButton = element.classList.contains("admin-icon-btn");
+    const target = window.innerWidth <= 640 && adminIconButton
+      ? { width: rect.width, height: rect.height }
+      : area;
+    const minimumTarget = window.innerWidth <= 640 && adminIconButton ? 44 : 32;
+    if (window.innerWidth <= 640 && (target.width < minimumTarget || target.height < minimumTarget)) {
       issues.smallTargets.push({
         selector: `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 40)}`,
-        width: Math.round(area.width),
-        height: Math.round(area.height),
+        width: Math.round(target.width),
+        height: Math.round(target.height),
+        minimumTarget,
         name: name.slice(0, 30),
       });
     }
