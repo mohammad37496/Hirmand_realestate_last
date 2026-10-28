@@ -323,17 +323,32 @@ try {
   for (const viewport of desktopViewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     for (const route of routeMatrix) {
-      await navigateToRoute(page, baseUrl, route.path);
-      const beforeScroll = await assertDock(page, viewport);
-      await scrollToPageBottom(page, route.path, viewport.width);
-      await page.waitForTimeout(80);
-      const afterScroll = await assertDock(page, viewport);
-      assert.deepEqual(
-        { left: afterScroll.left, bottom: afterScroll.bottom, width: afterScroll.width, height: afterScroll.height },
-        { left: beforeScroll.left, bottom: beforeScroll.bottom, width: beforeScroll.width, height: beforeScroll.height },
-        `player geometry must remain fixed after scrolling on ${route.path} at ${viewport.width}px`,
-      );
-      assert.equal(afterScroll.count, 1, `route ${route.path} must contain exactly one shared player`);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          await navigateToRoute(page, baseUrl, route.path);
+          const beforeScroll = await assertDock(page, viewport);
+          await scrollToPageBottom(page, route.path, viewport.width);
+          await page.waitForTimeout(80);
+          const afterScroll = await assertDock(page, viewport);
+          assert.deepEqual(
+            { left: afterScroll.left, bottom: afterScroll.bottom, width: afterScroll.width, height: afterScroll.height },
+            { left: beforeScroll.left, bottom: beforeScroll.bottom, width: beforeScroll.width, height: beforeScroll.height },
+            `player geometry must remain fixed after scrolling on ${route.path} at ${viewport.width}px`,
+          );
+          assert.equal(afterScroll.count, 1, `route ${route.path} must contain exactly one shared player`);
+          break;
+        } catch (error) {
+          const message = String(error?.message || error);
+          const dependencyReloadRace = /Execution context was destroyed|Cannot find context|net::ERR_ABORTED|Error: aborted/i.test(message);
+          if (!dependencyReloadRace || attempt === 2) {
+            throw new Error(`route ${route.path} at ${viewport.width}px failed: ${message}`);
+          }
+          // Vite may optimize a newly discovered dependency after navigation has
+          // resolved, destroying the page context during scroll/measurement.
+          // Retry only that known race; geometry assertion failures remain fatal.
+          await delay(350 * (attempt + 1));
+        }
+      }
     }
   }
 
