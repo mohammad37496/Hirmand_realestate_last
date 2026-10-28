@@ -743,6 +743,7 @@ html body .music-player-float-empty button {
     height: 132px !important;
     min-height: 132px !important;
     padding: 9px 10px 7px !important;
+    border-radius: 18px !important;
   }
 
   html body #hirmand-site-music-player.is-collapsed .music-player-restore {
