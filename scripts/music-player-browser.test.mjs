@@ -131,7 +131,7 @@ async function assertDock(page, viewport) {
 async function scrollToPageBottom(page, requestedPath, viewportWidth) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
-      await scrollToPageBottom(page, route.path, viewport.width);
+      await page.evaluate(() => window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)));
       return;
     } catch (error) {
       const message = String(error?.message || error);
@@ -301,7 +301,7 @@ try {
       await page.goto(new URL(route.path, baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
       await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
       const beforeScroll = await assertDock(page, viewport);
-      await page.evaluate(() => window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)));
+      await scrollToPageBottom(page, route.path, viewport.width);
       await page.waitForTimeout(80);
       const afterScroll = await assertDock(page, viewport);
       assert.deepEqual(
