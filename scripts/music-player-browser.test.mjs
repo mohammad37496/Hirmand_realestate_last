@@ -230,13 +230,44 @@ try {
   await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.muted === false);
   assert.deepEqual(runtimeErrors, [], "media control interactions must not produce browser runtime errors");
 
+  // Cover every generated top-level page family plus representative dynamic
+  // routes and both management entry points. Auth-gated routes are still useful
+  // here: the shared dock must survive the gate/redirect without duplicate mounts.
   const routeMatrix = [
     { path: "/", label: "home" },
     { path: "/properties", label: "property listing" },
     { path: "/properties/qa-apartment-long-title", label: "property detail" },
     { path: "/guides", label: "content page" },
     { path: "/card", label: "digital business card" },
-    { path: "/admin-mobile-management", label: "independent admin layout" },
+    { path: "/areas", label: "areas index" },
+    { path: "/areas/qa-area", label: "area detail" },
+    { path: "/budget-match", label: "budget matching" },
+    { path: "/compare", label: "property comparison" },
+    { path: "/consultants", label: "consultants index" },
+    { path: "/consultants/qa-consultant", label: "consultant detail" },
+    { path: "/favorites", label: "favorites" },
+    { path: "/file-code", label: "file code lookup" },
+    { path: "/file/qa-file-id", label: "file detail" },
+    { path: "/my-hirmand", label: "my Hirmand" },
+    { path: "/nearby", label: "nearby search" },
+    { path: "/notifications", label: "notifications" },
+    { path: "/request-property", label: "property request" },
+    { path: "/request-tracking", label: "request tracking" },
+    { path: "/smart-search", label: "smart search" },
+    { path: "/staff", label: "staff" },
+    { path: "/staff-agreement", label: "staff agreement" },
+    { path: "/submit-property", label: "property submission" },
+    { path: "/tracking", label: "tracking" },
+    { path: "/valuation", label: "valuation" },
+    { path: "/tools", label: "tools index" },
+    { path: "/tools/commission", label: "commission calculator" },
+    { path: "/tools/deposit", label: "deposit calculator" },
+    { path: "/tools/loan", label: "loan calculator" },
+    { path: "/tools/rahn-rent", label: "rent and mortgage calculator" },
+    { path: "/v/qa-slug/qa-id", label: "digital property card" },
+    { path: "/admin", label: "admin entry" },
+    { path: "/admin-mobile-management", label: "mobile management" },
+    { path: "/admin-mobile-management/qa-employee", label: "employee management detail" },
   ];
   const desktopViewports = [
     { width: 1024, height: 768 },
