@@ -734,6 +734,7 @@ html body .music-player-float-empty button {
     max-width: none !important;
     max-height: none !important;
     margin: 0 !important;
+    padding: 9px 10px 7px !important;
     transform: none !important;
     translate: none !important;
   }
