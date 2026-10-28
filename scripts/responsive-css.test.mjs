@@ -899,6 +899,14 @@ testRunner.test("mobile map result cards use the Hirmand navy-and-gold signature
   assert.match(mapTheme, /:focus-visible[\s\S]*?outline:\s*2px solid #c08a2a/, "map controls must keep a visible Hirmand-gold focus ring");
 });
 
+
+testRunner.test("responsive browser matrix covers the requested mobile, tablet, laptop and desktop widths", () => {
+  const matrix = responsiveSmoke.match(/const viewportMatrix = \\[([\\s\\S]*?)\\];/)?.[1] ?? "";
+  for (const width of [320, 360, 375, 390, 430, 768, 1024, 1280, 1366, 1440, 1920]) {
+    assert.match(matrix, new RegExp(`\\\\bwidth:\\\\s*${width}\\\\b`), `missing responsive viewport width: ${width}px`);
+  }
+});
+
 testRunner.test("gold surfaces use the navy foreground for readable contrast", () => {
   const skipLinkRule = globalCss.match(/\.skip-link\s*\{[^}]*\}/s)?.[0] ?? "";
   const primaryButtonRule = globalCss.match(/\.btn-gold\s*\{[^}]*\}/s)?.[0] ?? "";
