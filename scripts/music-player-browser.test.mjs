@@ -131,7 +131,7 @@ async function assertDock(page, viewport) {
   assert.equal(result.borderRadius, "18px", `desktop Hirmand dock corners must stay consistent on ${page.url()}: ${JSON.stringify(result)}`);
   assert.match(result.backgroundImage, /radial-gradient.*linear-gradient/s, `the Hirmand navy/gold surface must remain applied on ${page.url()}`);
   const routePath = new URL(page.url()).pathname;
-  const compactTabletListing = routePath === "/properties" && viewport.width >= 721 && viewport.width <= 1024 && result.activePlayer;
+  const compactTabletListing = routePath === "/properties" && viewport.width >= 721 && viewport.width <= 1024;
   if (compactTabletListing) {
     assert.ok(Math.abs(result.left - 10) <= 1, `tablet listing dock should stay 10px from the left edge: ${JSON.stringify(result)}`);
     assert.ok(Math.abs(result.bottom - (viewport.height - 78)) <= 1, `tablet listing dock should stay above the bottom navigation: ${JSON.stringify(result)}`);
