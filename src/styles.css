@@ -9983,3 +9983,20 @@ a.btn-ghost[href^="https://wa.me/"] svg {
     padding-top: 30px;
   }
 }
+
+
+/* Sitewide reduced-motion support for route transitions and decorative UI. */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
