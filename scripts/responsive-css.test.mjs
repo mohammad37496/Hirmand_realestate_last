@@ -920,3 +920,12 @@ testRunner.test("gold surfaces use the navy foreground for readable contrast", (
   assert.match(primaryButtonRule, /color:\s*var\(--fg\);/,
     "primary gold buttons must use a dark foreground so their labels remain readable");
 });
+
+testRunner.test("global UI respects the reduced-motion accessibility preference", () => {
+  const reducedMotion = globalCss.slice(globalCss.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
+  assert.ok(reducedMotion.length > 0, "shared styles must define a reduced-motion fallback");
+  assert.match(reducedMotion, /animation-duration:\\s*0\\.01ms\\s*!important;/);
+  assert.match(reducedMotion, /animation-iteration-count:\\s*1\\s*!important;/);
+  assert.match(reducedMotion, /transition-duration:\\s*0\\.01ms\\s*!important;/);
+  assert.match(reducedMotion, /scroll-behavior:\\s*auto\\s*!important;/);
+});
