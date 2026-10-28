@@ -96,7 +96,7 @@ async function assertDock(page, viewport) {
         if (!visible || overlapWidth <= 1 || overlapHeight <= 1) return null;
         const label = target.getAttribute("aria-label") || target.getAttribute("title") || target.innerText || target.className || target.tagName;
         return {
-          label: String(label).replace(/\\s+/g, " ").slice(0, 60),
+          label: String(label).replace(/\s+/g, " ").slice(0, 60),
           left: Math.round(targetRect.left),
           top: Math.round(targetRect.top),
           width: Math.round(targetRect.width),
@@ -514,6 +514,7 @@ try {
   assert.equal(mobileDock.count, 1, "mobile must retain the same single shared player instance");
   assert.equal(mobileDock.position, "fixed", "mobile launcher must remain viewport-fixed");
   assert.ok(mobileDock.left >= 0 && mobileDock.right <= 390, `mobile launcher must remain inside the viewport: ${JSON.stringify(mobileDock)}`);
+  await assertDock(mobilePage, { width: 390, height: 844 });
   await mobilePage.close();
   await context.close();
 
