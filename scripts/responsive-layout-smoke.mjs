@@ -16,6 +16,7 @@ const viewportMatrix = [
   { width: 768, height: 1024 }, // tablet portrait
   { width: 1024, height: 768 }, // tablet landscape
   { width: 1280, height: 900 },
+  { width: 1366, height: 900 },
   { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ];
@@ -71,7 +72,7 @@ const screenshotRoutes = new Set([
   "/tools/rahn-rent",
   "/admin",
 ]);
-const screenshotWidths = new Set([320, 360, 390, 430, 768, 1024, 1280, 1440, 1920]);
+const screenshotWidths = new Set([320, 360, 375, 390, 412, 430, 768, 1024, 1280, 1366, 1440, 1920]);
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 
