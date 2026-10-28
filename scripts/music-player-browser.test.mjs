@@ -100,6 +100,10 @@ async function assertDock(page, viewport) {
       parentIsBody: node.parentElement === document.body,
       containingBlockRisks,
       position: style.position,
+      zIndex: style.zIndex,
+      boxSizing: style.boxSizing,
+      borderRadius: style.borderRadius,
+      backgroundImage: style.backgroundImage,
       left: rect.left,
       top: rect.top,
       right: rect.right,
@@ -113,6 +117,10 @@ async function assertDock(page, viewport) {
   assert.equal(result.parentIsBody, true, "the player should remain outside route-specific transformed wrappers");
   assert.deepEqual(result.containingBlockRisks, [], `an ancestor may be creating a fixed-position containing block: ${JSON.stringify(result.containingBlockRisks)}`);
   assert.equal(result.position, "fixed", `player must be viewport-fixed on ${page.url()}`);
+  assert.equal(result.zIndex, "1150", `player layer must stay above page content on ${page.url()}`);
+  assert.equal(result.boxSizing, "border-box", `player dimensions must include padding and border on ${page.url()}`);
+  assert.equal(result.borderRadius, "18px", `desktop Hirmand dock corners must stay consistent on ${page.url()}`);
+  assert.match(result.backgroundImage, /radial-gradient.*linear-gradient/s, `the Hirmand navy/gold surface must remain applied on ${page.url()}`);
   assert.ok(Math.abs(result.left - 20) <= 1, `expected left=20px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.bottom - (viewport.height - 20)) <= 1, `expected bottom=20px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.width - 292) <= 1, `expected width=292px on ${page.url()}: ${JSON.stringify(result)}`);
