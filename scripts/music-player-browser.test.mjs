@@ -129,6 +129,37 @@ async function assertDock(page, viewport) {
   return result;
 }
 
+async function assertCollapsedDock(page, viewport) {
+  const result = await page.evaluate(() => {
+    const nodes = document.querySelectorAll('#hirmand-site-music-player[aria-label="پخش موسیقی هیرمند"]');
+    const node = nodes[0];
+    if (!node) return { count: nodes.length, missing: true };
+    const rect = node.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    return {
+      count: nodes.length,
+      parentIsBody: node.parentElement === document.body,
+      collapsed: node.classList.contains("is-collapsed"),
+      position: style.position,
+      zIndex: style.zIndex,
+      left: rect.left,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+    };
+  });
+  assert.equal(result.count, 1, `exactly one collapsed player should exist on ${page.url()}: ${JSON.stringify(result)}`);
+  assert.equal(result.parentIsBody, true, "the collapsed player should remain outside route-specific wrappers");
+  assert.equal(result.collapsed, true, "the player should expose its collapsed state");
+  assert.equal(result.position, "fixed", "the collapsed player must remain viewport-fixed");
+  assert.equal(result.zIndex, "1150", "the collapsed player must preserve the shared layer");
+  assert.ok(Math.abs(result.left - 20) <= 1, `collapsed player left anchor must remain 20px: ${JSON.stringify(result)}`);
+  assert.ok(Math.abs(result.bottom - (viewport.height - 20)) <= 1, `collapsed player bottom anchor must remain 20px: ${JSON.stringify(result)}`);
+  assert.ok(result.width > 0 && result.width < 292, `collapsed player should be smaller than the full dock: ${JSON.stringify(result)}`);
+  assert.ok(result.height > 0 && result.height < 132, `collapsed player should be shorter than the full dock: ${JSON.stringify(result)}`);
+  return result;
+}
+
 try {
   await migrateIsolatedDatabase();
   const port = await findFreePort();
@@ -276,7 +307,7 @@ try {
   await assertDock(page, { width: 1024, height: 768 });
   await page.getByRole("button", { name: "جمع کردن پلیر" }).click();
   await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
-  await assertDock(page, { width: 1024, height: 768 });
+  await assertCollapsedDock(page, { width: 1024, height: 768 });
   await page.getByRole("button", { name: "باز کردن پلیر موسیقی" }).click();
   await page.waitForFunction(() => !document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
   await assertDock(page, { width: 1024, height: 768 });
