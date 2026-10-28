@@ -1628,7 +1628,7 @@ function PropertiesIndexPage() {
               count={(minBedrooms || minBathrooms || minFloor || maxFloor || minTotalFloors || maxTotalFloors || minBuiltYear || maxBuiltYear) ? "فعال" : "انتخاب"}
             >
               <div className="pf-fold-grid">
-                <div className="pf-range">
+                <div className="pf-range pf-range-two">
                   <label className="pf-field">
                     <span>حداقل خواب</span>
                     <input inputMode="numeric" value={minBedrooms} onChange={(e) => setMinBedrooms(e.target.value)} placeholder="۲" />
