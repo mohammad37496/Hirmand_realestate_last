@@ -929,3 +929,11 @@ testRunner.test("global UI respects the reduced-motion accessibility preference"
   assert.match(reducedMotion, /transition-duration:\s*0\.01ms\s*!important;/);
   assert.match(reducedMotion, /scroll-behavior:\s*auto\s*!important;/);
 });
+
+testRunner.test("responsive browser smoke records console errors and fails on app runtime/network errors", () => {
+  assert.ok(responsiveSmoke.includes('page.on("console"'), "browser smoke must collect console errors");
+  assert.ok(responsiveSmoke.includes('page.on("requestfailed"'), "browser smoke must observe failed requests");
+  assert.ok(responsiveSmoke.includes("failed same-origin requests"), "same-origin request failures must fail the run");
+  assert.ok(responsiveSmoke.includes("uncaught browser errors"), "uncaught page errors must fail the run");
+});
+
