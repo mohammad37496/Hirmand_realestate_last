@@ -119,7 +119,8 @@ async function assertDock(page, viewport) {
   assert.equal(result.position, "fixed", `player must be viewport-fixed on ${page.url()}`);
   assert.equal(result.zIndex, "1150", `player layer must stay above page content on ${page.url()}`);
   assert.equal(result.boxSizing, "border-box", `player dimensions must include padding and border on ${page.url()}`);
-  assert.equal(result.borderRadius, "18px", `desktop Hirmand dock corners must stay consistent on ${page.url()}`);
+  assert.equal(result.classes.split(/\s+/).includes("is-collapsed"), false, `desktop player must not unexpectedly collapse on ${page.url()}: ${JSON.stringify(result)}`);
+  assert.equal(result.borderRadius, "18px", `desktop Hirmand dock corners must stay consistent on ${page.url()}: ${JSON.stringify(result)}`);
   assert.match(result.backgroundImage, /radial-gradient.*linear-gradient/s, `the Hirmand navy/gold surface must remain applied on ${page.url()}`);
   assert.ok(Math.abs(result.left - 20) <= 1, `expected left=20px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.bottom - (viewport.height - 20)) <= 1, `expected bottom=20px on ${page.url()}: ${JSON.stringify(result)}`);
