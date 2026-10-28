@@ -5383,3 +5383,10 @@ body:has(.pcard) .pcard > .pcard-visual {
     }
   }
 }
+
+
+/* Keep the bedroom/bathroom pair on two equal tracks; the generic range
+   layout reserves a third track for the separator used by min/max fields. */
+.pf-page .pf-range.pf-range-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
