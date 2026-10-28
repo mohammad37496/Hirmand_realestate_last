@@ -189,33 +189,7 @@ export function SiteMusicPlayer() {
   };
 
   return (
-    <aside className={`music-player-float${tracks.length ? "" : " music-player-float-empty"}${expanded ? " is-expanded" : ""}${collapsed ? " is-collapsed" : ""}`} aria-label="پخش موسیقی هیرمند">
-      <style>{`
-        /* Route-level stylesheets can be inserted after root styles and override
-           the dock. Keep the desktop viewport contract beside the one shared
-           instance, after the route outlet has rendered. */
-        @media (min-width: 721px) {
-          html body .music-player-float:not(.is-collapsed) {
-            position: fixed !important;
-            inset: auto auto 20px 20px !important;
-            z-index: 1150 !important;
-            width: 292px !important;
-            height: 132px !important;
-            min-height: 132px !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            transform: none !important;
-            translate: none !important;
-          }
-          html body .music-player-float.is-collapsed {
-            position: fixed !important;
-            inset: auto auto 20px 20px !important;
-            z-index: 1150 !important;
-            transform: none !important;
-            translate: none !important;
-          }
-        }
-      `}</style>
+    <aside id="hirmand-site-music-player" className={`music-player-float${tracks.length ? "" : " music-player-float-empty"}${expanded ? " is-expanded" : ""}${collapsed ? " is-collapsed" : ""}`} aria-label="پخش موسیقی هیرمند">
       <audio
         ref={audioRef}
         preload="metadata"
