@@ -108,7 +108,25 @@ try {
     });
     page.setDefaultTimeout(12_000);
     const pageErrors = [];
+    const consoleErrors = [];
+    const failedRequests = [];
+    const appOrigin = new URL(baseUrl).origin;
     page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("requestfailed", (request) => {
+      let requestUrl;
+      try {
+        requestUrl = new URL(request.url());
+      } catch {
+        return;
+      }
+      if (requestUrl.origin !== appOrigin) return;
+      const errorText = request.failure()?.errorText ?? "unknown request failure";
+      if (/ERR_ABORTED|NS_BINDING_ABORTED/i.test(errorText)) return;
+      failedRequests.push({ url: request.url(), error: errorText });
+    });
 
     try {
       // The route's initial view is chosen during mount from matchMedia. Start
@@ -880,7 +898,15 @@ try {
       }
 
       if (pageErrors.length) {
+        failures.push(`${route}: uncaught browser errors: ${pageErrors.slice(0, 3).join(" | ")}`);
         summaries.push({ route, pageErrors: pageErrors.slice(0, 3) });
+      }
+      if (consoleErrors.length) {
+        summaries.push({ route, consoleErrors: consoleErrors.slice(0, 5) });
+      }
+      if (failedRequests.length) {
+        failures.push(`${route}: failed same-origin requests: ${JSON.stringify(failedRequests.slice(0, 5))}`);
+        summaries.push({ route, failedRequests: failedRequests.slice(0, 5) });
       }
     } catch (error) {
       failures.push(`${route}: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
