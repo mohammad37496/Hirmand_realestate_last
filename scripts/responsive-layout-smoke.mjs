@@ -39,6 +39,7 @@ const routes = [
   "/budget-match",
   "/smart-search",
   "/consultants",
+  "/card",
   "/nearby",
   "/submit-property",
   "/file-code",
