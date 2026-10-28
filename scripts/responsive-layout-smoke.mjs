@@ -595,6 +595,7 @@ try {
             top: Math.round(dockRect.top), bottom: Math.round(dockRect.bottom),
             width: Math.round(dockRect.width), height: Math.round(dockRect.height),
             position: getComputedStyle(dock).position,
+            activePlayer: !dock.classList.contains("music-player-float-empty"),
             buttons: dockButtons,
           } : null;
           const floatingContact = contact && contactRect ? {
@@ -825,6 +826,9 @@ try {
           const dock = metrics.musicDock;
           if (dock.position === "fixed" && (dock.left < -1 || dock.right > width + 1 || dock.top < -1 || dock.bottom > height + 1)) {
             failures.push(`/properties @ ${width}x${height}px: music dock escapes the viewport (${JSON.stringify(dock)})`);
+          }
+          if (width >= 721 && width <= 1024 && dock.activePlayer && (dock.width > 112 || dock.height > 54)) {
+            failures.push(`/properties @ ${width}x${height}px: tablet listing music dock should stay compact at 112×54px so it does not cover card actions (${JSON.stringify(dock)})`);
           }
           if (width <= 1024 && metrics.pointerCoarse) {
             const undersized = dock.buttons.filter((button) => button.width < 44 || button.height < 44);
