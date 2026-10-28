@@ -128,6 +128,26 @@ async function assertDock(page, viewport) {
   return result;
 }
 
+async function scrollToPageBottom(page, requestedPath, viewportWidth) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await scrollToPageBottom(page, route.path, viewport.width);
+      return;
+    } catch (error) {
+      const message = String(error?.message || error);
+      const navigationRace = /Execution context was destroyed|Cannot find context|navigation/i.test(message);
+      if (!navigationRace || attempt === 2) {
+        throw new Error(`could not scroll after navigation to ${requestedPath} at ${viewportWidth}px (actual URL: ${page.url()}): ${message}`);
+      }
+      await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
+      await page.waitForFunction(
+        () => document.readyState !== "loading" && !!document.querySelector("#hirmand-site-music-player"),
+        { timeout: 15_000 },
+      );
+    }
+  }
+}
+
 try {
   await migrateIsolatedDatabase();
   const port = await findFreePort();
