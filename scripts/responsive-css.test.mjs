@@ -965,3 +965,13 @@ testRunner.test("gold foreground combinations meet WCAG AA normal-text contrast"
   assert.ok(contrast(foreground, goldSoft) >= 4.5, "primary button text must meet WCAG AA on the gold-soft fill");
 });
 
+
+testRunner.test("responsive smoke includes property request and digital business card routes", () => {
+  const routeBlock = responsiveSmoke.slice(
+    responsiveSmoke.indexOf("const routes = ["),
+    responsiveSmoke.indexOf("];", responsiveSmoke.indexOf("const routes = [")),
+  );
+  assert.ok(routeBlock.includes('"/request-property"'), "property request form must be covered by browser smoke");
+  assert.ok(routeBlock.includes('"/card"'), "digital business card must be covered by browser smoke");
+});
+
