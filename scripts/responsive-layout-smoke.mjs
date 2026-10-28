@@ -110,10 +110,21 @@ try {
     const pageErrors = [];
     const consoleErrors = [];
     const failedRequests = [];
+    const failedResponses = [];
     const appOrigin = new URL(baseUrl).origin;
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("response", (response) => {
+      if (response.status() < 500) return;
+      try {
+        if (new URL(response.url()).origin === appOrigin) {
+          failedResponses.push({ url: response.url(), status: response.status() });
+        }
+      } catch {
+        // Ignore malformed response URLs; the browser reports request failures separately.
+      }
     });
     page.on("requestfailed", (request) => {
       let requestUrl;
@@ -907,6 +918,10 @@ try {
       if (failedRequests.length) {
         failures.push(`${route}: failed same-origin requests: ${JSON.stringify(failedRequests.slice(0, 5))}`);
         summaries.push({ route, failedRequests: failedRequests.slice(0, 5) });
+      }
+      if (failedResponses.length) {
+        failures.push(`${route}: same-origin server errors: ${JSON.stringify(failedResponses.slice(0, 5))}`);
+        summaries.push({ route, failedResponses: failedResponses.slice(0, 5) });
       }
     } catch (error) {
       failures.push(`${route}: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
