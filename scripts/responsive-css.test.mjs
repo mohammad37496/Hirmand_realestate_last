@@ -986,3 +986,11 @@ testRunner.test("property ad-copy handles denied clipboard permission", () => {
   assert.ok(copyHandler.includes("toast.error("), "users must receive feedback when clipboard access is denied");
 });
 
+
+
+testRunner.test("production Verify runs the admin visual/accessibility matrix at requested widths", () => {
+  const workflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
+  const adminAudit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
+  assert.match(workflow, /name: Admin visual and accessibility matrix[\\s\\S]*?QA_VIEWPORTS: "320x568,360x800,390x844,412x915,768x1024,1024x768,1440x900,1920x1080"[\\s\\S]*?run: npm run qa:admin-a11y/);
+  assert.match(adminAudit, /const OUT = process\\.env\\.QA_SCREENSHOT_DIR \\|\\| "screenshots\\/admin";/);
+});
