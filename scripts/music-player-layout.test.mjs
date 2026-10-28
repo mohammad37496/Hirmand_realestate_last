@@ -8,6 +8,7 @@ const root = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url
 
 test("the music player is mounted once in the shared root for every route", () => {
   assert.equal((root.match(/<SiteMusicPlayer\s*\/>/g) ?? []).length, 1);
+  assert.match(root, /<Outlet \/>[\s\S]*?<SiteMusicPlayer \/>/, "the player must stay outside route-specific wrappers after the outlet");
   assert.match(root, /import \{ SiteMusicPlayer \} from "@\/components\/hirmand\/site-music-player"/);
   assert.doesNotMatch(player, /useLocation|startsWith\("\/admin"\)/,
     "route changes and the admin path must not create a separate player or hide the shared dock");
