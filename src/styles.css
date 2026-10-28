@@ -134,7 +134,7 @@ p {
   z-index: 80;
   padding: 8px 14px;
   background: var(--gold);
-  color: var(--ink);
+  color: var(--fg);
   border-radius: var(--r-xs);
   font-weight: 700;
 }
@@ -227,7 +227,7 @@ p {
 }
 
 .btn-gold {
-  color: var(--ink);
+  color: var(--fg);
   background: var(--gold-soft);
   box-shadow: 0 8px 22px rgba(192, 138, 42, 0.18);
 }
