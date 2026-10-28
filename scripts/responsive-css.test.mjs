@@ -900,8 +900,12 @@ testRunner.test("mobile map result cards use the Hirmand navy-and-gold signature
 });
 
 testRunner.test("gold surfaces use the navy foreground for readable contrast", () => {
-  assert.match(globalCss, /\\.skip-link\\s*\\{[^}]*background:\\s*var\\(--gold\\);[^}]*color:\\s*var\\(--fg\\);/s,
+  const skipLinkRule = globalCss.match(/\.skip-link\s*\{[^}]*\}/s)?.[0] ?? "";
+  const primaryButtonRule = globalCss.match(/\.btn-gold\s*\{[^}]*\}/s)?.[0] ?? "";
+  assert.match(skipLinkRule, /background:\s*var\(--gold\);/);
+  assert.match(skipLinkRule, /color:\s*var\(--fg\);/,
     "the keyboard skip link must use a dark foreground on the gold background");
-  assert.match(globalCss, /\\.btn-gold\\s*\\{[^}]*background:\\s*var\\(--gold-soft\\);[^}]*color:\\s*var\\(--fg\\);/s,
+  assert.match(primaryButtonRule, /background:\s*var\(--gold-soft\);/);
+  assert.match(primaryButtonRule, /color:\s*var\(--fg\);/,
     "primary gold buttons must use a dark foreground so their labels remain readable");
 });
