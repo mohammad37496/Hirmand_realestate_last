@@ -5,6 +5,7 @@ import test from "node:test";
 const player = fs.readFileSync(new URL("../src/components/hirmand/site-music-player.tsx", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../src/music-player.css", import.meta.url), "utf8");
 const root = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
+const responsiveSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 
 test("the music player is mounted once in the shared root for every route", () => {
   assert.equal((root.match(/<SiteMusicPlayer\s*\/>/g) ?? []).length, 1);
@@ -131,4 +132,14 @@ test("tablet music controls and mobile launcher keep 44px touch targets", () => 
   assert.match(tabletRules, /\.music-player-float-controls button:not\(\.music-player-float-play\)[\s\S]*?width: 44px !important;[\s\S]*?height: 44px !important;/);
   assert.match(tabletRules, /@media \(max-width: 720px\)[\s\S]*?bottom: calc\(78px \+ env\(safe-area-inset-bottom\)\) !important;[\s\S]*?width: 44px !important;[\s\S]*?height: 44px !important;/);
   assert.match(tabletRules, /\.music-player-restore[\s\S]*?width: 44px !important;[\s\S]*?height: 44px !important;/);
+});
+
+test("tablet property listings keep a compact music dock above card actions", () => {
+  const listingRules = css.slice(css.lastIndexOf("/* Tablet listing dock:"));
+  assert.match(listingRules, /@media \(min-width: 721px\) and \(max-width: 1024px\)/);
+  assert.match(listingRules, /html body:has\(\.pf-page\) #hirmand-site-music-player:not\(\.music-player-float-empty\):not\(\.is-expanded\)\s*\{[\s\S]*?width: 112px !important;[\s\S]*?height: 54px !important;/);
+  assert.match(listingRules, /\.music-player-float-progress\s*\{\s*display: none !important;/);
+  assert.match(listingRules, /\.music-player-float-controls \.music-player-float-play\s*\{[\s\S]*?width: 44px !important;[\s\S]*?height: 44px !important;/);
+  assert.match(responsiveSmoke, /activePlayer: !dock\.classList\.contains\("music-player-float-empty"\)/);
+  assert.match(responsiveSmoke, /width >= 721 && width <= 1024 && dock\.activePlayer/);
 });

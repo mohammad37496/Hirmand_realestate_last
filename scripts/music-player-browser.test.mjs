@@ -130,6 +130,21 @@ async function assertDock(page, viewport) {
   assert.equal(result.boxSizing, "border-box", `player dimensions must include padding and border on ${page.url()}`);
   assert.equal(result.borderRadius, "18px", `desktop Hirmand dock corners must stay consistent on ${page.url()}: ${JSON.stringify(result)}`);
   assert.match(result.backgroundImage, /radial-gradient.*linear-gradient/s, `the Hirmand navy/gold surface must remain applied on ${page.url()}`);
+  const routePath = new URL(page.url()).pathname;
+  const compactTabletListing = routePath === "/properties" && viewport.width >= 721 && viewport.width <= 1024 && result.activePlayer;
+  if (compactTabletListing) {
+    assert.ok(Math.abs(result.left - 10) <= 1, `tablet listing dock should stay 10px from the left edge: ${JSON.stringify(result)}`);
+    assert.ok(Math.abs(result.bottom - (viewport.height - 78)) <= 1, `tablet listing dock should stay above the bottom navigation: ${JSON.stringify(result)}`);
+    assert.ok(Math.abs(result.width - 112) <= 1, `tablet listing dock should remain 112px wide: ${JSON.stringify(result)}`);
+    assert.ok(Math.abs(result.height - 54) <= 1, `tablet listing dock should remain 54px high: ${JSON.stringify(result)}`);
+    assert.equal(result.rootPadding, "5px 8px", `tablet listing dock padding must stay compact: ${JSON.stringify(result)}`);
+    if (result.activePlayer) {
+      assert.ok(Math.abs(result.headHeight - 54) <= 1, `tablet listing dock head must fill its compact shell: ${JSON.stringify(result)}`);
+      assert.ok(Math.abs(result.playWidth - 44) <= 1, `tablet listing play control must retain a 44px target: ${JSON.stringify(result)}`);
+      assert.equal(result.progressDisplay, "none", `tablet listing dock must hide the progress row to preserve card actions: ${JSON.stringify(result)}`);
+    }
+    return result;
+  }
   assert.ok(Math.abs(result.left - 20) <= 1, `expected left=20px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.bottom - (viewport.height - 20)) <= 1, `expected bottom=20px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.width - 292) <= 1, `expected width=292px on ${page.url()}: ${JSON.stringify(result)}`);
