@@ -55,3 +55,17 @@ test("the reference player controls and progress bar remain in the shared compon
   assert.match(player, /aria-label="بستن پنل موسیقی"/,
     "the loading/error state must also be closable on mobile");
 });
+
+
+test("desktop loading/empty state keeps the same viewport dock geometry as the loaded player", () => {
+  const emptyRule = css.match(/\.music-player-float-empty\s*\{([^}]+)\}/);
+  assert.ok(emptyRule, "the empty/loading state must have an explicit shared shell rule");
+  assert.match(emptyRule[1], /width:\s*292px\s*!important;/);
+  assert.match(emptyRule[1], /height:\s*132px\s*!important;/);
+  assert.match(emptyRule[1], /min-height:\s*132px\s*!important;/);
+  assert.match(emptyRule[1], /box-sizing:\s*border-box\s*!important;/);
+  assert.doesNotMatch(emptyRule[1], /width:\s*auto\s*!important|height:\s*auto\s*!important/,
+    "the empty state must not resize the desktop dock while the track list loads");
+  assert.match(css, /\.music-player-float\s*\{[^}]*position:\s*fixed\s*!important;[^}]*bottom:\s*20px\s*!important;[^}]*left:\s*20px\s*!important;[^}]*width:\s*292px\s*!important;[^}]*height:\s*132px/s,
+    "the loaded desktop player must retain the same fixed viewport geometry");
+});
