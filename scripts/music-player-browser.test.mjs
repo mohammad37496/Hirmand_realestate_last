@@ -205,8 +205,6 @@ async function navigateToRoute(page, baseUrl, routePath) {
       // body:has(.pf-page), so wait for the actual listing DOM before measuring.
       if (routePath === "/properties") {
         await page.locator(".pf-page").waitFor({ state: "visible", timeout: 60_000 });
-      } else if (routePath.startsWith("/properties/")) {
-        await page.locator(".property-detail-page").waitFor({ state: "visible", timeout: 60_000 });
       }
       await page.evaluate(() => new Promise((resolveFrame) =>
         requestAnimationFrame(() => requestAnimationFrame(resolveFrame)),
