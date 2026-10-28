@@ -9,6 +9,7 @@ import {
   Repeat,
   Repeat1,
   Shuffle,
+  Square,
   SkipBack,
   SkipForward,
   Volume2,
@@ -75,6 +76,7 @@ export function SiteMusicPlayer() {
 
   useEffect(() => {
     void loadTracks();
+    if (window.matchMedia("(max-width: 720px)").matches) setCollapsed(true);
     const refresh = () => {
       if (document.visibilityState === "visible") void loadTracks();
     };
@@ -143,6 +145,20 @@ export function SiteMusicPlayer() {
     }
   };
 
+  const stopPlayback = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    setCurrentTime(0);
+    setPlaying(false);
+  };
+
+  const closePlaylist = () => {
+    setExpanded(false);
+    if (window.matchMedia("(max-width: 720px)").matches) setCollapsed(true);
+  };
+
   const changeTrack = (step: number) => {
     if (!tracks.length) return;
     setIndex((current) => {
@@ -187,7 +203,7 @@ export function SiteMusicPlayer() {
       <button
         type="button"
         className="music-player-restore"
-        onClick={() => setCollapsed(false)}
+        onClick={() => { setCollapsed(false); if (window.matchMedia("(max-width: 720px)").matches) setExpanded(true); }}
         aria-label="باز کردن پلیر موسیقی"
       >
         <Music2 size={18} />
@@ -198,13 +214,14 @@ export function SiteMusicPlayer() {
       {tracks.length === 0 ? (
         <div className="music-player-empty-copy" aria-live="polite">
           <Music2 size={18} /> {loading ? "در حال بارگذاری موسیقی…" : error || "به‌زودی با موسیقی هیرمند"}
+          {expanded ? <button type="button" className="music-player-utility" onClick={closePlaylist} aria-label="بستن پنل موسیقی"><X size={15} /></button> : null}
         </div>
       ) : (
         <>
           <div className="music-player-float-head">
             <span className="music-player-brand-mark"><Music2 size={18} /></span>
             <span className="music-player-brand-copy"><strong>موسیقی هیرمند</strong><small>{playing ? "در حال پخش" : "همراه لحظه‌های شما"}</small></span>
-            <button type="button" className="music-player-utility" onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "بستن فهرست" : "نمایش فهرست موسیقی"}>
+            <button type="button" className="music-player-utility" onClick={() => expanded ? closePlaylist() : setExpanded(true)} aria-label={expanded ? "بستن فهرست" : "نمایش فهرست موسیقی"}>
               {expanded ? <ChevronDown size={17} /> : <ListMusic size={17} />}
             </button>
             <button type="button" className="music-player-utility music-player-hide" onClick={() => { setExpanded(false); setCollapsed(true); }} aria-label="جمع کردن پلیر"><X size={15} /></button>
@@ -213,11 +230,12 @@ export function SiteMusicPlayer() {
             <span className={`music-player-disc${playing ? " is-spinning" : ""}`}><Music2 size={20} /></span>
             <span className="music-player-float-meta"><strong title={activeTrack?.title}>{activeTrack?.title || "موسیقی هیرمند"}</strong><small>{activeTrack?.artist || "املاک هیرمند"}</small></span>
             <div className="music-player-float-controls">
-              <button type="button" onClick={() => changeTrack(-1)} aria-label="آهنگ قبلی" disabled={tracks.length < 2}><SkipForward size={17} /></button>
+              <button type="button" onClick={() => changeTrack(-1)} aria-label="آهنگ قبلی" disabled={tracks.length < 2}><SkipBack size={17} /></button>
               <button type="button" className="music-player-float-play" onClick={togglePlayback} aria-label={playing ? "مکث" : "پخش"}>
                 {loading ? <LoaderCircle size={19} className="music-player-loader" /> : playing ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" />}
               </button>
-              <button type="button" onClick={() => changeTrack(1)} aria-label="آهنگ بعدی" disabled={tracks.length < 2}><SkipBack size={17} /></button>
+              <button type="button" onClick={stopPlayback} aria-label="توقف آهنگ"><Square size={15} fill="currentColor" /></button>
+              <button type="button" onClick={() => changeTrack(1)} aria-label="آهنگ بعدی" disabled={tracks.length < 2}><SkipForward size={17} /></button>
             </div>
           </div>
           <div className="music-player-float-progress">
@@ -228,14 +246,13 @@ export function SiteMusicPlayer() {
           {error ? <p className="music-player-float-error" role="status">{error}</p> : null}
           {expanded ? (
             <div className="music-player-float-playlist">
-              <div className="music-player-float-playlist-head"><strong>فهرست پخش</strong><span>{tracks.length.toLocaleString("fa-IR")} آهنگ</span></div>
-              {tracks.map((track, trackIndex) => (
-                <button key={track.id} type="button" className={`music-player-float-item${trackIndex === index ? " is-active" : ""}`} onClick={() => { setIndex(trackIndex); setPlaying(true); }}>
-                  <span>{trackIndex === index && playing ? <span className="music-player-eq"><i /><i /><i /></span> : String(trackIndex + 1).padStart(2, "0")}</span>
-                  <span><strong>{track.title}</strong><small>{track.artist || "املاک هیرمند"}</small></span>
-                  {trackIndex === index && playing ? <Pause size={15} /> : <Play size={15} />}
+              <div className="music-player-volume-control">
+                <button type="button" className="music-player-volume-toggle" onClick={() => setMuted((value) => !value)} aria-label={muted ? "روشن کردن صدا" : "قطع صدا"} title={muted ? "روشن کردن صدا" : "قطع صدا"}>
+                  {muted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
                 </button>
-              ))}
+                <input aria-label="کم و زیاد کردن صدا" type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} style={{ "--music-volume": `${(muted ? 0 : volume) * 100}%` } as React.CSSProperties} onChange={(event) => { const next = Number(event.target.value); setVolume(next); setMuted(next === 0); }} />
+                <span>{Math.round((muted ? 0 : volume) * 100).toLocaleString("fa-IR")}%</span>
+              </div>
               <div className="music-player-options" aria-label="تنظیمات پخش">
                 <button type="button" className={shuffle ? "is-active" : ""} onClick={() => setShuffle((value) => !value)} aria-pressed={shuffle} title="پخش تصادفی" aria-label="پخش تصادفی">
                   <Shuffle size={16} /><span>تصادفی</span>
@@ -244,13 +261,14 @@ export function SiteMusicPlayer() {
                   {repeatMode === "one" ? <Repeat1 size={16} /> : <Repeat size={16} />}<span>{repeatMode === "all" ? "تکرار همه" : repeatMode === "one" ? "تکرار آهنگ" : "بدون تکرار"}</span>
                 </button>
               </div>
-              <div className="music-player-volume-control">
-                <button type="button" className="music-player-volume-toggle" onClick={() => setMuted((value) => !value)} aria-label={muted ? "روشن کردن صدا" : "قطع صدا"} title={muted ? "روشن کردن صدا" : "قطع صدا"}>
-                  {muted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
+              <div className="music-player-float-playlist-head"><strong>انتخاب موسیقی</strong><span>{tracks.length.toLocaleString("fa-IR")} آهنگ</span></div>
+              {tracks.map((track, trackIndex) => (
+                <button key={track.id} type="button" className={`music-player-float-item${trackIndex === index ? " is-active" : ""}`} onClick={() => { setIndex(trackIndex); setPlaying(true); }}>
+                  <span>{trackIndex === index && playing ? <span className="music-player-eq"><i /><i /><i /></span> : String(trackIndex + 1).padStart(2, "0")}</span>
+                  <span><strong>{track.title}</strong><small>{track.artist || "املاک هیرمند"}</small></span>
+                  {trackIndex === index && playing ? <Pause size={15} /> : <Play size={15} />}
                 </button>
-                <input aria-label="کم و زیاد کردن صدا" type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} style={{ "--music-volume": `${(muted ? 0 : volume) * 100}%` } as React.CSSProperties} onChange={(event) => { const next = Number(event.target.value); setVolume(next); setMuted(next === 0); }} />
-                <span>{Math.round((muted ? 0 : volume) * 100).toLocaleString("fa-IR")}%</span>
-              </div>
+              ))}
             </div>
           ) : null}
         </>

@@ -508,3 +508,192 @@ html body .music-player-float.is-collapsed .music-player-restore {
   text-align: end;
   font-variant-numeric: tabular-nums;
 }
+
+/* Mobile: keep only a small Hirmand music button visible until it is opened.
+   The open state becomes a compact, scrollable popover with all controls first. */
+@media (max-width: 720px) {
+  html body .music-player-float,
+  html body .music-player-float:not(.music-player-float-empty),
+  html body .music-player-float-empty {
+    right: auto !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    left: 12px !important;
+    width: 48px !important;
+    max-width: calc(100vw - 24px) !important;
+    height: 48px !important;
+    min-height: 0 !important;
+    padding: 4px !important;
+    overflow: visible !important;
+    border-radius: 16px !important;
+  }
+
+  html body .music-player-float::before { inset-inline: 20%; }
+
+  /* Prevent a one-frame expanded/oversized dock before React applies the
+     viewport's initial collapsed state after hydration. */
+  html body .music-player-float:not(.is-expanded) .music-player-full-content {
+    display: none !important;
+  }
+
+  html body .music-player-float:not(.is-expanded) .music-player-restore {
+    display: flex !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background: linear-gradient(145deg, #081320, #17324a) !important;
+    box-shadow: none !important;
+  }
+
+  html body .music-player-float:not(.is-expanded) .music-player-restore strong,
+  html body .music-player-float:not(.is-expanded) .music-player-restore svg:last-child {
+    display: none !important;
+  }
+
+  html body .music-player-float:not(.is-expanded) .music-player-restore svg:first-child {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  html body .music-player-float.is-collapsed > :not(audio):not(.music-player-restore) {
+    display: none !important;
+  }
+
+  html body .music-player-float.is-collapsed .music-player-restore {
+    display: flex !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border: 0 !important;
+    border-radius: 12px !important;
+    background: linear-gradient(145deg, #081320, #17324a) !important;
+    box-shadow: none !important;
+  }
+
+  html body .music-player-float.is-collapsed .music-player-restore strong,
+  html body .music-player-float.is-collapsed .music-player-restore svg:last-child {
+    display: none !important;
+  }
+
+  html body .music-player-float.is-collapsed .music-player-restore svg:first-child {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  html body .music-player-float.is-expanded,
+  html body .music-player-float.is-expanded:not(.music-player-float-empty) {
+    display: block !important;
+    right: auto !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    left: 12px !important;
+    width: min(350px, calc(100vw - 24px)) !important;
+    height: auto !important;
+    max-height: min(74vh, 620px) !important;
+    padding: 12px !important;
+    overflow: visible !important;
+    border-radius: 18px !important;
+  }
+
+  html body .music-player-float.is-expanded .music-player-full-content {
+    display: block !important;
+    max-height: calc(74vh - 24px) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html body .music-player-float.is-expanded .music-player-float-playlist {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-height: none !important;
+    margin-top: 8px !important;
+    overflow: visible !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+  }
+
+  html body .music-player-float.is-expanded .music-player-hide {
+    display: grid !important;
+  }
+
+  html body .music-player-float.is-expanded .music-player-float-controls {
+    gap: 3px !important;
+  }
+
+  html body .music-player-float.is-expanded .music-player-float-controls button {
+    width: 28px !important;
+    height: 30px !important;
+  }
+
+  html body .music-player-float.is-expanded .music-player-float-controls .music-player-float-play {
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  html body .music-player-float-empty.is-collapsed {
+    display: block !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-height: 0 !important;
+  }
+
+  html body .music-player-float-empty.is-collapsed .music-player-empty-copy {
+    display: none !important;
+  }
+
+  html body .music-player-float-empty.is-collapsed .music-player-restore {
+    display: flex !important;
+  }
+
+  body:has(.music-player-float:not(.music-player-float-empty)) .site-back-top,
+  body:has(.music-player-float:not(.music-player-float-empty)) .floating-call-menu {
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+  }
+
+  body:has(.music-player-float.is-expanded:not(.music-player-float-empty)) .site-back-top,
+  body:has(.music-player-float.is-expanded:not(.music-player-float-empty)) .floating-call-menu {
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Older property-list selectors carry higher specificity than generic
+     shared-player rules. Override their size in both mobile states. */
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty):not(.is-expanded),
+  html body:has(.pf-page, .property-showcase) .music-player-float-empty:not(.is-expanded) {
+    position: fixed !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    left: 12px !important;
+    width: 48px !important;
+    max-width: calc(100vw - 24px) !important;
+    height: 48px !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 4px !important;
+    border-radius: 16px !important;
+  }
+
+  html body:has(.pf-page, .property-showcase) .music-player-float:not(.music-player-float-empty).is-expanded,
+  html body:has(.pf-page, .property-showcase) .music-player-float-empty.is-expanded {
+    position: fixed !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    left: 12px !important;
+    width: min(350px, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    height: auto !important;
+    max-height: min(74vh, 620px) !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 12px !important;
+    border-radius: 18px !important;
+  }
+}
