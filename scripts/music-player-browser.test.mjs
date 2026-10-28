@@ -236,17 +236,12 @@ try {
     { width: 1440, height: 900 },
     { width: 1920, height: 1080 },
   ];
-  const geometrySnapshots = new Map();
-
   for (const viewport of desktopViewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     for (const route of routeMatrix) {
       await page.goto(new URL(route.path, baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
       await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
       const beforeScroll = await assertDock(page, viewport);
-      const key = `${viewport.width}:${route.path}:before-scroll`;
-      geometrySnapshots.set(key, beforeScroll);
-
       await page.evaluate(() => window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)));
       await page.waitForTimeout(80);
       const afterScroll = await assertDock(page, viewport);
