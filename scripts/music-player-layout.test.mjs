@@ -69,3 +69,10 @@ test("desktop loading/empty state keeps the same viewport dock geometry as the l
   assert.match(css, /\.music-player-float\s*\{[^}]*position:\s*fixed\s*!important;[^}]*bottom:\s*20px\s*!important;[^}]*left:\s*20px\s*!important;[^}]*width:\s*292px\s*!important;[^}]*height:\s*132px/s,
     "the loaded desktop player must retain the same fixed viewport geometry");
 });
+
+test("desktop viewport geometry is enforced by the shared component after route styles", () => {
+  assert.match(player, /<style>\{\x60[\s\S]*?@media \(min-width: 721px\)[\s\S]*?html body \.music-player-float:not\(\.is-collapsed\)[\s\S]*?position: fixed !important;[\s\S]*?inset: auto auto 20px 20px !important;[\s\S]*?width: 292px !important;[\s\S]*?height: 132px !important;[\s\S]*?transform: none !important;[\s\S]*?\x60\}<\/style>/,
+    "the shared dock must reassert its viewport anchor and dimensions after route-level styles");
+  assert.match(player, /html body \.music-player-float\.is-collapsed\s*\{[^}]*position: fixed !important;[^}]*inset: auto auto 20px 20px !important;/s,
+    "collapsing the dock must not turn it into a page-positioned element");
+});
