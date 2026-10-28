@@ -73,7 +73,7 @@ test("desktop loading/empty state keeps the same viewport dock geometry as the l
 test("desktop viewport geometry has one canonical high-specificity rule outside the route tree", () => {
   assert.match(player, /id="hirmand-site-music-player"/,
     "the single shared dock must have a stable identity for the global geometry contract");
-  assert.doesNotMatch(player, /<style>\\{\\x60[\\s\\S]*?Route-level stylesheets/,
+  assert.doesNotMatch(player, /Route-level stylesheets|<style>/,
     "route-specific geometry overrides must not be injected inside the component");
   assert.match(css, /@media \\(min-width: 721px\\)\\s*\\{[\\s\\S]*?html body #hirmand-site-music-player\\s*\\{[\\s\\S]*?position: fixed !important;[\\s\\S]*?inset: auto auto 20px 20px !important;[\\s\\S]*?width: 292px !important;[\\s\\S]*?height: 132px !important;/,
     "a single ID-scoped desktop rule must enforce viewport position and dimensions");
