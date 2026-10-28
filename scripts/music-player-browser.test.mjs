@@ -210,7 +210,8 @@ try {
 
   const volumeControl = page.getByRole("slider", { name: "کم و زیاد کردن صدا" });
   await volumeControl.evaluate((element) => {
-    element.value = "0.35";
+    const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    nativeSetter?.call(element, "0.35");
     element.dispatchEvent(new Event("input", { bubbles: true }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
   });
