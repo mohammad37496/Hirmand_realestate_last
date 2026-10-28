@@ -162,34 +162,42 @@ async function assertDock(page, viewport) {
   assert.equal(result.boxSizing, "border-box", `player dimensions must include padding and border on ${page.url()}`);
   assert.equal(result.borderRadius, "18px", `desktop Hirmand dock corners must stay consistent on ${page.url()}: ${JSON.stringify(result)}`);
   assert.match(result.backgroundImage, /radial-gradient.*linear-gradient/s, `the Hirmand navy/gold surface must remain applied on ${page.url()}`);
-  const routePath = new URL(page.url()).pathname;
-  const compactTabletListing = routePath === "/properties" && viewport.width >= 721 && viewport.width <= 1024;
-  if (compactTabletListing) {
-    assert.ok(Math.abs(result.left - 10) <= 1, `tablet listing dock should stay 10px from the left edge: ${JSON.stringify(result)}`);
-    assert.ok(Math.abs(result.bottom - (viewport.height - 78)) <= 1, `tablet listing dock should stay above the bottom navigation: ${JSON.stringify(result)}`);
-    assert.ok(Math.abs(result.width - 112) <= 1, `tablet listing dock should remain 112px wide: ${JSON.stringify(result)}`);
-    assert.ok(Math.abs(result.height - 54) <= 1, `tablet listing dock should remain 54px high: ${JSON.stringify(result)}`);
-    assert.equal(result.rootPadding, "5px 8px", `tablet listing dock padding must stay compact: ${JSON.stringify(result)}`);
-    if (result.activePlayer) {
-      assert.ok(Math.abs(result.headHeight - 54) <= 1, `tablet listing dock head must fill its compact shell: ${JSON.stringify(result)}`);
-      assert.ok(Math.abs(result.playWidth - 44) <= 1, `tablet listing play control must retain a 44px target: ${JSON.stringify(result)}`);
-      assert.equal(result.progressDisplay, "none", `tablet listing dock must hide the progress row to preserve card actions: ${JSON.stringify(result)}`);
-    }
+  const mobileHeaderDock = viewport.width <= 720;
+  const expectedLeft = mobileHeaderDock ? 80 : viewport.width >= 1025 ? 520 : Math.max(180, Math.min(520, viewport.width * 0.4));
+  const expectedWidth = mobileHeaderDock ? 44 : 220;
+  const expectedHeight = mobileHeaderDock ? 44 : 54;
+  assert.equal(result.count, 1, "exactly one shared player should exist on " + page.url() + ": " + JSON.stringify(result));
+  assert.equal(result.parentIsBody, true, "the player should remain outside route-specific transformed wrappers");
+  assert.deepEqual(result.containingBlockRisks, [], "an ancestor may be creating a fixed-position containing block: " + JSON.stringify(result.containingBlockRisks));
+  assert.equal(result.position, "fixed", "player must be viewport-fixed on " + page.url() + ": " + JSON.stringify(result));
+  assert.equal(result.musicStylesheetLoaded, true, "the shared player stylesheet must be loaded before measuring geometry on " + page.url());
+  assert.equal(result.zIndex, "1150", "player layer must stay above page content on " + page.url());
+  assert.equal(result.boxSizing, "border-box", "player dimensions must include padding and border on " + page.url());
+  assert.equal(result.borderRadius, mobileHeaderDock ? "14px" : "18px", "player corners must match the compact or icon dock on " + page.url() + ": " + JSON.stringify(result));
+  assert.match(result.backgroundImage, /radial-gradient.*linear-gradient/s, "the Hirmand navy/gold surface must remain applied on " + page.url());
+  assert.ok(Math.abs(result.left - expectedLeft) <= 1, "unexpected header dock left position on " + page.url() + ": " + JSON.stringify(result));
+  assert.ok(Math.abs(result.top - 8) <= 1, "the dock must remain 8px from the top on " + page.url() + ": " + JSON.stringify(result));
+  assert.ok(Math.abs(result.width - expectedWidth) <= 1, "unexpected header dock width on " + page.url() + ": " + JSON.stringify(result));
+  assert.ok(Math.abs(result.height - expectedHeight) <= 1, "unexpected header dock height on " + page.url() + ": " + JSON.stringify(result));
+  assert.equal(result.rootPadding, mobileHeaderDock ? "0px" : "4px 8px", "dock padding must remain compact on " + page.url() + ": " + JSON.stringify(result));
+  assert.deepEqual(result.overlappingTargets, [], "music dock overlaps important content or controls on " + page.url() + ": " + JSON.stringify(result.overlappingTargets));
+  if (mobileHeaderDock) {
+    assert.equal(result.collapsed, true, "mobile must start with the small header launcher on " + page.url());
+    assert.ok(Math.abs(result.restoreWidth - 44) <= 1, "mobile launcher must provide a 44px touch target on " + page.url() + ": " + JSON.stringify(result));
     return result;
   }
-  assert.ok(Math.abs(result.left - 20) <= 1, `expected left=20px on ${page.url()}: ${JSON.stringify(result)}`);
-  assert.ok(Math.abs(result.bottom - (viewport.height - 20)) <= 1, `expected bottom=20px on ${page.url()}: ${JSON.stringify(result)}`);
-  assert.ok(Math.abs(result.width - 292) <= 1, `expected width=292px on ${page.url()}: ${JSON.stringify(result)}`);
-  assert.ok(Math.abs(result.height - 132) <= 1, `expected height=132px on ${page.url()}: ${JSON.stringify(result)}`);
-  assert.equal(result.rootPadding, "9px 10px 7px", `desktop player padding must be route-independent on ${page.url()}: ${JSON.stringify(result)}`);
   if (result.activePlayer) {
-    assert.equal(result.rootDisplay, "block", `desktop player root display must be route-independent on ${page.url()}`);
-    assert.ok(Math.abs(result.contentWidth - 270) <= 1, `desktop player content width must remain 270px on ${page.url()}: ${JSON.stringify(result)}`);
-    assert.ok(Math.abs(result.headHeight - 26) <= 1, `desktop player header must remain 26px on ${page.url()}: ${JSON.stringify(result)}`);
-    assert.ok(Math.abs(result.discWidth - 34) <= 1, `desktop player disc must remain 34px on ${page.url()}: ${JSON.stringify(result)}`);
-    assert.ok(Math.abs(result.controlWidth - 24) <= 1, `desktop player transport buttons must remain 24px on ${page.url()}: ${JSON.stringify(result)}`);
-    assert.ok(Math.abs(result.playWidth - 30) <= 1, `desktop player play button must remain 30px on ${page.url()}: ${JSON.stringify(result)}`);
-    assert.equal(result.progressDisplay, "grid", `desktop progress must remain visible on ${page.url()}: ${JSON.stringify(result)}`);
+    assert.equal(result.rootDisplay, "block", "compact player root display must stay stable on " + page.url());
+    assert.ok(Math.abs(result.contentWidth - 202) <= 1, "compact player content width must remain 202px on " + page.url() + ": " + JSON.stringify(result));
+    assert.ok(Math.abs(result.headHeight - 44) <= 1, "compact player controls must fit a 44px row on " + page.url() + ": " + JSON.stringify(result));
+    assert.ok(Math.abs(result.discWidth) <= 1, "the large disc must stay hidden in the compact header dock on " + page.url());
+    assert.ok(Math.abs(result.controlWidth) <= 1, "secondary transport controls must stay inside the expanded panel on " + page.url());
+    assert.ok(Math.abs(result.playWidth - 44) <= 1, "play/pause must keep a 44px target on " + page.url() + ": " + JSON.stringify(result));
+    assert.ok(Math.abs(result.utilityWidth - 44) <= 1, "playlist toggle must keep a 44px target on " + page.url() + ": " + JSON.stringify(result));
+    assert.ok(result.metaWidth > 70, "track title and artist must remain readable in the compact dock on " + page.url() + ": " + JSON.stringify(result));
+    assert.equal(result.progressDisplay, "none", "progress must move into the expanded panel so the header dock stays short on " + page.url());
+  } else {
+    assert.equal(result.emptyCopyFontSize, "11px", "loading state must use the same compact dock typography on " + page.url());
   }
   return result;
 }
