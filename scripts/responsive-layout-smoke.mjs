@@ -42,6 +42,7 @@ const routes = [
   "/card",
   "/nearby",
   "/submit-property",
+  "/request-property",
   "/file-code",
   "/favorites",
   "/compare",
