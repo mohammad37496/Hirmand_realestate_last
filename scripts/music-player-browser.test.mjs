@@ -83,6 +83,30 @@ async function assertDock(page, viewport) {
     if (!node) return { count: nodes.length, missing: true };
     const rect = node.getBoundingClientRect();
     const style = getComputedStyle(node);
+    const overlappingTargets = [...document.querySelectorAll('a,button,input,select,textarea,[role="button"],h1,h2,h3,.property-card,.pf-card,.property-card-title,.property-card-price')]
+      .filter((target) => !node.contains(target) && !target.closest('[role="status"],[aria-live],.toast,[data-sonner-toast]'))
+      .map((target) => {
+        const targetRect = target.getBoundingClientRect();
+        const targetStyle = getComputedStyle(target);
+        const visible = targetStyle.display !== "none" && targetStyle.visibility !== "hidden" && Number(targetStyle.opacity) !== 0 &&
+          targetRect.width > 0 && targetRect.height > 0 && targetRect.right > 0 && targetRect.left < window.innerWidth &&
+          targetRect.bottom > 0 && targetRect.top < window.innerHeight;
+        const overlapWidth = Math.min(rect.right, targetRect.right) - Math.max(rect.left, targetRect.left);
+        const overlapHeight = Math.min(rect.bottom, targetRect.bottom) - Math.max(rect.top, targetRect.top);
+        if (!visible || overlapWidth <= 1 || overlapHeight <= 1) return null;
+        const label = target.getAttribute("aria-label") || target.getAttribute("title") || target.innerText || target.className || target.tagName;
+        return {
+          label: String(label).replace(/\\s+/g, " ").slice(0, 60),
+          left: Math.round(targetRect.left),
+          top: Math.round(targetRect.top),
+          width: Math.round(targetRect.width),
+          height: Math.round(targetRect.height),
+          overlapWidth: Math.round(overlapWidth),
+          overlapHeight: Math.round(overlapHeight),
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 12);
     const containingBlockRisks = [];
     for (let parent = node.parentElement; parent; parent = parent.parentElement) {
       const parentStyle = getComputedStyle(parent);
@@ -101,6 +125,9 @@ async function assertDock(page, viewport) {
       containingBlockRisks,
       position: style.position,
       musicStylesheetLoaded: [...document.styleSheets].some((sheet) => sheet.href?.includes("music-player.css")),
+      collapsed: node.classList.contains("is-collapsed"),
+      expanded: node.classList.contains("is-expanded"),
+      overlappingTargets,
       zIndex: style.zIndex,
       boxSizing: style.boxSizing,
       borderRadius: style.borderRadius,
@@ -120,6 +147,10 @@ async function assertDock(page, viewport) {
       discWidth: node.querySelector(".music-player-disc")?.getBoundingClientRect().width ?? null,
       controlWidth: node.querySelector(".music-player-float-controls button:not(.music-player-float-play)")?.getBoundingClientRect().width ?? null,
       playWidth: node.querySelector(".music-player-float-controls .music-player-float-play")?.getBoundingClientRect().width ?? null,
+      utilityWidth: node.querySelector(".music-player-utility:not(.music-player-hide)")?.getBoundingClientRect().width ?? null,
+      metaWidth: node.querySelector(".music-player-float-meta")?.getBoundingClientRect().width ?? null,
+      restoreWidth: node.querySelector(".music-player-restore")?.getBoundingClientRect().width ?? null,
+      emptyCopyFontSize: node.querySelector(".music-player-empty-copy") ? getComputedStyle(node.querySelector(".music-player-empty-copy")).fontSize : null,
       progressDisplay: node.querySelector(".music-player-float-progress") ? getComputedStyle(node.querySelector(".music-player-float-progress")).display : null,
     };
   });
