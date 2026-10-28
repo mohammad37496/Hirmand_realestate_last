@@ -51,7 +51,19 @@
 .music-player-float-progress input::-webkit-slider-runnable-track { height: 3px; border-radius: 99px; background: linear-gradient(90deg, #c08a2a 0 var(--music-progress,0%), rgb(255 255 255 / 15%) var(--music-progress,0%) 100%); }
 .music-player-float-progress input::-webkit-slider-thumb { margin-top: -5px; }
 .music-player-float-error { position: absolute; inset: auto 10px calc(100% + 7px); padding: 7px 10px; border: 1px solid rgb(226 140 140 / 35%); border-radius: 10px; background: #fff7f4; color: #8b2e29; font-size: 10px; box-shadow: 0 8px 20px rgb(8 19 32 / 16%); }
-.music-player-float-empty { width: auto !important; height: auto !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+/* Keep the desktop dock's outer geometry stable while tracks are loading or unavailable.
+   The empty state changes only its contents, never the viewport anchor or shell size. */
+.music-player-float-empty {
+  width: 292px !important;
+  height: 132px !important;
+  min-height: 132px !important;
+  padding: 9px 10px 7px !important;
+  box-sizing: border-box !important;
+  border: 1px solid rgb(226 196 140 / 35%) !important;
+  border-radius: 18px !important;
+  background: radial-gradient(circle at 8% 0%, rgb(192 138 42 / 22%), transparent 48%), linear-gradient(145deg, #081320, #17324a) !important;
+  box-shadow: 0 16px 46px rgb(8 19 32 / 32%), inset 0 1px 0 rgb(255 255 255 / 8%) !important;
+}
 .music-player-float-empty::before { display: none; }
 .music-player-empty-copy { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1px solid rgb(226 196 140 / 28%); border-radius: 13px; background: #0b1a2b; color: #e2c48c; font-size: 11px; box-shadow: 0 8px 24px rgb(8 19 32 / 20%); }
 .music-player-float-playlist { position: absolute; inset: auto 0 calc(100% + 10px) auto; width: 100%; max-height: min(350px, 55vh); overflow: auto; padding: 9px; border: 1px solid #e4dccc; border-radius: 15px; background: #fffdfa; color: #152430; box-shadow: 0 18px 50px rgb(8 19 32 / 22%); }
