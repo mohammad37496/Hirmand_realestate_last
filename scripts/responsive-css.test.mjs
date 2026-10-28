@@ -977,6 +977,7 @@ testRunner.test("responsive smoke includes property request and digital business
 
 
 testRunner.test("property ad-copy handles denied clipboard permission", () => {
+  const propertyActions = fs.readFileSync(new URL("../src/components/hirmand/property-actions.tsx", import.meta.url), "utf8");
   const copyHandler = propertyActions.slice(
     propertyActions.indexOf("function copyPropertyAdText"),
     propertyActions.indexOf("function readCompare"),
