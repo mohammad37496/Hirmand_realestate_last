@@ -1071,3 +1071,365 @@ html body .music-player-float-empty button {
     color: #e2c48c !important;
   }
 }
+
+
+/* Keep the shared music controls in the empty header slot so they never cover
+   property cards, filter inputs, or other page actions. The dock uses the same
+   viewport-relative slot on every route; only the user-opened panel expands. */
+@media (min-width: 721px) {
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed),
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) {
+    position: fixed !important;
+    top: 8px !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: clamp(180px, 40vw, 520px) !important;
+    z-index: 1150 !important;
+    width: 220px !important;
+    min-width: 220px !important;
+    max-width: 220px !important;
+    height: 54px !important;
+    min-height: 54px !important;
+    max-height: 54px !important;
+    margin: 0 !important;
+    padding: 4px 8px !important;
+    border: 1px solid rgb(226 196 140 / 35%) !important;
+    border-radius: 18px !important;
+    background: radial-gradient(circle at 8% 0%, rgb(192 138 42 / 22%), transparent 48%), linear-gradient(145deg, #081320, #17324a) !important;
+    box-shadow: 0 16px 46px rgb(8 19 32 / 32%), inset 0 1px 0 rgb(255 255 255 / 8%) !important;
+    direction: rtl !important;
+    overflow: visible !important;
+  }
+
+  html body #hirmand-site-music-player.music-player-float-empty:not(.is-expanded):not(.is-collapsed),
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.music-player-float-empty:not(.is-expanded):not(.is-collapsed) {
+    display: block !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-full-content,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-full-content {
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    overflow: visible !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-head,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-head {
+    position: absolute !important;
+    inset: 0 !important;
+    height: 44px !important;
+    pointer-events: none !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-brand-mark,
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-brand-copy,
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-disc,
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-hide,
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-progress,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-brand-mark,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-brand-copy,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-disc,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-hide,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-progress {
+    display: none !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-track,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-track {
+    position: static !important;
+    display: flex !important;
+    inset: auto !important;
+    min-height: 44px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    direction: ltr !important;
+    justify-content: flex-start !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta {
+    position: absolute !important;
+    top: 5px !important;
+    left: 8px !important;
+    right: 96px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+    gap: 1px !important;
+    min-width: 0 !important;
+    height: 34px !important;
+    overflow: hidden !important;
+    direction: rtl !important;
+    text-align: right !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta strong,
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta small,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta strong,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta small {
+    display: block !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta strong,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta strong {
+    color: #fff8e9 !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta small,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-meta small {
+    color: #e2c48c !important;
+    font-size: 9px !important;
+    line-height: 1.25 !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-controls,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-controls {
+    position: absolute !important;
+    top: 0 !important;
+    right: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0 !important;
+    height: 44px !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-controls button:not(.music-player-float-play),
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-controls button:not(.music-player-float-play) {
+    display: none !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-controls .music-player-float-play,
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-utility:not(.music-player-hide),
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-controls .music-player-float-play,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-utility:not(.music-player-hide) {
+    position: absolute !important;
+    top: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
+    padding: 0 !important;
+    pointer-events: auto !important;
+    z-index: 2 !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-controls .music-player-float-play,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-float-controls .music-player-float-play {
+    right: 0 !important;
+    border-radius: 12px !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-utility:not(.music-player-hide),
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed) .music-player-utility:not(.music-player-hide) {
+    right: 0 !important;
+    border-radius: 12px !important;
+  }
+
+  html body #hirmand-site-music-player.music-player-float-empty:not(.is-expanded):not(.is-collapsed) .music-player-empty-copy,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.music-player-float-empty:not(.is-expanded):not(.is-collapsed) .music-player-empty-copy {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #e2c48c !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  html body #hirmand-site-music-player.music-player-float-empty:not(.is-expanded):not(.is-collapsed) .music-player-empty-copy svg,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.music-player-float-empty:not(.is-expanded):not(.is-collapsed) .music-player-empty-copy svg {
+    flex: 0 0 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  html body #hirmand-site-music-player.is-collapsed,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-collapsed {
+    position: fixed !important;
+    top: 8px !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: clamp(180px, 40vw, 520px) !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+  }
+
+  html body #hirmand-site-music-player.is-collapsed .music-player-restore,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-collapsed .music-player-restore {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+  }
+
+  html body #hirmand-site-music-player.is-collapsed .music-player-restore strong,
+  html body #hirmand-site-music-player.is-collapsed .music-player-restore svg:last-child,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-collapsed .music-player-restore strong,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-collapsed .music-player-restore svg:last-child {
+    display: none !important;
+  }
+}
+
+@media (max-width: 720px) {
+  html body #hirmand-site-music-player:not(.is-expanded),
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded) {
+    position: fixed !important;
+    top: 8px !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: 80px !important;
+    z-index: 1150 !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+    display: flex !important;
+    overflow: visible !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded) .music-player-restore,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded) .music-player-restore {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded) .music-player-restore strong,
+  html body #hirmand-site-music-player:not(.is-expanded) .music-player-restore svg:last-child,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded) .music-player-restore strong,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded) .music-player-restore svg:last-child {
+    display: none !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded) .music-player-full-content,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded) .music-player-full-content {
+    display: none !important;
+  }
+
+  html body #hirmand-site-music-player.is-expanded,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-expanded {
+    position: fixed !important;
+    top: 64px !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: 8px !important;
+    width: calc(100vw - 16px) !important;
+    min-width: 0 !important;
+    max-width: 420px !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    max-height: 132px !important;
+    padding: 9px 10px 7px !important;
+    overflow: visible !important;
+  }
+
+  html body #hirmand-site-music-player.is-expanded .music-player-restore,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-expanded .music-player-restore {
+    display: none !important;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1024px) {
+  html body #hirmand-site-music-player.is-expanded,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-expanded {
+    position: fixed !important;
+    top: 70px !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: clamp(180px, 40vw, 520px) !important;
+    width: 292px !important;
+    min-width: 292px !important;
+    max-width: 292px !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    max-height: 132px !important;
+    padding: 9px 10px 7px !important;
+    overflow: visible !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  html body #hirmand-site-music-player.is-expanded,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-expanded {
+    position: fixed !important;
+    top: 126px !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: clamp(180px, 40vw, 520px) !important;
+    width: 292px !important;
+    min-width: 292px !important;
+    max-width: 292px !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    max-height: 132px !important;
+    padding: 9px 10px 7px !important;
+    overflow: visible !important;
+  }
+}
+
+html body #hirmand-site-music-player.is-expanded .music-player-float-playlist,
+html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-expanded .music-player-float-playlist {
+  top: calc(100% + 8px) !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 0 !important;
+  width: min(360px, calc(100vw - 16px)) !important;
+  max-height: min(420px, calc(100vh - 220px)) !important;
+  overflow-y: auto !important;
+  z-index: 1151 !important;
+}
+
+@media (max-width: 720px) {
+  html body #hirmand-site-music-player.is-expanded .music-player-float-playlist,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-expanded .music-player-float-playlist {
+    width: 100% !important;
+    max-height: min(48vh, calc(100vh - 220px)) !important;
+  }
+}
