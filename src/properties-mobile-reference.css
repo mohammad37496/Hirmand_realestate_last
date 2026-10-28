@@ -1534,7 +1534,7 @@ body:has(.pf-page) .property-qr-close {
   body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard {
     display: grid !important;
     grid-template-columns: 272px minmax(0, 1fr) !important;
-    grid-template-rows: 236px !important;
+    grid-template-rows: minmax(0, 1fr) 72px !important;
     height: 236px !important;
     min-height: 236px !important;
     max-height: 236px !important;
@@ -1546,7 +1546,7 @@ body:has(.pf-page) .property-qr-close {
   body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-visual {
     position: relative !important;
     grid-column: 1 !important;
-    grid-row: 1 !important;
+    grid-row: 1 / span 2 !important;
     z-index: 3 !important;
     width: 100% !important;
     height: 236px !important;
@@ -1681,17 +1681,18 @@ body:has(.pf-page) .property-qr-close {
     grid-column: 2 !important;
     grid-row: 1 !important;
     min-width: 0 !important;
-    height: 236px !important;
-    overflow: hidden !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
   }
 
   body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-body {
     display: flex !important;
-    height: 236px !important;
+    height: 100% !important;
     min-height: 0 !important;
     gap: 5px !important;
-    padding: 10px 18px 46px !important;
-    overflow: hidden !important;
+    padding: 10px 18px 8px !important;
+    overflow: visible !important;
   }
 
   body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard .pcard-topline {
@@ -1739,7 +1740,7 @@ body:has(.pf-page) .property-qr-close {
 
   body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer {
     grid-column: 2 !important;
-    grid-row: 1 !important;
+    grid-row: 2 !important;
     z-index: 2 !important;
     align-self: end !important;
     min-width: 0 !important;
@@ -1747,6 +1748,20 @@ body:has(.pf-page) .property-qr-close {
     padding-top: 6px !important;
     border-top: 1px solid var(--line) !important;
     background: var(--card) !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+    align-self: stretch !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 3px 12px !important;
+    box-sizing: border-box !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
+    overflow: hidden !important;
   }
 }
 
@@ -1782,5 +1797,187 @@ body:has(.pf-page) .property-qr-close {
 
   body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer {
     margin-inline: 13px !important;
+  }
+}
+
+/* Final footer action contract for property cards: keep actions in normal flow,
+   outside the photo and both stretched detail links. The existing action
+   component and its handlers remain unchanged; only the rail's layout changes. */
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer,
+body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer {
+  position: static !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  transform: none !important;
+  z-index: 2 !important;
+  display: block !important;
+  grid-column: 1 / -1 !important;
+  grid-row: auto !important;
+  align-self: stretch !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 5px 0 0 !important;
+  border: 0 !important;
+  border-top: 1px solid rgb(124 139 151 / 18%) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  overscroll-behavior-inline: contain !important;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+}
+
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer::-webkit-scrollbar,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer::-webkit-scrollbar,
+body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer::-webkit-scrollbar {
+  display: none !important;
+}
+
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-actions,
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-actions-compact,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-actions,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-actions-compact,
+body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-actions,
+body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-actions-compact {
+  position: static !important;
+  display: flex !important;
+  flex: 0 0 auto !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 4px !important;
+  width: max-content !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+}
+
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action,
+body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action {
+  box-sizing: border-box !important;
+  position: relative !important;
+  flex: 0 0 36px !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  color: #26384b !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  pointer-events: auto !important;
+}
+
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action svg,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action svg,
+body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action svg {
+  display: block !important;
+  width: 17px !important;
+  height: 17px !important;
+  flex: 0 0 17px !important;
+  stroke: currentColor !important;
+}
+
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action.is-active,
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action[aria-pressed="true"],
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action.is-active,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action[aria-pressed="true"],
+body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action.is-active,
+body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action[aria-pressed="true"] {
+  border-color: #d5b36c !important;
+  background: #fbf3e2 !important;
+  color: #8b641b !important;
+}
+
+body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action:focus-visible,
+body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action:focus-visible,
+body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action:focus-visible {
+  outline: 2px solid #b98a35 !important;
+  outline-offset: 2px !important;
+}
+
+@media (max-width: 1024px) {
+  body:has(.pf-page) .pf-page .pf-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action,
+  body:has(.property-showcase) .property-showcase .property-grid > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action,
+  body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-action {
+    flex-basis: 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    border-radius: 10px !important;
+  }
+}
+
+/* Desktop/tablet list cards keep a fixed-height footer. Its location/details
+   row must be sized to the actual link line box, leaving the second grid row
+   for the compact actions instead of letting the two overlap by a few pixels. */
+@media (min-width: 721px) {
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions {
+    grid-template-rows: 27px 36px !important;
+    gap: 1px 12px !important;
+    padding: 3px 12px !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    max-height: 72px !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions > .pcard-details-link {
+    box-sizing: border-box !important;
+    height: 27px !important;
+    min-height: 27px !important;
+    max-height: 27px !important;
+    padding: 2px 7px !important;
+    line-height: 1.25 !important;
+    white-space: nowrap !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer {
+    align-self: stretch !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+    padding: 0 !important;
+    border-top: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-actions,
+  body:has(.pf-page) .pf-page .pf-grid.is-list-view > .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-actions-footer .property-actions-compact {
+    gap: 3px !important;
   }
 }

@@ -171,9 +171,6 @@ export function PropertyCard({
           </span>
         </div>
         </Link>
-        <div className="pcard-actions pcard-actions-list-overlay" aria-label="عملیات فایل">
-          <PropertyActions property={property} compact />
-        </div>
       </div>
 
       <Link
@@ -262,6 +259,9 @@ export function PropertyCard({
         >
           مشاهده جزئیات <ChevronLeft size={14} />
         </Link>
+        <div className="pcard-actions pcard-actions-footer" aria-label="عملیات فایل">
+          <PropertyActions property={property} compact />
+        </div>
       </div>
     </article>
   );

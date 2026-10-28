@@ -26,6 +26,7 @@ async function findFreePort() {
 const port = await findFreePort();
 const baseUrl = `http://127.0.0.1:${port}`;
 const visualMode = process.argv[2] === "visual";
+const responsiveMode = process.argv[2] === "responsive";
 let server;
 let serverLog = "";
 
@@ -108,14 +109,21 @@ try {
   await seedDatabase();
   startServer();
   await waitForServer();
-  const testScript = visualMode ? "desktop-property-card-visual-qa.mjs" : "property-card-actions-browser.test.mjs";
-  const child = spawn(process.execPath, [join(root, "scripts", testScript)], {
+  const testScript = responsiveMode
+    ? "responsive-layout-smoke.mjs"
+    : visualMode ? "desktop-property-card-visual-qa.mjs" : "property-card-actions-browser.test.mjs";
+  const childArgs = [join(root, "scripts", testScript), ...(responsiveMode ? [baseUrl] : [])];
+  const child = spawn(process.execPath, childArgs, {
     cwd: root,
     env: {
       ...process.env,
       PROPERTY_CARD_BROWSER_BASE_URL: baseUrl,
       PROPERTY_CARD_VISUAL_BASE_URL: `${baseUrl}/properties`,
       PROPERTY_CARD_VISUAL_SCREENSHOT_DIR: process.env.PROPERTY_CARD_VISUAL_SCREENSHOT_DIR || join(dbDir, "screenshots"),
+      ...(responsiveMode ? {
+        RESPONSIVE_SMOKE_ONLY_PROPERTIES: "1",
+        RESPONSIVE_SCREENSHOT_DIR: join(dbDir, "responsive-screenshots"),
+      } : {}),
     },
     stdio: "inherit",
     windowsHide: true,
@@ -125,7 +133,7 @@ try {
     child.once("exit", (code, signal) => resolveExit(code ?? (signal ? 1 : 0)));
   });
   if (exitCode !== 0) throw new Error(`Local property-card browser assertions failed with exit code ${exitCode}.`);
-  console.log(`[property-card-local-browser] PASS (${visualMode ? "visual QA" : "action QA"}): real local app + isolated migrated PGlite database + 3 controlled published fixtures`);
+  console.log(`[property-card-local-browser] PASS (${responsiveMode ? "responsive smoke" : visualMode ? "visual QA" : "action QA"}): real local app + isolated migrated PGlite database + 3 controlled published fixtures`);
 } catch (error) {
   console.error("[property-card-local-browser] FAIL");
   console.error(error instanceof Error ? error.stack ?? error.message : String(error));

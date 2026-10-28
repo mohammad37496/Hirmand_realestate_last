@@ -631,18 +631,13 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "the mobile hero should retain its explanatory copy like the reference page");
   assert.match(finalParityPass, /\.pf-page \.pf-mobile-reference-range \{[^}]*grid-template-columns: minmax\(0, 1fr\) !important;/s,
     "mobile price and area ranges should follow the reference's single-column form rhythm");
-  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{[^}]*overflow-x: auto !important;/s,
-    "property actions should stay on one compact horizontal strip instead of doubling card height");
-  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{[^}]*position: absolute !important;[^}]*top: auto !important;[^}]*bottom: 0 !important;[^}]*height: 52px !important;/s,
-    "property actions should occupy the card's text column without adding a second full-width row");
-  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \{[^}]*inset-inline-start: 36% !important;/s,
-    "the action rail must follow the 36% image column at widths above 380px");
-  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-actions(?:-compact)? \{[^}]*flex-wrap: nowrap !important;/s,
-    "mobile property actions should remain horizontally reachable in a single row");
-  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-actions(?:-compact)? \{[^}]*display: flex !important;[^}]*position: static !important;[^}]*flex-wrap: nowrap !important;/s,
-    "compact property actions must be a single scrollable flex row rather than a wrapping grid");
-  assert.match(finalParityPass, /\.pf-grid\.is-list-view > \.pcard \.pcard-actions \.property-action \{[^}]*min-width: 44px !important;[^}]*min-height: 44px !important;/s,
-    "property action controls must preserve 44px hit targets at narrow phone widths");
+  const finalActionPass = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Final footer action contract for property cards:"));
+  assert.match(finalActionPass, /\.pcard-footer-with-actions > \.pcard-actions\.pcard-actions-footer[\s\S]*?position: static !important;[\s\S]*?background: transparent !important;[\s\S]*?overflow-x: auto !important;/s,
+    "listing actions must be a transparent, horizontally scrollable footer row, never an overlay on the photo");
+  assert.match(finalActionPass, /\.property-actions(?:-compact)? \{[\s\S]*?flex-wrap: nowrap !important;[\s\S]*?width: max-content !important;/s,
+    "the full action set must stay in one bounded horizontal row");
+  assert.match(finalActionPass, /@media \(max-width: 1024px\)[\s\S]*?\.property-action \{[\s\S]*?width: 44px !important;[\s\S]*?height: 44px !important;/s,
+    "touch layouts must retain 44px action targets after desktop styles load");
   assert.match(finalParityPass, /html:has\(\.pf-page\) body:has\(\.pf-page\) \.action-menu\.floating-call-menu \{[^}]*left: auto !important;[^}]*right: 12px !important;[^}]*bottom: calc\(78px \+ env\(safe-area-inset-bottom\)\) !important;/s,
     "the floating contact control should sit opposite the music dock and above the mobile navigation");
   assert.match(responsiveSmoke, /floating contact control leaves the safe area above mobile navigation/,
@@ -704,20 +699,13 @@ testRunner.test("mobile grid mode remains distinct and the floating contact shor
     "the listing page must not hide the floating contact shortcut on phones");
 });
 
-testRunner.test("final compact cards anchor the action rail to the bottom on listings and home", () => {
+testRunner.test("listing and homepage action rails stay in the footer, clear of images and links", () => {
+  const finalActionPass = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Final footer action contract for property cards:"));
+  assert.match(finalActionPass, /\.pf-grid > \.pcard > \.pcard-footer-with-actions > \.pcard-actions\.pcard-actions-footer,[\s\S]*?position: static !important;[\s\S]*?inset: auto !important;[\s\S]*?transform: none !important;/s,
+    "the final action wrapper must remain in footer flow and never overlay the image");
+  assert.match(propertyShowcaseSource, /<div className="pcard-visual">[\s\S]*?<\/div>\s*<Link[\s\S]*?className="pcard-link pcard-copy-link"[\s\S]*?<div className="pcard-footer pcard-footer-with-actions"[\s\S]*?className="pcard-actions pcard-actions-footer"/,
+    "the homepage and marketplace must keep the operations in the shared footer rather than the image region");
   const compactPass = responsiveCss.slice(responsiveCss.lastIndexOf("/* Final mobile listing treatment:"));
-  assert.match(compactPass, /\.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard \.pcard-actions \{[^}]*top: auto !important;[^}]*bottom: 0 !important;/s,
-    "the shared listing action rail must override legacy top offsets before anchoring to the card bottom");
-  assert.match(compactPass, /\.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard \.pcard-actions \{[^}]*inset-inline-start: 35% !important;/s,
-    "the listing action rail must start beyond the actual media column on narrow phones");
-  assert.match(compactPass, /@media \(max-width: 380px\)[\s\S]*?\.pf-page \.pf-grid:is\(\.is-list-view, :not\(\.is-list-view\)\) > \.pcard \.pcard-actions \{ inset-inline-start: max\(104px, 35%\) !important;/s,
-    "narrow listing cards must account for the media column's minimum width so actions never cover the photo");
-  assert.match(compactPass, /\.property-showcase \.property-grid > \.pcard \.pcard-actions \{[^}]*top: auto !important;[^}]*bottom: 0 !important;/s,
-    "the home showcase action rail must not overlap the card title and price");
-  assert.match(compactPass, /\.property-showcase \.property-grid > \.pcard \.pcard-actions \{[^}]*inset-inline-start: 35% !important;/s,
-    "the home action rail must remain inside the text column, clear of the photo");
-  assert.match(compactPass, /@media \(max-width: 380px\)[\s\S]*?\.property-showcase \.property-grid > \.pcard \.pcard-actions \{ inset-inline-start: max\(96px, 35%\) !important;/s,
-    "very narrow home cards must preserve a clear boundary between actions and media");
   assert.match(compactPass, /body:has\(\.property-showcase\) \.music-player-float:not\(\.music-player-float-empty\) \{[^}]*width: 112px !important;[^}]*height: 44px !important;/s,
     "the home music dock must collapse to a compact mobile control so it does not cover listing prices");
   assert.match(compactPass, /body:has\(\.property-showcase\) \.music-player-float:not\(\.music-player-float-empty\) \{[^}]*left: auto !important;[^}]*right: 0 !important;/s,
@@ -730,16 +718,30 @@ testRunner.test("final compact cards anchor the action rail to the bottom on lis
     "the public property-card query must provide the construction year to both card layouts");
 });
 
-testRunner.test("all property card views keep the full action rail available on mobile", () => {
-  assert.match(propertyShowcaseSource, /<div className="pcard-visual">[\s\S]*?<div className="pcard-actions pcard-actions-list-overlay" aria-label="عملیات فایل">[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?<\/div>[\s\S]*?className="pcard-link pcard-copy-link"/,
-    "the complete action rail must be mounted over the image, outside both property-detail links");
-  assert.match(responsiveCss, /body:has\(\.pf-page\) \.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-visual > \.pcard-actions-list-overlay \.property-actions(?:-compact)? \{[^}]*width: max-content !important;[^}]*overflow-x: auto !important;/s,
-    "the list image rail should keep every action in one non-wrapping, horizontally scrollable row");
-  assert.match(responsiveCss, /@media \(max-width: 640px\)[\s\S]*?body:has\(\.pcard\) \.pcard > \.pcard-visual > \.pcard-actions-list-overlay \.property-action \{[^}]*width: 28px !important;[^}]*height: 28px !important;/s,
-    "the mobile list image rail must retain its existing compact action size");
-  const finalDesktopList = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Final desktop list-card contract for /properties."));
-  assert.match(finalDesktopList, /\.pcard-actions-list-overlay \.property-action \{[^}]*width: 30px !important;[^}]*height: 30px !important;/s,
-    "desktop list actions should use the compact 30px rail controls");
+testRunner.test("all property card views keep the full action rail in a scrollable footer", () => {
+  const footerStart = propertyShowcaseSource.indexOf('<div className="pcard-footer pcard-footer-with-actions">');
+  const actionStart = propertyShowcaseSource.indexOf('<div className="pcard-actions pcard-actions-footer"', footerStart);
+  assert.ok(footerStart >= 0 && actionStart > footerStart, "the action rail must be inside the shared footer");
+  assert.doesNotMatch(propertyShowcaseSource, /pcard-actions-list-overlay/, "the photo overlay rail must be retired from the actual card component");
+  assert.match(propertyShowcaseSource.slice(footerStart), /className="pcard-actions pcard-actions-footer"[\s\S]*?<PropertyActions property=\{property\} compact \/>/,
+    "all existing action handlers must remain mounted in the footer");
+  const finalActionPass = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Final footer action contract for property cards:"));
+  assert.match(finalActionPass, /\.pcard-footer-with-actions > \.pcard-actions\.pcard-actions-footer[\s\S]*?overflow-x: auto !important;/s,
+    "all card views must provide internal horizontal scrolling instead of squeezing buttons");
+  assert.match(finalActionPass, /@media \(max-width: 1024px\)[\s\S]*?min-width: 44px !important;[\s\S]*?min-height: 44px !important;/s,
+    "mobile and tablet rails must preserve the full 44px touch target");
+});
+
+testRunner.test("desktop list cards separate navigation content and footer actions into distinct grid rows", () => {
+  const desktopList = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Final desktop list-card contract for /properties."), propertiesMobileReferenceCss.lastIndexOf("/* Final footer action contract for property cards:"));
+  assert.match(desktopList, /\.pf-grid\.is-list-view > \.pcard\s*\{[\s\S]*?grid-template-rows:\s*minmax\(0, 1fr\) 72px !important;/s,
+    "desktop/tablet list cards must reserve a separate 72px footer track");
+  assert.match(desktopList, /\.pf-grid\.is-list-view > \.pcard > \.pcard-visual\s*\{[\s\S]*?grid-row:\s*1 \/ span 2 !important;/s,
+    "the property image must span both rows without overlapping the footer column");
+  assert.match(desktopList, /\.pf-grid\.is-list-view > \.pcard > \.pcard-copy-link\s*\{[\s\S]*?grid-row:\s*1 !important;[\s\S]*?height:\s*auto !important;/s,
+    "the stretched property navigation link must be confined to the content row");
+  assert.match(desktopList, /\.pf-grid\.is-list-view > \.pcard > \.pcard-footer-with-actions\s*\{[\s\S]*?grid-row:\s*2 !important;[\s\S]*?height:\s*72px !important;/s,
+    "the footer and action rail must occupy only the second grid row");
 });
 
 testRunner.test("list-card footer has an intrinsic grid track so card clipping cannot hide it", () => {
