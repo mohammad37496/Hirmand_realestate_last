@@ -222,24 +222,52 @@ try {
   await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.muted === false);
   assert.deepEqual(runtimeErrors, [], "media control interactions must not produce browser runtime errors");
 
-  const routes = ["/properties", "/properties/qa-apartment-long-title", "/admin"];
-  for (const path of routes) {
-    await page.goto(new URL(path, baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
-    await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
-    await assertDock(page, { width: 1280, height: 800 });
-    await page.evaluate(() => window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)));
-    await page.waitForTimeout(80);
-    await assertDock(page, { width: 1280, height: 800 });
+  const routeMatrix = [
+    { path: "/", label: "home" },
+    { path: "/properties", label: "property listing" },
+    { path: "/properties/qa-apartment-long-title", label: "property detail" },
+    { path: "/about", label: "content page" },
+    { path: "/contact", label: "contact page" },
+    { path: "/admin", label: "independent admin layout" },
+  ];
+  const desktopViewports = [
+    { width: 1024, height: 768 },
+    { width: 1280, height: 800 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 },
+  ];
+  const geometrySnapshots = new Map();
+
+  for (const viewport of desktopViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    for (const route of routeMatrix) {
+      await page.goto(new URL(route.path, baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
+      await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
+      const beforeScroll = await assertDock(page, viewport);
+      const key = `${viewport.width}:${route.path}:before-scroll`;
+      geometrySnapshots.set(key, beforeScroll);
+
+      await page.evaluate(() => window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)));
+      await page.waitForTimeout(80);
+      const afterScroll = await assertDock(page, viewport);
+      assert.deepEqual(
+        { left: afterScroll.left, bottom: afterScroll.bottom, width: afterScroll.width, height: afterScroll.height },
+        { left: beforeScroll.left, bottom: beforeScroll.bottom, width: beforeScroll.width, height: beforeScroll.height },
+        `player geometry must remain fixed after scrolling on ${route.path} at ${viewport.width}px`,
+      );
+      assert.equal(afterScroll.count, 1, `route ${route.path} must contain exactly one shared player`);
+    }
   }
 
+  // Verify history navigation and a hard reload also retain the global dock.
   await page.goBack({ waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
-  await assertDock(page, { width: 1280, height: 800 });
+  await assertDock(page, { width: 1920, height: 1080 });
   await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
-  await assertDock(page, { width: 1280, height: 800 });
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await assertDock(page, { width: 1440, height: 900 });
+  await assertDock(page, { width: 1920, height: 1080 });
+
+  // Keep the existing collapse/restore checks on a common supported desktop size.
   await page.setViewportSize({ width: 1024, height: 768 });
   await assertDock(page, { width: 1024, height: 768 });
   await page.getByRole("button", { name: "جمع کردن پلیر" }).click();
