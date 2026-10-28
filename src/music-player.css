@@ -1433,3 +1433,13 @@ html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-expand
     max-height: min(48vh, calc(100vh - 220px)) !important;
   }
 }
+
+
+@media (min-width: 1025px) {
+  html body #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed),
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player:not(.is-expanded):not(.is-collapsed),
+  html body #hirmand-site-music-player.is-collapsed,
+  html body:has(.pf-page, .property-showcase) #hirmand-site-music-player.is-collapsed {
+    left: 520px !important;
+  }
+}
