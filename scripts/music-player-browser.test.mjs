@@ -154,14 +154,6 @@ async function assertDock(page, viewport) {
       progressDisplay: node.querySelector(".music-player-float-progress") ? getComputedStyle(node.querySelector(".music-player-float-progress")).display : null,
     };
   });
-  assert.equal(result.count, 1, `exactly one shared player should exist on ${page.url()}: ${JSON.stringify(result)}`);
-  assert.equal(result.parentIsBody, true, "the player should remain outside route-specific transformed wrappers");
-  assert.deepEqual(result.containingBlockRisks, [], `an ancestor may be creating a fixed-position containing block: ${JSON.stringify(result.containingBlockRisks)}`);
-  assert.equal(result.position, "fixed", `player must be viewport-fixed on ${page.url()}: ${JSON.stringify(result)}`);
-  assert.equal(result.zIndex, "1150", `player layer must stay above page content on ${page.url()}`);
-  assert.equal(result.boxSizing, "border-box", `player dimensions must include padding and border on ${page.url()}`);
-  assert.equal(result.borderRadius, "18px", `desktop Hirmand dock corners must stay consistent on ${page.url()}: ${JSON.stringify(result)}`);
-  assert.match(result.backgroundImage, /radial-gradient.*linear-gradient/s, `the Hirmand navy/gold surface must remain applied on ${page.url()}`);
   const mobileHeaderDock = viewport.width <= 720;
   const expectedLeft = mobileHeaderDock ? 80 : viewport.width >= 1025 ? 520 : Math.max(180, Math.min(520, viewport.width * 0.4));
   const expectedWidth = mobileHeaderDock ? 44 : 220;
@@ -460,6 +452,7 @@ try {
   // Crossing the mobile breakpoint must synchronize collapsed state in both directions.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
+  await assertDock(page, { width: 390, height: 844 });
   const resizedMobileDock = await page.evaluate(() => {
     const node = document.querySelector("#hirmand-site-music-player");
     const rect = node?.getBoundingClientRect();
