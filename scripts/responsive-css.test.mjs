@@ -986,3 +986,17 @@ testRunner.test("property ad-copy handles denied clipboard permission", () => {
   assert.ok(copyHandler.includes("toast.error("), "users must receive feedback when clipboard access is denied");
 });
 
+
+
+testRunner.test("bedroom and bathroom filters use two equal columns", () => {
+  assert.match(
+    propertiesRoute,
+    /<div className="pf-range pf-range-two">\\s*<label className="pf-field">\\s*<span>حداقل خواب<\\/span>[\\s\\S]*?<\\/label>\\s*<label className="pf-field">\\s*<span>حداقل حمام<\\/span>[\\s\\S]*?<\\/label>\\s*<\\/div>/,
+    "the bedroom/bathroom pair must not use the generic three-column range layout",
+  );
+  assert.match(
+    responsiveCss,
+    /\\.pf-page \\.pf-range\\.pf-range-two\\s*\\{[^}]*grid-template-columns:\\s*repeat\\(2,\\s*minmax\\(0,\\s*1fr\\)\\)/s,
+    "both Persian field labels must receive an equal-width desktop/tablet track",
+  );
+});
