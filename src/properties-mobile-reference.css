@@ -1981,3 +1981,54 @@ body:has(.pcard) .pcard > .pcard-footer-with-actions > .pcard-actions.pcard-acti
     gap: 3px !important;
   }
 }
+
+/* Final Hirmand mobile map-card theme: loaded after responsive and marketplace layers. */
+.pf-page .pf-map-card-row {
+  border-bottom-color: #e1e6eb !important;
+  background: #fffdfa !important;
+}
+.pf-page .pf-map-card-row:hover {
+  background: #f5f7fa !important;
+}
+.pf-page .pf-map-card-row.is-active {
+  background: linear-gradient(105deg, #f6f2e8 0%, #f8fafc 78%) !important;
+  box-shadow: inset -3px 0 #c08a2a !important;
+}
+.pf-page .pf-map-divar-layout .pf-map-item {
+  color: #0b1a2b !important;
+}
+.pf-page .pf-map-divar-layout .pf-map-item:hover {
+  border-color: rgb(192 138 42 / 40%) !important;
+  background: rgb(11 26 43 / 3%) !important;
+}
+.pf-page .pf-map-divar-layout .pf-map-item.is-active {
+  border-color: rgb(192 138 42 / 46%) !important;
+  background: rgb(11 26 43 / 4%) !important;
+  box-shadow: inset -3px 0 0 #c08a2a !important;
+}
+.pf-page .pf-map-divar-layout .pf-map-item strong {
+  color: #0b1a2b !important;
+}
+.pf-page .pf-map-divar-layout .pf-map-item small {
+  color: #657486 !important;
+}
+.pf-page .pf-map-item-price {
+  color: #0b1a2b !important;
+}
+.pf-page .pf-map-divar-layout .pf-map-item-open {
+  border: 1px solid #c08a2a !important;
+  border-radius: 8px !important;
+  background: #0b1a2b !important;
+  color: #f5d995 !important;
+  box-shadow: 0 2px 7px rgb(11 26 43 / 10%) !important;
+}
+.pf-page .pf-map-divar-layout .pf-map-item-open:hover {
+  border-color: #d5a94d !important;
+  background: #172d43 !important;
+  color: #ffe6a8 !important;
+}
+.pf-page .pf-map-divar-layout .pf-map-item-open:focus-visible,
+.pf-page .pf-map-divar-layout .pf-map-item:focus-visible {
+  outline: 2px solid #c08a2a !important;
+  outline-offset: 2px !important;
+}
