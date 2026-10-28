@@ -114,12 +114,22 @@ try {
     const consoleErrors = [];
     const failedRequests = [];
     const failedResponses = [];
+    const failedImageResponses = new Map();
     const appOrigin = new URL(baseUrl).origin;
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
     page.on("response", (response) => {
+      if (response.request().resourceType() === "image" && response.status() >= 400) {
+        try {
+          if (new URL(response.url()).origin === appOrigin) {
+            failedImageResponses.set(response.url(), { url: response.url(), status: response.status() });
+          }
+        } catch {
+          // Ignore malformed image URLs; DOM decoding checks cover visible images.
+        }
+      }
       if (response.status() < 500) return;
       try {
         if (new URL(response.url()).origin === appOrigin) {
@@ -483,6 +493,23 @@ try {
             document.body?.scrollWidth ?? 0,
           );
           const overflow = Math.max(0, rootWidth - viewport);
+          const brokenImages = [];
+          for (const image of document.images) {
+            const style = getComputedStyle(image);
+            const rect = image.getBoundingClientRect();
+            const visible = style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) !== 0 &&
+              rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.left < window.innerWidth &&
+              rect.bottom > 0 && rect.top < window.innerHeight;
+            if (visible && image.complete && image.currentSrc && image.naturalWidth === 0) {
+              brokenImages.push({
+                src: image.currentSrc,
+                alt: (image.alt || "").slice(0, 80),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+              });
+            }
+          }
+
           const offenders = [];
 
           if (overflow > 1) {
@@ -715,6 +742,7 @@ try {
             overflow,
             pointerCoarse: window.matchMedia("(pointer: coarse)").matches,
             offenders: offenders.slice(0, 8),
+            brokenImages: brokenImages.slice(0, 8),
             brokenWords: brokenWords.slice(0, 8),
             smallTargets: smallTargets.slice(0, 8),
             primaryTargets: primaryTargets.slice(0, 12),
@@ -851,6 +879,11 @@ try {
         if (metrics.overflow > 1) {
           failures.push(`${route} @ ${width}x${height}px: horizontal overflow ${metrics.overflow}px; elements=${JSON.stringify(metrics.offenders)}`);
         }
+        const failedImageUrls = new Set(failedImageResponses.keys());
+        const decodeFailures = (metrics.brokenImages ?? []).filter((image) => !failedImageUrls.has(image.src));
+        if (decodeFailures.length) {
+          failures.push(route + " @ " + width + "x" + height + "px: visible images failed to decode despite no HTTP error (" + JSON.stringify(decodeFailures) + ")");
+        }
         if (metrics.brokenWords.length) {
           failures.push(`${route} @ ${width}x${height}px: text appears split letter-by-letter; elements=${JSON.stringify(metrics.brokenWords)}`);
         }
@@ -965,6 +998,11 @@ try {
       if (failedResponses.length) {
         failures.push(`${route}: same-origin server errors: ${JSON.stringify(failedResponses.slice(0, 5))}`);
         summaries.push({ route, failedResponses: failedResponses.slice(0, 5) });
+      }
+      if (failedImageResponses.size) {
+        const images = [...failedImageResponses.values()].slice(0, 8);
+        failures.push(route + ": same-origin image requests returned HTTP errors: " + JSON.stringify(images));
+        summaries.push({ route, failedImageResponses: images });
       }
     } catch (error) {
       failures.push(`${route}: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
