@@ -5404,18 +5404,18 @@ body:has(.pcard) .pcard > .pcard-visual {
   .pf-page .pf-sidebar .pf-spec-subgroup .pf-spec-options {
     grid-template-columns: minmax(0, 1fr);
   }
-}
 
-.pf-page .pf-spec-option {
-  min-width: 0;
-  gap: 10px;
-}
+  .pf-page .pf-spec-option {
+    min-width: 0;
+    gap: 10px;
+  }
 
-.pf-page .pf-spec-option > span:last-child {
-  display: block;
-  flex: 1 1 0;
-  min-width: 0;
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: normal;
+  .pf-page .pf-spec-option > span:last-child {
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
 }
