@@ -70,9 +70,13 @@ test("desktop loading/empty state keeps the same viewport dock geometry as the l
     "the loaded desktop player must retain the same fixed viewport geometry");
 });
 
-test("desktop viewport geometry is enforced by the shared component after route styles", () => {
-  assert.match(player, /<style>\{\x60[\s\S]*?@media \(min-width: 721px\)[\s\S]*?html body \.music-player-float:not\(\.is-collapsed\)[\s\S]*?position: fixed !important;[\s\S]*?inset: auto auto 20px 20px !important;[\s\S]*?width: 292px !important;[\s\S]*?height: 132px !important;[\s\S]*?transform: none !important;[\s\S]*?\x60\}<\/style>/,
-    "the shared dock must reassert its viewport anchor and dimensions after route-level styles");
-  assert.match(player, /html body \.music-player-float\.is-collapsed\s*\{[^}]*position: fixed !important;[^}]*inset: auto auto 20px 20px !important;/s,
-    "collapsing the dock must not turn it into a page-positioned element");
+test("desktop viewport geometry has one canonical high-specificity rule outside the route tree", () => {
+  assert.match(player, /id="hirmand-site-music-player"/,
+    "the single shared dock must have a stable identity for the global geometry contract");
+  assert.doesNotMatch(player, /<style>\\{\\x60[\\s\\S]*?Route-level stylesheets/,
+    "route-specific geometry overrides must not be injected inside the component");
+  assert.match(css, /@media \\(min-width: 721px\\)\\s*\\{[\\s\\S]*?html body #hirmand-site-music-player\\s*\\{[\\s\\S]*?position: fixed !important;[\\s\\S]*?inset: auto auto 20px 20px !important;[\\s\\S]*?width: 292px !important;[\\s\\S]*?height: 132px !important;/,
+    "a single ID-scoped desktop rule must enforce viewport position and dimensions");
+  assert.match(css, /html body #hirmand-site-music-player\\.is-collapsed\\s*\\{[\\s\\S]*?width: 292px !important;[\\s\\S]*?height: 132px !important;/,
+    "desktop collapse must not alter the fixed shell geometry");
 });
