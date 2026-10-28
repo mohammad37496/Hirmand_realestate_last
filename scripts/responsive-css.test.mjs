@@ -975,3 +975,13 @@ testRunner.test("responsive smoke includes property request and digital business
   assert.ok(routeBlock.includes('"/card"'), "digital business card must be covered by browser smoke");
 });
 
+
+testRunner.test("property ad-copy handles denied clipboard permission", () => {
+  const copyHandler = propertyActions.slice(
+    propertyActions.indexOf("function copyPropertyAdText"),
+    propertyActions.indexOf("function readCompare"),
+  );
+  assert.ok(copyHandler.includes(".catch("), "clipboard rejection must be handled");
+  assert.ok(copyHandler.includes("toast.error("), "users must receive feedback when clipboard access is denied");
+});
+
