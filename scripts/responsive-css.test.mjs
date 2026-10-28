@@ -898,3 +898,10 @@ testRunner.test("mobile map result cards use the Hirmand navy-and-gold signature
   assert.match(mapTheme, /\.pf-page \.pf-map-divar-layout \.pf-map-item-open\s*\{[^}]*background:\s*#0b1a2b !important;[^}]*color:\s*#f5d995 !important/s, "details action must use navy with gold text");
   assert.match(mapTheme, /:focus-visible[\s\S]*?outline:\s*2px solid #c08a2a/, "map controls must keep a visible Hirmand-gold focus ring");
 });
+
+testRunner.test("gold surfaces use the navy foreground for readable contrast", () => {
+  assert.match(globalCss, /\\.skip-link\\s*\\{[^}]*background:\\s*var\\(--gold\\);[^}]*color:\\s*var\\(--fg\\);/s,
+    "the keyboard skip link must use a dark foreground on the gold background");
+  assert.match(globalCss, /\\.btn-gold\\s*\\{[^}]*background:\\s*var\\(--gold-soft\\);[^}]*color:\\s*var\\(--fg\\);/s,
+    "primary gold buttons must use a dark foreground so their labels remain readable");
+});
