@@ -140,6 +140,15 @@ try {
   releaseFirstResponse();
   await page.waitForFunction(() => !document.querySelector("#hirmand-site-music-player")?.classList.contains("music-player-float-empty"));
   const loadedGeometry = await assertDock(page, { width: 1280, height: 800 });
+  const timeOriginBeforeSpaNavigation = await page.evaluate(() => performance.timeOrigin);
+  const propertiesLink = page.locator('a[href="/properties"]').first();
+  if (await propertiesLink.count() && await propertiesLink.isVisible().catch(() => false)) {
+    await propertiesLink.click();
+    await page.waitForURL((url) => url.pathname === "/properties" || url.pathname === "/properties/");
+    assert.equal(await page.evaluate(() => performance.timeOrigin), timeOriginBeforeSpaNavigation,
+      "client-side route navigation should preserve the same document and shared player instance");
+    await assertDock(page, { width: 1280, height: 800 });
+  }
   assert.equal(loadedGeometry.left, loadingGeometry.left);
   assert.equal(loadedGeometry.bottom, loadingGeometry.bottom);
   assert.equal(loadedGeometry.width, loadingGeometry.width);
@@ -156,6 +165,9 @@ try {
   }
 
   await page.goBack({ waitUntil: "domcontentloaded", timeout: 60_000 });
+  await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
+  await assertDock(page, { width: 1280, height: 800 });
+  await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
   await assertDock(page, { width: 1280, height: 800 });
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -180,7 +192,10 @@ try {
     body: JSON.stringify({ tracks: [] }),
   }));
   await emptyPage.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  await emptyPage.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("music-player-float-empty"));
+  await emptyPage.waitForFunction(() => {
+    const node = document.querySelector("#hirmand-site-music-player .music-player-empty-copy");
+    return node?.textContent?.includes("به‌زودی با موسیقی هیرمند");
+  });
   await assertDock(emptyPage, { width: 1280, height: 800 });
   await emptyPage.close();
 
