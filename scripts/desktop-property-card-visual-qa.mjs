@@ -222,11 +222,16 @@ try {
       assert.ok(item.title, `list card ${index + 1} must retain its title at ${width}px`);
       assert.ok(item.image?.visible && item.image.width > 0 && item.image.height >= 180, `list card ${index + 1} must keep a controlled landscape photo at ${width}px`);
       assert.ok(item.footer?.height > 0 && item.rail?.height > 0, `list card ${index + 1} footer/action rail must be visible at ${width}px`);
-      assert.ok(item.footer.top >= item.image.bottom - 1, `list card ${index + 1} footer must remain below the image at ${width}px`);
+      const footerImageOverlap = item.footer.left < item.image.right && item.footer.right > item.image.left &&
+        item.footer.top < item.image.bottom && item.footer.bottom > item.image.top;
+      assert.equal(footerImageOverlap, false, `list card ${index + 1} footer must not cover the image at ${width}px`);
       assert.equal(item.buttons.length, 8, `list card ${index + 1} must retain all eight actions at ${width}px`);
       assert.ok(item.scrollWidth <= item.clientWidth + 1, `list card ${index + 1} must not overflow horizontally at ${width}px`);
       assert.ok(item.location?.visible && item.details?.visible, `list card ${index + 1} location/details must remain visible at ${width}px`);
-      assert.ok(item.rail.top >= Math.max(item.location.bottom, item.details.bottom) - 1, `list card ${index + 1} action rail must sit below location/details at ${width}px`);
+      assert.ok(item.rail.top >= Math.max(item.location.bottom, item.details.bottom) - 1, `list card ${index + 1} action rail must sit below location/details at ${width}px: ${JSON.stringify({ footer: item.footer, rail: item.rail, location: item.location, details: item.details })}`);
+      const railImageOverlap = item.rail.left < item.image.right && item.rail.right > item.image.left &&
+        item.rail.top < item.image.bottom && item.rail.bottom > item.image.top;
+      assert.equal(railImageOverlap, false, `list card ${index + 1} action rail must not cover the image at ${width}px`);
       const overlap = item.location.left < item.details.right && item.location.right > item.details.left && item.location.top < item.details.bottom && item.location.bottom > item.details.top;
       assert.equal(overlap, false, `list card ${index + 1} location and details must not overlap at ${width}px`);
       for (const button of item.buttons) {

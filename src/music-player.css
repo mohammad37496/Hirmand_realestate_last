@@ -697,3 +697,11 @@ html body .music-player-float.is-collapsed .music-player-restore {
     border-radius: 18px !important;
   }
 }
+/* An empty/loading dock is informational, not a full-size click shield.
+   Keep only its explicit restore/close controls interactive until tracks load. */
+html body .music-player-float-empty {
+  pointer-events: none !important;
+}
+html body .music-player-float-empty button {
+  pointer-events: auto !important;
+}

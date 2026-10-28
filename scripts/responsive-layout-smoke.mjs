@@ -75,13 +75,23 @@ const screenshotWidths = new Set([320, 360, 390, 430, 768, 1024, 1280, 1440, 192
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 
-const browser = await chromium.launch({
+const launchOptions = {
   headless: true,
   ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim()
     ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.trim() }
     : {}),
   args: ["--no-sandbox", "--disable-dev-shm-usage"],
-});
+};
+let browser;
+try {
+  browser = await chromium.launch(launchOptions);
+} catch (error) {
+  // On developer machines, the pinned Playwright browser may not be installed
+  // while Chrome is available. Keep CI's pinned Chromium as the first choice,
+  // and use installed Chrome only as a local compatibility fallback.
+  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim()) throw error;
+  browser = await chromium.launch({ ...launchOptions, channel: "chrome" });
+}
 const failures = [];
 const summaries = [];
 
@@ -728,6 +738,7 @@ try {
               const overlaps = (a, b) => Boolean(a && b && a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1);
               return {
                 title: card.querySelector(".pcard-title")?.textContent?.trim() ?? "(untitled)",
+                link, media, actions, cardBounds,
                 actionLinkOverlap: overlaps(actions, link),
                 mediaActionOverlap: overlaps(actions, media),
                 actionsEscapeCard: Boolean(actions && cardBounds && (actions.left < cardBounds.left - 1 || actions.right > cardBounds.right + 1 || actions.bottom > cardBounds.bottom + 1)),
@@ -738,8 +749,8 @@ try {
             }));
             for (const card of cardContracts) {
               const prefix = `/properties ${mode} view @ ${width}x${height}px, ${card.title}`;
-              if (card.actionLinkOverlap) failures.push(`${prefix}: action rail overlaps the details link hitbox`);
-              if (card.mediaActionOverlap) failures.push(`${prefix}: action rail overlaps the property image`);
+              if (card.actionLinkOverlap) failures.push(`${prefix}: action rail overlaps the property navigation hitbox: ${JSON.stringify({ actions: card.actions, link: card.link, media: card.media, card: card.cardBounds })}`);
+              if (card.mediaActionOverlap) failures.push(`${prefix}: action rail overlaps the property image: ${JSON.stringify({ actions: card.actions, media: card.media, card: card.cardBounds })}`);
               if (card.actionsEscapeCard) failures.push(`${prefix}: action rail escapes card bounds`);
               // Every view must keep all eight operations available. On phones
               // the rail is compact and horizontally scrollable, so grid mode
