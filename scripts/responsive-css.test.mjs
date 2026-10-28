@@ -901,9 +901,12 @@ testRunner.test("mobile map result cards use the Hirmand navy-and-gold signature
 
 
 testRunner.test("responsive browser matrix covers the requested mobile, tablet, laptop and desktop widths", () => {
-  const matrix = responsiveSmoke.match(/const viewportMatrix = \\[([\\s\\S]*?)\\];/)?.[1] ?? "";
+  const matrix = responsiveSmoke.slice(
+    responsiveSmoke.indexOf("const viewportMatrix = ["),
+    responsiveSmoke.indexOf("];", responsiveSmoke.indexOf("const viewportMatrix = [")),
+  );
   for (const width of [320, 360, 375, 390, 430, 768, 1024, 1280, 1366, 1440, 1920]) {
-    assert.match(matrix, new RegExp(`\\\\bwidth:\\\\s*${width}\\\\b`), `missing responsive viewport width: ${width}px`);
+    assert.ok(matrix.includes(`width: ${width},`), `missing responsive viewport width: ${width}px`);
   }
 });
 
