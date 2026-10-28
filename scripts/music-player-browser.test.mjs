@@ -55,7 +55,7 @@ function startServer(port) {
   }
   server = spawn(process.execPath, [join(root, "scripts/with-app-env.mjs"), "vite", "dev", "--host", "127.0.0.1", "--port", String(port)], {
     cwd: root,
-    env: { ...isolatedEnv, PGLITE_DATA_DIR: dbDir, NODE_ENV: "development", CI: "true" },
+    env: { ...isolatedEnv, PGLITE_DATA_DIR: dbDir, NODE_ENV: "development", CI: "" },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -117,7 +117,8 @@ try {
   let firstRequestStarted;
   const firstRequestStartedPromise = new Promise((resolveStarted) => { firstRequestStarted = resolveStarted; });
   const firstResponseGate = new Promise((resolveGate) => { releaseFirstResponse = resolveGate; });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: "block" });
+  const page = await context.newPage();
   const runtimeErrors = [];
   page.on("pageerror", (error) => runtimeErrors.push(String(error?.message || error)));
   await page.route("**/api/music", async (route) => {
@@ -185,7 +186,7 @@ try {
 
   // A separate empty-list response verifies that a successful empty result and
   // an API error do not create another dock or alter the desktop shell geometry.
-  const emptyPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const emptyPage = await context.newPage();
   await emptyPage.route("**/api/music", (route) => route.fulfill({
     status: 200,
     contentType: "application/json",
@@ -199,7 +200,7 @@ try {
   await assertDock(emptyPage, { width: 1280, height: 800 });
   await emptyPage.close();
 
-  const errorPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const errorPage = await context.newPage();
   await errorPage.route("**/api/music", (route) => route.abort("failed"));
   await errorPage.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await errorPage.waitForFunction(() => {
@@ -209,7 +210,29 @@ try {
   await assertDock(errorPage, { width: 1280, height: 800 });
   await errorPage.close();
 
-  console.log("[music-player-browser] PASS: loading -> loaded -> empty/error, one instance, route changes, back navigation, scroll, collapse/restore, and 1280/1440/1024 desktop viewport geometry.");
+  const mobilePage = await context.newPage();
+  await mobilePage.setViewportSize({ width: 390, height: 844 });
+  await mobilePage.route("**/api/music", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ tracks: [] }),
+  }));
+  await mobilePage.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
+  const mobileDock = await mobilePage.evaluate(() => {
+    const nodes = document.querySelectorAll("#hirmand-site-music-player");
+    const node = nodes[0];
+    if (!node) return { count: nodes.length, missing: true };
+    const rect = node.getBoundingClientRect();
+    return { count: nodes.length, position: getComputedStyle(node).position, left: rect.left, right: rect.right };
+  });
+  assert.equal(mobileDock.count, 1, "mobile must retain the same single shared player instance");
+  assert.equal(mobileDock.position, "fixed", "mobile launcher must remain viewport-fixed");
+  assert.ok(mobileDock.left >= 0 && mobileDock.right <= 390, `mobile launcher must remain inside the viewport: ${JSON.stringify(mobileDock)}`);
+  await mobilePage.close();
+  await context.close();
+
+  console.log("[music-player-browser] PASS: loading -> loaded -> empty/error, single instance, SPA/full route navigation, back/reload, scroll, collapse/restore, desktop viewport geometry, and mobile launcher bounds.");
 } catch (error) {
   failed = true;
   console.error("[music-player-browser] FAIL");
