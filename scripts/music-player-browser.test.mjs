@@ -354,6 +354,22 @@ try {
   await page.getByRole("button", { name: "باز کردن پلیر موسیقی" }).click();
   await page.waitForFunction(() => !document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
   await assertDock(page, { width: 1024, height: 768 });
+  // Crossing the mobile breakpoint must synchronize collapsed state in both directions.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
+  const resizedMobileDock = await page.evaluate(() => {
+    const node = document.querySelector("#hirmand-site-music-player");
+    const rect = node?.getBoundingClientRect();
+    return { collapsed: node?.classList.contains("is-collapsed"), left: rect?.left ?? -1, right: rect?.right ?? Infinity };
+  });
+  assert.equal(resizedMobileDock.collapsed, true, "desktop -> mobile must activate the compact launcher");
+  assert.ok(resizedMobileDock.left >= 0 && resizedMobileDock.right <= 390, `resized mobile launcher must fit the viewport: ${JSON.stringify(resizedMobileDock)}`);
+
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.waitForFunction(() => !document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
+  await assertDock(page, { width: 1024, height: 768 });
+  const desktopContentVisible = await page.locator("#hirmand-site-music-player .music-player-full-content").evaluate((node) => getComputedStyle(node).display !== "none");
+  assert.equal(desktopContentVisible, true, "mobile -> desktop must restore the full desktop player content");
   assert.deepEqual(runtimeErrors, [], `browser runtime errors: ${runtimeErrors.join("; ")}`);
   await page.close();
 

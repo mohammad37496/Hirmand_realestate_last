@@ -14,6 +14,11 @@ test("the music player is mounted once in the shared root for every route", () =
     "route changes and the admin path must not create a separate player or hide the shared dock");
 });
 
+test("viewport breakpoint changes synchronize the player mode and clean up the listener", () => {
+  assert.match(player, /mobileViewport.addEventListener\("change", syncViewportMode\)/);
+  assert.match(player, /mobileViewport.removeEventListener\("change", syncViewportMode\)/);
+});
+
 test("the shared player stays viewport-fixed and uses a compact mobile launcher", () => {
   assert.match(css, /html body \.music-player-float:not\(\.music-player-float-empty\)\s*\{[^}]*position:\s*fixed\s*!important;[^}]*bottom:\s*20px\s*!important;[^}]*left:\s*20px\s*!important;/s);
   assert.match(css, /@media \(max-width:\s*720px\)[\s\S]*?html body \.music-player-float:not\(\.music-player-float-empty\),[\s\S]*?width:\s*48px\s*!important;[^}]*height:\s*48px\s*!important;/s);
