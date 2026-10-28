@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی پرونده مشتری برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { customer: null, activities: [], deals: [], settlements: [], documents: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده پرونده مشتری در دسترس نیست." });
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const leadId = clean(body.id);

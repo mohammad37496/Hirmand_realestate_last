@@ -85,21 +85,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "شناسه فایل الزامی است." });
   }
 
-  if (dbSource === "unconfigured") {
-    return {
-      windowDays: 30,
-      property: null,
-      events: emptyStats(),
-      uniqueVisitors: 0,
-      leads: { total: 0, visitRequests: 0, confirmedVisits: 0, completedVisits: 0 },
-      conversionRate: 0,
-      freshness: { updatedAt: null, publishedAt: null, daysSinceUpdate: null, daysSincePublish: null },
-      quality: { score: 0, imageCount: 0, missing: [] },
-      market: null,
-      leadSources: [],
-      recommendations: [],
-    };
-  }
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده تحلیل عملکرد ملک در دسترس نیست." });
 
   const sql = await getSql();
 

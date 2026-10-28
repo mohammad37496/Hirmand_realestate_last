@@ -24,7 +24,7 @@ function money(value: unknown) {
 export default defineEventHandler(async (event) => {
   const parsed = inputSchema.safeParse(await readBody(event));
   if (!parsed.success) throw createError({ statusCode: 422, statusMessage: "هدف قیمت نامعتبر است." });
-  if (dbSource === "unconfigured") return { ok: true, enabled: false, target: null };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "هدف‌گذاری قیمت به‌دلیل در دسترس نبودن پایگاه داده انجام نشد." });
 
   let visitorId = getCookie(event, COOKIE_NAME);
   if (!visitorIdValid(visitorId)) {

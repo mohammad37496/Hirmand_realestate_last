@@ -19,7 +19,7 @@ export default defineEventHandler(async event => {
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "reports.view")) throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش مدیریت برای این حساب فعال نیست." });
-  if (dbSource === "unconfigured") return { month: new Date().toISOString().slice(0, 7), rows: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده اهداف مشاوران در دسترس نیست." });
 
   const sql = await getSql();
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;

@@ -63,7 +63,7 @@ export default defineEventHandler(async (event) => {
         contactName: body.contactName,
         phone: body.phone,
       });
-      if (!input.success) throw new Error("نام املاک، مسئول و شماره تماس را معتبر وارد کنید.");
+      if (!input.success) throw createError({ statusCode: 422, statusMessage: "نام املاک، مسئول و شماره تماس را معتبر وارد کنید." });
       return {
         success: true,
         created: await createPartnerAccount(input.data),
@@ -75,38 +75,38 @@ export default defineEventHandler(async (event) => {
     }
 
     if (body.action === "details") {
-      if (!body.partnerId) throw new Error("شناسه همکار مشخص نیست.");
+      if (!body.partnerId) throw createError({ statusCode: 400, statusMessage: "شناسه همکار مشخص نیست." });
       const [partner, contracts, audits] = await Promise.all([
         getPartnerOverview(body.partnerId),
         listPartnerContractsForAdmin(body.partnerId),
         listPartnerAuditLogs(body.partnerId),
       ]);
-      if (!partner) throw new Error("حساب همکار پیدا نشد.");
+      if (!partner) throw createError({ statusCode: 404, statusMessage: "حساب همکار پیدا نشد." });
       return { partner, contracts, audits };
     }
 
     if (body.action === "approve") {
-      if (!body.contractId) throw new Error("شناسه قرارداد مشخص نیست.");
+      if (!body.contractId) throw createError({ statusCode: 400, statusMessage: "شناسه قرارداد مشخص نیست." });
       return { success: true, result: await approvePartnerContract(body.contractId) };
     }
 
     if (body.action === "reject") {
-      if (!body.contractId) throw new Error("شناسه قرارداد مشخص نیست.");
+      if (!body.contractId) throw createError({ statusCode: 400, statusMessage: "شناسه قرارداد مشخص نیست." });
       return { success: true, result: await rejectPartnerContract(body.contractId, body.note ?? "") };
     }
 
     if (body.action === "new-card") {
-      if (!body.partnerId) throw new Error("شناسه همکار مشخص نیست.");
+      if (!body.partnerId) throw createError({ statusCode: 400, statusMessage: "شناسه همکار مشخص نیست." });
       return { success: true, partner: await issueNewPartnerCard(body.partnerId) };
     }
 
     if (body.action === "claim-reward") {
-      if (!body.partnerId) throw new Error("شناسه همکار مشخص نیست.");
+      if (!body.partnerId) throw createError({ statusCode: 400, statusMessage: "شناسه همکار مشخص نیست." });
       return { success: true, partner: await claimPartnerReward(body.partnerId, body.note ?? "") };
     }
 
     if (body.action === "status") {
-      if (!body.partnerId || !body.status) throw new Error("حساب یا وضعیت مشخص نیست.");
+      if (!body.partnerId || !body.status) throw createError({ statusCode: 400, statusMessage: "حساب یا وضعیت مشخص نیست." });
       return { success: true, partner: await updatePartnerStatus(body.partnerId, body.status) };
     }
 
@@ -116,9 +116,21 @@ export default defineEventHandler(async (event) => {
     ]);
     return { partners, pendingContracts };
   } catch (error) {
+    if (error && typeof error === "object" && "statusCode" in error) {
+      throw error;
+    }
+    const code =
+      error && typeof error === "object" && "code" in error && typeof error.code === "string"
+        ? error.code
+        : undefined;
+    console.error("[admin/partners] operation failed", { code: code ?? "unknown" });
+    const unavailable =
+      Boolean(code && (code.startsWith("08") || code === "57P01" || code === "57P03" || /^E(CONN|TIMEDOUT|PIPE|HOST|NET)/.test(code)));
     throw createError({
-      statusCode: 400,
-      statusMessage: error instanceof Error ? error.message : "عملیات همکاری انجام نشد.",
+      statusCode: unavailable ? 503 : 500,
+      statusMessage: unavailable
+        ? "پایگاه داده همکاری‌ها موقتاً در دسترس نیست."
+        : "عملیات همکاری به‌دلیل خطای داخلی انجام نشد.",
     });
   }
 });

@@ -23,7 +23,7 @@ const validType=(v:unknown):DealType=>["sale","rent","mortgage","buy"].includes(
 
 export default defineEventHandler(async event=>{
   setResponseHeader(event,"cache-control","no-store"); const claims=await requireDealsPermission(event);
-  if(dbSource==="unconfigured")return {deals:[],leads:[],properties:[],stats:{}};
+  if(dbSource==="unconfigured")throw createError({statusCode:503,statusMessage:"پایگاه داده معاملات در دسترس نیست؛ اطلاعات معاملات قابل بازیابی نیست."});
   const sql=await getSql(); const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>; const action=clean(body.action,30)||"list";
   if(action==="list"){
     const [deals,leads,properties,stats]=await Promise.all([

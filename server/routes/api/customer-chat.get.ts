@@ -1,11 +1,15 @@
-import { createError, defineEventHandler, getQuery, getRequestIP } from "h3";
+import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
+import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 
 const codeSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
 
 export default defineEventHandler(async (event) => {
-  const rawCode = String((getQuery(event).code ?? "")).trim().toUpperCase().replace(/\\s+/g, "");
+  setResponseHeader(event, "cache-control", "no-store");
+  const attempt = await consumeAdminAttempt("customer-chat-read:" + clientFingerprint(event));
+  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+  const rawCode = String((getQuery(event).code ?? "")).trim().toUpperCase().replace(/\s+/g, "");
   const trackingCode = codeSchema.safeParse(rawCode);
   if (!trackingCode.success) {
     throw createError({ statusCode: 400, statusMessage: "کد رهگیری نامعتبر است." });
@@ -46,7 +50,6 @@ export default defineEventHandler(async (event) => {
     [lead.id],
   );
 
-  void getRequestIP(event);
 
   return {
     trackingCode: trackingCode.data,

@@ -6,7 +6,7 @@ import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 async function requireAdmin(event:H3Event){const token=getCookie(event,ADMIN_SESSION_COOKIE);if(!(await verifyAdminSessionToken(token)))throw createError({statusCode:401,statusMessage:"نشست مدیریت معتبر نیست."});assertSameOrigin(event);const claims=await getAdminSessionClaims(token);if(!hasAdminPermission(normalizeAdminRole(claims?.role),"property.manage"))throw createError({statusCode:403,statusMessage:"دسترسی مدیریت فایل برای این حساب فعال نیست."});return claims;}
 const clean=(v:unknown,max=160)=>typeof v==="string"?v.trim().slice(0,max):"";
 export default defineEventHandler(async event=>{
- setResponseHeader(event,"cache-control","no-store");const claims=await requireAdmin(event);if(dbSource==="unconfigured")return {expired:[],soon:[],review:[],archived:0,createdTasks:0};
+ setResponseHeader(event,"cache-control","no-store");const claims=await requireAdmin(event);if(dbSource==="unconfigured")throw createError({statusCode:503,statusMessage:"پایگاه داده انقضای فایل‌ها در دسترس نیست."});
  const sql=await getSql();const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>;const action=clean(body.action,30)||"list";
  const load=async()=>{const [expired,soon,review]=await Promise.all([
   sql.query<Record<string,unknown>>("select id,slug,title,neighborhood,unpublish_at,published_at from properties where deleted_at is null and status='published' and unpublish_at is not null and unpublish_at<=current_timestamp order by unpublish_at asc limit 80"),

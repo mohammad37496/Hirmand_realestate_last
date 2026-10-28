@@ -19,7 +19,7 @@ async function requireAdmin(event: H3Event) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { items: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده گزارش تقاضای محله‌ها در دسترس نیست." });
 
   const sql = await getSql();
   const rows = await sql.query<Record<string, unknown>>(

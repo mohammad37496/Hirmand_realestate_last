@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت پیگیری مشتریان برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { overdueFollowUps: [], upcomingVisits: [], upcomingCallbacks: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده برنامه پیگیری مشتریان در دسترس نیست." });
   const sql = await getSql();
   const [followUps, visits, callbacks] = await Promise.all([
     sql.query<Record<string, unknown>>("select id,name,phone,deal,neighborhood,consultant,status,follow_up_at from leads where status in ('new','contacted','follow_up','visited','contract') and follow_up_at is not null order by case when follow_up_at < current_timestamp then 0 else 1 end, follow_up_at asc limit 8"),
