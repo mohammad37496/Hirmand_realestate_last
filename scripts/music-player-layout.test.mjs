@@ -111,6 +111,7 @@ test("desktop viewport geometry has one canonical high-specificity rule outside 
     "inset: auto auto 20px 20px !important;",
     "width: 292px !important;",
     "height: 132px !important;",
+    "padding: 9px 10px 7px !important;",
   ]) {
     assert.ok(dockRule.includes(declaration), `missing desktop dock declaration: ${declaration}`);
   }
