@@ -939,3 +939,29 @@ testRunner.test("responsive browser smoke records console errors and fails on ap
   assert.ok(responsiveSmoke.includes("uncaught browser errors"), "uncaught page errors must fail the run");
 });
 
+
+
+testRunner.test("gold foreground combinations meet WCAG AA normal-text contrast", () => {
+  const rootVars = globalCss.match(/:root\s*\{([^}]*)\}/s)?.[1] ?? "";
+  const foreground = rootVars.match(/--fg:\s*(#[0-9a-f]{6})/i)?.[1];
+  const gold = rootVars.match(/--gold:\s*(#[0-9a-f]{6})/i)?.[1];
+  const goldSoft = rootVars.match(/--gold-soft:\s*(#[0-9a-f]{6})/i)?.[1];
+  assert.ok(foreground && gold && goldSoft, "the global palette must expose concrete colors for contrast checks");
+
+  const luminance = (hex) => {
+    const channels = hex.slice(1).match(/[0-9a-f]{2}/gi)?.map((channel) => parseInt(channel, 16) / 255) ?? [];
+    assert.equal(channels.length, 3);
+    const linear = channels.map((channel) =>
+      channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+    );
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  };
+  const contrast = (first, second) => {
+    const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+  };
+
+  assert.ok(contrast(foreground, gold) >= 4.5, "skip-link text must meet WCAG AA on the gold accent");
+  assert.ok(contrast(foreground, goldSoft) >= 4.5, "primary button text must meet WCAG AA on the gold-soft fill");
+});
+
