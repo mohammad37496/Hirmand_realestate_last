@@ -100,6 +100,10 @@ async function assertDock(page, viewport) {
       parentIsBody: node.parentElement === document.body,
       containingBlockRisks,
       position: style.position,
+      zIndex: style.zIndex,
+      boxSizing: style.boxSizing,
+      borderRadius: style.borderRadius,
+      backgroundImage: style.backgroundImage,
       left: rect.left,
       top: rect.top,
       right: rect.right,
@@ -113,11 +117,60 @@ async function assertDock(page, viewport) {
   assert.equal(result.parentIsBody, true, "the player should remain outside route-specific transformed wrappers");
   assert.deepEqual(result.containingBlockRisks, [], `an ancestor may be creating a fixed-position containing block: ${JSON.stringify(result.containingBlockRisks)}`);
   assert.equal(result.position, "fixed", `player must be viewport-fixed on ${page.url()}`);
+  assert.equal(result.zIndex, "1150", `player layer must stay above page content on ${page.url()}`);
+  assert.equal(result.boxSizing, "border-box", `player dimensions must include padding and border on ${page.url()}`);
+  assert.equal(result.borderRadius, "18px", `desktop Hirmand dock corners must stay consistent on ${page.url()}: ${JSON.stringify(result)}`);
+  assert.match(result.backgroundImage, /radial-gradient.*linear-gradient/s, `the Hirmand navy/gold surface must remain applied on ${page.url()}`);
   assert.ok(Math.abs(result.left - 20) <= 1, `expected left=20px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.bottom - (viewport.height - 20)) <= 1, `expected bottom=20px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.width - 292) <= 1, `expected width=292px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.height - 132) <= 1, `expected height=132px on ${page.url()}: ${JSON.stringify(result)}`);
   return result;
+}
+
+async function scrollToPageBottom(page, requestedPath, viewportWidth) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.evaluate(() => window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)));
+      return;
+    } catch (error) {
+      const message = String(error?.message || error);
+      const navigationRace = /Execution context was destroyed|Cannot find context|navigation/i.test(message);
+      if (!navigationRace || attempt === 2) {
+        throw new Error(`could not scroll after navigation to ${requestedPath} at ${viewportWidth}px (actual URL: ${page.url()}): ${message}`);
+      }
+      await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
+      await page.waitForFunction(
+        () => document.readyState !== "loading" && !!document.querySelector("#hirmand-site-music-player"),
+        null,
+        { timeout: 15_000 },
+      );
+    }
+  }
+}
+
+async function navigateToRoute(page, baseUrl, routePath) {
+  const url = new URL(routePath, baseUrl).toString();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      await page.waitForFunction(
+        () => document.readyState !== "loading" && !!document.querySelector("#hirmand-site-music-player"),
+        null,
+        { timeout: 60_000 },
+      );
+      return;
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (!/net::ERR_ABORTED|Execution context was destroyed/i.test(message) || attempt === 2) {
+        throw new Error(`navigation to ${routePath} failed (actual URL: ${page.url()}): ${message}`);
+      }
+      // Vite can reload once when a newly visited route discovers an optimized
+      // dependency. Retry only this known navigation-abort race; real failures
+      // still fail the test with the route and browser error attached.
+      await delay(300 * (attempt + 1));
+    }
+  }
 }
 
 try {
@@ -222,24 +275,77 @@ try {
   await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.muted === false);
   assert.deepEqual(runtimeErrors, [], "media control interactions must not produce browser runtime errors");
 
-  const routes = ["/properties", "/properties/qa-apartment-long-title", "/admin"];
-  for (const path of routes) {
-    await page.goto(new URL(path, baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
-    await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
-    await assertDock(page, { width: 1280, height: 800 });
-    await page.evaluate(() => window.scrollTo(0, Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)));
-    await page.waitForTimeout(80);
-    await assertDock(page, { width: 1280, height: 800 });
+  // Cover every generated top-level page family plus representative dynamic
+  // routes and both management entry points. Auth-gated routes are still useful
+  // here: the shared dock must survive the gate/redirect without duplicate mounts.
+  const routeMatrix = [
+    { path: "/", label: "home" },
+    { path: "/properties", label: "property listing" },
+    { path: "/properties/qa-apartment-long-title", label: "property detail" },
+    { path: "/guides", label: "content page" },
+    { path: "/card", label: "digital business card" },
+    { path: "/areas", label: "areas index" },
+    { path: "/areas/qa-area", label: "area detail" },
+    { path: "/budget-match", label: "budget matching" },
+    { path: "/compare", label: "property comparison" },
+    { path: "/consultants", label: "consultants index" },
+    { path: "/consultants/qa-consultant", label: "consultant detail" },
+    { path: "/favorites", label: "favorites" },
+    { path: "/file-code", label: "file code lookup" },
+    { path: "/file/qa-file-id", label: "file detail" },
+    { path: "/my-hirmand", label: "my Hirmand" },
+    { path: "/nearby", label: "nearby search" },
+    { path: "/notifications", label: "notifications" },
+    { path: "/request-property", label: "property request" },
+    { path: "/request-tracking", label: "request tracking" },
+    { path: "/smart-search", label: "smart search" },
+    { path: "/staff", label: "staff" },
+    { path: "/staff-agreement", label: "staff agreement" },
+    { path: "/submit-property", label: "property submission" },
+    { path: "/tracking", label: "tracking" },
+    { path: "/valuation", label: "valuation" },
+    { path: "/tools", label: "tools index" },
+    { path: "/tools/commission", label: "commission calculator" },
+    { path: "/tools/deposit", label: "deposit calculator" },
+    { path: "/tools/loan", label: "loan calculator" },
+    { path: "/tools/rahn-rent", label: "rent and mortgage calculator" },
+    { path: "/v/qa-slug/qa-id", label: "digital property card" },
+    { path: "/admin", label: "admin entry" },
+    { path: "/admin-mobile-management", label: "mobile management" },
+    { path: "/admin-mobile-management/qa-employee", label: "employee management detail" },
+  ];
+  const desktopViewports = [
+    { width: 1024, height: 768 },
+    { width: 1280, height: 800 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 },
+  ];
+  for (const viewport of desktopViewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    for (const route of routeMatrix) {
+      await navigateToRoute(page, baseUrl, route.path);
+      const beforeScroll = await assertDock(page, viewport);
+      await scrollToPageBottom(page, route.path, viewport.width);
+      await page.waitForTimeout(80);
+      const afterScroll = await assertDock(page, viewport);
+      assert.deepEqual(
+        { left: afterScroll.left, bottom: afterScroll.bottom, width: afterScroll.width, height: afterScroll.height },
+        { left: beforeScroll.left, bottom: beforeScroll.bottom, width: beforeScroll.width, height: beforeScroll.height },
+        `player geometry must remain fixed after scrolling on ${route.path} at ${viewport.width}px`,
+      );
+      assert.equal(afterScroll.count, 1, `route ${route.path} must contain exactly one shared player`);
+    }
   }
 
+  // Verify history navigation and a hard reload also retain the global dock.
   await page.goBack({ waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
-  await assertDock(page, { width: 1280, height: 800 });
+  await assertDock(page, { width: 1920, height: 1080 });
   await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
   await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
-  await assertDock(page, { width: 1280, height: 800 });
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await assertDock(page, { width: 1440, height: 900 });
+  await assertDock(page, { width: 1920, height: 1080 });
+
+  // Keep the existing collapse/restore checks on a common supported desktop size.
   await page.setViewportSize({ width: 1024, height: 768 });
   await assertDock(page, { width: 1024, height: 768 });
   await page.getByRole("button", { name: "جمع کردن پلیر" }).click();
