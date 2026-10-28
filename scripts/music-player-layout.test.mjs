@@ -121,3 +121,14 @@ test("desktop viewport geometry has one canonical high-specificity rule outside 
   assert.ok(collapsedRule.includes("width: 292px !important;"));
   assert.ok(collapsedRule.includes("height: 132px !important;"));
 });
+
+test("tablet music controls and mobile launcher keep 44px touch targets", () => {
+  const tabletRules = css.slice(css.lastIndexOf("/* Final touch-target contract."));
+  assert.match(tabletRules, /@media \(pointer: coarse\) and \(min-width: 721px\) and \(max-width: 1024px\)/);
+  assert.match(tabletRules, /\.music-player-float-head\s*\{[^}]*height: 26px !important;/s);
+  assert.match(tabletRules, /\.music-player-utility\s*\{[^}]*width: 44px !important;[^}]*height: 44px !important;/s);
+  assert.match(tabletRules, /\.music-player-disc\s*\{[^}]*width: 34px !important;[^}]*height: 34px !important;/s);
+  assert.match(tabletRules, /\.music-player-float-controls button:not\(\.music-player-float-play\)[\s\S]*?width: 44px !important;[\s\S]*?height: 44px !important;/);
+  assert.match(tabletRules, /@media \(max-width: 720px\)[\s\S]*?bottom: calc\(78px \+ env\(safe-area-inset-bottom\)\) !important;[\s\S]*?width: 44px !important;[\s\S]*?height: 44px !important;/);
+  assert.match(tabletRules, /\.music-player-restore[\s\S]*?width: 44px !important;[\s\S]*?height: 44px !important;/);
+});

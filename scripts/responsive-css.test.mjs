@@ -674,7 +674,7 @@ testRunner.test("global music dock is compact and page-scoped over the mobile pr
     "the floating contact control should shrink to a 44px-high touch target instead of covering card actions");
   assert.match(responsiveSmoke, /if \(width <= 640\) \{\s*const contact = metrics\.floatingContact;[\s\S]*?floating controls exceed the 44px compact overlay height/s,
     "the 44px floating-control height requirement should be scoped to phones, preserving tablet and desktop player sizing");
-  assert.match(responsiveSmoke, /if \(width <= 1024\) \{\s*const undersized = dock\.buttons\.filter/,
+  assert.match(responsiveSmoke, /if \(width <= 1024 && metrics\.pointerCoarse\) \{\s*const undersized = dock\.buttons\.filter/,
     "44px music-control touch targets should be enforced on phones and tablets without penalizing desktop mouse controls");
   assert.match(finalParityPass, /@media \(max-width: 380px\) \{[\s\S]*?grid-template-columns: 104px minmax\(0, 1fr\) !important;[\s\S]*?pcard-actions \{ inset-inline-start: max\(112px, 36%\) !important;/s,
     "the 320–380px card image and action column must stay aligned with the narrower image width");
