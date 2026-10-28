@@ -34,6 +34,7 @@ const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const musicPlayerCss = fs.readFileSync(new URL("../src/music-player.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
+const propertiesHirmandSignatureCss = fs.readFileSync(new URL("../src/properties-hirmand-signature.css", import.meta.url), "utf8");
 const propertiesMobileReferenceCss = fs.readFileSync(new URL("../src/properties-mobile-reference.css", import.meta.url), "utf8");
 const propertyDetailV2Css = fs.readFileSync(new URL("../src/property-detail-page.css", import.meta.url), "utf8");
 const propertyGalleryMobileCss = fs.readFileSync(new URL("../src/property-gallery-mobile.css", import.meta.url), "utf8");
@@ -886,4 +887,14 @@ testRunner.test("tablet property action buttons stay 44px after desktop card sty
 testRunner.test("empty music-player status cannot intercept unrelated page controls", () => {
   assert.match(musicPlayerCss, /html body \.music-player-float-empty\s*\{\s*pointer-events: none !important;\s*\}[\s\S]*?html body \.music-player-float-empty button\s*\{\s*pointer-events: auto !important;\s*\}/,
     "the empty/loading player surface should let clicks pass through while its own controls remain interactive");
+});
+
+
+testRunner.test("mobile map result cards use the Hirmand navy-and-gold signature", () => {
+  const mapTheme = propertiesHirmandSignatureCss.slice(propertiesHirmandSignatureCss.lastIndexOf("/* Hirmand signature for mobile map result cards:"));
+  assert.ok(mapTheme.length > 0, "map results need a final Hirmand theme layer");
+  assert.match(mapTheme, /\.pf-page \.pf-map-card-row\.is-active\s*\{[^}]*#c08a2a/s, "active map rows must use Hirmand gold accents");
+  assert.match(mapTheme, /\.pf-page \.pf-map-item-price\s*\{[^}]*color:\s*#0b1a2b/s, "map prices must use the Hirmand navy palette");
+  assert.match(mapTheme, /\.pf-page \.pf-map-item-open\s*\{[^}]*background:\s*#0b1a2b;[^}]*color:\s*#f5d995/s, "details action must use navy with gold text");
+  assert.match(mapTheme, /:focus-visible[\s\S]*?outline:\s*2px solid #c08a2a/, "map controls must keep a visible Hirmand-gold focus ring");
 });
