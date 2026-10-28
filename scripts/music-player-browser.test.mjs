@@ -178,6 +178,13 @@ async function navigateToRoute(page, baseUrl, routePath) {
         null,
         { timeout: 60_000 },
       );
+      // The root-mounted player can render before its shared stylesheet has
+      // finished loading after a client route change. Wait for the actual
+      // fixed-position contract before measuring the dock on each route.
+      await page.waitForFunction(() => {
+        const node = document.querySelector("#hirmand-site-music-player");
+        return node && getComputedStyle(node).position === "fixed";
+      }, null, { timeout: 10_000 });
       return;
     } catch (error) {
       const message = String(error?.message || error);

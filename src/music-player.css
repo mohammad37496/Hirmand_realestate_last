@@ -754,6 +754,7 @@ html body .music-player-float-empty button {
     justify-content: center !important;
   }
 }
+
 /* Canonical desktop internals: neutralize legacy listing-page selectors too.
    The outer shell alone is not enough if older CSS hides the progress bar or
    inflates controls on /properties. Keep every desktop route visually equal. */
@@ -854,5 +855,96 @@ html body .music-player-float-empty button {
 
   html body #hirmand-site-music-player .music-player-float-progress span {
     display: block !important;
+  }
+}
+
+/* Final touch-target contract. This must follow the legacy desktop rules above
+   because those selectors intentionally normalize the compact music controls. */
+@media (pointer: coarse) and (min-width: 721px) and (max-width: 1024px) {
+  html body #hirmand-site-music-player .music-player-float-head {
+    height: 26px !important;
+    gap: 5px !important;
+  }
+
+  html body #hirmand-site-music-player .music-player-utility {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
+    position: relative !important;
+    z-index: 2 !important;
+  }
+
+  html body #hirmand-site-music-player .music-player-float-track {
+    gap: 3px !important;
+    margin-top: 9px !important;
+    min-height: 44px !important;
+  }
+
+  html body #hirmand-site-music-player .music-player-disc {
+    display: grid !important;
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    min-height: 34px !important;
+    flex: 0 0 34px !important;
+  }
+
+  html body #hirmand-site-music-player .music-player-float-meta {
+    flex: 1 1 48px !important;
+    min-width: 38px !important;
+  }
+
+  html body #hirmand-site-music-player .music-player-float-controls {
+    gap: 2px !important;
+  }
+
+  html body #hirmand-site-music-player .music-player-float-controls button:not(.music-player-float-play) {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
+  }
+
+  html body #hirmand-site-music-player .music-player-float-controls .music-player-float-play {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
+  }
+
+  html body #hirmand-site-music-player .music-player-float-progress {
+    grid-template-columns: 25px minmax(0, 1fr) 25px !important;
+    gap: 4px !important;
+    margin-top: 0 !important;
+  }
+}
+
+@media (max-width: 720px) {
+  html body #hirmand-site-music-player,
+  html body #hirmand-site-music-player.music-player-float-empty {
+    bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    left: 12px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+  }
+
+  html body #hirmand-site-music-player:not(.is-expanded) .music-player-restore,
+  html body #hirmand-site-music-player.is-collapsed .music-player-restore {
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
   }
 }

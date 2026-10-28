@@ -107,6 +107,7 @@ try {
     const page = await browser.newPage({
       viewport: { width: 320, height: 900 },
       deviceScaleFactor: 1,
+      hasTouch: process.env.RESPONSIVE_SMOKE_TOUCH === "1",
     });
     page.setDefaultTimeout(12_000);
     const pageErrors = [];
@@ -691,6 +692,7 @@ try {
             viewportHeight,
             rootWidth,
             overflow,
+            pointerCoarse: window.matchMedia("(pointer: coarse)").matches,
             offenders: offenders.slice(0, 8),
             brokenWords: brokenWords.slice(0, 8),
             smallTargets: smallTargets.slice(0, 8),
@@ -824,7 +826,7 @@ try {
           if (dock.position === "fixed" && (dock.left < -1 || dock.right > width + 1 || dock.top < -1 || dock.bottom > height + 1)) {
             failures.push(`/properties @ ${width}x${height}px: music dock escapes the viewport (${JSON.stringify(dock)})`);
           }
-          if (width <= 1024) {
+          if (width <= 1024 && metrics.pointerCoarse) {
             const undersized = dock.buttons.filter((button) => button.width < 44 || button.height < 44);
             if (undersized.length) {
               failures.push(`/properties @ ${width}x${height}px: music controls below 44px touch targets (${JSON.stringify(undersized)})`);
