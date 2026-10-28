@@ -143,3 +143,13 @@ test("tablet property listings keep a compact music dock above card actions", ()
   assert.match(responsiveSmoke, /activePlayer: !dock\.classList\.contains\("music-player-float-empty"\)/);
   assert.match(responsiveSmoke, /width >= 721 && width <= 1024 && dock\.activePlayer/);
 });
+
+
+test("tablet listing keeps the loading dock at the same compact geometry as playback", () => {
+  const loadingRules = css.slice(css.lastIndexOf("Keep tablet listing geometry stable while the shared music index loads"));
+  const browserTest = fs.readFileSync(new URL("./music-player-browser.test.mjs", import.meta.url), "utf8");
+  assert.match(loadingRules, /@media \(min-width: 721px\) and \(max-width: 1024px\)/);
+  assert.match(loadingRules, /music-player-float-empty:not\(\.is-expanded\)\s*\{[\s\S]*?width: 112px !important;[\s\S]*?height: 54px !important;[\s\S]*?padding: 5px 8px !important;/);
+  assert.match(loadingRules, /music-player-empty-copy\s*\{[\s\S]*?font-size: 0 !important;/);
+  assert.match(browserTest, /const compactTabletListing = routePath === "\/properties" && viewport\.width >= 721 && viewport\.width <= 1024;/);
+});
