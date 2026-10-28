@@ -162,6 +162,12 @@ try {
   await assertDock(page, { width: 1440, height: 900 });
   await page.setViewportSize({ width: 1024, height: 768 });
   await assertDock(page, { width: 1024, height: 768 });
+  await page.getByRole("button", { name: "جمع کردن پلیر" }).click();
+  await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
+  await assertDock(page, { width: 1024, height: 768 });
+  await page.getByRole("button", { name: "باز کردن پلیر موسیقی" }).click();
+  await page.waitForFunction(() => !document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
+  await assertDock(page, { width: 1024, height: 768 });
   assert.deepEqual(runtimeErrors, [], `browser runtime errors: ${runtimeErrors.join("; ")}`);
   await page.close();
 
@@ -178,7 +184,17 @@ try {
   await assertDock(emptyPage, { width: 1280, height: 800 });
   await emptyPage.close();
 
-  console.log("[music-player-browser] PASS: loading -> loaded -> empty, single instance, route changes, back navigation, scroll, and 1280/1440/1024 desktop viewport geometry.");
+  const errorPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await errorPage.route("**/api/music", (route) => route.abort("failed"));
+  await errorPage.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await errorPage.waitForFunction(() => {
+    const node = document.querySelector("#hirmand-site-music-player .music-player-empty-copy");
+    return node?.textContent?.includes("دریافت فهرست موسیقی ممکن نشد.");
+  });
+  await assertDock(errorPage, { width: 1280, height: 800 });
+  await errorPage.close();
+
+  console.log("[music-player-browser] PASS: loading -> loaded -> empty/error, one instance, route changes, back navigation, scroll, collapse/restore, and 1280/1440/1024 desktop viewport geometry.");
 } catch (error) {
   failed = true;
   console.error("[music-player-browser] FAIL");
