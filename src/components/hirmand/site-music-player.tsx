@@ -76,7 +76,13 @@ export function SiteMusicPlayer() {
 
   useEffect(() => {
     void loadTracks();
-    if (window.matchMedia("(max-width: 720px)").matches) setCollapsed(true);
+    const mobileViewport = window.matchMedia("(max-width: 720px)");
+    setCollapsed(mobileViewport.matches);
+    const syncViewportMode = (event: MediaQueryListEvent) => {
+      setCollapsed(event.matches);
+      setExpanded(false);
+    };
+    mobileViewport.addEventListener("change", syncViewportMode);
     const refresh = () => {
       if (document.visibilityState === "visible") void loadTracks();
     };
@@ -84,6 +90,7 @@ export function SiteMusicPlayer() {
     window.addEventListener("focus", refresh);
     return () => {
       window.removeEventListener("focus", refresh);
+      mobileViewport.removeEventListener("change", syncViewportMode);
       audio?.pause();
     };
   }, [loadTracks]);
