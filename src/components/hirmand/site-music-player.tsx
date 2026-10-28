@@ -214,6 +214,7 @@ export function SiteMusicPlayer() {
       {tracks.length === 0 ? (
         <div className="music-player-empty-copy" aria-live="polite">
           <Music2 size={18} /> {loading ? "در حال بارگذاری موسیقی…" : error || "به‌زودی با موسیقی هیرمند"}
+          {expanded ? <button type="button" className="music-player-utility" onClick={closePlaylist} aria-label="بستن پنل موسیقی"><X size={15} /></button> : null}
         </div>
       ) : (
         <>
