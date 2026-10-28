@@ -142,6 +142,7 @@ async function scrollToPageBottom(page, requestedPath, viewportWidth) {
       await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
       await page.waitForFunction(
         () => document.readyState !== "loading" && !!document.querySelector("#hirmand-site-music-player"),
+        null,
         { timeout: 15_000 },
       );
     }
