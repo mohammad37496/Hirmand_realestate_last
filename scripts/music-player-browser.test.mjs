@@ -197,16 +197,16 @@ try {
   // CI validates UI/state transitions without relying on a live audio codec or
   // an externally hosted MP3 file.
   await page.getByRole("button", { name: "نمایش فهرست موسیقی" }).click();
-  await page.getByRole("button", { name: "پخش" }).click();
-  await page.getByRole("button", { name: "مکث" }).waitFor();
+  await page.locator('.music-player-float-play[aria-label="پخش"]').click();
+  await page.locator('.music-player-float-play[aria-label="مکث"]').waitFor();
   assert.ok(await page.evaluate(() => window.__qaAudioCalls.play > 0), "play should invoke HTMLMediaElement.play()");
-  await page.getByRole("button", { name: "مکث" }).click();
-  await page.getByRole("button", { name: "پخش" }).waitFor();
+  await page.locator('.music-player-float-play[aria-label="مکث"]').click();
+  await page.locator('.music-player-float-play[aria-label="پخش"]').waitFor();
   assert.ok(await page.evaluate(() => window.__qaAudioCalls.pause > 0), "pause should invoke HTMLMediaElement.pause()");
-  await page.getByRole("button", { name: "پخش" }).click();
-  await page.getByRole("button", { name: "مکث" }).waitFor();
+  await page.locator('.music-player-float-play[aria-label="پخش"]').click();
+  await page.locator('.music-player-float-play[aria-label="مکث"]').waitFor();
   await page.getByRole("button", { name: "توقف آهنگ" }).click();
-  await page.getByRole("button", { name: "پخش" }).waitFor();
+  await page.locator('.music-player-float-play[aria-label="پخش"]').waitFor();
 
   const volumeControl = page.getByRole("slider", { name: "کم و زیاد کردن صدا" });
   await volumeControl.evaluate((element) => {
