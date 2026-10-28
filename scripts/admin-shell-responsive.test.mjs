@@ -27,3 +27,11 @@ test("admin icon actions have 44px targets on phones and coarse-pointer devices"
     "the 44px touch-target rule must override the older 34px mobile declaration",
   );
 });
+
+
+test("admin visual audit emulates touch input through tablet widths", () => {
+  const audit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
+  assert.match(audit, /hasTouch: viewport\.width <= 1024/);
+  assert.match(audit, /isMobile: viewport\.width <= 640/);
+  assert.match(audit, /window\.matchMedia\("\(pointer: coarse\)"\)\.matches/);
+});
