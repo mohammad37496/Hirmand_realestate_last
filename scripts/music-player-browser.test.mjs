@@ -111,6 +111,13 @@ async function assertDock(page, viewport) {
       width: rect.width,
       height: rect.height,
       classes: node.className,
+      activePlayer: !node.classList.contains("music-player-float-empty") && !node.classList.contains("is-collapsed"),
+      rootDisplay: style.display,
+      headHeight: node.querySelector(".music-player-float-head")?.getBoundingClientRect().height ?? null,
+      discWidth: node.querySelector(".music-player-disc")?.getBoundingClientRect().width ?? null,
+      controlWidth: node.querySelector(".music-player-float-controls button:not(.music-player-float-play)")?.getBoundingClientRect().width ?? null,
+      playWidth: node.querySelector(".music-player-float-controls .music-player-float-play")?.getBoundingClientRect().width ?? null,
+      progressDisplay: node.querySelector(".music-player-float-progress") ? getComputedStyle(node.querySelector(".music-player-float-progress")).display : null,
     };
   });
   assert.equal(result.count, 1, `exactly one shared player should exist on ${page.url()}: ${JSON.stringify(result)}`);
@@ -125,6 +132,14 @@ async function assertDock(page, viewport) {
   assert.ok(Math.abs(result.bottom - (viewport.height - 20)) <= 1, `expected bottom=20px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.width - 292) <= 1, `expected width=292px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.height - 132) <= 1, `expected height=132px on ${page.url()}: ${JSON.stringify(result)}`);
+  if (result.activePlayer) {
+    assert.equal(result.rootDisplay, "block", `desktop player root display must be route-independent on ${page.url()}`);
+    assert.ok(Math.abs(result.headHeight - 26) <= 1, `desktop player header must remain 26px on ${page.url()}: ${JSON.stringify(result)}`);
+    assert.ok(Math.abs(result.discWidth - 34) <= 1, `desktop player disc must remain 34px on ${page.url()}: ${JSON.stringify(result)}`);
+    assert.ok(Math.abs(result.controlWidth - 24) <= 1, `desktop player transport buttons must remain 24px on ${page.url()}: ${JSON.stringify(result)}`);
+    assert.ok(Math.abs(result.playWidth - 30) <= 1, `desktop player play button must remain 30px on ${page.url()}: ${JSON.stringify(result)}`);
+    assert.equal(result.progressDisplay, "grid", `desktop progress must remain visible on ${page.url()}: ${JSON.stringify(result)}`);
+  }
   return result;
 }
 

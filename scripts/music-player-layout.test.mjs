@@ -76,6 +76,25 @@ test("desktop loading/empty state keeps the same viewport dock geometry as the l
     "the loaded desktop player must retain the same fixed viewport geometry");
 });
 
+test("desktop player internals override legacy listing-page CSS", () => {
+  const desktopStart = css.lastIndexOf("@media (min-width: 721px) {");
+  assert.notEqual(desktopStart, -1);
+  const desktop = css.slice(desktopStart);
+  for (const declaration of [
+    "html body #hirmand-site-music-player {",
+    "display: block !important;",
+    "html body #hirmand-site-music-player .music-player-float-head",
+    "height: 26px !important;",
+    "width: 34px !important;",
+    "width: 24px !important;",
+    "width: 30px !important;",
+    "display: grid !important;",
+    "grid-template-columns: 25px minmax(0, 1fr) 25px !important;",
+  ]) {
+    assert.ok(desktop.includes(declaration), `missing desktop interior override: ${declaration}`);
+  }
+});
+
 test("desktop viewport geometry has one canonical high-specificity rule outside the route tree", () => {
   assert.match(player, /id="hirmand-site-music-player"/,
     "the single shared dock must have a stable identity for the global geometry contract");
@@ -83,7 +102,8 @@ test("desktop viewport geometry has one canonical high-specificity rule outside 
     "route-specific geometry overrides must not be injected inside the component");
   assert.ok(css.includes("@media (min-width: 721px) {"),
     "the desktop contract must not change the mobile rules");
-  const dockRuleStart = css.lastIndexOf("html body #hirmand-site-music-player {");
+  const internalsStart = css.indexOf("/* Canonical desktop internals");
+  const dockRuleStart = css.lastIndexOf("html body #hirmand-site-music-player {", internalsStart === -1 ? css.length : internalsStart);
   assert.notEqual(dockRuleStart, -1, "the global desktop contract must use the stable player ID");
   const dockRule = css.slice(dockRuleStart);
   for (const declaration of [
