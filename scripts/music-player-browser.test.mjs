@@ -83,8 +83,22 @@ async function assertDock(page, viewport) {
     if (!node) return { count: nodes.length, missing: true };
     const rect = node.getBoundingClientRect();
     const style = getComputedStyle(node);
+    const containingBlockRisks = [];
+    for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+      const parentStyle = getComputedStyle(parent);
+      const risks = [];
+      if (parentStyle.transform !== "none") risks.push("transform");
+      if (parentStyle.filter !== "none") risks.push("filter");
+      if (parentStyle.perspective !== "none") risks.push("perspective");
+      if (parentStyle.backdropFilter !== "none") risks.push("backdrop-filter");
+      if (parentStyle.contain !== "none") risks.push("contain");
+      if (/transform|filter|perspective/.test(parentStyle.willChange)) risks.push("will-change");
+      if (risks.length) containingBlockRisks.push(`${parent.tagName.toLowerCase()}:${risks.join(",")}`);
+    }
     return {
       count: nodes.length,
+      parentIsBody: node.parentElement === document.body,
+      containingBlockRisks,
       position: style.position,
       left: rect.left,
       top: rect.top,
@@ -96,6 +110,8 @@ async function assertDock(page, viewport) {
     };
   });
   assert.equal(result.count, 1, `exactly one shared player should exist on ${page.url()}: ${JSON.stringify(result)}`);
+  assert.equal(result.parentIsBody, true, "the player should remain outside route-specific transformed wrappers");
+  assert.deepEqual(result.containingBlockRisks, [], `an ancestor may be creating a fixed-position containing block: ${JSON.stringify(result.containingBlockRisks)}`);
   assert.equal(result.position, "fixed", `player must be viewport-fixed on ${page.url()}`);
   assert.ok(Math.abs(result.left - 20) <= 1, `expected left=20px on ${page.url()}: ${JSON.stringify(result)}`);
   assert.ok(Math.abs(result.bottom - (viewport.height - 20)) <= 1, `expected bottom=20px on ${page.url()}: ${JSON.stringify(result)}`);
