@@ -226,9 +226,9 @@ try {
     { path: "/", label: "home" },
     { path: "/properties", label: "property listing" },
     { path: "/properties/qa-apartment-long-title", label: "property detail" },
-    { path: "/about", label: "content page" },
-    { path: "/contact", label: "contact page" },
-    { path: "/admin", label: "independent admin layout" },
+    { path: "/guides", label: "content page" },
+    { path: "/card", label: "digital business card" },
+    { path: "/admin-mobile-management", label: "independent admin layout" },
   ];
   const desktopViewports = [
     { width: 1024, height: 768 },
