@@ -32,6 +32,7 @@ const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.c
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
+const musicPlayerCss = fs.readFileSync(new URL("../src/music-player.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
 const propertiesMobileReferenceCss = fs.readFileSync(new URL("../src/properties-mobile-reference.css", import.meta.url), "utf8");
 const propertyDetailV2Css = fs.readFileSync(new URL("../src/property-detail-page.css", import.meta.url), "utf8");
@@ -880,4 +881,9 @@ testRunner.test("tablet property action buttons stay 44px after desktop card sty
     "tablet action rails must scroll internally so 44px controls do not expand the card or page width");
   assert.match(tabletFinal, /\.pcard-footer-with-actions \.property-actions \{[^}]*display: flex !important;[^}]*flex-wrap: nowrap !important;/s,
     "tablet action controls must remain in a single horizontal row instead of wrapping into extra card height");
+});
+
+testRunner.test("empty music-player status cannot intercept unrelated page controls", () => {
+  assert.match(musicPlayerCss, /html body \.music-player-float-empty\s*\{\s*pointer-events: none !important;\s*\}[\s\S]*?html body \.music-player-float-empty button\s*\{\s*pointer-events: auto !important;\s*\}/,
+    "the empty/loading player surface should let clicks pass through while its own controls remain interactive");
 });
