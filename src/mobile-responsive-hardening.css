@@ -5390,3 +5390,32 @@ body:has(.pcard) .pcard > .pcard-visual {
 .pf-page .pf-range.pf-range-two {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+
+
+/* The property filter sidebar narrows sharply around tablet landscape widths.
+   Keep each nested specification option full-width so Persian labels wrap by
+   words instead of collapsing into tiny two-column tracks. */
+@media (min-width: 980px) and (max-width: 1199px) {
+  .pf-page .pf-sidebar .pf-spec-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pf-page .pf-sidebar .pf-spec-options,
+  .pf-page .pf-sidebar .pf-spec-subgroup .pf-spec-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pf-page .pf-spec-option {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .pf-page .pf-spec-option > span:last-child {
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+}

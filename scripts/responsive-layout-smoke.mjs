@@ -420,6 +420,11 @@ try {
 
       for (const { width, height } of viewportMatrix) {
         await page.setViewportSize({ width, height });
+        if (route === "/properties" && width >= 980 && width <= 1199) {
+          await page.locator(".pf-sidebar .pf-spec-subgroup").first().evaluate((group) => {
+            if (group instanceof HTMLDetailsElement) group.open = true;
+          }).catch(() => undefined);
+        }
         if (route === "/" && width <= 640) {
           await page.locator(".site-home .hero-inner").waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
           const homepageMobileGeometry = await page.evaluate(() => {
@@ -577,6 +582,21 @@ try {
             }
           }
 
+          const filterSidebar = document.querySelector(".pf-page .pf-sidebar");
+          const filterSidebarStyle = filterSidebar ? getComputedStyle(filterSidebar) : null;
+          const specOptions = filterSidebar?.querySelector(".pf-spec-subgroup[open] .pf-spec-options");
+          const specOptionItems = [...(specOptions?.querySelectorAll(".pf-spec-option") ?? [])];
+          const specOptionColumns = new Set(specOptionItems.map((element) => Math.round(element.getBoundingClientRect().left))).size;
+          const specLabelWidths = [...(specOptions?.querySelectorAll(".pf-spec-option > span:last-child") ?? [])]
+            .map((element) => Math.round(element.getBoundingClientRect().width));
+          const filterSidebarMetrics = filterSidebar && filterSidebarStyle ? {
+            visible: filterSidebarStyle.display !== "none" && filterSidebar.getBoundingClientRect().width > 0,
+            optionsFound: Boolean(specOptions),
+            optionCount: specOptionItems.length,
+            optionColumns: specOptionColumns,
+            minLabelWidth: specLabelWidths.length ? Math.min(...specLabelWidths) : null,
+          } : null;
+
           const dock = document.querySelector(".music-player-float:not(.music-player-float-empty)");
           const dockRect = dock?.getBoundingClientRect();
           const dockButtons = dock ? [...dock.querySelectorAll("button")].map((button) => {
@@ -701,9 +721,24 @@ try {
             musicDock,
             floatingContact,
             propertyGallery,
+            filterSidebar: filterSidebarMetrics,
             title: document.title,
           };
         });
+
+        if (route === "/properties" && width >= 980 && width <= 1199) {
+          const sidebar = metrics.filterSidebar;
+          if (!sidebar?.visible || !sidebar.optionsFound || sidebar.optionCount < 1) {
+            failures.push(`/properties @ ${width}x${height}px: specification filters were not visible for tablet sidebar layout verification (${JSON.stringify(sidebar)})`);
+          } else {
+            if (sidebar.optionColumns > 1) {
+              failures.push(`/properties @ ${width}x${height}px: specification options still use multiple narrow columns (${JSON.stringify(sidebar)})`);
+            }
+            if (sidebar.minLabelWidth !== null && sidebar.minLabelWidth < 80) {
+              failures.push(`/properties @ ${width}x${height}px: Persian specification labels have less than 80px of text width (${JSON.stringify(sidebar)})`);
+            }
+          }
+        }
 
         if (route.startsWith("/properties/") && width <= 760 && metrics.propertyGallery?.rail) {
           const rail = metrics.propertyGallery.rail;
