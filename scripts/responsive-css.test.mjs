@@ -891,10 +891,10 @@ testRunner.test("empty music-player status cannot intercept unrelated page contr
 
 
 testRunner.test("mobile map result cards use the Hirmand navy-and-gold signature", () => {
-  const mapTheme = propertiesHirmandSignatureCss.slice(propertiesHirmandSignatureCss.lastIndexOf("/* Hirmand signature for mobile map result cards:"));
+  const mapTheme = propertiesMobileReferenceCss.slice(propertiesMobileReferenceCss.lastIndexOf("/* Final Hirmand mobile map-card theme:"));
   assert.ok(mapTheme.length > 0, "map results need a final Hirmand theme layer");
   assert.match(mapTheme, /\.pf-page \.pf-map-card-row\.is-active\s*\{[^}]*#c08a2a/s, "active map rows must use Hirmand gold accents");
   assert.match(mapTheme, /\.pf-page \.pf-map-item-price\s*\{[^}]*color:\s*#0b1a2b/s, "map prices must use the Hirmand navy palette");
-  assert.match(mapTheme, /\.pf-page \.pf-map-item-open\s*\{[^}]*background:\s*#0b1a2b;[^}]*color:\s*#f5d995/s, "details action must use navy with gold text");
+  assert.match(mapTheme, /\.pf-page \.pf-map-divar-layout \.pf-map-item-open\s*\{[^}]*background:\s*#0b1a2b !important;[^}]*color:\s*#f5d995 !important/s, "details action must use navy with gold text");
   assert.match(mapTheme, /:focus-visible[\s\S]*?outline:\s*2px solid #c08a2a/, "map controls must keep a visible Hirmand-gold focus ring");
 });
