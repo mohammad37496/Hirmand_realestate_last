@@ -13,17 +13,17 @@ test("the music player is mounted once in the shared root for every route", () =
     "route changes and the admin path must not create a separate player or hide the shared dock");
 });
 
-test("the shared player stays viewport-fixed and uses the reference mobile placement", () => {
+test("the shared player stays viewport-fixed and uses a compact mobile launcher", () => {
   assert.match(css, /html body \.music-player-float:not\(\.music-player-float-empty\)\s*\{[^}]*position:\s*fixed\s*!important;[^}]*bottom:\s*20px\s*!important;[^}]*left:\s*20px\s*!important;/s);
-  assert.match(css, /@media \(max-width:\s*720px\)[\s\S]*?html body \.music-player-float:not\(\.music-player-float-empty\)\s*\{[^}]*right:\s*auto\s*!important;[^}]*bottom:\s*calc\(78px \+ env\(safe-area-inset-bottom\)\)\s*!important;[^}]*left:\s*10px\s*!important;[^}]*width:\s*calc\(100vw - 20px\)\s*!important;[^}]*height:\s*132px\s*!important;/s);
-  assert.match(css, /html body:has\(\.pf-page, \.property-showcase\) \.music-player-float:not\(\.music-player-float-empty\)\s*\{[^}]*position:\s*fixed\s*!important;/s,
-    "legacy listing-specific mobile rules must not turn the dock into a scrolling element");
+  assert.match(css, /@media \(max-width:\s*720px\)[\s\S]*?html body \.music-player-float:not\(\.music-player-float-empty\),[\s\S]*?width:\s*48px\s*!important;[^}]*height:\s*48px\s*!important;/s);
+  assert.match(css, /html body \.music-player-float\.is-expanded:not\(\.music-player-float-empty\)\s*\{[^}]*width:\s*min\(350px, calc\(100vw - 24px\)\)\s*!important;[^}]*max-height:\s*min\(74vh, 620px\)\s*!important;/s,
+    "opening the launcher should reveal a bounded dropdown panel rather than a full-width dock");
   assert.match(css, /html body \.music-player-float\.is-collapsed\s*\{[^}]*right:\s*auto\s*!important;[^}]*left:\s*10px\s*!important;/s,
     "the minimized dock must keep the same viewport edge across route wrappers");
 });
 
 test("the player exposes working collapse and restore controls without unmounting audio", () => {
-  assert.match(player, /className="music-player-restore"[\s\S]*?onClick=\{\(\) => setCollapsed\(false\)\}[\s\S]*?aria-label="باز کردن پلیر موسیقی"/s);
+  assert.match(player, /className="music-player-restore"[\s\S]*?onClick=\{\(\) => \{ setCollapsed\(false\); if \(window\.matchMedia\("\(max-width: 720px\)"\)\.matches\) setExpanded\(true\); \}\}[\s\S]*?aria-label="باز کردن پلیر موسیقی"/s);
   assert.match(player, /className="music-player-utility music-player-hide" onClick=\{\(\) => \{ setExpanded\(false\); setCollapsed\(true\); \}\} aria-label="جمع کردن پلیر"/);
   assert.match(player, /<audio[\s\S]*?ref=\{audioRef\}[\s\S]*?\/>[\s\S]*?className="music-player-restore"/,
     "audio must stay mounted when the visible dock is collapsed");
@@ -40,4 +40,8 @@ test("the reference player controls and progress bar remain in the shared compon
   assert.match(player, /onTimeUpdate=/);
   assert.match(player, /onEnded=\{handleTrackEnded\}/);
   assert.match(player, /onError=/);
+  assert.match(player, /aria-label="توقف آهنگ"/);
+  assert.match(player, /aria-label="کم و زیاد کردن صدا"/);
+  assert.match(player, /aria-label="پخش تصادفی"/);
+  assert.match(player, /انتخاب موسیقی/);
 });
