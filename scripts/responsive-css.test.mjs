@@ -1000,3 +1000,13 @@ testRunner.test("bedroom and bathroom filters use two equal columns", () => {
     "both Persian field labels must receive an equal-width desktop/tablet track",
   );
 });
+
+
+testRunner.test("tablet property filter sidebar keeps specification labels readable", () => {
+  const tabletRules = responsiveCss.slice(responsiveCss.lastIndexOf("The property filter sidebar narrows sharply"));
+  assert.match(tabletRules, /@media \(min-width: 980px\) and \(max-width: 1199px\)/);
+  assert.match(tabletRules, /\.pf-page \.pf-sidebar \.pf-spec-subgroup \.pf-spec-options\s*\{\s*grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(tabletRules, /\.pf-page \.pf-spec-option > span:last-child\s*\{[\s\S]*?min-width: 0;[\s\S]*?overflow-wrap: break-word;[\s\S]*?word-break: normal;/);
+  assert.match(responsiveSmoke, /specification options still use multiple narrow columns/);
+  assert.match(responsiveSmoke, /Persian specification labels have less than 80px/);
+});
