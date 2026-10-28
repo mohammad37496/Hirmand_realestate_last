@@ -200,6 +200,17 @@ async function navigateToRoute(page, baseUrl, routePath) {
         const node = document.querySelector("#hirmand-site-music-player");
         return node && getComputedStyle(node).position === "fixed";
       }, null, { timeout: 10_000 });
+      // The root-mounted dock exists before route content hydrates. On the
+      // tablet listing breakpoint its compact geometry is activated by
+      // body:has(.pf-page), so wait for the actual listing DOM before measuring.
+      if (routePath === "/properties") {
+        await page.locator(".pf-page").waitFor({ state: "visible", timeout: 60_000 });
+      } else if (routePath.startsWith("/properties/")) {
+        await page.locator(".property-detail-page").waitFor({ state: "visible", timeout: 60_000 });
+      }
+      await page.evaluate(() => new Promise((resolveFrame) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolveFrame)),
+      ));
       return;
     } catch (error) {
       const message = String(error?.message || error);
