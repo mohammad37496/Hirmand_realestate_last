@@ -149,6 +149,30 @@ async function scrollToPageBottom(page, requestedPath, viewportWidth) {
   }
 }
 
+async function navigateToRoute(page, baseUrl, routePath) {
+  const url = new URL(routePath, baseUrl).toString();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      await page.waitForFunction(
+        () => document.readyState !== "loading" && !!document.querySelector("#hirmand-site-music-player"),
+        null,
+        { timeout: 60_000 },
+      );
+      return;
+    } catch (error) {
+      const message = String(error?.message || error);
+      if (!/net::ERR_ABORTED|Execution context was destroyed/i.test(message) || attempt === 2) {
+        throw new Error(`navigation to ${routePath} failed (actual URL: ${page.url()}): ${message}`);
+      }
+      // Vite can reload once when a newly visited route discovers an optimized
+      // dependency. Retry only this known navigation-abort race; real failures
+      // still fail the test with the route and browser error attached.
+      await delay(300 * (attempt + 1));
+    }
+  }
+}
+
 try {
   await migrateIsolatedDatabase();
   const port = await findFreePort();
@@ -299,8 +323,7 @@ try {
   for (const viewport of desktopViewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     for (const route of routeMatrix) {
-      await page.goto(new URL(route.path, baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 60_000 });
-      await page.waitForFunction(() => !!document.querySelector("#hirmand-site-music-player"));
+      await navigateToRoute(page, baseUrl, route.path);
       const beforeScroll = await assertDock(page, viewport);
       await scrollToPageBottom(page, route.path, viewport.width);
       await page.waitForTimeout(80);
