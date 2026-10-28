@@ -717,3 +717,38 @@ html body .music-player-float-empty {
 html body .music-player-float-empty button {
   pointer-events: auto !important;
 }
+
+
+/* Canonical desktop viewport contract for the single root-mounted player.
+   The stable ID outranks page-scoped legacy selectors without duplicating
+   per-route overrides. Mobile behavior remains governed by the rules above. */
+@media (min-width: 721px) {
+  html body #hirmand-site-music-player {
+    position: fixed !important;
+    inset: auto auto 20px 20px !important;
+    z-index: 1150 !important;
+    box-sizing: border-box !important;
+    width: 292px !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    transform: none !important;
+    translate: none !important;
+  }
+
+  html body #hirmand-site-music-player.is-collapsed {
+    width: 292px !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    padding: 9px 10px 7px !important;
+  }
+
+  html body #hirmand-site-music-player.is-collapsed .music-player-restore {
+    width: 100% !important;
+    height: 100% !important;
+    box-sizing: border-box !important;
+    justify-content: center !important;
+  }
+}
