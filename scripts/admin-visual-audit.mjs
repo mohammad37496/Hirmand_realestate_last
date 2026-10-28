@@ -305,11 +305,12 @@ const AUDIT = () => {
     // area may be enlarged by a label or an absolutely positioned overlay.
     const area = hitArea(element);
     const adminIconButton = element.classList.contains("admin-icon-btn");
-    const target = window.innerWidth <= 640 && adminIconButton
+    const touchViewport = window.matchMedia("(pointer: coarse)").matches;
+    const target = touchViewport && adminIconButton
       ? { width: rect.width, height: rect.height }
       : area;
-    const minimumTarget = window.innerWidth <= 640 && adminIconButton ? 44 : 32;
-    if (window.innerWidth <= 640 && (target.width < minimumTarget || target.height < minimumTarget)) {
+    const minimumTarget = touchViewport && adminIconButton ? 44 : 32;
+    if (touchViewport && (target.width < minimumTarget || target.height < minimumTarget)) {
       issues.smallTargets.push({
         selector: `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 40)}`,
         width: Math.round(target.width),
@@ -521,6 +522,8 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     locale: "fa-IR",
+    hasTouch: viewport.width <= 1024,
+    isMobile: viewport.width <= 640,
   });
   const page = await context.newPage();
   await installAdminApiStubs(page, BASE);
