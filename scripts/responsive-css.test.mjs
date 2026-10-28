@@ -1010,3 +1010,18 @@ testRunner.test("tablet property filter sidebar keeps specification labels reada
   assert.match(responsiveSmoke, /specification options still use multiple narrow columns/);
   assert.match(responsiveSmoke, /Persian specification labels have less than 80px/);
 });
+
+
+testRunner.test("admin visual audit runs while the production Nitro server is alive", () => {
+  const workflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
+  const adminAudit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
+  const start = workflow.indexOf("- name: Browser smoke against built Nitro server");
+  const end = workflow.indexOf("- name: Cleanup property-detail fixture", start);
+  assert.ok(start >= 0 && end > start, "the built-server browser step and cleanup step must exist");
+  const browserStep = workflow.slice(start, end);
+  assert.ok(browserStep.includes("node .output/server/index.mjs"));
+  assert.ok(browserStep.includes("npm run qa:admin-a11y"));
+  assert.ok(browserStep.indexOf("node scripts/admin-mutation-smoke.mjs") < browserStep.indexOf("npm run qa:admin-a11y"));
+  assert.ok(browserStep.includes('QA_VIEWPORTS: "320x568,360x800,390x844,412x915,768x1024,1024x768,1440x900,1920x1080"'));
+  assert.ok(adminAudit.includes('const OUT = process.env.QA_SCREENSHOT_DIR || "screenshots/admin";'));
+});
