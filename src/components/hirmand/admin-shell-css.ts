@@ -2176,4 +2176,28 @@ export const ADMIN_CSS = `
   .admin-main .admin-form-intro h2{font-size:1.08rem}
   .admin-main .admin-form-intro-meta>span{font-size:.65rem}
 }
+
+/* Final mobile readability pass: keep long Persian property metadata intact. */
+.admin-property-meta h3,
+.admin-property-meta p {
+  min-width: 0 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  overflow-wrap: break-word !important;
+  text-overflow: clip !important;
+}
+.admin-property-meta h3 { line-height: 1.5 !important; }
+.admin-property-meta p { line-height: 1.5 !important; }
+
+@media (max-width: 640px), (pointer: coarse) {
+  .admin-icon-btn,
+  .admin-property-actions .admin-icon-btn {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
+  }
+}
+
 `;
