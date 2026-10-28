@@ -100,6 +100,7 @@ async function assertDock(page, viewport) {
       parentIsBody: node.parentElement === document.body,
       containingBlockRisks,
       position: style.position,
+      musicStylesheetLoaded: [...document.styleSheets].some((sheet) => sheet.href?.includes("music-player.css")),
       zIndex: style.zIndex,
       boxSizing: style.boxSizing,
       borderRadius: style.borderRadius,
@@ -125,7 +126,7 @@ async function assertDock(page, viewport) {
   assert.equal(result.count, 1, `exactly one shared player should exist on ${page.url()}: ${JSON.stringify(result)}`);
   assert.equal(result.parentIsBody, true, "the player should remain outside route-specific transformed wrappers");
   assert.deepEqual(result.containingBlockRisks, [], `an ancestor may be creating a fixed-position containing block: ${JSON.stringify(result.containingBlockRisks)}`);
-  assert.equal(result.position, "fixed", `player must be viewport-fixed on ${page.url()}`);
+  assert.equal(result.position, "fixed", `player must be viewport-fixed on ${page.url()}: ${JSON.stringify(result)}`);
   assert.equal(result.zIndex, "1150", `player layer must stay above page content on ${page.url()}`);
   assert.equal(result.boxSizing, "border-box", `player dimensions must include padding and border on ${page.url()}`);
   assert.equal(result.borderRadius, "18px", `desktop Hirmand dock corners must stay consistent on ${page.url()}: ${JSON.stringify(result)}`);
@@ -193,22 +194,20 @@ async function navigateToRoute(page, baseUrl, routePath) {
         null,
         { timeout: 60_000 },
       );
-      // The root-mounted player can render before its shared stylesheet has
-      // finished loading after a client route change. Wait for the actual
-      // fixed-position contract before measuring the dock on each route.
-      await page.waitForFunction(() => {
-        const node = document.querySelector("#hirmand-site-music-player");
-        return node && getComputedStyle(node).position === "fixed";
-      }, null, { timeout: 10_000 });
       // The root-mounted dock exists before route content hydrates. On the
       // tablet listing breakpoint its compact geometry is activated by
       // body:has(.pf-page), so wait for the actual listing DOM before measuring.
       if (routePath === "/properties") {
         await page.locator(".pf-page").waitFor({ state: "visible", timeout: 60_000 });
+      } else if (routePath === "/favorites") {
+        await page.locator(".favorites-page").waitFor({ state: "visible", timeout: 60_000 });
       }
       await page.evaluate(() => new Promise((resolveFrame) =>
         requestAnimationFrame(() => requestAnimationFrame(resolveFrame)),
       ));
+      await page.waitForFunction(() =>
+        [...document.styleSheets].some((sheet) => sheet.href?.includes("music-player.css")),
+      null, { timeout: 15_000 });
       return;
     } catch (error) {
       const message = String(error?.message || error);
