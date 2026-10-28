@@ -19,7 +19,7 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16
@@ -62,6 +62,12 @@ jobs:
 
       - name: Tests
         run: npm test
+
+      - name: Install Chromium for viewport interaction tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Music player browser regression
+        run: npm run test:music-player-browser
 
       # Applies every migration and then executes the Phone Bridge write
       # statements against a real Postgres. This is the only check that can

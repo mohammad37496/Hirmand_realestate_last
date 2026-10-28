@@ -39,6 +39,7 @@
     "test:property-card-browser": "node scripts/property-card-local-browser.test.mjs",
     "test:property-card-visual": "node scripts/property-card-local-browser.test.mjs visual",
     "test:property-card-responsive": "node scripts/property-card-local-browser.test.mjs responsive",
+    "test:music-player-browser": "node scripts/music-player-browser.test.mjs",
     "lint": "eslint .",
     "qa:admin": "sh ./scripts/admin-qa-run.sh",
     "qa:admin-a11y": "sh ./scripts/admin-audit-run.sh",

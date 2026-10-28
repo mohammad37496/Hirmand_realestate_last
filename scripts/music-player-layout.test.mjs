@@ -8,6 +8,7 @@ const root = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url
 
 test("the music player is mounted once in the shared root for every route", () => {
   assert.equal((root.match(/<SiteMusicPlayer\s*\/>/g) ?? []).length, 1);
+  assert.match(root, /<Outlet \/>[\s\S]*?<SiteMusicPlayer \/>/, "the player must stay outside route-specific wrappers after the outlet");
   assert.match(root, /import \{ SiteMusicPlayer \} from "@\/components\/hirmand\/site-music-player"/);
   assert.doesNotMatch(player, /useLocation|startsWith\("\/admin"\)/,
     "route changes and the admin path must not create a separate player or hide the shared dock");
@@ -70,9 +71,27 @@ test("desktop loading/empty state keeps the same viewport dock geometry as the l
     "the loaded desktop player must retain the same fixed viewport geometry");
 });
 
-test("desktop viewport geometry is enforced by the shared component after route styles", () => {
-  assert.match(player, /<style>\{\x60[\s\S]*?@media \(min-width: 721px\)[\s\S]*?html body \.music-player-float:not\(\.is-collapsed\)[\s\S]*?position: fixed !important;[\s\S]*?inset: auto auto 20px 20px !important;[\s\S]*?width: 292px !important;[\s\S]*?height: 132px !important;[\s\S]*?transform: none !important;[\s\S]*?\x60\}<\/style>/,
-    "the shared dock must reassert its viewport anchor and dimensions after route-level styles");
-  assert.match(player, /html body \.music-player-float\.is-collapsed\s*\{[^}]*position: fixed !important;[^}]*inset: auto auto 20px 20px !important;/s,
-    "collapsing the dock must not turn it into a page-positioned element");
+test("desktop viewport geometry has one canonical high-specificity rule outside the route tree", () => {
+  assert.match(player, /id="hirmand-site-music-player"/,
+    "the single shared dock must have a stable identity for the global geometry contract");
+  assert.doesNotMatch(player, /Route-level stylesheets|<style>/,
+    "route-specific geometry overrides must not be injected inside the component");
+  assert.ok(css.includes("@media (min-width: 721px) {"),
+    "the desktop contract must not change the mobile rules");
+  const dockRuleStart = css.lastIndexOf("html body #hirmand-site-music-player {");
+  assert.notEqual(dockRuleStart, -1, "the global desktop contract must use the stable player ID");
+  const dockRule = css.slice(dockRuleStart);
+  for (const declaration of [
+    "position: fixed !important;",
+    "inset: auto auto 20px 20px !important;",
+    "width: 292px !important;",
+    "height: 132px !important;",
+  ]) {
+    assert.ok(dockRule.includes(declaration), `missing desktop dock declaration: ${declaration}`);
+  }
+  assert.ok(css.includes("html body #hirmand-site-music-player.is-collapsed {"),
+    "desktop collapse must retain the same fixed shell geometry");
+  const collapsedRule = css.slice(css.lastIndexOf("html body #hirmand-site-music-player.is-collapsed {"));
+  assert.ok(collapsedRule.includes("width: 292px !important;"));
+  assert.ok(collapsedRule.includes("height: 132px !important;"));
 });
