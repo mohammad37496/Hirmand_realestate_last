@@ -16,6 +16,7 @@ const viewportMatrix = [
   { width: 768, height: 1024 }, // tablet portrait
   { width: 1024, height: 768 }, // tablet landscape
   { width: 1280, height: 900 },
+  { width: 1366, height: 900 },
   { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ];
@@ -38,8 +39,10 @@ const routes = [
   "/budget-match",
   "/smart-search",
   "/consultants",
+  "/card",
   "/nearby",
   "/submit-property",
+  "/request-property",
   "/file-code",
   "/favorites",
   "/compare",
@@ -71,7 +74,7 @@ const screenshotRoutes = new Set([
   "/tools/rahn-rent",
   "/admin",
 ]);
-const screenshotWidths = new Set([320, 360, 390, 430, 768, 1024, 1280, 1440, 1920]);
+const screenshotWidths = new Set([320, 360, 375, 390, 412, 430, 768, 1024, 1280, 1366, 1440, 1920]);
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -107,7 +110,36 @@ try {
     });
     page.setDefaultTimeout(12_000);
     const pageErrors = [];
+    const consoleErrors = [];
+    const failedRequests = [];
+    const failedResponses = [];
+    const appOrigin = new URL(baseUrl).origin;
     page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("response", (response) => {
+      if (response.status() < 500) return;
+      try {
+        if (new URL(response.url()).origin === appOrigin) {
+          failedResponses.push({ url: response.url(), status: response.status() });
+        }
+      } catch {
+        // Ignore malformed response URLs; the browser reports request failures separately.
+      }
+    });
+    page.on("requestfailed", (request) => {
+      let requestUrl;
+      try {
+        requestUrl = new URL(request.url());
+      } catch {
+        return;
+      }
+      if (requestUrl.origin !== appOrigin) return;
+      const errorText = request.failure()?.errorText ?? "unknown request failure";
+      if (/ERR_ABORTED|NS_BINDING_ABORTED/i.test(errorText)) return;
+      failedRequests.push({ url: request.url(), error: errorText });
+    });
 
     try {
       // The route's initial view is chosen during mount from matchMedia. Start
@@ -879,7 +911,19 @@ try {
       }
 
       if (pageErrors.length) {
+        failures.push(`${route}: uncaught browser errors: ${pageErrors.slice(0, 3).join(" | ")}`);
         summaries.push({ route, pageErrors: pageErrors.slice(0, 3) });
+      }
+      if (consoleErrors.length) {
+        summaries.push({ route, consoleErrors: consoleErrors.slice(0, 5) });
+      }
+      if (failedRequests.length) {
+        failures.push(`${route}: failed same-origin requests: ${JSON.stringify(failedRequests.slice(0, 5))}`);
+        summaries.push({ route, failedRequests: failedRequests.slice(0, 5) });
+      }
+      if (failedResponses.length) {
+        failures.push(`${route}: same-origin server errors: ${JSON.stringify(failedResponses.slice(0, 5))}`);
+        summaries.push({ route, failedResponses: failedResponses.slice(0, 5) });
       }
     } catch (error) {
       failures.push(`${route}: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);

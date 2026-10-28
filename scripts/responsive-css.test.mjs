@@ -898,3 +898,91 @@ testRunner.test("mobile map result cards use the Hirmand navy-and-gold signature
   assert.match(mapTheme, /\.pf-page \.pf-map-divar-layout \.pf-map-item-open\s*\{[^}]*background:\s*#0b1a2b !important;[^}]*color:\s*#f5d995 !important/s, "details action must use navy with gold text");
   assert.match(mapTheme, /:focus-visible[\s\S]*?outline:\s*2px solid #c08a2a/, "map controls must keep a visible Hirmand-gold focus ring");
 });
+
+
+testRunner.test("responsive browser matrix covers the requested mobile, tablet, laptop and desktop widths", () => {
+  const matrix = responsiveSmoke.slice(
+    responsiveSmoke.indexOf("const viewportMatrix = ["),
+    responsiveSmoke.indexOf("];", responsiveSmoke.indexOf("const viewportMatrix = [")),
+  );
+  for (const width of [320, 360, 375, 390, 430, 768, 1024, 1280, 1366, 1440, 1920]) {
+    assert.ok(matrix.includes(`width: ${width},`), `missing responsive viewport width: ${width}px`);
+  }
+});
+
+testRunner.test("gold surfaces use the navy foreground for readable contrast", () => {
+  const skipLinkRule = globalCss.match(/\.skip-link\s*\{[^}]*\}/s)?.[0] ?? "";
+  const primaryButtonRule = globalCss.match(/\.btn-gold\s*\{[^}]*\}/s)?.[0] ?? "";
+  assert.match(skipLinkRule, /background:\s*var\(--gold\);/);
+  assert.match(skipLinkRule, /color:\s*var\(--fg\);/,
+    "the keyboard skip link must use a dark foreground on the gold background");
+  assert.match(primaryButtonRule, /background:\s*var\(--gold-soft\);/);
+  assert.match(primaryButtonRule, /color:\s*var\(--fg\);/,
+    "primary gold buttons must use a dark foreground so their labels remain readable");
+});
+
+testRunner.test("global UI respects the reduced-motion accessibility preference", () => {
+  const reducedMotion = globalCss.slice(globalCss.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
+  assert.ok(reducedMotion.length > 0, "shared styles must define a reduced-motion fallback");
+  assert.match(reducedMotion, /animation-duration:\s*0\.01ms\s*!important;/);
+  assert.match(reducedMotion, /animation-iteration-count:\s*1\s*!important;/);
+  assert.match(reducedMotion, /transition-duration:\s*0\.01ms\s*!important;/);
+  assert.match(reducedMotion, /scroll-behavior:\s*auto\s*!important;/);
+});
+
+testRunner.test("responsive browser smoke records console errors and fails on app runtime/network errors", () => {
+  assert.ok(responsiveSmoke.includes('page.on("console"'), "browser smoke must collect console errors");
+  assert.ok(responsiveSmoke.includes('page.on("requestfailed"'), "browser smoke must observe failed requests");
+  assert.ok(responsiveSmoke.includes('page.on("response"'), "browser smoke must observe HTTP server errors");
+  assert.ok(responsiveSmoke.includes("same-origin server errors"), "same-origin HTTP 5xx responses must fail the run");
+  assert.ok(responsiveSmoke.includes("failed same-origin requests"), "same-origin request failures must fail the run");
+  assert.ok(responsiveSmoke.includes("uncaught browser errors"), "uncaught page errors must fail the run");
+});
+
+
+
+testRunner.test("gold foreground combinations meet WCAG AA normal-text contrast", () => {
+  const rootVars = globalCss.match(/:root\s*\{([^}]*)\}/s)?.[1] ?? "";
+  const foreground = rootVars.match(/--fg:\s*(#[0-9a-f]{6})/i)?.[1];
+  const gold = rootVars.match(/--gold:\s*(#[0-9a-f]{6})/i)?.[1];
+  const goldSoft = rootVars.match(/--gold-soft:\s*(#[0-9a-f]{6})/i)?.[1];
+  assert.ok(foreground && gold && goldSoft, "the global palette must expose concrete colors for contrast checks");
+
+  const luminance = (hex) => {
+    const channels = hex.slice(1).match(/[0-9a-f]{2}/gi)?.map((channel) => parseInt(channel, 16) / 255) ?? [];
+    assert.equal(channels.length, 3);
+    const linear = channels.map((channel) =>
+      channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4,
+    );
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+  };
+  const contrast = (first, second) => {
+    const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+  };
+
+  assert.ok(contrast(foreground, gold) >= 4.5, "skip-link text must meet WCAG AA on the gold accent");
+  assert.ok(contrast(foreground, goldSoft) >= 4.5, "primary button text must meet WCAG AA on the gold-soft fill");
+});
+
+
+testRunner.test("responsive smoke includes property request and digital business card routes", () => {
+  const routeBlock = responsiveSmoke.slice(
+    responsiveSmoke.indexOf("const routes = ["),
+    responsiveSmoke.indexOf("];", responsiveSmoke.indexOf("const routes = [")),
+  );
+  assert.ok(routeBlock.includes('"/request-property"'), "property request form must be covered by browser smoke");
+  assert.ok(routeBlock.includes('"/card"'), "digital business card must be covered by browser smoke");
+});
+
+
+testRunner.test("property ad-copy handles denied clipboard permission", () => {
+  const propertyActions = fs.readFileSync(new URL("../src/components/hirmand/property-actions.tsx", import.meta.url), "utf8");
+  const copyHandler = propertyActions.slice(
+    propertyActions.indexOf("function copyPropertyAdText"),
+    propertyActions.indexOf("function readCompare"),
+  );
+  assert.ok(copyHandler.includes(".catch("), "clipboard rejection must be handled");
+  assert.ok(copyHandler.includes("toast.error("), "users must receive feedback when clipboard access is denied");
+});
+

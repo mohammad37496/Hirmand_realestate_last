@@ -6,17 +6,17 @@
 @import "@fontsource/vazirmatn/800.css";
 
 @theme {
-  --color-bg: #f5f7f6;
+  --color-bg: #f7f4ee;
   --color-surface: #ffffff;
-  --color-surface-2: #edf2f0;
-  --color-fg: #15221f;
-  --color-muted: #65736e;
-  --color-subtle: #8b9894;
-  --color-gold: #0f766e;
-  --color-gold-soft: #c48a3a;
+  --color-surface-2: #f1eae0;
+  --color-fg: #0b1a2b;
+  --color-muted: #657486;
+  --color-subtle: #8b929c;
+  --color-gold: #c08a2a;
+  --color-gold-soft: #d0a34a;
   --color-ink: #ffffff;
-  --color-border: rgba(21, 34, 31, 0.10);
-  --color-gold-line: rgba(15, 118, 110, 0.20);
+  --color-border: rgba(11, 26, 43, 0.12);
+  --color-gold-line: rgba(192, 138, 42, 0.24);
   --font-sans: "Vazirmatn", Tahoma, Arial, sans-serif;
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -32,17 +32,17 @@
 }
 
 :root {
-  --bg: #f5f7f6;
+  --bg: #f7f4ee;
   --surface: #ffffff;
-  --surface-2: #edf2f0;
-  --fg: #15221f;
-  --muted: #65736e;
-  --subtle: #8b9894;
-  --gold: #0f766e;
-  --gold-soft: #c48a3a;
+  --surface-2: #f1eae0;
+  --fg: #0b1a2b;
+  --muted: #657486;
+  --subtle: #8b929c;
+  --gold: #c08a2a;
+  --gold-soft: #d0a34a;
   --ink: #ffffff;
-  --line: rgba(244, 239, 230, 0.1);
-  --gold-line: rgba(15, 118, 110, 0.20);
+  --line: rgba(11, 26, 43, 0.12);
+  --gold-line: rgba(192, 138, 42, 0.24);
   --r-sm: 10px;
   --r-md: 14px;
   --r-lg: 22px;
@@ -134,7 +134,7 @@ p {
   z-index: 80;
   padding: 8px 14px;
   background: var(--gold);
-  color: var(--ink);
+  color: var(--fg);
   border-radius: var(--r-xs);
   font-weight: 700;
 }
@@ -227,7 +227,7 @@ p {
 }
 
 .btn-gold {
-  color: var(--ink);
+  color: var(--fg);
   background: var(--gold-soft);
   box-shadow: 0 8px 22px rgba(192, 138, 42, 0.18);
 }
@@ -9981,5 +9981,22 @@ a.btn-ghost[href^="https://wa.me/"] svg {
   }
   .site-home .property-showcase {
     padding-top: 30px;
+  }
+}
+
+
+/* Sitewide reduced-motion support for route transitions and decorative UI. */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
