@@ -187,10 +187,16 @@ function copyPropertyAdText(property: PropertyShareCardData) {
   const url = new URL(propertyPath(property), window.location.origin).toString();
   const text = buildPropertyAdText(property, url);
   if (navigator.clipboard?.writeText) {
-    return navigator.clipboard.writeText(text).then(() => {
-      toast.success("متن آماده آگهی کپی شد.");
-      trackAnalyticsEvent("property_share", property.slug);
-    });
+    return navigator.clipboard.writeText(text)
+      .then(() => {
+        toast.success("متن آماده آگهی کپی شد.");
+        trackAnalyticsEvent("property_share", property.slug);
+      })
+      .catch(() => {
+        // Clipboard permissions can be denied even when the API exists.
+        // Keep that expected browser failure from becoming an unhandled rejection.
+        toast.error("کپی متن آماده آگهی انجام نشد. اجازهٔ دسترسی به کلیپ‌بورد را بررسی کنید.");
+      });
   }
   window.prompt("متن آماده آگهی:", text);
   return Promise.resolve();
