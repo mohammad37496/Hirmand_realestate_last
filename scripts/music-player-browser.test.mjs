@@ -135,6 +135,28 @@ try {
   const firstResponseGate = new Promise((resolveGate) => { releaseFirstResponse = resolveGate; });
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: "block" });
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "__qaAudioCalls", {
+      configurable: true,
+      value: { play: 0, pause: 0 },
+    });
+    const mediaPrototype = HTMLMediaElement.prototype;
+    Object.defineProperty(mediaPrototype, "paused", {
+      configurable: true,
+      get() { return this.__qaPaused ?? true; },
+    });
+    mediaPrototype.play = function () {
+      this.__qaPaused = false;
+      window.__qaAudioCalls.play += 1;
+      this.dispatchEvent(new Event("play"));
+      return Promise.resolve();
+    };
+    mediaPrototype.pause = function () {
+      this.__qaPaused = true;
+      window.__qaAudioCalls.pause += 1;
+      this.dispatchEvent(new Event("pause"));
+    };
+  });
   const runtimeErrors = [];
   page.on("pageerror", (error) => runtimeErrors.push(String(error?.message || error)));
   await page.route("**/api/music", async (route) => {
@@ -170,6 +192,34 @@ try {
   assert.equal(loadedGeometry.bottom, loadingGeometry.bottom);
   assert.equal(loadedGeometry.width, loadingGeometry.width);
   assert.equal(loadedGeometry.height, loadingGeometry.height);
+
+  // Exercise the actual React controls with deterministic media-element stubs:
+  // CI validates UI/state transitions without relying on a live audio codec or
+  // an externally hosted MP3 file.
+  await page.getByRole("button", { name: "نمایش فهرست موسیقی" }).click();
+  await page.getByRole("button", { name: "پخش" }).click();
+  await page.getByRole("button", { name: "مکث" }).waitFor();
+  assert.ok(await page.evaluate(() => window.__qaAudioCalls.play > 0), "play should invoke HTMLMediaElement.play()");
+  await page.getByRole("button", { name: "مکث" }).click();
+  await page.getByRole("button", { name: "پخش" }).waitFor();
+  assert.ok(await page.evaluate(() => window.__qaAudioCalls.pause > 0), "pause should invoke HTMLMediaElement.pause()");
+  await page.getByRole("button", { name: "پخش" }).click();
+  await page.getByRole("button", { name: "مکث" }).waitFor();
+  await page.getByRole("button", { name: "توقف آهنگ" }).click();
+  await page.getByRole("button", { name: "پخش" }).waitFor();
+
+  const volumeControl = page.getByRole("slider", { name: "کم و زیاد کردن صدا" });
+  await volumeControl.evaluate((element) => {
+    element.value = "0.35";
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForFunction(() => Math.abs(document.querySelector("#hirmand-site-music-player audio")?.volume - 0.35) < 0.001);
+  await page.getByRole("button", { name: "قطع صدا" }).click();
+  await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.muted === true);
+  await page.getByRole("button", { name: "روشن کردن صدا" }).click();
+  await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.muted === false);
+  assert.deepEqual(runtimeErrors, [], "media control interactions must not produce browser runtime errors");
 
   const routes = ["/properties", "/properties/qa-apartment-long-title", "/admin"];
   for (const path of routes) {
