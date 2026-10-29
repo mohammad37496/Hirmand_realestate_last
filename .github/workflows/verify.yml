@@ -97,6 +97,10 @@ jobs:
           NITRO_PORT: "8081"
           HOST: 127.0.0.1
           NITRO_HOST: 127.0.0.1
+          QA_BASE_URL: http://127.0.0.1:8081
+          QA_VIEWPORTS: "320x568,360x800,390x844,412x915,768x1024,1024x768,1440x900,1920x1080"
+          QA_SCREENSHOT_DIR: /workspace/screenshots/admin
+          HIRMAND_ADMIN_KEY: browser-smoke-admin-key
         run: |
           set -euo pipefail
           sudo mkdir -p /workspace
@@ -148,6 +152,8 @@ jobs:
           node scripts/browser-smoke.mjs http://127.0.0.1:8081/ /workspace/screenshots/hirmand-preview.png
           node scripts/property-search-browser-smoke.mjs http://127.0.0.1:8081
           node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081
+          # Keep the server alive while auditing admin layouts and accessibility.
+          npm run qa:admin-a11y
 
       - name: Cleanup property-detail fixture
         if: always() && steps.migrate_database.outcome == 'success'

@@ -12,7 +12,7 @@ import { installAdminApiStubs } from "./admin-fixtures.mjs";
 
 const BASE = process.env.QA_BASE_URL || "http://127.0.0.1:8080";
 const KEY = process.env.HIRMAND_ADMIN_KEY || "";
-const OUT = "screenshots/admin";
+const OUT = process.env.QA_SCREENSHOT_DIR || "screenshots/admin";
 
 const VIEWS = [
   { id: "dashboard", label: "داشبورد" },
@@ -300,13 +300,22 @@ const AUDIT = () => {
       });
     }
 
-    // Touch targets: WCAG 2.2 asks for 24x24; the project brand asks 44px.
+    // Keep the project's 44px standard for admin icon actions on phones;
+    // other controls retain the existing 32px audit floor because their hit
+    // area may be enlarged by a label or an absolutely positioned overlay.
     const area = hitArea(element);
-    if (window.innerWidth <= 640 && (area.width < 32 || area.height < 32)) {
+    const adminIconButton = element.classList.contains("admin-icon-btn");
+    const touchViewport = window.matchMedia("(pointer: coarse)").matches;
+    const target = touchViewport && adminIconButton
+      ? { width: rect.width, height: rect.height }
+      : area;
+    const minimumTarget = touchViewport && adminIconButton ? 44 : 32;
+    if (touchViewport && (target.width < minimumTarget || target.height < minimumTarget)) {
       issues.smallTargets.push({
         selector: `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 40)}`,
-        width: Math.round(area.width),
-        height: Math.round(area.height),
+        width: Math.round(target.width),
+        height: Math.round(target.height),
+        minimumTarget,
         name: name.slice(0, 30),
       });
     }
@@ -513,6 +522,8 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     locale: "fa-IR",
+    hasTouch: viewport.width <= 1024,
+    isMobile: viewport.width <= 640,
   });
   const page = await context.newPage();
   await installAdminApiStubs(page, BASE);

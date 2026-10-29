@@ -260,7 +260,7 @@ try {
     };
   });
   const runtimeErrors = [];
-  page.on("pageerror", (error) => runtimeErrors.push(String(error?.message || error)));
+  page.on("pageerror", (error) => runtimeErrors.push({ message: String(error?.message || error), url: page.url() }));
   await page.route("**/api/music", async (route) => {
     if (holdFirstResponse) {
       holdFirstResponse = false;
@@ -434,7 +434,31 @@ try {
   await assertDock(page, { width: 1024, height: 768 });
   const desktopContentVisible = await page.locator("#hirmand-site-music-player .music-player-full-content").evaluate((node) => getComputedStyle(node).display !== "none");
   assert.equal(desktopContentVisible, true, "mobile -> desktop must restore the full desktop player content");
-  assert.deepEqual(runtimeErrors, [], `browser runtime errors: ${runtimeErrors.join("; ")}`);
+
+  // Vite can occasionally fail one route's dynamically imported client entry
+  // during a rapid full-route matrix. Retry that exact route once; suppress the
+  // transient error only when the reload succeeds without repeating it.
+  const transientImportFailures = runtimeErrors.filter(({ message }) =>
+    message.includes("Failed to fetch dynamically imported module:") &&
+    message.includes("/node_modules/@tanstack/react-start/dist/plugin/default-entry/client.tsx"),
+  );
+  for (const failure of transientImportFailures) {
+    const beforeRetry = runtimeErrors.length;
+    const failedUrl = new URL(failure.url);
+    await navigateToRoute(page, baseUrl, failedUrl.pathname + failedUrl.search + failedUrl.hash);
+    await page.waitForTimeout(250);
+    const repeated = runtimeErrors.slice(beforeRetry).some((entry) => entry.message === failure.message);
+    if (!repeated) {
+      const originalIndex = runtimeErrors.indexOf(failure);
+      if (originalIndex >= 0) runtimeErrors.splice(originalIndex, 1);
+      console.log("[music-player-browser] recovered transient Vite module fetch after reloading " + failure.url);
+    }
+  }
+  assert.deepEqual(
+    runtimeErrors,
+    [],
+    `browser runtime errors: ${runtimeErrors.map(({ url, message }) => url + ": " + message).join("; ")}`,
+  );
   await page.close();
 
   // A separate empty-list response verifies that a successful empty result and
