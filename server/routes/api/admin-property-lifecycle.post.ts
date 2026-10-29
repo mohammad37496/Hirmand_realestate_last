@@ -119,10 +119,17 @@ export default defineEventHandler(async (event) => {
     let createdTasks = 0;
     for (const item of items) {
       if (item.hasOpenTask) continue;
-      await sql.query(
+      // The partial unique index is the concurrency guard: two admins may
+      // request lifecycle tasks from the same stale snapshot at the same time.
+      // Count only rows actually inserted, not attempted inserts.
+      const inserted = await sql.query<{ id: string }>(
         `insert into admin_tasks
           (id,title,description,status,priority,due_at,assignee,entity_type,entity_id)
-         values($1,$2,$3,'open',$4,current_timestamp + interval '24 hours',$5,'property',$6)`,
+         values($1,$2,$3,'open',$4,current_timestamp + interval '24 hours',$5,'property',$6)
+         on conflict (entity_type, entity_id)
+           where status='open' and entity_type='property' and title like 'تازه‌سازی فایل:%'
+         do nothing
+         returning id`,
         [
           crypto.randomUUID(),
           "تازه‌سازی فایل: " + item.title,
@@ -132,7 +139,7 @@ export default defineEventHandler(async (event) => {
           item.id,
         ],
       );
-      createdTasks += 1;
+      if (inserted.length > 0) createdTasks += 1;
     }
     return { items, createdTasks };
   }
