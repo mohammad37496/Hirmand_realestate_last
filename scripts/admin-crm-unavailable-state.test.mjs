@@ -29,3 +29,25 @@ test("lead CRM does not report successful mutations or an empty list when the da
   assert.match(ui, /loadError && filteredLeads\.length === 0/);
   assert.match(fixture, /JSON\.stringify\(\{ available: true, total, leads:/);
 });
+
+test("action center distinguishes an unavailable database and refuses task completion without storage", () => {
+  const route = read("server/routes/api/admin-action-center.post.ts");
+  const ui = read("src/components/hirmand/admin-action-center.tsx");
+  assert.match(route, /if \(dbSource === "unconfigured"\) \{\s*if \(body\.action === "completeTask"\) throw createError\(\{ statusCode: 503/);
+  assert.match(route, /available: false, summary:/);
+  assert.match(route, /available: true,\s*summary:/);
+  assert.match(ui, /typeof result\?\.available !== "boolean"/);
+  assert.match(ui, /available === false \?\s*\(\s*<AdminErrorBanner/);
+  assert.match(ui, /available === true \? summary\.total/);
+});
+
+test("admin agenda distinguishes an empty schedule from unavailable or failed data", () => {
+  const route = read("server/routes/api/admin-agenda.post.ts");
+  const ui = read("src/components/hirmand/admin-agenda.tsx");
+  assert.match(route, /dbSource === "unconfigured"\) return \{ available: false,/);
+  assert.match(route, /available: true,/);
+  assert.match(ui, /typeof payload\?\.available!=="boolean"/);
+  assert.match(ui, /loadError \? <AdminErrorBanner/);
+  assert.match(ui, /data\?\.available===false \? <AdminErrorBanner/);
+  assert.doesNotMatch(ui, /setData\(\{overdueFollowUps:\[\],upcomingVisits:\[\],upcomingCallbacks:\[\]\}\)/);
+});
