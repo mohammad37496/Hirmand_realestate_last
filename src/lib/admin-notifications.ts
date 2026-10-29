@@ -2,13 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
+import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { adminNotificationVisibilityPredicate, getAdminNotificationAccess, type AdminNotificationAccess } from "@/lib/admin-notification-access";
 
 async function requireAdmin() {
   const token = getCookie(ADMIN_SESSION_COOKIE);
   if (!(await verifyAdminSessionToken(token))) throw new Error("نشست مدیریت معتبر نیست.");
   assertAdminServerFnOrigin();
+  return getAdminSessionClaims(token);
 }
 
 type Candidate = {
@@ -21,21 +23,21 @@ type Candidate = {
   entityId?: string;
 };
 
-async function syncCandidates(sql: Awaited<ReturnType<typeof getSql>>) {
+async function syncCandidates(sql: Awaited<ReturnType<typeof getSql>>, access: AdminNotificationAccess) {
   const candidates: Candidate[] = [];
   const [leads, visits, messages, staleProperties] = await Promise.all([
-    sql.query<Record<string, unknown>>(
+    access.canManageLeads ? sql.query<Record<string, unknown>>(
       "select id,name,follow_up_at from leads where status not in ('closed','spam') and follow_up_at is not null and follow_up_at <= current_timestamp order by follow_up_at asc limit 40",
-    ).catch(() => []),
-    sql.query<Record<string, unknown>>(
+    ).catch(() => []) : Promise.resolve([] as Record<string, unknown>[]),
+    access.canManageLeads ? sql.query<Record<string, unknown>>(
       "select id,name from leads where visit_status='requested' order by visit_requested_at desc nulls last limit 30",
-    ).catch(() => []),
-    sql.query<Record<string, unknown>>(
+    ).catch(() => []) : Promise.resolve([] as Record<string, unknown>[]),
+    access.canManageLeads ? sql.query<Record<string, unknown>>(
       "select lead_id,count(*)::int as unread_count,max(created_at) as latest from customer_messages where sender_type='customer' and read_by_admin_at is null group by lead_id order by max(created_at) desc limit 30",
-    ).catch(() => []),
-    sql.query<Record<string, unknown>>(
+    ).catch(() => []) : Promise.resolve([] as Record<string, unknown>[]),
+    access.canManageProperties ? sql.query<Record<string, unknown>>(
       "select id,title from properties where deleted_at is null and status='published' and coalesce(jsonb_array_length(images),0)=0 order by updated_at desc limit 20",
-    ).catch(() => []),
+    ).catch(() => []) : Promise.resolve([] as Record<string, unknown>[]),
   ]);
 
   for (const row of leads) {
@@ -118,16 +120,20 @@ export type AdminNotification = {
 export const listAdminNotifications = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(100).optional().default(50) }))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const claims = await requireAdmin();
+    const access = getAdminNotificationAccess(claims?.role);
     if (dbSource === "unconfigured") return { notifications: [], unread: 0 };
     const sql = await getSql();
-    await syncCandidates(sql);
+    await syncCandidates(sql, access);
     const rows = await sql.query<Record<string, unknown>>(
-      "select id,kind,severity,title,body,entity_type,entity_id,created_at,read_at from admin_notifications order by (read_at is null) desc, created_at desc limit $1",
-      [data.limit],
+      `select id,kind,severity,title,body,entity_type,entity_id,created_at,read_at
+       from admin_notifications where ${adminNotificationVisibilityPredicate("$2", "$3", "$4")}
+       order by (read_at is null) desc, created_at desc limit $1`,
+      [data.limit, access.canManageLeads, access.canManageProperties, access.canViewOther],
     );
     const unread = Number((await sql.query<{ count: number }>(
-      "select count(*)::int as count from admin_notifications where read_at is null",
+      `select count(*)::int as count from admin_notifications where read_at is null and (${adminNotificationVisibilityPredicate("$1", "$2", "$3")})`,
+      [access.canManageLeads, access.canManageProperties, access.canViewOther],
     ))[0]?.count) || 0;
     return {
       unread,
@@ -148,19 +154,27 @@ export const listAdminNotifications = createServerFn({ method: "POST" })
 export const markAdminNotificationRead = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.number().int().positive() }))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const claims = await requireAdmin();
+    const access = getAdminNotificationAccess(claims?.role);
     if (dbSource === "unconfigured") return { success: true };
     const sql = await getSql();
-    await sql.query("update admin_notifications set read_at=current_timestamp where id=$1", [data.id]);
-    return { success: true };
+    const rows = await sql.query<{ id: number }>(
+      `update admin_notifications set read_at=current_timestamp where id=$1 and (${adminNotificationVisibilityPredicate("$2", "$3", "$4")}) returning id`,
+      [data.id, access.canManageLeads, access.canManageProperties, access.canViewOther],
+    );
+    return { success: rows.length > 0 };
   });
 
 export const markAllAdminNotificationsRead = createServerFn({ method: "POST" })
   .validator(z.object({}).optional())
   .handler(async () => {
-    await requireAdmin();
+    const claims = await requireAdmin();
+    const access = getAdminNotificationAccess(claims?.role);
     if (dbSource === "unconfigured") return { success: true };
     const sql = await getSql();
-    await sql.query("update admin_notifications set read_at=current_timestamp where read_at is null");
+    await sql.query(
+      `update admin_notifications set read_at=current_timestamp where read_at is null and (${adminNotificationVisibilityPredicate("$1", "$2", "$3")})`,
+      [access.canManageLeads, access.canManageProperties, access.canViewOther],
+    );
     return { success: true };
   });
