@@ -64,6 +64,19 @@ test("expiry route uses atomic statements for every state change and its audit e
   assert.doesNotMatch(route, /for\(const r of rows\)await sql\.query\("insert into admin_property_expiry_actions/);
 });
 
+test("expiry API marks an unconfigured database unavailable and rejects every mutation", () => {
+  assert.match(route, /if\(dbSource==="unconfigured"\)\{[\s\S]*if\(action!=="list"\)throw createError\(\{statusCode:503/);
+  assert.match(route, /return \{available:false,expired:\[\],soon:\[\],review:\[\]/);
+  assert.match(route, /if\(action==="list"\)return \{available:true,/);
+});
+
+test("expiry panel validates availability and exposes retry instead of showing false zero counts", () => {
+  const component = readFileSync(new URL("../components/hirmand/admin-property-expiry.tsx", import.meta.url), "utf8");
+  assert.match(component, /typeof x\?\.available!=="boolean"/);
+  assert.match(component, /if\(!data\?\.available\)return[\s\S]*AdminErrorBanner/);
+  assert.match(component, /loadError&&!data[\s\S]*onRetry/);
+});
+
 test("archiving updates only active expired properties and logs exactly those updates", async () => {
   const db = await createDb();
   try {
