@@ -31,23 +31,28 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "درخواستی با این کد رهگیری پیدا نشد." });
   }
 
-  const latest = await sql.query<{ createdAt:string }>(
-    "select created_at as \"createdAt\" from customer_messages where lead_id=$1 order by created_at desc limit 1",
-    [lead.id],
-  );
-  if (latest[0] && Date.now() - new Date(latest[0].createdAt).getTime() < 12_000) {
-    throw createError({ statusCode: 429, statusMessage: "برای جلوگیری از پیام‌های تکراری، چند ثانیه صبر کنید." });
-  }
-
   // Keep a small audit breadcrumb without storing IP or user agent in the message.
   const fingerprint = clientFingerprint(event).slice(0, 180);
   void fingerprint;
 
   const id = crypto.randomUUID();
-  await sql.query(
-    "insert into customer_messages(id,lead_id,tracking_token,sender_type,sender_name,message) values($1,$2,$3,'customer',$4,$5)",
-    [id, lead.id, lead.trackingToken, body.data.name.trim(), body.data.message],
+  const inserted = await sql.query<{ id: string }>(
+    `with claim as (
+       insert into customer_message_cooldowns (lead_id, next_allowed_at, updated_at)
+       values ($1, current_timestamp + interval '12 seconds', current_timestamp)
+       on conflict (lead_id) do update
+         set next_allowed_at = excluded.next_allowed_at, updated_at = current_timestamp
+         where customer_message_cooldowns.next_allowed_at <= current_timestamp
+       returning lead_id
+     )
+     insert into customer_messages (id, lead_id, tracking_token, sender_type, sender_name, message)
+     select $2, $1, $3, 'customer', $4, $5 from claim
+     returning id`,
+    [lead.id, id, lead.trackingToken, body.data.name.trim(), body.data.message],
   );
+  if (!inserted.length) {
+    throw createError({ statusCode: 429, statusMessage: "برای جلوگیری از پیام‌های تکراری، چند ثانیه صبر کنید." });
+  }
 
   return { success: true, id, message: "پیام شما برای مشاور هیرمند ارسال شد." };
 });
