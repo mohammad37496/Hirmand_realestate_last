@@ -7,6 +7,7 @@ import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { hashAdminPassword } from "@/lib/admin-password.server";
 import { hasAdminPermission, normalizeAdminRole, type AdminRole } from "@/lib/admin-roles";
+import { SET_ADMIN_ACCOUNT_ACTIVE_SQL } from "@/lib/admin-account-active-update";
 
 async function requireAccountsAdmin() {
   const token = getCookie(ADMIN_SESSION_COOKIE);
@@ -96,23 +97,9 @@ export const setAdminAccountActive = createServerFn({ method: "POST" })
     }
     if (dbSource === "unconfigured") throw new Error("پایگاه داده تنظیم نشده است.");
     const sql = await getSql();
-    if (!data.active) {
-      const target = await sql.query<{ role: string; is_active: boolean }>(
-        'select role,is_active from admin_accounts where id=$1 limit 1',
-        [data.id],
-      );
-      if (target[0]?.is_active && normalizeAdminRole(target[0].role) === "owner") {
-        const owners = await sql.query<{ count: number }>(
-          "select count(*)::int as count from admin_accounts where role='owner' and is_active=true",
-        );
-        if (Number(owners[0]?.count) <= 1) throw new Error("حداقل یک مالک سیستم فعال باید باقی بماند.");
-      }
-    }
-    const rows = await sql.query<{ id: string }>(
-      'update admin_accounts set is_active=$2, updated_at=current_timestamp where id=$1 returning id',
-      [data.id, data.active],
-    );
-    if (!rows[0]) throw new Error("حساب مدیر پیدا نشد.");
+    const rows = await sql.query<{ id: string; result: string }>(SET_ADMIN_ACCOUNT_ACTIVE_SQL, [data.id, data.active]);
+    if (rows[0]?.result === "last_owner") throw new Error("حداقل یک مالک سیستم فعال باید باقی بماند.");
+    if (rows[0]?.result !== "updated") throw new Error("حساب مدیر پیدا نشد.");
     await writeAdminAuditLog({
       action: data.active ? "admin_account_activated" : "admin_account_deactivated",
       entityType: "admin_account",
