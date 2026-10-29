@@ -13,6 +13,7 @@ test("expiry renewal task creation uses the database uniqueness guard and counts
   assert.match(route, /on conflict \(entity_type,entity_id\)[\s\S]*do nothing returning id/);
   assert.match(route, /if\(!inserted\.length\)continue/);
   assert.match(route, /createdTasks\+\+;/);
+  assert.match(route, /update properties set status='archived'[\\s\\S]*where deleted_at is null and status='published'/);
 
   const db = new PGlite();
   try {
