@@ -18,6 +18,14 @@ const publicLeadActionsRoute = await readFile(
   new URL("../server/routes/api/public-lead-actions.post.ts", import.meta.url),
   "utf8",
 );
+const customerPropertySubmissionsRoute = await readFile(
+  new URL("../server/routes/api/customer-property-submissions.post.ts", import.meta.url),
+  "utf8",
+);
+const liaraMediaRoute = await readFile(
+  new URL("../server/routes/api/liara-media.get.ts", import.meta.url),
+  "utf8",
+);
 
 test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
@@ -53,4 +61,14 @@ test("public lead actions check origin and rate-limit capability-token operation
   const throttleIndex = publicLeadActionsRoute.indexOf('consumeAdminAttempt("public-lead-action:"');
   const databaseCheckIndex = publicLeadActionsRoute.indexOf('dbSource === "unconfigured"');
   assert.ok(throttleIndex >= 0 && databaseCheckIndex > throttleIndex);
+});
+
+test("new customer property submissions are excluded from their own possible-duplicate query", () => {
+  assert.match(customerPropertySubmissionsRoute, /where id <> \$5 and status in \('pending','approved'\)/);
+  assert.match(customerPropertySubmissionsRoute, /normalizedTitle, submissionId\]/);
+});
+
+test("customer-submission media is never cached publicly after publication checks", () => {
+  assert.match(liaraMediaRoute, /"cache-control": customerSubmissionMedia\s*\?\s*"private, no-store"/);
+  assert.doesNotMatch(liaraMediaRoute, /const isPublicMedia = !customerSubmissionMedia \|\| publishedReference/);
 });
