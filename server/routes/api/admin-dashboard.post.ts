@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
       topProperties: [],
       eventStats: [],
       visitorSources: [],
+      consultantPerformance: [],
       followUps: { due: 0, next7: 0 },
       leadSla: { overdue: 0, newOver4Hours: 0 },
       recentLeads: [],
