@@ -18,3 +18,14 @@ test("message-template UI keeps API errors visible and disables writes until tem
   assert.match(ui, /disabled=\{saving \|\| available !== true\}/);
   assert.match(ui, /loadError && !templates\.length \? null/);
 });
+
+test("lead CRM does not report successful mutations or an empty list when the database is unconfigured", () => {
+  const route = read("server/routes/api/leads-admin.post.ts");
+  const ui = read("src/components/hirmand/admin-lead-manager.tsx");
+  const fixture = read("scripts/admin-fixtures.mjs");
+  assert.match(route, /if \(dbSource === "unconfigured"\) \{\s*if \(!body\.action \|\| body\.action === "list"\) return \{ available: false, leads: \[\], total: 0 \};\s*throw createError\(\{ statusCode: 503/);
+  assert.match(route, /available: true,\s*total: Number\(countRows\[0\]\?\.count\)/);
+  assert.match(ui, /data\.available === false/);
+  assert.match(ui, /loadError && filteredLeads\.length === 0/);
+  assert.match(fixture, /JSON\.stringify\(\{ available: true, total, leads:/);
+});

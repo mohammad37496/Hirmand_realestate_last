@@ -103,7 +103,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "سطح دسترسی CRM برای این حساب فعال نیست." });
   }
 
-  if (dbSource === "unconfigured") return { leads: [], total: 0 };
+  if (dbSource === "unconfigured") {
+    if (!body.action || body.action === "list") return { available: false, leads: [], total: 0 };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ عملیات CRM انجام نشد." });
+  }
   const sql = await getSql();
 
   if (body.action === "export") {
@@ -251,6 +254,7 @@ export default defineEventHandler(async (event) => {
     ]);
 
     return {
+      available: true,
       total: Number(countRows[0]?.count) || 0,
       leads: rows.map((row) => ({
         id: String(row.id),
