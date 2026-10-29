@@ -60,8 +60,14 @@ test("lead status, visit, note, follow-up and assignment updates each write a ma
     assert.equal(Date.parse(lead.rows[0]?.follow_up_at ?? ""), Date.parse(followUpAt));
     assert.ok(lead.rows[0]?.last_contacted_at);
 
+    const cleared = await db.query<{ follow_up_at: string | null }>(
+      UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL,
+      ["lead-1", null, "Follow-up cleared", "Next follow-up cleared", JSON.stringify({ followUpAt: null })],
+    );
+    assert.equal(cleared.rows[0]?.follow_up_at, null);
+
     const activities = await db.query<{ activity_type: string }>("select activity_type from lead_activities order by id");
-    assert.deepEqual(activities.rows.map((row) => row.activity_type), ["status", "visit", "note", "follow_up", "status"]);
+    assert.deepEqual(activities.rows.map((row) => row.activity_type), ["status", "visit", "note", "follow_up", "status", "follow_up"]);
   } finally {
     await db.close();
   }
