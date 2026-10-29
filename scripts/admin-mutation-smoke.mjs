@@ -5,7 +5,7 @@ import { chromium } from "playwright";
 const baseUrl = (process.argv[2] || "http://127.0.0.1:8081").replace(/\/$/, "");
 const adminKey = process.env.HIRMAND_ADMIN_KEY?.trim();
 const databaseUrl = process.env.DATABASE_URL?.trim();
-const title = `${process.env.ADMIN_SMOKE_PROPERTY_TITLE?.trim() || "فایل تست mutation ادمین هیرمند"} [smoke-${randomUUID()}]`;
+const title = `${process.env.ADMIN_SMOKE_PROPERTY_TITLE?.trim() || "فایل تست mutation ادمین هیرمند"}-smoke-${randomUUID()}`;
 const price = process.env.ADMIN_SMOKE_PROPERTY_PRICE?.trim() || "12345678901";
 
 if (!adminKey) throw new Error("HIRMAND_ADMIN_KEY is required for the admin mutation smoke.");
@@ -108,7 +108,10 @@ try {
         throw new Error("Published property detail returned HTTP " + (detail?.status() ?? 0));
       }
       const body = await page.locator("body").innerText();
-      if (!body.includes(title)) throw new Error("Published property detail does not contain the created title.");
+      const heading = await page.locator("h1.property-detail-title-block").innerText().catch(() => "");
+      if (!heading.includes(title)) {
+        throw new Error("Published property detail heading did not match the created title. Heading: " + heading.slice(0, 180) + "; body: " + body.slice(0, 180));
+      }
 
       console.log(JSON.stringify({
         ok: true,
