@@ -19,6 +19,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { csvCell } from "@/lib/csv";
 import type { PartnerContract, PartnerOverview, PartnerSummary } from "@/lib/partner-program.server";
 import { partnerPortalUrl, partnerQrImageUrl } from "@/lib/partner-links";
 
@@ -376,7 +377,6 @@ export function AdminPartnerManager() {
     }
   }
   function exportPartnersCsv() {
-    const csvCell = (value: string | number) => `"${String(value).replaceAll('"', '""').replaceAll("\r", " ").replaceAll("\n", " ")}"`;
     const rows = [
       ["کد همکاری", "نام املاک", "مسئول", "تلفن", "وضعیت", "قرارداد تأییدشده", "پاداش آماده", "در انتظار", "کارت"],
       ...partners.map((item) => [

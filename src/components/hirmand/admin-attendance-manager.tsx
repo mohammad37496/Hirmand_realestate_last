@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { csvCell } from "@/lib/csv";
 import { TEAM } from "@/lib/site";
 import { listAdminConsultants, type Consultant } from "@/lib/consultants";
 import {
@@ -241,10 +242,6 @@ function emptyForm(staffId = "") {
   };
 }
 
-function csvEscape(value: string | number) {
-  return `"${String(value).replace(/"/g, '""')}"`;
-}
-
 function selectedRangeTitle(mode: ReportRange, anchor: string) {
   if (mode === "week") return `هفته منتهی به ${formatPersianDate(anchor)}`;
   if (mode === "month") return `گزارش ماه ${formatPersianDate(anchor)}`;
@@ -470,7 +467,7 @@ export function AdminAttendanceManager() {
         ]);
       });
     }
-    const csv = "\ufeff" + rows.map((row) => row.map(csvEscape).join(",")).join("\r\n");
+    const csv = "\ufeff" + rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

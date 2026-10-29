@@ -35,6 +35,7 @@ import { fa, faBytes } from "@/components/hirmand/admin-ui-utils";
 import { hasAdminPermission, type AdminRole } from "@/lib/admin-roles";
 import { AdminSmartAlerts } from "@/components/hirmand/admin-smart-alerts";
 import { AdminNotificationCenter } from "@/components/hirmand/admin-notification-center";
+import { csvCell } from "@/lib/csv";
 import { isAdminDashboardPayload } from "@/lib/admin-dashboard-contract";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
@@ -346,7 +347,7 @@ export function AdminDashboard({
       ...data.consultantPerformance.map((item) => ["مشاور", item.name + " · قرارداد", csvMetric("consultantPerformance", item.contracts)]),
       ...data.unavailableSections.map((section) => ["وضعیت گزارش", UNAVAILABLE_DASHBOARD_SECTION_LABELS[section] ?? section, "داده در دسترس نیست"]),
     ];
-    const csv = "\uFEFF" + rows.map((row) => row.map((cell) => '"' + String(cell).replace(/"/g, '""') + '"').join(",")).join("\n");
+    const csv = "\uFEFF" + rows.map((row) => row.map(csvCell).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
