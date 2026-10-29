@@ -76,7 +76,18 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), requiredPermission)) {
     throw createError({ statusCode: 403, statusMessage: "برای انتشار فایل تأییدشده مجوز انتشار فایل لازم است." });
   }
-  if (dbSource === "unconfigured") return { submissions: [], total: 0, counts: { pending: 0, approved: 0, rejected: 0 } };
+  if (dbSource === "unconfigured") {
+    if (action !== "list") throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ عملیات صف ثبت ملک انجام نشد." });
+    return {
+      available: false,
+      submissions: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
+      counts: { pending: 0, approved: 0, rejected: 0 },
+      queueStats: { overdue: 0, highPriority: 0, unassigned: 0, averageAgeHours: 0, consultants: [] },
+    };
+  }
 
   const sql = await getSql();
 
@@ -141,6 +152,7 @@ export default defineEventHandler(async (event) => {
     );
     const sla = slaRows[0] ?? { overdue: 0, high_priority: 0, unassigned: 0, average_age_hours: 0 };
     return {
+      available: true,
       total,
       page,
       pageSize,
