@@ -82,3 +82,9 @@ test("lead dedupe merge locks both rows and requires both state transitions befo
   assert.match(code, /where id = \$2 and exists \(select 1 from merged\)/);
   assert.match(code, /!rows\[0\]\?\.canonical_id \|\| !rows\[0\]\?\.duplicate_id/);
 });
+
+test("management report finance totals include exactly the selected calendar-day range", async () => {
+  const code = await source("server/routes/api/admin-management-report.get.ts");
+  assert.match(code, /transaction_date >= current_date - \(\$1::int - 1\) and transaction_date < current_date \+ 1/);
+  assert.doesNotMatch(code, /transaction_date >= current_date - \(\$1::int\)\s*["']/);
+});
