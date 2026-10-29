@@ -1,10 +1,11 @@
 import pg from "pg";
+import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 
 const baseUrl = (process.argv[2] || "http://127.0.0.1:8081").replace(/\/$/, "");
 const adminKey = process.env.HIRMAND_ADMIN_KEY?.trim();
 const databaseUrl = process.env.DATABASE_URL?.trim();
-const title = process.env.ADMIN_SMOKE_PROPERTY_TITLE?.trim() || "فایل تست mutation ادمین هیرمند";
+const title = `${process.env.ADMIN_SMOKE_PROPERTY_TITLE?.trim() || "فایل تست mutation ادمین هیرمند"} [smoke-${randomUUID()}]`;
 const price = process.env.ADMIN_SMOKE_PROPERTY_PRICE?.trim() || "12345678901";
 
 if (!adminKey) throw new Error("HIRMAND_ADMIN_KEY is required for the admin mutation smoke.");
