@@ -4,6 +4,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { resubmitCustomerPropertySubmission } from "@/lib/customer-property-submission-resubmit";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -132,10 +133,15 @@ export default defineEventHandler(async (event) => {
     if (parsed.data.website) throw createError({ statusCode: 400, statusMessage: "درخواست نامعتبر است." });
 
     const previousReviewNote = String(submission.review_note ?? "").trim();
-    await sql.query(
-      "update customer_property_submissions set status='pending', review_note='', reviewed_at=null, updated_at=current_timestamp, queue_started_at=current_timestamp, owner_name=$2, owner_phone=$3, property_data=$4::jsonb where id=$1",
-      [submission.id, parsed.data.ownerName, parsed.data.ownerPhone, JSON.stringify(parsed.data)],
-    );
+    const resubmitted = await resubmitCustomerPropertySubmission(sql, {
+      id: String(submission.id),
+      ownerName: parsed.data.ownerName,
+      ownerPhone: parsed.data.ownerPhone,
+      propertyData: JSON.stringify(parsed.data),
+    });
+    if (!resubmitted) {
+      throw createError({ statusCode: 409, statusMessage: "Ø§ÛŒÙ† Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù‡Ù…Ø²Ù…Ø§Ù† ØªØºÛŒÛŒØ± Ú©Ø±Ø¯Ù‡ Ø§Ø³Øª. Ù„Ø·ÙØ§Ù‹ ÙˆØ¶Ø¹ÛŒØª Ø¬Ø¯ÛŒØ¯ Ø¢Ù† Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†ÛŒØ¯." });
+    }
     await sql.query(
       "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'resubmit',$3,$4::jsonb)",
       [crypto.randomUUID(), submission.id, "مشتری اطلاعات ملک را اصلاح و دوباره برای بررسی ارسال کرد.", JSON.stringify({ trackingToken })],
