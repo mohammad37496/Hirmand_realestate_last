@@ -10,7 +10,7 @@ import { propertyInputSchema } from "@/lib/properties";
 import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
-import { CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL } from "@/lib/customer-property-submission-approval";
+import { buildCustomerPropertySubmissionApprovalSql } from "@/lib/customer-property-submission-approval";
 import {
   BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL,
   BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL,
@@ -440,14 +440,6 @@ export default defineEventHandler(async (event) => {
       updatedAt: submission.updated_at_snapshot,
     });
     if (!rejected) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان تغییر کرده است. لطفاً فهرست را تازه‌سازی کنید." });
-    if (submission.lead_id) {
-      await sql.query("update leads set status='closed', updated_at=current_timestamp where id=$1", [submission.lead_id]).catch(() => {});
-      await sql.query(
-        "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
-        [submission.lead_id, "ثبت ملک رد شد", reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.", JSON.stringify({ submissionId: body.id })],
-      ).catch(() => {});
-    }
-    await logReviewEvent(sql, body.id, "reject", reviewNote || "درخواست ثبت ملک رد شد.");
     return { success: true, status: "rejected" };
   }
 
@@ -541,8 +533,11 @@ export default defineEventHandler(async (event) => {
     const slug = slugify(validated.data.title) + "-" + propertyId.slice(0, 8);
     const d = validated.data;
     const savedFloor = d.floorLabel === "suite" ? null : d.floor;
+    const approvalSql = buildCustomerPropertySubmissionApprovalSql(
+      `insert into properties (id,slug,status,featured,title,transaction_type,property_type,city,neighborhood,address,area_m2,bedrooms,bathrooms,floor,total_floors,built_year,parking,elevator,storage,cabinet_type,flooring_type,cooling_system,heating_system,wall_closet_type,other_amenities,price,deposit,rent,description,features,images,contact_name,contact_phone,published_at,featured_until,latitude,longitude,floor_label,painted,wallpaper,convertible,orientation,owner_name,owner_phone,owner_info,availability_status,internal_priority,internal_note) select $1,$2,'published',false,$3,$4,$5,'اصفهان',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26,$27::jsonb,$28::jsonb,$29,$30,current_timestamp,null,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,'available','normal',$41 from claimed returning id`,
+    );
     const approvalRows = await sql.query<{ id: string }>(
-      `${CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL} insert into properties (id,slug,status,featured,title,transaction_type,property_type,city,neighborhood,address,area_m2,bedrooms,bathrooms,floor,total_floors,built_year,parking,elevator,storage,cabinet_type,flooring_type,cooling_system,heating_system,wall_closet_type,other_amenities,price,deposit,rent,description,features,images,contact_name,contact_phone,published_at,featured_until,latitude,longitude,floor_label,painted,wallpaper,convertible,orientation,owner_name,owner_phone,owner_info,availability_status,internal_priority,internal_note) select $1,$2,'published',false,$3,$4,$5,'اصفهان',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26,$27::jsonb,$28::jsonb,$29,$30,current_timestamp,null,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,'available','normal',$41 from claimed returning id`,
+      approvalSql,
       [
         d.id, slug, d.title, d.transactionType, d.propertyType, d.neighborhood, d.address || null,
         d.areaM2 ?? null, d.bedrooms ?? null, d.bathrooms ?? null, savedFloor, d.totalFloors ?? null, d.builtYear ?? null,
@@ -554,26 +549,16 @@ export default defineEventHandler(async (event) => {
         body.id,
         typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0,1200) : "تأیید و انتشار شد.",
         submission.updated_at_snapshot,
+        JSON.stringify({ title:d.title, status:"published", source:"customer_property_submission", submissionId:body.id }),
+        crypto.randomUUID(),
+        JSON.stringify({ propertyId, propertySlug:slug, consultant:consultant.name }),
+        slug,
       ],
     );
     if (!approvalRows[0]) {
       throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان توسط مدیر دیگری بررسی شده است. فهرست را تازه‌سازی کنید." });
     }
 
-    await sql.query(
-      "insert into property_change_history (property_id,action,before_state,after_state) values ($1,'created',null,$2::jsonb)",
-      [propertyId, JSON.stringify({ title:d.title, status:"published", source:"customer_property_submission", submissionId:body.id })],
-    ).catch(() => {});
-
-    await logReviewEvent(sql, body.id, "approve", typeof body.reviewNote === "string" ? body.reviewNote.trim() : "تأیید و انتشار شد.", { propertyId, propertySlug: slug, consultant: consultant.name });
-
-    if (submission.lead_id) {
-      await sql.query("update leads set status='contacted', updated_at=current_timestamp where id=$1", [submission.lead_id]).catch(() => {});
-      await sql.query(
-        "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
-        [submission.lead_id, "ملک مشتری تأیید و منتشر شد", "فایل با موفقیت در سایت منتشر شد.", JSON.stringify({ submissionId:body.id, propertyId, propertySlug:slug })],
-      ).catch(() => {});
-    }
     clearPropertyReadCache();
     return { success:true, status:"approved", propertyId, slug };
   }
