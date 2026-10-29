@@ -3,6 +3,10 @@ import fs from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL } from "./customer-property-submission-approval.ts";
+import {
+  BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL,
+  BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL,
+} from "./customer-property-submission-bulk-review.ts";
 import { rejectPendingCustomerPropertySubmission, updatePendingCustomerPropertySubmission } from "./customer-property-submission-review-state.ts";
 
 const initialUpdatedAt = "2026-10-29T00:00:00.123456Z";
@@ -166,4 +170,113 @@ test("admin edit and reject use snapshot-guarded pending-only updates", () => {
   assert.match(route, /rejectPendingCustomerPropertySubmission\(sql,\s*\{/);
   assert.match(route, /if \(!updated\) throw createError\(\{ statusCode: 409/);
   assert.match(route, /if \(!rejected\) throw createError\(\{ statusCode: 409/);
+});
+
+async function bulkReviewFixture() {
+  const db = new PGlite();
+  await db.exec(`
+    create table customer_property_submissions (
+      id text primary key, lead_id text, status text not null, review_note text not null default '',
+      reviewed_at timestamptz, priority text not null default 'normal', updated_at timestamptz not null default current_timestamp
+    );
+    create table leads (id text primary key, status text not null, updated_at timestamptz);
+    create table lead_activities (
+      id bigint generated always as identity primary key, lead_id text not null, activity_type text not null,
+      title text not null, note text not null, metadata jsonb not null
+    );
+    create table customer_property_submission_events (
+      id text primary key, submission_id text not null, action text not null, note text not null, metadata jsonb not null
+    );
+    insert into leads (id,status) values ('lead-1','new'),('lead-2','contacted'),('lead-race','new');
+    insert into customer_property_submissions (id,lead_id,status) values
+      ('pending-1','lead-1','pending'),('pending-2','lead-2','pending'),('already-approved','lead-race','approved');
+  `);
+  return db;
+}
+
+test("bulk rejection updates only pending submissions and commits linked lead and review history", async () => {
+  const db = await bulkReviewFixture();
+  try {
+    const result = await db.query<{ id: string }>(BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL, [
+      ["pending-1", "pending-2", "already-approved", "missing"], "توضیح رد گروهی",
+    ]);
+    assert.deepEqual(result.rows.map((row) => row.id), ["pending-1", "pending-2"]);
+    const leads = await db.query<{ id: string; status: string }>("select id,status from leads where id in ('lead-1','lead-2') order by id");
+    assert.deepEqual(leads.rows, [{ id: "lead-1", status: "closed" }, { id: "lead-2", status: "closed" }]);
+    const activities = await db.query<{ lead_id: string; metadata: { submissionId: string; bulk: boolean } }>("select lead_id,metadata from lead_activities order by lead_id");
+    assert.deepEqual(activities.rows, [
+      { lead_id: "lead-1", metadata: { submissionId: "pending-1", bulk: true } },
+      { lead_id: "lead-2", metadata: { submissionId: "pending-2", bulk: true } },
+    ]);
+    const events = await db.query<{ submission_id: string; action: string }>("select submission_id,action from customer_property_submission_events order by submission_id");
+    assert.deepEqual(events.rows, [{ submission_id: "pending-1", action: "reject" }, { submission_id: "pending-2", action: "reject" }]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("bulk rejection rolls back submission and lead changes when CRM activity cannot be recorded", async () => {
+  const db = await bulkReviewFixture();
+  try {
+    await db.exec("alter table lead_activities add constraint reject_bulk_activity check (title <> 'ثبت ملک رد شد')");
+    await assert.rejects(db.query(BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL, [["pending-1"], "رد شد"]));
+    const submission = await db.query<{ status: string }>("select status from customer_property_submissions where id='pending-1'");
+    const lead = await db.query<{ status: string }>("select status from leads where id='lead-1'");
+    const events = await db.query("select id from customer_property_submission_events");
+    assert.equal(submission.rows[0]?.status, "pending");
+    assert.equal(lead.rows[0]?.status, "new");
+    assert.equal(events.rows.length, 0);
+  } finally {
+    await db.close();
+  }
+});
+
+test("concurrent approval and bulk rejection cannot both win or close an approved lead", async () => {
+  const db = await bulkReviewFixture();
+  try {
+    await db.exec("insert into customer_property_submissions (id,lead_id,status) values ('race','lead-race','pending')");
+    const [raceApproval, raceRejection] = await Promise.all([
+      db.query<{ id: string }>("update customer_property_submissions set status='approved' where id='race' and status='pending' returning id"),
+      db.query<{ id: string }>(BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL, [["race"], "رد هم‌زمان"]),
+    ]);
+    assert.equal(raceApproval.rows.length + raceRejection.rows.length, 1);
+    const state = await db.query<{ status: string }>("select status from customer_property_submissions where id='race'");
+    const lead = await db.query<{ status: string }>("select status from leads where id='lead-race'");
+    if (raceApproval.rows.length) {
+      assert.equal(state.rows[0]?.status, "approved");
+      assert.equal(lead.rows[0]?.status, "new");
+      assert.equal((await db.query("select id from customer_property_submission_events where submission_id='race'")).rows.length, 0);
+    } else {
+      assert.equal(state.rows[0]?.status, "rejected");
+      assert.equal(lead.rows[0]?.status, "closed");
+      assert.equal((await db.query("select id from customer_property_submission_events where submission_id='race' and action='reject'")).rows.length, 1);
+    }
+  } finally {
+    await db.close();
+  }
+});
+
+test("bulk priority updates count only changed pending rows and write review events atomically", async () => {
+  const db = await bulkReviewFixture();
+  try {
+    const result = await db.query<{ id: string }>(BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL, [
+      ["pending-1", "already-approved", "missing"], "high",
+    ]);
+    assert.deepEqual(result.rows.map((row) => row.id), ["pending-1"]);
+    const events = await db.query<{ submission_id: string; action: string }>("select submission_id,action from customer_property_submission_events");
+    assert.deepEqual(events.rows, [{ submission_id: "pending-1", action: "priority" }]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("bulk review route delegates both operations to atomic statements", () => {
+  const route = fs.readFileSync(new URL("../../server/routes/api/admin-customer-property-submissions.post.ts", import.meta.url), "utf8");
+  const start = route.indexOf('if (action === "bulk_set_priority" || action === "bulk_reject")');
+  const end = route.indexOf('if (action === "export")', start);
+  const bulk = route.slice(start, end);
+  assert.match(bulk, /BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL/);
+  assert.match(bulk, /BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL/);
+  assert.doesNotMatch(bulk, /select id,lead_id from customer_property_submissions/);
+  assert.doesNotMatch(bulk, /\.catch\(\(\) => \{\}\)/);
 });

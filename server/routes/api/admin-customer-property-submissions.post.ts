@@ -11,6 +11,10 @@ import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL } from "@/lib/customer-property-submission-approval";
+import {
+  BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL,
+  BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL,
+} from "@/lib/customer-property-submission-bulk-review";
 import { rejectPendingCustomerPropertySubmission, updatePendingCustomerPropertySubmission } from "@/lib/customer-property-submission-review-state";
 import { getCustomerPropertySubmissionActionPermission } from "@/lib/customer-property-submission-permissions";
 
@@ -207,42 +211,13 @@ export default defineEventHandler(async (event) => {
       if (!priority || !["low","normal","high"].includes(priority)) {
         throw createError({ statusCode: 422, statusMessage: "اولویت نامعتبر است." });
       }
-      const targets = await sql.query<{ id: string }>(
-        "select id from customer_property_submissions where id = any($1::text[]) and status='pending'",
-        [ids],
-      );
-      if (!targets.length) return { success: true, updatedCount: 0, priority };
-      await sql.query(
-        "update customer_property_submissions set priority=$2,updated_at=current_timestamp where id = any($1::text[]) and status='pending'",
-        [ids, priority],
-      );
-      for (const target of targets) {
-        await logReviewEvent(sql, target.id, "priority", "اولویت پرونده به " + priority + " تغییر کرد.", { priority, bulk: true });
-      }
-      return { success: true, updatedCount: targets.length, priority };
+      const updated = await sql.query<{ id: string }>(BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL, [ids, priority]);
+      return { success: true, updatedCount: updated.length, priority };
     }
 
     const reviewNote = typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0, 1200) : "";
-    const targets = await sql.query<{ id: string; lead_id: string | null }>(
-      "select id,lead_id from customer_property_submissions where id = any($1::text[]) and status='pending'",
-      [ids],
-    );
-    if (!targets.length) return { success: true, updatedCount: 0 };
-    await sql.query(
-      "update customer_property_submissions set status='rejected', review_note=$2, reviewed_at=current_timestamp, updated_at=current_timestamp where id = any($1::text[]) and status='pending'",
-      [ids, reviewNote],
-    );
-    for (const target of targets) {
-      if (target.lead_id) {
-        await sql.query("update leads set status='closed', updated_at=current_timestamp where id=$1", [target.lead_id]).catch(() => {});
-        await sql.query(
-          "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
-          [target.lead_id, "ثبت ملک رد شد", reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.", JSON.stringify({ submissionId: target.id, bulk: true })],
-        ).catch(() => {});
-      }
-      await logReviewEvent(sql, target.id, "reject", reviewNote || "درخواست ثبت ملک رد شد.", { bulk: true });
-    }
-    return { success: true, updatedCount: targets.length, status: "rejected" };
+    const rejected = await sql.query<{ id: string }>(BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL, [ids, reviewNote]);
+    return { success: true, updatedCount: rejected.length, status: "rejected" };
   }
 
   if (action === "export") {
