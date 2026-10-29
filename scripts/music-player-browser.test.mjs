@@ -333,10 +333,13 @@ try {
   await page.locator(".music-player-float-play").first().click();
   await page.waitForFunction((previous) => window.__qaAudioCalls.play > previous, playCallsBeforeRestart);
   const playCallsBeforeSingleTrackEnded = await page.evaluate(() => window.__qaAudioCalls.play);
+  const playLabelBeforeSingleTrackEnded = await page.locator(".music-player-float-play").first().getAttribute("aria-label");
   await page.locator("#hirmand-site-music-player audio").dispatchEvent("ended");
   await page.waitForTimeout(50);
   assert.equal(await page.evaluate(() => window.__qaAudioCalls.play), playCallsBeforeSingleTrackEnded,
     "shuffle must not restart a one-track playlist after repeat has been turned off");
+  assert.notEqual(await page.locator(".music-player-float-play").first().getAttribute("aria-label"), playLabelBeforeSingleTrackEnded,
+    "the player must leave its playing state when the only track ends with repeat off");
 
   const volumeControl = page.getByRole("slider", { name: "کم و زیاد کردن صدا" });
   await volumeControl.evaluate((element) => {
