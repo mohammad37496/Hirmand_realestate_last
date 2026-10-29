@@ -1,11 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isPropertyDescriptionValidForStatus,
   isMoneyText,
   nullableMoneyFieldSchema,
   normalizeMoneyInput,
   normalizeMoneyText,
 } from "./property-input-normalization.ts";
+
+test("property descriptions may be incomplete only while the record is a draft", () => {
+  assert.equal(isPropertyDescriptionValidForStatus("draft", ""), true);
+  assert.equal(isPropertyDescriptionValidForStatus("draft", "short"), true);
+  assert.equal(isPropertyDescriptionValidForStatus("published", "short"), false);
+  assert.equal(isPropertyDescriptionValidForStatus("archived", "123456789"), false);
+  assert.equal(isPropertyDescriptionValidForStatus("archived", "1234567890"), true);
+});
 
 test("money normalization treats null-like values as null without changing real digits", () => {
   assert.equal(normalizeMoneyInput("null"), null);

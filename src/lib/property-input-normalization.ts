@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+export type PropertySaveStatus = "draft" | "published" | "archived";
+
+/** Drafts may be incomplete; records saved in any other status need a description. */
+export function isPropertyDescriptionValidForStatus(status: PropertySaveStatus, value: string): boolean {
+  return status === "draft" || value.trim().length >= 10;
+}
+
 /**
  * Shared normalization for property money values.
  *
