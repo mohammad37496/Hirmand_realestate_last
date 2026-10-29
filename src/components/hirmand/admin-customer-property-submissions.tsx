@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Download, ExternalLink, Eye, Film, History, ImageIcon, ListChecks, MapPin, Phone, Pencil, RefreshCw, Save, Search, Star, Timer, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 import { TEAM } from "@/lib/site";
 import { formatToman } from "@/lib/money";
 import { isVideoUrl } from "@/lib/media";
@@ -75,6 +76,8 @@ function mediaItems(data: Record<string, unknown>) {
 export function AdminCustomerPropertySubmissions() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [consultant, setConsultant] = useState<(typeof TEAM)[number]>(TEAM[0]);
   const [selected, setSelected] = useState<Submission | null>(null);
@@ -100,15 +103,28 @@ export function AdminCustomerPropertySubmissions() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const response = await fetch("/api/admin-customer-property-submissions", {
         method:"POST",
         headers:{"content-type":"application/json"},
         body:JSON.stringify({ action:"list", status:statusFilter, query:appliedQuery, fromDate, toDate, page, pageSize, queueFilter }),
       });
-      const data = await response.json().catch(() => null) as { submissions?:Submission[]; total?:number; page?:number; pageSize?:number; counts?:{pending:number;approved:number;rejected:number}; queueStats?:{overdue:number;highPriority:number;unassigned:number;averageAgeHours:number;consultants:Array<{name:string;phone:string;count:number}>}; statusMessage?:string } | null;
+      const data = await response.json().catch(() => null) as { available?:boolean; submissions?:Submission[]; total?:number; page?:number; pageSize?:number; counts?:{pending:number;approved:number;rejected:number}; queueStats?:{overdue:number;highPriority:number;unassigned:number;averageAgeHours:number;consultants:Array<{name:string;phone:string;count:number}>}; statusMessage?:string } | null;
       if (!response.ok) throw new Error(data?.statusMessage || "صف ثبت ملک مشتری بارگذاری نشد.");
-      setSubmissions(Array.isArray(data?.submissions) ? data.submissions : []);
+      if (typeof data?.available !== "boolean" || !Array.isArray(data.submissions) || !data.counts || !data.queueStats || !Array.isArray(data.queueStats.consultants)) {
+        throw new Error("ساختار پاسخ صف ثبت ملک معتبر نیست.");
+      }
+      setAvailable(data.available);
+      setLoadError("");
+      if (!data.available) {
+        setSubmissions([]);
+        setTotal(0);
+        setSelectedIds(new Set());
+        setSelected(null);
+      } else {
+        setSubmissions(data.submissions);
+      }
       setTotal(Number(data?.total) || 0);
       setCounts({
         pending: Number(data?.counts?.pending) || 0,
@@ -123,7 +139,9 @@ export function AdminCustomerPropertySubmissions() {
         consultants: Array.isArray(data?.queueStats?.consultants) ? data.queueStats!.consultants : [],
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "بارگذاری درخواست‌ها انجام نشد.");
+      const message = error instanceof Error ? error.message : "بارگذاری درخواست‌ها انجام نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -400,7 +418,7 @@ export function AdminCustomerPropertySubmissions() {
     }
   }
 
-  const pendingLabel = useMemo(() => counts.pending.toLocaleString("fa-IR") + " در انتظار بررسی", [counts.pending]);
+  const pendingLabel = useMemo(() => available === true && !loadError ? counts.pending.toLocaleString("fa-IR") + " در انتظار بررسی" : "وضعیت صف در دسترس نیست", [available, loadError, counts.pending]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const allCurrentPageSelected = submissions.length > 0 && submissions.every((item) => selectedIds.has(item.id));
   const quickFilterLabel = queueFilter === "overdue" ? "فقط overdue" : queueFilter === "unassigned" ? "بدون مسئول" : queueFilter === "high" ? "فقط فوری" : "همه پرونده‌ها";
@@ -418,6 +436,8 @@ export function AdminCustomerPropertySubmissions() {
         </button>
       </div>
 
+      {loadError ? <AdminErrorBanner message={loadError} onRetry={() => void load()} /> : available === false ? <AdminErrorBanner message="اطلاعات صف ثبت ملک در دسترس نیست؛ پایگاه داده پیکربندی نشده است." onRetry={() => void load()} /> : available === null && loading ? <div className="admin-customer-submissions-empty">در حال دریافت وضعیت صف…</div> : null}
+      {available === true && !loadError ? <>
       <div className="admin-customer-submission-summary">
         <div><span>کل ورودی</span><strong>{(counts.pending + counts.approved + counts.rejected).toLocaleString("fa-IR")}</strong></div>
         <div><span>در صف</span><strong>{counts.pending.toLocaleString("fa-IR")}</strong></div>
@@ -669,6 +689,7 @@ export function AdminCustomerPropertySubmissions() {
            </div>
          </div>
        ) : null}
+      </> : null}
     </section>
   );
 }

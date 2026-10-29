@@ -51,3 +51,16 @@ test("admin agenda distinguishes an empty schedule from unavailable or failed da
   assert.match(ui, /data\?\.available===false \? <AdminErrorBanner/);
   assert.doesNotMatch(ui, /setData\(\{overdueFollowUps:\[\],upcomingVisits:\[\],upcomingCallbacks:\[\]\}\)/);
 });
+
+test("customer property submission queue distinguishes unavailable storage from a genuinely empty queue", () => {
+  const route = read("server/routes/api/admin-customer-property-submissions.post.ts");
+  const ui = read("src/components/hirmand/admin-customer-property-submissions.tsx");
+  assert.match(route, /if \(dbSource === "unconfigured"\) \{\s*if \(action !== "list"\) throw createError\(\{ statusCode: 503/);
+  assert.match(route, /available: false,[\s\S]*submissions: \[\]/);
+  assert.match(route, /available: true,[\s\S]*submissions: rows\.map/);
+  assert.match(ui, /typeof data\?\.available !== "boolean"/);
+  assert.match(ui, /available === false \? <AdminErrorBanner/);
+  assert.match(ui, /available === true && !loadError \? <>/);
+  const loadCatch = ui.split("} catch (error) {")[1]?.split("} finally")[0] ?? "";
+  assert.doesNotMatch(loadCatch, /setSubmissions\(\[\]\)/);
+});
