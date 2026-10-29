@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BarChart3, Download, Printer, RefreshCw, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { formatToman } from "@/lib/money";
+import { csvCell } from "@/lib/csv";
 import { hasAdminPermission, type AdminRole } from "@/lib/admin-roles";
 
 type Data = {
@@ -45,7 +46,7 @@ export function AdminManagementReport({ role }: { role: AdminRole }) {
       ...(canViewDeals ? [["حجم معاملات", String(data.deals.volume)], ["کمیسیون معاملات", String(data.deals.commission)]] : []),
       ...(data.finance ? [["درآمد دفتر", String(data.finance.income)], ["هزینه دفتر", String(data.finance.expense)], ["مانده دفتر", String(data.finance.balance)]] : []),
     ];
-    const csv = "\uFEFF" + rows.map((row) => row.map((cell) => "\"" + cell.replace(/"/g, "\"\"") + "\"").join(",")).join("\n");
+    const csv = "\uFEFF" + rows.map((row) => row.map(csvCell).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "hirmand-management-report.csv"; anchor.click(); URL.revokeObjectURL(url);
   }

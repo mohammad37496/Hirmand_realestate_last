@@ -67,9 +67,14 @@ test("property export rows stay aligned with all CSV headers", () => {
 test("CSV cells quote separators and neutralize spreadsheet formulas", () => {
   assert.equal(csvCell('text, with "quotes"'), '"text, with ""quotes"""');
   assert.equal(csvCell("=1+1"), "'=1+1");
+  assert.equal(csvCell("+SUM(A1:A2)"), "'+SUM(A1:A2)");
+  assert.equal(csvCell("-2+3"), "'-2+3");
+  assert.equal(csvCell("@SUM(A1:A2)"), "'@SUM(A1:A2)");
   assert.equal(csvCell("  @SUM(A1:A2)"), "'  @SUM(A1:A2)");
   assert.equal(csvCell("\t-2+3"), "'\t-2+3");
+  assert.equal(csvCell("\r\n=HYPERLINK(\"https://example.test\")"), '"\' =HYPERLINK(""https://example.test"")"');
   assert.equal(csvCell("plain text"), "plain text");
+  assert.equal(csvCell(null), "");
 });
 
 

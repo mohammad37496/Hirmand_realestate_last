@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { csvCell } from "@/lib/csv";
 import { TEAM } from "@/lib/site";
 import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
 import { propertyInputSchema } from "@/lib/properties";
@@ -276,12 +277,8 @@ export default defineEventHandler(async (event) => {
     const typeLabels: Record<string,string> = { apartment:"آپارتمان", villa:"ویلا و باغ", office:"اداری", heritage:"خانه اصیل", land:"زمین", commercial:"تجاری" };
     const statusLabels: Record<string,string> = { pending:"در انتظار", approved:"تأیید شده", rejected:"رد شده" };
     const priorityLabels: Record<string,string> = { low:"کم", normal:"عادی", high:"فوری" };
-    const csvEscape = (value: unknown) => {
-      const valueText = String(value ?? "");
-      return /[",\n\r]/.test(valueText) ? '"' + valueText.replace(/"/g, '""') + '"' : valueText;
-    };
     const headers = ["کد رهگیری","وضعیت","عنوان ملک","نوع معامله","نوع ملک","محله","متراژ","نام مالک","موبایل مالک","قیمت","رهن","اجاره","اولویت","تاریخ ثبت","تاریخ بررسی","تکراری"];
-    const lines = [headers.map(csvEscape).join(",")];
+    const lines = [headers.map(csvCell).join(",")];
     for (const row of rows) {
       const data = row.property_data && typeof row.property_data === "object" ? row.property_data as Record<string, unknown> : {};
       lines.push([
@@ -301,7 +298,7 @@ export default defineEventHandler(async (event) => {
         row.created_at ? new Date(String(row.created_at)).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" }) : "",
         row.reviewed_at ? new Date(String(row.reviewed_at)).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" }) : "",
         row.possible_duplicate ? "بله" : "خیر",
-      ].map(csvEscape).join(","));
+      ].map(csvCell).join(","));
     }
     setResponseHeader(event, "content-type", "text/csv; charset=utf-8");
     setResponseHeader(event, "content-disposition", 'attachment; filename="hirmand-customer-submissions.csv"');

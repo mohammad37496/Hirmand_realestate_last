@@ -1,4 +1,7 @@
 import { isAllowedPropertyFloorValue } from "./property-options.ts";
+import { csvCell } from "./csv.ts";
+
+export { csvCell } from "./csv.ts";
 
 const HEADERS = [
   "شناسه", "عنوان", "slug", "وضعیت", "ویژه", "پایان ویژه", "معامله", "نوع ملک", "محله", "آدرس",
@@ -34,14 +37,6 @@ const ORIENTATION_LABELS: Record<string, string> = {
   four_fronts: "چهار نبش",
   other: "سایر",
 };
-
-export function csvCell(value: unknown): string {
-  let text = String(value ?? "").replace(/\r?\n/g, " ");
-  // Spreadsheet software may evaluate formulas even when preceded by spaces
-  // or control whitespace; force such cells to text before CSV quoting.
-  if (/^[=+\-@]/.test(text.trimStart())) text = "'" + text;
-  return /[",]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
-}
 
 /** Return data cells in exactly the same order as PROPERTY_EXPORT_HEADERS. */
 export function propertyExportRow(row: Record<string, unknown>): unknown[] {

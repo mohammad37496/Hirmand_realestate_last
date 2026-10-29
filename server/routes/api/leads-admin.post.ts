@@ -2,6 +2,7 @@ import { createError, defineEventHandler, getCookie, readBody, setResponseHeader
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { csvCell } from "@/lib/csv";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 
@@ -49,12 +50,6 @@ function parseListInput(body: Record<string, unknown>) {
   }
 
   return { status: status as Status | "", sort, query, limit, offset };
-}
-
-function csvCell(value: unknown) {
-  let text = String(value ?? "").replace(/\r?\n/g, " ");
-  if (/^[=+\-@]/.test(text)) text = "'" + text;
-  return /[",]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
 }
 
 function csvDate(value: unknown) {
