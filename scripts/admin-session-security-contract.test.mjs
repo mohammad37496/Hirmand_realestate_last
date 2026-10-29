@@ -3,6 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { PGlite } from "@electric-sql/pglite";
 
 const root = new URL("../", import.meta.url);
 const source = async (path) => readFile(new URL(path, root), "utf8");
@@ -106,4 +107,34 @@ test("management report finance totals include exactly the selected calendar-day
   const code = await source("server/routes/api/admin-management-report.get.ts");
   assert.match(code, /transaction_date >= current_date - \(\$1::int - 1\) and transaction_date < current_date \+ 1/);
   assert.doesNotMatch(code, /transaction_date >= current_date - \(\$1::int\)\s*["']/);
+});
+test("customer chat cooldown is claimed atomically and migration preserves recent-message cooldowns", async () => {
+  const route = await source("server/routes/api/customer-chat.post.ts");
+  const migration = await source("migrations/0106_customer_message_cooldown.sql");
+  assert.match(route, /customer_message_cooldowns/);
+  assert.match(route, /where customer_message_cooldowns\.next_allowed_at <= current_timestamp/);
+  assert.match(route, /if \(!inserted\.length\)/);
+  assert.doesNotMatch(route, /select created_at as "createdAt" from customer_messages/);
+  const sqlMatch = route.match(/const inserted = await sql\.query<\{ id: string \}>\(\s*`([\s\S]*?)`,\s*\[/);
+  assert.ok(sqlMatch, "production route must use one cooldown-claim/message-insert statement");
+  const sendSql = sqlMatch[1];
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table leads (id text primary key, tracking_token text not null);
+      create table customer_messages (id text primary key, lead_id text not null, tracking_token text not null, sender_type text not null, sender_name text not null, message text not null, created_at timestamptz not null default current_timestamp);
+      insert into leads values ('lead-1','HIR-26-AAAAAAAAAAAA');
+      insert into customer_messages (id,lead_id,tracking_token,sender_type,sender_name,message,created_at) values ('existing','lead-1','HIR-26-AAAAAAAAAAAA','customer','Customer','existing message',current_timestamp);
+    `);
+    await db.exec(migration);
+    const send = (id) => db.query(sendSql, ['lead-1',id,'HIR-26-AAAAAAAAAAAA','Customer','new message']);
+    assert.equal((await send('cooldown-blocked')).rows.length,0,"recent existing messages must retain the cooldown across migration");
+    await db.query("update customer_message_cooldowns set next_allowed_at=current_timestamp - interval '1 second' where lead_id='lead-1'");
+    const concurrent = await Promise.all([send('message-a'),send('message-b')]);
+    assert.equal(concurrent.reduce((count,result)=>count+result.rows.length,0),1,"only one concurrent send should claim the cooldown");
+    const messages = await db.query("select id from customer_messages where lead_id='lead-1'");
+    assert.equal(messages.rows.length,2);
+    const cooldown = await db.query("select next_allowed_at > current_timestamp as active from customer_message_cooldowns where lead_id='lead-1'");
+    assert.equal(cooldown.rows[0].active,true);
+  } finally { await db.close(); }
 });
