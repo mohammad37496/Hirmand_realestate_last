@@ -11,6 +11,7 @@ import { ADMIN_PROPERTY_PHONE_SEARCH_SQL, normalizeAdminPhoneSearch } from "@/li
 import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
+import { resolveFileCodeLookup } from "@/lib/property-file-code";
 import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type BudgetMatchDetails } from "@/lib/budget-matching";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { deleteStoredMedia } from "@/lib/media-store.server";
@@ -608,16 +609,19 @@ export const getPublishedPropertyByFileCode = createServerFn({ method: "GET" })
       30_000,
       async () => {
         const sql = await getSql();
-        const rows = await sql.query<Record<string, unknown>>(
-          `select ${DETAIL_COLUMNS}
-           from properties
-           where ${PUBLIC_PUBLICATION_WHERE}
-             and lower(right(replace(id::text, '-', ''), 6)) = $1
-           order by published_at desc nulls last, created_at desc
-           limit 1`,
-          [code],
-        );
-        return rows[0] ? mapProperty(rows[0]) : null;
+        const result = await resolveFileCodeLookup(async () => {
+          const rows = await sql.query<Record<string, unknown>>(
+            `select ${DETAIL_COLUMNS}
+             from properties
+             where ${PUBLIC_PUBLICATION_WHERE}
+               and lower(right(replace(id::text, '-', ''), 6)) = $1
+             order by published_at desc nulls last, created_at desc
+             limit 2`,
+            [code],
+          );
+          return rows.map((row) => mapProperty(row));
+        });
+        return result;
       },
     );
   });
