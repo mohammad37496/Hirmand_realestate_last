@@ -6,6 +6,7 @@ import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-sessi
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { siteSettingsInputSchema } from "@/lib/site-settings-validation";
 
 export type SiteSettings = {
   siteTitle: string;
@@ -112,26 +113,7 @@ export const getAdminSiteSettings = createServerFn({ method: "POST" })
   });
 
 export const updateAdminSiteSettings = createServerFn({ method: "POST" })
-  .validator(
-    z.object({
-      siteTitle: z.string().trim().min(10).max(180),
-      siteDescription: z.string().trim().min(30).max(320),
-      seoKeywords: z.string().trim().max(1200),
-      googleSiteVerification: z.string().trim().max(300),
-      noindex: z.boolean(),
-      announcementEnabled: z.boolean(),
-      announcementText: z.string().trim().max(500),
-      phoneMobile: z.string().trim().max(30),
-      phoneOffice: z.string().trim().max(30),
-      whatsappUrl: z.string().trim().max(500),
-      instagramUrl: z.string().trim().max(500),
-      telegramUrl: z.string().trim().max(500),
-      eitaaUrl: z.string().trim().max(500),
-      address: z.string().trim().max(500),
-      officeHours: z.string().trim().max(300),
-      footerTagline: z.string().trim().max(300),
-    }),
-  )
+  .validator(siteSettingsInputSchema)
   .handler(async ({ data }) => {
     await requireAdminAsync();
     if (dbSource === "unconfigured") return { ...data, updatedAt: null } as SiteSettings;
