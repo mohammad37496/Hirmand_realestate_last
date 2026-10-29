@@ -13,7 +13,7 @@ import {
   PROPERTY_OTHER_AMENITY_OPTIONS,
   PROPERTY_WALL_CLOSET_OPTIONS,
 } from "@/lib/property-options";
-import { normalizeMoneyText } from "@/lib/property-input-normalization";
+import { normalizeMoneyText, parseCustomerPropertyAreaM2 } from "@/lib/property-input-normalization";
 import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
 import { isVideoUrl } from "@/lib/media";
 import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
@@ -298,8 +298,8 @@ function SubmitPropertyPage() {
     if (!/^09\d{9}$/.test(normalizedPhone)) return setError("شماره موبایل معتبر وارد کنید.");
     if (title.trim().length < 8) return setError("عنوان ملک را کامل‌تر بنویسید.");
     if (!neighborhood) return setError("محله را انتخاب کنید.");
-    const areaNumber = numberValue(area);
-    if (!areaNumber || areaNumber <= 0) return setError("متراژ معتبر وارد کنید.");
+    const areaNumber = parseCustomerPropertyAreaM2(area);
+    if (areaNumber === null) return setError("متراژ معتبر وارد کنید.");
     if (description.trim().length < 80) return setError("توضیحات ملک حداقل ۸۰ کاراکتر باشد.");
     if (imageCount < 1) return setError("حداقل یک تصویر از ملک آپلود کنید.");
     if (transactionType === "sell" && !moneyValue(price)) return setError("برای فروش، قیمت کل را وارد کنید.");

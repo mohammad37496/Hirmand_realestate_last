@@ -6,6 +6,7 @@ import {
   nullableMoneyFieldSchema,
   normalizeMoneyInput,
   normalizeMoneyText,
+  parseCustomerPropertyAreaM2,
 } from "./property-input-normalization.ts";
 
 test("property descriptions may be incomplete only while the record is a draft", () => {
@@ -55,4 +56,14 @@ test("integer input contract rejects malformed non-empty values", async () => {
   assert.equal(isInvalidIntegerInput("12.5"), true);
   assert.equal(isInvalidIntegerInput("-2"), true);
   assert.equal(isInvalidIntegerInput("-2", true), false);
+});
+
+test("customer property area matches the API positive-integer contract before submission", () => {
+  assert.equal(parseCustomerPropertyAreaM2("120"), 120);
+  assert.equal(parseCustomerPropertyAreaM2("120.5"), null);
+  assert.equal(parseCustomerPropertyAreaM2("0"), null);
+  assert.equal(parseCustomerPropertyAreaM2("-2"), null);
+  assert.equal(parseCustomerPropertyAreaM2("100001"), null);
+  assert.equal(parseCustomerPropertyAreaM2("123,456"), null);
+  assert.equal(parseCustomerPropertyAreaM2("250"), 250);
 });
