@@ -16,6 +16,7 @@ import {
 import { contentMatchesDeclaredType, sniffMediaBytes } from "./file-signature.server.ts";
 import { ADMIN_ROLE_PERMISSIONS, hasAdminPermission, normalizeAdminRole, type AdminPermission, type AdminRole } from "./admin-roles.ts";
 import { getPropertyExpiryActionPermission } from "./admin-property-expiry-permissions.ts";
+import { getCustomerPropertySubmissionActionPermission } from "./customer-property-submission-permissions.ts";
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -131,24 +132,30 @@ test("property expiry mutations require publish permission while review tasks re
   assert.equal(getPropertyExpiryActionPermission("archiveExpired"), "property.publish");
   assert.equal(getPropertyExpiryActionPermission("extend"), "property.publish");
   assert.equal(getPropertyExpiryActionPermission("unexpected"), null);
-
   for (const role of ["sales", "content"] as const) {
     assert.equal(hasAdminPermission(role, "property.manage"), true);
     assert.equal(hasAdminPermission(role, "property.publish"), false);
-    assert.equal(
-      hasAdminPermission(role, getPropertyExpiryActionPermission("archiveExpired")!),
-      false,
-      `${role} cannot archive expired published listings`,
-    );
-    assert.equal(
-      hasAdminPermission(role, getPropertyExpiryActionPermission("extend")!),
-      false,
-      `${role} cannot extend publication windows`,
-    );
+    assert.equal(hasAdminPermission(role, getPropertyExpiryActionPermission("archiveExpired")!), false);
+    assert.equal(hasAdminPermission(role, getPropertyExpiryActionPermission("extend")!), false);
   }
-
   for (const role of ["owner", "manager"] as const) {
     assert.equal(hasAdminPermission(role, "property.publish"), true);
+  }
+});
+
+test("approving a customer property submission requires publish permission", () => {
+  assert.equal(getCustomerPropertySubmissionActionPermission("approve"), "property.publish");
+  assert.equal(getCustomerPropertySubmissionActionPermission("reject"), "property.manage");
+  assert.equal(getCustomerPropertySubmissionActionPermission("update"), "property.manage");
+  assert.equal(getCustomerPropertySubmissionActionPermission("assign_consultant"), "property.manage");
+  assert.equal(getCustomerPropertySubmissionActionPermission("unexpected"), null);
+  for (const role of ["sales", "content"] as const) {
+    assert.equal(hasAdminPermission(role, "property.manage"), true);
+    assert.equal(hasAdminPermission(role, "property.publish"), false);
+    assert.equal(hasAdminPermission(role, getCustomerPropertySubmissionActionPermission("approve")!), false);
+  }
+  for (const role of ["owner", "manager"] as const) {
+    assert.equal(hasAdminPermission(role, getCustomerPropertySubmissionActionPermission("approve")!), true);
   }
 });
 
