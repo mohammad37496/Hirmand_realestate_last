@@ -14,6 +14,7 @@ import {
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { deleteStoredMedia } from "@/lib/media-store.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { REORDER_MUSIC_TRACKS_SQL } from "@/lib/admin-music-reorder";
 import {
   ALLOWED_AUDIO_TYPE_SET,
   MAX_AUDIO_BYTES,
@@ -107,24 +108,36 @@ export default defineEventHandler(async (event) => {
   }
 
   if (action === "reorder") {
-    const ids = Array.isArray(body.ids)
-      ? body.ids.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-      : [];
-    if (ids.length < 2 || ids.length > 500) {
+    const ids = Array.isArray(body.ids) && body.ids.every(
+      (value): value is string => typeof value === "string" && value.trim().length > 0,
+    ) ? body.ids.map((value) => value.trim()) : [];
+    if (ids.length < 2 || ids.length > 500 || new Set(ids).size !== ids.length) {
       throw createError({
         statusCode: 400,
         statusMessage: "فهرست ترتیب آهنگ‌ها نامعتبر است.",
       });
     }
 
-    // Positions are rewritten from the submitted order, so the public playlist
-    // plays exactly what the admin arranged — and old rows that share a
-    // position (the default of every insert) get distinct values too.
-    for (let index = 0; index < ids.length; index += 1) {
-      await sql.query(
-        "update music_tracks set position = $2, updated_at = current_timestamp where id = $1",
-        [ids[index], index],
-      );
+    const [reorderResult] = await sql.query<{
+      requested_count: number;
+      updated_count: number;
+      total_count: number;
+      has_duplicates: boolean;
+      matches_track_count: boolean;
+      has_unknown_ids: boolean;
+    }>(REORDER_MUSIC_TRACKS_SQL, [ids]);
+    if (
+      !reorderResult ||
+      reorderResult.has_duplicates ||
+      !reorderResult.matches_track_count ||
+      reorderResult.has_unknown_ids ||
+      Number(reorderResult.updated_count) !== Number(reorderResult.requested_count) ||
+      Number(reorderResult.requested_count) !== Number(reorderResult.total_count)
+    ) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: "فهرست آهنگ‌ها تغییر کرده است؛ فهرست را تازه‌سازی کنید و دوباره ترتیب را ثبت کنید.",
+      });
     }
 
     const rows = await sql.query<Record<string, unknown>>(
