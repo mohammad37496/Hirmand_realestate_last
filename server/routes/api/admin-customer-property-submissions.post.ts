@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
             d.owner_phone=s.owner_phone
             or ((d.property_data->>'neighborhood')=(s.property_data->>'neighborhood') and (d.property_data->>'areaM2')=(s.property_data->>'areaM2') and lower(coalesce(d.property_data->>'title',''))=lower(coalesce(s.property_data->>'title','')))
           ))
-          or exists(select 1 from properties p where p.status <> 'archived' and (
+          or exists(select 1 from properties p where p.deleted_at is null and p.status <> 'archived' and (
             p.owner_phone=s.owner_phone
             or ((p.neighborhood=(s.property_data->>'neighborhood')) and coalesce(p.area_m2,0)::text=(s.property_data->>'areaM2') and lower(coalesce(p.title,''))=lower(coalesce(s.property_data->>'title','')))
           ))
@@ -251,7 +251,7 @@ export default defineEventHandler(async (event) => {
             d.owner_phone=s.owner_phone
             or ((d.property_data->>'neighborhood')=(s.property_data->>'neighborhood') and (d.property_data->>'areaM2')=(s.property_data->>'areaM2') and lower(coalesce(d.property_data->>'title',''))=lower(coalesce(s.property_data->>'title','')))
           ))
-          or exists(select 1 from properties p where p.status <> 'archived' and (
+          or exists(select 1 from properties p where p.deleted_at is null and p.status <> 'archived' and (
             p.owner_phone=s.owner_phone
             or ((p.neighborhood=(s.property_data->>'neighborhood')) and coalesce(p.area_m2,0)::text=(s.property_data->>'areaM2') and lower(coalesce(p.title,''))=lower(coalesce(s.property_data->>'title','')))
           ))
