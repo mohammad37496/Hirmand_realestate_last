@@ -79,7 +79,7 @@ function FileCodePage() {
       <section className="file-code-shell">
         <div className="file-code-hero">
           <span className="kicker">کد فایل</span>
-          <h1>کد ۶ رقمی فایل را وارد کنید.</h1>
+          <h1>کد ۶ یا ۸ رقمی فایل را وارد کنید.</h1>
           <p>
             کد فایل روی صفحه ملک، کارت معرفی و آگهی هیرمند نمایش داده می‌شود. با وارد کردن آن مستقیماً به صفحه همان ملک می‌رسید.
           </p>

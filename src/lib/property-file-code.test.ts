@@ -27,6 +27,8 @@ test("file-code lookup returns ambiguity instead of choosing the newest collidin
     assert.equal(unique.affectedRows, 1);
     assert.deepEqual(await findByCode("abcdef"), { id: "00000000-0000-4000-8000-000000ABCDEF" });
 
+    const route = await readFile(new URL("../routes/file-code.tsx", import.meta.url), "utf8");
+    assert.ok(route.includes("\u06A9\u062F \u06F6 \u06CC\u0627 \u06F8 \u0631\u0642\u0645\u06CC \u0641\u0627\u06CC\u0644 \u0631\u0627 \u0648\u0627\u0631\u062F \u06A9\u0646\u06CC\u062F."));
     const source = await readFile(new URL("./properties.ts", import.meta.url), "utf8");
     assert.match(source, /resolveFileCodeLookup\(async \(\) =>/);
     assert.match(source, /lower\(right\(replace\(id::text, '-', ''\), 6\)\) = \$1[\s\S]*?limit 2/);
