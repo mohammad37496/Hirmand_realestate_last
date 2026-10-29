@@ -33,6 +33,19 @@ test("lead assignment fails closed when consultant or unassigned-lead queries fa
   assert.doesNotMatch(code, /from leads where trim\(coalesce\(consultant,''\)\)=''[\s\S]*?\.catch\(\(\) => \[\]\)/);
 });
 
+test("admin notification source-query failures cannot masquerade as an empty notification list", async () => {
+  const code = await source("src/lib/admin-notifications.ts");
+  assert.equal((code.match(/\.catch\(\(\) => \[\]\)/g) || []).length, 0);
+});
+
+test("notification center distinguishes source failures from an empty inbox and offers retry", async () => {
+  const code = await source("src/components/hirmand/admin-notification-center.tsx");
+  assert.ok(code.includes("const [loadError, setLoadError] = useState(false)"));
+  assert.match(code, /setLoadError\(true\)/);
+  assert.ok(code.includes('role="alert"'));
+  assert.ok(code.includes("onClick={() => void load()}"));
+});
+
 test("admin UI checks the logout response before clearing its local session", async () => {
   const code = await source("src/components/hirmand/_admin_impl.tsx");
   const start = code.indexOf("function logout() {");
