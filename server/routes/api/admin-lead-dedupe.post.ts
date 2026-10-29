@@ -63,10 +63,7 @@ export default defineEventHandler(async (event) => {
       order by greatest(a_created_at,b_created_at) desc
       limit 60`,
       [DIGIT_TRANSLATION],
-    ).catch((error) => {
-      console.error("[admin-lead-dedupe] query unavailable", error);
-      return [];
-    });
+    );
 
     return {
       total: rows.length,
@@ -121,8 +118,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const rows = await sql.query<Record<string, unknown>>(
-    `with duplicate as (
-      select * from leads where id = $2
+    `with locked as materialized (
+      select id from leads where id = any($1::text[]) order by id for update
+    ),
+    duplicate as (
+      select d.* from leads d
+      join locked on locked.id = d.id
+      where d.id = $2
+        and exists (select 1 from locked where id = $1)
+        and (select count(*) from locked) = 2
     ),
     merged as (
       update leads l
@@ -177,13 +181,13 @@ export default defineEventHandler(async (event) => {
         match_count = greatest(coalesce(l.match_count,0),coalesce(d.match_count,0)),
         updated_at = current_timestamp
       from duplicate d
-      where l.id = $1
+      where l.id = $1 and exists (select 1 from duplicate)
       returning l.id
     ),
     moved_activities as (
       update lead_activities
       set lead_id = $1
-      where lead_id = $2
+      where lead_id = $2 and exists (select 1 from merged)
       returning id
     ),
     closed_duplicate as (
@@ -192,7 +196,7 @@ export default defineEventHandler(async (event) => {
         status = 'closed',
         note = concat_ws(E'\\n', nullif(trim(note),''), 'این لید در ' || to_char(current_timestamp,'YYYY-MM-DD HH24:MI') || ' با لید ' || $1 || ' ادغام شد.'),
         updated_at = current_timestamp
-      where id = $2
+      where id = $2 and exists (select 1 from merged)
       returning id
     )
     select (select id from merged) as canonical_id,
@@ -201,8 +205,8 @@ export default defineEventHandler(async (event) => {
     [canonicalId, duplicateId],
   );
 
-  if (!rows[0]?.canonical_id) {
-    throw createError({ statusCode: 500, statusMessage: "ادغام لید انجام نشد." });
+  if (!rows[0]?.canonical_id || !rows[0]?.duplicate_id) {
+    throw createError({ statusCode: 409, statusMessage: "یکی از لیدها حذف یا هم‌زمان تغییر کرده است. فهرست را تازه‌سازی کنید." });
   }
 
   await sql.query(

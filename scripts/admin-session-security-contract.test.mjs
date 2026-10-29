@@ -65,3 +65,20 @@ test("admin API handlers have both session validation and server-side role permi
   }
   assert.deepEqual(missing, []);
 });
+
+test("lead dedupe scan does not turn database failures into an empty duplicate list", async () => {
+  const code = await source("server/routes/api/admin-lead-dedupe.post.ts");
+  const start = code.indexOf('if (action === "list")');
+  const end = code.indexOf("const canonicalId", start);
+  assert.ok(start >= 0 && end > start);
+  assert.doesNotMatch(code.slice(start, end), /\.catch\s*\(/);
+});
+
+test("lead dedupe merge locks both rows and requires both state transitions before success", async () => {
+  const code = await source("server/routes/api/admin-lead-dedupe.post.ts");
+  assert.match(code, /locked as materialized\s*\([\s\S]*?where id = any\(\$1::text\[\]\) order by id for update/);
+  assert.match(code, /and \(select count\(\*\) from locked\) = 2/);
+  assert.match(code, /where lead_id = \$2 and exists \(select 1 from merged\)/);
+  assert.match(code, /where id = \$2 and exists \(select 1 from merged\)/);
+  assert.match(code, /!rows\[0\]\?\.canonical_id \|\| !rows\[0\]\?\.duplicate_id/);
+});
