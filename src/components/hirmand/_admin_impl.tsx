@@ -2629,7 +2629,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
           {view === "trash" ? <AdminTrashManager /> : null}
           {view === "audit" ? <AdminAuditLog /> : null}
           {view === "settings" ? <AdminSiteSettings /> : null}
-          {view === "mediaHealth" ? <AdminMediaHealth /> : null}
+          {view === "mediaHealth" ? <AdminMediaHealth canCleanup={hasAdminPermission(adminRole, "backup.manage")} /> : null}
           {view === "security" ? <AdminSecurityCenter /> : null}
           {view === "seoRedirects" ? <AdminSeoRedirects /> : null}
           {view === "contentStudio" ? <AdminContentStudio /> : null}
