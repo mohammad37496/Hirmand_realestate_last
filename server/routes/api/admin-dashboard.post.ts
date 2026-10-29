@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { ADMIN_DASHBOARD_PROPERTY_STATS_SQL, ADMIN_DASHBOARD_PROPERTY_TYPES_SQL } from "@/lib/admin-dashboard-property-stats";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 
@@ -44,22 +45,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const sql = await getSql();
-  const [propertyStats, leadStats, propertyTypes, leadDays, musicStats, recentLeads, visitorStats, activeVisitorStats, visitorDays, topPages, topProperties, eventStats, visitorSources, followUps, consultantStats, consultantPerformance, leadSla] = await Promise.all([    sql.query<Record<string, unknown>>(
-      `select
-        count(*)::int as total,
-        count(*) filter (where status = 'published')::int as published,
-        count(*) filter (where status = 'draft')::int as draft,
-        count(*) filter (where status = 'archived')::int as archived,
-        count(*) filter (where featured = true)::int as featured,
-        count(*) filter (where coalesce(jsonb_array_length(images), 0) = 0)::int as without_images,
-        count(*) filter (where created_at >= current_timestamp - interval '7 days')::int as new_last7,
-        count(*) filter (
-          where coalesce(jsonb_array_length(images), 0) = 0
-             or coalesce(length(trim(description)), 0) < 120
-             or coalesce(trim(neighborhood), '') = ''
-        )::int as incomplete
-      from properties
-    `),
+  const [propertyStats, leadStats, propertyTypes, leadDays, musicStats, recentLeads, visitorStats, activeVisitorStats, visitorDays, topPages, topProperties, eventStats, visitorSources, followUps, consultantStats, consultantPerformance, leadSla] = await Promise.all([
+    sql.query<Record<string, unknown>>(ADMIN_DASHBOARD_PROPERTY_STATS_SQL),
     sql.query<Record<string, unknown>>(`
       select
         count(*)::int as total,
@@ -82,12 +69,7 @@ export default defineEventHandler(async (event) => {
         )::int as last30
       from leads
     `),
-    sql.query<Record<string, unknown>>(`
-      select property_type, count(*)::int as count
-      from properties
-      group by property_type
-      order by count desc
-    `),
+    sql.query<Record<string, unknown>>(ADMIN_DASHBOARD_PROPERTY_TYPES_SQL),
     sql.query<Record<string, unknown>>(`
       select (created_at at time zone 'Asia/Tehran')::date as day, count(*)::int as count
       from leads
@@ -240,6 +222,7 @@ export default defineEventHandler(async (event) => {
             select contact_name, contact_phone
             from properties
             where coalesce(trim(contact_name), '') <> ''
+              and deleted_at is null
             group by contact_name, contact_phone
           ) assigned
           inner join consultants c
@@ -281,6 +264,7 @@ export default defineEventHandler(async (event) => {
                 count(*) filter (where status = 'published')::int as files
          from properties
          where coalesce(trim(contact_name), '') <> ''
+           and deleted_at is null
          group by lower(trim(contact_name))
        ),
        lead_stats as (
