@@ -3,7 +3,8 @@ import { setResponseHeader } from "@tanstack/react-start/server";
 import { cachedPropertyRead, clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
+import { isPropertyDescriptionValidForStatus, nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
+import { EXACT_PROPERTY_DUPLICATE_SQL, propertyDuplicateKeyChanged, publicationCriticalFieldsChanged, resolvePropertySaveStatus } from "@/lib/property-save-guards";
 import { buildPublicPropertyFilterParams, buildPublicPropertyWhereSql, PRICE_EXPR } from "@/lib/property-search-sql";
 import { publicPropertyFiltersSchema } from "@/lib/property-search-contract";
 import { compactSearchText } from "@/lib/property-search-utils";
@@ -223,7 +224,7 @@ export const propertyInputSchema = z.object({
   propertyType: z.enum(["apartment", "villa", "office", "heritage", "land", "commercial"]),
   neighborhood: z.string().trim().min(2).max(80),
   address: z.string().trim().max(240).optional().default(""),
-  areaM2: z.number().int().min(0).max(100000).nullable().optional(),
+  areaM2: z.number().int().min(1).max(100000).nullable().optional(),
   bedrooms: z.number().int().min(0).max(30).nullable().optional(),
   bathrooms: z.number().int().min(0).max(30).nullable().optional(),
   floor: z.number().int().refine(isAllowedPropertyFloorValue, "طبقه باید منفی ۶۰ یا بین ۰ تا ۲۰ باشد.").nullable().optional(),
@@ -246,7 +247,7 @@ export const propertyInputSchema = z.object({
   price: nullableMoneyField,
   deposit: nullableMoneyField,
   rent: nullableMoneyField,
-  description: z.string().trim().min(10).max(5000),
+  description: z.string().trim().max(5000),
   features: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
   images: z
     .array(z.string().trim().min(1).max(2048))
@@ -275,7 +276,7 @@ export const propertyInputSchema = z.object({
   ownerInfo: z.string().trim().max(2000).optional().default(""),
   internalPriority: z.enum(["low","normal","high","urgent"]).default("normal"),
   internalNote: z.string().trim().max(3000).default(""),
-  status: z.enum(["draft", "published", "archived"]).default("published"),
+  status: z.enum(["draft", "published", "archived"]).optional(),
   availabilityStatus: z.enum(["available","reserved","sold","rented","unavailable"]).default("available"),
   featured: z.boolean().default(false),
   featuredUntil: z.string().trim().max(80).nullable().optional().default(null),
@@ -289,6 +290,14 @@ export const propertyInputSchema = z.object({
     (value) => !value || /^https:\/\//i.test(value) || isAllowedMediaRef(value),
     { message: "نشانی پلان معتبر نیست." },
   ).default(""),
+}).superRefine((data, context) => {
+  if (!isPropertyDescriptionValidForStatus(data.status ?? "draft", data.description)) {
+    context.addIssue({
+      code: "custom",
+      path: ["description"],
+      message: "توضیحات فایل برای وضعیت غیرپیش‌نویس باید حداقل ۱۰ کاراکتر باشد.",
+    });
+  }
 });
 
 const budgetMatchSchema = z
@@ -1656,16 +1665,11 @@ export const saveProperty = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const claims = await requireAdminPermission(data.id ? "property.manage" : "property.create");
     const role = normalizeAdminRole(claims?.role);
-    if (role === "staff" && (data.id || data.status !== "draft" || data.featured || Boolean(data.featuredUntil))) {
+    const requestedStatus = data.status ?? "draft";
+    if (role === "staff" && (data.id || requestedStatus !== "draft" || data.featured || Boolean(data.featuredUntil))) {
       throw new Error("کارکنان فقط مجاز به ثبت فایل جدید به‌صورت پیش‌نویس هستند.");
     }
     const sql = await getSql();
-    if (data.status === "published") {
-      const publicationRole = String(claims?.role ?? "owner");
-      if (publicationRole !== "owner" && publicationRole !== "manager") {
-        throw new Error("این حساب اجازه انتشار نهایی ندارد؛ فایل را برای تأیید مدیر ارسال کنید.");
-      }
-    }
 
     const id = data.id ?? crypto.randomUUID();
     const existingRows = await sql.query<Record<string, unknown>>(
@@ -1673,7 +1677,36 @@ export const saveProperty = createServerFn({ method: "POST" })
       [id],
     );
     const existing = existingRows[0] ?? null;
-    if (data.status === "published" && (!existing || existing.status !== "published")) {
+    if (data.id && !existing) {
+      throw new Error("فایل موردنظر حذف شده یا دیگر در دسترس نیست. فهرست را تازه‌سازی کنید.");
+    }
+    const saveStatus = resolvePropertySaveStatus(data.status, existing?.status);
+    if (saveStatus === "published") {
+      const publicationRole = String(claims?.role ?? "owner");
+      if (publicationRole !== "owner" && publicationRole !== "manager") {
+        throw new Error("این حساب اجازه انتشار نهایی ندارد؛ فایل را برای تأیید مدیر ارسال کنید.");
+      }
+    }
+
+    if ((saveStatus === "draft" || saveStatus === "published") && propertyDuplicateKeyChanged(existing, { ...data, status: saveStatus })) {
+      const duplicateRows = await sql.query<Record<string, unknown>>(EXACT_PROPERTY_DUPLICATE_SQL, [
+        id,
+        data.title,
+        data.transactionType,
+        data.propertyType,
+        data.neighborhood,
+        data.areaM2 ?? null,
+        data.price ?? null,
+        data.deposit ?? null,
+        data.rent ?? null,
+      ]);
+      if (duplicateRows[0]) {
+        throw new Error(
+          `این فایل با «${String(duplicateRows[0].title ?? data.title)}» (کد ${String(duplicateRows[0].id)}) از قبل ثبت شده است. برای جلوگیری از تکرار، فایل موجود را ویرایش کنید.`,
+        );
+      }
+    }
+    if (saveStatus === "published" && publicationCriticalFieldsChanged(existing, data)) {
       const readiness = getPublishReadiness({
         transactionType: data.transactionType,
         title: data.title,
@@ -1707,7 +1740,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         })()
       : null;
 
-    const publishedAt = data.status === "published" ? new Date().toISOString() : null;
+    const publishedAt = saveStatus === "published" ? new Date().toISOString() : null;
     const savedFloor = data.floorLabel === "suite" ? null : data.floor ?? null;
     const savedFloorLabel = data.floorLabel === "suite" ? "suite" : null;
     const savedConvertible =
@@ -1873,7 +1906,7 @@ export const saveProperty = createServerFn({ method: "POST" })
       [
         id,
         slug,
-        data.status,
+        saveStatus,
         data.featured,
         data.title,
         data.transactionType,

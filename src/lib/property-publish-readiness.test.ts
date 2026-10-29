@@ -61,3 +61,18 @@ test("buy requests do not require a sale price", () => {
   });
   assert.equal(result.ready, true);
 });
+
+test("priced listings require a strictly positive amount", () => {
+  const zeroSale = getPublishReadiness({ ...base, price: "0" });
+  assert.equal(zeroSale.ready, false);
+  assert.ok(zeroSale.blockers.some((blocker) => blocker.includes("مالی")));
+
+  const zeroRent = getPublishReadiness({ ...base, transactionType: "rent", deposit: "0", rent: "0" });
+  assert.equal(zeroRent.ready, false);
+
+  const zeroMortgage = getPublishReadiness({ ...base, transactionType: "mortgage", deposit: "0" });
+  assert.equal(zeroMortgage.ready, false);
+
+  const PersianDigits = getPublishReadiness({ ...base, price: "۳۸۰۰۰۰۰۰۰۰" });
+  assert.equal(PersianDigits.ready, true);
+});
