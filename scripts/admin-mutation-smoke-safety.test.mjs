@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { assertSafeAdminSmokeDatabase } from "./admin-mutation-smoke-safety.mjs";
+import { assertSafeAdminSmokeDatabase, normalizeAdminSmokeTitleText } from "./admin-mutation-smoke-safety.mjs";
 
 const source = readFileSync(new URL("./admin-mutation-smoke.mjs", import.meta.url), "utf8");
 
@@ -27,4 +27,9 @@ test("admin mutation smoke allows a remote database only after explicit opt-in",
 test("admin mutation smoke rejects malformed and non-PostgreSQL database URLs", () => {
   assert.throws(() => assertSafeAdminSmokeDatabase("not a url"), /valid URL/i);
   assert.throws(() => assertSafeAdminSmokeDatabase("https://example.com"), /PostgreSQL protocol/i);
+});
+
+
+test("admin mutation smoke title comparison accepts Persian and Arabic digit rendering", () => {
+  assert.equal(normalizeAdminSmokeTitleText("smoke-f۶۴۱b۱ad-۵۹۹۷-٠e١f"), "smoke-f641b1ad-5997-0e1f");
 });

@@ -19,3 +19,12 @@ export function assertSafeAdminSmokeDatabase(databaseUrl, allowRemote = false) {
   }
   return hostname;
 }
+
+
+/** Normalize Persian and Arabic numerals in rendered smoke-test text before comparing it with stored ASCII values. */
+export function normalizeAdminSmokeTitleText(value) {
+  return String(value).replace(/[۰-۹٠-٩]/g, (digit) => {
+    const code = digit.charCodeAt(0);
+    return String.fromCharCode(code >= 0x06f0 ? code - 0x06f0 + 48 : code - 0x0660 + 48);
+  });
+}

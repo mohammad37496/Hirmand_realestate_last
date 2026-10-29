@@ -1,6 +1,6 @@
 import pg from "pg";
 import { randomUUID } from "node:crypto";
-import { assertSafeAdminSmokeDatabase } from "./admin-mutation-smoke-safety.mjs";
+import { assertSafeAdminSmokeDatabase, normalizeAdminSmokeTitleText } from "./admin-mutation-smoke-safety.mjs";
 import { chromium } from "playwright";
 
 const baseUrl = (process.argv[2] || "http://127.0.0.1:8081").replace(/\/$/, "");
@@ -114,7 +114,7 @@ try {
       // wait for the actual detail heading before asserting the saved property is visible.
       await headingLocator.waitFor({ state: "visible", timeout: 30000 });
       const heading = await headingLocator.innerText();
-      if (!heading.includes(title)) {
+      if (!normalizeAdminSmokeTitleText(heading).includes(normalizeAdminSmokeTitleText(title))) {
         const body = await page.locator("body").innerText();
         throw new Error("Published property detail heading did not match the created title. Heading: " + heading.slice(0, 180) + "; body: " + body.slice(0, 180));
       }
