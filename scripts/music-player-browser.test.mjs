@@ -77,6 +77,18 @@ async function waitForServer(baseUrl) {
 }
 
 async function assertDock(page, viewport) {
+  // Vite can briefly remove/re-apply route CSS while optimizing a newly
+  // discovered dependency. Wait for the shared stylesheet and its fixed
+  // positioning to be applied before measuring; a missing stylesheet still
+  // times out and fails rather than weakening the geometry assertions.
+  await page.waitForFunction(() => {
+    const node = document.querySelector('#hirmand-site-music-player[aria-label="پخش موسیقی هیرمند"]');
+    const musicStylesheetLoaded = [...document.styleSheets].some((sheet) => sheet.href?.includes("music-player.css"));
+    return !!node && musicStylesheetLoaded && getComputedStyle(node).position === "fixed";
+  }, null, { timeout: 15_000 });
+  await page.evaluate(() => new Promise((resolveFrame) =>
+    requestAnimationFrame(() => requestAnimationFrame(resolveFrame)),
+  ));
   const result = await page.evaluate(() => {
     const nodes = document.querySelectorAll('#hirmand-site-music-player[aria-label="پخش موسیقی هیرمند"]');
     const node = nodes[0];
