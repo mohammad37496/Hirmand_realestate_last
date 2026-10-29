@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت CRM برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { templates: [] };
+  if (dbSource === "unconfigured") return { available: false, templates: [] };
 
   const sql = await getSql();
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
@@ -50,6 +50,7 @@ export default defineEventHandler(async (event) => {
       "select id,title,body,channel,active,created_at,updated_at from admin_message_templates order by active desc, updated_at desc",
     );
     return {
+      available: true,
       templates: rows.map((row) => ({
         id: String(row.id),
         title: String(row.title),
