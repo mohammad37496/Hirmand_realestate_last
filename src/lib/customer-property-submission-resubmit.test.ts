@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import { resubmitCustomerPropertySubmission } from "./customer-property-submission-resubmit.ts";
+import { buildPendingSubmissionDuplicateQuery } from "./customer-property-submission-dedupe.ts";
 
 async function fixture(status: string) {
   const db = new PGlite();
@@ -63,6 +65,35 @@ test("only one concurrent resubmission can claim a rejected submission", async (
       "select status from customer_property_submissions where id='submission-1'",
     );
     assert.equal(rows.rows[0]?.status, "pending");
+  } finally {
+    await db.close();
+  }
+});
+
+test("new submissions deduplicate only an identical pending property payload, not a different property from the same phone", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table customer_property_submissions (
+        id text primary key, owner_phone text not null, status text not null,
+        created_at timestamptz not null default current_timestamp,
+        public_tracking_token text, property_data jsonb not null
+      );
+      insert into customer_property_submissions (id,owner_phone,status,public_tracking_token,property_data)
+      values ('existing','09130000000','pending','HIR-26-AAAAAAAAAAAA','{"title":"Apartment A","areaM2":100}');
+    `);
+    const find = async (phone: string, data: unknown) => {
+      const query = buildPendingSubmissionDuplicateQuery(phone, data);
+      const result = await db.query<{ id: string; public_tracking_token: string }>(query.sql, query.params);
+      return result.rows;
+    };
+    assert.deepEqual(await find("09130000000", { title: "Apartment A", areaM2: 100 }), [
+      { id: "existing", public_tracking_token: "HIR-26-AAAAAAAAAAAA" },
+    ]);
+    assert.deepEqual(await find("09130000000", { title: "Apartment B", areaM2: 140 }), []);
+    assert.deepEqual(await find("09131111111", { title: "Apartment A", areaM2: 100 }), []);
+    const route = await readFile(new URL("../../server/routes/api/customer-property-submissions.post.ts", import.meta.url), "utf8");
+    assert.match(route, /buildPendingSubmissionDuplicateQuery\(parsed\.data\.ownerPhone, parsed\.data\)/);
   } finally {
     await db.close();
   }
