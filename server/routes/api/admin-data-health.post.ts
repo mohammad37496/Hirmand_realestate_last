@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { AdminDataHealthCheckError, runAdminDataHealthChecks } from "@/lib/admin-data-health-checks";
 
 async function requireReportAccess(event: H3Event) {
   const token = getCookie(event, ADMIN_SESSION_COOKIE);
@@ -32,23 +33,46 @@ export default defineEventHandler(async (event) => {
     return { success: true };
   }
 
-  const checks = await Promise.all([
-    sql.query<Record<string, unknown>>(
-      "select l.id,l.name,l.property_id from leads l left join properties p on p.id=l.property_id where l.property_id is not null and p.id is null limit 50",
-    ).catch(() => []),
-    sql.query<Record<string, unknown>>(
-      "select l.id,l.name,l.consultant from leads l left join consultants c on lower(trim(c.name))=lower(trim(l.consultant)) where trim(coalesce(l.consultant,''))<>'' and c.id is null limit 50",
-    ).catch(() => []),
-    sql.query<Record<string, unknown>>(
-      "select id,title,slug from properties where deleted_at is null and status='published' and (trim(coalesce(title,''))='' or trim(coalesce(neighborhood,''))='') limit 50",
-    ).catch(() => []),
-    sql.query<Record<string, unknown>>(
-      "select phone,count(*)::int as count from leads where trim(coalesce(phone,''))<>'' group by phone having count(*) > 1 order by count desc limit 30",
-    ).catch(() => []),
-    sql.query<Record<string, unknown>>(
-      "select id,title,latitude,longitude from properties where deleted_at is null and ((latitude is null) <> (longitude is null)) limit 50",
-    ).catch(() => []),
-  ]);
+  let checks: Record<string, unknown>[][];
+  try {
+    checks = await runAdminDataHealthChecks([
+      {
+        name: "orphan leads",
+        run: () => sql.query<Record<string, unknown>>(
+          "select l.id,l.name,l.property_id from leads l left join properties p on p.id=l.property_id where l.property_id is not null and p.id is null limit 50",
+        ),
+      },
+      {
+        name: "unknown consultants",
+        run: () => sql.query<Record<string, unknown>>(
+          "select l.id,l.name,l.consultant from leads l left join consultants c on lower(trim(c.name))=lower(trim(l.consultant)) where trim(coalesce(l.consultant,''))<>'' and c.id is null limit 50",
+        ),
+      },
+      {
+        name: "incomplete published properties",
+        run: () => sql.query<Record<string, unknown>>(
+          "select id,title,slug from properties where deleted_at is null and status='published' and (trim(coalesce(title,''))='' or trim(coalesce(neighborhood,''))='') limit 50",
+        ),
+      },
+      {
+        name: "duplicate lead phones",
+        run: () => sql.query<Record<string, unknown>>(
+          "select phone,count(*)::int as count from leads where trim(coalesce(phone,''))<>'' group by phone having count(*) > 1 order by count desc limit 30",
+        ),
+      },
+      {
+        name: "incomplete property coordinates",
+        run: () => sql.query<Record<string, unknown>>(
+          "select id,title,latitude,longitude from properties where deleted_at is null and ((latitude is null) <> (longitude is null)) limit 50",
+        ),
+      },
+    ]);
+  } catch (error) {
+    if (error instanceof AdminDataHealthCheckError) {
+      throw createError({ statusCode: 503, statusMessage: "اسکن سلامت داده کامل نشد. هیچ نتیجه‌ای به‌عنوان گزارش کامل ثبت نشد؛ دوباره تلاش کنید." });
+    }
+    throw error;
+  }
 
   const findings: Array<{sourceKey:string;kind:string;severity:"info"|"warning"|"critical";title:string;detail:string;entityType?:string;entityId?:string}> = [];
   for (const row of checks[0]) findings.push({sourceKey:"orphan-lead:"+row.id,kind:"orphan_lead",severity:"critical",title:"لید به فایل ناموجود وصل است",detail:String(row.name ?? "مشتری"),entityType:"lead",entityId:String(row.id)});
