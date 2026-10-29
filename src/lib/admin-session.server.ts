@@ -62,11 +62,19 @@ export async function getAdminSessionClaims(token: string | undefined): Promise<
   if (!payload) return null;
 
   const sessionId = typeof payload.jti === "string" && payload.jti.trim() ? payload.jti : null;
-  const accountId = typeof payload.accountId === "string" && payload.accountId.trim() ? payload.accountId : null;
+  if (!sessionId) return null;
+  let accountId = typeof payload.accountId === "string" && payload.accountId.trim() ? payload.accountId : null;
   let role = normalizeAdminRole(payload.role);
   let displayName: string | null = null;
 
-  if (sessionId && dbSource !== "unconfigured") {
+  // Deployed admin sessions must be backed by the session table so revocation,
+  // account deactivation, and role changes take effect on the next request.
+  // The stateless fallback remains available only for local preview/dev.
+  if (dbSource === "unconfigured" && (process.env.NODE_ENV === "production" || process.env.VERCEL === "1")) {
+    return null;
+  }
+
+  if (dbSource !== "unconfigured") {
     try {
       const sql = await getSql();
       const rows = await sql.query<{ id: string; account_id: string | null; role: string }>(
@@ -80,6 +88,7 @@ export async function getAdminSessionClaims(token: string | undefined): Promise<
       );
       if (!rows.length) return null;
       const sessionRow = rows[0];
+      accountId = sessionRow.account_id;
       if (sessionRow.account_id) {
         const accountRows = await sql.query<{ display_name: string; role: string; is_active: boolean }>(
           "select display_name,role,is_active from admin_accounts where id=$1 limit 1",
@@ -130,6 +139,12 @@ export async function revokeAdminSession(sessionId: string) {
     [sessionId],
   );
   return rows.length > 0;
+}
+
+/** Read the signed session id without relying on database availability. */
+export async function getVerifiedAdminSessionId(token: string | undefined): Promise<string | null> {
+  const payload = await verifyPayload(token);
+  return typeof payload?.jti === "string" && payload.jti.trim() ? payload.jti : null;
 }
 
 export function isAdminKeyValid(adminKey: string | undefined) {

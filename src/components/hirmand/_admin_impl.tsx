@@ -1113,14 +1113,23 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
 
       // Await the request: clearing local state before the cookie is dropped
       // leaves a window where a refresh would silently sign the admin back in.
-      await fetch("/api/admin/session", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ action: "logout" }),
-      }).catch(() => {
-        // Local state is still cleared even when the logout request fails.
-      });
+      try {
+        const response = await fetch("/api/admin/session", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ action: "logout" }),
+        });
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as
+            | { statusMessage?: string; message?: string }
+            | null;
+          throw new Error(data?.statusMessage || data?.message || "خروج از پنل تأیید نشد.");
+        }
+      } catch (error) {
+        toast.error(adminErrorMessage(error, "خروج امن انجام نشد. اتصال را بررسی و دوباره تلاش کنید."));
+        return;
+      }
 
       clearDraft(draftKeyRef.current);
       setUnlocked(false);

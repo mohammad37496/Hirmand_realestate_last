@@ -14,7 +14,7 @@ import {
   assertServerFnSameOrigin,
 } from "./admin-rate-limit.server.ts";
 import { contentMatchesDeclaredType, sniffMediaBytes } from "./file-signature.server.ts";
-import { hasAdminPermission, normalizeAdminRole } from "./admin-roles.ts";
+import { ADMIN_ROLE_PERMISSIONS, hasAdminPermission, normalizeAdminRole, type AdminPermission, type AdminRole } from "./admin-roles.ts";
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -84,6 +84,44 @@ test("staff role is limited to new property intake, CRM review and Divar import"
   assert.equal(hasAdminPermission(role, "security.manage"), false);
   assert.equal(hasAdminPermission(role, "accounts.manage"), false);
   assert.equal(hasAdminPermission(role, "reports.view"), false);
+});
+
+test("the complete admin role matrix follows least privilege", () => {
+  const expected: Record<string, readonly string[]> = {
+    owner: [
+      "property.manage", "property.create", "property.publish", "divar.import", "lead.manage",
+      "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage",
+      "security.manage", "accounts.manage", "reports.view", "deal.manage", "commission.manage",
+    ],
+    manager: [
+      "property.manage", "property.create", "property.publish", "divar.import", "lead.manage",
+      "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage",
+      "security.manage", "reports.view", "deal.manage", "commission.manage",
+    ],
+    sales: [
+      "property.manage", "property.create", "divar.import", "area.manage", "lead.manage",
+      "reports.view", "deal.manage", "commission.manage",
+    ],
+    content: ["property.manage", "property.create", "content.manage", "area.manage", "reports.view"],
+    staff: ["property.create", "lead.manage", "divar.import", "area.manage"],
+    viewer: ["reports.view"],
+  };
+
+  assert.deepEqual(Object.keys(ADMIN_ROLE_PERMISSIONS).sort(), Object.keys(expected).sort());
+  for (const [role, permissions] of Object.entries(expected)) {
+    assert.deepEqual([...ADMIN_ROLE_PERMISSIONS[role as keyof typeof ADMIN_ROLE_PERMISSIONS]].sort(), [...permissions].sort(), `${role} permissions`);
+    for (const permission of [
+      "property.manage", "property.create", "property.publish", "divar.import", "lead.manage",
+      "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage",
+      "security.manage", "accounts.manage", "reports.view", "deal.manage", "commission.manage",
+    ]) {
+      assert.equal(
+        hasAdminPermission(role as AdminRole, permission as AdminPermission),
+        permissions.includes(permission),
+        `${role} ${permission}`,
+      );
+    }
+  }
 });
 
 /* ------------------------------------------------------------------ */
