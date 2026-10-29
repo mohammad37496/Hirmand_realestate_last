@@ -2,8 +2,9 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
+import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
 
@@ -140,6 +141,54 @@ function verifyGitBlob(buffer, expected) {
 }
 
 /**
+ * Extract the one required executable without assuming the deployment image's
+ * system tar has an XZ helper installed. The archive is checksum-verified by
+ * the caller before this function is reached. The fallback streams XZ to a
+ * temporary plain tar file so the 140+ MB compressed asset is never expanded
+ * into a single in-memory buffer.
+ */
+export async function extractPinnedFfmpegArchive(
+  archivePath,
+  extractDir,
+  {
+    runCommand = execFileSync,
+    decoderFactory,
+  } = {},
+) {
+  const tarOptions = { timeout: 240_000, stdio: ["ignore", "pipe", "pipe"] };
+  const selectFfmpeg = ["--wildcards", "--strip-components=2", "-C", extractDir, "*/bin/ffmpeg"];
+
+  try {
+    runCommand("tar", ["-xJf", archivePath, ...selectFfmpeg], tarOptions);
+    return;
+  } catch (systemTarError) {
+    const plainTarPath = `${archivePath}.decompressed-${process.pid}.tar`;
+    try {
+      // Prevent xz-compat from attempting a network install of optional native
+      // acceleration in minimal/isolated builders; its JS decoder is portable.
+      process.env.LZMA_NATIVE_DISABLE = "1";
+      const createDecoder = decoderFactory ?? (await import("xz-compat")).createXZDecoder;
+      await pipeline(createReadStream(archivePath), createDecoder(), createWriteStream(plainTarPath));
+      runCommand("tar", ["-xf", plainTarPath, ...selectFfmpeg], tarOptions);
+      console.warn("[ffmpeg] System tar lacks XZ support; used the bundled streaming decoder.");
+    } catch (fallbackError) {
+      const systemMessage = systemTarError instanceof Error
+        ? String(systemTarError.stderr?.toString?.("utf8") || systemTarError.message).trim()
+        : String(systemTarError);
+      const fallbackMessage = fallbackError instanceof Error
+        ? String(fallbackError.stderr?.toString?.("utf8") || fallbackError.message).trim()
+        : String(fallbackError);
+      throw new Error(
+        `Could not extract the pinned FFmpeg archive. System tar failed: ${systemMessage}; streaming XZ fallback failed: ${fallbackMessage}`,
+        { cause: fallbackError },
+      );
+    } finally {
+      rmSync(plainTarPath, { force: true });
+    }
+  }
+}
+
+/**
  * FFmpeg drawtext needs a real TTF/OTF file; browser WOFF2 assets are not a
  * reliable font source for the FreeType filter in minimal Liara containers.
  *
@@ -260,15 +309,7 @@ export async function ensureFfmpegBinary() {
     // binary; the archive itself is also removed in the finally block.
     archive = Buffer.alloc(0);
     mkdirSync(extractDir, { recursive: true });
-    try {
-      execFileSync(
-        "tar",
-        ["-xJf", archivePath, "--wildcards", "--strip-components=2", "-C", extractDir, "*/bin/ffmpeg"],
-        { timeout: 240_000, stdio: ["ignore", "pipe", "pipe"] },
-      );
-    } catch {
-      throw new Error("Could not extract the pinned FFmpeg archive. Ensure tar supports xz archives.");
-    }
+    await extractPinnedFfmpegArchive(archivePath, extractDir);
 
     const extractedBinary = join(extractDir, "ffmpeg");
     if (!existsSync(extractedBinary)) {
