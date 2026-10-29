@@ -4,15 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { getPublishedPropertyByFileCode } from "@/lib/properties";
 import { propertyPath } from "@/lib/property-path";
 import { SITE } from "@/lib/site";
+import { fileCodeLookupSuffix, normalizeFileCodeInput } from "@/lib/file-code-input";
 import "@/file-code.css";
-
-function normalizeCode(value: string) {
-  return value
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-F0-9]/g, "")
-    .slice(0, 6);
-}
 
 export const Route = createFileRoute("/file-code")({
   head: () => ({
@@ -36,21 +29,22 @@ function FileCodePage() {
   useEffect(() => {
     const param = new URLSearchParams(window.location.search).get("code");
     if (!param) return;
-    const normalized = normalizeCode(param);
+    const normalized = normalizeFileCodeInput(param);
     setCode(normalized);
-    if (normalized.length === 6) void lookup(normalized);
+    if (fileCodeLookupSuffix(normalized)) void lookup(normalized);
   }, []);
 
   async function lookup(value = code) {
-    const normalized = normalizeCode(value);
+    const normalized = normalizeFileCodeInput(value);
     setCode(normalized);
     setSearched(true);
     setProperty(null);
-    if (normalized.length !== 6) return;
+    const lookupCode = fileCodeLookupSuffix(normalized);
+    if (!lookupCode) return;
 
     setLoading(true);
     try {
-      setProperty(await getPublishedPropertyByFileCode({ data: { code: normalized.toLowerCase() } }));
+      setProperty(await getPublishedPropertyByFileCode({ data: { code: lookupCode.toLowerCase() } }));
     } catch {
       setProperty(null);
     } finally {
@@ -88,17 +82,17 @@ function FileCodePage() {
               <span>کد فایل</span>
               <input
                 value={code}
-                onChange={(event) => setCode(normalizeCode(event.target.value))}
+                onChange={(event) => setCode(normalizeFileCodeInput(event.target.value))}
                 inputMode="text"
                 dir="ltr"
-                maxLength={6}
+                maxLength={8}
                 autoCapitalize="characters"
                 autoComplete="off"
-                placeholder="A1B2C3"
+                placeholder="A1B2C3D4"
                 aria-label="کد ۶ رقمی فایل"
               />
             </label>
-            <button type="submit" className="btn-gold" disabled={loading || code.length !== 6}>
+            <button type="submit" className="btn-gold" disabled={loading || !fileCodeLookupSuffix(code)}>
               <Search size={17} />
               {loading ? "در حال جستجو..." : "یافتن فایل"}
             </button>
