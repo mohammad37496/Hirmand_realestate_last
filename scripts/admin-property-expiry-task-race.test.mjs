@@ -11,10 +11,12 @@ const migration = readFileSync(join(root, "migrations/0104_admin_expiry_task_ded
 const expirySql = readFileSync(join(root, "src/lib/admin-property-expiry-sql.ts"), "utf8");
 
 test("expiry renewal task creation uses the database uniqueness guard and counts only inserted rows", async () => {
-  assert.match(route, /CREATE_PROPERTY_RENEWAL_TASK_SQL/);
   assert.match(expirySql, /on conflict \(entity_type,entity_id\)[\s\S]*do nothing\s+returning entity_id/);
   assert.match(route, /if\(!inserted\.length\)continue/);
   assert.match(route, /createdTasks\+\+;/);
+  assert.match(expirySql, /set status='archived',[\s\S]*where deleted_at is null\s+and status='published'/);
+  assert.match(route, /CREATE_PROPERTY_RENEWAL_TASK_SQL/);
+  assert.match(expirySql, /on conflict \(entity_type,entity_id\)[\s\S]*do nothing\s+returning entity_id/);
   assert.match(route, /ARCHIVE_EXPIRED_PROPERTIES_SQL/);
   assert.match(expirySql, /set status='archived',[\s\S]*where deleted_at is null\s+and status='published'/);
 
