@@ -87,6 +87,12 @@ export function nullableIntegerInput(value: unknown, allowNegative = false): num
   return Number(normalized);
 }
 
+/** Parse the customer submission area using the API's positive integer contract. */
+export function parseCustomerPropertyAreaM2(value: unknown): number | null {
+  const parsed = nullableIntegerInput(value);
+  return parsed !== null && parsed >= 1 && parsed <= 100000 ? parsed : null;
+}
+
 /**
  * Boundary normalization for legacy/imported rows that are expected to map to
  * PostgreSQL integer columns. Invalid non-null values become null only at a
