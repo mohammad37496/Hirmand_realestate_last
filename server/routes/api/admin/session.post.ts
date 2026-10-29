@@ -12,6 +12,7 @@ import {
   ADMIN_SESSION_MAX_AGE,
   createAdminSessionToken,
   getAdminSessionClaims,
+  getVerifiedAdminSessionId,
   isAdminKeyValid,
 } from "@/lib/admin-session.server";
 import { verifyAdminPassword } from "@/lib/admin-password.server";
@@ -42,13 +43,20 @@ export default defineEventHandler(async (event) => {
   assertSameOrigin(event);
 
   if (action === "logout") {
-    const claims = await getAdminSessionClaims(getCookie(event, ADMIN_SESSION_COOKIE));
-    if (claims?.sessionId && dbSource !== "unconfigured") {
-      const sql = await getSql();
-      await sql.query(
-        "update admin_sessions set revoked_at = current_timestamp where id = $1 and revoked_at is null",
-        [claims.sessionId],
-      ).catch(() => {});
+    const token = getCookie(event, ADMIN_SESSION_COOKIE);
+    const sessionId = await getVerifiedAdminSessionId(token);
+    if (sessionId && dbSource !== "unconfigured") {
+      try {
+        const sql = await getSql();
+        await sql.query(
+          "update admin_sessions set revoked_at = current_timestamp where id = $1 and revoked_at is null",
+          [sessionId],
+        );
+      } catch {
+        // Do not claim logout succeeded while the server-side session remains
+        // active. Keep the cookie so the signed-in UI can retry safely.
+        throw createError({ statusCode: 503, statusMessage: "خروج امن از پنل انجام نشد؛ اتصال پایگاه داده را بررسی و دوباره تلاش کنید." });
+      }
     }
     setCookie(event, ADMIN_SESSION_COOKIE, "", {
       httpOnly: true,
@@ -84,6 +92,10 @@ export default defineEventHandler(async (event) => {
 
   // A signed-out session probe is not a failed login attempt.
   if (!submittedKey && !accountLogin) return { success: true, authenticated: false };
+
+  if (secureCookie && dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "ورود امن مدیران به نشست ذخیره‌شده در پایگاه داده نیاز دارد." });
+  }
 
   const rateKey = accountLogin ? `admin-account-login:${fingerprint}` : `admin-login:${fingerprint}`;
   const attempt = await consumeAdminAttempt(rateKey);
