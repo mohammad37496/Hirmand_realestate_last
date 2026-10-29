@@ -7,7 +7,12 @@ import {
   BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL,
   BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL,
 } from "./customer-property-submission-bulk-review.ts";
-import { rejectPendingCustomerPropertySubmission, updatePendingCustomerPropertySubmission } from "./customer-property-submission-review-state.ts";
+import {
+  assignPendingCustomerPropertySubmission,
+  rejectPendingCustomerPropertySubmission,
+  setCustomerPropertySubmissionPriority,
+  updatePendingCustomerPropertySubmission,
+} from "./customer-property-submission-review-state.ts";
 
 const initialUpdatedAt = "2026-10-29T00:00:00.123456Z";
 
@@ -129,6 +134,7 @@ async function reviewStateFixture() {
   await db.exec(`
     create table customer_property_submissions (
       id text primary key, lead_id text, status text not null, property_data jsonb not null,
+      priority text not null default 'normal', assigned_consultant_name text, assigned_consultant_phone text, assigned_at timestamptz,
       review_note text not null default '', reviewed_at timestamptz,
       updated_at timestamptz not null default current_timestamp
     );
@@ -240,6 +246,61 @@ test("admin edit and reject use snapshot-guarded pending-only updates", () => {
   assert.match(route, /rejectPendingCustomerPropertySubmission\(sql,\s*\{/);
   assert.match(route, /if \(!updated\) throw createError\(\{ statusCode: 409/);
   assert.match(route, /if \(!rejected\) throw createError\(\{ statusCode: 409/);
+});
+
+test("single assignment and priority updates commit their review events together", async () => {
+  const { db, sql } = await reviewStateFixture();
+  try {
+    assert.equal(await assignPendingCustomerPropertySubmission(sql, {
+      id: "submission-1", consultantName: "مشاور آزمایشی", consultantPhone: "09120000000", note: "تخصیص مشاور آزمایشی",
+    }), true);
+    const assigned = await db.query<{ assigned_consultant_name: string; assigned_consultant_phone: string }>(
+      "select assigned_consultant_name,assigned_consultant_phone from customer_property_submissions where id='submission-1'",
+    );
+    assert.deepEqual(assigned.rows[0], { assigned_consultant_name: "مشاور آزمایشی", assigned_consultant_phone: "09120000000" });
+    assert.equal((await db.query("select id from customer_property_submission_events where submission_id='submission-1' and action='assign'")).rows.length, 1);
+
+    const priority = await setCustomerPropertySubmissionPriority(sql, {
+      id: "submission-1", priority: "high", note: "اولویت پرونده به high تغییر کرد.",
+    });
+    assert.equal(priority?.status, "pending");
+    assert.equal((await db.query<{ priority: string }>("select priority from customer_property_submissions where id='submission-1'")).rows[0]?.priority, "high");
+    assert.equal((await db.query("select id from customer_property_submission_events where submission_id='submission-1' and action='priority'")).rows.length, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test("assignment, priority and edit mutations roll back when their review event insert fails", async () => {
+  const { db, sql } = await reviewStateFixture();
+  try {
+    await db.exec("alter table customer_property_submission_events add constraint reject_review_event check (action not in ('assign','priority','edit'))");
+    await assert.rejects(assignPendingCustomerPropertySubmission(sql, {
+      id: "submission-1", consultantName: "مشاور آزمایشی", consultantPhone: "09120000000", note: "تخصیص مشاور آزمایشی",
+    }));
+    await assert.rejects(setCustomerPropertySubmissionPriority(sql, {
+      id: "submission-1", priority: "high", note: "اولویت بالا",
+    }));
+    await assert.rejects(updatePendingCustomerPropertySubmission(sql, {
+      id: "submission-1", propertyData: JSON.stringify({ title: "تغییر" }), reviewNote: "edit", updatedAt: initialUpdatedAt,
+    }));
+    const submission = await db.query<{ priority: string; assigned_consultant_name: string | null; property_data: { title: string } }>(
+      "select priority,assigned_consultant_name,property_data from customer_property_submissions where id='submission-1'",
+    );
+    assert.deepEqual(submission.rows[0], { priority: "normal", assigned_consultant_name: null, property_data: { title: "original" } });
+    assert.equal((await db.query("select id from customer_property_submission_events")).rows.length, 0);
+  } finally {
+    await db.close();
+  }
+});
+
+test("submission queue statistics fail visibly instead of returning false zero workloads", () => {
+  const route = fs.readFileSync(new URL("../../server/routes/api/admin-customer-property-submissions.post.ts", import.meta.url), "utf8");
+  const list = route.split('if (action === "list")')[1]?.split('if (action === "assign_consultant")')[0] ?? "";
+  assert.doesNotMatch(list, /\.catch\(/);
+  assert.doesNotMatch(route, /logReviewEvent/);
+  assert.match(route, /assignPendingCustomerPropertySubmission\(/);
+  assert.match(route, /setCustomerPropertySubmissionPriority\(/);
 });
 
 async function bulkReviewFixture() {

@@ -15,7 +15,12 @@ import {
   BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL,
   BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL,
 } from "@/lib/customer-property-submission-bulk-review";
-import { rejectPendingCustomerPropertySubmission, updatePendingCustomerPropertySubmission } from "@/lib/customer-property-submission-review-state";
+import {
+  assignPendingCustomerPropertySubmission,
+  rejectPendingCustomerPropertySubmission,
+  setCustomerPropertySubmissionPriority,
+  updatePendingCustomerPropertySubmission,
+} from "@/lib/customer-property-submission-review-state";
 import { getCustomerPropertySubmissionActionPermission } from "@/lib/customer-property-submission-permissions";
 
 type Action = "list" | "approve" | "reject" | "update" | "set_priority" | "history" | "bulk_set_priority" | "bulk_reject" | "export" | "assign_consultant";
@@ -33,13 +38,6 @@ function money(value: unknown) {
   if (value == null) return null;
   const text = String(value).replace(/[^0-9]/g, "");
   return text ? text : null;
-}
-
-async function logReviewEvent(sql: Awaited<ReturnType<typeof getSql>>, submissionId: string, action: string, note = "", metadata: Record<string, unknown> = {}) {
-  await sql.query(
-    "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,$3,$4,$5::jsonb)",
-    [crypto.randomUUID(), submissionId, action, note.slice(0, 1200), JSON.stringify(metadata)],
-  ).catch(() => {});
 }
 
 export default defineEventHandler(async (event) => {
@@ -136,11 +134,11 @@ export default defineEventHandler(async (event) => {
     const total = Number(totalRows[0]?.count) || 0;
     const workloadRows = await sql.query<{ assigned_consultant_phone: string | null; count: number }>(
       "select assigned_consultant_phone,count(*)::int as count from customer_property_submissions where status='pending' group by assigned_consultant_phone",
-    ).catch(() => [] as { assigned_consultant_phone: string | null; count: number }[]);
+    );
     const workloadByPhone = new Map(workloadRows.map((row) => [String(row.assigned_consultant_phone ?? ""), Number(row.count) || 0]));
     const slaRows = await sql.query<{ overdue: number; high_priority: number; unassigned: number; average_age_hours: number | null }>(
       "select count(*) filter (where coalesce(queue_started_at,created_at) < current_timestamp - interval '24 hours')::int as overdue, count(*) filter (where priority='high')::int as high_priority, count(*) filter (where assigned_consultant_phone is null or assigned_consultant_phone='')::int as unassigned, avg(extract(epoch from (current_timestamp-coalesce(queue_started_at,created_at)))/3600)::float8 as average_age_hours from customer_property_submissions where status='pending'",
-    ).catch(() => [{ overdue: 0, high_priority: 0, unassigned: 0, average_age_hours: 0 }]);
+    );
     const sla = slaRows[0] ?? { overdue: 0, high_priority: 0, unassigned: 0, average_age_hours: 0 };
     return {
       total,
@@ -191,14 +189,13 @@ export default defineEventHandler(async (event) => {
     const rows = await sql.query<{ id: string; status: string }>("select id,status from customer_property_submissions where id=$1 limit 1",[body.id]);
     if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست ثبت ملک پیدا نشد." });
     if (rows[0].status !== "pending") throw createError({ statusCode: 409, statusMessage: "تخصیص مشاور فقط برای پرونده‌های در انتظار بررسی انجام می‌شود." });
-    await sql.query(
-      "update customer_property_submissions set assigned_consultant_name=$2,assigned_consultant_phone=$3,assigned_at=current_timestamp,updated_at=current_timestamp where id=$1",
-      [body.id, consultant?.name ?? null, consultant?.phone ?? null],
-    );
-    await logReviewEvent(sql, body.id, "assign", consultant ? "پرونده به " + consultant.name + " تخصیص یافت." : "مسئول پرونده برداشته شد.", {
+    const assigned = await assignPendingCustomerPropertySubmission(sql, {
+      id: body.id,
       consultantName: consultant?.name ?? null,
       consultantPhone: consultant?.phone ?? null,
+      note: consultant ? "پرونده به " + consultant.name + " تخصیص یافت." : "مسئول پرونده برداشته شد.",
     });
+    if (!assigned) throw createError({ statusCode: 409, statusMessage: "وضعیت پرونده هم‌زمان تغییر کرده است. فهرست را تازه‌سازی کنید." });
     return { success: true, assignedConsultantName: consultant?.name ?? null, assignedConsultantPhone: consultant?.phone ?? null };
   }
 
@@ -304,17 +301,13 @@ export default defineEventHandler(async (event) => {
     if (!priority || !["low","normal","high"].includes(priority)) {
       throw createError({ statusCode: 422, statusMessage: "اولویت نامعتبر است." });
     }
-    const rows = await sql.query<Record<string, unknown>>(
-      "select id,status from customer_property_submissions where id=$1 limit 1",
-      [body.id],
-    );
-    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست ثبت ملک پیدا نشد." });
-    await sql.query(
-      "update customer_property_submissions set priority=$2,updated_at=current_timestamp where id=$1",
-      [body.id, priority],
-    );
-    await logReviewEvent(sql, body.id, "priority", "اولویت پرونده به " + priority + " تغییر کرد.", { priority });
-    return { success: true, status: String(rows[0].status), priority };
+    const updated = await setCustomerPropertySubmissionPriority(sql, {
+      id: String(body.id),
+      priority,
+      note: "اولویت پرونده به " + priority + " تغییر کرد.",
+    });
+    if (!updated) throw createError({ statusCode: 404, statusMessage: "درخواست ثبت ملک پیدا نشد." });
+    return { success: true, status: updated.status, priority };
   }
 
 
@@ -409,7 +402,6 @@ export default defineEventHandler(async (event) => {
     });
     if (!updated) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان تغییر کرده است. لطفاً فهرست را تازه‌سازی کنید." });
 
-    await logReviewEvent(sql, body.id, "edit", "اطلاعات و رسانه‌های پرونده قبل از انتشار ویرایش شد.");
     return {
       success: true,
       status: "pending",
