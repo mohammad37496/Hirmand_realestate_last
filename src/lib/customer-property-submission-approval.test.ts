@@ -5,7 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL } from "./customer-property-submission-approval.ts";
 import { rejectPendingCustomerPropertySubmission, updatePendingCustomerPropertySubmission } from "./customer-property-submission-review-state.ts";
 
-const initialUpdatedAt = "2026-10-29T00:00:00.000Z";
+const initialUpdatedAt = "2026-10-29T00:00:00.123456Z";
 
 function approvalParams(propertyId: string, submissionId: string, note: string) {
   const params = Array.from({ length: 44 }, () => null as string | null);
@@ -156,7 +156,7 @@ test("the admin approval route inserts the property from the atomic claim CTE", 
   assert.match(route, /CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL/);
   assert.match(route, /from claimed returning id/);
   assert.match(route, /if \(!approvalRows\[0\]\)[\s\S]*?statusCode: 409/);
-  assert.match(route, /updatedAt: submission\.updated_at/);
+  assert.match(route, /updatedAt: submission\.updated_at_snapshot/);
   assert.doesNotMatch(route, /update customer_property_submissions set status='approved', property_id=/);
 });
 

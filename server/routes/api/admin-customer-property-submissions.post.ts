@@ -348,7 +348,7 @@ export default defineEventHandler(async (event) => {
 
 
   const rows = await sql.query<Record<string, unknown>>(
-    "select * from customer_property_submissions where id=$1 limit 1",
+    "select *, updated_at::text as updated_at_snapshot from customer_property_submissions where id=$1 limit 1",
     [body.id],
   );
   const submission = rows[0];
@@ -433,7 +433,7 @@ export default defineEventHandler(async (event) => {
       id: String(body.id),
       propertyData: JSON.stringify(next),
       reviewNote: "ویرایش اطلاعات توسط مدیر قبل از انتشار.",
-      updatedAt: submission.updated_at,
+      updatedAt: submission.updated_at_snapshot,
     });
     if (!updated) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان تغییر کرده است. لطفاً فهرست را تازه‌سازی کنید." });
 
@@ -465,7 +465,7 @@ export default defineEventHandler(async (event) => {
     const rejected = await rejectPendingCustomerPropertySubmission(sql, {
       id: String(body.id),
       reviewNote,
-      updatedAt: submission.updated_at,
+      updatedAt: submission.updated_at_snapshot,
     });
     if (!rejected) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان تغییر کرده است. لطفاً فهرست را تازه‌سازی کنید." });
     if (submission.lead_id) {
@@ -581,7 +581,7 @@ export default defineEventHandler(async (event) => {
         d.internalNote,
         body.id,
         typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0,1200) : "تأیید و انتشار شد.",
-        submission.updated_at,
+        submission.updated_at_snapshot,
       ],
     );
     if (!approvalRows[0]) {
