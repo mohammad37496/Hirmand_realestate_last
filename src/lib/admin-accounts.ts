@@ -8,6 +8,7 @@ import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { hashAdminPassword } from "@/lib/admin-password.server";
 import { hasAdminPermission, normalizeAdminRole, type AdminRole } from "@/lib/admin-roles";
 import { SET_ADMIN_ACCOUNT_ACTIVE_SQL } from "@/lib/admin-account-active-update";
+import { RESET_ADMIN_ACCOUNT_PASSWORD_SQL } from "@/lib/admin-account-password-reset";
 
 async function requireAccountsAdmin() {
   const token = getCookie(ADMIN_SESSION_COOKIE);
@@ -115,15 +116,8 @@ export const resetAdminAccountPassword = createServerFn({ method: "POST" })
     if (dbSource === "unconfigured") throw new Error("پایگاه داده تنظیم نشده است.");
     const sql = await getSql();
     const passwordHash = await hashAdminPassword(data.password);
-    const rows = await sql.query<{ id: string }>(
-      'update admin_accounts set password_hash=$2, updated_at=current_timestamp where id=$1 returning id',
-      [data.id, passwordHash],
-    );
+    const rows = await sql.query<{ id: string }>(RESET_ADMIN_ACCOUNT_PASSWORD_SQL, [data.id, passwordHash]);
     if (!rows[0]) throw new Error("حساب مدیر پیدا نشد.");
-    await sql.query(
-      "update admin_sessions set revoked_at=current_timestamp where account_id=$1 and revoked_at is null",
-      [data.id],
-    );
     await writeAdminAuditLog({
       action: "admin_account_password_reset",
       entityType: "admin_account",
