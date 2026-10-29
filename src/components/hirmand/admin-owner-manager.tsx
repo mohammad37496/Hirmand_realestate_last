@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { Building2, Phone, Search, UserRound } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Phone, Search, UserRound } from "lucide-react";
 import { propertyPath } from "@/lib/property-path";
 import { formatToman } from "@/lib/money";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type OwnerFile = {
   id:string; slug:string; title:string; status:string; transactionType:string;
@@ -20,35 +21,39 @@ export function AdminOwnerManager(){
   const [owners,setOwners]=useState<Owner[]>([]);
   const [query,setQuery]=useState("");
   const [loading,setLoading]=useState(true);
+  const [available,setAvailable]=useState<boolean|null>(null);
   const [expanded,setExpanded]=useState<string|null>(null);
   const [error,setError]=useState("");
 
-  async function load(){
+  const load=useCallback(async()=>{
     setLoading(true); setError("");
     try{
       const response=await fetch("/api/admin-owners",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"list",query})});
       const data=await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(data?.statusMessage||data?.message||"بارگذاری مالکین انجام نشد.");
-      setOwners(Array.isArray(data.owners)?data.owners:[]);
-    }catch(e){setError(e instanceof Error?e.message:"بارگذاری مالکین انجام نشد.");}
+      if(typeof data.available!=="boolean"||!Array.isArray(data.owners)) throw new Error("ساختار پاسخ مالکین معتبر نیست.");
+      setAvailable(data.available);
+      setOwners(data.available?data.owners:[]);
+      if(!data.available) setError("اطلاعات مالکین در دسترس نیست؛ پایگاه داده پیکربندی نشده است.");
+    }catch(e){setAvailable(null);setError(e instanceof Error?e.message:"بارگذاری مالکین انجام نشد.");}
     finally{setLoading(false);}
-  }
+  },[query]);
 
-  useEffect(()=>{const t=window.setTimeout(()=>void load(),250);return()=>window.clearTimeout(t)},[query]);
+  useEffect(()=>{const t=window.setTimeout(()=>void load(),250);return()=>window.clearTimeout(t)},[load]);
 
   const totalFiles=useMemo(()=>owners.reduce((n,o)=>n+o.fileCount,0),[owners]);
 
   return <div className="admin-owner-manager">
     <section className="admin-panel">
       <div className="admin-panel-head">
-        <div><span className="kicker">مالکین</span><h2>{owners.length.toLocaleString("fa-IR")} مالک · {totalFiles.toLocaleString("fa-IR")} فایل</h2></div>
+        <div><span className="kicker">مالکین</span><h2>{available===true&&!error?owners.length.toLocaleString("fa-IR")+" مالک · "+totalFiles.toLocaleString("fa-IR")+" فایل":"اطلاعات مالکین در دسترس نیست"}</h2></div>
         <button type="button" className="btn-ghost" onClick={()=>void load()} disabled={loading}>به‌روزرسانی</button>
       </div>
       <label className="admin-search" style={{marginBottom:12}}>
-        <Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی نام یا تلفن مالک..." />
+        <Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی نام یا تلفن مالک..." disabled={available!==true||!!error} />
       </label>
-      {error?<div className="admin-matching-error">{error}</div>:null}
-      {loading?<div className="admin-matching-empty">در حال دریافت مالکین…</div>:
+      {error?<AdminErrorBanner message={error} onRetry={()=>void load()}/>:available===false?<AdminErrorBanner message="اطلاعات مالکین در دسترس نیست." onRetry={()=>void load()}/>:null}
+      {error||available===false?null:loading?<div className="admin-matching-empty">در حال دریافت مالکین…</div>:available!==true?<div className="admin-matching-empty">در حال دریافت مالکین…</div>:
        owners.length===0?<div className="admin-empty"><UserRound size={28}/><strong>مالک ثبت‌شده‌ای پیدا نشد</strong><p>اطلاعات مالک از فایل‌های ثبت‌شده جمع‌آوری می‌شود.</p></div>:
        <div className="admin-owner-grid">
         {owners.map(owner=>{

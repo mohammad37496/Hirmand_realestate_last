@@ -76,3 +76,35 @@ test("sales control center does not turn unavailable or failed analytics queries
   assert.match(ui, /error \? <div className="admin-sales-error" role="alert">/);
   assert.match(ui, /onClick=\{\(\) => void load\(days\)\}/);
 });
+
+test("owner directory distinguishes unavailable property data from no registered owners", () => {
+  const route = read("server/routes/api/admin-owners.post.ts");
+  const ui = read("src/components/hirmand/admin-owner-manager.tsx");
+  assert.match(route, /available: false, owners: \[\]/);
+  assert.match(route, /available: true,[\s\S]*owners: rows\.map/);
+  assert.match(ui, /typeof data\.available!=="boolean"/);
+  assert.match(ui, /error\?<AdminErrorBanner/);
+  assert.match(ui, /available!==true\?/);
+  assert.match(ui, /available===true&&!error\?/);
+});
+
+test("KPI history distinguishes an unavailable database from a day without a snapshot", () => {
+  const route = read("server/routes/api/admin-kpi-snapshot.post.ts");
+  const ui = read("src/components/hirmand/admin-kpi-history.tsx");
+  assert.match(route, /if \(dbSource === "unconfigured"\) \{\s*if \(String\(query\.action \?\? ""\) === "sync"\) throw createError\(\{ statusCode: 503/);
+  assert.match(route, /return \{ available: false, snapshots: \[\] \}/);
+  assert.match(route, /available: true,/);
+  assert.match(ui, /typeof data\.available !== "boolean"/);
+  assert.match(ui, /error \? <AdminErrorBanner/);
+  assert.match(ui, /available === true && !latest \? <div className="admin-empty">هنوز snapshot/);
+});
+
+test("finance insights do not report zero revenue or settlements when the database is unavailable", () => {
+  const route = read("server/routes/api/admin-finance-insights.get.ts");
+  const ui = read("src/components/hirmand/admin-finance-insights.tsx");
+  assert.match(route, /available:false,months:\[\],categories:\[\],consultants:\[\],outstanding:0/);
+  assert.match(route, /available:true,/);
+  assert.match(ui, /typeof result\.available !== "boolean"/);
+  assert.match(ui, /error \? <AdminErrorBanner/);
+  assert.match(ui, /data\?\.available \? <>/);
+});

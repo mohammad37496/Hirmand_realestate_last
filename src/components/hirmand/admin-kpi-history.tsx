@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, RefreshCw, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type Snapshot = {
   date: string;
@@ -21,20 +22,29 @@ function fa(value: number) { return value.toLocaleString("fa-IR"); }
 export function AdminKpiHistory() {
   const [items, setItems] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [error, setError] = useState("");
 
   const load = useCallback(async (sync = false) => {
     setLoading(true);
+    setError("");
     try {
       const response = await fetch("/api/admin-kpi-snapshot" + (sync ? "?action=sync" : ""), {
         method: "POST",
         credentials: "same-origin",
         headers: { accept: "application/json" },
       });
-      const data = await response.json().catch(() => ({})) as { snapshots?: Snapshot[]; statusMessage?: string };
+      const data = await response.json().catch(() => ({})) as { available?: boolean; snapshots?: Snapshot[]; statusMessage?: string };
       if (!response.ok) throw new Error(data.statusMessage || "تاریخچه KPI دریافت نشد.");
-      setItems(data.snapshots ?? []);
+      if (typeof data.available !== "boolean" || !Array.isArray(data.snapshots)) throw new Error("ساختار پاسخ تاریخچه KPI معتبر نیست.");
+      setAvailable(data.available);
+      setItems(data.available ? data.snapshots : []);
+      if (!data.available) setError("تاریخچه KPI در دسترس نیست؛ پایگاه داده پیکربندی نشده است.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تاریخچه KPI دریافت نشد.");
+      const message = error instanceof Error ? error.message : "تاریخچه KPI دریافت نشد.";
+      setAvailable(null);
+      setError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   }, []);
 
@@ -71,7 +81,7 @@ export function AdminKpiHistory() {
           <RefreshCw size={14} className={loading ? "admin-spin" : ""} /> بروزرسانی
         </button>
       </div>
-      {!latest ? <div className="admin-empty">هنوز snapshot روزانه ساخته نشده است.</div> : (
+      {error ? <AdminErrorBanner message={error} onRetry={() => void load(true)} /> : available === false ? <AdminErrorBanner message="تاریخچه KPI در دسترس نیست." onRetry={() => void load(true)} /> : loading && available === null ? <div className="admin-empty">در حال دریافت تاریخچه KPI…</div> : available === true && !latest ? <div className="admin-empty">هنوز snapshot روزانه ساخته نشده است.</div> : latest ? (
         <>
           <div className="admin-kpi-cards">
             {metrics.map(([label, value, change]) => (
@@ -98,7 +108,7 @@ export function AdminKpiHistory() {
             ))}
           </div>
         </>
-      )}
+      ) : null}
     </section>
   );
 }
