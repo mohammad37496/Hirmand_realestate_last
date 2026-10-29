@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
 
   if (dbSource === "unconfigured") {
     return {
+      available: false,
       days,
       pipeline: { new: 0, contacted: 0, follow_up: 0, visited: 0, contract: 0 },
       summary: {
@@ -115,10 +116,7 @@ export default defineEventHandler(async (event) => {
        left join event_stats es on es.key = lower(trim(c.name))
        order by overdue_leads desc, visit_requests desc, active_leads desc, period_contracts desc, c.name asc
       `,
-    ).catch((error) => {
-      console.error("[admin-sales-control-center] consultant query unavailable", error);
-      return [] as Record<string, unknown>[];
-    }),
+    ),
     sql.query<Record<string, unknown>>(
       `select
          count(*) filter (where status = 'new')::int as new,
@@ -129,10 +127,7 @@ export default defineEventHandler(async (event) => {
        from leads
        where created_at >= current_timestamp - interval '${days} days'
       `,
-    ).catch((error) => {
-      console.error("[admin-sales-control-center] pipeline query unavailable", error);
-      return [] as Record<string, unknown>[];
-    }),
+    ),
   ]);
 
   const consultants = consultantRows.map((row) => {
@@ -181,6 +176,7 @@ export default defineEventHandler(async (event) => {
   );
 
   return {
+    available: true,
     days,
     pipeline: {
       new: Number(pipelineRow.new) || 0,
