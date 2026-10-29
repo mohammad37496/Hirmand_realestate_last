@@ -6,7 +6,7 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf
 
 test("message-template API distinguishes an unconfigured database from an available template list", () => {
   const route = read("server/routes/api/admin-message-templates.post.ts");
-  assert.match(route, /dbSource === "unconfigured"\) return \{ available: false, templates: \[\] \}/);
+  assert.match(route, /dbSource === "unconfigured"\) \{\s*if \(action === "list"\) return \{ available: false, templates: \[\] \};\s*throw createError\(\{ statusCode: 503/);
   assert.match(route, /available: true,\s*templates: rows\.map/);
 });
 
