@@ -76,7 +76,6 @@ test("expiry panel validates availability and exposes retry instead of showing f
   assert.match(component, /if\(!data\?\.available\)return[\s\S]*AdminErrorBanner/);
   assert.match(component, /loadError&&!data[\s\S]*onRetry/);
 });
-
 test("archiving updates only active expired properties and logs exactly those updates", async () => {
   const db = await createDb();
   try {
@@ -116,6 +115,7 @@ test("failed archive audit rolls back the property status change", async () => {
 test("renewal task and audit event are atomic and concurrent inserts count once", async () => {
   const db = await createDb();
   try {
+    await db.exec("insert into properties (id,status,unpublish_at) values ('property-1','published',current_timestamp+interval '3 days')");
     const insert = (taskId: string, eventId: string) => db.query<{ property_id: string }>(
       CREATE_PROPERTY_RENEWAL_TASK_SQL,
       [taskId, "تمدید فایل: خانه", "بررسی وضعیت فایل", "property-1", eventId, "مدیر"],
@@ -134,6 +134,7 @@ test("renewal task and audit event are atomic and concurrent inserts count once"
 test("failed renewal audit rolls back the task insert", async () => {
   const db = await createDb({ rejectAction: "task" });
   try {
+    await db.exec("insert into properties (id,status,unpublish_at) values ('property-1','published',current_timestamp+interval '3 days')");
     await assert.rejects(db.query(CREATE_PROPERTY_RENEWAL_TASK_SQL, [
       "task-a", "تمدید فایل: خانه", "بررسی وضعیت فایل", "property-1", "event-a", "مدیر",
     ]));
@@ -144,6 +145,37 @@ test("failed renewal audit rolls back the task insert", async () => {
   }
 });
 
+test("renewal task creation rechecks and locks the current property state", async () => {
+  const db = await createDb();
+  try {
+    await db.exec(`
+      insert into properties (id,status,deleted_at,unpublish_at,created_at) values
+        ('trashed','published',current_timestamp,current_timestamp+interval '3 days',current_timestamp-interval '120 days'),
+        ('archived','archived',null,current_timestamp+interval '3 days',current_timestamp-interval '120 days'),
+        ('expired','published',null,current_timestamp-interval '1 second',current_timestamp-interval '120 days'),
+        ('stale-review','published',null,null,current_timestamp-interval '20 days'),
+        ('eligible','published',null,current_timestamp+interval '3 days',current_timestamp-interval '10 days');
+    `);
+    const insert = (propertyId: string, index: number) => db.query<{ property_id: string }>(
+      CREATE_PROPERTY_RENEWAL_TASK_SQL,
+      [`task-${index}`, "تمدید فایل: خانه", "بررسی وضعیت فایل", propertyId, `event-${index}`, "مدیر"],
+    );
+    const results = await Promise.all([
+      insert("trashed", 1),
+      insert("archived", 2),
+      insert("expired", 3),
+      insert("stale-review", 4),
+      insert("eligible", 5),
+    ]);
+    assert.deepEqual(results.map((result) => result.rows.length), [0, 0, 0, 0, 1]);
+    const tasks = await db.query<{ entity_id: string }>("select entity_id from admin_tasks order by entity_id");
+    const events = await db.query<{ property_id: string }>("select property_id from admin_property_expiry_actions where action='task'");
+    assert.deepEqual(tasks.rows, [{ entity_id: "eligible" }]);
+    assert.deepEqual(events.rows.map((row) => row.property_id), ["eligible"]);
+  } finally {
+    await db.close();
+  }
+});
 test("property extension and audit event commit together", async () => {
   const db = await createDb();
   try {

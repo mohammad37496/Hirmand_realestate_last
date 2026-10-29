@@ -1,3 +1,5 @@
+import { csvCell } from "./csv.ts";
+
 /**
  * Pure Divar helpers shared by the admin panel and the tests.
  *
@@ -368,11 +370,6 @@ export function divarNeighborhoodOptions(files: DivarFile[]): Array<{ value: str
 /* -------------------------------------------------------------------------- */
 /* Export                                                                     */
 /* -------------------------------------------------------------------------- */
-
-function csvCell(value: unknown): string {
-  const text = value == null ? "" : String(value);
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
 
 /**
  * Spreadsheet export of the current view. Rows are quoted defensively and the

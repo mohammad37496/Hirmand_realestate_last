@@ -4,15 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { getPublishedPropertyByFileCode } from "@/lib/properties";
 import { propertyPath } from "@/lib/property-path";
 import { SITE } from "@/lib/site";
+import { fileCodeLookupSuffix, normalizeFileCodeInput } from "@/lib/file-code-input";
 import "@/file-code.css";
-
-function normalizeCode(value: string) {
-  return value
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-F0-9]/g, "")
-    .slice(0, 6);
-}
 
 export const Route = createFileRoute("/file-code")({
   head: () => ({
@@ -36,21 +29,22 @@ function FileCodePage() {
   useEffect(() => {
     const param = new URLSearchParams(window.location.search).get("code");
     if (!param) return;
-    const normalized = normalizeCode(param);
+    const normalized = normalizeFileCodeInput(param);
     setCode(normalized);
-    if (normalized.length === 6) void lookup(normalized);
+    if (fileCodeLookupSuffix(normalized)) void lookup(normalized);
   }, []);
 
   async function lookup(value = code) {
-    const normalized = normalizeCode(value);
+    const normalized = normalizeFileCodeInput(value);
     setCode(normalized);
     setSearched(true);
     setProperty(null);
-    if (normalized.length !== 6) return;
+    const lookupCode = fileCodeLookupSuffix(normalized);
+    if (!lookupCode) return;
 
     setLoading(true);
     try {
-      setProperty(await getPublishedPropertyByFileCode({ data: { code: normalized.toLowerCase() } }));
+      setProperty(await getPublishedPropertyByFileCode({ data: { code: lookupCode.toLowerCase() } }));
     } catch {
       setProperty(null);
     } finally {
@@ -79,7 +73,7 @@ function FileCodePage() {
       <section className="file-code-shell">
         <div className="file-code-hero">
           <span className="kicker">کد فایل</span>
-          <h1>کد ۶ رقمی فایل را وارد کنید.</h1>
+          <h1>کد ۶ یا ۸ رقمی فایل را وارد کنید.</h1>
           <p>
             کد فایل روی صفحه ملک، کارت معرفی و آگهی هیرمند نمایش داده می‌شود. با وارد کردن آن مستقیماً به صفحه همان ملک می‌رسید.
           </p>
@@ -88,17 +82,17 @@ function FileCodePage() {
               <span>کد فایل</span>
               <input
                 value={code}
-                onChange={(event) => setCode(normalizeCode(event.target.value))}
+                onChange={(event) => setCode(normalizeFileCodeInput(event.target.value))}
                 inputMode="text"
                 dir="ltr"
-                maxLength={6}
+                maxLength={8}
                 autoCapitalize="characters"
                 autoComplete="off"
-                placeholder="A1B2C3"
+                placeholder="A1B2C3D4"
                 aria-label="کد ۶ رقمی فایل"
               />
             </label>
-            <button type="submit" className="btn-gold" disabled={loading || code.length !== 6}>
+            <button type="submit" className="btn-gold" disabled={loading || !fileCodeLookupSuffix(code)}>
               <Search size={17} />
               {loading ? "در حال جستجو..." : "یافتن فایل"}
             </button>
@@ -110,7 +104,12 @@ function FileCodePage() {
         </div>
 
         {searched ? (
-          property ? (
+          property && "ambiguousFileCode" in property ? (
+            <section className="file-code-not-found" role="status">
+              <strong>{"\u06A9\u062F \u0641\u0627\u06CC\u0644 \u0628\u0647 \u0686\u0646\u062F \u0645\u0644\u06A9 \u0645\u062A\u0639\u0644\u0642 \u0627\u0633\u062A."}</strong>
+              <p>{"\u0628\u0631\u0627\u06CC \u062C\u0644\u0648\u06AF\u06CC\u0631\u06CC \u0627\u0632 \u0646\u0645\u0627\u06CC\u0634 \u0645\u0644\u06A9 \u0627\u0634\u062A\u0628\u0627\u0647\u06CC\u060C \u0644\u0637\u0641\u0627\u064b \u0644\u06CC\u0646\u06A9 \u0645\u0633\u062A\u0642\u06CC\u0645 \u0645\u0644\u06A9 \u0631\u0627 \u0627\u0632 \u0645\u0634\u0627\u0648\u0631 \u0647\u06CC\u0631\u0645\u0646\u062F \u062F\u0631\u06CC\u0627\u0641\u062A \u06A9\u0646\u06CC\u062F."}</p>
+            </section>
+          ) : property ? (
             <article className="file-code-result">
               <div className="file-code-result-icon"><FileSearch size={24} /></div>
               <div>

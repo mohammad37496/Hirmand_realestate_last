@@ -240,7 +240,7 @@ try {
   const baseUrl = `http://127.0.0.1:${port}`;
   startServer(port);
   await waitForServer(baseUrl);
-  browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
 
   let holdFirstResponse = true;
   let releaseFirstResponse;
@@ -321,6 +321,25 @@ try {
   await page.locator('.music-player-float-play[aria-label="مکث"]').waitFor();
   await page.getByRole("button", { name: "توقف آهنگ" }).click();
   await page.locator('.music-player-float-play[aria-label="پخش"]').waitFor();
+
+  // A single-track playlist must stop when shuffle is on and repeat is off.
+  const playbackOptions = page.locator(".music-player-options button");
+  await playbackOptions.nth(1).click(); // all -> one
+  await playbackOptions.nth(1).click(); // one -> off
+  assert.equal(await playbackOptions.nth(1).getAttribute("aria-pressed"), "false");
+  await playbackOptions.nth(0).click(); // shuffle on
+  assert.equal(await playbackOptions.nth(0).getAttribute("aria-pressed"), "true");
+  const playCallsBeforeRestart = await page.evaluate(() => window.__qaAudioCalls.play);
+  await page.locator(".music-player-float-play").first().click();
+  await page.waitForFunction((previous) => window.__qaAudioCalls.play > previous, playCallsBeforeRestart);
+  const playCallsBeforeSingleTrackEnded = await page.evaluate(() => window.__qaAudioCalls.play);
+  const playLabelBeforeSingleTrackEnded = await page.locator(".music-player-float-play").first().getAttribute("aria-label");
+  await page.locator("#hirmand-site-music-player audio").dispatchEvent("ended");
+  await page.waitForTimeout(50);
+  assert.equal(await page.evaluate(() => window.__qaAudioCalls.play), playCallsBeforeSingleTrackEnded,
+    "shuffle must not restart a one-track playlist after repeat has been turned off");
+  assert.notEqual(await page.locator(".music-player-float-play").first().getAttribute("aria-label"), playLabelBeforeSingleTrackEnded,
+    "the player must leave its playing state when the only track ends with repeat off");
 
   const volumeControl = page.getByRole("slider", { name: "کم و زیاد کردن صدا" });
   await volumeControl.evaluate((element) => {

@@ -208,7 +208,11 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
           | null;
         throw new Error(failure?.statusMessage || failure?.message || "بارگذاری درخواست‌ها انجام نشد.");
       }
-      const data = (await response.json()) as { leads?: Lead[]; total?: number };
+      const data = (await response.json()) as { available?: boolean; leads?: Lead[]; total?: number };
+      if (data.available === false) throw new Error("پایگاه داده در دسترس نیست؛ فهرست سرنخ‌ها بارگذاری نشد.");
+      if (data.available !== true || !Array.isArray(data.leads) || typeof data.total !== "number") {
+        throw new Error("ساختار پاسخ سرنخ‌ها معتبر نیست. دوباره تلاش کنید.");
+      }
       // A slow page-1 request must never overwrite page 2.
       if (currentRequest !== requestId.current) return;
       setLeads(Array.isArray(data.leads) ? data.leads : []);
@@ -525,13 +529,18 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
 
         {loading && filteredLeads.length === 0 ? (
           <AdminListSkeleton rows={5} />
-        ) : total === 0 && !debouncedQuery && statusFilter === "all" ? (
+        ) : loadError && filteredLeads.length === 0 ? (
+          <div className="admin-empty">
+            <UserRound size={30} />
+            <strong>فهرست سرنخ‌ها در دسترس نیست.</strong>
+          </div>
+        ) : !loadError && total === 0 && !debouncedQuery && statusFilter === "all" ? (
           <div className="admin-empty">
             <UserRound size={30} />
             <strong>هنوز درخواستی ثبت نشده</strong>
             <p>درخواست‌های فرم ملک و بودجه‌یابی اینجا نمایش داده می‌شوند.</p>
           </div>
-        ) : filteredLeads.length === 0 ? (
+        ) : !loadError && filteredLeads.length === 0 ? (
           <div className="admin-empty">
             <Search size={30} />
             <strong>نتیجه‌ای با این فیلتر پیدا نشد</strong>

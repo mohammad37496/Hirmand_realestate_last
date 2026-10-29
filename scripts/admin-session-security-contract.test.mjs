@@ -3,6 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { PGlite } from "@electric-sql/pglite";
 
 const root = new URL("../", import.meta.url);
 const source = async (path) => readFile(new URL(path, root), "utf8");
@@ -25,6 +26,25 @@ test("logout revocation errors return 503 instead of claiming success", async ()
   assert.match(code, /getVerifiedAdminSessionId\(token\)/);
   assert.match(code, /catch \{[\s\S]*?statusCode: 503[\s\S]*?خروج امن از پنل انجام نشد/);
   assert.doesNotMatch(code, /setCookie\(event, ADMIN_SESSION_COOKIE, "",[\s\S]*?\.catch\(\(\) => \{\}\)/);
+});
+
+test("lead assignment fails closed when consultant or unassigned-lead queries fail", async () => {
+  const code = await source("server/routes/api/admin-lead-assignment.post.ts");
+  assert.doesNotMatch(code, /\)\.catch\(\(error\) => \{[\s\S]*?return \[\];[\s\S]*?\}\);/);
+  assert.doesNotMatch(code, /from leads where trim\(coalesce\(consultant,''\)\)=''[\s\S]*?\.catch\(\(\) => \[\]\)/);
+});
+
+test("admin notification source-query failures cannot masquerade as an empty notification list", async () => {
+  const code = await source("src/lib/admin-notifications.ts");
+  assert.equal((code.match(/\.catch\(\(\) => \[\]\)/g) || []).length, 0);
+});
+
+test("notification center distinguishes source failures from an empty inbox and offers retry", async () => {
+  const code = await source("src/components/hirmand/admin-notification-center.tsx");
+  assert.ok(code.includes("const [loadError, setLoadError] = useState(false)"));
+  assert.match(code, /setLoadError\(true\)/);
+  assert.ok(code.includes('role="alert"'));
+  assert.ok(code.includes("onClick={() => void load()}"));
 });
 
 test("admin UI checks the logout response before clearing its local session", async () => {
@@ -64,4 +84,57 @@ test("admin API handlers have both session validation and server-side role permi
     if (!/hasAdminPermission|requireAdminPermission|requireAdmin\s*\(|requireAccountsAdmin/.test(code)) missing.push(`${relative(apiRoot, file)}: role permission check`);
   }
   assert.deepEqual(missing, []);
+});
+
+test("lead dedupe scan does not turn database failures into an empty duplicate list", async () => {
+  const code = await source("server/routes/api/admin-lead-dedupe.post.ts");
+  const start = code.indexOf('if (action === "list")');
+  const end = code.indexOf("const canonicalId", start);
+  assert.ok(start >= 0 && end > start);
+  assert.doesNotMatch(code.slice(start, end), /\.catch\s*\(/);
+});
+
+test("lead dedupe merge locks both rows and requires both state transitions before success", async () => {
+  const code = await source("server/routes/api/admin-lead-dedupe.post.ts");
+  assert.match(code, /locked as materialized\s*\([\s\S]*?where id = any\(\$1::text\[\]\) order by id for update/);
+  assert.match(code, /and \(select count\(\*\) from locked\) = 2/);
+  assert.match(code, /where lead_id = \$2 and exists \(select 1 from merged\)/);
+  assert.match(code, /where id = \$2 and exists \(select 1 from merged\)/);
+  assert.match(code, /!rows\[0\]\?\.canonical_id \|\| !rows\[0\]\?\.duplicate_id/);
+});
+
+test("management report finance totals include exactly the selected calendar-day range", async () => {
+  const code = await source("server/routes/api/admin-management-report.get.ts");
+  assert.match(code, /transaction_date >= current_date - \(\$1::int - 1\) and transaction_date < current_date \+ 1/);
+  assert.doesNotMatch(code, /transaction_date >= current_date - \(\$1::int\)\s*["']/);
+});
+test("customer chat cooldown is claimed atomically and migration preserves recent-message cooldowns", async () => {
+  const route = await source("server/routes/api/customer-chat.post.ts");
+  const migration = await source("migrations/0106_customer_message_cooldown.sql");
+  assert.match(route, /customer_message_cooldowns/);
+  assert.match(route, /where customer_message_cooldowns\.next_allowed_at <= current_timestamp/);
+  assert.match(route, /if \(!inserted\.length\)/);
+  assert.doesNotMatch(route, /select created_at as "createdAt" from customer_messages/);
+  const sqlMatch = route.match(/const inserted = await sql\.query<\{ id: string \}>\(\s*`([\s\S]*?)`,\s*\[/);
+  assert.ok(sqlMatch, "production route must use one cooldown-claim/message-insert statement");
+  const sendSql = sqlMatch[1];
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table leads (id text primary key, tracking_token text not null);
+      create table customer_messages (id text primary key, lead_id text not null, tracking_token text not null, sender_type text not null, sender_name text not null, message text not null, created_at timestamptz not null default current_timestamp);
+      insert into leads values ('lead-1','HIR-26-AAAAAAAAAAAA');
+      insert into customer_messages (id,lead_id,tracking_token,sender_type,sender_name,message,created_at) values ('existing','lead-1','HIR-26-AAAAAAAAAAAA','customer','Customer','existing message',current_timestamp);
+    `);
+    await db.exec(migration);
+    const send = (id) => db.query(sendSql, ['lead-1',id,'HIR-26-AAAAAAAAAAAA','Customer','new message']);
+    assert.equal((await send('cooldown-blocked')).rows.length,0,"recent existing messages must retain the cooldown across migration");
+    await db.query("update customer_message_cooldowns set next_allowed_at=current_timestamp - interval '1 second' where lead_id='lead-1'");
+    const concurrent = await Promise.all([send('message-a'),send('message-b')]);
+    assert.equal(concurrent.reduce((count,result)=>count+result.rows.length,0),1,"only one concurrent send should claim the cooldown");
+    const messages = await db.query("select id from customer_messages where lead_id='lead-1'");
+    assert.equal(messages.rows.length,2);
+    const cooldown = await db.query("select next_allowed_at > current_timestamp as active from customer_message_cooldowns where lead_id='lead-1'");
+    assert.equal(cooldown.rows[0].active,true);
+  } finally { await db.close(); }
 });

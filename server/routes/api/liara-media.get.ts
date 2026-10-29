@@ -143,12 +143,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 415, statusMessage: "نوع رسانه پشتیبانی نمی‌شود." });
   }
 
-  const isPublicMedia = !customerSubmissionMedia || publishedReference;
   const headers = new Headers({
     "content-type": contentType,
-    "cache-control": isPublicMedia
-      ? "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
-      : "private, no-store",
+    // Customer-submission media can be unpublished or rejected after a successful
+    // request. Do not let a browser or CDN keep serving those bytes from cache.
+    "cache-control": customerSubmissionMedia
+      ? "private, no-store"
+      : "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400",
     "accept-ranges": "bytes",
     "x-content-type-options": "nosniff",
     "content-disposition": "inline",

@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { ASSIGN_LEAD_WITH_ACTIVITY_SQL } from "@/lib/admin-lead-mutation-sql";
 
 type ConsultantLoad = {
   name: string;
@@ -57,10 +58,7 @@ export default defineEventHandler(async (event) => {
      where c.is_active = true
      group by c.name, c.phone, c.sort_order
      order by c.sort_order asc, c.name asc`,
-  ).catch((error) => {
-    console.error("[admin-lead-assignment] consultant query unavailable", error);
-    return [];
-  });
+  );
 
   const loads: ConsultantLoad[] = consultants.map((row) => {
     const base = {
@@ -81,28 +79,23 @@ export default defineEventHandler(async (event) => {
     if (!allowed) throw createError({ statusCode: 400, statusMessage: "مشاور فعال موردنظر پیدا نشد." });
 
     const rows = await sql.query<{ id: string }>(
-      "update leads set consultant=$2, updated_at=current_timestamp where id=$1 returning id",
-      [leadId, consultant],
-    );
-    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "لید پیدا نشد." });
-
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'status',$2,$3,$4::jsonb)",
+      ASSIGN_LEAD_WITH_ACTIVITY_SQL,
       [
         leadId,
+        consultant,
         "تخصیص مشاور",
-        "مشاور «" + consultant + "» برای این لید ثبت شد.",
         "تخصیص از مرکز تعادل بار CRM.",
         JSON.stringify({ consultant }),
       ],
-    ).catch(() => {});
+    );
+    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "لید پیدا نشد." });
 
     return { success: true, consultant };
   }
 
   const unassigned = await sql.query<Record<string, unknown>>(
     "select id,name,phone,deal,property_type,neighborhood,created_at from leads where trim(coalesce(consultant,''))='' and status not in ('closed','spam') order by created_at desc limit 24",
-  ).catch(() => []);
+  );
 
   const sorted = [...loads].sort((a, b) => a.score - b.score || a.activeLeads - b.activeLeads || a.name.localeCompare(b.name, "fa"));
   return {

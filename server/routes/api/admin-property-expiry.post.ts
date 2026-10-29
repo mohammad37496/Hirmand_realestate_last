@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { getPropertyExpiryActionPermission } from "@/lib/admin-property-expiry-permissions";
 import {
   ARCHIVE_EXPIRED_PROPERTIES_SQL,
   CREATE_PROPERTY_RENEWAL_TASK_SQL,
@@ -12,6 +13,9 @@ async function requireAdmin(event:H3Event){const token=getCookie(event,ADMIN_SES
 const clean=(v:unknown,max=160)=>typeof v==="string"?v.trim().slice(0,max):"";
 export default defineEventHandler(async event=>{
  setResponseHeader(event,"cache-control","no-store");const claims=await requireAdmin(event);const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>;const action=clean(body.action,30)||"list";
+ const requiredPermission=getPropertyExpiryActionPermission(action);
+ if(!requiredPermission)throw createError({statusCode:400,statusMessage:"عملیات نامعتبر است."});
+ if(!hasAdminPermission(normalizeAdminRole(claims?.role),requiredPermission))throw createError({statusCode:403,statusMessage:"برای این عملیات مجوز انتشار فایل لازم است."});
  if(dbSource==="unconfigured"){
   if(action!=="list")throw createError({statusCode:503,statusMessage:"پایگاه داده در دسترس نیست؛ عملیات انقضا و تمدید انجام نشد."});
   return {available:false,expired:[],soon:[],review:[],archived:0,createdTasks:0};

@@ -214,6 +214,7 @@ export const stubAdminApi = {
             whatsapp: 24,
           },
         ],
+        unavailableSections: [],
         leadSla: { overdue: 4, newOver4Hours: 2 },
         followUps: { due: 6, next7: 14 },
         recentLeads: [
@@ -637,7 +638,7 @@ export const stubAdminApi = {
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ total, leads: buildLeads(Math.min(body.limit ?? 25, total)) }),
+      body: JSON.stringify({ available: true, total, leads: buildLeads(Math.min(body.limit ?? 25, total)) }),
     });
   },
 

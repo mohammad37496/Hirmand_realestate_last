@@ -19,9 +19,24 @@ export const ARCHIVE_EXPIRED_PROPERTIES_SQL = `
 
 /** Insert a renewal task and its audit event as one all-or-nothing statement. */
 export const CREATE_PROPERTY_RENEWAL_TASK_SQL = `
-  with inserted as (
+  with eligible_property as (
+    select id
+    from properties
+    where id=$4
+      and deleted_at is null
+      and status='published'
+      and (
+        (unpublish_at is not null
+          and unpublish_at>current_timestamp
+          and unpublish_at<=current_timestamp+interval '7 days')
+        or (unpublish_at is null
+          and coalesce(published_at,created_at)<current_timestamp-interval '90 days')
+      )
+    for update
+  ), inserted as (
     insert into admin_tasks (id,title,description,status,priority,due_at,assignee,entity_type,entity_id)
-    values ($1,$2,$3,'open','high',current_timestamp+interval '24 hours','تیم هیرمند','property',$4)
+    select $1,$2,$3,'open','high',current_timestamp+interval '24 hours','تیم هیرمند','property',eligible_property.id
+    from eligible_property
     on conflict (entity_type,entity_id)
       where status='open' and entity_type='property' and title like 'تمدید فایل:%'
     do nothing

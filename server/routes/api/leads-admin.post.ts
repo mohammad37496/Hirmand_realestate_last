@@ -2,8 +2,15 @@ import { createError, defineEventHandler, getCookie, readBody, setResponseHeader
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { csvCell } from "@/lib/csv";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import {
+  UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL,
+  UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
+  UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL,
+  UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL,
+} from "@/lib/admin-lead-mutation-sql";
 
 type Status = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 type VisitStatus = "none" | "requested" | "confirmed" | "completed" | "cancelled";
@@ -49,12 +56,6 @@ function parseListInput(body: Record<string, unknown>) {
   }
 
   return { status: status as Status | "", sort, query, limit, offset };
-}
-
-function csvCell(value: unknown) {
-  let text = String(value ?? "").replace(/\r?\n/g, " ");
-  if (/^[=+\-@]/.test(text)) text = "'" + text;
-  return /[",]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
 }
 
 function csvDate(value: unknown) {
@@ -108,7 +109,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "سطح دسترسی CRM برای این حساب فعال نیست." });
   }
 
-  if (dbSource === "unconfigured") return { leads: [], total: 0 };
+  if (dbSource === "unconfigured") {
+    if (!body.action || body.action === "list") return { available: false, leads: [], total: 0 };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ عملیات CRM انجام نشد." });
+  }
   const sql = await getSql();
 
   if (body.action === "export") {
@@ -256,6 +260,7 @@ export default defineEventHandler(async (event) => {
     ]);
 
     return {
+      available: true,
       total: Number(countRows[0]?.count) || 0,
       leads: rows.map((row) => ({
         id: String(row.id),
@@ -318,10 +323,10 @@ export default defineEventHandler(async (event) => {
     const overdue = await sql.query<Record<string, unknown>>("select id, name, deal, neighborhood from leads where status not in ('closed','spam') and follow_up_at is not null and follow_up_at <= current_timestamp order by follow_up_at asc limit 500");
     let created = 0;
     for (const row of overdue) {
-      const exists = await sql.query<{ id: string }>("select id from admin_tasks where entity_type='lead' and entity_id=$1 and status='open' limit 1",[String(row.id)]).catch(()=>[]);
+      const exists = await sql.query<{ id: string }>("select id from admin_tasks where entity_type='lead' and entity_id=$1 and status='open' and dedupe_key='overdue_follow_up' limit 1",[String(row.id)]);
       if (exists.length) continue;
-      await sql.query("insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) values($1,$2,$3,'open','high',current_timestamp,'تیم هیرمند','lead',$4)",[crypto.randomUUID(),"پیگیری فوری لید: "+String(row.name||"مشتری"),"لید "+String(row.deal||"درخواست ملکی")+(row.neighborhood?" · "+String(row.neighborhood):"")+" از موعد پیگیری عبور کرده است.",String(row.id)]);
-      created++;
+      const inserted = await sql.query<{ id: string }>("insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id,dedupe_key) values($1,$2,$3,'open','high',current_timestamp,'تیم هیرمند','lead',$4,'overdue_follow_up') on conflict (entity_type,entity_id,dedupe_key) where status='open' and dedupe_key='overdue_follow_up' do nothing returning id",[crypto.randomUUID(),"پیگیری فوری لید: "+String(row.name||"مشتری"),"لید "+String(row.deal||"درخواست ملکی")+(row.neighborhood?" · "+String(row.neighborhood):"")+" از موعد پیگیری عبور کرده است.",String(row.id)]);
+      created += inserted.length;
     }
     return { success:true, created };
   }
@@ -341,25 +346,19 @@ export default defineEventHandler(async (event) => {
       });
     }
     const rows = await sql.query<{ id: string }>(
-      "update leads set status=$2, follow_up_at=$3, last_contacted_at=case when $2='contacted' then current_timestamp else last_contacted_at end, updated_at=current_timestamp where id=$1 returning id",
+      UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL,
       [
         body.id,
         body.status,
         ["new", "contacted", "follow_up", "visited"].includes(body.status) ? new Date(Date.now() + (body.status === "new" ? 24 : body.status === "visited" ? 72 : 48) * 60 * 60 * 1000).toISOString() : null,
+        "وضعیت تغییر کرد",
+        "وضعیت جدید: " + body.status,
+        JSON.stringify({ status: body.status }),
       ],
     );
     if (!rows[0]) {
       throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
     }
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'status',$2,$3,$4::jsonb)",
-      [
-        body.id,
-        "وضعیت تغییر کرد",
-        "وضعیت جدید: " + (body.status ?? ""),
-        JSON.stringify({ status: body.status }),
-      ],
-    ).catch(() => {});
     return { success: true };
   }
 
@@ -369,30 +368,22 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: "وضعیت بازدید معتبر نیست." });
     }
     const rows = await sql.query<{ id: string }>(
-      "update leads set visit_status=$2, updated_at=current_timestamp where id=$1 returning id",
-      [body.id, visitStatus],
+      UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
+      [body.id, visitStatus, "وضعیت بازدید تغییر کرد", "وضعیت بازدید: " + visitStatus, JSON.stringify({ visitStatus })],
     );
     if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'visit',$2,$3,$4::jsonb)",
-      [body.id, "وضعیت بازدید تغییر کرد", "وضعیت بازدید: " + visitStatus, "", JSON.stringify({ visitStatus })],
-    ).catch(() => {});
     return { success: true, visitStatus };
   }
 
   if (body.action === "note") {
     const note = typeof body.note === "string" ? body.note.trim().slice(0, 4000) : "";
-    const rows = await sql.query<{ note: string | null }>(
-      "update leads set note=$2, updated_at=current_timestamp where id=$1 returning note",
-      [body.id, note],
+    const rows = await sql.query<{ id: string; note: string | null }>(
+      UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL,
+      [body.id, note, "یادداشت داخلی به‌روزرسانی شد", JSON.stringify({ noteUpdated: true })],
     );
     if (!rows[0]) {
       throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
     }
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note) values ($1,'note',$2,$3)",
-      [body.id, "یادداشت داخلی به‌روزرسانی شد", rows[0].note ?? ""],
-    ).catch(() => {});
     return { success: true, note: rows[0].note ?? "" };
   }
 
@@ -410,20 +401,16 @@ export default defineEventHandler(async (event) => {
     }
 
     const rows = await sql.query<{ id: string; follow_up_at: string | null }>(
-      "update leads set follow_up_at=$2, status=case when $2 is not null and status='new' then 'follow_up' else status end, updated_at=current_timestamp where id=$1 returning id, follow_up_at",
-      [body.id, followUpAt],
-    );
-    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
-
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'follow_up',$2,$3,$4::jsonb)",
+      UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL,
       [
         body.id,
+        followUpAt,
         followUpAt ? "پیگیری زمان‌بندی شد" : "پیگیری حذف شد",
         followUpAt ? "زمان پیگیری: " + followUpAt : "زمان پیگیری بعدی پاک شد.",
         JSON.stringify({ followUpAt }),
       ],
     );
+    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
     return { success: true, followUpAt: rows[0].follow_up_at };
   }
 

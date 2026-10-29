@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { decodeSlugCandidates, isCanonicalSlug, legacyIdFragments } from "./property-slug.ts";
+import { fileCodeLookupSuffix, normalizeFileCodeInput } from "./file-code-input.ts";
 
 const PERSIAN_SLUG = "آپارتمان-شهرک-ولیعصر-345555d4";
 
@@ -47,4 +49,20 @@ test("legacy id fragments come from the tail of the slug, case-insensitively", (
   assert.deepEqual(legacyIdFragments(["آپارتمان-345555d4a"]), []);
   // Duplicates collapse so the SQL array stays small.
   assert.deepEqual(legacyIdFragments([PERSIAN_SLUG, encodeURIComponent(PERSIAN_SLUG)]), ["345555d4"]);
+});
+
+test("file-code input permits the full displayed code and sends only its lookup suffix", async () => {
+  const source = await readFile(new URL("../routes/file-code.tsx", import.meta.url), "utf8");
+  assert.match(source, /maxLength=\{8\}/);
+  assert.match(source, /fileCodeLookupSuffix\(normalized\)/);
+  assert.match(source, /code: lookupCode\.toLowerCase\(\)/);
+});
+
+test("file-code search accepts the displayed eight-hex code and looks up its final six hex digits", () => {
+  assert.equal(normalizeFileCodeInput("5DE95F3C"), "5DE95F3C");
+  assert.equal(fileCodeLookupSuffix("5DE95F3C"), "E95F3C");
+  assert.equal(fileCodeLookupSuffix("e95f3c"), "E95F3C");
+  assert.equal(fileCodeLookupSuffix("5DE95F"), "5DE95F");
+  assert.equal(fileCodeLookupSuffix("5DE95F3"), null);
+  assert.equal(fileCodeLookupSuffix("ZZ-5DE95F3C"), "E95F3C");
 });

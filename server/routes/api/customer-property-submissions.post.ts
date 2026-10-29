@@ -4,6 +4,8 @@ import { dbSource, getSql } from "@/lib/db";
 import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { resubmitCustomerPropertySubmission } from "@/lib/customer-property-submission-resubmit";
+import { buildPendingSubmissionDuplicateQuery } from "@/lib/customer-property-submission-dedupe";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -132,10 +134,15 @@ export default defineEventHandler(async (event) => {
     if (parsed.data.website) throw createError({ statusCode: 400, statusMessage: "درخواست نامعتبر است." });
 
     const previousReviewNote = String(submission.review_note ?? "").trim();
-    await sql.query(
-      "update customer_property_submissions set status='pending', review_note='', reviewed_at=null, updated_at=current_timestamp, queue_started_at=current_timestamp, owner_name=$2, owner_phone=$3, property_data=$4::jsonb where id=$1",
-      [submission.id, parsed.data.ownerName, parsed.data.ownerPhone, JSON.stringify(parsed.data)],
-    );
+    const resubmitted = await resubmitCustomerPropertySubmission(sql, {
+      id: String(submission.id),
+      ownerName: parsed.data.ownerName,
+      ownerPhone: parsed.data.ownerPhone,
+      propertyData: JSON.stringify(parsed.data),
+    });
+    if (!resubmitted) {
+      throw createError({ statusCode: 409, statusMessage: "Ø§ÛŒÙ† Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù‡Ù…Ø²Ù…Ø§Ù† ØªØºÛŒÛŒØ± Ú©Ø±Ø¯Ù‡ Ø§Ø³Øª. Ù„Ø·ÙØ§Ù‹ ÙˆØ¶Ø¹ÛŒØª Ø¬Ø¯ÛŒØ¯ Ø¢Ù† Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†ÛŒØ¯." });
+    }
     await sql.query(
       "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'resubmit',$3,$4::jsonb)",
       [crypto.randomUUID(), submission.id, "مشتری اطلاعات ملک را اصلاح و دوباره برای بررسی ارسال کرد.", JSON.stringify({ trackingToken })],
@@ -184,10 +191,8 @@ export default defineEventHandler(async (event) => {
   const leadId = crypto.randomUUID();
   void getCookie(event, VISITOR_COOKIE);
 
-  const existing = await sql.query<{ id:string; public_tracking_token:string|null }>(
-    "select id, public_tracking_token from customer_property_submissions where owner_phone=$1 and created_at > current_timestamp - interval '30 minutes' and status='pending' limit 1",
-    [parsed.data.ownerPhone],
-  );
+  const duplicateQuery = buildPendingSubmissionDuplicateQuery(parsed.data.ownerPhone, parsed.data);
+  const existing = await sql.query<{ id:string; public_tracking_token:string|null }>(duplicateQuery.sql, duplicateQuery.params);
   if (existing[0]) {
     return { success:true, duplicate:true, trackingToken: existing[0].public_tracking_token || trackingToken };
   }
@@ -234,8 +239,8 @@ export default defineEventHandler(async (event) => {
 
   const normalizedTitle = parsed.data.title.trim().toLowerCase();
   const duplicateRows = await sql.query<{ id: string; public_tracking_token: string; owner_name: string; owner_phone: string }>(
-    "select id,public_tracking_token,owner_name,owner_phone from customer_property_submissions where status in ('pending','approved') and (owner_phone=$1 or ((property_data->>'neighborhood')=$2 and (property_data->>'areaM2')=$3 and lower(coalesce(property_data->>'title',''))=$4)) order by created_at desc limit 3",
-    [parsed.data.ownerPhone, parsed.data.neighborhood, String(parsed.data.areaM2), normalizedTitle],
+    "select id,public_tracking_token,owner_name,owner_phone from customer_property_submissions where id <> $5 and status in ('pending','approved') and (owner_phone=$1 or ((property_data->>'neighborhood')=$2 and (property_data->>'areaM2')=$3 and lower(coalesce(property_data->>'title',''))=$4)) order by created_at desc limit 3",
+    [parsed.data.ownerPhone, parsed.data.neighborhood, String(parsed.data.areaM2), normalizedTitle, submissionId],
   );
 
   await sql.query(
