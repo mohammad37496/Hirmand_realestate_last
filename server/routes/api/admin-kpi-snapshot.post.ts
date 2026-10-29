@@ -17,9 +17,12 @@ async function requireReportAccess(event: H3Event) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireReportAccess(event);
-  if (dbSource === "unconfigured") return { snapshots: [] };
-  const sql = await getSql();
   const query = getQuery(event) as Record<string, unknown>;
+  if (dbSource === "unconfigured") {
+    if (String(query.action ?? "") === "sync") throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ snapshot روزانه ذخیره نشد." });
+    return { available: false, snapshots: [] };
+  }
+  const sql = await getSql();
   const rows = await sql.query<Record<string, unknown>>(
     String(query.action ?? "") === "sync"
       ? `insert into admin_kpi_snapshots(
@@ -51,6 +54,7 @@ export default defineEventHandler(async (event) => {
       : "select snapshot_date,properties_total,published_properties,leads_total,leads_last7,contracts_last30,visitors_last7,calls_last30,whatsapp_last30,overdue_followups,incomplete_properties from admin_kpi_snapshots order by snapshot_date desc limit 14",
   );
   return {
+    available: true,
     snapshots: rows.map((row) => ({
       date: String(row.snapshot_date).slice(0, 10),
       propertiesTotal: Number(row.properties_total) || 0,
