@@ -67,11 +67,16 @@ function mergeWorkspace(remote: ReturnType<typeof localWorkspace>) {
 
 export function CustomerWorkspaceSync() {
   const { user, isPending } = useCurrentUserState();
+  const [mounted, setMounted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [signingIn, setSigningIn] = useState(false);
   const [signInError, setSignInError] = useState("");
   const bootedUser = useRef<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const sync = useCallback(async () => {
     if (!user || !authEnabled) return;
@@ -119,7 +124,10 @@ export function CustomerWorkspaceSync() {
     void sync();
   }, [isPending, user, authEnabled, sync]);
 
-  if (isPending || !authEnabled) return null;
+  // Keep the server HTML and the client's first hydration render identical.
+  // Auth state can resolve before hydration, but browser-only sign-in UI must
+  // not replace the following favorites content while React is hydrating.
+  if (!mounted || isPending || !authEnabled) return null;
 
   if (!user) {
     return (
