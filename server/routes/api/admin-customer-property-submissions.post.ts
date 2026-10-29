@@ -10,6 +10,7 @@ import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL } from "@/lib/customer-property-submission-approval";
+import { getCustomerPropertySubmissionActionPermission } from "@/lib/customer-property-submission-permissions";
 
 type Action = "list" | "approve" | "reject" | "update" | "set_priority" | "history" | "bulk_set_priority" | "bulk_reject" | "export" | "assign_consultant";
 
@@ -46,8 +47,6 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "property.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی بررسی و انتشار فایل‌های ارسالی مشتریان برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { submissions: [], total: 0, counts: { pending: 0, approved: 0, rejected: 0 } };
-
   const body = (await readBody(event)) as {
     action?: Action;
     id?: string;
@@ -68,6 +67,13 @@ export default defineEventHandler(async (event) => {
     queueFilter?: "all" | "overdue" | "unassigned" | "high";
   };
   const action = body.action ?? "list";
+  const requiredPermission = getCustomerPropertySubmissionActionPermission(action);
+  if (!requiredPermission) throw createError({ statusCode: 400, statusMessage: "عملیات نامعتبر است." });
+  if (!hasAdminPermission(normalizeAdminRole(claims?.role), requiredPermission)) {
+    throw createError({ statusCode: 403, statusMessage: "برای انتشار فایل تأییدشده مجوز انتشار فایل لازم است." });
+  }
+  if (dbSource === "unconfigured") return { submissions: [], total: 0, counts: { pending: 0, approved: 0, rejected: 0 } };
+
   const sql = await getSql();
 
   if (action === "list") {
