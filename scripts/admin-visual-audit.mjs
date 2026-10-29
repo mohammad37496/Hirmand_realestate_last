@@ -483,7 +483,11 @@ async function clickByLabel(page, selector, viewId) {
 
 const report = { base: BASE, at: new Date().toISOString(), views: [], overlays: [] };
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+    : {}),
+});
 mkdirSync(OUT, { recursive: true });
 
 /**

@@ -35,3 +35,17 @@ test("admin visual audit emulates touch input through tablet widths", () => {
   assert.match(audit, /isMobile: viewport\.width <= 640/);
   assert.match(audit, /window\.matchMedia\("\(pointer: coarse\)"\)\.matches/);
 });
+
+test("admin QA npm scripts run directly on Windows without a POSIX shell", () => {
+  const packageJson = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(packageJson.scripts["qa:admin"], "node ./scripts/admin-qa.mjs");
+  assert.equal(packageJson.scripts["qa:admin-a11y"], "node ./scripts/admin-visual-audit.mjs");
+});
+
+test("admin browser audits accept an installed Chromium-compatible browser path", () => {
+  for (const file of ["admin-qa.mjs", "admin-visual-audit.mjs"]) {
+    const source = fs.readFileSync(new URL(`./${file}`, import.meta.url), "utf8");
+    assert.match(source, /PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH/);
+    assert.match(source, /executablePath: process\.env\.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH/);
+  }
+});

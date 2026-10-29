@@ -126,7 +126,11 @@ async function openView(page, view) {
 
 async function run() {
   mkdirSync(OUT, { recursive: true });
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : {}),
+  });
 
   for (const viewport of VIEWPORTS) {
     const context = await browser.newContext({
