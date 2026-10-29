@@ -72,3 +72,9 @@ test("customer-submission media is never cached publicly after publication check
   assert.match(liaraMediaRoute, /"cache-control": customerSubmissionMedia\s*\?\s*"private, no-store"/);
   assert.doesNotMatch(liaraMediaRoute, /const isPublicMedia = !customerSubmissionMedia \|\| publishedReference/);
 });
+
+test("customer resubmission uses an atomic rejected-status claim and conflicts on stale state", () => {
+  assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmission\(sql,\s*\{/);
+  assert.match(customerPropertySubmissionsRoute, /if \(!resubmitted\)\s*\{\s*throw createError\(\{ statusCode: 409/);
+  assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmission/);
+});
