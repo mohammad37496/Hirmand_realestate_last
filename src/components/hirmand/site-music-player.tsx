@@ -184,7 +184,7 @@ export function SiteMusicPlayer() {
       void audioRef.current.play().catch(() => setPlaying(false));
       return;
     }
-    if (index < tracks.length - 1 || repeatMode === "all" || shuffle) {
+    if (index < tracks.length - 1 || repeatMode === "all" || (shuffle && tracks.length > 1)) {
       changeTrack(1);
       return;
     }
