@@ -318,10 +318,10 @@ export default defineEventHandler(async (event) => {
     const overdue = await sql.query<Record<string, unknown>>("select id, name, deal, neighborhood from leads where status not in ('closed','spam') and follow_up_at is not null and follow_up_at <= current_timestamp order by follow_up_at asc limit 500");
     let created = 0;
     for (const row of overdue) {
-      const exists = await sql.query<{ id: string }>("select id from admin_tasks where entity_type='lead' and entity_id=$1 and status='open' limit 1",[String(row.id)]).catch(()=>[]);
+      const exists = await sql.query<{ id: string }>("select id from admin_tasks where entity_type='lead' and entity_id=$1 and status='open' and dedupe_key='overdue_follow_up' limit 1",[String(row.id)]);
       if (exists.length) continue;
-      await sql.query("insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) values($1,$2,$3,'open','high',current_timestamp,'تیم هیرمند','lead',$4)",[crypto.randomUUID(),"پیگیری فوری لید: "+String(row.name||"مشتری"),"لید "+String(row.deal||"درخواست ملکی")+(row.neighborhood?" · "+String(row.neighborhood):"")+" از موعد پیگیری عبور کرده است.",String(row.id)]);
-      created++;
+      const inserted = await sql.query<{ id: string }>("insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id,dedupe_key) values($1,$2,$3,'open','high',current_timestamp,'تیم هیرمند','lead',$4,'overdue_follow_up') on conflict (entity_type,entity_id,dedupe_key) where status='open' and dedupe_key='overdue_follow_up' do nothing returning id",[crypto.randomUUID(),"پیگیری فوری لید: "+String(row.name||"مشتری"),"لید "+String(row.deal||"درخواست ملکی")+(row.neighborhood?" · "+String(row.neighborhood):"")+" از موعد پیگیری عبور کرده است.",String(row.id)]);
+      created += inserted.length;
     }
     return { success:true, created };
   }
