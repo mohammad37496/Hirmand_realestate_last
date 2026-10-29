@@ -15,7 +15,7 @@ function formatBytes(bytes: number) {
   return `${value.toLocaleString("fa-IR", { maximumFractionDigits: 1 })} ${units[index]}`;
 }
 
-export function AdminMediaHealth() {
+export function AdminMediaHealth({ canCleanup }: { canCleanup: boolean }) {
   const [data, setData] = useState<MediaHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
@@ -61,9 +61,11 @@ export function AdminMediaHealth() {
           <button className="btn-ghost" type="button" onClick={() => void scan()} disabled={loading || cleaning}>
             <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> بررسی
           </button>
-          <button className="btn-ghost danger" type="button" onClick={() => void cleanup()} disabled={cleaning || loading}>
-            <Trash2 size={15} /> پاک‌سازی
-          </button>
+          {canCleanup ? (
+            <button className="btn-ghost danger" type="button" onClick={() => void cleanup()} disabled={cleaning || loading}>
+              <Trash2 size={15} /> پاک‌سازی
+            </button>
+          ) : null}
         </div>
       </section>
 
