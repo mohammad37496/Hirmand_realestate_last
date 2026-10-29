@@ -35,6 +35,7 @@ import { fa, faBytes } from "@/components/hirmand/admin-ui-utils";
 import { hasAdminPermission, type AdminRole } from "@/lib/admin-roles";
 import { AdminSmartAlerts } from "@/components/hirmand/admin-smart-alerts";
 import { AdminNotificationCenter } from "@/components/hirmand/admin-notification-center";
+import { isAdminDashboardPayload } from "@/lib/admin-dashboard-contract";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 
@@ -240,7 +241,11 @@ export function AdminDashboard({
           | null;
         throw new Error(result?.statusMessage || result?.message || "بارگذاری داشبورد انجام نشد.");
       }
-      setData((await response.json()) as DashboardData);
+      const payload: unknown = await response.json();
+      if (!isAdminDashboardPayload(payload)) {
+        throw new Error("ساختار پاسخ داشبورد معتبر نیست. دوباره تلاش کنید.");
+      }
+      setData(payload as DashboardData);
       setLoadError(null);
       setLastUpdated(new Date());
     } catch (error) {

@@ -1,7 +1,33 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { ADMIN_DASHBOARD_PROPERTY_STATS_SQL, ADMIN_DASHBOARD_PROPERTY_TYPES_SQL } from "./admin-dashboard-property-stats.ts";
+import { isAdminDashboardPayload } from "./admin-dashboard-contract.ts";
+
+const emptyDashboard = {
+  properties: { total: 0, published: 0, draft: 0, archived: 0, featured: 0, withoutImages: 0, newLast7: 0, incomplete: 0 },
+  consultants: { total: 0, active: 0, withFiles: 0, withLeads: 0 },
+  leads: { total: 0, new: 0, contacted: 0, follow_up: 0, visited: 0, contract: 0, closed: 0, spam: 0, today: 0, last7: 0, last30: 0 },
+  propertyTypes: [], leadDays: [], music: { total: 0, active: 0, sizeBytes: 0 },
+  visitors: { today: 0, last7: 0, last30: 0, pageviewsToday: 0, pageviewsLast7: 0, pageviewsLast30: 0, activeNow: 0 },
+  visitorDays: [], topPages: [], topProperties: [], eventStats: [], visitorSources: [], consultantPerformance: [],
+  leadSla: { overdue: 0, newOver4Hours: 0 }, followUps: { due: 0, next7: 0 }, recentLeads: [],
+};
+
+test("dashboard response contract accepts empty database state and rejects missing sections", () => {
+  assert.equal(isAdminDashboardPayload(emptyDashboard), true);
+  const { consultantPerformance: _removed, ...missingConsultants } = emptyDashboard;
+  assert.equal(isAdminDashboardPayload(missingConsultants), false);
+  assert.equal(isAdminDashboardPayload({ ...emptyDashboard, leads: null }), false);
+  assert.equal(isAdminDashboardPayload({ ...emptyDashboard, visitors: { ...emptyDashboard.visitors, today: "0" } }), false);
+});
+
+test("unconfigured database response includes the consultant performance collection used by the dashboard", () => {
+  const route = readFileSync(new URL("../../server/routes/api/admin-dashboard.post.ts", import.meta.url), "utf8");
+  const emptyResponse = route.split('if (dbSource === "unconfigured")')[1]?.split("const sql = await getSql()")[0] ?? "";
+  assert.match(emptyResponse, /consultantPerformance:\s*\[\]/);
+});
 
 test("admin dashboard property metrics exclude trashed listings and expired featured flags", async () => {
   const db = new PGlite();
