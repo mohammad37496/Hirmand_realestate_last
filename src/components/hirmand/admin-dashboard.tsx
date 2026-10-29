@@ -135,6 +135,7 @@ type DashboardData = {
     status: LeadStatus;
     createdAt: string;
   }[];
+  unavailableSections: string[];
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -155,6 +156,21 @@ const STATUS_LABEL: Record<LeadStatus, string> = {
   contract: "قرارداد",
   closed: "ناموفق / بسته",
   spam: "اسپم",
+};
+
+const UNAVAILABLE_DASHBOARD_SECTION_LABELS: Record<string, string> = {
+  database: "پایگاه داده",
+  visitorStats: "آمار بازدیدکنندگان",
+  activeVisitors: "بازدیدکنندگان فعال",
+  visitorTrend: "روند بازدید",
+  topPages: "صفحات پربازدید",
+  topProperties: "املاک پربازدید",
+  eventStats: "رویدادهای کاربران",
+  visitorSources: "منابع ورود",
+  followUps: "پیگیری سرنخ‌ها",
+  consultants: "آمار مشاوران",
+  leadSla: "مهلت پیگیری سرنخ‌ها",
+  consultantPerformance: "عملکرد مشاوران",
 };
 
 function formatDate(value: string) {
@@ -284,18 +300,20 @@ export function AdminDashboard({
     const inquiry = data?.eventStats.find((item) => item.event === "inquiry_submit");
     const calls = data?.eventStats.find((item) => item.event === "call_click");
     const whatsapp = data?.eventStats.find((item) => item.event === "whatsapp_click");
+    const visitorStatsUnavailable = !data || data.unavailableSections.includes("database") || data.unavailableSections.includes("visitorStats");
+    const eventStatsUnavailable = !data || data.unavailableSections.includes("database") || data.unavailableSections.includes("eventStats");
     const rate =
-      data?.visitors.last30 && inquiry
+      !visitorStatsUnavailable && !eventStatsUnavailable && data?.visitors.last30 && inquiry
         ? (inquiry.uniqueVisitors / data.visitors.last30) * 100
-        : 0;
+        : visitorStatsUnavailable || eventStatsUnavailable ? null : 0;
     const pagesPerVisitor =
-      data?.visitors.last30
+      !visitorStatsUnavailable && data?.visitors.last30
         ? data.visitors.pageviewsLast30 / data.visitors.last30
-        : 0;
+        : visitorStatsUnavailable ? null : 0;
     return {
       inquiryVisitors: inquiry?.uniqueVisitors ?? 0,
-      calls: calls?.count ?? 0,
-      whatsapp: whatsapp?.count ?? 0,
+      calls: eventStatsUnavailable ? null : calls?.count ?? 0,
+      whatsapp: eventStatsUnavailable ? null : whatsapp?.count ?? 0,
       rate,
       pagesPerVisitor,
     };
@@ -306,27 +324,28 @@ export function AdminDashboard({
     if (!data) return;
     const rows: string[][] = [
       ["بخش", "شاخص", "مقدار"],
-      ["فایل‌ها", "کل فایل‌ها", String(data.properties.total)],
-      ["فایل‌ها", "منتشرشده", String(data.properties.published)],
-      ["فایل‌ها", "پیش‌نویس", String(data.properties.draft)],
-      ["فایل‌ها", "ویژه", String(data.properties.featured)],
-      ["فایل‌ها", "بدون تصویر", String(data.properties.withoutImages)],
-      ["فایل‌ها", "ناقص", String(data.properties.incomplete)],
-      ["لید", "کل ۳۰ روز", String(data.leads.last30)],
-      ["لید", "جدید", String(data.leads.new)],
-      ["لید", "پیگیری", String(data.leads.follow_up)],
-      ["لید", "بازدید", String(data.leads.visited)],
-      ["لید", "قرارداد", String(data.leads.contract)],
-      ["لید", "پیگیری عقب‌افتاده", String(data.leadSla.overdue)],
-      ["لید", "جدید با تأخیر بیش از ۴ ساعت", String(data.leadSla.newOver4Hours)],
-      ["سایت", "بازدیدکننده امروز", String(data.visitors.today)],
-      ["سایت", "بازدیدکننده ۷ روز", String(data.visitors.last7)],
-      ["سایت", "بازدیدکننده ۳۰ روز", String(data.visitors.last30)],
-      ["سایت", "نمایش صفحه ۳۰ روز", String(data.visitors.pageviewsLast30)],
-      ["سایت", "کلیک تماس", String(conversion.calls)],
-      ["سایت", "کلیک واتساپ", String(conversion.whatsapp)],
-      ...data.consultantPerformance.map((item) => ["مشاور", item.name + " · لید", String(item.leads)]),
-      ...data.consultantPerformance.map((item) => ["مشاور", item.name + " · قرارداد", String(item.contracts)]),
+      ["فایل‌ها", "کل فایل‌ها", csvMetric("database", data.properties.total)],
+      ["فایل‌ها", "منتشرشده", csvMetric("database", data.properties.published)],
+      ["فایل‌ها", "پیش‌نویس", csvMetric("database", data.properties.draft)],
+      ["فایل‌ها", "ویژه", csvMetric("database", data.properties.featured)],
+      ["فایل‌ها", "بدون تصویر", csvMetric("database", data.properties.withoutImages)],
+      ["فایل‌ها", "ناقص", csvMetric("database", data.properties.incomplete)],
+      ["لید", "کل ۳۰ روز", csvMetric("database", data.leads.last30)],
+      ["لید", "جدید", csvMetric("database", data.leads.new)],
+      ["لید", "پیگیری", csvMetric("database", data.leads.follow_up)],
+      ["لید", "بازدید", csvMetric("database", data.leads.visited)],
+      ["لید", "قرارداد", csvMetric("database", data.leads.contract)],
+      ["لید", "پیگیری عقب‌افتاده", csvMetric("leadSla", data.leadSla.overdue)],
+      ["لید", "جدید با تأخیر بیش از ۴ ساعت", csvMetric("leadSla", data.leadSla.newOver4Hours)],
+      ["سایت", "بازدیدکننده امروز", csvMetric("visitorStats", data.visitors.today)],
+      ["سایت", "بازدیدکننده ۷ روز", csvMetric("visitorStats", data.visitors.last7)],
+      ["سایت", "بازدیدکننده ۳۰ روز", csvMetric("visitorStats", data.visitors.last30)],
+      ["سایت", "نمایش صفحه ۳۰ روز", csvMetric("visitorStats", data.visitors.pageviewsLast30)],
+      ["سایت", "کلیک تماس", csvMetric("eventStats", conversion.calls)],
+      ["سایت", "کلیک واتساپ", csvMetric("eventStats", conversion.whatsapp)],
+      ...data.consultantPerformance.map((item) => ["مشاور", item.name + " · لید", csvMetric("consultantPerformance", item.leads)]),
+      ...data.consultantPerformance.map((item) => ["مشاور", item.name + " · قرارداد", csvMetric("consultantPerformance", item.contracts)]),
+      ...data.unavailableSections.map((section) => ["وضعیت گزارش", UNAVAILABLE_DASHBOARD_SECTION_LABELS[section] ?? section, "داده در دسترس نیست"]),
     ];
     const csv = "\uFEFF" + rows.map((row) => row.map(csvCell).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -354,32 +373,40 @@ export function AdminDashboard({
     );
   }
 
+  const isUnavailable = (section: string) =>
+    data.unavailableSections.includes("database") || data.unavailableSections.includes(section);
+  const unavailableLabels = [...new Set(data.unavailableSections)]
+    .map((section) => UNAVAILABLE_DASHBOARD_SECTION_LABELS[section] ?? section)
+    .join("، ");
+  const csvMetric = (section: string, value: unknown) => isUnavailable(section) ? "" : String(value ?? "");
+
   const stats = [
-    { label: "لید بدون تماس بیش از ۲۴ ساعت", value: data.leadSla.overdue, icon: Phone, tone: "red" },
-    { label: "لید جدید بالای ۴ ساعت", value: data.leadSla.newOver4Hours, icon: Clock3, tone: "amber" },
-    { label: "کل فایل‌ها", value: data.properties.total, icon: Building2, tone: "gold" },
-    { label: "بازدید امروز", value: data.visitors.today, icon: Eye, tone: "blue" },
-    { label: "فایل‌های منتشرشده", value: data.properties.published, icon: BarChart3, tone: "green" },
-    { label: "درخواست‌های جدید", value: data.leads.new, icon: UsersRound, tone: "amber" },
-    { label: "لید در ۳۰ روز", value: data.leads.last30, icon: UserRound, tone: "blue" },
-    { label: "فایل‌های جدید ۷ روز", value: data.properties.newLast7, icon: Sparkles, tone: "green" },
-    { label: "فایل‌های بدون تصویر", value: data.properties.withoutImages, icon: ImageOff, tone: "amber" },
+    { label: "لید بدون تماس بیش از ۲۴ ساعت", value: isUnavailable("leadSla") ? null : data.leadSla.overdue, icon: Phone, tone: "red" },
+    { label: "لید جدید بالای ۴ ساعت", value: isUnavailable("leadSla") ? null : data.leadSla.newOver4Hours, icon: Clock3, tone: "amber" },
+    { label: "کل فایل‌ها", value: isUnavailable("database") ? null : data.properties.total, icon: Building2, tone: "gold" },
+    { label: "بازدید امروز", value: isUnavailable("visitorStats") ? null : data.visitors.today, icon: Eye, tone: "blue" },
+    { label: "فایل‌های منتشرشده", value: isUnavailable("database") ? null : data.properties.published, icon: BarChart3, tone: "green" },
+    { label: "درخواست‌های جدید", value: isUnavailable("database") ? null : data.leads.new, icon: UsersRound, tone: "amber" },
+    { label: "لید در ۳۰ روز", value: isUnavailable("database") ? null : data.leads.last30, icon: UserRound, tone: "blue" },
+    { label: "فایل‌های جدید ۷ روز", value: isUnavailable("database") ? null : data.properties.newLast7, icon: Sparkles, tone: "green" },
+    { label: "فایل‌های بدون تصویر", value: isUnavailable("database") ? null : data.properties.withoutImages, icon: ImageOff, tone: "amber" },
   ] as const;
 
   const leadStatuses = [
-    { key: "new" as const, label: "جدید", value: data.leads.new, tone: "gold" },
-    { key: "contacted" as const, label: "تماس گرفته شد", value: data.leads.contacted, tone: "blue" },
-    { key: "follow_up" as const, label: "پیگیری", value: data.leads.follow_up, tone: "amber" },
-    { key: "visited" as const, label: "بازدید", value: data.leads.visited, tone: "violet" },
-    { key: "contract" as const, label: "قرارداد", value: data.leads.contract, tone: "green" },
-    { key: "closed" as const, label: "ناموفق / بسته", value: data.leads.closed, tone: "red" },
-    { key: "spam" as const, label: "اسپم", value: data.leads.spam, tone: "red" },
+    { key: "new" as const, label: "جدید", value: isUnavailable("database") ? null : data.leads.new, tone: "gold" },
+    { key: "contacted" as const, label: "تماس گرفته شد", value: isUnavailable("database") ? null : data.leads.contacted, tone: "blue" },
+    { key: "follow_up" as const, label: "پیگیری", value: isUnavailable("database") ? null : data.leads.follow_up, tone: "amber" },
+    { key: "visited" as const, label: "بازدید", value: isUnavailable("database") ? null : data.leads.visited, tone: "violet" },
+    { key: "contract" as const, label: "قرارداد", value: isUnavailable("database") ? null : data.leads.contract, tone: "green" },
+    { key: "closed" as const, label: "ناموفق / بسته", value: isUnavailable("database") ? null : data.leads.closed, tone: "red" },
+    { key: "spam" as const, label: "اسپم", value: isUnavailable("database") ? null : data.leads.spam, tone: "red" },
   ];
 
   return (
     <div className="admin-dashboard">
       <style>{`.admin-funnel-row{display:flex;flex-direction:column}`}</style>
       {canManageLeads || canManageProperties ? (
+        !isUnavailable("leadSla") && !isUnavailable("followUps") ? (
         <AdminSmartAlerts
           followUpsDue={data.followUps.due}
           leadSlaOverdue={data.leadSla.overdue}
@@ -389,11 +416,20 @@ export function AdminDashboard({
           onOpenLeads={canManageLeads ? onOpenLeads : undefined}
           onOpenProperties={canManageProperties ? onOpenProperties : undefined}
         />
+        ) : null
       ) : null}
       {canManageLeads ? <AdminNotificationCenter /> : null}
       {loadError ? (
         <div style={{ marginBottom: 16 }}>
           <AdminErrorBanner message={loadError} onRetry={() => void load()} />
+        </div>
+      ) : null}
+      {data.unavailableSections.length > 0 ? (
+        <div style={{ marginBottom: 16 }}>
+          <AdminErrorBanner
+            message={`داده‌های این بخش‌ها بارگذاری نشدند: ${unavailableLabels}. برخی مقادیر خالی یا خط تیره هستند؛ صفرهای باقی‌مانده ممکن است نتیجه خطا باشند.`}
+            onRetry={() => void load()}
+          />
         </div>
       ) : null}
       <div className="admin-dashboard-stats">
@@ -403,7 +439,7 @@ export function AdminDashboard({
               <span className="admin-dashboard-stat-icon"><Phone size={19} /></span>
               <span>
                 <small>پیگیری‌های سررسیدشده</small>
-                <strong>{data.followUps.due.toLocaleString("fa-IR")}</strong>
+                <strong>{isUnavailable("followUps") ? "—" : data.followUps.due.toLocaleString("fa-IR")}</strong>
               </span>
               <ArrowLeft size={16} />
             </button>
@@ -411,7 +447,7 @@ export function AdminDashboard({
               <span className="admin-dashboard-stat-icon"><RefreshCw size={19} /></span>
               <span>
                 <small>پیگیری در ۷ روز آینده</small>
-                <strong>{data.followUps.next7.toLocaleString("fa-IR")}</strong>
+                <strong>{isUnavailable("followUps") ? "—" : data.followUps.next7.toLocaleString("fa-IR")}</strong>
               </span>
             </div>
           </>
@@ -435,7 +471,7 @@ export function AdminDashboard({
               <span className="admin-dashboard-stat-icon"><Icon size={19} /></span>
               <span>
                 <small>{label}</small>
-                <strong>{value.toLocaleString("fa-IR")}</strong>
+                <strong>{value === null ? "—" : value.toLocaleString("fa-IR")}</strong>
               </span>
               {action ? <ArrowLeft size={16} /> : null}
             </button>
@@ -453,7 +489,7 @@ export function AdminDashboard({
           <span className="admin-dashboard-stat-icon"><ImageOff size={19} /></span>
           <span>
             <small>فایل‌های نیازمند تکمیل</small>
-            <strong>{fa(data.properties.incomplete)}</strong>
+            <strong>{isUnavailable("database") ? "—" : fa(data.properties.incomplete)}</strong>
           </span>
           <ArrowLeft size={16} />
         </button>
@@ -461,7 +497,7 @@ export function AdminDashboard({
           <span className="admin-dashboard-stat-icon"><Star size={19} /></span>
           <span>
             <small>فایل‌های ویژه فعال</small>
-            <strong>{fa(data.properties.featured)}</strong>
+            <strong>{isUnavailable("database") ? "—" : fa(data.properties.featured)}</strong>
           </span>
           <ArrowLeft size={16} />
         </button>
@@ -470,9 +506,9 @@ export function AdminDashboard({
           <span>
             <small>مشاور فعال</small>
             <strong>
-              {fa(data.consultants.active)}
+              {isUnavailable("consultants") ? "—" : fa(data.consultants.active)}
               <em style={{ fontStyle: "normal", fontSize: ".7rem", opacity: .7 }}>
-                {" "}از {fa(data.consultants.total)}
+                {" "}از {isUnavailable("consultants") ? "—" : fa(data.consultants.total)}
               </em>
             </strong>
           </span>
@@ -483,7 +519,7 @@ export function AdminDashboard({
           <span>
             <small>مشاور دارای فایل / لید</small>
             <strong>
-              {fa(data.consultants.withFiles)} / {fa(data.consultants.withLeads)}
+              {isUnavailable("consultants") ? "—" : `${fa(data.consultants.withFiles)} / ${fa(data.consultants.withLeads)}`}
             </strong>
           </span>
           <ArrowLeft size={16} />
@@ -493,9 +529,9 @@ export function AdminDashboard({
           <span>
             <small>کتابخانه موسیقی</small>
             <strong>
-              {fa(data.music.active)}
+              {isUnavailable("database") ? "—" : fa(data.music.active)}
               <em style={{ fontStyle: "normal", fontSize: ".7rem", opacity: .7 }}>
-                {" "}از {fa(data.music.total)} · {faBytes(data.music.sizeBytes)}
+                {" "}از {isUnavailable("database") ? "—" : `${fa(data.music.total)} · ${faBytes(data.music.sizeBytes)}`}
               </em>
             </strong>
           </span>
@@ -505,7 +541,7 @@ export function AdminDashboard({
           <span className="admin-dashboard-stat-icon"><Clock3 size={19} /></span>
           <span>
             <small>بازدید ۷ روز اخیر</small>
-            <strong>{fa(data.visitors.last7)}</strong>
+            <strong>{isUnavailable("visitorStats") ? "—" : fa(data.visitors.last7)}</strong>
           </span>
         </div>
       </section>
@@ -592,18 +628,18 @@ export function AdminDashboard({
               <div key={item.key} className="admin-funnel-row">
                 <div className="admin-funnel-label">
                   <span>{item.label}</span>
-                  <strong>{item.value.toLocaleString("fa-IR")}</strong>
+                  <strong>{item.value === null ? "—" : item.value.toLocaleString("fa-IR")}</strong>
                 </div>
                 <div className="admin-funnel-track">
-                  <span data-tone={item.tone} style={{ width: (data.leads.total ? Math.max(4, (item.value / data.leads.total) * 100) : 4) + "%" }} />
+                  <span data-tone={item.tone} style={{ width: (data.leads.total ? Math.max(4, ((item.value ?? 0) / data.leads.total) * 100) : 4) + "%" }} />
                 </div>
               </div>
             ))}
           </div>
           <div className="admin-dashboard-mini-grid">
-            <div><span>امروز</span><strong>{data.leads.today.toLocaleString("fa-IR")}</strong></div>
-            <div><span>۷ روز اخیر</span><strong>{data.leads.last7.toLocaleString("fa-IR")}</strong></div>
-            <div><span>۳۰ روز اخیر</span><strong>{data.leads.last30.toLocaleString("fa-IR")}</strong></div>
+            <div><span>امروز</span><strong>{isUnavailable("database") ? "—" : data.leads.today.toLocaleString("fa-IR")}</strong></div>
+            <div><span>۷ روز اخیر</span><strong>{isUnavailable("database") ? "—" : data.leads.last7.toLocaleString("fa-IR")}</strong></div>
+            <div><span>۳۰ روز اخیر</span><strong>{isUnavailable("database") ? "—" : data.leads.last30.toLocaleString("fa-IR")}</strong></div>
           </div>
         </section>
 
@@ -617,7 +653,7 @@ export function AdminDashboard({
           </div>
           <div className="admin-breakdown">
             {data.propertyTypes.length === 0 ? (
-              <div className="admin-empty"><Building2 size={24} /><strong>هنوز فایلی ثبت نشده</strong></div>
+              <div className="admin-empty"><Building2 size={24} /><strong>{isUnavailable("database") ? "گزارش املاک در دسترس نیست" : "هنوز فایلی ثبت نشده"}</strong></div>
             ) : data.propertyTypes.map((item) => (
               <div key={item.type} className="admin-breakdown-row">
                 <div><span>{TYPE_LABEL[item.type] ?? item.type}</span><strong>{item.count.toLocaleString("fa-IR")}</strong></div>
@@ -628,7 +664,7 @@ export function AdminDashboard({
             ))}
           </div>
           <div className="admin-dashboard-mini-grid">
-            <div><span>ویژه</span><strong>{data.properties.featured.toLocaleString("fa-IR")}</strong></div>
+            <div><span>ویژه</span><strong>{isUnavailable("database") ? "—" : data.properties.featured.toLocaleString("fa-IR")}</strong></div>
             <div><span>پیش‌نویس</span><strong>{data.properties.draft.toLocaleString("fa-IR")}</strong></div>
             <div><span>بایگانی</span><strong>{data.properties.archived.toLocaleString("fa-IR")}</strong></div>
           </div>
@@ -641,10 +677,12 @@ export function AdminDashboard({
             <span className="kicker">روند</span>
             <h2>ورودی لید در ۷ روز اخیر</h2>
           </div>
-          <span className="admin-dashboard-summary">{data.leads.last7.toLocaleString("fa-IR")} درخواست</span>
+          <span className="admin-dashboard-summary">{isUnavailable("database") ? "—" : data.leads.last7.toLocaleString("fa-IR")} درخواست</span>
         </div>
         <div className="admin-lead-chart">
-          {last7Days.map((item) => (
+          {isUnavailable("database") ? (
+            <div className="admin-empty"><strong>گزارش سرنخ‌ها در دسترس نیست.</strong></div>
+          ) : last7Days.map((item) => (
             <div key={item.day} className="admin-lead-chart-col">
               <div className="admin-lead-chart-value">{item.count ? item.count.toLocaleString("fa-IR") : "۰"}</div>
               <div className="admin-lead-chart-bar-wrap">
@@ -663,61 +701,63 @@ export function AdminDashboard({
             <h2>بازدیدکننده‌های سایت</h2>
           </div>
           <span className="admin-dashboard-summary">
-            امروز {data.visitors.today.toLocaleString("fa-IR")} نفر
+            امروز {isUnavailable("visitorStats") ? "—" : data.visitors.today.toLocaleString("fa-IR")} نفر
           </span>
         </div>
 
         <div className="admin-dashboard-mini-grid">
           <div>
             <span>فعال در ۵ دقیقه اخیر</span>
-            <strong>{data.visitors.activeNow.toLocaleString("fa-IR")}</strong>
+            <strong>{isUnavailable("activeVisitors") ? "—" : data.visitors.activeNow.toLocaleString("fa-IR")}</strong>
           </div>
           <div>
             <span>بازدیدکننده امروز</span>
-            <strong>{data.visitors.today.toLocaleString("fa-IR")}</strong>
+            <strong>{isUnavailable("visitorStats") ? "—" : data.visitors.today.toLocaleString("fa-IR")}</strong>
           </div>
           <div>
             <span>بازدیدکننده ۷ روز</span>
-            <strong>{data.visitors.last7.toLocaleString("fa-IR")}</strong>
+            <strong>{isUnavailable("visitorStats") ? "—" : data.visitors.last7.toLocaleString("fa-IR")}</strong>
           </div>
           <div>
             <span>بازدیدکننده ۳۰ روز</span>
-            <strong>{data.visitors.last30.toLocaleString("fa-IR")}</strong>
+            <strong>{isUnavailable("visitorStats") ? "—" : data.visitors.last30.toLocaleString("fa-IR")}</strong>
           </div>
         </div>
 
         <div className="admin-dashboard-mini-grid">
           <div>
             <span>نرخ تبدیل به درخواست</span>
-            <strong>{conversion.rate.toFixed(1)}٪</strong>
+            <strong>{conversion.rate === null ? "—" : conversion.rate.toFixed(1) + "٪"}</strong>
           </div>
           <div>
             <span>کلیک تماس</span>
-            <strong>{conversion.calls.toLocaleString("fa-IR")}</strong>
+            <strong>{conversion.calls === null ? "—" : conversion.calls.toLocaleString("fa-IR")}</strong>
           </div>
           <div>
             <span>کلیک واتساپ</span>
-            <strong>{conversion.whatsapp.toLocaleString("fa-IR")}</strong>
+            <strong>{conversion.whatsapp === null ? "—" : conversion.whatsapp.toLocaleString("fa-IR")}</strong>
           </div>
         </div>
 
         <div className="admin-dashboard-mini-grid">
           <div>
             <span>نمایش صفحه امروز</span>
-            <strong>{data.visitors.pageviewsToday.toLocaleString("fa-IR")}</strong>
+            <strong>{isUnavailable("visitorStats") ? "—" : data.visitors.pageviewsToday.toLocaleString("fa-IR")}</strong>
           </div>
           <div>
             <span>نمایش صفحه ۷ روز</span>
-            <strong>{data.visitors.pageviewsLast7.toLocaleString("fa-IR")}</strong>
+            <strong>{isUnavailable("visitorStats") ? "—" : data.visitors.pageviewsLast7.toLocaleString("fa-IR")}</strong>
           </div>
           <div>
             <span>نمایش صفحه ۳۰ روز</span>
-            <strong>{data.visitors.pageviewsLast30.toLocaleString("fa-IR")}</strong>
+            <strong>{isUnavailable("visitorStats") ? "—" : data.visitors.pageviewsLast30.toLocaleString("fa-IR")}</strong>
           </div>
         </div>
 
         <div className="admin-lead-chart" aria-label="روند بازدیدکننده‌ها در ۱۴ روز اخیر">
-          {data.visitorDays.map((item) => (
+          {isUnavailable("visitorTrend") ? (
+            <div className="admin-empty"><strong>گزارش روند بازدید در دسترس نیست.</strong></div>
+          ) : data.visitorDays.map((item) => (
             <div key={item.day} className="admin-lead-chart-col">
               <div className="admin-lead-chart-value">
                 {item.uniqueVisitors.toLocaleString("fa-IR")}
@@ -739,7 +779,7 @@ export function AdminDashboard({
         </div>
 
         <p className="admin-dashboard-summary">
-          میانگین نمایش صفحه برای هر بازدیدکننده در ۳۰ روز: {conversion.pagesPerVisitor.toFixed(1)} صفحه.
+          میانگین نمایش صفحه برای هر بازدیدکننده در ۳۰ روز: {conversion.pagesPerVisitor === null ? "—" : conversion.pagesPerVisitor.toFixed(1)} صفحه.
           «بازدیدکننده» بر اساس یک شناسه ناشناس در کوکی همان مرورگر محاسبه می‌شود؛ حذف کوکی یا تعویض مرورگر می‌تواند یک نفر را دوباره به‌عنوان بازدیدکننده جدید ثبت کند.
         </p>
       </section>
@@ -757,7 +797,7 @@ export function AdminDashboard({
             {data.topProperties.length === 0 ? (
               <div className="admin-empty">
                 <Building2 size={24} />
-                <strong>هنوز بازدید فایل ثبت نشده</strong>
+                <strong>{isUnavailable("topProperties") ? "گزارش املاک پربازدید در دسترس نیست" : "هنوز بازدید فایل ثبت نشده"}</strong>
               </div>
             ) : (
               data.topProperties.map((item) => (
@@ -801,7 +841,7 @@ export function AdminDashboard({
             {data.topPages.length === 0 ? (
               <div className="admin-empty">
                 <BarChart3 size={24} />
-                <strong>هنوز داده‌ای ثبت نشده</strong>
+                <strong>{isUnavailable("topPages") ? "گزارش صفحات پربازدید در دسترس نیست" : "هنوز داده‌ای ثبت نشده"}</strong>
               </div>
             ) : (
               data.topPages.map((item) => (
@@ -831,7 +871,7 @@ export function AdminDashboard({
             {data.eventStats.length === 0 ? (
               <div className="admin-empty">
                 <UsersRound size={24} />
-                <strong>هنوز رویدادی ثبت نشده</strong>
+                <strong>{isUnavailable("eventStats") ? "گزارش رویدادها در دسترس نیست" : "هنوز رویدادی ثبت نشده"}</strong>
               </div>
             ) : (
               data.eventStats.map((item) => {
@@ -891,7 +931,7 @@ export function AdminDashboard({
           </div>
           <div className="admin-dashboard-source-list">
             {data.visitorSources.length === 0 ? (
-              <div className="admin-empty"><Globe2 size={24} /><strong>هنوز منبع ورودی ثبت نشده</strong></div>
+              <div className="admin-empty"><Globe2 size={24} /><strong>{isUnavailable("visitorSources") ? "گزارش منابع ورود در دسترس نیست" : "هنوز منبع ورودی ثبت نشده"}</strong></div>
             ) : (
               data.visitorSources.slice(0, 6).map((item) => (
                 <div key={item.source + "::" + item.campaign} className="admin-dashboard-source-row">
@@ -917,17 +957,17 @@ export function AdminDashboard({
           <div className="admin-system-grid">
             <div>
               <span><Building2 size={14} /> فایل‌ها</span>
-              <strong>{data.properties.total.toLocaleString("fa-IR")}</strong>
-              <small>{data.properties.published.toLocaleString("fa-IR")} منتشرشده</small>
+              <strong>{isUnavailable("database") ? "—" : data.properties.total.toLocaleString("fa-IR")}</strong>
+              <small>{isUnavailable("database") ? "—" : data.properties.published.toLocaleString("fa-IR")} منتشرشده</small>
             </div>
             <div>
               <span><Music2 size={14} /> موسیقی</span>
-              <strong>{data.music.active.toLocaleString("fa-IR")}</strong>
-              <small>از {data.music.total.toLocaleString("fa-IR")} قطعه فعال</small>
+              <strong>{isUnavailable("database") ? "—" : data.music.active.toLocaleString("fa-IR")}</strong>
+              <small>از {isUnavailable("database") ? "—" : data.music.total.toLocaleString("fa-IR")} قطعه فعال</small>
             </div>
             <div>
               <span><UsersRound size={14} /> لید جدید</span>
-              <strong>{data.leads.new.toLocaleString("fa-IR")}</strong>
+              <strong>{isUnavailable("database") ? "—" : data.leads.new.toLocaleString("fa-IR")}</strong>
               <small>نیازمند بررسی</small>
             </div>
           </div>
@@ -945,7 +985,7 @@ export function AdminDashboard({
         {data.recentLeads.length === 0 ? (
           <div className="admin-empty">
             <UsersRound size={26} />
-            <strong>هنوز لید جدیدی ندارید</strong>
+            <strong>{isUnavailable("database") ? "گزارش سرنخ‌ها در دسترس نیست" : "هنوز لید جدیدی ندارید"}</strong>
             <p>درخواست‌های فرم سایت در این بخش نمایش داده می‌شوند.</p>
           </div>
         ) : (
