@@ -5,6 +5,7 @@ import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { resubmitCustomerPropertySubmission } from "@/lib/customer-property-submission-resubmit";
+import { buildPendingSubmissionDuplicateQuery } from "@/lib/customer-property-submission-dedupe";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -190,10 +191,8 @@ export default defineEventHandler(async (event) => {
   const leadId = crypto.randomUUID();
   void getCookie(event, VISITOR_COOKIE);
 
-  const existing = await sql.query<{ id:string; public_tracking_token:string|null }>(
-    "select id, public_tracking_token from customer_property_submissions where owner_phone=$1 and created_at > current_timestamp - interval '30 minutes' and status='pending' limit 1",
-    [parsed.data.ownerPhone],
-  );
+  const duplicateQuery = buildPendingSubmissionDuplicateQuery(parsed.data.ownerPhone, parsed.data);
+  const existing = await sql.query<{ id:string; public_tracking_token:string|null }>(duplicateQuery.sql, duplicateQuery.params);
   if (existing[0]) {
     return { success:true, duplicate:true, trackingToken: existing[0].public_tracking_token || trackingToken };
   }
