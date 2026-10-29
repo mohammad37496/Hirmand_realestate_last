@@ -7,7 +7,7 @@ import { isPropertyDescriptionValidForStatus, nullableMoneyFieldSchema } from "@
 import { EXACT_PROPERTY_DUPLICATE_SQL, propertyDuplicateKeyChanged, publicationCriticalFieldsChanged, resolvePropertySaveStatus } from "@/lib/property-save-guards";
 import { buildPublicPropertyFilterParams, buildPublicPropertyWhereSql, PRICE_EXPR } from "@/lib/property-search-sql";
 import { publicPropertyFiltersSchema } from "@/lib/property-search-contract";
-import { compactSearchText } from "@/lib/property-search-utils";
+import { ADMIN_PROPERTY_PHONE_SEARCH_SQL, normalizeAdminPhoneSearch } from "@/lib/admin-property-search";
 import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
@@ -1020,6 +1020,7 @@ function adminFilterParams(data: z.infer<typeof adminListSchema>) {
     data.minArea ?? null,
     data.maxArea ?? null,
     data.minBedrooms ?? null,
+    normalizeAdminPhoneSearch(data.search),
   ];
 }
 
@@ -1035,7 +1036,7 @@ function adminPropertyWhereSql() {
     "and ($3::text is null or property_type = $3)",
     "and ($4::text is null or neighborhood = $4)",
     "and ($5::boolean is false or (featured = true and (featured_until is null or featured_until >= current_timestamp)))",
-    "and ($6::text is null or title ilike '%' || $6 || '%' or neighborhood ilike '%' || $6 || '%' or coalesce(address, '') ilike '%' || $6 || '%' or contact_name ilike '%' || $6 || '%' or contact_phone ilike '%' || $6 || '%' or owner_name ilike '%' || $6 || '%' or owner_phone ilike '%' || $6 || '%' or owner_info ilike '%' || $6 || '%' or id ilike '%' || $6 || '%')",
+    `and ($6::text is null or title ilike '%' || $6 || '%' or neighborhood ilike '%' || $6 || '%' or coalesce(address, '') ilike '%' || $6 || '%' or contact_name ilike '%' || $6 || '%' or contact_phone ilike '%' || $6 || '%' or owner_name ilike '%' || $6 || '%' or owner_phone ilike '%' || $6 || '%' or owner_info ilike '%' || $6 || '%' or id ilike '%' || $6 || '%' ${ADMIN_PROPERTY_PHONE_SEARCH_SQL})`,
     // Media is a jsonb array, so `jsonb_array_length` needs an empty-array
     // guard — a null column would otherwise raise instead of returning 0.
     "and ($7::boolean is null or (coalesce(jsonb_array_length(images), 0) > 0) = $7)",
@@ -1049,13 +1050,13 @@ function adminPropertyWhereSql() {
 
 const ADMIN_SORT_CLAUSE = `
   order by
-    case when $13::text = 'title' then title end asc nulls last,
-    case when $13::text = 'price_desc' then ${ADMIN_PRICE_EXPR} end desc nulls last,
-    case when $13::text = 'price_asc' then ${ADMIN_PRICE_EXPR} end asc nulls last,
-    case when $13::text = 'area_desc' then area_m2 end desc nulls last,
-    case when $13::text = 'oldest' then created_at end asc nulls last,
-    case when $13::text = 'updated' then updated_at end desc nulls last,
-    case when $13::text = 'newest' then created_at end desc nulls last,
+    case when $14::text = 'title' then title end asc nulls last,
+    case when $14::text = 'price_desc' then ${ADMIN_PRICE_EXPR} end desc nulls last,
+    case when $14::text = 'price_asc' then ${ADMIN_PRICE_EXPR} end asc nulls last,
+    case when $14::text = 'area_desc' then area_m2 end desc nulls last,
+    case when $14::text = 'oldest' then created_at end asc nulls last,
+    case when $14::text = 'updated' then updated_at end desc nulls last,
+    case when $14::text = 'newest' then created_at end desc nulls last,
     updated_at desc,
     created_at desc`;
 
@@ -1071,7 +1072,7 @@ export const listAdminProperties = createServerFn({ method: "POST" })
        from properties
        where ${adminPropertyWhereSql()}
        ${ADMIN_SORT_CLAUSE}
-       limit $14 offset $15`,
+       limit $15 offset $16`,
       [...filters, data.sort, data.limit, data.offset],
     );
     return rows.map((row) => mapProperty(row, { admin: true }));
