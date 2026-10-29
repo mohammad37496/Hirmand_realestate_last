@@ -26,6 +26,7 @@ export function isAdminDashboardPayload(value: unknown): boolean {
     Array.isArray(value.eventStats) &&
     Array.isArray(value.visitorSources) &&
     Array.isArray(value.consultantPerformance) &&
+    Array.isArray(value.unavailableSections) && value.unavailableSections.every((section) => typeof section === "string") &&
     hasNumericFields(value.leadSla, ["overdue", "newOver4Hours"]) &&
     hasNumericFields(value.followUps, ["due", "next7"]) &&
     Array.isArray(value.recentLeads)

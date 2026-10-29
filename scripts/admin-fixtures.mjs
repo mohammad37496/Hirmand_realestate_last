@@ -214,6 +214,7 @@ export const stubAdminApi = {
             whatsapp: 24,
           },
         ],
+        unavailableSections: [],
         leadSla: { overdue: 4, newOver4Hours: 2 },
         followUps: { due: 6, next7: 14 },
         recentLeads: [
