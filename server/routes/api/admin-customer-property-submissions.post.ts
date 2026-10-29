@@ -10,6 +10,7 @@ import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL } from "@/lib/customer-property-submission-approval";
+import { rejectPendingCustomerPropertySubmission, updatePendingCustomerPropertySubmission } from "@/lib/customer-property-submission-review-state";
 import { getCustomerPropertySubmissionActionPermission } from "@/lib/customer-property-submission-permissions";
 
 type Action = "list" | "approve" | "reject" | "update" | "set_priority" | "history" | "bulk_set_priority" | "bulk_reject" | "export" | "assign_consultant";
@@ -347,7 +348,7 @@ export default defineEventHandler(async (event) => {
 
 
   const rows = await sql.query<Record<string, unknown>>(
-    "select * from customer_property_submissions where id=$1 limit 1",
+    "select *, updated_at::text as updated_at_snapshot from customer_property_submissions where id=$1 limit 1",
     [body.id],
   );
   const submission = rows[0];
@@ -428,17 +429,13 @@ export default defineEventHandler(async (event) => {
     next.address = String(next.address ?? "").trim().slice(0, 240);
     next.description = description;
 
-    await sql.query(
-      "update customer_property_submissions set property_data=$2::jsonb, review_note=$3, updated_at=current_timestamp where id=$1",
-      [body.id, JSON.stringify(next), "ویرایش اطلاعات توسط مدیر قبل از انتشار."],
-    ).catch(async (error) => {
-      const message = String(error instanceof Error ? error.message : error);
-      if (!message.toLowerCase().includes("updated_at")) throw error;
-      await sql.query(
-        "update customer_property_submissions set property_data=$2::jsonb, review_note=$3 where id=$1",
-        [body.id, JSON.stringify(next), "ویرایش اطلاعات توسط مدیر قبل از انتشار."],
-      );
+    const updated = await updatePendingCustomerPropertySubmission(sql, {
+      id: String(body.id),
+      propertyData: JSON.stringify(next),
+      reviewNote: "ویرایش اطلاعات توسط مدیر قبل از انتشار.",
+      updatedAt: submission.updated_at_snapshot,
     });
+    if (!updated) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان تغییر کرده است. لطفاً فهرست را تازه‌سازی کنید." });
 
     await logReviewEvent(sql, body.id, "edit", "اطلاعات و رسانه‌های پرونده قبل از انتشار ویرایش شد.");
     return {
@@ -465,10 +462,12 @@ export default defineEventHandler(async (event) => {
 
   if (action === "reject") {
     const reviewNote = typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0, 1200) : "";
-    await sql.query(
-      "update customer_property_submissions set status='rejected', review_note=$2, reviewed_at=current_timestamp, updated_at=current_timestamp where id=$1",
-      [body.id, reviewNote],
-    );
+    const rejected = await rejectPendingCustomerPropertySubmission(sql, {
+      id: String(body.id),
+      reviewNote,
+      updatedAt: submission.updated_at_snapshot,
+    });
+    if (!rejected) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان تغییر کرده است. لطفاً فهرست را تازه‌سازی کنید." });
     if (submission.lead_id) {
       await sql.query("update leads set status='closed', updated_at=current_timestamp where id=$1", [submission.lead_id]).catch(() => {});
       await sql.query(
@@ -582,6 +581,7 @@ export default defineEventHandler(async (event) => {
         d.internalNote,
         body.id,
         typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0,1200) : "تأیید و انتشار شد.",
+        submission.updated_at_snapshot,
       ],
     );
     if (!approvalRows[0]) {

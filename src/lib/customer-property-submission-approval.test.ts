@@ -3,13 +3,17 @@ import fs from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL } from "./customer-property-submission-approval.ts";
+import { rejectPendingCustomerPropertySubmission, updatePendingCustomerPropertySubmission } from "./customer-property-submission-review-state.ts";
+
+const initialUpdatedAt = "2026-10-29T00:00:00.123456Z";
 
 function approvalParams(propertyId: string, submissionId: string, note: string) {
-  const params = Array.from({ length: 43 }, () => null as string | null);
+  const params = Array.from({ length: 44 }, () => null as string | null);
   params[0] = propertyId;
   params[1] = "آپارتمان آزمایشی";
   params[41] = submissionId;
   params[42] = note;
+  params[43] = initialUpdatedAt;
   return params;
 }
 
@@ -22,10 +26,10 @@ async function createFixture() {
       property_id text,
       review_note text,
       reviewed_at timestamptz,
-      updated_at timestamptz
+      updated_at timestamptz not null default current_timestamp
     );
     create table properties (id text primary key, title text not null);
-    insert into customer_property_submissions (id,status) values ('submission-1','pending');
+    insert into customer_property_submissions (id,status,updated_at) values ('submission-1','pending','${initialUpdatedAt}');
   `);
   return db;
 }
@@ -79,10 +83,87 @@ test("a failed property insert rolls the submission claim back to pending", asyn
   }
 });
 
+test("approval rejects a stale property-data snapshot after an admin edit", async () => {
+  const db = await createFixture();
+  try {
+    await db.query("update customer_property_submissions set updated_at='2026-10-29T00:00:01.000Z' where id='submission-1'");
+    const result = await db.query(testApprovalSql(), approvalParams("property-stale", "submission-1", "approval note"));
+    assert.equal(result.rows.length, 0);
+    const submissions = await db.query<{ status: string; property_id: string | null }>(
+      "select status,property_id from customer_property_submissions where id='submission-1'",
+    );
+    assert.equal(submissions.rows[0]?.status, "pending");
+    assert.equal(submissions.rows[0]?.property_id, null);
+    assert.equal((await db.query("select id from properties")).rows.length, 0);
+  } finally {
+    await db.close();
+  }
+});
+
+async function reviewStateFixture() {
+  const db = new PGlite();
+  await db.exec(`
+    create table customer_property_submissions (
+      id text primary key, status text not null, property_data jsonb not null,
+      review_note text not null default '', reviewed_at timestamptz,
+      updated_at timestamptz not null default current_timestamp
+    );
+    insert into customer_property_submissions (id,status,property_data,updated_at)
+    values ('submission-1','pending','{"title":"original"}','${initialUpdatedAt}');
+  `);
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+      (await db.query<T>(text, params)).rows,
+  };
+  return { db, sql };
+}
+
+test("admin edit cannot overwrite a submission that was approved after its read", async () => {
+  const { db, sql } = await reviewStateFixture();
+  try {
+    await db.query("update customer_property_submissions set status='approved',updated_at='2026-10-29T00:00:01.000Z' where id='submission-1'");
+    assert.equal(await updatePendingCustomerPropertySubmission(sql, {
+      id: "submission-1", propertyData: JSON.stringify({ title: "stale edit" }),
+      reviewNote: "edit", updatedAt: initialUpdatedAt,
+    }), false);
+    const rows = await db.query<{ status: string; property_data: { title: string } }>(
+      "select status,property_data from customer_property_submissions where id='submission-1'",
+    );
+    assert.deepEqual(rows.rows[0], { status: "approved", property_data: { title: "original" } });
+  } finally {
+    await db.close();
+  }
+});
+
+test("admin reject cannot revert a submission approved after its read", async () => {
+  const { db, sql } = await reviewStateFixture();
+  try {
+    await db.query("update customer_property_submissions set status='approved',updated_at='2026-10-29T00:00:01.000Z' where id='submission-1'");
+    assert.equal(await rejectPendingCustomerPropertySubmission(sql, {
+      id: "submission-1", reviewNote: "stale reject", updatedAt: initialUpdatedAt,
+    }), false);
+    const rows = await db.query<{ status: string; review_note: string }>(
+      "select status,review_note from customer_property_submissions where id='submission-1'",
+    );
+    assert.deepEqual(rows.rows[0], { status: "approved", review_note: "" });
+  } finally {
+    await db.close();
+  }
+});
+
 test("the admin approval route inserts the property from the atomic claim CTE", () => {
   const route = fs.readFileSync(new URL("../../server/routes/api/admin-customer-property-submissions.post.ts", import.meta.url), "utf8");
   assert.match(route, /CLAIM_PENDING_CUSTOMER_PROPERTY_SUBMISSION_SQL/);
   assert.match(route, /from claimed returning id/);
   assert.match(route, /if \(!approvalRows\[0\]\)[\s\S]*?statusCode: 409/);
+  assert.match(route, /updatedAt: submission\.updated_at_snapshot/);
   assert.doesNotMatch(route, /update customer_property_submissions set status='approved', property_id=/);
+});
+
+test("admin edit and reject use snapshot-guarded pending-only updates", () => {
+  const route = fs.readFileSync(new URL("../../server/routes/api/admin-customer-property-submissions.post.ts", import.meta.url), "utf8");
+  assert.match(route, /updatePendingCustomerPropertySubmission\(sql,\s*\{/);
+  assert.match(route, /rejectPendingCustomerPropertySubmission\(sql,\s*\{/);
+  assert.match(route, /if \(!updated\) throw createError\(\{ statusCode: 409/);
+  assert.match(route, /if \(!rejected\) throw createError\(\{ statusCode: 409/);
 });
