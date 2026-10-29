@@ -27,6 +27,12 @@ test("logout revocation errors return 503 instead of claiming success", async ()
   assert.doesNotMatch(code, /setCookie\(event, ADMIN_SESSION_COOKIE, "",[\s\S]*?\.catch\(\(\) => \{\}\)/);
 });
 
+test("lead assignment fails closed when consultant or unassigned-lead queries fail", async () => {
+  const code = await source("server/routes/api/admin-lead-assignment.post.ts");
+  assert.doesNotMatch(code, /\)\.catch\(\(error\) => \{[\s\S]*?return \[\];[\s\S]*?\}\);/);
+  assert.doesNotMatch(code, /from leads where trim\(coalesce\(consultant,''\)\)=''[\s\S]*?\.catch\(\(\) => \[\]\)/);
+});
+
 test("admin UI checks the logout response before clearing its local session", async () => {
   const code = await source("src/components/hirmand/_admin_impl.tsx");
   const start = code.indexOf("function logout() {");
