@@ -1,5 +1,6 @@
 import pg from "pg";
 import { randomUUID } from "node:crypto";
+import { assertSafeAdminSmokeDatabase } from "./admin-mutation-smoke-safety.mjs";
 import { chromium } from "playwright";
 
 const baseUrl = (process.argv[2] || "http://127.0.0.1:8081").replace(/\/$/, "");
@@ -10,6 +11,7 @@ const price = process.env.ADMIN_SMOKE_PROPERTY_PRICE?.trim() || "12345678901";
 
 if (!adminKey) throw new Error("HIRMAND_ADMIN_KEY is required for the admin mutation smoke.");
 if (!databaseUrl) throw new Error("DATABASE_URL is required for the admin mutation smoke.");
+assertSafeAdminSmokeDatabase(databaseUrl, process.env.ADMIN_SMOKE_ALLOW_REMOTE_DATABASE === "1");
 
 const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
