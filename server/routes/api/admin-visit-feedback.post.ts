@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مشاهده بازخورد مشتریان برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { total: 0, average: 0, interested: 0, recent: [] };
+  if (dbSource === "unconfigured") return { available: false, total: 0, average: 0, interested: 0, recent: [] };
 
   await readBody(event).catch(() => ({}));
   const sql = await getSql();
@@ -30,6 +30,7 @@ export default defineEventHandler(async (event) => {
   const summary = summaryRows[0] ?? { total: 0, average: 0, interested: 0 };
 
   return {
+    available: true,
     total: Number(summary.total) || 0,
     average: Number(summary.average) || 0,
     interested: Number(summary.interested) || 0,
