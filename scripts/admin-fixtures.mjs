@@ -638,7 +638,7 @@ export const stubAdminApi = {
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ total, leads: buildLeads(Math.min(body.limit ?? 25, total)) }),
+      body: JSON.stringify({ available: true, total, leads: buildLeads(Math.min(body.limit ?? 25, total)) }),
     });
   },
 
