@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { ADMIN_UPCOMING_VISITS_SQL } from "@/lib/admin-agenda-queries";
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
@@ -17,7 +18,7 @@ export default defineEventHandler(async (event) => {
   const sql = await getSql();
   const [followUps, visits, callbacks] = await Promise.all([
     sql.query<Record<string, unknown>>("select id,name,phone,deal,neighborhood,consultant,status,follow_up_at from leads where status in ('new','contacted','follow_up','visited','contract') and follow_up_at is not null order by case when follow_up_at < current_timestamp then 0 else 1 end, follow_up_at asc limit 8"),
-    sql.query<Record<string, unknown>>("select id,name,phone,deal,neighborhood,consultant,visit_status,visit_preferred_at from leads where visit_status in ('requested','confirmed') and visit_preferred_at is not null and visit_preferred_at <= current_timestamp + interval '7 days' order by visit_preferred_at asc limit 8"),
+    sql.query<Record<string, unknown>>(ADMIN_UPCOMING_VISITS_SQL),
     sql.query<Record<string, unknown>>("select id,name,phone,deal,neighborhood,consultant,callback_preferred_at from leads where callback_preferred_at is not null and status in ('new','contacted','follow_up') and callback_preferred_at <= current_timestamp + interval '7 days' order by callback_preferred_at asc limit 8"),
   ]);
   return {
