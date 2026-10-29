@@ -199,7 +199,7 @@ export default defineEventHandler(async (event) => {
         "    when transaction_type = 'mortgage' and area_m2 > 0 and deposit is not null then deposit / area_m2 " +
         "    else null end as metric " +
         "  from properties " +
-        "  where status = 'published' and id::text <> $1 and neighborhood = $2 and property_type = $3 and transaction_type = $4" +
+        "  where status = 'published' and deleted_at is null and id::text <> $1 and neighborhood = $2 and property_type = $3 and transaction_type = $4" +
         ") comparable where metric is not null",
       [property.id, property.neighborhood, property.property_type, property.transaction_type],
     ),
