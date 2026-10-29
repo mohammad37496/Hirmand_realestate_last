@@ -107,9 +107,13 @@ try {
       if (!detail || detail.status() >= 400) {
         throw new Error("Published property detail returned HTTP " + (detail?.status() ?? 0));
       }
-      const body = await page.locator("body").innerText();
-      const heading = await page.locator("h1.property-detail-title-block").innerText().catch(() => "");
+      const headingLocator = page.locator("h1.property-detail-title-block");
+      // The route can briefly render its pending skeleton after DOMContentLoaded;
+      // wait for the actual detail heading before asserting the saved property is visible.
+      await headingLocator.waitFor({ state: "visible", timeout: 30000 });
+      const heading = await headingLocator.innerText();
       if (!heading.includes(title)) {
+        const body = await page.locator("body").innerText();
         throw new Error("Published property detail heading did not match the created title. Heading: " + heading.slice(0, 180) + "; body: " + body.slice(0, 180));
       }
 
