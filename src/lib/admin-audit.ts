@@ -2,15 +2,18 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
+import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { hasAdminPermission, normalizeAdminRole, type AdminPermission } from "@/lib/admin-roles";
 
-async function requireAdmin() {
-  if (await verifyAdminSessionToken(getCookie(ADMIN_SESSION_COOKIE))) {
-    assertAdminServerFnOrigin();
-    return;
+async function requireAdmin(permission: AdminPermission) {
+  const token = getCookie(ADMIN_SESSION_COOKIE);
+  if (!(await verifyAdminSessionToken(token))) throw new Error("نشست مدیریت معتبر نیست.");
+  assertAdminServerFnOrigin();
+  const claims = await getAdminSessionClaims(token);
+  if (!hasAdminPermission(normalizeAdminRole(claims?.role), permission)) {
+    throw new Error("دسترسی لازم برای این عملیات وجود ندارد.");
   }
-  throw new Error("نشست مدیریت معتبر نیست.");
 }
 
 // `writeAdminAuditLog` now lives in `./admin-audit-log.server` so that this
@@ -25,7 +28,7 @@ export const listAdminAuditLog = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    await requireAdmin();
+    await requireAdmin("security.manage");
     if (dbSource === "unconfigured") return [];
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
@@ -51,7 +54,7 @@ export const listAdminAuditLog = createServerFn({ method: "POST" })
 export const clearAdminAuditLog = createServerFn({ method: "POST" })
   .validator(z.object({ beforeDays: z.number().int().min(7).max(3650).optional().default(365) }))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    await requireAdmin("security.manage");
     if (dbSource === "unconfigured") return { success: true, deleted: 0 };
     const sql = await getSql();
     const rows = await sql.query<{ id: number }>(

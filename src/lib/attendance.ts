@@ -2,8 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
+import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { hasAdminPermission, normalizeAdminRole, type AdminPermission } from "@/lib/admin-roles";
 
 export type AttendanceSession = {
   clockIn: string;
@@ -32,10 +33,14 @@ type AttendanceRow = {
   updated_at: string;
 };
 
-async function requireAdmin() {
+async function requireAdmin(permission: AdminPermission = "settings.manage") {
   const session = getCookie(ADMIN_SESSION_COOKIE);
   if (await verifyAdminSessionToken(session)) {
     assertAdminServerFnOrigin();
+    const claims = await getAdminSessionClaims(session);
+    if (!hasAdminPermission(normalizeAdminRole(claims?.role), permission)) {
+      throw new Error("دسترسی لازم برای این عملیات وجود ندارد.");
+    }
     return;
   }
   throw new Error("نشست مدیریت معتبر نیست. دوباره وارد پنل شوید.");

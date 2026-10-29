@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { verifyAdminSessionToken, ADMIN_SESSION_COOKIE } from "@/lib/admin-session.server";
+import { getAdminSessionClaims, verifyAdminSessionToken, ADMIN_SESSION_COOKIE } from "@/lib/admin-session.server";
 import { getCookie } from "@tanstack/react-start/server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { hasAdminPermission, normalizeAdminRole, type AdminPermission } from "@/lib/admin-roles";
 
 export type RedirectRow={id:number;sourcePath:string;targetPath:string;statusCode:301|302|307|308;active:boolean;hitCount:number;lastHitAt:string|null;createdAt:string;updatedAt:string};
 type NotFoundRow={id:number;path:string;hitCount:number;referrer:string;userAgent:string;firstSeenAt:string;lastSeenAt:string};
@@ -31,10 +32,14 @@ function map404(row:Record<string,unknown>):NotFoundRow{return{
   firstSeenAt:new Date(String(row.first_seen_at)).toISOString(),lastSeenAt:new Date(String(row.last_seen_at)).toISOString(),
 };}
 
-async function requireAdmin(){
+async function requireAdmin(permission: AdminPermission = "settings.manage"){
   const token=getCookie(ADMIN_SESSION_COOKIE);
   if(!(await verifyAdminSessionToken(token))) throw new Error("نشست مدیریت معتبر نیست.");
   assertAdminServerFnOrigin();
+  const claims = await getAdminSessionClaims(token);
+  if (!hasAdminPermission(normalizeAdminRole(claims?.role), permission)) {
+    throw new Error("دسترسی لازم برای این عملیات وجود ندارد.");
+  }
 }
 
 // A plain exported helper here used to keep this whole module — and with it
