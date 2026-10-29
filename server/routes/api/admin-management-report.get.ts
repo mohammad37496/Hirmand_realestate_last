@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { emptyAdminManagementReport } from "@/lib/admin-management-report-contract";
 
 const n = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const clean = (value: unknown) => typeof value === "string" ? value : "";
@@ -13,8 +14,8 @@ export default defineEventHandler(async (event) => {
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "reports.view")) throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش مدیریتی برای این حساب فعال نیست." });
-  if (dbSource === "unconfigured") return { days: 30, properties:{}, leads:{}, deals:{}, finance:null, topConsultants:[] };
   const query = getQuery(event); const rawDays=Number(query.days); const days=[7,30,90,365].includes(rawDays)?rawDays:30;
+  if (dbSource === "unconfigured") return emptyAdminManagementReport(days);
   const sql=await getSql();
   const [p,l,d,c,top]=await Promise.all([
     sql.query<Record<string,unknown>>("select count(*)::int as created,count(*) filter(where status='published')::int as published,count(*) filter(where status='draft')::int as draft,count(*) filter(where status='archived')::int as archived from properties where created_at >= current_timestamp - ($1::int * interval '1 day')",[days]),
