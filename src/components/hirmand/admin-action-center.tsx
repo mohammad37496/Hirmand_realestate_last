@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowLeft, Check, Clock3, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type ActionItem = {
   id: string;
@@ -40,6 +41,8 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
   const [summary, setSummary] = useState({ urgent: 0, high: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,19 +52,26 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "list" }),
       });
-      if (!response.ok) throw new Error("action center unavailable");
-      const result = (await response.json()) as {
+      const result = (await response.json().catch(() => null)) as {
+        available?: boolean;
         summary?: { urgent?: number; high?: number; total?: number };
         items?: ActionItem[];
-      };
+        statusMessage?: string;
+      } | null;
+      if (!response.ok) throw new Error(result?.statusMessage || "مرکز اقدام امروز بارگذاری نشد.");
+      if (typeof result?.available !== "boolean" || !Array.isArray(result.items) || !result.summary) {
+        throw new Error("ساختار پاسخ مرکز اقدام معتبر نیست.");
+      }
+      setAvailable(result.available);
+      setLoadError(null);
       setSummary({
         urgent: Number(result.summary?.urgent) || 0,
         high: Number(result.summary?.high) || 0,
         total: Number(result.summary?.total) || 0,
       });
-      setItems(Array.isArray(result.items) ? result.items : []);
-    } catch {
-      setItems([]);
+      setItems(result.available ? result.items : []);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "مرکز اقدام امروز بارگذاری نشد.");
     } finally {
       setLoading(false);
     }
@@ -78,7 +88,7 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
   };
 
   const completeTask = async (item: ActionItem) => {
-    if (item.kind !== "task" || busyId) return;
+    if (item.kind !== "task" || busyId || available !== true) return;
     setBusyId(item.id);
     try {
       const response = await fetch("/api/admin-action-center", {
@@ -111,13 +121,17 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
       </div>
 
       <div className="admin-dashboard-mini-grid">
-        <div><span>فوری</span><strong>{summary.urgent.toLocaleString("fa-IR")}</strong></div>
-        <div><span>مهم</span><strong>{summary.high.toLocaleString("fa-IR")}</strong></div>
-        <div><span>کل صف</span><strong>{summary.total.toLocaleString("fa-IR")}</strong></div>
+        <div><span>فوری</span><strong>{available === true ? summary.urgent.toLocaleString("fa-IR") : "—"}</strong></div>
+        <div><span>مهم</span><strong>{available === true ? summary.high.toLocaleString("fa-IR") : "—"}</strong></div>
+        <div><span>کل صف</span><strong>{available === true ? summary.total.toLocaleString("fa-IR") : "—"}</strong></div>
       </div>
 
       <div className="admin-breakdown">
-        {loading && !items.length ? (
+        {loadError ? (
+          <AdminErrorBanner message={loadError} onRetry={() => void load()} />
+        ) : available === false ? (
+          <AdminErrorBanner message="اطلاعات مرکز اقدام در دسترس نیست؛ پایگاه داده پیکربندی نشده است." onRetry={() => void load()} />
+        ) : loading && available === null ? (
           <div className="admin-empty"><Clock3 size={24} /><strong>در حال جمع‌کردن کارهای امروز…</strong></div>
         ) : items.length === 0 ? (
           <div className="admin-empty"><Check size={24} /><strong>فعلاً اقدام بحرانی در صف نیست.</strong></div>

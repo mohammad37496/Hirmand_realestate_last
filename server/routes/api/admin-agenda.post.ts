@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت پیگیری مشتریان برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { overdueFollowUps: [], upcomingVisits: [], upcomingCallbacks: [] };
+  if (dbSource === "unconfigured") return { available: false, overdueFollowUps: [], upcomingVisits: [], upcomingCallbacks: [] };
   const sql = await getSql();
   const [followUps, visits, callbacks] = await Promise.all([
     sql.query<Record<string, unknown>>("select id,name,phone,deal,neighborhood,consultant,status,follow_up_at from leads where status in ('new','contacted','follow_up','visited','contract') and follow_up_at is not null order by case when follow_up_at < current_timestamp then 0 else 1 end, follow_up_at asc limit 8"),
@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
     sql.query<Record<string, unknown>>("select id,name,phone,deal,neighborhood,consultant,callback_preferred_at from leads where callback_preferred_at is not null and status in ('new','contacted','follow_up') and callback_preferred_at <= current_timestamp + interval '7 days' order by callback_preferred_at asc limit 8"),
   ]);
   return {
+    available: true,
     overdueFollowUps: followUps.map((row) => ({ id:String(row.id), name:String(row.name ?? ""), phone:String(row.phone ?? ""), deal:String(row.deal ?? ""), neighborhood:String(row.neighborhood ?? ""), consultant:String(row.consultant ?? ""), status:String(row.status ?? "new"), followUpAt:new Date(String(row.follow_up_at)).toISOString(), overdue:new Date(String(row.follow_up_at)).getTime() < Date.now() })),
     upcomingVisits: visits.map((row) => ({ id:String(row.id), name:String(row.name ?? ""), phone:String(row.phone ?? ""), deal:String(row.deal ?? ""), neighborhood:String(row.neighborhood ?? ""), consultant:String(row.consultant ?? ""), visitStatus:String(row.visit_status ?? "requested"), visitPreferredAt:new Date(String(row.visit_preferred_at)).toISOString() })),
     upcomingCallbacks: callbacks.map((row) => ({ id:String(row.id), name:String(row.name ?? ""), phone:String(row.phone ?? ""), deal:String(row.deal ?? ""), neighborhood:String(row.neighborhood ?? ""), consultant:String(row.consultant ?? ""), callbackPreferredAt:new Date(String(row.callback_preferred_at)).toISOString() })),

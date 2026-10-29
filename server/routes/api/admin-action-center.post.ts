@@ -37,9 +37,11 @@ function iso(value: unknown) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { summary: { urgent: 0, high: 0, total: 0 }, items: [] as ActionItem[] };
-
   const body = (await readBody(event).catch(() => ({}))) as { action?: "list" | "completeTask"; id?: string };
+  if (dbSource === "unconfigured") {
+    if (body.action === "completeTask") throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ وظیفه بسته نشد." });
+    return { available: false, summary: { urgent: 0, high: 0, total: 0 }, items: [] as ActionItem[] };
+  }
   const sql = await getSql();
 
   if (body.action === "completeTask") {
@@ -141,6 +143,7 @@ export default defineEventHandler(async (event) => {
   items.sort((a, b) => weight[a.priority] - weight[b.priority] || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return {
+    available: true,
     summary: {
       urgent: items.filter((item) => item.priority === "urgent").length,
       high: items.filter((item) => item.priority === "high").length,
