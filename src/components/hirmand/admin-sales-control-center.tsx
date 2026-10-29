@@ -33,6 +33,7 @@ type ConsultantRow = {
 };
 
 type SalesData = {
+  available: boolean;
   days: 7 | 30 | 90;
   pipeline: {
     new: number;
@@ -84,15 +85,19 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ days: nextDays }),
       });
-      const result = (await response.json().catch(() => null)) as SalesData | { statusMessage?: string; message?: string } | null;
+      const result = (await response.json().catch(() => null)) as SalesData | { available?: boolean; statusMessage?: string; message?: string } | null;
       if (!response.ok) throw new Error(
         (result && "statusMessage" in result ? result.statusMessage : null)
           || (result && "message" in result ? result.message : null)
           || "گزارش مرکز کنترل فروش در دسترس نیست.",
       );
+      if (!result || typeof result.available !== "boolean" || !("pipeline" in result) || !("summary" in result) || !Array.isArray(result.consultants)) {
+        throw new Error("ساختار پاسخ مرکز کنترل فروش معتبر نیست.");
+      }
       setData(result as SalesData);
-      setError(null);
+      setError(result.available ? null : "داده‌های مرکز کنترل فروش در دسترس نیست؛ پایگاه داده پیکربندی نشده است.");
     } catch (loadError) {
+      setData(null);
       setError(loadError instanceof Error ? loadError.message : "بارگذاری انجام نشد.");
     } finally {
       setLoading(false);
@@ -210,8 +215,9 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
         </div>
       </div>
 
-      {error ? <div className="admin-sales-error">{error}</div> : null}
+      {error ? <div className="admin-sales-error" role="alert">{error}<button type="button" className="btn-ghost" onClick={() => void load(days)} disabled={loading}>تلاش دوباره</button></div> : null}
 
+      {data?.available === true && !error ? <>
       <div className="admin-sales-summary">
         <div className="admin-sales-summary-card" data-tone="attention"><span><UsersRound size={13} />مشاور فعال</span><strong>{fa(data?.summary.activeConsultants ?? 0)}</strong></div>
         <div className="admin-sales-summary-card" data-tone="attention"><span><Target size={13} />لید فعال</span><strong>{fa(data?.summary.activeLeads ?? 0)}</strong></div>
@@ -378,6 +384,7 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
           </div>
         </aside>
       </div>
+      </> : loading && !data ? <div className="admin-sales-empty"><RefreshCw size={24} className="admin-spin"/><strong>در حال آماده‌سازی مرکز کنترل فروش…</strong></div> : null}
     </section>
   );
 }

@@ -64,3 +64,15 @@ test("customer property submission queue distinguishes unavailable storage from 
   const loadCatch = ui.split("} catch (error) {")[1]?.split("} finally")[0] ?? "";
   assert.doesNotMatch(loadCatch, /setSubmissions\(\[\]\)/);
 });
+
+test("sales control center does not turn unavailable or failed analytics queries into zero performance", () => {
+  const route = read("server/routes/api/admin-sales-control-center.post.ts");
+  const ui = read("src/components/hirmand/admin-sales-control-center.tsx");
+  assert.match(route, /if \(dbSource === "unconfigured"\) \{\s*return \{\s*available: false,/);
+  assert.match(route, /return \{\s*available: true,/);
+  assert.doesNotMatch(route, /consultant query unavailable|pipeline query unavailable|\)\.catch\(\(error\)/);
+  assert.match(ui, /!result \|\| typeof result\.available !== "boolean"/);
+  assert.match(ui, /data\?\.available === true && !error \? <>/);
+  assert.match(ui, /error \? <div className="admin-sales-error" role="alert">/);
+  assert.match(ui, /onClick=\{\(\) => void load\(days\)\}/);
+});
