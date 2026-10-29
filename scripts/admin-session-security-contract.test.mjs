@@ -33,6 +33,11 @@ test("lead assignment fails closed when consultant or unassigned-lead queries fa
   assert.doesNotMatch(code, /from leads where trim\(coalesce\(consultant,''\)\)=''[\s\S]*?\.catch\(\(\) => \[\]\)/);
 });
 
+test("admin notification source-query failures cannot masquerade as an empty notification list", async () => {
+  const code = await source("src/lib/admin-notifications.ts");
+  assert.equal((code.match(/\.catch\(\(\) => \[\]\)/g) || []).length, 0);
+});
+
 test("admin UI checks the logout response before clearing its local session", async () => {
   const code = await source("src/components/hirmand/_admin_impl.tsx");
   const start = code.indexOf("function logout() {");
