@@ -23,6 +23,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش برای این حساب فعال نیست." });
   }
   const canViewLeadDetails = hasAdminPermission(role, "lead.manage");
+  const unavailableSections = new Set<string>();
 
   if (dbSource === "unconfigured") {
     return {
@@ -39,6 +40,7 @@ export default defineEventHandler(async (event) => {
       eventStats: [],
       visitorSources: [],
       consultantPerformance: [],
+      unavailableSections: ["database"],
       followUps: { due: 0, next7: 0 },
       leadSla: { overdue: 0, newOver4Hours: 0 },
       recentLeads: [],
@@ -116,6 +118,7 @@ export default defineEventHandler(async (event) => {
       from site_visitor_days
     `).catch((error) => {
       console.error("[admin-dashboard] visitor stats unavailable", error);
+      unavailableSections.add("visitorStats");
       return [{}];
     }),
     sql.query<Record<string, unknown>>(`
@@ -124,6 +127,7 @@ export default defineEventHandler(async (event) => {
       where last_seen_at >= current_timestamp - interval '5 minutes'
     `).catch((error) => {
       console.error("[admin-dashboard] active visitors unavailable", error);
+      unavailableSections.add("activeVisitors");
       return [{}];
     }),
     sql.query<Record<string, unknown>>(`
@@ -138,6 +142,7 @@ export default defineEventHandler(async (event) => {
       order by day asc
     `).catch((error) => {
       console.error("[admin-dashboard] visitor trend unavailable", error);
+      unavailableSections.add("visitorTrend");
       return [];
     }),
     sql.query<Record<string, unknown>>(`
@@ -154,6 +159,7 @@ export default defineEventHandler(async (event) => {
       limit 8
     `).catch((error) => {
       console.error("[admin-dashboard] top pages unavailable", error);
+      unavailableSections.add("topPages");
       return [];
     }),
     sql.query<Record<string, unknown>>(`
@@ -176,6 +182,7 @@ export default defineEventHandler(async (event) => {
       limit 8
     `).catch((error) => {
       console.error("[admin-dashboard] top properties unavailable", error);
+      unavailableSections.add("topProperties");
       return [];
     }),
     sql.query<Record<string, unknown>>(`
@@ -189,6 +196,7 @@ export default defineEventHandler(async (event) => {
       order by count desc
     `).catch((error) => {
       console.error("[admin-dashboard] event stats unavailable", error);
+      unavailableSections.add("eventStats");
       return [];
     }),
     sql.query<Record<string, unknown>>(`
@@ -203,6 +211,7 @@ export default defineEventHandler(async (event) => {
       limit 12
     `).catch((error) => {
       console.error("[admin-dashboard] visitor sources unavailable", error);
+      unavailableSections.add("visitorSources");
       return [];
     }),    sql.query<Record<string, unknown>>(
       `select
@@ -211,6 +220,7 @@ export default defineEventHandler(async (event) => {
       from leads
     `).catch((error) => {
       console.error("[admin-dashboard] follow-up stats unavailable", error);
+      unavailableSections.add("followUps");
       return [{}];
     }),
     sql.query<Record<string, unknown>>(
@@ -237,6 +247,7 @@ export default defineEventHandler(async (event) => {
         ) as consultants_with_leads
     `).catch((error) => {
       console.error("[admin-dashboard] consultant stats unavailable", error);
+      unavailableSections.add("consultants");
       return [{}];
     }),
     sql.query<Record<string, unknown>>(
@@ -257,6 +268,7 @@ export default defineEventHandler(async (event) => {
        from leads l`
     ).catch((error) => {
       console.error("[admin-dashboard] lead SLA unavailable", error);
+      unavailableSections.add("leadSla");
       return [{}];
     }),
     sql.query<Record<string, unknown>>(
@@ -306,6 +318,7 @@ export default defineEventHandler(async (event) => {
        limit 12
       `).catch((error) => {
       console.error("[admin-dashboard] consultant performance unavailable", error);
+      unavailableSections.add("consultantPerformance");
       return [] as Record<string, unknown>[];
     }),
   ]);
@@ -428,5 +441,6 @@ export default defineEventHandler(async (event) => {
       status: String(row.status) as LeadStatus,
       createdAt: new Date(String(row.created_at)).toISOString(),
     })) : [],
+    unavailableSections: [...unavailableSections],
   };
 });

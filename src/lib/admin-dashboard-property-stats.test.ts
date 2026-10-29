@@ -12,13 +12,15 @@ const emptyDashboard = {
   propertyTypes: [], leadDays: [], music: { total: 0, active: 0, sizeBytes: 0 },
   visitors: { today: 0, last7: 0, last30: 0, pageviewsToday: 0, pageviewsLast7: 0, pageviewsLast30: 0, activeNow: 0 },
   visitorDays: [], topPages: [], topProperties: [], eventStats: [], visitorSources: [], consultantPerformance: [],
-  leadSla: { overdue: 0, newOver4Hours: 0 }, followUps: { due: 0, next7: 0 }, recentLeads: [],
+  leadSla: { overdue: 0, newOver4Hours: 0 }, followUps: { due: 0, next7: 0 }, recentLeads: [], unavailableSections: [],
 };
 
 test("dashboard response contract accepts empty database state and rejects missing sections", () => {
   assert.equal(isAdminDashboardPayload(emptyDashboard), true);
   const { consultantPerformance: _removed, ...missingConsultants } = emptyDashboard;
   assert.equal(isAdminDashboardPayload(missingConsultants), false);
+  const { unavailableSections: _unavailableRemoved, ...missingAvailabilityStatus } = emptyDashboard;
+  assert.equal(isAdminDashboardPayload(missingAvailabilityStatus), false);
   assert.equal(isAdminDashboardPayload({ ...emptyDashboard, leads: null }), false);
   assert.equal(isAdminDashboardPayload({ ...emptyDashboard, visitors: { ...emptyDashboard.visitors, today: "0" } }), false);
 });
@@ -27,6 +29,20 @@ test("unconfigured database response includes the consultant performance collect
   const route = readFileSync(new URL("../../server/routes/api/admin-dashboard.post.ts", import.meta.url), "utf8");
   const emptyResponse = route.split('if (dbSource === "unconfigured")')[1]?.split("const sql = await getSql()")[0] ?? "";
   assert.match(emptyResponse, /consultantPerformance:\s*\[\]/);
+  assert.match(emptyResponse, /unavailableSections:\s*\["database"\]/);
+});
+
+test("optional dashboard query failures are reported as unavailable instead of looking like empty data", () => {
+  const route = readFileSync(new URL("../../server/routes/api/admin-dashboard.post.ts", import.meta.url), "utf8");
+  for (const section of ["visitorStats", "activeVisitors", "visitorTrend", "topPages", "topProperties", "eventStats", "visitorSources", "followUps", "consultants", "leadSla", "consultantPerformance"]) {
+    assert.match(route, new RegExp(`unavailableSections\\.add\\("${section}"\\)`), `${section} failure must be exposed to the client`);
+  }
+  assert.match(route, /unavailableSections:\s*\[\.\.\.unavailableSections\]/);
+
+  const ui = readFileSync(new URL("../components/hirmand/admin-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(ui, /data\.unavailableSections\.length > 0/);
+  assert.match(ui, /isUnavailable\("visitorStats"\) \? "—"/);
+  assert.match(ui, /csvMetric\("database"/);
 });
 
 test("admin dashboard property metrics exclude trashed listings and expired featured flags", async () => {
