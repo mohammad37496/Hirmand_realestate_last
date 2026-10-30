@@ -35,7 +35,7 @@ const databaseUrl = resolveDatabaseUrlFromEnv();
  * that opts in explicitly with PGLITE_DATA_DIR.
  *
  * Reporting "unconfigured" there is deliberate: it makes a DATABASE_URL-less
- * production build degrade the same way a Vercel deployment without a database
+ * production build degrade the same way a production deployment without a database
  * does (APIs answer gracefully) instead of failing on every query.
  */
 const pgliteUsable =
