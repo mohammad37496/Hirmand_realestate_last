@@ -1325,9 +1325,12 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
     setBulkBusy(true);
     try {
       const result = await bulkDeleteProperties({ data: { ids } });
+      if (result.success !== true || !Number.isInteger(result.deleted) || result.deleted < 1) {
+        throw new Error("هیچ ملک فعالی برای انتقال به سطل بازیابی پیدا نشد.");
+      }
       setSelectedIds([]);
       await refresh();
-      toast.success((result.deleted || ids.length).toLocaleString("fa-IR") + " فایل به سطل بازیابی منتقل شد.");
+      toast.success(result.deleted.toLocaleString("fa-IR") + " ملک به سطل بازیابی منتقل شد.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "حذف گروهی کامل نشد.");
     } finally {
