@@ -19,15 +19,17 @@ export default defineEventHandler(async event => {
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "reports.view")) throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش مدیریت برای این حساب فعال نیست." });
-  if (dbSource === "unconfigured") return { month: new Date().toISOString().slice(0, 7), rows: [] };
-
-  const sql = await getSql();
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const action = clean(body.action, 30) || "list";
   if (action !== "list" && !hasAdminPermission(normalizeAdminRole(claims?.role), "deal.manage")) {
     throw createError({ statusCode: 403, statusMessage: "تنظیم اهداف فروش فقط برای مدیران فروش مجاز است." });
   }
   const selectedMonth = month(body.month) || new Date().toISOString().slice(0, 7) + "-01";
+  if (dbSource === "unconfigured") {
+    if (action !== "list") throw createError({ statusCode: 503, statusMessage: "\u067e\u0627\u06cc\u06af\u0627\u0647\u0020\u062f\u0627\u062f\u0647\u0020\u062f\u0631\u0020\u062f\u0633\u062a\u0631\u0633\u0020\u0646\u06cc\u0633\u062a\u061b\u0020\u0627\u0647\u062f\u0627\u0641\u0020\u0645\u0634\u0627\u0648\u0631\u0627\u0646\u0020\u062a\u063a\u06cc\u06cc\u0631\u0020\u0646\u06a9\u0631\u062f\u002e" });
+    return { available: false, month: selectedMonth.slice(0, 7), rows: [] };
+  }
+  const sql = await getSql();
 
   if (action === "list") {
     const [targets, actual] = await Promise.all([
@@ -47,7 +49,7 @@ export default defineEventHandler(async event => {
     for(const row of dealActualRows) { const x=ensure(row.consultant); x.deals=integer(row.deals); x.volume=money(row.volume); x.commissions=money(row.commissions); }
     const targetMap=new Map(targets.map(row=>[String(row.consultant),row]));
     const names=new Set([...targetMap.keys(),...map.keys()]);
-    return { month:selectedMonth.slice(0,7), rows:[...names].sort((a,b)=>a.localeCompare(b,"fa")).map(name=>{
+    return { available:true, month:selectedMonth.slice(0,7), rows:[...names].sort((a,b)=>a.localeCompare(b,"fa")).map(name=>{
       const t=targetMap.get(name); const a=map.get(name)??{leads:0,contracts:0,deals:0,volume:0,commissions:0};
       return { id:t?String(t.id):null, consultant:name, leadTarget:integer(t?.lead_target), contractTarget:integer(t?.contract_target), volumeTarget:money(t?.volume_target), commissionTarget:money(t?.commission_target), leads:a.leads, contracts:a.contracts, deals:a.deals, volume:a.volume, commissions:a.commissions, note:String(t?.note??"") };
     })};

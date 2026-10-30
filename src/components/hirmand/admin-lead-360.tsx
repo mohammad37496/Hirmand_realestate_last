@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { BriefcaseBusiness, CalendarClock, FileText, MessageCircle, UserRound, WalletCards } from "lucide-react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 import { formatToman } from "@/lib/money";
 
 type Lead = { id: string; name: string; phone: string; deal: string; neighborhood: string; consultant: string };
@@ -11,6 +12,7 @@ type Customer = Lead & {
   matchCount: number; propertyId: string | null; propertyTitle: string | null; propertySlug: string | null; createdAt: string;
 };
 type Payload = {
+  available: boolean;
   access: { deals: boolean; commissions: boolean };
   customer: Customer | null;
   activities: Array<{ id: number; type: string; title: string; note: string; createdAt: string }>;
@@ -26,19 +28,34 @@ export function AdminLead360({ leads }: { leads: Lead[] }) {
   const [leadId, setLeadId] = useState("");
   const [payload, setPayload] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(false);
+  const requestRef = useRef(0);
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   async function load(id: string) {
+    const requestId = ++requestRef.current;
     setLeadId(id);
-    if (!id) { setPayload(null); return; }
+    setLoadError("");
+    if (!id) { setPayload(null); setAvailable(null); setLoading(false); return; }
+    setPayload(null);
+    setAvailable(null);
     setLoading(true);
     try {
       const response = await fetch("/api/admin-lead-360", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }) });
       const data = (await response.json()) as Payload & { statusMessage?: string };
       if (!response.ok) throw new Error(data.statusMessage || "پرونده مشتری بارگذاری نشد.");
+      if (typeof data.available !== "boolean") throw new Error("Invalid customer record response.");
+      if (requestId !== requestRef.current) return;
+      setAvailable(data.available);
       setPayload(data);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "پرونده مشتری بارگذاری نشد.");
-    } finally { setLoading(false); }
+      if (requestId !== requestRef.current) return;
+      const message = error instanceof Error ? error.message : "پرونده مشتری بارگذاری نشد.";
+      setLoadError(message);
+      toast.error(message);
+    } finally {
+      if (requestId === requestRef.current) setLoading(false);
+    }
   }
 
   const c = payload?.customer;
@@ -52,7 +69,10 @@ export function AdminLead360({ leads }: { leads: Lead[] }) {
         <label className="field admin-360-select"><span>مشتری</span><select value={leadId} onChange={(e) => void load(e.target.value)}><option value="">انتخاب مشتری</option>{leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name} · {lead.phone}</option>)}</select></label>
       </div>
 
-      {!c && !loading ? <div className="admin-empty-state"><UserRound size={24} /><strong>یک مشتری را انتخاب کنید.</strong></div> : null}
+      {loadError ? <AdminErrorBanner message={loadError} onRetry={() => void load(leadId)} /> : null}
+      {available === false && !loadError ? <AdminErrorBanner message={"پرونده مشتری بارگذاری نشد."} onRetry={() => void load(leadId)} /> : null}
+      {available === true && Boolean(leadId) && !c && !loadError ? <AdminErrorBanner message={"پرونده مشتری بارگذاری نشد."} onRetry={() => void load(leadId)} /> : null}
+      {!leadId && !c && !loading && !loadError && available !== false ? <div className="admin-empty-state"><UserRound size={24} /><strong>یک مشتری را انتخاب کنید.</strong></div> : null}
       {loading ? <div className="admin-empty">در حال دریافت پرونده…</div> : null}
 
       {c ? <>

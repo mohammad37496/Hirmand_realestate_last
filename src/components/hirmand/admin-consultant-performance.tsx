@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BarChart3, BriefcaseBusiness, WalletCards, UsersRound } from "lucide-react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 import { formatToman } from "@/lib/money";
 
 type Row = {
@@ -24,18 +25,32 @@ export function AdminConsultantPerformance() {
   const [days, setDays] = useState(90);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const requestRef = useRef(0);
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
+    const requestId = ++requestRef.current;
     setLoading(true);
+    setAvailable(null);
+    setLoadError("");
     try {
       const response = await fetch("/api/admin-consultant-performance?days=" + days);
-      const data = (await response.json()) as { consultants?: Row[]; statusMessage?: string };
-      if (!response.ok) throw new Error(data.statusMessage || "گزارش عملکرد آماده نشد.");
-      setRows(Array.isArray(data.consultants) ? data.consultants : []);
+      const data = (await response.json()) as { available?: boolean; consultants?: Row[]; statusMessage?: string };
+      if (!response.ok) throw new Error(data.statusMessage || "گزارش عملکرد مشاوران آماده نشد.");
+      if (typeof data.available !== "boolean" || !Array.isArray(data.consultants)) {
+        throw new Error("Invalid consultant performance response.");
+      }
+      if (requestId !== requestRef.current) return;
+      setAvailable(data.available);
+      setRows(data.available ? data.consultants : []);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "گزارش عملکرد مشاوران آماده نشد.");
+      if (requestId !== requestRef.current) return;
+      const message = error instanceof Error ? error.message : "گزارش عملکرد مشاوران آماده نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
-      setLoading(false);
+      if (requestId === requestRef.current) setLoading(false);
     }
   }, [days]);
 
@@ -65,6 +80,9 @@ export function AdminConsultantPerformance() {
           </select>
         </div>
 
+        {loadError ? <AdminErrorBanner message={loadError} onRetry={() => void load()} /> : null}
+        {available === false && !loadError ? <AdminErrorBanner message={"گزارش عملکرد مشاوران آماده نشد."} onRetry={() => void load()} /> : null}
+        {available === true && !loadError ? (
         <div className="admin-kpi-cards admin-performance-kpis">
           <div className="admin-kpi-card"><UsersRound size={16} /><span>درخواست‌ها</span><strong>{compact(totals.leads)}</strong></div>
           <div className="admin-kpi-card"><BriefcaseBusiness size={16} /><span>معاملات</span><strong>{compact(totals.deals)}</strong></div>
@@ -72,8 +90,9 @@ export function AdminConsultantPerformance() {
           <div className="admin-kpi-card"><WalletCards size={16} /><span>حجم معاملات</span><strong>{money(totals.volume)}</strong></div>
           <div className="admin-kpi-card"><WalletCards size={16} /><span>سهم کمیسیون در انتظار</span><strong>{money(totals.due)}</strong></div>
         </div>
+        ) : null}
 
-        {loading ? <div className="admin-empty">در حال محاسبه…</div> : !rows.length ? <div className="admin-empty">برای این بازه هنوز فعالیت ثبت نشده است.</div> : (
+        {loading ? <div className="admin-empty">در حال محاسبه…</div> : available === true && !loadError && !rows.length ? <div className="admin-empty">برای این بازه هنوز فعالیت ثبت نشده است.</div> : available === true && !loadError ? (
           <div className="admin-performance-table-wrap">
             <table className="admin-performance-table">
               <thead><tr><th>مشاور</th><th>لید</th><th>معامله</th><th>تکمیل</th><th>نرخ تبدیل</th><th>حجم معامله</th><th>کمیسیون</th><th>پرداخت‌شده</th><th>مانده</th></tr></thead>
@@ -94,7 +113,7 @@ export function AdminConsultantPerformance() {
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
       </div>
     </section>
   );
