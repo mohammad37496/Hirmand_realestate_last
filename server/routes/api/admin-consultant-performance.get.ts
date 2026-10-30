@@ -23,11 +23,10 @@ export default defineEventHandler(async (event) => {
   ) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش مشاوران برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { days: 90, consultants: [] };
-
   const query = getQuery(event);
   const rawDays = Number(query.days);
   const days = [30, 90, 365].includes(rawDays) ? rawDays : 90;
+  if (dbSource === "unconfigured") return { available: false, days, consultants: [] };
   const sql = await getSql();
 
   const [leads, deals, settlements] = await Promise.all([
@@ -76,5 +75,5 @@ export default defineEventHandler(async (event) => {
     conversionRate: item.leads > 0 ? Math.round((item.deals / item.leads) * 1000) / 10 : 0,
   })).sort((a, b) => b.deals - a.deals || b.volume - a.volume || a.name.localeCompare(b.name, "fa"));
 
-  return { days, consultants: rows };
+  return { available: true, days, consultants: rows };
 });

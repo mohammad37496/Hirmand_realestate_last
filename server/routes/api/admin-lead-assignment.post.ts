@@ -33,10 +33,15 @@ function workScore(load: Pick<ConsultantLoad, "activeLeads" | "overdue" | "viewi
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { consultants: [], recommendations: [] };
-
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const action = typeof body.action === "string" ? body.action : "recommend";
+  if (action !== "assign" && action !== "recommend") {
+    throw createError({ statusCode: 400, statusMessage: "Unsupported lead assignment action." });
+  }
+  if (dbSource === "unconfigured") {
+    if (action === "assign") throw createError({ statusCode: 503, statusMessage: "\u067e\u0627\u06cc\u06af\u0627\u0647\u0020\u062f\u0627\u062f\u0647\u0020\u062f\u0631\u0020\u062f\u0633\u062a\u0631\u0633\u0020\u0646\u06cc\u0633\u062a\u061b\u0020\u062a\u062e\u0635\u06cc\u0635\u0020\u0633\u0631\u0646\u062e\u0020\u0630\u062e\u06cc\u0631\u0647\u0020\u0646\u0634\u062f\u002e" });
+    return { available: false, consultants: [], recommendations: [] };
+  }
   const sql = await getSql();
 
   const consultants = await sql.query<Record<string, unknown>>(
@@ -99,6 +104,7 @@ export default defineEventHandler(async (event) => {
 
   const sorted = [...loads].sort((a, b) => a.score - b.score || a.activeLeads - b.activeLeads || a.name.localeCompare(b.name, "fa"));
   return {
+    available: true,
     consultants: loads,
     recommendations: unassigned.map((lead) => ({
       lead: {

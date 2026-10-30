@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Gauge, RefreshCw, UserRound, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { adminErrorMessage } from "@/components/hirmand/admin-ui-utils";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type ConsultantLoad = {
   name: string;
@@ -22,25 +23,37 @@ export function AdminLeadAssignmentBalancer() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const requestRef = useRef(0);
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
+    const requestId = ++requestRef.current;
     setLoading(true);
+    setAvailable(null);
+    setLoadError("");
     try {
       const response = await fetch("/api/admin-lead-assignment", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "recommend" }),
       });
-      const data = await response.json() as { consultants?: ConsultantLoad[]; recommendations?: Recommendation[]; statusMessage?: string };
-      if (!response.ok) throw new Error(data.statusMessage || "تعادل بار لیدها در دسترس نیست.");
-      setConsultants(Array.isArray(data.consultants) ? data.consultants : []);
-      setRecommendations(Array.isArray(data.recommendations) ? data.recommendations : []);
+      const data = await response.json() as { available?: boolean; consultants?: ConsultantLoad[]; recommendations?: Recommendation[]; statusMessage?: string };
+      if (!response.ok) throw new Error(data.statusMessage || "پیشنهاد تخصیص مشاور بارگذاری نشد.");
+      if (typeof data.available !== "boolean" || !Array.isArray(data.consultants) || !Array.isArray(data.recommendations)) {
+        throw new Error("Invalid lead assignment response.");
+      }
+      if (requestId !== requestRef.current) return;
+      setAvailable(data.available);
+      setConsultants(data.available ? data.consultants : []);
+      setRecommendations(data.available ? data.recommendations : []);
     } catch (error) {
-      toast.error(adminErrorMessage(error, "پیشنهاد تخصیص مشاور بارگذاری نشد."));
-      setConsultants([]);
-      setRecommendations([]);
+      if (requestId !== requestRef.current) return;
+      const message = adminErrorMessage(error, "پیشنهاد تخصیص مشاور بارگذاری نشد.");
+      setLoadError(message);
+      toast.error(message);
     } finally {
-      setLoading(false);
+      if (requestId === requestRef.current) setLoading(false);
     }
   }, []);
 
@@ -72,13 +85,15 @@ export function AdminLeadAssignmentBalancer() {
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <Gauge size={17} />
           مرکز تعادل بار مشاوران
-          <span className="admin-lead-status" style={{ marginInlineStart: 4 }}>{recommendations.length.toLocaleString("fa-IR")} لید بدون مشاور</span>
+          <span className="admin-lead-status" style={{ marginInlineStart: 4 }}>{available === true ? recommendations.length.toLocaleString("fa-IR") : "-"} لید بدون مشاور</span>
         </span>
         <button type="button" className="btn-ghost" onClick={(event) => { event.preventDefault(); void load(); }} disabled={loading}>
           <RefreshCw size={14} className={loading ? "admin-spin" : ""} /> بروزرسانی
         </button>
       </summary>
       <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
+        {loadError ? <AdminErrorBanner message={loadError} onRetry={() => void load()} /> : null}
+        {available === false && !loadError ? <AdminErrorBanner message={"پیشنهاد تخصیص مشاور بارگذاری نشد."} onRetry={() => void load()} /> : null}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
           {consultants.map((item) => (
             <div key={item.phone || item.name} style={{ border: "1px solid var(--line)", borderRadius: 11, padding: 10, background: "var(--surface-2,#f7f5f0)" }}>
@@ -88,9 +103,9 @@ export function AdminLeadAssignmentBalancer() {
             </div>
           ))}
         </div>
-        {!loading && !recommendations.length ? <div className="admin-empty"><UsersRound size={22} />همه لیدهای فعال مشاور دارند.</div> : null}
+        {!loading && available === true && !loadError && !recommendations.length ? <div className="admin-empty"><UsersRound size={22} />همه لیدهای فعال مشاور دارند.</div> : null}
         {loading ? <div className="admin-empty"><RefreshCw size={22} className="admin-spin" />در حال محاسبه بار مشاوران…</div> : null}
-        {!loading ? recommendations.slice(0, 12).map((item) => (
+        {!loading && available === true && !loadError ? recommendations.slice(0, 12).map((item) => (
           <div key={item.lead.id} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 10, display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 10, alignItems: "center" }}>
             <div>
               <strong>{item.lead.name || "بدون نام"}</strong>

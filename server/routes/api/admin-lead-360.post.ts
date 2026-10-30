@@ -20,6 +20,7 @@ export default defineEventHandler(async (event) => {
   const canViewCommissions = hasAdminPermission(currentRole, "commission.manage");
   if (dbSource === "unconfigured") {
     return {
+      available: false,
       customer: null,
       activities: [],
       deals: [],
@@ -71,6 +72,7 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
+    available: true,
     customer: {
       id: String(customer.id),
       name: String(customer.name),
