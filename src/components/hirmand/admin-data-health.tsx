@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, RefreshCw, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type Finding = {
   id: number;
@@ -14,6 +15,7 @@ type Finding = {
 };
 
 type ScanResponse = {
+  available: boolean;
   scannedAt: string;
   summary: { critical: number; warning: number; info: number; open: number };
   findings: Finding[];
@@ -25,9 +27,13 @@ function faDate(value: string) { return new Date(value).toLocaleString("fa-IR", 
 export function AdminDataHealth() {
   const [data, setData] = useState<ScanResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [resolvingId, setResolvingId] = useState<number | null>(null);
 
   const scan = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
+    setData(null);
     try {
       const response = await fetch("/api/admin-data-health", {
         method: "POST",
@@ -37,15 +43,22 @@ export function AdminDataHealth() {
       });
       const payload = await response.json().catch(() => ({})) as ScanResponse & { statusMessage?: string };
       if (!response.ok) throw new Error(payload.statusMessage || "بررسی سلامت داده انجام نشد.");
+      if (payload.available !== true || !Array.isArray(payload.findings)) {
+        throw new Error(payload.statusMessage || "نتیجه معتبر اسکن سلامت داده دریافت نشد.");
+      }
       setData(payload);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "بررسی سلامت داده انجام نشد.");
+      const message = error instanceof Error ? error.message : "بررسی سلامت داده انجام نشد.";
+      setData(null);
+      setLoadError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { void scan(); }, [scan]);
 
   async function resolve(id: number) {
+    setResolvingId(id);
     try {
       const response = await fetch("/api/admin-data-health", {
         method: "POST",
@@ -53,8 +66,8 @@ export function AdminDataHealth() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "resolve", findingId: id }),
       });
-      const payload = await response.json().catch(() => ({})) as { statusMessage?: string };
-      if (!response.ok) throw new Error(payload.statusMessage || "بستن هشدار انجام نشد.");
+      const payload = await response.json().catch(() => ({})) as { success?: boolean; statusMessage?: string };
+      if (!response.ok || payload.success !== true) throw new Error(payload.statusMessage || "بستن هشدار انجام نشد.");
       setData((current) => current ? {
         ...current,
         findings: current.findings.filter((item) => item.id !== id),
@@ -63,6 +76,8 @@ export function AdminDataHealth() {
       toast.success("هشدار به‌عنوان بررسی‌شده ثبت شد.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "بستن هشدار انجام نشد.");
+    } finally {
+      setResolvingId(null);
     }
   }
 
@@ -78,7 +93,9 @@ export function AdminDataHealth() {
           <RefreshCw size={14} className={loading ? "admin-spin" : ""} /> {loading ? "در حال اسکن…" : "اسکن دوباره"}
         </button>
       </div>
-      {!data ? <div className="admin-empty">در حال آماده‌سازی اسکن…</div> : (
+      {loading ? <div className="admin-empty" role="status">در حال آماده‌سازی اسکن…</div> : loadError ? (
+        <AdminErrorBanner message={loadError} onRetry={() => void scan()} />
+      ) : !data ? <AdminErrorBanner message="نتیجه اسکن سلامت داده در دسترس نیست." onRetry={() => void scan()} /> : (
         <>
           <div className="admin-data-health-summary">
             <div className="is-critical"><span>بحرانی</span><strong>{fa(data.summary.critical)}</strong></div>
@@ -98,7 +115,9 @@ export function AdminDataHealth() {
                     <small>{item.detail} · {faDate(item.detectedAt)}</small>
                     {item.entityType && item.entityId ? <code>{item.entityType}:{item.entityId}</code> : null}
                   </div>
-                  <button type="button" className="btn-ghost" onClick={() => void resolve(item.id)}>بررسی شد</button>
+                  <button type="button" className="btn-ghost" onClick={() => void resolve(item.id)} disabled={resolvingId !== null}>
+                    {resolvingId === item.id ? "در حال ثبت…" : "بررسی شد"}
+                  </button>
                 </article>
               ))}
             </div>

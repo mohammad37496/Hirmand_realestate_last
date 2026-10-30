@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle, CalendarDays, CheckCircle2, Clock3, Database, ExternalLink,
   ListTodo, Plus, RefreshCw, SearchX, ServerCog, ShieldCheck, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type TaskStatus = "open" | "done" | "cancelled";
 type Priority = "low" | "normal" | "high" | "urgent";
@@ -13,6 +14,7 @@ type Task = {
   createdAt: string; updatedAt: string;
 };
 type ProductivityData = {
+  available: boolean;
   tasks: { open: number; overdue: number; today: number; next7: number };
   propertyHealth: { total: number; published: number; withoutImages: number; incomplete: number; stale: number; expiredFeatured: number };
   staleProperties: Array<{ id: string; slug: string; title: string; neighborhood: string; updatedAt: string }>;
@@ -37,6 +39,16 @@ function todayKey() {
 }
 function labelForDay(key: string) {
   return new Intl.DateTimeFormat("fa-IR", { weekday: "short", month: "short", day: "numeric" }).format(new Date(key + "T12:00:00"));
+}
+
+async function request<T>(action: string, body: Record<string, unknown> = {}) {
+  const response = await fetch("/api/admin-productivity", {
+    method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
+    body: JSON.stringify(Object.assign({ action }, body)),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result?.statusMessage || "عملیات انجام نشد.");
+  return result as T;
 }
 
 const CENTER_CSS = [
@@ -77,6 +89,7 @@ export function AdminProductivityCenter() {
   const [data, setData] = useState<ProductivityData | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [title, setTitle] = useState("");
@@ -85,34 +98,35 @@ export function AdminProductivityCenter() {
   const [dueAt, setDueAt] = useState("");
   const [description, setDescription] = useState("");
 
-  async function request<T>(action: string, body: Record<string, unknown> = {}) {
-    const response = await fetch("/api/admin-productivity", {
-      method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
-      body: JSON.stringify(Object.assign({ action }, body)),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result?.statusMessage || "عملیات انجام نشد.");
-    return result as T;
-  }
-
-  async function loadAll() {
-    setLoading(true);
+  const loadAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    setLoadError("");
     try {
-      const results = await Promise.all([request<ProductivityData>("summary"), request<{ tasks: Task[] }>("list_tasks")]);
-      setData(results[0]);
-      setTasks(results[1].tasks || []);
+      const [summary, taskResult] = await Promise.all([
+        request<ProductivityData>("summary"),
+        request<{ available: boolean; tasks: Task[] }>("list_tasks"),
+      ]);
+      if (summary.available !== true || taskResult.available !== true || !Array.isArray(taskResult.tasks)) {
+        throw new Error("داده معتبر مرکز بهره‌وری دریافت نشد.");
+      }
+      setData(summary);
+      setTasks(taskResult.tasks);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "مرکز مدیریت بارگذاری نشد.");
-    } finally { setLoading(false); }
-  }
+      const message = error instanceof Error ? error.message : "مرکز مدیریت بارگذاری نشد.";
+      setData(null);
+      setTasks([]);
+      setLoadError(message);
+      toast.error(message);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void loadAll();
-    const timer = window.setInterval(() => void loadAll(), 60000);
+    const timer = window.setInterval(() => void loadAll(true), 60000);
     return () => window.clearInterval(timer);
-    // loadAll is intentionally kept local to this screen; refresh cadence is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadAll]);
 
   const filteredTasks = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -136,7 +150,8 @@ export function AdminProductivityCenter() {
     if (!title.trim() || saving) return;
     setSaving(true);
     try {
-      await request("create_task", { title, description, assignee, priority, dueAt: dueAt || null });
+      const result = await request<{ task?: Task }>("create_task", { title, description, assignee, priority, dueAt: dueAt || null });
+      if (!result.task?.id) throw new Error("وظیفه در پایگاه داده ثبت نشد.");
       setTitle(""); setDescription(""); setDueAt("");
       toast.success("وظیفه ثبت شد.");
       await loadAll();
@@ -146,13 +161,21 @@ export function AdminProductivityCenter() {
   }
 
   async function updateTask(id: string, patch: Record<string, unknown>) {
-    try { await request("update_task", Object.assign({ id }, patch)); await loadAll(); }
+    try {
+      const result = await request<{ task?: Task }>("update_task", Object.assign({ id }, patch));
+      if (!result.task?.id) throw new Error("تغییر وظیفه در پایگاه داده ثبت نشد.");
+      await loadAll();
+    }
     catch (error) { toast.error(error instanceof Error ? error.message : "به‌روزرسانی وظیفه انجام نشد."); }
   }
 
   async function deleteTask(id: string) {
     if (!window.confirm("این وظیفه حذف شود؟")) return;
-    try { await request("delete_task", { id }); await loadAll(); }
+    try {
+      const result = await request<{ success?: boolean }>("delete_task", { id });
+      if (result.success !== true) throw new Error("حذف وظیفه در پایگاه داده تأیید نشد.");
+      await loadAll();
+    }
     catch (error) { toast.error(error instanceof Error ? error.message : "حذف وظیفه انجام نشد."); }
   }
 
@@ -162,6 +185,14 @@ export function AdminProductivityCenter() {
   return (
     <div className="admin-productivity">
       <style dangerouslySetInnerHTML={{ __html: CENTER_CSS }} />
+      {loading && !data ? (
+        <div className="admin-empty" role="status">در حال بارگذاری مرکز بهره‌وری…</div>
+      ) : loadError ? (
+        <AdminErrorBanner message={loadError} onRetry={() => void loadAll()} />
+      ) : !data ? (
+        <AdminErrorBanner message="داده معتبر مرکز بهره‌وری در دسترس نیست." onRetry={() => void loadAll()} />
+      ) : (
+      <>
       {(data?.tasks.overdue || data?.propertyHealth.incomplete) ? (
         <div className="admin-productivity-notice">
           <AlertCircle size={18} />
@@ -288,6 +319,8 @@ export function AdminProductivityCenter() {
           </div> : <div className="admin-productivity-empty">فعالیتی برای نمایش نیست.</div>}
         </section>
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -4,7 +4,6 @@ import {
   BarChart3,
   CalendarDays,
   CheckCircle2,
-  Clock3,
   Eye,
   Heart,
   Lightbulb,
@@ -182,8 +181,8 @@ export function AdminPropertyPerformance({ propertyId }: { propertyId: string })
         }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(result?.statusMessage || "ثبت پیگیری انجام نشد.");
+      if (!response.ok || !result?.task?.id) {
+        throw new Error(result?.statusMessage || "ثبت پیگیری در پایگاه داده تأیید نشد.");
       }
       toast.success("پیگیری به مرکز بهره‌وری اضافه شد.");
     } catch (error) {
