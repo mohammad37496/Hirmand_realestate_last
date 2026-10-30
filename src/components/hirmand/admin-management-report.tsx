@@ -5,6 +5,7 @@ import { formatToman } from "@/lib/money";
 import { csvCell } from "@/lib/csv";
 import { hasAdminPermission, type AdminRole } from "@/lib/admin-roles";
 import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
+import { AdminAiAssistant } from "@/components/hirmand/admin-ai-assistant";
 
 type Data = {
   available: true;
@@ -72,7 +73,9 @@ export function AdminManagementReport({ role }: { role: AdminRole }) {
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "hirmand-management-report.csv"; anchor.click(); URL.revokeObjectURL(url);
   }
 
-  return <section className="admin-panel admin-management-report" dir="rtl">
+  return <>
+  <AdminAiAssistant role={role} />
+  <section className="admin-panel admin-management-report" dir="rtl">
     <div className="admin-panel-head"><div><span className="kicker">مدیریت ارشد</span><h2><BarChart3 size={18} /> گزارش مدیریتی</h2><p>گزارش فشرده فایل‌ها، CRM، معاملات و در صورت دسترسی، امور مالی.</p></div>
       <div className="admin-report-actions"><select className="admin-lead-status-select" value={days} onChange={(e) => setDays(Number(e.target.value))}><option value={7}>۷ روز اخیر</option><option value={30}>۳۰ روز اخیر</option><option value={90}>۹۰ روز اخیر</option><option value={365}>یک سال اخیر</option></select>
         <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14} /> بروزرسانی</button>
@@ -88,5 +91,6 @@ export function AdminManagementReport({ role }: { role: AdminRole }) {
         {canViewDeals ? <section><h3>مشاوران برتر</h3><div className="admin-report-consultants">{data.topConsultants.map((item) => <div key={item.name}><strong>{item.name}</strong><span>{fa(item.deals)} معامله · {money(item.volume)}</span></div>)}</div></section> : null}
       </div>
     </> : null}
-  </section>;
+  </section>
+  </>;
 }
