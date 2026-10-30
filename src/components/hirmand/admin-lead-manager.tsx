@@ -152,7 +152,7 @@ function amenityLabel(value: string) {
 
 const PAGE_SIZE = 25;
 
-export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } = {}) {
+export function AdminLeadManager({ staffMode = false, focusLeadId, onFocusConsumed }: { staffMode?: boolean; focusLeadId?: string | null; onFocusConsumed?: () => void } = {}) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -174,6 +174,11 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
   const [activities, setActivities] = useState<Record<string, Array<{ id: number; type: string; title: string; note: string; createdAt: string }>>>({});
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const requestId = useRef(0);
+  const focusLeadIdRef = useRef<string | null>(focusLeadId ?? null);
+
+  useEffect(() => {
+    if (focusLeadId) focusLeadIdRef.current = focusLeadId;
+  }, [focusLeadId]);
 
   // Search runs on the server; debounce so each keystroke does not hit the DB.
   useEffect(() => {
@@ -195,6 +200,7 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action: "list",
+          id: focusLeadIdRef.current || undefined,
           query: debouncedQuery.trim() || undefined,
           status: statusFilter === "all" ? undefined : statusFilter,
           sort,
@@ -228,6 +234,13 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!focusLeadId || !leads.some((lead) => lead.id === focusLeadId)) return;
+    document.getElementById("admin-lead-" + focusLeadId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    focusLeadIdRef.current = null;
+    onFocusConsumed?.();
+  }, [focusLeadId, leads, onFocusConsumed]);
 
   async function postLead(body: Record<string, unknown>) {
     const response = await fetch("/api/leads-admin", {
@@ -549,7 +562,7 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
         ) : (
           <div className="admin-lead-list">
             {filteredLeads.map((lead) => (
-              <article key={lead.id} className="admin-lead-card">
+              <article id={"admin-lead-" + lead.id} key={lead.id} className="admin-lead-card">
                 <div className="admin-lead-main">
                   <div className="admin-lead-title">
                     <strong>{lead.name}</strong>

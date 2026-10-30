@@ -48,6 +48,7 @@ function parseListInput(body: Record<string, unknown>) {
     ? (sortRaw as "newest" | "oldest" | "name" | "follow_up" | "priority")
     : "newest";
   const query = typeof body.query === "string" ? body.query.trim().slice(0, 80) : "";
+  const id = typeof body.id === "string" ? body.id.trim().slice(0, 160) : "";
   const limit = Math.min(100, Math.max(1, Number(body.limit) || LIST_LIMIT));
   const offset = Math.min(LIST_MAX_OFFSET, Math.max(0, Number(body.offset) || 0));
 
@@ -55,7 +56,7 @@ function parseListInput(body: Record<string, unknown>) {
     throw createError({ statusCode: 400, statusMessage: "فیلتر وضعیت نامعتبر است." });
   }
 
-  return { status: status as Status | "", sort, query, limit, offset };
+  return { status: status as Status | "", sort, query, id, limit, offset };
 }
 
 function csvDate(value: unknown) {
@@ -214,13 +215,17 @@ export default defineEventHandler(async (event) => {
   }
 
   if ((body.action ?? "list") === "list") {
-    const { status, sort, query, limit, offset } = parseListInput(body as Record<string, unknown>);
+    const { status, sort, query, id, limit, offset } = parseListInput(body as Record<string, unknown>);
 
     const conditions: string[] = ["true"];
     const params: unknown[] = [];
     if (status) {
       params.push(status);
       conditions.push(`status = $${params.length}`);
+    }
+    if (id) {
+      params.push(id);
+      conditions.push(`id = $${params.length}`);
     }
     if (query) {
       params.push(`%${query}%`);

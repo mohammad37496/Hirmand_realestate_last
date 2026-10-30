@@ -13,6 +13,8 @@ type Task = {
   dueAt: string | null; assignee: string; entityType: string; entityId: string | null;
   createdAt: string; updatedAt: string;
 };
+type LeadOption = { id: string; name: string; phone: string; status: string };
+type PropertyOption = { id: string; slug: string; title: string; neighborhood: string; status: string };
 type ProductivityData = {
   available: boolean;
   tasks: { open: number; overdue: number; today: number; next7: number };
@@ -65,7 +67,7 @@ const CENTER_CSS = [
 ".admin-productivity-task-main strong{color:var(--navy-900);font-size:.82rem}.admin-productivity-task-main p{margin:0;color:var(--muted);font-size:.72rem;line-height:1.7}",
 ".admin-productivity-task-meta{display:flex;flex-wrap:wrap;gap:6px;color:var(--subtle);font-size:.66rem}.admin-productivity-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:var(--card-2)}",
 ".admin-productivity-chip[data-priority='urgent'],.admin-productivity-chip[data-priority='high']{border-color:rgb(163 49 39 / 28%);color:var(--danger)}.admin-productivity-chip[data-priority='normal']{color:var(--brass-700)}",
-".admin-productivity-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.admin-productivity-form{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(180px,.7fr) minmax(160px,.6fr) minmax(160px,.6fr) auto;gap:8px;align-items:end}",
+".admin-productivity-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.admin-productivity-form{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(180px,.7fr) minmax(160px,.6fr) minmax(160px,.6fr) minmax(200px,.8fr) auto;gap:8px;align-items:end}",
 ".admin-productivity-calendar{display:grid;gap:8px}.admin-productivity-day{display:grid;gap:6px;padding:10px 11px;background:var(--card-2);border:1px solid var(--line);border-radius:var(--r-md)}",
 ".admin-productivity-day-head{display:flex;justify-content:space-between;gap:8px;align-items:center}.admin-productivity-day-head strong{color:var(--navy-900);font-size:.75rem}.admin-productivity-day-head span{color:var(--subtle);font-size:.68rem}",
 ".admin-productivity-day-items{display:grid;gap:5px}.admin-productivity-day-item{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:7px 8px;border-radius:8px;background:var(--card);border:1px solid var(--line)}.admin-productivity-day-item span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:.69rem}",
@@ -85,9 +87,11 @@ const CENTER_CSS = [
 "@media (max-width:460px){.admin-productivity-grid{grid-template-columns:1fr}}",
 ].join("\n");
 
-export function AdminProductivityCenter() {
+export function AdminProductivityCenter({ onOpenLead }: { onOpenLead?: (leadId: string) => void } = {}) {
   const [data, setData] = useState<ProductivityData | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [leadOptions, setLeadOptions] = useState<LeadOption[]>([]);
+  const [propertyOptions, setPropertyOptions] = useState<PropertyOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -97,20 +101,25 @@ export function AdminProductivityCenter() {
   const [priority, setPriority] = useState<Priority>("normal");
   const [dueAt, setDueAt] = useState("");
   const [description, setDescription] = useState("");
+  const [relatedEntity, setRelatedEntity] = useState("");
 
   const loadAll = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setLoadError("");
     try {
-      const [summary, taskResult] = await Promise.all([
+      const [summary, taskResult, leadResult, propertyResult] = await Promise.all([
         request<ProductivityData>("summary"),
         request<{ available: boolean; tasks: Task[] }>("list_tasks"),
+        request<{ available: boolean; leads: LeadOption[] }>("list_leads"),
+        request<{ available: boolean; properties: PropertyOption[] }>("list_properties"),
       ]);
-      if (summary.available !== true || taskResult.available !== true || !Array.isArray(taskResult.tasks)) {
+      if (summary.available !== true || taskResult.available !== true || leadResult.available !== true || propertyResult.available !== true || !Array.isArray(taskResult.tasks) || !Array.isArray(leadResult.leads) || !Array.isArray(propertyResult.properties)) {
         throw new Error("داده معتبر مرکز بهره‌وری دریافت نشد.");
       }
       setData(summary);
       setTasks(taskResult.tasks);
+      setLeadOptions(leadResult.leads);
+      setPropertyOptions(propertyResult.properties);
     } catch (error) {
       const message = error instanceof Error ? error.message : "مرکز مدیریت بارگذاری نشد.";
       setData(null);
@@ -150,9 +159,10 @@ export function AdminProductivityCenter() {
     if (!title.trim() || saving) return;
     setSaving(true);
     try {
-      const result = await request<{ task?: Task }>("create_task", { title, description, assignee, priority, dueAt: dueAt || null });
+      const [entityType, entityId] = relatedEntity ? relatedEntity.split(":", 2) : ["", ""];
+      const result = await request<{ task?: Task }>("create_task", { title, description, assignee, priority, dueAt: dueAt || null, entityType, entityId: entityId || null });
       if (!result.task?.id) throw new Error("وظیفه در پایگاه داده ثبت نشد.");
-      setTitle(""); setDescription(""); setDueAt("");
+      setTitle(""); setDescription(""); setDueAt(""); setRelatedEntity("");
       toast.success("وظیفه ثبت شد.");
       await loadAll();
     } catch (error) {
@@ -220,6 +230,7 @@ export function AdminProductivityCenter() {
           <label className="field"><span>مسئول</span><input value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="نام مشاور/اپراتور" /></label>
           <label className="field"><span>اولویت</span><select value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>{Object.entries(PRIORITY_LABEL).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           <label className="field"><span>موعد</span><input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></label>
+          <label className="field"><span>اتصال به مشتری یا فایل ملک</span><select value={relatedEntity} onChange={(e) => setRelatedEntity(e.target.value)}><option value="">بدون ارتباط</option><optgroup label="درخواست‌های مشتری">{leadOptions.map((lead) => <option key={"lead:" + lead.id} value={"lead:" + lead.id}>{lead.name}{lead.phone ? " · " + lead.phone : ""}</option>)}</optgroup><optgroup label="فایل‌های ملک">{propertyOptions.map((property) => <option key={"property:" + property.id} value={"property:" + property.id}>{property.title}{property.neighborhood ? " · " + property.neighborhood : ""}</option>)}</optgroup></select></label>
           <button className="btn-gold" type="button" onClick={() => void createTask()} disabled={saving || !title.trim()}><Plus size={15}/>{saving ? "در حال ثبت…" : "ثبت وظیفه"}</button>
           <label className="field" style={{ gridColumn: "1 / -1" }}><span>توضیح</span><textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
         </div>
@@ -240,6 +251,8 @@ export function AdminProductivityCenter() {
                     <span className="admin-productivity-chip"><Clock3 size={11}/>{formatDate(task.dueAt)}</span>
                     {task.assignee ? <span className="admin-productivity-chip">{task.assignee}</span> : null}
                     <span className="admin-productivity-chip">{TASK_STATUS_LABEL[task.status]}</span>
+                    {task.entityType === "lead" && task.entityId ? <button className="admin-productivity-chip" type="button" onClick={() => onOpenLead?.(task.entityId as string)} disabled={!onOpenLead}>مشاهده درخواست مشتری</button> : null}
+                    {task.entityType === "property" && task.entityId ? <span className="admin-productivity-chip">فایل: {propertyOptions.find((property) => property.id === task.entityId)?.title ?? "ملک مرتبط"}</span> : null}
                   </div>
                 </div>
                 <div className="admin-productivity-actions">

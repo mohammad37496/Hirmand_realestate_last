@@ -3,6 +3,7 @@ import {
   BadgeCheck,
   Building2,
   CheckCircle2,
+  AlertCircle,
   ChevronDown,
   Clock3,
   Phone,
@@ -104,6 +105,7 @@ type MatchProperty = {
   priceDropPercent: number | null;
   score: number;
   reasons: string[];
+  warnings?: string[];
   priceMatch: number | null;
   amenityCoverage: number | null;
 };
@@ -548,6 +550,7 @@ export function AdminMatchingManager() {
 
                           <div className="admin-matching-card-reasons">
                             {match.reasons.slice(0, 4).map((reason) => <span key={reason}><CheckCircle2 size={13} />{reason}</span>)}
+                            {match.warnings?.map((warning) => <span className="is-warning" key={warning}><AlertCircle size={13} />{warning}</span>)}
                             {match.priceMatch != null ? <span><WalletCards size={13} />تطابق قیمت {fa(match.priceMatch)}٪</span> : null}
                             {match.amenityCoverage != null ? <span><Sparkles size={13} />پوشش امکانات {fa(match.amenityCoverage)}٪</span> : null}
                           </div>

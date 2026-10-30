@@ -471,6 +471,7 @@
   color:#4f5f69;
   font-size:.65rem;
 }
+.admin-matching-card-reasons span.is-warning{color:var(--danger);border-color:rgb(163 49 39 / 24%);background:var(--danger-bg)}
 
 .admin-matching-card-prices{
   display:flex;
