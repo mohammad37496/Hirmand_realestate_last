@@ -5,6 +5,8 @@ import { requireAdminPermission } from "@/lib/admin-role.server";
 import { ADMIN_MEDIA_ORPHAN_UPLOADS_SQL, ADMIN_MEDIA_REFERENCED_IDS_SQL, staleLegacySessionPredicate, stalePropertySessionPredicate } from "@/lib/admin-media-reference-sql";
 
 export type MediaHealth = {
+  available: boolean;
+  statusMessage?: string;
   storedObjects: number;
   storedBytes: number;
   referencedDatabaseObjects: number;
@@ -20,6 +22,8 @@ export const getAdminMediaHealth = createServerFn({ method: "POST" })
     await requireAdminPermission("property.manage");
     if (dbSource === "unconfigured") {
       return {
+        available: false,
+        statusMessage: "پایگاه داده در دسترس نیست؛ سلامت رسانه‌ها قابل بررسی نیست.",
         storedObjects: 0,
         storedBytes: 0,
         referencedDatabaseObjects: 0,
@@ -66,6 +70,8 @@ export const getAdminMediaHealth = createServerFn({ method: "POST" })
     const staleUploadChunks = (Number(legacyChunks[0]?.count) || 0) + (Number(propertyChunks[0]?.count) || 0);
 
     return {
+      available: true,
+      statusMessage: undefined,
       storedObjects,
       storedBytes: Number(objects[0]?.bytes) || 0,
       referencedDatabaseObjects,
@@ -80,7 +86,9 @@ export const cleanupAdminMedia = createServerFn({ method: "POST" })
   .validator(z.object({ staleMinutes: z.number().int().min(30).max(1440).optional().default(120) }))
   .handler(async ({ data }) => {
     await requireAdminPermission("backup.manage");
-    if (dbSource === "unconfigured") return { orphanDeleted: 0, staleSessionsDeleted: 0, staleChunksDeleted: 0 };
+    if (dbSource === "unconfigured") {
+      throw new Error("پایگاه داده در دسترس نیست؛ پاک‌سازی رسانه‌ها انجام نشد.");
+    }
 
     const sql = await getSql();
 

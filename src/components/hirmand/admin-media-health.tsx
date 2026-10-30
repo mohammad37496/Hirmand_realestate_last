@@ -1,6 +1,7 @@
 import { HardDrive, RefreshCw, ShieldCheck, Trash2, Unplug } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 import { cleanupAdminMedia, getAdminMediaHealth, type MediaHealth } from "@/lib/admin-media-health";
 
 function formatBytes(bytes: number) {
@@ -19,19 +20,28 @@ export function AdminMediaHealth({ canCleanup }: { canCleanup: boolean }) {
   const [data, setData] = useState<MediaHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
-  async function scan() {
+  const scan = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
+    setData(null);
     try {
-      setData(await getAdminMediaHealth({ data: { staleMinutes: 120 } }));
+      const result = await getAdminMediaHealth({ data: { staleMinutes: 120 } });
+      if (result.available !== true) {
+        throw new Error(result.statusMessage || "پایگاه داده در دسترس نیست؛ سلامت رسانه‌ها قابل بررسی نیست.");
+      }
+      setData(result);
     } catch (error) {
+      setData(null);
+      setLoadError(error instanceof Error ? error.message : "بررسی رسانه‌ها انجام نشد.");
       toast.error(error instanceof Error ? error.message : "بررسی رسانه‌ها انجام نشد.");
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  useEffect(() => { void scan(); }, []);
+  useEffect(() => { void scan(); }, [scan]);
 
   async function cleanup() {
     const ok = window.confirm("رسانه‌های یتیم داخل پایگاه داده و آپلودهای نیمه‌کاره قدیمی پاک شوند؟ فایل‌های موجود در Liara Object Storage به‌صورت حدسی حذف نمی‌شوند.");
@@ -42,6 +52,8 @@ export function AdminMediaHealth({ canCleanup }: { canCleanup: boolean }) {
       toast.success(`${result.orphanDeleted.toLocaleString("fa-IR")} رسانه یتیم و ${result.staleSessionsDeleted.toLocaleString("fa-IR")} آپلود نیمه‌کاره پاک شد.`);
       await scan();
     } catch (error) {
+      setData(null);
+      setLoadError(error instanceof Error ? error.message : "پاک‌سازی رسانه‌ها انجام نشد.");
       toast.error(error instanceof Error ? error.message : "پاک‌سازی رسانه‌ها انجام نشد.");
     } finally {
       setCleaning(false);
@@ -62,14 +74,18 @@ export function AdminMediaHealth({ canCleanup }: { canCleanup: boolean }) {
             <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> بررسی
           </button>
           {canCleanup ? (
-            <button className="btn-ghost danger" type="button" onClick={() => void cleanup()} disabled={cleaning || loading}>
+            <button className="btn-ghost danger" type="button" onClick={() => void cleanup()} disabled={cleaning || loading || !data || Boolean(loadError)}>
               <Trash2 size={15} /> پاک‌سازی
             </button>
           ) : null}
         </div>
       </section>
 
-      {data ? (
+      {loading ? (
+        <div className="admin-empty" role="status">در حال اسکن رسانه‌ها…</div>
+      ) : loadError ? (
+        <AdminErrorBanner message={loadError} onRetry={() => void scan()} />
+      ) : data ? (
         <>
           <div className="admin-settings-grid admin-media-health-grid">
             <div className="admin-panel admin-health-card"><span>رسانه داخل DB</span><strong>{data.storedObjects.toLocaleString("fa-IR")}</strong><small>{formatBytes(data.storedBytes)}</small></div>
