@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
   const days = ALLOWED_DAYS.has(candidate) ? candidate : 30;
 
   if (dbSource === "unconfigured") {
-    return { days, rows: [], daily: [], quality: { leads: 0, source: 0, medium: 0, campaign: 0 }, totals: { campaigns: 0, leads: 0, contacted: 0, visits: 0, contracts: 0 } };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ گزارش عملکرد کمپین‌ها بارگذاری نشد." });
   }
 
   const sql = await getSql();
@@ -42,10 +42,7 @@ export default defineEventHandler(async (event) => {
        group by 1,2,3
        order by contracts desc, visits desc, leads desc, source asc, campaign asc
        limit 50`,
-    ).catch((error) => {
-      console.error("[admin-campaign-performance] grouped query unavailable", error);
-      return [];
-    }),
+    ),
     sql.query<Record<string, unknown>>(
       `select
          to_char(day::date, 'YYYY-MM-DD') as day,
@@ -59,10 +56,7 @@ export default defineEventHandler(async (event) => {
        left join leads l on l.created_at >= day and l.created_at < day + interval '1 day'
        group by day
        order by day asc`,
-    ).catch((error) => {
-      console.error("[admin-campaign-performance] daily query unavailable", error);
-      return [];
-    }),
+    ),
     sql.query<Record<string, unknown>>(
       `select
          count(*)::int as leads,
@@ -71,10 +65,7 @@ export default defineEventHandler(async (event) => {
          count(*) filter (where nullif(trim(coalesce(acquisition_campaign,'')), '') is not null)::int as campaign
        from leads
        where created_at >= current_timestamp - interval '${days} days'`,
-    ).catch((error) => {
-      console.error("[admin-campaign-performance] quality query unavailable", error);
-      return [];
-    }),
+    ),
   ]);
 
   const mapped = rows.map((row) => {

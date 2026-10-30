@@ -133,7 +133,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "دسترسی بررسی کیفیت فایل‌های ملک برای این حساب فعال نیست." });
   }
   if (dbSource === "unconfigured") {
-    return { success: true, media: { checked: 0, issues: [] }, priceAnomalies: [], verificationDue: [] };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ مرکز سلامت املاک اجرا نشد." });
   }
 
   const parsedBody = bodySchema.safeParse(await readBody(event).catch(() => ({})));

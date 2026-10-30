@@ -88,3 +88,39 @@ test("admin dashboard property metrics exclude trashed listings and expired feat
     await db.close();
   }
 });
+
+test("campaign performance fails closed instead of turning query failures into empty metrics", () => {
+  const route = readFileSync(new URL("../../server/routes/api/admin-campaign-performance.post.ts", import.meta.url), "utf8");
+  const ui = readFileSync(new URL("../components/hirmand/admin-campaign-performance.tsx", import.meta.url), "utf8");
+  const permissionIndex = route.indexOf('"reports.view"');
+  const unavailableIndex = route.indexOf('if (dbSource === "unconfigured")');
+
+  assert.ok(permissionIndex >= 0 && unavailableIndex > permissionIndex, "reports.view must be checked before database availability");
+  assert.match(route, /statusCode:\s*503/);
+  assert.equal((route.match(/\.catch\(\(error\)/g) ?? []).length, 0);
+  assert.match(ui, /<AdminErrorBanner/);
+  assert.match(ui, /setError\(/);
+  assert.doesNotMatch(ui, /setData\(\{days:range,rows:\[\]/);
+});
+
+test("property quality and publication queue distinguish unavailable storage from empty results", () => {
+  const qualityRoute = readFileSync(new URL("../../server/routes/api/admin-property-quality.post.ts", import.meta.url), "utf8");
+  const qualityUi = readFileSync(new URL("../components/hirmand/admin-property-quality-center.tsx", import.meta.url), "utf8");
+  const publicationServer = readFileSync(new URL("./admin-publication.ts", import.meta.url), "utf8");
+  const publicationUi = readFileSync(new URL("../components/hirmand/admin-publication-queue.tsx", import.meta.url), "utf8");
+  const qualityPermissionIndex = qualityRoute.indexOf('"property.manage"');
+  const qualityUnavailableIndex = qualityRoute.indexOf('if (dbSource === "unconfigured")');
+  const publicationPermissionIndex = publicationServer.indexOf('await requirePublicationPermission("property.manage")');
+  const publicationUnavailableIndex = publicationServer.indexOf('if (dbSource === "unconfigured")');
+
+  assert.ok(qualityPermissionIndex >= 0 && qualityUnavailableIndex > qualityPermissionIndex, "property.manage must be checked before database availability");
+  assert.match(qualityRoute, /statusCode:\s*503/);
+  assert.doesNotMatch(qualityRoute, /return \{ success: true, media: \{ checked: 0, issues: \[\] \}/);
+  assert.match(qualityUi, /<AdminErrorBanner/);
+  assert.match(qualityUi, /loadError/);
+
+  assert.ok(publicationPermissionIndex >= 0 && publicationUnavailableIndex > publicationPermissionIndex, "property.manage must be checked before database availability");
+  assert.match(publicationServer, /if \(dbSource === "unconfigured"\)\s*\{\s*throw new Error/);
+  assert.match(publicationUi, /<AdminErrorBanner/);
+  assert.match(publicationUi, /loadError/);
+});
