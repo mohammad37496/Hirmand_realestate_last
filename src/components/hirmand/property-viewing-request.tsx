@@ -143,7 +143,7 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
   const [error, setError] = useState("");
   const [trackingToken, setTrackingToken] = useState("");
   const [occupiedTimes, setOccupiedTimes] = useState<string[]>([]);
-  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false); const [slotsAvailable, setSlotsAvailable] = useState(false); const [slotsError, setSlotsError] = useState("");
 
   const visitAllowed = property.availabilityStatus === "available" || property.availabilityStatus === "reserved";
   const minimumDate = useMemo(() => todayIsoDate(), []);
@@ -151,27 +151,25 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
   useEffect(() => {
     if (!open || !date || !property.id) return;
     let cancelled = false;
-    setLoadingSlots(true);
+    setLoadingSlots(true); setSlotsAvailable(false); setSlotsError("");
     void fetch("/api/property-viewing-slots?propertyId=" + encodeURIComponent(property.id) + "&date=" + encodeURIComponent(date), {
       method: "GET",
       credentials: "same-origin",
       headers: { accept: "application/json" },
     })
-      .then((response) => response.json().catch(() => ({})))
+      .then(async (response) => { const payload = await response.json().catch(() => ({})); if (!response.ok) throw new Error(payload?.statusMessage || "ظرفیت بازدید بارگذاری نشد."); if (payload?.success !== true || !Array.isArray(payload?.occupiedTimes)) throw new Error("پاسخ ظرفیت بازدید معتبر نیست."); return payload; })
       .then((payload) => {
         if (cancelled) return;
         const next = Array.isArray(payload?.occupiedTimes)
           ? payload.occupiedTimes.filter((value: unknown): value is string => typeof value === "string")
           : [];
-        setOccupiedTimes(next);
+        setOccupiedTimes(next); setSlotsAvailable(true); setSlotsError("");
         if (next.includes(time)) {
           const firstAvailable = TIMES.find((slot) => !next.includes(slot));
           if (firstAvailable) setTime(firstAvailable);
         }
       })
-      .catch(() => {
-        if (!cancelled) setOccupiedTimes([]);
-      })
+      .catch((cause) => { if (!cancelled) { setOccupiedTimes([]); setSlotsAvailable(false); setSlotsError(cause instanceof Error ? cause.message : "ظرفیت بازدید در دسترس نیست."); } })
       .finally(() => {
         if (!cancelled) setLoadingSlots(false);
       });
@@ -188,7 +186,7 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
   }
 
   async function submit() {
-    const normalizedPhone = faDigits(phone).replace(/\D/g, "");
+    if (!slotsAvailable) { setError(slotsError || "ظرفیت بازدید در دسترس نیست؛ لطفاً بعداً دوباره تلاش کنید."); return; } if (occupiedTimes.includes(time)) { setError("این ساعت قبلاً رزرو شده است؛ زمان دیگری انتخاب کنید."); return; } const normalizedPhone = faDigits(phone).replace(/\D/g, "");
     if (name.trim().length < 2) {
       setError("نام و نام خانوادگی را وارد کنید.");
       return;
@@ -358,7 +356,7 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
                   </label>
                   <label className="field">
                     <span>ساعت پیشنهادی</span>
-                    <select value={time} onChange={(e) => setTime(e.target.value)} dir="ltr" disabled={loadingSlots}>
+                    <select value={time} onChange={(e) => setTime(e.target.value)} dir="ltr" disabled={loadingSlots || !slotsAvailable}>
                       {TIMES.map((item) => <option key={item} value={item} disabled={occupiedTimes.includes(item)}>{item}{occupiedTimes.includes(item) ? " · پر" : ""}</option>)}
                     </select>
                     <small>{loadingSlots ? "در حال بررسی ظرفیت…" : occupiedTimes.length ? "زمان‌های «پر» قبلاً برای این فایل ثبت شده‌اند." : "ظرفیت این روز در لحظه بررسی شد."}</small>
@@ -374,11 +372,11 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
                   </label>
                 </div>
 
-                {error ? <p className="property-viewing-error" role="alert">{error}</p> : null}
+                {slotsError ? <p className="property-viewing-error" role="alert">{slotsError}</p> : null}{error ? <p className="property-viewing-error" role="alert">{error}</p> : null}
 
                 <div className="property-viewing-actions">
                   <button type="button" className="btn-ghost" onClick={close} disabled={busy}>انصراف</button>
-                  <button type="button" className="btn-gold" onClick={submit} disabled={busy}>
+                  <button type="button" className="btn-gold" onClick={submit} disabled={busy || loadingSlots || !slotsAvailable}>
                     <CalendarDays size={17} />
                     {busy ? "در حال ثبت..." : "ثبت درخواست بازدید"}
                   </button>

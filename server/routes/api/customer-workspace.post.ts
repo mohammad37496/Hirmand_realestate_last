@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode:400, statusMessage:body.error.issues[0]?.message || "فضای شخصی نامعتبر است." });
   }
   if (dbSource === "unconfigured") {
-    return { success: false, message: "پایگاه داده تنظیم نشده است." };
+    throw createError({ statusCode: 503, statusMessage: "فضای شخصی مشتری در دسترس نیست؛ تغییری ذخیره نشد." });
   }
 
   const sql = await getSql();

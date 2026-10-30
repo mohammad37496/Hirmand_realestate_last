@@ -15,7 +15,7 @@ export default defineEventHandler(async event=>{
  assertSameOrigin(event);
  const claims=await getAdminSessionClaims(token);
  if(!hasAdminPermission(normalizeAdminRole(claims?.role),"lead.manage"))throw createError({statusCode:403,statusMessage:"دسترسی مدیریت CRM برای این حساب فعال نیست."});
- if(dbSource==="unconfigured")return{segments:[]};
+ if(dbSource==="unconfigured")throw createError({statusCode:503,statusMessage:"پایگاه داده فهرست‌های هوشمند CRM در دسترس نیست."});
  const sql=await getSql(); const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>;
  const action=clean(body.action,30)||"list";
  if(action==="list"){

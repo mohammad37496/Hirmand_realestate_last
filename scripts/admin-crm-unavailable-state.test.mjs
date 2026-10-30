@@ -162,3 +162,88 @@ test("customer submission history query errors remain visible instead of becomin
   assert.match(ui, /setHistoryError\(message\)/);
   assert.match(ui, /historyError \? <AdminErrorBanner/);
 });
+
+test("CRM operations and saved lead segments fail closed instead of returning zero metrics", () => {
+  const operations = read("server/routes/api/admin-operations.post.ts");
+  const operationsUi = read("src/components/hirmand/admin-operations-center.tsx");
+  const segments = read("server/routes/api/admin-lead-segments.post.ts");
+  const segmentsUi = read("src/components/hirmand/admin-lead-segments.tsx");
+
+  assert.match(operations, /dbSource === "unconfigured"[\s\S]{0,220}statusCode: 503/);
+  assert.doesNotMatch(operations, /dueLeads:\[\],dueCount:0,next7Count:0/);
+  assert.match(operationsUi, /setData\(null\);setError/);
+  assert.match(segments, /dbSource===\"unconfigured\"\)throw createError\(\{statusCode:503/);
+  assert.doesNotMatch(segments, /return\{segments:\[\]\}/);
+  assert.match(segmentsUi, /loadError\?\s*<AdminErrorBanner/);
+  assert.match(segmentsUi, /setItems\(\[\]\);setLoadError/);
+
+
+});
+
+test("property viewing capacity cannot be presented as free when storage is unavailable", () => {
+  const route = read("server/routes/api/property-viewing-slots.get.ts");
+  const ui = read("src/components/hirmand/property-viewing-request.tsx");
+  assert.match(route, /dbSource === "unconfigured"[\s\S]{0,220}statusCode: 503/);
+  assert.doesNotMatch(route, /success:\s*true,\s*occupiedTimes:\s*\[\]/);
+  assert.match(ui, /if \(!response\.ok\) throw new Error/);
+  assert.match(ui, /payload\?\.success !== true \|\| !Array\.isArray\(payload\?\.occupiedTimes\)/);
+  assert.match(ui, /setSlotsAvailable\(false\)/);
+  assert.match(ui, /disabled=\{loadingSlots \|\| !slotsAvailable\}/);
+  assert.match(ui, /if \(!slotsAvailable\)/);
+});
+
+test("backup verification and export-log write failures are propagated instead of fabricated as zero or success", () => {
+  const route = read("server/routes/api/admin-backup.get.ts");
+  assert.doesNotMatch(route, /to_regclass\(\$1\)[^;]*\.catch\(/);
+  assert.doesNotMatch(route, /count\(\*\)[^;]*\.catch\(/);
+  assert.doesNotMatch(route, /insert into admin_backup_log[^;]*\.catch\(/);
+  assert.match(route, /await sql\.query\("insert into admin_backup_log/);
+});
+
+test("public questions, customer workspace, watch, owner status, and report APIs return unavailable errors", () => {
+  const routes = [
+    "server/routes/api/property-questions.post.ts",
+    "server/routes/api/customer-workspace.get.ts",
+    "server/routes/api/customer-workspace.post.ts",
+    "server/routes/api/property-watch.post.ts",
+    "server/routes/api/property-watch-target.post.ts",
+    "server/routes/api/owner-property-status.post.ts",
+    "server/routes/api/property-reports.post.ts",
+  ];
+  for (const path of routes) {
+    const route = read(path);
+    assert.match(route, /dbSource\s*===\s*"unconfigured"[\s\S]{0,260}statusCode\s*:\s*503/, `${path} must use HTTP 503`);
+  }
+  assert.doesNotMatch(read("server/routes/api/property-questions.post.ts"), /accepted:\s*false/);
+  assert.match(read("server/routes/api/customer-workspace.get.ts"), /dbSource === "unconfigured"[\s\S]{0,220}statusCode: 503/);
+  assert.doesNotMatch(read("server/routes/api/property-watch.post.ts"), /ok:\s*true,\s*enabled:\s*false/);
+});
+
+test("admin property tools, watermark, phone bridge, and music endpoints do not report fake empty success", () => {
+  const routes = [
+    "server/routes/api/admin-property-duplicates.post.ts",
+    "server/routes/api/admin-property-price-history.post.ts",
+    "server/routes/api/admin-watermark.post.ts",
+    "server/routes/api/admin-phone-bridge.post.ts",
+    "server/routes/api/music-admin.post.ts",
+    "server/routes/api/music.get.ts",
+    "server/routes/api/music/file/[id].get.ts",
+  ];
+  for (const path of routes) {
+    const route = read(path);
+    assert.match(route, /dbSource\s*===\s*"unconfigured"[\s\S]{0,260}statusCode\s*:\s*503/, `${path} must use HTTP 503`);
+  }
+  assert.doesNotMatch(read("server/routes/api/admin-property-duplicates.post.ts"), /return \{ matches: \[\] \}/);
+  assert.doesNotMatch(read("server/routes/api/admin-property-price-history.post.ts"), /return \{ property: null, history: \[\] \}/);
+  assert.doesNotMatch(read("server/routes/api/admin-watermark.post.ts"), /return \{ success: true, settings: DEFAULTS \}/);
+  assert.doesNotMatch(read("server/routes/api/admin-phone-bridge.post.ts"), /ok: true, devices: \[\], commands: \[\], unconfigured: true/);
+  assert.doesNotMatch(read("server/routes/api/music.get.ts"), /autoplay: true, tracks: \[\]/);
+});
+
+test("property price history and duplicate check UIs do not preserve stale results after an unavailable response", () => {
+  const history = read("src/components/hirmand/admin-property-price-history.tsx");
+  const duplicates = read("src/components/hirmand/admin-property-duplicate-check.tsx");
+  assert.match(history, /setLoadError\(message\)/);
+  assert.match(history, /loadError \? <AdminErrorBanner/);
+  assert.match(duplicates, /setChecked\(false\);setMatches\(\[\]\)/);
+});

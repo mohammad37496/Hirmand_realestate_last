@@ -28,7 +28,7 @@ export function AdminOperationsCenter({
    const json=await res.json().catch(()=>({}));
    if(!res.ok)throw new Error(json?.statusMessage||"مرکز عملیات بارگذاری نشد.");
    setData(json as Ops);
-  }catch(e){setError(e instanceof Error?e.message:"مرکز عملیات بارگذاری نشد.");}
+  }catch(e){setData(null);setError(e instanceof Error?e.message:"مرکز عملیات بارگذاری نشد.");}
   finally{setLoading(false);}
  }
  useEffect(()=>{void load();const t=window.setInterval(()=>void load(),60000);return()=>window.clearInterval(t)},[]);

@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (dbSource === "unconfigured") {
-    throw createError({ statusCode: 404, statusMessage: "آهنگ پیدا نشد." });
+    throw createError({ statusCode: 503, statusMessage: "کتابخانه موسیقی در دسترس نیست؛ وجود یا نبود آهنگ قابل تأیید نیست." });
   }
 
   const sql = await getSql();

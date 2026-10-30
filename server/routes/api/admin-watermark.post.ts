@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, statusMessage: parsedBody.error.issues[0]?.message || "تنظیمات واترمارک معتبر نیست." });
   }
   const body = parsedBody.data;
-  if (dbSource === "unconfigured") return { success: true, settings: DEFAULTS };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "تنظیمات واترمارک ذخیره یا بارگذاری نشد؛ پایگاه داده در دسترس نیست." });
 
   const sql = await getSql();
   if (body.action === "get") {
