@@ -23,7 +23,9 @@ export const listPendingPublicationReviews = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(100).optional().default(50) }))
   .handler(async ({ data }) => {
     await requirePublicationPermission("property.manage");
-    if (dbSource === "unconfigured") return [];
+    if (dbSource === "unconfigured") {
+      throw new Error("پایگاه داده تنظیم نشده است؛ صف تأیید انتشار در دسترس نیست.");
+    }
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select r.id,r.property_id,r.status,r.requested_by,r.request_note,r.requested_at,

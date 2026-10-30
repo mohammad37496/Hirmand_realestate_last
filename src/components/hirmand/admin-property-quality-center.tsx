@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { AlertTriangle, BadgeCheck, ExternalLink, Gauge, ImageOff, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 import "@/admin-property-quality.css";
 
 type ScanData = {
@@ -40,9 +41,12 @@ export function AdminPropertyQualityCenter() {
   const [data, setData] = useState<ScanData | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   const scan = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
+    setData(null);
     try {
       const response = await fetch("/api/admin-property-quality", {
         method: "POST",
@@ -53,7 +57,10 @@ export function AdminPropertyQualityCenter() {
       if (!response.ok || !payload?.media) throw new Error(payload?.statusMessage || "اسکن کیفیت فایل‌ها انجام نشد.");
       setData(payload);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "اسکن کیفیت فایل‌ها انجام نشد.");
+      const message = error instanceof Error ? error.message : "اسکن کیفیت فایل‌ها انجام نشد.";
+      setData(null);
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -92,7 +99,11 @@ export function AdminPropertyQualityCenter() {
         </button>
       </div>
 
-      {!data ? (
+      {loading ? (
+        <div className="admin-property-quality-empty" role="status">در حال اسکن سلامت فایل‌ها…</div>
+      ) : loadError ? (
+        <AdminErrorBanner message={loadError} onRetry={() => void scan()} />
+      ) : !data ? (
         <div className="admin-property-quality-empty">
           <Gauge size={24} />
           <strong>برای شروع، اسکن سلامت فایل‌ها را اجرا کنید.</strong><small>در هر اسکن، بخشی از رسانه‌ها و همه فایل‌های فروش برای بررسی داده‌ای کنترل می‌شوند.</small>

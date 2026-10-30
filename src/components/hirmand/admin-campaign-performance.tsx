@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BarChart3, CalendarRange, CheckCircle2, ClipboardCheck, PhoneCall, RefreshCw, Target, UsersRound } from "lucide-react";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type Row = { source:string; medium:string; campaign:string; leads:number; contacted:number; visits:number; contracts:number; contactRate:number; contractRate:number };
 type Data = {
@@ -16,16 +17,21 @@ export function AdminCampaignPerformance(){
   const [days,setDays]=useState<7|30|90>(30);
   const [data,setData]=useState<Data|null>(null);
   const [loading,setLoading]=useState(true);
+  const [error,setError]=useState("");
 
   const load=useCallback(async(range:7|30|90)=>{
     setLoading(true);
+    setError("");
+    setData(null);
     try{
       const response=await fetch("/api/admin-campaign-performance",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({days:range})});
       const result=await response.json().catch(()=>null) as Data|{statusMessage?:string}|null;
       if(!response.ok)throw new Error(result&&"statusMessage" in result?result.statusMessage:"گزارش کمپین‌ها در دسترس نیست.");
+      if(!result||!("rows" in result)||!Array.isArray(result.rows)||!("daily" in result)||!Array.isArray(result.daily)||!("quality" in result)||!result.quality||!("totals" in result)||!result.totals)throw new Error("ساختار پاسخ گزارش کمپین‌ها نامعتبر است.");
       setData(result as Data);
-    }catch{
-      setData({days:range,rows:[],daily:[],quality:{leads:0,source:0,medium:0,campaign:0},totals:{campaigns:0,leads:0,contacted:0,visits:0,contracts:0}});
+    }catch(loadError){
+      setData(null);
+      setError(loadError instanceof Error ? loadError.message : "دریافت گزارش کمپین‌ها ناموفق بود.");
     }finally{setLoading(false);}
   },[]);
 
@@ -42,6 +48,7 @@ export function AdminCampaignPerformance(){
       @media(max-width:900px){.admin-campaign-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.admin-campaign-extra{grid-template-columns:1fr}}@media(max-width:560px){.admin-campaign-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-campaign-trend{gap:3px}}
     `}</style>
     <div className="admin-campaign-head"><div className="admin-campaign-title"><span className="kicker">بازاریابی</span><h2>عملکرد کمپین‌ها و منابع جذب</h2><p>تعداد لید، تماس واقعی، بازدید و قرارداد را به تفکیک منبع، رسانه و کمپین ببینید.</p></div><div className="admin-campaign-toolbar"><div className="admin-campaign-range" aria-label="بازه گزارش">{[7,30,90].map((value)=><button key={value} type="button" className={days===value?"is-active":""} onClick={()=>setDays(value as 7|30|90)}>{value===7?"۷ روز":value===30?"۳۰ روز":"۹۰ روز"}</button>)}</div><button type="button" className="btn-ghost" onClick={()=>void load(days)} disabled={loading}><RefreshCw size={14} className={loading?"admin-spin":""}/>بروزرسانی</button></div></div>
+    {error ? <AdminErrorBanner message={error} onRetry={() => void load(days)} /> : loading && !data ? <div className="admin-campaign-empty" role="status">در حال جمع‌آوری داده‌ها…</div> : <>
     <div className="admin-campaign-grid">
       <div className="admin-campaign-stat"><span><Target size={12}/>گروه‌های جذب</span><strong>{fa(data?.totals.campaigns??0)}</strong></div>
       <div className="admin-campaign-stat"><span><UsersRound size={12}/>لید</span><strong>{fa(data?.totals.leads??0)}</strong></div>
@@ -59,5 +66,6 @@ export function AdminCampaignPerformance(){
     </div>
     <div className="admin-campaign-table-wrap">{loading&&!data?<div className="admin-campaign-empty"><RefreshCw size={22} className="admin-spin"/>در حال جمع‌آوری داده‌ها…</div>:data?.rows.length?<table className="admin-campaign-table"><thead><tr><th>منبع / کمپین</th><th>لید</th><th>تماس</th><th>بازدید</th><th>قرارداد</th><th>نرخ تماس</th><th>نرخ قرارداد</th></tr></thead><tbody>{data.rows.map((row)=><tr key={row.source+"|"+row.medium+"|"+row.campaign}><td className="admin-campaign-name"><strong>{row.campaign}</strong><small>{row.source} · {row.medium}</small></td><td className="admin-campaign-number">{fa(row.leads)}</td><td className="admin-campaign-number">{fa(row.contacted)}</td><td className="admin-campaign-number">{fa(row.visits)}</td><td className="admin-campaign-number">{fa(row.contracts)}</td><td><span className="admin-campaign-rate">{pct(row.contactRate)}</span></td><td><span className="admin-campaign-rate">{pct(row.contractRate)}</span></td></tr>)}</tbody></table>:<div className="admin-campaign-empty"><BarChart3 size={24}/>برای این بازه داده کمپین ثبت نشده است.</div>}</div>
     <p className="admin-campaign-note">این گزارش «بازده قیف جذب» است؛ چون مبلغ قرارداد به کمپین متصل نیست، ROI مالی محاسبه نمی‌شود.</p>
+    </>}
   </section>;
 }
