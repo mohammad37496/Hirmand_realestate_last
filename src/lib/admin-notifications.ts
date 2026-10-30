@@ -122,7 +122,14 @@ export const listAdminNotifications = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const claims = await requireAdmin();
     const access = getAdminNotificationAccess(claims?.role);
-    if (dbSource === "unconfigured") return { notifications: [], unread: 0 };
+    if (dbSource === "unconfigured") {
+      return {
+        available: false,
+        statusMessage: "پایگاه داده در دسترس نیست؛ اعلان‌های مدیریتی بارگذاری نشدند.",
+        notifications: [],
+        unread: 0,
+      };
+    }
     const sql = await getSql();
     await syncCandidates(sql, access);
     const rows = await sql.query<Record<string, unknown>>(
@@ -136,6 +143,8 @@ export const listAdminNotifications = createServerFn({ method: "POST" })
       [access.canManageLeads, access.canManageProperties, access.canViewOther],
     ))[0]?.count) || 0;
     return {
+      available: true,
+      statusMessage: undefined,
       unread,
       notifications: rows.map((row) => ({
         id: Number(row.id),
@@ -156,7 +165,9 @@ export const markAdminNotificationRead = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const claims = await requireAdmin();
     const access = getAdminNotificationAccess(claims?.role);
-    if (dbSource === "unconfigured") return { success: true };
+    if (dbSource === "unconfigured") {
+      throw new Error("پایگاه داده در دسترس نیست؛ وضعیت اعلان ذخیره نشد.");
+    }
     const sql = await getSql();
     const rows = await sql.query<{ id: number }>(
       `update admin_notifications set read_at=current_timestamp where id=$1 and (${adminNotificationVisibilityPredicate("$2", "$3", "$4")}) returning id`,
@@ -170,7 +181,9 @@ export const markAllAdminNotificationsRead = createServerFn({ method: "POST" })
   .handler(async () => {
     const claims = await requireAdmin();
     const access = getAdminNotificationAccess(claims?.role);
-    if (dbSource === "unconfigured") return { success: true };
+    if (dbSource === "unconfigured") {
+      throw new Error("پایگاه داده در دسترس نیست؛ اعلان‌ها خوانده‌شده علامت‌گذاری نشدند.");
+    }
     const sql = await getSql();
     await sql.query(
       `update admin_notifications set read_at=current_timestamp where read_at is null and (${adminNotificationVisibilityPredicate("$1", "$2", "$3")})`,

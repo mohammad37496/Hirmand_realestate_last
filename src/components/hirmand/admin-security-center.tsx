@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Monitor, RefreshCw, ShieldAlert, ShieldCheck, Smartphone, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { AdminRoleManager } from "@/components/hirmand/admin-role-manager";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 import {
   listAdminSecuritySessions,
   purgeExpiredAdminSessions,
@@ -31,23 +32,32 @@ export function AdminSecurityCenter() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const data = await listAdminSecuritySessions({ data: { limit: 50 } });
+      if (data.available !== true) {
+        throw new Error(data.statusMessage || "پایگاه داده در دسترس نیست؛ نشست‌های مدیریتی بارگذاری نشدند.");
+      }
       setSessions(data.sessions);
       setCurrentSessionId(data.currentSessionId);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "فهرست نشست‌ها دریافت نشد.";
+      setLoadError(message);
+      setSessions([]);
+      setCurrentSessionId(null);
       toast.error(error instanceof Error ? error.message : "فهرست نشست‌ها دریافت نشد.");
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   async function revoke(id: string) {
     setBusy(id);
@@ -102,23 +112,25 @@ export function AdminSecurityCenter() {
         </div>
         <div className="admin-security-actions">
           <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading || !!busy}><RefreshCw size={15} className={loading ? "admin-spin" : ""} /> تازه‌سازی</button>
-          <button type="button" className="btn-ghost" onClick={() => void purge()} disabled={!!busy}><ShieldAlert size={15} /> پاک‌سازی قدیمی</button>
-          <button type="button" className="btn-gold" onClick={() => void revokeOthers()} disabled={!!busy}><LogOut size={15} /> بستن نشست‌های دیگر</button>
+          <button type="button" className="btn-ghost" onClick={() => void purge()} disabled={!!busy || loading || Boolean(loadError)}><ShieldAlert size={15} /> پاک‌سازی قدیمی</button>
+          <button type="button" className="btn-gold" onClick={() => void revokeOthers()} disabled={!!busy || loading || Boolean(loadError)}><LogOut size={15} /> بستن نشست‌های دیگر</button>
         </div>
       </section>
 
       <section className="admin-security-stats">
-        <article><span>نشست فعال</span><strong>{active.length.toLocaleString("fa-IR")}</strong><small>در ۳۰ روز اخیر</small></article>
-        <article><span>نشست بسته/منقضی</span><strong>{closed.length.toLocaleString("fa-IR")}</strong><small>سوابق نگهداری‌شده</small></article>
-        <article><span>نشست فعلی</span><strong>{currentSessionId ? "فعال" : "قدیمی"}</strong><small>{currentSessionId ? "قابل شناسایی و مدیریت" : "ورود قبلی قبل از فعال‌سازی این قابلیت"}</small></article>
+        <article><span>نشست فعال</span><strong>{loading || loadError ? "—" : active.length.toLocaleString("fa-IR")}</strong><small>{loading || loadError ? "اطلاعات در دسترس نیست" : "در ۳۰ روز اخیر"}</small></article>
+        <article><span>نشست بسته/منقضی</span><strong>{loading || loadError ? "—" : closed.length.toLocaleString("fa-IR")}</strong><small>{loading || loadError ? "اطلاعات در دسترس نیست" : "سوابق نگهداری‌شده"}</small></article>
+        <article><span>نشست فعلی</span><strong>{loading || loadError ? "—" : currentSessionId ? "فعال" : "قدیمی"}</strong><small>{loading || loadError ? "اطلاعات نشست در دسترس نیست" : currentSessionId ? "قابل شناسایی و مدیریت" : "ورود قبلی قبل از فعال‌سازی این قابلیت"}</small></article>
       </section>
 
       <section className="admin-panel admin-security-list">
         <div className="admin-panel-head">
           <div><span className="kicker">ردپای ورود</span><h2>دستگاه‌ها و مرورگرهای اخیر</h2></div>
-          <span className="admin-dashboard-summary">{sessions.length.toLocaleString("fa-IR")} رکورد</span>
+          <span className="admin-dashboard-summary">{loading || loadError ? "—" : sessions.length.toLocaleString("fa-IR")} رکورد</span>
         </div>
-        {loading ? <div className="admin-security-empty">در حال دریافت نشست‌ها…</div> : !sessions.length ? (
+        {loading ? <div className="admin-security-empty">در حال دریافت نشست‌ها…</div> : loadError ? (
+          <AdminErrorBanner message={loadError} onRetry={() => void load()} />
+        ) : !sessions.length ? (
           <div className="admin-security-empty">هنوز نشست ذخیره‌شده‌ای وجود ندارد. نشست بعدی هنگام ورود ثبت می‌شود.</div>
         ) : (
           <div className="admin-security-rows">

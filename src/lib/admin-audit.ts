@@ -29,7 +29,9 @@ export const listAdminAuditLog = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await requireAdmin("security.manage");
-    if (dbSource === "unconfigured") return [];
+    if (dbSource === "unconfigured") {
+      throw new Error("پایگاه داده در دسترس نیست؛ گزارش فعالیت مدیران بارگذاری نشد.");
+    }
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select id, action, entity_type, entity_id, entity_title, actor, metadata, created_at
@@ -55,7 +57,9 @@ export const clearAdminAuditLog = createServerFn({ method: "POST" })
   .validator(z.object({ beforeDays: z.number().int().min(7).max(3650).optional().default(365) }))
   .handler(async ({ data }) => {
     await requireAdmin("security.manage");
-    if (dbSource === "unconfigured") return { success: true, deleted: 0 };
+    if (dbSource === "unconfigured") {
+      throw new Error("پایگاه داده در دسترس نیست؛ پاک‌سازی گزارش فعالیت انجام نشد.");
+    }
     const sql = await getSql();
     const rows = await sql.query<{ id: number }>(
       `delete from admin_audit_log

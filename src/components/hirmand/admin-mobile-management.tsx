@@ -908,14 +908,29 @@ function CommandCenter({
 function AuditMiniPanel() {
   const [items, setItems] = useState<Array<Awaited<ReturnType<typeof listAdminAuditLog>>[number]>>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const load = useCallback(async (isCurrent: () => boolean = () => true) => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const rows = await listAdminAuditLog({ data: { limit: 12, entityType: "staff_mobile_device" } });
+      if (isCurrent()) setItems(rows);
+    } catch (error) {
+      if (isCurrent()) {
+        setItems([]);
+        setLoadError(error instanceof Error ? error.message : "گزارش فعالیت در دسترس نیست.");
+      }
+    } finally {
+      if (isCurrent()) setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    void listAdminAuditLog({ data: { limit: 12, entityType: "staff_mobile_device" } })
-      .then((rows) => { if (!cancelled) setItems(rows); })
-      .catch(() => { if (!cancelled) setItems([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    void load(() => !cancelled);
     return () => { cancelled = true; };
-  }, []);
+  }, [load]);
 
   return (
     <section className="admin-mobile-panel">
@@ -928,6 +943,12 @@ function AuditMiniPanel() {
       </div>
       {loading ? (
         <div className="admin-mobile-empty-state">در حال دریافت گزارش عملیات…</div>
+      ) : loadError ? (
+        <div className="admin-mobile-empty-state" role="alert">
+          <strong>گزارش فعالیت در دسترس نیست.</strong>
+          <span>{loadError}</span>
+          <button type="button" className="btn-ghost" onClick={() => void load()}>تلاش دوباره</button>
+        </div>
       ) : items.length ? (
         <div className="admin-mobile-audit-list">
           {items.map((item) => (

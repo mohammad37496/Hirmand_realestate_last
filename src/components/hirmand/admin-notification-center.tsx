@@ -21,7 +21,7 @@ function iconFor(kind: string) {
 
 export function AdminNotificationCenter() {
   const [items, setItems] = useState<AdminNotification[]>([]);
-  const [unread, setUnread] = useState(0);
+  const [unread, setUnread] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -29,12 +29,18 @@ export function AdminNotificationCenter() {
   const load = async () => {
     setLoading(true);
     setLoadError(false);
+    setUnread(null);
     try {
       const result = await listAdminNotifications({ data: { limit: 60 } });
+      if (result.available !== true) {
+        throw new Error(result.statusMessage || "پایگاه داده در دسترس نیست؛ اعلان‌های مدیریتی بارگذاری نشدند.");
+      }
       setItems(result.notifications);
       setUnread(result.unread);
     } catch (error) {
       setLoadError(true);
+      setItems([]);
+      setUnread(null);
       toast.error(error instanceof Error ? error.message : "اعلان‌ها دریافت نشدند.");
     } finally {
       setLoading(false);
@@ -47,16 +53,17 @@ export function AdminNotificationCenter() {
 
   async function markRead(id: number) {
     try {
-      await markAdminNotificationRead({ data: { id } });
+      const result = await markAdminNotificationRead({ data: { id } });
+      if (!result.success) throw new Error("اعلان پیدا نشد یا مجوز خواندن آن را ندارید.");
       setItems((current) => current.map((item) => item.id === id ? { ...item, readAt: new Date().toISOString() } : item));
-      setUnread((current) => Math.max(0, current - 1));
+      setUnread((current) => current === null ? null : Math.max(0, current - 1));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "اعلان خوانده نشد.");
     }
   }
 
   async function markAll() {
-    if (busy || unread === 0) return;
+    if (busy || unread === null || unread === 0 || loadError) return;
     setBusy(true);
     try {
       await markAllAdminNotificationsRead({ data: {} });
@@ -76,11 +83,11 @@ export function AdminNotificationCenter() {
       <div className="admin-panel-head">
         <div>
           <span className="kicker">صندوق ورودی</span>
-          <h2 id="admin-notification-title"><Bell size={19} /> اعلان‌های مدیریت {unread ? <span className="admin-notification-count">{unread.toLocaleString("fa-IR")}</span> : null}</h2>
+          <h2 id="admin-notification-title"><Bell size={19} /> اعلان‌های مدیریت {unread !== null && unread > 0 ? <span className="admin-notification-count">{unread.toLocaleString("fa-IR")}</span> : null}</h2>
         </div>
         <div className="admin-notification-actions">
           <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14} className={loading ? "admin-spin" : ""} /> تازه‌سازی</button>
-          <button type="button" className="btn-ghost" onClick={() => void markAll()} disabled={busy || unread === 0}><CheckCheck size={14} /> خواندن همه</button>
+          <button type="button" className="btn-ghost" onClick={() => void markAll()} disabled={busy || unread === null || unread === 0 || loadError}><CheckCheck size={14} /> خواندن همه</button>
         </div>
       </div>
       {loading ? <div className="admin-empty">در حال دریافت اعلان‌ها…</div> : loadError ? (
