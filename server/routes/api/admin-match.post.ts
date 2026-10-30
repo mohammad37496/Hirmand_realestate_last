@@ -6,6 +6,8 @@ import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { INSERT_MATCH_FEEDBACK_SQL, SAVE_MATCH_RESULTS_WITH_ACTIVITY_SQL } from "@/lib/admin-match-mutation-sql";
+import { MATCHABLE_PROPERTY_SQL } from "@/lib/property-matchability";
+import { buildMatchWarnings, normalizeMatchLabel } from "@/lib/admin-match-explanations";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -34,7 +36,7 @@ const PROPERTY_TX_LABELS: Record<string, string> = {
 };
 
 const PROPERTY_COLUMNS = `
-  id, slug, status, featured, featured_until, title, transaction_type, property_type, city,
+  id, slug, status, availability_status, deleted_at, unpublish_at, featured, featured_until, title, transaction_type, property_type, city,
   neighborhood, address, area_m2, bedrooms, bathrooms, floor, floor_label, total_floors,
   built_year, parking, elevator, storage, painted, wallpaper, convertible,
   cabinet_type, flooring_type, cooling_system, heating_system, wall_closet_type,
@@ -140,7 +142,7 @@ function safeMatchCount(covered: number, requested: number) {
   return Math.round((covered / requested) * 100);
 }
 
-function serializeProperty(row: Record<string, unknown>, score: number, reasons: string[], amenityCoverage: number | null, priceMatch: number | null) {
+function serializeProperty(row: Record<string, unknown>, score: number, reasons: string[], warnings: string[], amenityCoverage: number | null, priceMatch: number | null) {
   return {
     id: String(row.id),
     slug: String(row.slug),
@@ -191,6 +193,7 @@ function serializeProperty(row: Record<string, unknown>, score: number, reasons:
     priceDropPercent: num(row.price_drop_percent),
     score,
     reasons,
+    warnings,
     priceMatch,
     amenityCoverage,
   };
@@ -325,7 +328,7 @@ export default defineEventHandler(async (event) => {
   const candidateRows = await sql.query<Record<string, unknown>>(
     `select ${PROPERTY_COLUMNS}
      from properties
-     where status = 'published'
+     where ${MATCHABLE_PROPERTY_SQL}
        and (
          $1::text = ''
          or property_type = $1
@@ -348,7 +351,10 @@ export default defineEventHandler(async (event) => {
       const coveredAmenities = requestedAmenities.filter((value) => amenities.has(value)).length;
       const amenityCoverage = requestedAmenities.length ? safeMatchCount(coveredAmenities, requestedAmenities.length) : null;
       const price = priceScore(propertyComparableValue(row), range);
-      const sameNeighborhood = neighborhood ? String(row.neighborhood).trim() === neighborhood : null;
+      const propertyNeighborhood = String(row.neighborhood ?? "").trim();
+      const sameNeighborhood = neighborhood && propertyNeighborhood
+        ? normalizeMatchLabel(propertyNeighborhood) === normalizeMatchLabel(neighborhood)
+        : null;
       const sameBedrooms =
         requestedBedrooms == null || num(row.bedrooms) == null
           ? null
@@ -363,12 +369,14 @@ export default defineEventHandler(async (event) => {
         score += price * (mode === "price" ? 0.68 : mode === "amenities" ? 0.15 : mode === "both" ? 0.45 : 0.3);
         if (price >= 95) reasons.push("قیمت بسیار نزدیک به بودجه");
         else if (price >= 70) reasons.push("قیمت نزدیک به بودجه");
+        else score -= 4;
       }
 
       if (amenityCoverage != null) {
         score += amenityCoverage * (mode === "amenities" ? 0.7 : mode === "price" ? 0.12 : mode === "both" ? 0.35 : 0.25);
         if (amenityCoverage >= 100) reasons.push("تمام امکانات درخواستی موجود است");
         else if (amenityCoverage > 0) reasons.push(amenityCoverage + "% امکانات درخواستی موجود است");
+        else score -= 4;
       }
 
       if (sameNeighborhood === true) {
@@ -381,7 +389,7 @@ export default defineEventHandler(async (event) => {
       if (sameBedrooms === true) {
         score += mode === "smart" ? 12 : 8;
         reasons.push("تعداد خواب مناسب");
-      }
+      } else if (sameBedrooms === false) score -= 8;
 
       if (String(row.transaction_type) === "mortgage" && (deal === "رهن" || deal === "اجاره")) {
         score += 3;
@@ -407,10 +415,22 @@ export default defineEventHandler(async (event) => {
         sameNeighborhood === true ||
         sameBedrooms === true;
 
+      const warnings = buildMatchWarnings({
+        priceMatch: price,
+        amenityCoverage,
+        sameNeighborhood,
+        requestedBedrooms,
+        propertyBedrooms: num(row.bedrooms),
+        floorPreference: String(lead.floor_preference ?? "").trim(),
+        propertyFloor: num(row.floor),
+        propertyFloorValid: num(row.floor) !== null && isAllowedPropertyFloorValue(num(row.floor) as number),
+      });
+
       return {
         row,
         score: Math.max(0, Math.min(100, Math.round(score))),
         reasons,
+        warnings,
         amenityCoverage,
         priceMatch: price,
         hasMeaningfulSignal,
@@ -421,7 +441,7 @@ export default defineEventHandler(async (event) => {
     .slice(0, limit);
 
   const serializedMatches = scored.map((item) =>
-    serializeProperty(item.row, item.score, item.reasons, item.amenityCoverage, item.priceMatch),
+    serializeProperty(item.row, item.score, item.reasons, item.warnings, item.amenityCoverage, item.priceMatch),
   );
 
   const saved = await sql.query<{ id: string }>(

@@ -541,6 +541,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
   const [loadingList, setLoadingList] = useState(false);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<ViewMode>(staffMode ? "staffHome" : "dashboard");
+  const [leadFocusId, setLeadFocusId] = useState<string | null>(null);
   const [formDirty, setFormDirty] = useState(false);
   const [listFilter, setListFilter] = useState<"all" | PublishStatus | "featured">("all");
   const [query, setQuery] = useState("");
@@ -757,6 +758,11 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
     }
     setView(nextView);
     setDrawerOpen(false);
+  }
+
+  function openLeadFromTask(leadId: string) {
+    setLeadFocusId(leadId);
+    navigateTo("leads");
   }
 
   useEffect(() => {
@@ -2245,7 +2251,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
           ) : view === "expiry" ? (
             <AdminPropertyExpiryCenter />
           ) : view === "productivity" ? (
-            <AdminProductivityCenter />
+            <AdminProductivityCenter onOpenLead={openLeadFromTask} />
           ) : null}
 
           {view === "list" ? (
@@ -2622,7 +2628,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
           ) : null}
 
           {view === "music" ? <AdminMusicManager /> : null}
-          {view === "leads" ? <AdminLeadManager staffMode={staffMode} /> : null}
+          {view === "leads" ? <AdminLeadManager staffMode={staffMode} focusLeadId={leadFocusId} onFocusConsumed={() => setLeadFocusId(null)} /> : null}
           {view === "messages" ? <AdminCustomerInbox /> : null}
           {view === "partners" ? <AdminPartnerManager /> : null}
           {view === "consultants" ? <AdminConsultantManager /> : null}

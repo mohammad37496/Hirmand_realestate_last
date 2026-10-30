@@ -171,12 +171,29 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
   };
 }
 
+async function validateTaskEntityAssociation(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  entityType: string,
+  entityId: string | null,
+) {
+  if (!entityType) {
+    if (entityId) throw createError({ statusCode: 400, statusMessage: "نوع موجودیت مرتبط با وظیفه مشخص نشده است." });
+    return;
+  }
+  if (entityType !== "lead" && entityType !== "property") throw createError({ statusCode: 400, statusMessage: "نوع ارتباط وظیفه معتبر نیست." });
+  if (!entityId) throw createError({ statusCode: 400, statusMessage: "شناسه موجودیت مرتبط با وظیفه الزامی است." });
+  const rows = entityType === "lead"
+    ? await sql.query<{ id: string }>("select id from leads where id=$1 limit 1", [entityId])
+    : await sql.query<{ id: string }>("select id from properties where id=$1 and deleted_at is null and status <> 'archived' limit 1", [entityId]);
+  if (!rows[0]) throw createError({ statusCode: 404, statusMessage: entityType === "lead" ? "لید مرتبط با وظیفه پیدا نشد." : "فایل ملک مرتبط با وظیفه پیدا نشد." });
+}
+
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
 
   const body = (await readBody(event).catch(() => ({}))) as {
-    action?: "summary" | "list_tasks" | "create_task" | "update_task" | "delete_task";
+    action?: "summary" | "list_tasks" | "list_leads" | "list_properties" | "create_task" | "update_task" | "delete_task";
     id?: string;
     title?: string;
     description?: string;
@@ -198,15 +215,21 @@ export default defineEventHandler(async (event) => {
   if (action === "create_task") {
     const title = cleanText(body.title, 180);
     if (!title) throw createError({ statusCode: 400, statusMessage: "عنوان وظیفه را وارد کنید." });
-    const status = TASK_STATUSES.includes(body.status as TaskStatus) ? body.status as TaskStatus : "open";
-    const priority = PRIORITIES.includes(body.priority as Priority) ? body.priority as Priority : "normal";
+    if (body.status !== undefined && !TASK_STATUSES.includes(body.status as TaskStatus)) throw createError({ statusCode: 400, statusMessage: "وضعیت وظیفه نامعتبر است." });
+    if (body.priority !== undefined && !PRIORITIES.includes(body.priority as Priority)) throw createError({ statusCode: 400, statusMessage: "اولویت وظیفه نامعتبر است." });
+    const status = body.status === undefined ? "open" : body.status as TaskStatus;
+    const priority = body.priority === undefined ? "normal" : body.priority as Priority;
     const dueAt = nullableDate(body.dueAt);
+    const entityType = cleanText(body.entityType, 40);
+    const entityId = body.entityId == null ? null : cleanText(body.entityId, 160);
+    await validateTaskEntityAssociation(sql, entityType, entityId);
     const rows = await sql.query(
       "insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) " +
-      "values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *",
+      "select $1,$2,$3,$4,$5,$6,$7,$8,$9 where ($8 <> 'lead' or exists(select 1 from leads where id=$9)) and ($8 <> 'property' or exists(select 1 from properties where id=$9 and deleted_at is null and status <> 'archived')) returning *",
       [crypto.randomUUID(), title, cleanText(body.description, 1200), status, priority, dueAt,
-       cleanText(body.assignee, 100), cleanText(body.entityType, 40), body.entityId == null ? null : cleanText(body.entityId, 160)]
+       cleanText(body.assignee, 100), entityType, entityId]
     );
+    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "موجودیت مرتبط با وظیفه هنگام ثبت دیگر در دسترس نیست." });
     return { task: serializeTask(rows[0]) };
   }
 
@@ -215,19 +238,26 @@ export default defineEventHandler(async (event) => {
     if (!id) throw createError({ statusCode: 400, statusMessage: "شناسه وظیفه نامعتبر است." });
     const existing = (await sql.query<Record<string, unknown>>("select * from admin_tasks where id=$1 limit 1", [id]))[0];
     if (!existing) throw createError({ statusCode: 404, statusMessage: "وظیفه پیدا نشد." });
-    const status = TASK_STATUSES.includes(body.status as TaskStatus) ? body.status as TaskStatus : String(existing.status) as TaskStatus;
-    const priority = PRIORITIES.includes(body.priority as Priority) ? body.priority as Priority : String(existing.priority) as Priority;
+    if (body.status !== undefined && !TASK_STATUSES.includes(body.status as TaskStatus)) throw createError({ statusCode: 400, statusMessage: "وضعیت وظیفه نامعتبر است." });
+    if (body.priority !== undefined && !PRIORITIES.includes(body.priority as Priority)) throw createError({ statusCode: 400, statusMessage: "اولویت وظیفه نامعتبر است." });
+    const status = body.status === undefined ? String(existing.status) as TaskStatus : body.status as TaskStatus;
+    const priority = body.priority === undefined ? String(existing.priority) as Priority : body.priority as Priority;
     const dueAt = body.dueAt !== undefined ? nullableDate(body.dueAt) : (existing.due_at == null ? null : new Date(String(existing.due_at)).toISOString());
+    const title = body.title === undefined ? String(existing.title ?? "") : cleanText(body.title, 180);
+    if (!title) throw createError({ statusCode: 400, statusMessage: "عنوان وظیفه نمی‌تواند خالی باشد." });
+    const entityType = body.entityType === undefined ? String(existing.entity_type ?? "") : cleanText(body.entityType, 40);
+    const entityId = body.entityId === undefined ? (existing.entity_id == null ? null : String(existing.entity_id)) : (body.entityId == null ? null : cleanText(body.entityId, 160));
+    await validateTaskEntityAssociation(sql, entityType, entityId);
     const rows = await sql.query(
       "update admin_tasks set title=$2, description=$3, status=$4, priority=$5, due_at=$6, assignee=$7, entity_type=$8, entity_id=$9, updated_at=current_timestamp " +
-      "where id=$1 returning *",
-      [id, body.title === undefined ? String(existing.title ?? "") : cleanText(body.title, 180),
+      "where id=$1 and ($8 <> 'lead' or exists(select 1 from leads where id=$9)) and ($8 <> 'property' or exists(select 1 from properties where id=$9 and deleted_at is null and status <> 'archived')) returning *",
+      [id, title,
        body.description === undefined ? String(existing.description ?? "") : cleanText(body.description, 1200),
        status, priority, dueAt,
        body.assignee === undefined ? String(existing.assignee ?? "") : cleanText(body.assignee, 100),
-       body.entityType === undefined ? String(existing.entity_type ?? "") : cleanText(body.entityType, 40),
-       body.entityId === undefined ? (existing.entity_id == null ? null : String(existing.entity_id)) : (body.entityId == null ? null : cleanText(body.entityId, 160))]
+       entityType, entityId]
     );
+    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "وظیفه هنگام به‌روزرسانی پیدا نشد." });
     return { task: serializeTask(rows[0]) };
   }
 
@@ -246,6 +276,20 @@ export default defineEventHandler(async (event) => {
       "when status='open' and due_at is not null then 1 else 2 end, due_at asc nulls last, created_at desc limit 300"
     );
     return { available: true, tasks: rows.map(serializeTask) };
+  }
+
+  if (action === "list_leads") {
+    const rows = await sql.query<Record<string, unknown>>(
+      "select id,name,phone,status from leads where status not in ('closed','spam') order by created_at desc limit 250",
+    );
+    return { available: true, leads: rows.map((row) => ({ id: String(row.id), name: String(row.name ?? "مشتری"), phone: String(row.phone ?? ""), status: String(row.status ?? "new") })) };
+  }
+
+  if (action === "list_properties") {
+    const rows = await sql.query<Record<string, unknown>>(
+      "select id,slug,title,neighborhood,status from properties where deleted_at is null and status <> 'archived' order by updated_at desc limit 250",
+    );
+    return { available: true, properties: rows.map((row) => ({ id: String(row.id), slug: String(row.slug ?? ""), title: String(row.title ?? "فایل ملک"), neighborhood: String(row.neighborhood ?? ""), status: String(row.status ?? "draft") })) };
   }
 
   return loadSummary(sql);
