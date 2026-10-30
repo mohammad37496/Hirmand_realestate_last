@@ -15,6 +15,7 @@ import { resolveFileCodeLookup } from "@/lib/property-file-code";
 import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type BudgetMatchDetails } from "@/lib/budget-matching";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { deleteStoredMedia } from "@/lib/media-store.server";
+import { deleteTrashedProperty, type TrashedPropertyRow } from "@/lib/admin-property-trash";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
@@ -1471,7 +1472,7 @@ export const listAdminTrashProperties = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(200).optional().default(100) }))
   .handler(async ({ data }) => {
     await requireAdminPermission("property.manage");
-    if (dbSource === "unconfigured") return [];
+    if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ سطل بازیابی بارگذاری نشد.");
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select ${DETAIL_COLUMNS}
@@ -1489,6 +1490,7 @@ export const restoreDeletedProperty = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const claims = await requireAdminPermission("property.manage");
     const canPublish = hasAdminPermission(normalizeAdminRole(claims?.role), "property.publish");
+    if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ بازیابی فایل انجام نشد.");
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `update properties
@@ -1529,14 +1531,13 @@ export const permanentlyDeleteProperty = createServerFn({ method: "POST" })
   .validator(idSchema)
   .handler(async ({ data }) => {
     await requireAdminPermission("property.manage");
+    if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ حذف دائمی انجام نشد.");
     const sql = await getSql();
-    const rows = await sql.query<Record<string, unknown>>(
-      `select images, floor_plan_url, title from properties where id = $1 and deleted_at is not null limit 1`,
-      [data.id],
+    const existing = await deleteTrashedProperty(
+      (statement, params) => sql.query<TrashedPropertyRow>(statement, params),
+      data.id,
     );
-    const existing = rows[0];
     if (!existing) return { success: false, deleted: 0 };
-    await sql.query("delete from properties where id = $1 and deleted_at is not null", [data.id]);
     const mediaUrls = [
       ...(Array.isArray(existing.images)
         ? existing.images.filter((item): item is string => typeof item === "string")

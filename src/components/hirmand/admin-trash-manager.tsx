@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArchiveRestore, AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 import {
   listAdminTrashProperties,
   permanentlyDeleteProperty,
@@ -12,13 +13,19 @@ export function AdminTrashManager() {
   const [items, setItems] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   async function load() {
     setLoading(true);
+    setLoadError("");
+    setItems([]);
     try {
       setItems(await listAdminTrashProperties({ data: { limit: 120 } }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "سطل بازیابی دریافت نشد.");
+      const message = error instanceof Error ? error.message : "سطل بازیابی دریافت نشد.";
+      setItems([]);
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -31,7 +38,8 @@ export function AdminTrashManager() {
   async function restore(item: Property) {
     setBusyId(item.id);
     try {
-      await restoreDeletedProperty({ data: { id: item.id } });
+      const result = await restoreDeletedProperty({ data: { id: item.id } });
+      if (result.success !== true || result.restored !== 1) throw new Error("فایل دیگر در سطل بازیابی نیست یا قبلاً بازیابی شده است.");
       toast.success(`«${item.title}» بازیابی شد.`);
       await load();
     } catch (error) {
@@ -46,7 +54,8 @@ export function AdminTrashManager() {
     if (!ok) return;
     setBusyId(item.id);
     try {
-      await permanentlyDeleteProperty({ data: { id: item.id } });
+      const result = await permanentlyDeleteProperty({ data: { id: item.id } });
+      if (result.success !== true || result.deleted !== 1) throw new Error("فایل دیگر در سطل بازیابی نیست و حذف دائمی انجام نشد.");
       toast.success("فایل برای همیشه حذف شد.");
       await load();
     } catch (error) {
@@ -74,12 +83,14 @@ export function AdminTrashManager() {
         <div className="admin-panel-head">
           <div>
             <span className="kicker">بازیابی</span>
-            <h2>{items.length.toLocaleString("fa-IR")} فایل حذف‌شده</h2>
+            <h2>{loading ? "در حال بررسی سطل بازیابی…" : loadError ? "وضعیت سطل بازیابی نامشخص" : items.length.toLocaleString("fa-IR") + " فایل حذف‌شده"}</h2>
           </div>
         </div>
 
         {loading ? (
           <div className="admin-empty">در حال بررسی سطل بازیابی…</div>
+        ) : loadError ? (
+          <AdminErrorBanner message={loadError} onRetry={() => void load()} />
         ) : !items.length ? (
           <div className="admin-empty">
             <ArchiveRestore size={22} />
