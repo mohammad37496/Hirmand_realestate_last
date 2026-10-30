@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { NEIGHBORHOOD_NAMES, PROPERTY_TYPES, SITE, TEAM } from "@/lib/site";
 import { isInvalidIntegerInput, normalizeMoneyText } from "@/lib/property-input-normalization";
+import { stripPrivatePropertyDraftFields } from "@/lib/property-draft-storage";
 import { isAllowedMediaRef } from "@/lib/media";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { listConsultants, type Consultant } from "@/lib/consultants";
@@ -175,14 +176,13 @@ const DEFAULT_PAGE_SIZE = 20;
 /**
  * Draft autosave.
  *
- * A half-filled property form is expensive to recreate, but owner contact
- * details are sensitive, so they are deliberately excluded from the draft.
- * `sessionStorage` (not `localStorage`) means the draft dies with the tab and
- * never lingers on a shared machine's disk.
+ * Only non-sensitive form values are kept in sessionStorage. Owner details,
+ * exact address, precise coordinates, and internal notes are stripped on save
+ * and on restore (including legacy drafts written by older versions).
  */
 const DRAFT_KEY = "hirmand:admin:property-draft";
 
-type DraftShape = Omit<FormState, "ownerName" | "ownerPhone" | "ownerInfo"> & {
+type DraftShape = Omit<FormState, "address" | "latitude" | "longitude" | "ownerName" | "ownerPhone" | "ownerInfo" | "internalNote"> & {
   savedAt: string;
 };
 
@@ -191,8 +191,12 @@ function loadDraft(key: string): DraftShape | null {
   try {
     const raw = window.sessionStorage.getItem(`${DRAFT_KEY}:${key}`);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as DraftShape;
-    return parsed && typeof parsed === "object" ? parsed : null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const safe = stripPrivatePropertyDraftFields(parsed as Record<string, unknown>);
+    if (typeof safe.title !== "string" || typeof safe.transactionType !== "string" || typeof safe.propertyType !== "string") return null;
+    const savedAt = typeof safe.savedAt === "string" ? safe.savedAt : "";
+    return { ...safe, savedAt } as unknown as DraftShape;
   } catch {
     return null;
   }
@@ -201,10 +205,7 @@ function loadDraft(key: string): DraftShape | null {
 function saveDraft(key: string, form: FormState) {
   if (typeof window === "undefined") return;
   try {
-    const { ownerName, ownerPhone, ownerInfo, ...safe } = form;
-    void ownerName;
-    void ownerPhone;
-    void ownerInfo;
+    const safe = stripPrivatePropertyDraftFields(form);
     window.sessionStorage.setItem(
       `${DRAFT_KEY}:${key}`,
       JSON.stringify({ ...safe, savedAt: new Date().toISOString() }),
@@ -817,7 +818,11 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       return {
         ...current,
         ...draft,
-        // Owner details always come from the saved record, never the draft.
+        // Privacy-sensitive values always come from the current authorized form state.
+        address: current.address,
+        latitude: current.latitude,
+        longitude: current.longitude,
+        internalNote: current.internalNote,
         ownerName: current.ownerName,
         ownerPhone: current.ownerPhone,
         ownerInfo: current.ownerInfo,
