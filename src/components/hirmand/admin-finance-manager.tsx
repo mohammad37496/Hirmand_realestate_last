@@ -1,7 +1,8 @@
-import { useEffect,useMemo,useState } from "react";
+import { useEffect,useState } from "react";
 import { ArrowDownCircle,ArrowUpCircle,Plus,RefreshCw,Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatToman } from "@/lib/money";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type Kind="income"|"expense";
 type Tx={id:number;kind:Kind;title:string;amount:number;transactionDate:string;propertyId:string|null;leadId:string|null;consultant:string;category:string;note:string;createdAt:string};
@@ -10,6 +11,7 @@ export function AdminFinanceManager(){
   const [items,setItems]=useState<Tx[]>([]);
   const [summary,setSummary]=useState({income:0,expense:0,balance:0});
   const [loading,setLoading]=useState(true);
+  const [loadError,setLoadError]=useState("");
   const [saving,setSaving]=useState(false);
   const [kind,setKind]=useState<Kind>("income");
   const [title,setTitle]=useState("");
@@ -21,13 +23,14 @@ export function AdminFinanceManager(){
 
   async function load(){
     setLoading(true);
+    setLoadError("");
     try{
       const res=await fetch("/api/admin-finance",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"list"})});
       const data=await res.json().catch(()=>({}));
       if(!res.ok) throw new Error(data?.statusMessage||"بارگذاری دفتر مالی انجام نشد.");
       setItems(Array.isArray(data.transactions)?data.transactions:[]);
       setSummary(data.summary??{income:0,expense:0,balance:0});
-    }catch(e){toast.error(e instanceof Error?e.message:"بارگذاری دفتر مالی انجام نشد.");}
+    }catch(e){const message=e instanceof Error?e.message:"بارگذاری دفتر مالی انجام نشد.";setItems([]);setSummary({income:0,expense:0,balance:0});setLoadError(message);toast.error(message);}
     finally{setLoading(false);}
   }
   useEffect(()=>{void load()},[]);
@@ -57,6 +60,7 @@ export function AdminFinanceManager(){
         <div><span className="kicker">حسابداری دفتر</span><h2>درآمد، هزینه و تسویه</h2></div>
         <button className="btn-ghost" type="button" onClick={()=>void load()} disabled={loading}><RefreshCw size={15}/>به‌روزرسانی</button>
       </div>
+      {loadError?<AdminErrorBanner message={loadError} onRetry={()=>void load()}/>:<>
       <div className="admin-finance-summary">
         <div><small>درآمد</small><strong>{formatToman(summary.income)}</strong></div>
         <div><small>هزینه</small><strong>{formatToman(summary.expense)}</strong></div>
@@ -72,8 +76,9 @@ export function AdminFinanceManager(){
         <label className="field admin-span-2"><span>یادداشت</span><textarea rows={2} value={note} onChange={e=>setNote(e.target.value)} /></label>
         <button className="btn-gold" type="button" onClick={()=>void create()} disabled={saving||!title.trim()||!amount}><Plus size={16}/>{saving?"در حال ثبت…":"ثبت تراکنش"}</button>
       </div>
+      </>}
     </section>
-    <section className="admin-panel">
+    {!loadError ? <section className="admin-panel">
       <div className="admin-panel-head"><div><span className="kicker">دفتر ثبت</span><h2>{items.length.toLocaleString("fa-IR")} تراکنش</h2></div></div>
       {items.length===0&&!loading?<div className="admin-empty"><strong>هنوز تراکنشی ثبت نشده</strong><p>درآمد کمیسیون و هزینه‌های دفتر را از بالا ثبت کنید.</p></div>:
       <div className="admin-finance-list">{items.map(item=><article key={item.id} className="admin-finance-row">
@@ -83,6 +88,6 @@ export function AdminFinanceManager(){
         <time>{new Date(item.transactionDate+"T12:00:00").toLocaleDateString("fa-IR")}</time>
         <button className="admin-icon-btn" type="button" title="حذف" onClick={()=>void remove(item.id)}><Trash2 size={15}/></button>
       </article>)}</div>}
-    </section>
+    </section> : null}
   </div>
 }

@@ -23,7 +23,7 @@ const validType=(v:unknown):DealType=>["sale","rent","mortgage","buy"].includes(
 
 export default defineEventHandler(async event=>{
   setResponseHeader(event,"cache-control","no-store"); const claims=await requireDealsPermission(event);
-  if(dbSource==="unconfigured")return {deals:[],leads:[],properties:[],stats:{}};
+  if(dbSource==="unconfigured")throw createError({statusCode:503,statusMessage:"پایگاه داده معاملات در دسترس نیست؛ اطلاعات بارگذاری نشد."});
   const sql=await getSql(); const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>; const action=clean(body.action,30)||"list";
   if(action==="list"){
     const [deals,leads,properties,stats]=await Promise.all([
@@ -48,16 +48,38 @@ export default defineEventHandler(async event=>{
     return {success:true,id};
   }
   const id=clean(body.id,120); if(!id)throw createError({statusCode:400,statusMessage:"شناسه معامله مشخص نیست."});
-  if(action==="status"){await sql.query("update admin_deals set status=$2,updated_at=current_timestamp where id=$1",[id,validStatus(body.status)]);return {success:true};}
-  if(action==="delete"){await sql.query("delete from admin_deal_documents where deal_id=$1",[id]);await sql.query("delete from admin_deals where id=$1",[id]);return {success:true};}
-  if(action==="seed_documents"){for(const documentType of DEFAULT_DOCUMENTS)await sql.query("insert into admin_deal_documents(id,deal_id,document_type) values($1,$2,$3) on conflict(deal_id,document_type) do nothing",[crypto.randomUUID(),id,documentType]);return {success:true};}
+  if(action==="status"){
+    if(!["prospect","negotiation","agreement","contracted","completed","cancelled"].includes(String(body.status)))throw createError({statusCode:400,statusMessage:"وضعیت معامله معتبر نیست."});
+    const updated=await sql.query("update admin_deals set status=$2,updated_at=current_timestamp where id=$1 returning id",[id,body.status]);
+    if(!updated.length)throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ وضعیت تغییر نکرد."});
+    return {success:true};
+  }
+  if(action==="delete"){
+    const deleted=await sql.query("with removed_documents as (delete from admin_deal_documents where deal_id=$1 and exists(select 1 from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id)) returning deal_id) delete from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id) returning d.id",[id]);
+    if(!deleted.length){
+      const linkedSettlement=await sql.query("select id from admin_commission_settlements where deal_id=$1 limit 1",[id]);
+      if(linkedSettlement.length)throw createError({statusCode:409,statusMessage:"معامله دارای سابقه تسویه است و برای حفظ سوابق مالی قابل حذف نیست."});
+      throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ چیزی حذف نشد."});
+    }
+    return {success:true};
+  }
+  if(action==="seed_documents"){
+    const exists=await sql.query("select id from admin_deals where id=$1 limit 1",[id]);
+    if(!exists.length)throw createError({statusCode:404,statusMessage:"معامله پیدا نشد."});
+    await sql.query("insert into admin_deal_documents(id,deal_id,document_type) select gen_random_uuid()::text,$1,document_type from unnest($2::text[]) as docs(document_type) on conflict(deal_id,document_type) do nothing",[id,DEFAULT_DOCUMENTS]);
+    return {success:true};
+  }
   if(action==="document"){
     const documentType=clean(body.documentType,160); if(!documentType)throw createError({statusCode:400,statusMessage:"نوع مدرک مشخص نیست."});
-    const status=["pending","received","verified","rejected"].includes(String(body.documentStatus))?String(body.documentStatus) as DocStatus:"pending";
-    await sql.query("insert into admin_deal_documents(id,deal_id,document_type,status,file_url,note,received_at,verified_at) values($1,$2,$3,$4,$5,$6,case when $4 in ('received','verified') then current_timestamp else null end,case when $4='verified' then current_timestamp else null end) on conflict(deal_id,document_type) do update set status=excluded.status,file_url=excluded.file_url,note=excluded.note,received_at=excluded.received_at,verified_at=excluded.verified_at,updated_at=current_timestamp",[crypto.randomUUID(),id,documentType,status,clean(body.fileUrl,1000),clean(body.note,1200)]);
+    if(!["pending","received","verified","rejected"].includes(String(body.documentStatus)))throw createError({statusCode:400,statusMessage:"وضعیت مدرک معتبر نیست."});
+    const status=String(body.documentStatus) as DocStatus;
+    const saved=await sql.query("insert into admin_deal_documents(id,deal_id,document_type,status,file_url,note,received_at,verified_at) select $1,$2,$3,$4,$5,$6,case when $4 in ('received','verified') then current_timestamp else null end,case when $4='verified' then current_timestamp else null end where exists(select 1 from admin_deals where id=$2) on conflict(deal_id,document_type) do update set status=excluded.status,file_url=excluded.file_url,note=excluded.note,received_at=excluded.received_at,verified_at=excluded.verified_at,updated_at=current_timestamp returning id",[crypto.randomUUID(),id,documentType,status,clean(body.fileUrl,1000),clean(body.note,1200)]);
+    if(!saved.length)throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ مدرک ثبت نشد."});
     return {success:true};
   }
   if(action==="documents"){
+    const exists=await sql.query("select id from admin_deals where id=$1 limit 1",[id]);
+    if(!exists.length)throw createError({statusCode:404,statusMessage:"معامله پیدا نشد."});
     const rows=await sql.query<Record<string,unknown>>("select id,document_type,status,file_url,note,received_at,verified_at from admin_deal_documents where deal_id=$1 order by created_at asc",[id]);
     return {documents:rows.map(r=>({id:String(r.id),documentType:String(r.document_type),status:String(r.status) as DocStatus,fileUrl:String(r.file_url??""),note:String(r.note??""),receivedAt:r.received_at?new Date(String(r.received_at)).toISOString():null,verifiedAt:r.verified_at?new Date(String(r.verified_at)).toISOString():null}))};
   }

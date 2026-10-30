@@ -19,7 +19,7 @@ const validStatus=(v:unknown)=>["pending","approved","paid","cancelled"].include
 export default defineEventHandler(async event=>{
   setResponseHeader(event,"cache-control","no-store");
   const claims=await requireAdmin(event);
-  if(dbSource==="unconfigured") return {settlements:[],deals:[],summary:{pending:0,approved:0,paid:0,total:0,consultants:[]}};
+  if(dbSource==="unconfigured") throw createError({statusCode:503,statusMessage:"پایگاه داده کمیسیون در دسترس نیست؛ اطلاعات بارگذاری نشد."});
   const sql=await getSql();
   const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>;
   const action=clean(body.action,30)||"list";
@@ -42,21 +42,44 @@ export default defineEventHandler(async event=>{
     const consultant=clean(body.consultant,120); const commission=money(body.commission); const consultantShare=money(body.consultantShare);
     if(!consultant||!commission||!consultantShare) throw createError({statusCode:400,statusMessage:"مشاور، کمیسیون و سهم مشاور الزامی است."});
     const commissionNumber=Number(commission), consultantNumber=Number(consultantShare);
+    if(!Number.isSafeInteger(commissionNumber)||!Number.isSafeInteger(consultantNumber)||commissionNumber<=0||consultantNumber<0)throw createError({statusCode:400,statusMessage:"مبالغ کمیسیون باید عدد صحیح و در محدوده مجاز باشند."});
     if(consultantNumber>commissionNumber) throw createError({statusCode:400,statusMessage:"سهم مشاور نمی‌تواند بیشتر از کمیسیون کل باشد."});
+    const dealId=clean(body.dealId,120)||null;
+    if(dealId){
+      const linkedDeal=await sql.query<Record<string,unknown>>("select consultant,commission,status from admin_deals where id=$1 limit 1",[dealId]);
+      if(!linkedDeal.length)throw createError({statusCode:404,statusMessage:"معامله مرتبط پیدا نشد."});
+      const deal=linkedDeal[0];
+      if(!["contracted","completed"].includes(String(deal.status)))throw createError({statusCode:409,statusMessage:"تسویه فقط برای معامله قراردادی یا نهایی‌شده امکان‌پذیر است."});
+      if(String(deal.consultant??"").trim()&&String(deal.consultant).trim()!==consultant)throw createError({statusCode:409,statusMessage:"نام مشاور با مشاور ثبت‌شده در معامله مطابقت ندارد."});
+      if(deal.commission==null||Number(deal.commission)!==commissionNumber)throw createError({statusCode:409,statusMessage:"مبلغ کمیسیون باید با مبلغ ثبت‌شده در معامله یکسان باشد."});
+      const existingSettlement=await sql.query("select id from admin_commission_settlements where deal_id=$1 and status<>'cancelled' limit 1",[dealId]);
+      if(existingSettlement.length)throw createError({statusCode:409,statusMessage:"برای این معامله قبلاً یک تسویه فعال ثبت شده است."});
+    }
     const id=crypto.randomUUID();
     await sql.query("insert into admin_commission_settlements(id,consultant,deal_id,commission_amount,consultant_share,office_share,status,note,created_by) values($1,$2,$3,$4,$5,$6,'pending',$7,$8)",
-      [id,consultant,clean(body.dealId,120)||null,commissionNumber,consultantNumber,commissionNumber-consultantNumber,clean(body.note,1200),clean(claims?.displayName,120)||"مدیریت"]);
+      [id,consultant,dealId,commissionNumber,consultantNumber,commissionNumber-consultantNumber,clean(body.note,1200),clean(claims?.displayName,120)||"مدیریت"]);
     return {success:true,id};
   }
 
   const id=clean(body.id,120); if(!id) throw createError({statusCode:400,statusMessage:"شناسه تسویه مشخص نیست."});
   if(action==="status"){
-    const status=validStatus(body.status);
-    await sql.query("update admin_commission_settlements set status=$2,paid_at=case when $2='paid' then current_timestamp else paid_at end,updated_at=current_timestamp where id=$1",[id,status]);
+    if(!["pending","approved","paid","cancelled"].includes(String(body.status)))throw createError({statusCode:400,statusMessage:"وضعیت تسویه معتبر نیست."});
+    const status=String(body.status);
+    const updated=await sql.query("update admin_commission_settlements set status=$2,paid_at=case when $2='paid' then coalesce(paid_at,current_timestamp) else null end,updated_at=current_timestamp where id=$1 and (status=$2 or (status='pending' and $2 in ('approved','cancelled')) or (status='approved' and $2 in ('paid','cancelled')) or (status='cancelled' and $2='pending')) returning id",[id,status]);
+    if(!updated.length){
+      const exists=await sql.query("select id from admin_commission_settlements where id=$1 limit 1",[id]);
+      if(!exists.length)throw createError({statusCode:404,statusMessage:"تسویه پیدا نشد؛ وضعیت تغییر نکرد."});
+      throw createError({statusCode:409,statusMessage:"تغییر وضعیت با گردش تأیید و پرداخت تسویه سازگار نیست."});
+    }
     return {success:true};
   }
   if(action==="delete"){
-    await sql.query("delete from admin_commission_settlements where id=$1",[id]);
+    const deleted=await sql.query("delete from admin_commission_settlements where id=$1 and status in ('pending','cancelled') returning id",[id]);
+    if(!deleted.length){
+      const exists=await sql.query("select id from admin_commission_settlements where id=$1 limit 1",[id]);
+      if(!exists.length)throw createError({statusCode:404,statusMessage:"تسویه پیدا نشد."});
+      throw createError({statusCode:409,statusMessage:"تسویه تأییدشده یا پرداخت‌شده قابل حذف نیست."});
+    }
     return {success:true};
   }
   throw createError({statusCode:400,statusMessage:"عملیات نامعتبر است."});
