@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { adminNotificationVisibilityPredicate, getAdminNotificationAccess } from "./admin-notification-access.ts";
@@ -67,4 +68,18 @@ test("notification queries and read-state mutations respect the role visibility 
   } finally {
     await db.close();
   }
+});
+
+test("unavailable notification storage is explicit and read-state writes fail closed", () => {
+  const server = readFileSync(new URL("./admin-notifications.ts", import.meta.url), "utf8");
+  const ui = readFileSync(new URL("../components/hirmand/admin-notification-center.tsx", import.meta.url), "utf8");
+
+  assert.match(server, /available:\s*false/);
+  assert.match(server, /available:\s*true/);
+  assert.equal((server.match(/if \(dbSource === "unconfigured"\)\s*\{\s*throw new Error/g) ?? []).length, 2);
+  assert.match(server, /adminNotificationVisibilityPredicate/);
+  assert.match(ui, /result\.available !== true/);
+  assert.match(ui, /if \(!result\.success\) throw new Error/);
+  assert.match(ui, /setUnread\(null\)/);
+  assert.match(ui, /unread === null/);
 });

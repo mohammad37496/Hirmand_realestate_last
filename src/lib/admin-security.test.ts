@@ -369,3 +369,25 @@ test("a request without an Origin header is left to the session cookie", () => {
   // them would break legitimate admin automation. The cookie check still applies.
   assert.doesNotThrow(() => assertServerFnSameOrigin(headers({ host: "hirmandrealestate.ir" })));
 });
+
+test("audit and security panels distinguish unavailable storage from empty records", () => {
+  const auditServer = readFileSync(new URL("./admin-audit.ts", import.meta.url), "utf8");
+  const auditUi = readFileSync(new URL("../components/hirmand/admin-audit-log.tsx", import.meta.url), "utf8");
+  const mobileUi = readFileSync(new URL("../components/hirmand/admin-mobile-management.tsx", import.meta.url), "utf8");
+  const securityServer = readFileSync(new URL("./admin-security.ts", import.meta.url), "utf8");
+  const securityUi = readFileSync(new URL("../components/hirmand/admin-security-center.tsx", import.meta.url), "utf8");
+
+  assert.equal((auditServer.match(/if \(dbSource === "unconfigured"\)\s*\{\s*throw new Error/g) ?? []).length, 2);
+  assert.match(auditUi, /loadError/);
+  assert.match(auditUi, /<AdminErrorBanner/);
+  assert.match(mobileUi, /loadError \?/);
+  assert.match(mobileUi, /تلاش دوباره/);
+
+  assert.match(securityServer, /available:\s*false/);
+  assert.match(securityServer, /available:\s*true/);
+  assert.equal((securityServer.match(/if \(dbSource === "unconfigured"\)\s*\{?\s*throw new Error/g) ?? []).length, 3);
+  assert.match(securityServer, /if \(!changed\) throw new Error/);
+  assert.match(securityUi, /data\.available !== true/);
+  assert.match(securityUi, /loadError \? \(/);
+  assert.match(securityUi, /Boolean\(loadError\)/);
+});

@@ -36,7 +36,14 @@ export const listAdminSecuritySessions = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(100).optional().default(50) }))
   .handler(async ({ data }) => {
     const current = await requireAdmin();
-    if (dbSource === "unconfigured") return { sessions: [], currentSessionId: current?.sessionId ?? null };
+    if (dbSource === "unconfigured") {
+      return {
+        available: false,
+        statusMessage: "پایگاه داده در دسترس نیست؛ نشست‌های مدیریتی بارگذاری نشدند.",
+        sessions: [],
+        currentSessionId: current?.sessionId ?? null,
+      };
+    }
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select id, created_at, expires_at, last_seen_at, revoked_at, client_hash, user_agent
@@ -47,6 +54,8 @@ export const listAdminSecuritySessions = createServerFn({ method: "POST" })
       [data.limit],
     );
     return {
+      available: true,
+      statusMessage: undefined,
       currentSessionId: current?.sessionId ?? null,
       sessions: rows.map((row) => ({
         id: String(row.id ?? ""),
@@ -67,7 +76,9 @@ export const revokeAdminSessionById = createServerFn({ method: "POST" })
     const current = await requireAdmin();
     if (!current?.sessionId) throw new Error("نشست فعلی قابل مدیریت نیست.");
     if (data.sessionId === current.sessionId) throw new Error("برای بستن نشست فعلی از گزینه خروج استفاده کنید.");
+    if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ نشست بسته نشد.");
     const changed = await revokeAdminSession(data.sessionId);
+    if (!changed) throw new Error("نشست فعال موردنظر پیدا نشد یا قبلاً بسته شده است.");
     if (changed) {
       await writeAdminAuditLog({
         action: "admin_session_revoked",
@@ -82,7 +93,8 @@ export const revokeOtherAdminSessions = createServerFn({ method: "POST" })
   .validator(z.object({}).optional())
   .handler(async () => {
     const current = await requireAdmin();
-    if (dbSource === "unconfigured" || !current?.sessionId) return { success: true, revoked: 0 };
+    if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ نشست‌های دیگر بسته نشدند.");
+    if (!current?.sessionId) throw new Error("شناسه نشست فعلی برای بستن نشست‌های دیگر در دسترس نیست.");
     const sql = await getSql();
     const rows = await sql.query<{ id: string }>(
       `update admin_sessions
@@ -104,7 +116,7 @@ export const purgeExpiredAdminSessions = createServerFn({ method: "POST" })
   .validator(z.object({}).optional())
   .handler(async () => {
     await requireAdmin();
-    if (dbSource === "unconfigured") return { success: true, deleted: 0 };
+    if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ پاک‌سازی نشست‌ها انجام نشد.");
     const sql = await getSql();
     const rows = await sql.query<{ id: string }>(
       `delete from admin_sessions

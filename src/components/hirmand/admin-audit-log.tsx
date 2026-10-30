@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardList, DatabaseZap, RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { clearAdminAuditLog, listAdminAuditLog } from "@/lib/admin-audit";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type AuditRow = Awaited<ReturnType<typeof listAdminAuditLog>>[number];
 
@@ -26,21 +27,26 @@ export function AdminAuditLog() {
   const [entityType, setEntityType] = useState("");
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       setItems(await listAdminAuditLog({ data: { limit: 150, entityType } }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "گزارش عملیات دریافت نشد.");
+      const message = error instanceof Error ? error.message : "گزارش فعالیت دریافت نشد.";
+      setItems([]);
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
-  }
+  }, [entityType]);
 
   useEffect(() => {
     void load();
-  }, [entityType]);
+  }, [load]);
 
   const types = useMemo(
     () => Array.from(new Set(items.map((item) => item.entityType))).filter(Boolean),
@@ -89,7 +95,7 @@ export function AdminAuditLog() {
           <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>
             <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> بروزرسانی
           </button>
-          <button type="button" className="btn-ghost danger" onClick={() => void cleanOld()} disabled={cleaning}>
+          <button type="button" className="btn-ghost danger" onClick={() => void cleanOld()} disabled={cleaning || loading || Boolean(loadError)}>
             <Trash2 size={15} /> {cleaning ? "در حال پاک‌سازی…" : "پاک‌سازی قدیمی‌تر از یک سال"}
           </button>
         </div>
@@ -99,7 +105,7 @@ export function AdminAuditLog() {
         <div className="admin-panel-head admin-automation-toolbar">
           <div>
             <span className="kicker">Audit trail</span>
-            <h2>{items.length.toLocaleString("fa-IR")} رویداد اخیر</h2>
+            <h2>{loading || loadError ? "—" : items.length.toLocaleString("fa-IR")} رویداد اخیر</h2>
           </div>
           <select value={entityType} onChange={(event) => setEntityType(event.target.value)} aria-label="فیلتر نوع رویداد">
             <option value="">همه عملیات</option>
@@ -109,6 +115,8 @@ export function AdminAuditLog() {
 
         {loading ? (
           <div className="admin-empty">در حال دریافت لاگ عملیات…</div>
+        ) : loadError ? (
+          <AdminErrorBanner message={loadError} onRetry={() => void load()} />
         ) : !items.length ? (
           <div className="admin-empty"><DatabaseZap size={22} /><span>هنوز رویداد مدیریتی ثبت نشده است.</span></div>
         ) : (
