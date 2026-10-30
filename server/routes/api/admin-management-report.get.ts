@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
   const financeAllowed = hasAdminPermission(role, "finance.manage");
   const dealsAllowed = hasAdminPermission(role, "deal.manage");
   return {
+    available: true,
     days,
     properties:{created:n(p[0]?.created),published:n(p[0]?.published),draft:n(p[0]?.draft),archived:n(p[0]?.archived)},
     leads:{created:n(l[0]?.created),open:n(l[0]?.open),contract:n(l[0]?.contract),closed:n(l[0]?.closed)},
