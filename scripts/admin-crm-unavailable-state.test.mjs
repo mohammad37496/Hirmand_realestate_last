@@ -52,6 +52,16 @@ test("admin agenda distinguishes an empty schedule from unavailable or failed da
   assert.doesNotMatch(ui, /setData\(\{overdueFollowUps:\[\],upcomingVisits:\[\],upcomingCallbacks:\[\]\}\)/);
 });
 
+test("sales funnel distinguishes unavailable analytics from a genuinely empty funnel", () => {
+  const route = read("server/routes/api/admin-sales-funnel.get.ts");
+  const ui = read("src/components/hirmand/admin-sales-funnel.tsx");
+  assert.match(route, /dbSource === "unconfigured"[\s\S]*statusCode: 503/);
+  assert.match(route, /available: true/);
+  assert.match(ui, /payload\.available !== true/);
+  assert.match(ui, /error \? <div className="admin-empty" role="alert">/);
+  assert.match(ui, /onClick=\{\(\) => void load\(\)\}/);
+});
+
 test("customer property submission queue distinguishes unavailable storage from a genuinely empty queue", () => {
   const route = read("server/routes/api/admin-customer-property-submissions.post.ts");
   const ui = read("src/components/hirmand/admin-customer-property-submissions.tsx");

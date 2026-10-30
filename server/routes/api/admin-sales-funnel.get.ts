@@ -15,7 +15,9 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "reports.view")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش قیف فروش برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { days: 30, statuses: [], sources: [], aging: [], conversions: {} };
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ گزارش قیف فروش قابل محاسبه نیست." });
+  }
 
   const query = getQuery(event);
   const rawDays = Number(query.days);
@@ -43,6 +45,7 @@ export default defineEventHandler(async (event) => {
   const statusMap = new Map(statusRows.map((row) => [String(row.status), n(row.count)]));
   const total = n(conversionRows[0]?.total);
   return {
+    available: true,
     days,
     statuses: ["new","contacted","follow_up","visited","contract","closed","spam"].map((key) => ({ key, label: labels[key] ?? key, count: statusMap.get(key) ?? 0 })),
     sources: sourceRows.map((row) => ({ source: String(row.source), count: n(row.count) })),

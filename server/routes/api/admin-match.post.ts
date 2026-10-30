@@ -5,6 +5,7 @@ import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
+import { INSERT_MATCH_FEEDBACK_SQL, SAVE_MATCH_RESULTS_WITH_ACTIVITY_SQL } from "@/lib/admin-match-mutation-sql";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -270,13 +271,13 @@ export default defineEventHandler(async (event) => {
   };
 
   if (dbSource === "unconfigured") {
-    return body.action === "match" ? { lead: null, matches: [] } : { leads: [] };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ مچ‌کردن و سوابق CRM بارگذاری نشد." });
   }
 
   const sql = await getSql();
 
   if (body.action === "feedback") {
-    if (!body.leadId || !body.propertyId || !body.feedback) {
+    if (!body.leadId || !body.propertyId || !body.feedback || !["sent", "liked", "rejected", "visited"].includes(body.feedback)) {
       throw createError({ statusCode: 400, statusMessage: "اطلاعات نتیجه مچ ناقص است." });
     }
     const labels = {
@@ -285,20 +286,8 @@ export default defineEventHandler(async (event) => {
       rejected: "مشتری فایل را نپسندید",
       visited: "برای فایل بازدید انجام شد",
     } as const;
-    const title = body.propertyTitle?.trim().slice(0, 180) || "فایل";
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'match',$2,$3,$4::jsonb)",
-      [
-        body.leadId,
-        labels[body.feedback] + " · " + title,
-        "نتیجه مچ برای فایل ثبت شد.",
-        JSON.stringify({
-          feedback: body.feedback,
-          propertyId: body.propertyId,
-          propertyTitle: title,
-        }),
-      ],
-    );
+    const rows = await sql.query<{ id: number }>(INSERT_MATCH_FEEDBACK_SQL, [body.leadId, body.propertyId, labels[body.feedback], "نتیجه مچ برای فایل ثبت شد.", body.feedback]);
+    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "لید یا فایل منتشرشده برای ثبت نتیجه پیدا نشد." });
     return { success: true };
   }
 
@@ -435,8 +424,8 @@ export default defineEventHandler(async (event) => {
     serializeProperty(item.row, item.score, item.reasons, item.amenityCoverage, item.priceMatch),
   );
 
-  await sql.query(
-    "update leads set matched_properties=$2::jsonb, match_count=$3, updated_at=current_timestamp where id=$1",
+  const saved = await sql.query<{ id: string }>(
+    SAVE_MATCH_RESULTS_WITH_ACTIVITY_SQL,
     [
       body.leadId,
       JSON.stringify(
@@ -452,18 +441,12 @@ export default defineEventHandler(async (event) => {
         })),
       ),
       serializedMatches.length,
-    ],
-  );
-
-  await sql.query(
-    "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'match',$2,$3,$4::jsonb)",
-    [
-      body.leadId,
       "مچ فایل‌ها انجام شد",
       "معیار: " + MODE_META_LABEL[mode] + " · " + serializedMatches.length + " فایل پیشنهاد شد.",
       JSON.stringify({ mode, count: serializedMatches.length }),
     ],
-  ).catch(() => {});
+  );
+  if (!saved[0]) throw createError({ statusCode: 404, statusMessage: "درخواست مشتری هنگام ذخیره نتیجه مچ پیدا نشد." });
 
   return {
     lead: { ...mapLead(lead), matchCount: serializedMatches.length },
