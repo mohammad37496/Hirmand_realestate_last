@@ -7,6 +7,7 @@
  * limiter is stateful but keyed, so each test uses its own key.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   clearAdminAttempts,
@@ -124,6 +125,32 @@ test("the complete admin role matrix follows least privilege", () => {
       );
     }
   }
+});
+
+test("staff CRM access cannot expose deal or commission financials", () => {
+  const staff = normalizeAdminRole("staff");
+  assert.equal(hasAdminPermission(staff, "lead.manage"), true);
+  assert.equal(hasAdminPermission(staff, "deal.manage"), false);
+  assert.equal(hasAdminPermission(staff, "commission.manage"), false);
+  const sales = normalizeAdminRole("sales");
+  assert.equal(hasAdminPermission(sales, "deal.manage"), true);
+  assert.equal(hasAdminPermission(sales, "commission.manage"), true);
+
+  const lead360 = readFileSync(new URL("../../server/routes/api/admin-lead-360.post.ts", import.meta.url), "utf8");
+  const performance = readFileSync(new URL("../../server/routes/api/admin-consultant-performance.get.ts", import.meta.url), "utf8");
+  const lead360Ui = readFileSync(new URL("../components/hirmand/admin-lead-360.tsx", import.meta.url), "utf8");
+
+  assert.match(lead360, /const canViewDeals = hasAdminPermission\(currentRole, "deal\.manage"\)/);
+  assert.match(lead360, /const canViewCommissions = hasAdminPermission\(currentRole, "commission\.manage"\)/);
+  assert.match(lead360, /canViewDeals \? sql\.query/);
+  assert.match(lead360, /if \(canViewCommissions && dealIds\.length\)/);
+  assert.match(lead360, /if \(canViewDeals && dealIds\.length\)/);
+  assert.match(lead360, /case when \$2::boolean then commission else null end as commission/);
+  assert.match(lead360, /commission: canViewCommissions && row\.commission != null/);
+  assert.match(lead360, /access: \{ deals: canViewDeals, commissions: canViewCommissions \}/);
+  assert.match(performance, /!hasAdminPermission\(currentRole, "deal\.manage"\)[\s\S]*?!hasAdminPermission\(currentRole, "commission\.manage"\)/);
+  assert.match(lead360Ui, /payload\?\.access\.deals \?/);
+  assert.match(lead360Ui, /payload\?\.access\.commissions \?/);
 });
 
 test("property expiry mutations require publish permission while review tasks remain manageable", () => {

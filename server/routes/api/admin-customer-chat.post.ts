@@ -4,11 +4,11 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { INSERT_ADMIN_CUSTOMER_CHAT_REPLY_SQL } from "@/lib/admin-customer-chat-sql";
 
 const schema = z.object({
   code: z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/),
   message: z.string().trim().min(1).max(1200),
-  consultant: z.string().trim().max(80).optional().default("هیرمند"),
 });
 
 export default defineEventHandler(async (event) => {
@@ -32,18 +32,14 @@ export default defineEventHandler(async (event) => {
   }
 
   const sql = await getSql();
-  const lead = await sql.query<{ id:string }>(
-    "select id from leads where upper(tracking_token)=upper($1) limit 1",
-    [body.data.code],
+  const senderName = claims?.displayName?.trim() || "هیرمند";
+  const inserted = await sql.query<{ id: string }>(
+    INSERT_ADMIN_CUSTOMER_CHAT_REPLY_SQL,
+    [crypto.randomUUID(), senderName, body.data.message, body.data.code],
   );
-  if (!lead[0]) {
+  if (!inserted[0]) {
     throw createError({ statusCode:404, statusMessage:"کد رهگیری پیدا نشد." });
   }
-
-  await sql.query(
-    "insert into customer_messages(id,lead_id,tracking_token,sender_type,sender_name,message) select $1,id,tracking_token,'admin',$2,$3 from leads where upper(tracking_token)=upper($4)",
-    [crypto.randomUUID(), body.data.consultant || "هیرمند", body.data.message, body.data.code],
-  );
 
   return { success: true, message: "پاسخ برای مشتری ثبت شد." };
 });

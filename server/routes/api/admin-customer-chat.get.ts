@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { ADMIN_CUSTOMER_CHAT_THREAD_SQL } from "@/lib/admin-customer-chat-sql";
 
 async function requireAdmin(event: H3Event) {
   const token = getCookie(event, ADMIN_SESSION_COOKIE);
@@ -28,14 +29,7 @@ export default defineEventHandler(async (event) => {
   const code = typeof query.code === "string" ? query.code.trim().toUpperCase() : "";
 
   if (code) {
-    const rows = await sql.query(
-      "select m.id,m.tracking_token as \"trackingCode\",m.sender_type as \"senderType\",m.sender_name as \"senderName\",m.message,m.created_at as \"createdAt\",l.name as \"customerName\",l.phone as \"customerPhone\",l.consultant,l.deal from customer_messages m join leads l on l.id=m.lead_id where upper(m.tracking_token)=upper($1) order by m.created_at asc limit 200",
-      [code],
-    );
-    await sql.query(
-      "update customer_messages set read_by_admin_at=current_timestamp where tracking_token=$1 and sender_type='customer' and read_by_admin_at is null",
-      [code],
-    );
+    const rows = await sql.query(ADMIN_CUSTOMER_CHAT_THREAD_SQL, [code]);
     return { conversations: rows };
   }
 

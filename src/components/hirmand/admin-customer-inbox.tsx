@@ -1,5 +1,5 @@
 import { MessageCircle, RefreshCw, Send, UserRound } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "@/admin-customer-inbox.css";
 
 type Conversation = {
@@ -44,7 +44,9 @@ export function AdminCustomerInbox() {
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
+  const [threadLoading, setThreadLoading] = useState(false);
   const [error, setError] = useState("");
+  const threadRequestRef = useRef(0);
 
   async function loadConversations() {
     setBusy(true);
@@ -62,15 +64,33 @@ export function AdminCustomerInbox() {
   }
 
   async function loadThread(code: string) {
+    const requestId = ++threadRequestRef.current;
     setSelectedCode(code);
+    setMessages([]);
+    setThreadLoading(true);
+    setError("");
     try {
       const response = await fetch("/api/admin-customer-chat?code=" + encodeURIComponent(code), { credentials: "same-origin" });
       const data = await response.json().catch(() => null) as { conversations?: Message[]; statusMessage?: string } | null;
       if (!response.ok) throw new Error(data?.statusMessage || "گفت‌وگو پیدا نشد.");
+      if (requestId !== threadRequestRef.current) return;
       setMessages(Array.isArray(data?.conversations) ? data.conversations : []);
     } catch (err) {
+      if (requestId !== threadRequestRef.current) return;
       setError(err instanceof Error ? err.message : "دریافت پیام‌ها انجام نشد.");
+    } finally {
+      if (requestId === threadRequestRef.current) setThreadLoading(false);
     }
+  }
+
+  function selectConversation(code: string) {
+    // Invalidate an older request immediately, before the effect for the new
+    // selection runs, so a late response cannot repaint the previous thread.
+    threadRequestRef.current += 1;
+    setMessages([]);
+    setThreadLoading(true);
+    setError("");
+    setSelectedCode(code);
   }
 
   useEffect(() => {
@@ -90,7 +110,7 @@ export function AdminCustomerInbox() {
   );
 
   async function sendReply() {
-    if (!selectedCode || !reply.trim() || sending) return;
+    if (!selectedCode || !reply.trim() || sending || threadLoading) return;
     setSending(true);
     setError("");
     try {
@@ -98,7 +118,7 @@ export function AdminCustomerInbox() {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ code: selectedCode, message: reply.trim(), consultant: "هیرمند" }),
+        body: JSON.stringify({ code: selectedCode, message: reply.trim() }),
       });
       const data = await response.json().catch(() => null) as { success?: boolean; statusMessage?: string; message?: string } | null;
       if (!response.ok || !data?.success) throw new Error(data?.statusMessage || data?.message || "ارسال پاسخ انجام نشد.");
@@ -133,7 +153,7 @@ export function AdminCustomerInbox() {
               type="button"
               key={item.trackingCode}
               className={"admin-customer-conversation-item" + (item.trackingCode === selectedCode ? " is-active" : "")}
-              onClick={() => setSelectedCode(item.trackingCode)}
+              onClick={() => selectConversation(item.trackingCode)}
             >
               <span className="admin-customer-avatar"><UserRound size={16} /></span>
               <span className="admin-customer-conversation-main">
@@ -162,7 +182,7 @@ export function AdminCustomerInbox() {
                 <code dir="ltr">{selected.trackingCode}</code>
               </header>
               <div className="admin-customer-thread-messages">
-                {messages.map((item) => (
+                {threadLoading ? <p className="admin-customer-thread-loading">در حال دریافت پیام‌ها…</p> : messages.map((item) => (
                   <article key={item.id} className={"admin-customer-message " + (item.senderType === "customer" ? "is-customer" : "is-admin")}>
                     <div><strong>{item.senderType === "customer" ? item.senderName || "مشتری" : item.senderName || "هیرمند"}</strong><time>{faDate(item.createdAt)}</time></div>
                     <p>{item.message}</p>
@@ -176,9 +196,9 @@ export function AdminCustomerInbox() {
                   maxLength={1200}
                   rows={3}
                   placeholder="پاسخ مشاور را بنویسید…"
-                  disabled={sending}
+                  disabled={sending || threadLoading}
                 />
-                <button type="submit" className="btn-gold" disabled={sending || !reply.trim()}>
+                <button type="submit" className="btn-gold" disabled={sending || threadLoading || !reply.trim()}>
                   <Send size={16} /> {sending ? "در حال ارسال…" : "ارسال پاسخ"}
                 </button>
               </form>
