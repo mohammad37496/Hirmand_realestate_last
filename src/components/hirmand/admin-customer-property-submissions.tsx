@@ -100,6 +100,7 @@ export function AdminCustomerPropertySubmissions() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyEvents, setHistoryEvents] = useState<Array<{ id:string; action:string; note:string; createdAt:string }>>([]);
+  const [historyError, setHistoryError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -302,6 +303,8 @@ export function AdminCustomerPropertySubmissions() {
   async function openHistory(submission: Submission) {
     setHistoryOpen(true);
     setHistoryLoading(true);
+    setHistoryError("");
+    setHistoryEvents([]);
     try {
       const response = await fetch("/api/admin-customer-property-submissions", {
         method:"POST",
@@ -312,8 +315,10 @@ export function AdminCustomerPropertySubmissions() {
       if (!response.ok || !data?.success) throw new Error(data?.statusMessage || "تاریخچه پرونده بارگذاری نشد.");
       setHistoryEvents(Array.isArray(data.events) ? data.events : []);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "تاریخچه پرونده بارگذاری نشد.";
+      setHistoryError(message);
       setHistoryEvents([]);
-      toast.error(error instanceof Error ? error.message : "تاریخچه پرونده بارگذاری نشد.");
+      toast.error(message);
     } finally {
       setHistoryLoading(false);
     }
@@ -666,7 +671,7 @@ export function AdminCustomerPropertySubmissions() {
                   {historyOpen && selectedOpen ? (
                     <div className="admin-customer-history-panel">
                       <div className="admin-customer-history-head"><div><span className="kicker">تاریخچه بررسی</span><strong>رویدادهای این پرونده</strong></div><button type="button" className="btn-ghost" onClick={()=>setHistoryOpen(false)}>بستن</button></div>
-                      {historyLoading ? <div className="admin-customer-history-empty">در حال دریافت تاریخچه…</div> : historyEvents.length ? <div className="admin-customer-history-list">{historyEvents.map((event)=><div key={event.id}><span>{faDate(event.createdAt)}</span><strong>{event.action==="approve"?"تأیید و انتشار":event.action==="reject"?"رد درخواست":event.action==="edit"?"ویرایش قبل از انتشار":event.action==="priority"?"تغییر اولویت":"رویداد پرونده"}</strong><p>{event.note || "بدون توضیح"}</p></div>)}</div> : <div className="admin-customer-history-empty">برای این پرونده هنوز رویداد ثبت‌شده‌ای وجود ندارد.</div>}
+                      {historyLoading ? <div className="admin-customer-history-empty">در حال دریافت تاریخچه…</div> : historyError ? <AdminErrorBanner message={historyError} onRetry={() => void openHistory(submission)} /> : historyEvents.length ? <div className="admin-customer-history-list">{historyEvents.map((event)=><div key={event.id}><span>{faDate(event.createdAt)}</span><strong>{event.action==="approve"?"تأیید و انتشار":event.action==="reject"?"رد درخواست":event.action==="edit"?"ویرایش قبل از انتشار":event.action==="priority"?"تغییر اولویت":"رویداد پرونده"}</strong><p>{event.note || "بدون توضیح"}</p></div>)}</div> : <div className="admin-customer-history-empty">برای این پرونده هنوز رویداد ثبت‌شده‌ای وجود ندارد.</div>}
                     </div>
                   ) : null}
                   {submission.propertyId ? <a className="btn-ghost" href={"/properties/" + String(data.slug ?? "")} target="_blank" rel="noreferrer"><ExternalLink size={15}/> مشاهده فایل منتشرشده</a> : null}

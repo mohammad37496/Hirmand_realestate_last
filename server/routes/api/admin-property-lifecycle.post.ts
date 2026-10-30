@@ -24,7 +24,12 @@ export default defineEventHandler(async (event) => {
     action?: "list" | "createTasks";
   };
 
-  if (dbSource === "unconfigured") return { items: [], createdTasks: 0 };
+  if (dbSource === "unconfigured") {
+    if (body.action === "createTasks") {
+      throw createError({ statusCode: 503, statusMessage: "پایگاه داده تنظیم نشده است؛ ساخت پیگیری ذخیره نشد." });
+    }
+    return { available: false, items: [], createdTasks: 0 };
+  }
 
   const sql = await getSql();
   const staleDays = 14;
@@ -141,8 +146,8 @@ export default defineEventHandler(async (event) => {
       );
       if (inserted.length > 0) createdTasks += 1;
     }
-    return { items, createdTasks };
+    return { available: true, items, createdTasks };
   }
 
-  return { items, createdTasks: 0 };
+  return { available: true, items, createdTasks: 0 };
 });

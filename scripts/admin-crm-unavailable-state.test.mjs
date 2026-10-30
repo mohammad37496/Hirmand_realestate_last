@@ -118,3 +118,47 @@ test("finance insights do not report zero revenue or settlements when the databa
   assert.match(ui, /error \? <AdminErrorBanner/);
   assert.match(ui, /data\?\.available \? <>/);
 });
+
+
+test("lead dedupe distinguishes unavailable storage from a genuinely empty duplicate list", () => {
+  const route = read("server/routes/api/admin-lead-dedupe.post.ts");
+  const ui = read("src/components/hirmand/admin-lead-dedupe.tsx");
+  assert.match(route, /action === "list"\) return \{ available: false, groups: \[\], total: 0 \}/);
+  assert.match(route, /available: true,\s*total: rows\.length/);
+  assert.match(route, /dbSource === "unconfigured"[\s\S]*statusCode: 503/);
+  assert.match(ui, /data\.available !== true/);
+  assert.match(ui, /loadError \? <AdminErrorBanner/);
+  assert.match(ui, /available === true && !loadError && !groups\.length/);
+});
+
+test("neighborhood demand radar never shows an unavailable database as no demand", () => {
+  const route = read("server/routes/api/admin-neighborhood-demand.post.ts");
+  const ui = read("src/components/hirmand/admin-neighborhood-demand-radar.tsx");
+  assert.match(route, /dbSource === "unconfigured"\) return \{ available: false, items: \[\] \}/);
+  assert.match(route, /available: true,\s*items: rows\.map/);
+  assert.match(ui, /result\.available !== true/);
+  assert.match(ui, /loadError \? <AdminErrorBanner/);
+  assert.match(ui, /available === true && !items\.length/);
+  assert.match(ui, /catch \(error\)/);
+});
+
+test("property lifecycle does not claim an empty queue or successful task creation without storage", () => {
+  const route = read("server/routes/api/admin-property-lifecycle.post.ts");
+  const ui = read("src/components/hirmand/admin-property-lifecycle-panel.tsx");
+  assert.match(route, /dbSource === "unconfigured"[\s\S]*body\.action === "createTasks"[\s\S]*statusCode: 503/);
+  assert.match(route, /available: false, items: \[\], createdTasks: 0/);
+  assert.match(route, /available: true, items, createdTasks/);
+  assert.match(ui, /result\.available !== true/);
+  assert.match(ui, /disabled=\{available !== true \|\| creating/);
+  assert.match(ui, /loadError \? <AdminErrorBanner/);
+  assert.match(ui, /available === true \? <div className="admin-breakdown">/);
+});
+
+test("customer submission history query errors remain visible instead of becoming an empty event list", () => {
+  const route = read("server/routes/api/admin-customer-property-submissions.post.ts");
+  const ui = read("src/components/hirmand/admin-customer-property-submissions.tsx");
+  assert.doesNotMatch(route, /customer_property_submission_events[\s\S]{0,260}\.catch\(\(\) => \[\]\)/);
+  assert.match(ui, /const \[historyError, setHistoryError\] = useState\(""\)/);
+  assert.match(ui, /setHistoryError\(message\)/);
+  assert.match(ui, /historyError \? <AdminErrorBanner/);
+});
