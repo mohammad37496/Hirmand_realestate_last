@@ -293,6 +293,21 @@ test("FFmpeg release URL uses the same repository as its pinned release assets",
 });
 
 
+const divarWorkflow = await readFile(
+  new URL("../.github/workflows/sync-divar-neighborhoods.yml", import.meta.url),
+  "utf8",
+);
+
+test("Divar catalog automation requires reviewed pull requests", () => {
+  assert.match(divarWorkflow, /pull-requests:\s*write/);
+  assert.match(divarWorkflow, /gh pr (?:create|edit)/);
+  assert.match(divarWorkflow, /gh workflow run ci\.yml --ref "\$branch"/);
+  assert.match(divarWorkflow, /gh workflow run verify\.yml --ref "\$branch"/);
+  assert.doesNotMatch(divarWorkflow, /^\s*git push\s*$/m);
+  assert.doesNotMatch(divarWorkflow, /git push origin HEAD:main/);
+});
+
+
 const authApiRoute = await readFile(
   new URL("../src/routes/api/auth/$.ts", import.meta.url),
   "utf8",
