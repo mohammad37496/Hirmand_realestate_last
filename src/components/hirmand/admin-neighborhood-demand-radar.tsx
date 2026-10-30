@@ -1,5 +1,6 @@
 import { Activity, RefreshCw, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type Item = {
   neighborhood: string;
@@ -16,14 +17,29 @@ type Item = {
 export function AdminNeighborhoodDemandRadar() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
+    setAvailable(null);
     try {
       const response = await fetch("/api/admin-neighborhood-demand", { method: "POST" });
-      if (!response.ok) throw new Error("demand radar failed");
-      const result = (await response.json()) as { items?: Item[] };
-      setItems(result.items ?? []);
+      const result = (await response.json()) as { available?: boolean; items?: Item[]; statusMessage?: string };
+      if (!response.ok) throw new Error(result.statusMessage || "دریافت رادار تقاضا انجام نشد.");
+      if (result.available !== true) {
+        setAvailable(false);
+        setItems([]);
+        setLoadError("پایگاه داده در دسترس نیست؛ آمار تقاضای محله‌ها قابل بررسی نیست.");
+        return;
+      }
+      setAvailable(true);
+      setItems(Array.isArray(result.items) ? result.items : []);
+    } catch (error) {
+      setAvailable(false);
+      setItems([]);
+      setLoadError(error instanceof Error ? error.message : "دریافت رادار تقاضا انجام نشد.");
     } finally {
       setLoading(false);
     }
@@ -50,13 +66,14 @@ export function AdminNeighborhoodDemandRadar() {
         شاخص داخلی هیرمند از ترکیب بازدید، ذخیره، تماس، درخواست بازدید و لید ساخته می‌شود و آمار رسمی بازار نیست.
       </p>
 
+      {loadError ? <AdminErrorBanner message={loadError} onRetry={() => void load()} /> : null}
       <div className="admin-breakdown">
-        {!items.length ? (
+        {loading ? <div className="admin-empty">در حال دریافت آمار محله‌ها…</div> : available === true && !items.length ? (
           <div className="admin-empty">
             <Activity size={24} />
             <strong>هنوز داده کافی برای رادار تقاضا ثبت نشده است.</strong>
           </div>
-        ) : (
+        ) : available === true ? (
           items.slice(0, 10).map((item) => (
             <div key={item.neighborhood} className="admin-breakdown-row">
               <div style={{ minWidth: 0 }}>
@@ -75,7 +92,7 @@ export function AdminNeighborhoodDemandRadar() {
               </span>
             </div>
           ))
-        )}
+        ) : null}
       </div>
     </section>
   );

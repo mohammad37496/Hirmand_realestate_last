@@ -306,3 +306,15 @@ test("Divar catalog automation requires reviewed pull requests", () => {
   assert.doesNotMatch(divarWorkflow, /^\s*git push\s*$/m);
   assert.doesNotMatch(divarWorkflow, /git push origin HEAD:main/);
 });
+
+
+const authApiRoute = await readFile(
+  new URL("../src/routes/api/auth/$.ts", import.meta.url),
+  "utf8",
+);
+
+test("Better Auth catch-all route mounts GET and POST on the same-origin API path", () => {
+  assert.match(authApiRoute, /createFileRoute\("\/api\/auth\/\$"\)/);
+  assert.match(authApiRoute, /GET:\s*\(\{ request \}.*auth\.handler\(request\)/s);
+  assert.match(authApiRoute, /POST:\s*\(\{ request \}.*auth\.handler\(request\)/s);
+});

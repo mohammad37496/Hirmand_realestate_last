@@ -295,7 +295,7 @@ export default defineEventHandler(async (event) => {
     const events = await sql.query<Record<string, unknown>>(
       "select id,action,note,metadata,created_at from customer_property_submission_events where submission_id=$1 order by created_at desc limit 50",
       [body.id],
-    ).catch(() => [] as Record<string, unknown>[]);
+    );
     return {
       success: true,
       events: events.map((row) => ({

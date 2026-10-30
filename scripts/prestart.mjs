@@ -32,23 +32,33 @@ console.log(`[prestart] NODE_ENV=${process.env.NODE_ENV}, binding port ${PORT}`)
 const resolved = resolveDatabaseUrl();
 if (resolved.url) {
   const url = sanitizePostgresConnectionString(resolved.url);
-  console.log(`[prestart] migrations via ${resolved.key}`);
+  console.log("[prestart] migrations via " + resolved.key);
+
+  const timeoutMs = Number(process.env.DB_MIGRATION_TIMEOUT_MS ?? 60_000);
+  let timeout;
+  let migrationError;
   try {
     await Promise.race([
       runMigrations({ connectionString: url }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("migration timeout")), 15_000)),
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("migration timeout after " + timeoutMs + "ms")), timeoutMs);
+      }),
     ]);
   } catch (error) {
-    // Never keep the HTTP listener from booting because the database is slow or unavailable.
-    // Runtime requests will surface database errors normally, and the next deployment/start
-    // will retry migrations.
-    console.warn(
-      "[prestart] WARNING: database migrations were not completed before startup:",
-      error instanceof Error ? error.message : error,
+    migrationError = error;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+
+  if (migrationError) {
+    console.error("[prestart] ERROR: refusing to start because database migrations did not complete.");
+    console.error(
+      "[prestart] " + (migrationError instanceof Error ? migrationError.message : "unknown migration error"),
     );
+    process.exit(1);
   }
 } else if (process.env.NODE_ENV === "production") {
-  console.warn("[prestart] WARNING: DATABASE_URL is not set — skipping migrations.");
+  console.warn("[prestart] WARNING: DATABASE_URL is not set — database-backed API routes will be unavailable.");
 }
 
 if (process.env.NODE_ENV === "production") {

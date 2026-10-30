@@ -21,12 +21,16 @@ async function requireAdmin(event: H3Event) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") {
-    return { groups: [], total: 0 };
-  }
-
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const action = typeof body.action === "string" ? body.action : "list";
+  if (!["list", "preview", "merge"].includes(action)) {
+    throw createError({ statusCode: 400, statusMessage: "عملیات تکراری‌های CRM نامعتبر است." });
+  }
+  if (dbSource === "unconfigured") {
+    if (action === "list") return { available: false, groups: [], total: 0 };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده تنظیم نشده است؛ پیش‌نمایش و ادغام لیدها در دسترس نیست." });
+  }
+
   const sql = await getSql();
 
   if (action === "list") {
@@ -66,6 +70,7 @@ export default defineEventHandler(async (event) => {
     );
 
     return {
+      available: true,
       total: rows.length,
       groups: rows.map((row) => ({
         id: String(row.a_id) + "::" + String(row.b_id) + "::" + String(row.reason),

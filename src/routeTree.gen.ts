@@ -45,6 +45,7 @@ import { Route as ToolsCommissionRouteImport } from './routes/tools/commission'
 import { Route as ToolsDepositRouteImport } from './routes/tools/deposit'
 import { Route as ToolsLoanRouteImport } from './routes/tools/loan'
 import { Route as ToolsRahnRentRouteImport } from './routes/tools/rahn-rent'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as VSlugIdRouteImport } from './routes/v.$slug.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -228,6 +229,11 @@ const ToolsRahnRentRoute = ToolsRahnRentRouteImport.update({
   path: '/tools/rahn-rent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VSlugIdRoute = VSlugIdRouteImport.update({
   id: '/v/$slug/$id',
   path: '/v/$slug/$id',
@@ -271,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/consultants/': typeof ConsultantsIndexRoute
   '/properties/': typeof PropertiesIndexRoute
   '/tools/': typeof ToolsIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/v/$slug/$id': typeof VSlugIdRoute
 }
 export interface FileRoutesByTo {
@@ -307,6 +314,7 @@ export interface FileRoutesByTo {
   '/consultants': typeof ConsultantsIndexRoute
   '/properties': typeof PropertiesIndexRoute
   '/tools': typeof ToolsIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/v/$slug/$id': typeof VSlugIdRoute
 }
 export interface FileRoutesById {
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   '/consultants/': typeof ConsultantsIndexRoute
   '/properties/': typeof PropertiesIndexRoute
   '/tools/': typeof ToolsIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/v/$slug/$id': typeof VSlugIdRoute
 }
 export interface FileRouteTypes {
@@ -388,6 +397,7 @@ export interface FileRouteTypes {
     | '/consultants/'
     | '/properties/'
     | '/tools/'
+    | '/api/auth/$'
     | '/v/$slug/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -424,6 +434,7 @@ export interface FileRouteTypes {
     | '/consultants'
     | '/properties'
     | '/tools'
+    | '/api/auth/$'
     | '/v/$slug/$id'
   id:
     | '__root__'
@@ -463,6 +474,7 @@ export interface FileRouteTypes {
     | '/consultants/'
     | '/properties/'
     | '/tools/'
+    | '/api/auth/$'
     | '/v/$slug/$id'
   fileRoutesById: FileRoutesById
 }
@@ -496,6 +508,7 @@ export interface RootRouteChildren {
   ToolsLoanRoute: typeof ToolsLoanRoute
   ToolsRahnRentRoute: typeof ToolsRahnRentRoute
   ToolsIndexRoute: typeof ToolsIndexRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   VSlugIdRoute: typeof VSlugIdRoute
 }
 
@@ -529,18 +542,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AreasRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/card': {
-      id: '/card'
-      path: '/card'
-      fullPath: '/card'
-      preLoaderRoute: typeof CardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/budget-match': {
       id: '/budget-match'
       path: '/budget-match'
       fullPath: '/budget-match'
       preLoaderRoute: typeof BudgetMatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/card': {
+      id: '/card'
+      path: '/card'
+      fullPath: '/card'
+      preLoaderRoute: typeof CardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/compare': {
@@ -753,6 +766,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsRahnRentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/v/$slug/$id': {
       id: '/v/$slug/$id'
       path: '/v/$slug/$id'
@@ -846,6 +866,7 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsLoanRoute: ToolsLoanRoute,
   ToolsRahnRentRoute: ToolsRahnRentRoute,
   ToolsIndexRoute: ToolsIndexRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   VSlugIdRoute: VSlugIdRoute,
 }
 export const routeTree = rootRouteImport
