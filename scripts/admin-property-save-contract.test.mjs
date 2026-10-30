@@ -31,3 +31,14 @@ test("consultant picker uses phone as the primary identity when a phone is prese
   assert.match(code, /const active = phoneNorm\s*\?\s*normalizePhone\(person\.phone\) === phoneNorm\s*:/);
   assert.match(code, /phoneNorm\s*\?\s*consultants\.find\(\(p\) => normalizePhone\(p\.phone\) === phoneNorm\)/);
 });
+
+
+test("browser property drafts strip private values on save and restore", () => {
+  const code = read("src/components/hirmand/_admin_impl.tsx");
+  assert.ok(code.includes("stripPrivatePropertyDraftFields(form)"), "saveDraft must strip private values");
+  assert.ok(code.includes("stripPrivatePropertyDraftFields(parsed as Record<string, unknown>)"), "loadDraft must sanitize legacy values");
+  for (const field of ["address", "latitude", "longitude", "ownerName", "ownerPhone", "ownerInfo", "internalNote"]) {
+    assert.ok(code.includes("\"" + field + "\""), field + " must be omitted from DraftShape");
+    assert.ok(code.includes(field + ": current." + field), field + " must be restored from current form state");
+  }
+});
