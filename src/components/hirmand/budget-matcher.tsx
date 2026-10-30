@@ -153,6 +153,8 @@ export function BudgetMatcher() {
   const [neighborhood, setNeighborhood] = useState("");
   const [neighborhoodOptions, setNeighborhoodOptions] = useState<string[]>(NEIGHBORHOOD_NAMES);
   const [bedrooms, setBedrooms] = useState("");
+  const [areaMin, setAreaMin] = useState("");
+  const [areaMax, setAreaMax] = useState("");
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [matches, setMatches] = useState<PropertyBudgetMatch[]>([]);
   const [loading, setLoading] = useState(false);
@@ -202,6 +204,17 @@ export function BudgetMatcher() {
       toast.error("برای شروع، حداقل سقف رهن یا اجاره ماهانه را وارد کنید.");
       return;
     }
+    const minArea = areaMin.trim() ? Number(areaMin) : undefined;
+    const maxArea = areaMax.trim() ? Number(areaMax) : undefined;
+    if ((minArea != null && (!Number.isInteger(minArea) || minArea < 1 || minArea > 100000)) ||
+        (maxArea != null && (!Number.isInteger(maxArea) || maxArea < 1 || maxArea > 100000))) {
+      toast.error("متراژ را به‌صورت عدد صحیح بین ۱ تا ۱۰۰٬۰۰۰ متر وارد کنید.");
+      return;
+    }
+    if (minArea != null && maxArea != null && minArea > maxArea) {
+      toast.error("حداقل متراژ نمی‌تواند از حداکثر متراژ بیشتر باشد.");
+      return;
+    }
 
     setLoading(true);
     setSearched(true);
@@ -216,6 +229,8 @@ export function BudgetMatcher() {
           propertyType: propertyType || undefined,
           neighborhood: neighborhood || undefined,
           bedrooms: bedrooms ? Number(bedrooms) : undefined,
+          minAreaM2: minArea,
+          maxAreaM2: maxArea,
           limit: 12,
         },
       });
@@ -259,6 +274,8 @@ export function BudgetMatcher() {
           budgetDeposit: Math.round(depositNumber),
           budgetRent: Math.round(rentNumber),
           budgetBedrooms: bedrooms ? Number(bedrooms) : undefined,
+          requestedAreaMin: areaMin.trim() ? Number(areaMin) : undefined,
+          requestedAreaMax: areaMax.trim() ? Number(areaMax) : undefined,
           matches: matches.slice(0, 12).map((match) => ({
             slug: match.property.slug,
             title: match.property.title,
@@ -298,6 +315,8 @@ export function BudgetMatcher() {
     setPropertyType("");
     setNeighborhood("");
     setBedrooms("");
+    setAreaMin("");
+    setAreaMax("");
     setMatches([]);
     setSearched(false);
     setLeadSaved(false);
@@ -453,6 +472,16 @@ export function BudgetMatcher() {
                       <option value="3">۳ خواب و بیشتر</option>
                       <option value="4">۴ خواب و بیشتر</option>
                     </select>
+                  </label>
+
+                  <label className="field">
+                    <span>حداقل متراژ (مترمربع)</span>
+                    <input type="number" inputMode="numeric" min={1} max={100000} step={1} value={areaMin} onChange={(event) => setAreaMin(event.target.value)} placeholder="مثلاً ۸۰" />
+                  </label>
+
+                  <label className="field">
+                    <span>حداکثر متراژ (مترمربع)</span>
+                    <input type="number" inputMode="numeric" min={1} max={100000} step={1} value={areaMax} onChange={(event) => setAreaMax(event.target.value)} placeholder="مثلاً ۱۲۰" />
                   </label>
                 </div>
               ) : null}

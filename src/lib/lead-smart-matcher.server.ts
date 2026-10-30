@@ -1,6 +1,7 @@
 import { getSql } from "@/lib/db";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
+import { normalizeMatchLabel, scoreAreaMatch } from "@/lib/admin-match-utils";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 type SqlClient = Awaited<ReturnType<typeof getSql>>;
@@ -144,6 +145,8 @@ function scoreProperty(
 ) {
   const requestedAmenities = jsonArray(lead.requested_amenities);
   const requestedBedrooms = num(lead.requested_bedrooms);
+  const requestedAreaMin = positive(lead.requested_area_min) || null;
+  const requestedAreaMax = positive(lead.requested_area_max) || null;
   const neighborhood = String(lead.neighborhood ?? "").trim();
   const range = requestedPriceRange(lead);
 
@@ -154,8 +157,9 @@ function scoreProperty(
     : null;
   const price = priceScore(propertyComparableValue(row), range);
   const sameNeighborhood = neighborhood
-    ? String(row.neighborhood ?? "").trim() === neighborhood
+    ? normalizeMatchLabel(row.neighborhood) === normalizeMatchLabel(neighborhood)
     : null;
+  const areaMatch = scoreAreaMatch(row.area_m2, requestedAreaMin, requestedAreaMax);
   const bedrooms = num(row.bedrooms);
   const sameBedrooms = requestedBedrooms == null || bedrooms == null
     ? null
@@ -198,6 +202,11 @@ function scoreProperty(
   if (sameBedrooms === true) {
     score += mode === "smart" ? 12 : 8;
     reasons.push("تعداد خواب مناسب");
+  }
+
+  if (areaMatch) {
+    score += areaMatch.score * (mode === "price" ? 0.08 : mode === "amenities" ? 0.1 : mode === "both" ? 0.12 : 0.15);
+    reasons.push(areaMatch.reason);
   }
 
   if (String(row.transaction_type) === "mortgage" && (String(lead.deal) === "رهن" || String(lead.deal) === "اجاره")) {
@@ -253,7 +262,8 @@ function scoreProperty(
     price != null ||
     (amenityCoverage != null && amenityCoverage > 0) ||
     sameNeighborhood === true ||
-    sameBedrooms === true;
+    sameBedrooms === true ||
+    (areaMatch != null && areaMatch.score > 0);
 
   return {
     score: Math.max(0, Math.min(100, Math.round(score))),
@@ -303,7 +313,7 @@ export async function autoMatchLead(
   const leadRows = await sql.query<Record<string, unknown>>(
     `select
        id, deal, property_type, neighborhood, floor_preference,
-       requested_bedrooms, requested_amenities,
+       requested_bedrooms, requested_area_min, requested_area_max, requested_amenities,
        budget_deposit, budget_rent, budget_purchase, budget_sale,
        budget_deposit_min, budget_deposit_max,
        budget_rent_min, budget_rent_max,

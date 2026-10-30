@@ -311,11 +311,17 @@ const budgetMatchSchema = z
       .optional(),
     neighborhood: z.string().trim().max(80).optional(),
     bedrooms: z.number().int().min(1).max(30).optional(),
+    minAreaM2: z.number().int().min(1).max(100000).optional(),
+    maxAreaM2: z.number().int().min(1).max(100000).optional(),
     limit: z.number().int().min(1).max(24).optional().default(12),
   })
   .refine((value) => value.depositBudget > 0 || value.rentBudget > 0, {
     message: "حداقل یکی از مبالغ بودجه باید بیشتر از صفر باشد.",
-  });
+  })
+  .refine(
+    (value) => value.minAreaM2 == null || value.maxAreaM2 == null || value.minAreaM2 <= value.maxAreaM2,
+    { message: "حداقل متراژ نمی‌تواند از حداکثر متراژ بیشتر باشد.", path: ["minAreaM2"] },
+  );
 
 const adminKeySchema = z.object({});
 
@@ -917,6 +923,8 @@ export const matchPublishedPropertiesByBudget = createServerFn({ method: "GET" }
           "and ($5::text is null or property_type = $5)",
           "and ($6::text is null or neighborhood = $6 or neighborhood ilike '%' || $6 || '%')",
           "and ($7::int is null or bedrooms >= $7)",
+          "and ($9::int is null or area_m2 >= $9)",
+          "and ($10::int is null or area_m2 <= $10)",
           "and " + totalExpr + " <= $4::numeric * 1.15",
           "order by",
           "case",
@@ -938,6 +946,8 @@ export const matchPublishedPropertiesByBudget = createServerFn({ method: "GET" }
           data.neighborhood?.trim() || null,
           data.bedrooms ?? null,
           data.limit,
+          data.minAreaM2 ?? null,
+          data.maxAreaM2 ?? null,
         ],
       );
 
