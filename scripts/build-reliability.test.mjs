@@ -291,3 +291,18 @@ test("FFmpeg release URL uses the same repository as its pinned release assets",
   assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-28-g669f5ab083-linux64-gpl-9\.0\.tar\.xz/);
   assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
 });
+
+
+const divarWorkflow = await readFile(
+  new URL("../.github/workflows/sync-divar-neighborhoods.yml", import.meta.url),
+  "utf8",
+);
+
+test("Divar catalog automation requires reviewed pull requests", () => {
+  assert.match(divarWorkflow, /pull-requests:\s*write/);
+  assert.match(divarWorkflow, /gh pr (?:create|edit)/);
+  assert.match(divarWorkflow, /gh workflow run ci\.yml --ref "\$branch"/);
+  assert.match(divarWorkflow, /gh workflow run verify\.yml --ref "\$branch"/);
+  assert.doesNotMatch(divarWorkflow, /^\s*git push\s*$/m);
+  assert.doesNotMatch(divarWorkflow, /git push origin HEAD:main/);
+});
