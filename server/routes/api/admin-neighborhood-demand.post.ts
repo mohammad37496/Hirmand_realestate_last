@@ -19,7 +19,7 @@ async function requireAdmin(event: H3Event) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { items: [] };
+  if (dbSource === "unconfigured") return { available: false, items: [] };
 
   const sql = await getSql();
   const rows = await sql.query<Record<string, unknown>>(
@@ -73,6 +73,7 @@ export default defineEventHandler(async (event) => {
 
   const maxDemand = Math.max(1, ...rows.map((row) => Number(row.demand_index) || 0));
   return {
+    available: true,
     items: rows.map((row) => ({
       neighborhood: String(row.neighborhood),
       files: Number(row.files) || 0,

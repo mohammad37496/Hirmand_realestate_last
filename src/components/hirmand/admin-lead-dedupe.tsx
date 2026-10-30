@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { GitMerge, RefreshCw, ShieldCheck, UsersRound } from "lucide-react";
 import { toast } from "sonner";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 import { adminErrorMessage, useConfirmDialog } from "@/components/hirmand/admin-ui-utils";
 
 type LeadRef = {
@@ -23,21 +24,35 @@ export function AdminLeadDedupe() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState("");
   const { confirm, dialog } = useConfirmDialog();
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
+    setAvailable(null);
     try {
       const response = await fetch("/api/admin-lead-dedupe", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "list" }),
       });
-      const data = await response.json() as { groups?: Group[]; total?: number };
-      if (!response.ok) throw new Error((data as { statusMessage?: string }).statusMessage || "موارد تکراری بارگذاری نشد.");
+      const data = await response.json() as { available?: boolean; groups?: Group[]; total?: number; statusMessage?: string };
+      if (!response.ok) throw new Error(data.statusMessage || "موارد تکراری بارگذاری نشد.");
+      if (data.available !== true) {
+        setAvailable(false);
+        setGroups([]);
+        setLoadError("پایگاه داده در دسترس نیست؛ فهرست لیدهای تکراری قابل بررسی نیست.");
+        return;
+      }
+      setAvailable(true);
       setGroups(Array.isArray(data.groups) ? data.groups : []);
     } catch (error) {
-      toast.error(adminErrorMessage(error, "بررسی لیدهای تکراری انجام نشد."));
+      const message = adminErrorMessage(error, "بررسی لیدهای تکراری انجام نشد.");
+      setAvailable(false);
+      setLoadError(message);
+      toast.error(message);
       setGroups([]);
     } finally {
       setLoading(false);
@@ -85,7 +100,7 @@ export function AdminLeadDedupe() {
   }[value] ?? value);
 
   return (
-    <details className="admin-panel" style={{ marginTop: 14 }} open={groups.length > 0}>
+    <details className="admin-panel" style={{ marginTop: 14 }} open={groups.length > 0 || Boolean(loadError) || available === false}>
       {dialog}
       <summary style={{ cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -99,8 +114,9 @@ export function AdminLeadDedupe() {
         </button>
       </summary>
       <div style={{ display: "grid", gap: 9, marginTop: 14 }}>
+        {loadError ? <AdminErrorBanner message={loadError} onRetry={() => void load()} /> : null}
         {loading ? <div className="admin-empty"><RefreshCw size={22} className="admin-spin" />در حال بررسی شماره‌های تکراری…</div> : null}
-        {!loading && !groups.length ? <div className="admin-empty"><UsersRound size={22} />مورد واضحی برای ادغام پیدا نشد.</div> : null}
+        {!loading && available === true && !loadError && !groups.length ? <div className="admin-empty"><UsersRound size={22} />مورد واضحی برای ادغام پیدا نشد.</div> : null}
         {groups.slice(0, 20).map((group) => (
           <div key={group.id} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
             <small style={{ color: "var(--subtle)", fontWeight: 800 }}>{group.reason}</small>
@@ -111,7 +127,7 @@ export function AdminLeadDedupe() {
                   <div style={{ fontSize: ".7rem", color: "var(--muted)", marginTop: 4 }}>{lead.phone || "بدون تلفن"}</div>
                   <small style={{ display: "block", marginTop: 4, color: "var(--subtle)" }}>{status(lead.status)}{lead.consultant ? " · " + lead.consultant : " · بدون مشاور"}</small>
                   <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button type="button" className="btn-ghost" onClick={() => void merge(lead, group.leads[lead.id === group.leads[0].id ? 1 : 0])} disabled={Boolean(busy)}>
+                    <button type="button" className="btn-ghost" onClick={() => void merge(lead, group.leads[lead.id === group.leads[0].id ? 1 : 0])} disabled={Boolean(busy) || available !== true}>
                       <GitMerge size={13} /> حفظ این رکورد
                     </button>
                   </div>
