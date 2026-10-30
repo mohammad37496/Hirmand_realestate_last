@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import {
@@ -91,4 +92,23 @@ test("stale upload cleanup covers both pipelines and protects active finalizatio
   } finally {
     await db.close();
   }
+});
+
+test("admin media health distinguishes unavailable storage and refuses no-op cleanup", () => {
+  const server = readFileSync(new URL("./admin-media-health.ts", import.meta.url), "utf8");
+  const ui = readFileSync(new URL("../components/hirmand/admin-media-health.tsx", import.meta.url), "utf8");
+  const healthPermission = server.indexOf('await requireAdminPermission("property.manage")');
+  const healthUnavailable = server.indexOf('if (dbSource === "unconfigured")');
+  const cleanupPermission = server.indexOf('await requireAdminPermission("backup.manage")');
+  const cleanupUnavailable = server.lastIndexOf('if (dbSource === "unconfigured")');
+
+  assert.ok(healthPermission >= 0 && healthUnavailable > healthPermission);
+  assert.ok(cleanupPermission >= 0 && cleanupUnavailable > cleanupPermission);
+  assert.match(server, /available:\s*false/);
+  assert.match(server, /available:\s*true/);
+  assert.match(server, /if \(dbSource === "unconfigured"\)\s*\{\s*throw new Error/);
+  assert.doesNotMatch(server, /orphanDeleted:\s*0,\s*staleSessionsDeleted:\s*0/);
+  assert.match(ui, /result\.available !== true/);
+  assert.match(ui, /<AdminErrorBanner/);
+  assert.match(ui, /!data/);
 });
