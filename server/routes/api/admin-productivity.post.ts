@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { loadAdminProductivityTableCounts } from "@/lib/admin-productivity-table-counts";
 
 type TaskStatus = "open" | "done" | "cancelled";
 type Priority = "low" | "normal" | "high" | "urgent";
@@ -104,13 +105,7 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
       "union all select 'task'::text, id::text, status::text, nullif(trim(title),'')::text, updated_at from admin_tasks" +
       ") activity order by created_at desc limit 36"
     ),
-    Promise.all([
-      sql.query("select count(*)::int as count from properties").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from leads").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from consultants").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from media_objects").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from admin_tasks").catch(() => [{ count: null }]),
-    ]),
+    loadAdminProductivityTableCounts((statement) => sql.query<{ count: number | string | null }>(statement)),
   ]);
 
   const taskStats = results[0];
@@ -145,6 +140,7 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
     .slice(0, 18);
 
   return {
+    available: true,
     tasks: { open: Number(t.open) || 0, overdue: Number(t.overdue) || 0, today: Number(t.today) || 0, next7: Number(t.next7) || 0 },
     propertyHealth: {
       total: Number(p.total) || 0,
@@ -169,13 +165,7 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
     })),
     system: {
       database: "connected",
-      counts: {
-        properties: Number(tableHealth[0]?.[0]?.count) || 0,
-        leads: Number(tableHealth[1]?.[0]?.count) || 0,
-        consultants: Number(tableHealth[2]?.[0]?.count) || 0,
-        media: Number(tableHealth[3]?.[0]?.count) || 0,
-        tasks: Number(tableHealth[4]?.[0]?.count) || 0,
-      },
+      counts: tableHealth,
       generatedAt: new Date().toISOString(),
     },
   };
@@ -197,18 +187,13 @@ export default defineEventHandler(async (event) => {
     entityType?: string;
     entityId?: string | null;
   };
+  const action = body.action ?? "summary";
 
   if (dbSource === "unconfigured") {
-    return {
-      tasks: { open: 0, overdue: 0, today: 0, next7: 0, items: [] },
-      propertyHealth: { total: 0, published: 0, withoutImages: 0, incomplete: 0, stale: 0, expiredFeatured: 0 },
-      staleProperties: [], expiredFeatured: [], duplicateGroups: [], recentActivity: [],
-      system: { database: "unconfigured", counts: {}, generatedAt: new Date().toISOString() },
-    };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ مرکز بهره‌وری و عملیات وظایف قابل استفاده نیست." });
   }
 
   const sql = await getSql();
-  const action = body.action ?? "summary";
 
   if (action === "create_task") {
     const title = cleanText(body.title, 180);
@@ -260,7 +245,7 @@ export default defineEventHandler(async (event) => {
       "case when status='open' and due_at is not null and due_at < current_timestamp then 0 " +
       "when status='open' and due_at is not null then 1 else 2 end, due_at asc nulls last, created_at desc limit 300"
     );
-    return { tasks: rows.map(serializeTask) };
+    return { available: true, tasks: rows.map(serializeTask) };
   }
 
   return loadSummary(sql);

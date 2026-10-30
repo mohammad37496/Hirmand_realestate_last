@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { AdminDataHealthCheckError, runAdminDataHealthChecks } from "@/lib/admin-data-health-checks";
+import { resolveAdminDataHealthFinding } from "@/lib/admin-data-health-findings";
 
 async function requireReportAccess(event: H3Event) {
   const token = getCookie(event, ADMIN_SESSION_COOKIE);
@@ -20,16 +21,30 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   const claims = await requireReportAccess(event);
   const role = normalizeAdminRole(claims?.role);
-  if (dbSource === "unconfigured") return { scannedAt: new Date().toISOString(), summary: { critical: 0, warning: 0, info: 0, open: 0 }, findings: [] };
   const body = (await readBody(event).catch(() => ({}))) as { action?: "scan" | "resolve"; findingId?: number };
-  const sql = await getSql();
+  const action = body.action ?? "scan";
 
-  if (body.action === "resolve") {
+  if (action === "resolve") {
     if (!hasAdminPermission(role, "settings.manage")) {
       throw createError({ statusCode: 403, statusMessage: "فقط مدیران می‌توانند یافته‌های سلامت داده را تعیین‌تکلیف کنند." });
     }
     if (!Number.isInteger(body.findingId) || Number(body.findingId) <= 0) throw createError({ statusCode: 400, statusMessage: "شناسه یافته نامعتبر است." });
-    await sql.query("update admin_data_health_findings set resolved_at=current_timestamp where id=$1", [body.findingId]);
+  }
+
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده در دسترس نیست؛ اسکن و تعیین‌تکلیف هشدارهای سلامت داده انجام نشد." });
+  }
+
+  const sql = await getSql();
+
+  if (action === "resolve") {
+    const resolvedId = await resolveAdminDataHealthFinding(
+      (statement, params) => sql.query<{ id: number | string }>(statement, params),
+      body.findingId!,
+    );
+    if (resolvedId === null) {
+      throw createError({ statusCode: 404, statusMessage: "هشدار باز پیدا نشد؛ ممکن است قبلاً تعیین‌تکلیف شده باشد." });
+    }
     return { success: true };
   }
 
@@ -97,5 +112,5 @@ export default defineEventHandler(async (event) => {
     counts[severity] += 1;
     return { id:Number(row.id),kind:String(row.kind),severity,title:String(row.title),detail:String(row.detail ?? ""),entityType:row.entity_type ? String(row.entity_type) : null,entityId:row.entity_id ? String(row.entity_id) : null,detectedAt:new Date(String(row.detected_at)).toISOString() };
   });
-  return { scannedAt:new Date().toISOString(),summary:{...counts,open:mapped.length},findings:mapped };
+  return { available:true, scannedAt:new Date().toISOString(),summary:{...counts,open:mapped.length},findings:mapped };
 });
