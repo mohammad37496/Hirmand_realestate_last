@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { DELETE_ADMIN_MESSAGE_TEMPLATE_SQL } from "@/lib/admin-customer-chat-sql";
 
 const DEFAULTS = [
   { id: "first", title: "اولین پیگیری", body: "سلام {{نام}}، درباره درخواست {{معامله}} در {{محله}} با شما تماس گرفتم. برای هماهنگی و معرفی فایل‌های مناسب هیرمند در خدمتم.", channel: "whatsapp" },
@@ -85,7 +86,8 @@ export default defineEventHandler(async (event) => {
     if (DEFAULTS.some((item) => item.id === id)) {
       throw createError({ statusCode: 400, statusMessage: "قالب‌های اصلی قابل حذف نیستند؛ آن‌ها را می‌توانید غیرفعال کنید." });
     }
-    await sql.query("delete from admin_message_templates where id=$1", [id]);
+    const deleted = await sql.query<{ id: string }>(DELETE_ADMIN_MESSAGE_TEMPLATE_SQL, [id]);
+    if (!deleted[0]) throw createError({ statusCode: 404, statusMessage: "قالب پیام پیدا نشد یا قبلاً حذف شده است." });
     return { success: true };
   }
 

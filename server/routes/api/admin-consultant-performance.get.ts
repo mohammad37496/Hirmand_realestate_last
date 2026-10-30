@@ -15,7 +15,12 @@ export default defineEventHandler(async (event) => {
   if (!(await verifyAdminSessionToken(token))) throw createError({ statusCode: 401, statusMessage: "نشست مدیریت معتبر نیست." });
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
+  const currentRole = normalizeAdminRole(claims?.role);
+  if (
+    !hasAdminPermission(currentRole, "lead.manage") ||
+    !hasAdminPermission(currentRole, "deal.manage") ||
+    !hasAdminPermission(currentRole, "commission.manage")
+  ) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش مشاوران برای این حساب فعال نیست." });
   }
   if (dbSource === "unconfigured") return { days: 90, consultants: [] };

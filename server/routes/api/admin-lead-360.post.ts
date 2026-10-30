@@ -12,17 +12,29 @@ export default defineEventHandler(async (event) => {
   if (!(await verifyAdminSessionToken(token))) throw createError({ statusCode: 401, statusMessage: "نشست مدیریت معتبر نیست." });
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
+  const currentRole = normalizeAdminRole(claims?.role);
+  if (!hasAdminPermission(currentRole, "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی پرونده مشتری برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { customer: null, activities: [], deals: [], settlements: [], documents: [] };
+  const canViewDeals = hasAdminPermission(currentRole, "deal.manage");
+  const canViewCommissions = hasAdminPermission(currentRole, "commission.manage");
+  if (dbSource === "unconfigured") {
+    return {
+      customer: null,
+      activities: [],
+      deals: [],
+      settlements: [],
+      documents: [],
+      access: { deals: canViewDeals, commissions: canViewCommissions },
+    };
+  }
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const leadId = clean(body.id);
   if (!leadId) throw createError({ statusCode: 400, statusMessage: "شناسه مشتری مشخص نیست." });
 
   const sql = await getSql();
-  const [leadRows, activityRows, dealRows] = await Promise.all([
+  const [leadRows, activityRows, dealRows, commissionDealRows] = await Promise.all([
     sql.query<Record<string, unknown>>(
       "select l.id,l.name,l.phone,l.job,l.deal,l.property_type,l.neighborhood,l.floor_preference,l.requested_bedrooms,l.requested_amenities,l.consultant,l.status,l.source,l.follow_up_at,l.last_contacted_at,l.note,l.lease_deadline,l.budget_deposit,l.budget_rent,l.budget_purchase,l.budget_sale,l.budget_deposit_min,l.budget_deposit_max,l.budget_rent_min,l.budget_rent_max,l.budget_purchase_min,l.budget_purchase_max,l.budget_sale_min,l.budget_sale_max,l.budget_equivalent,l.match_count,l.property_id,l.created_at,p.title as property_title,p.slug as property_slug from leads l left join properties p on p.id=l.property_id where l.id=$1 limit 1",
       [leadId],
@@ -31,22 +43,27 @@ export default defineEventHandler(async (event) => {
       "select id,activity_type,title,note,created_at from lead_activities where lead_id=$1 order by created_at desc limit 100",
       [leadId],
     ),
-    sql.query<Record<string, unknown>>(
-      "select id,title,deal_type,status,amount,commission,consultant,contract_number,contract_date,closing_date,notes,updated_at from admin_deals where lead_id=$1 order by updated_at desc",
-      [leadId],
-    ),
+    canViewDeals ? sql.query<Record<string, unknown>>(
+      "select id,title,deal_type,status,amount,case when $2::boolean then commission else null end as commission,consultant,contract_number,contract_date,closing_date,notes,updated_at from admin_deals where lead_id=$1 order by updated_at desc",
+      [leadId, canViewCommissions],
+    ) : Promise.resolve([] as Record<string, unknown>[]),
+    canViewCommissions && !canViewDeals
+      ? sql.query<Record<string, unknown>>("select id from admin_deals where lead_id=$1", [leadId])
+      : Promise.resolve([] as Record<string, unknown>[]),
   ]);
   const customer = leadRows[0];
   if (!customer) throw createError({ statusCode: 404, statusMessage: "پرونده مشتری پیدا نشد." });
 
-  const dealIds = dealRows.map((row) => String(row.id));
+  const dealIds = (canViewDeals ? dealRows : commissionDealRows).map((row) => String(row.id));
   let settlementRows: Record<string, unknown>[] = [];
   let documentRows: Record<string, unknown>[] = [];
-  if (dealIds.length) {
+  if (canViewCommissions && dealIds.length) {
     settlementRows = await sql.query<Record<string, unknown>>(
       "select id,deal_id,consultant,commission_amount,consultant_share,office_share,status,paid_at,note from admin_commission_settlements where deal_id = any($1::text[]) order by updated_at desc",
       [dealIds],
     );
+  }
+  if (canViewDeals && dealIds.length) {
     documentRows = await sql.query<Record<string, unknown>>(
       "select id,deal_id,document_type,status,file_url,note,received_at,verified_at from admin_deal_documents where deal_id = any($1::text[]) order by created_at asc",
       [dealIds],
@@ -105,7 +122,7 @@ export default defineEventHandler(async (event) => {
       dealType: String(row.deal_type),
       status: String(row.status),
       amount: row.amount == null ? null : Number(row.amount),
-      commission: row.commission == null ? null : Number(row.commission),
+      commission: canViewCommissions && row.commission != null ? Number(row.commission) : null,
       consultant: String(row.consultant ?? ""),
       contractNumber: String(row.contract_number ?? ""),
       contractDate: row.contract_date ? String(row.contract_date).slice(0, 10) : null,
@@ -133,5 +150,6 @@ export default defineEventHandler(async (event) => {
       receivedAt: row.received_at ? new Date(String(row.received_at)).toISOString() : null,
       verifiedAt: row.verified_at ? new Date(String(row.verified_at)).toISOString() : null,
     })),
+    access: { deals: canViewDeals, commissions: canViewCommissions },
   };
 });
