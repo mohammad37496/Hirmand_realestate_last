@@ -16,6 +16,7 @@ import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type B
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { deleteStoredMedia } from "@/lib/media-store.server";
 import { deleteTrashedProperty, type TrashedPropertyRow } from "@/lib/admin-property-trash";
+import { bulkTrashActiveProperties } from "@/lib/admin-property-bulk-trash";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
@@ -1418,66 +1419,20 @@ export const bulkDeleteProperties = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAdminPermission("property.manage");
     const sql = await getSql();
-
-    const existingRows = await sql.query<Record<string, unknown>>(
-      `select id, title, status, featured, price, deposit, rent, contact_name, contact_phone,
-              owner_name, owner_phone, owner_info, images
-       from properties
-       where id = any($1::text[])`,
-      [data.ids],
+    const rows = await bulkTrashActiveProperties(
+      (statement, params) => sql.query<{ id: string }>(statement, params),
+      data.ids,
     );
-
-    const rows = await sql.query<{ id: string }>(
-      `update properties
-       set deleted_at = current_timestamp,
-           deleted_from_status = status,
-           status = 'archived',
-           featured = false,
-           featured_until = null,
-           updated_at = current_timestamp
-       where id = any($1::text[]) and deleted_at is null
-       returning id`,
-      [data.ids],
-    );
-
-    if (existingRows.length) {
-      const deletedPayload = JSON.stringify(
-        existingRows.map((row) => ({
-          id: String(row.id),
-          before_state: {
-            title: row.title == null ? null : String(row.title),
-            status: row.status == null ? null : String(row.status),
-            featured: Boolean(row.featured),
-            price: row.price == null ? null : String(row.price),
-            deposit: row.deposit == null ? null : String(row.deposit),
-            rent: row.rent == null ? null : String(row.rent),
-            contactName: row.contact_name == null ? null : String(row.contact_name),
-            contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
-          },
-        })),
-      );
-      await sql.query(
-        `with deleted as (
-           select *
-           from jsonb_to_recordset($1::jsonb)
-             as d(id text, before_state jsonb)
-         )
-         insert into property_change_history (property_id, action, before_state, after_state)
-         select id, 'deleted', before_state, null
-         from deleted`,
-        [deletedPayload],
-      );
-    }
+    if (!rows.length) return { success: false, deleted: 0 };
 
     await writeAdminAuditLog({
       action: "property.bulk_trashed",
       entityType: "property",
-      metadata: { ids: data.ids, count: rows.length },
+      metadata: { ids: rows.map((row) => row.id), count: rows.length },
     });
     clearPropertyReadCache();
     return { success: true, deleted: rows.length };
   });
-
 export const listAdminTrashProperties = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(200).optional().default(100) }))
   .handler(async ({ data }) => {
