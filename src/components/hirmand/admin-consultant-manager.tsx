@@ -116,10 +116,6 @@ export function AdminConsultantManager() {
   }
 
   async function remove(item: Consultant) {
-    if (item.id === "sheikh" || item.id === "moradi") {
-      toast.error("دو پروفایل اصلی هیرمند حذف نمی‌شوند؛ می‌توانید غیرفعالشان کنید.");
-      return;
-    }
     if (!window.confirm(`مشاور «${item.name}» حذف شود؟`)) return;
     try {
       await deleteConsultant({ data: { id: item.id } });
