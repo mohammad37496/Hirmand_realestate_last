@@ -532,9 +532,21 @@ export function AdminLocationPicker({
               type="button"
               className="admin-location-map-marker"
               style={{ left: markerPoint.x, top: markerPoint.y }}
-              aria-label="نشانگر موقعیت؛ برای تغییر موقعیت آن را بکشید"
-              title="برای جابه‌جایی نشانگر را بکشید"
+              aria-label="نشانگر موقعیت؛ با کلیدهای جهت‌دار جابه‌جا کنید یا آن را بکشید"
+              aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"
+              title="با کلیدهای جهت‌دار جابه‌جا کنید؛ با Shift حرکت دقیق‌تر است"
               onPointerDown={startMarkerDrag}
+              onKeyDown={(event) => {
+                if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+                event.preventDefault();
+                const step = event.shiftKey ? 0.001 : 0.0001;
+                const lat = markerLatitude;
+                const lng = markerLongitude;
+                setDraftCoordinates(
+                  Math.max(-90, Math.min(90, lat + (event.key === "ArrowUp" ? step : event.key === "ArrowDown" ? -step : 0))),
+                  Math.max(-180, Math.min(180, lng + (event.key === "ArrowRight" ? step : event.key === "ArrowLeft" ? -step : 0))),
+                );
+              }}
               onClick={(event) => event.stopPropagation()}
             >
               <MapPin size={22} aria-hidden="true" />
@@ -549,7 +561,7 @@ export function AdminLocationPicker({
                 نقشه پایه بارگذاری نشده است؛ می‌توانی روی این محدوده کلیک کنی، اما برای دیدن خیابان‌ها اتصال نقشه لازم است.
               </div>
             ) : null}
-            <div className="admin-location-map-help"><MapPin size={15} aria-hidden="true" /> روی نقطهٔ موردنظر کلیک کن یا نشانگر را بکش؛ سپس موقعیت را ثبت کن.</div>
+            <div className="admin-location-map-help"><MapPin size={15} aria-hidden="true" /> روی نقطهٔ موردنظر کلیک کن، نشانگر را بکش یا پس از انتخاب آن با کلیدهای جهت‌دار جابه‌جایش کن؛ سپس موقعیت را ثبت کن.</div>
             <div className="admin-location-map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a></div>
           </div>
           <div className="admin-location-map-foot">
