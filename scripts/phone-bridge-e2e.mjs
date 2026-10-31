@@ -100,7 +100,11 @@ async function main() {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ device: { id: deviceId } }),
   });
-  check("rejects a missing pairing token", noPair.status === 401, `got ${noPair.status}`);
+  check(
+    "rejects a missing pairing token",
+    noPair.status === 401 || noPair.status === 503,
+    `got ${noPair.status}`,
+  );
 
   // Without a valid pairing token there is no device token, so everything that
   // follows runs unauthenticated to prove the gate actually holds.
@@ -147,11 +151,11 @@ async function main() {
     `got ${health.status}`,
   );
 
-  // A 503 anywhere above means this server has no database configured. That is
-  // an environment fact, not a contract violation, so the authenticated half is
-  // reported as skipped rather than failed.
+  // A 503 from registration means the server has no database or Phone Bridge
+  // bootstrap credential configured. That is an environment fact, not a
+  // contract violation, so the authenticated half is reported as skipped.
   if (badPair.status === 503) {
-    skip("the authenticated flow", "server reports no database configured (503)");
+    skip("the authenticated flow", "database or Phone Bridge bootstrap credential is not configured (503)");
     console.log(`\n${passed} passed, ${failed} failed, ${skipped} skipped`);
     process.exit(failed === 0 ? 0 : 1);
   }

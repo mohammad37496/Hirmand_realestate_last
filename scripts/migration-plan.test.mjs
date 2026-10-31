@@ -11,7 +11,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { isMigrationFile, migrationName, pendingMigrations } from "./migration-plan.mjs";
-import { acquireMigrationAdvisoryLock } from "./migration-lock.mjs";
+import {
+  acquireMigrationAdvisoryLock,
+  DEFAULT_MIGRATION_LOCK_TIMEOUT_MS,
+  MAX_MIGRATION_LOCK_TIMEOUT_MS,
+  normalizeMigrationLockTimeoutMs,
+} from "./migration-lock.mjs";
 import { projectRoot } from "./with-app-env.mjs";
 
 const AUTH_MIGRATION = "0001_auth.sql";
@@ -168,4 +173,10 @@ test("migration advisory lock helper fails closed after its configured timeout",
     /Timed out waiting for database migration advisory lock after 5ms/,
   );
   assert.ok(attempts >= 1);
+});
+
+test("migration advisory lock timeout cannot be configured beyond the hard maximum", () => {
+  assert.equal(normalizeMigrationLockTimeoutMs(2_500), 2_500);
+  assert.equal(normalizeMigrationLockTimeoutMs(Number.MAX_SAFE_INTEGER), MAX_MIGRATION_LOCK_TIMEOUT_MS);
+  assert.equal(normalizeMigrationLockTimeoutMs(0), DEFAULT_MIGRATION_LOCK_TIMEOUT_MS);
 });

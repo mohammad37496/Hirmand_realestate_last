@@ -46,6 +46,7 @@
     "format": "prettier --write .",
     "test:template": "node --test 'scripts/**/*.test.mjs'",
     "test:phone-bridge:sql": "node scripts/phone-bridge-sql-check.mjs",
+    "test:database-api:postgres": "node --experimental-strip-types scripts/database-api-postgres.integration.mjs",
     "test:phone-bridge:http": "node scripts/phone-bridge-e2e.mjs",
     "start": "node scripts/prestart.mjs && node .output/server/index.mjs",
     "qa:admin:business-e2e": "node scripts/admin-business-workflows-e2e.mjs"
