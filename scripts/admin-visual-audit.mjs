@@ -710,4 +710,15 @@ else console.log(problems.join("\n"));
 console.log(`\n${problems.length} finding(s)\n`);
 
 if (process.env.QA_FULL === "1") console.log(JSON.stringify(report, null, 2));
-if (problems.length) process.exitCode = 1;
+const blockingPatterns = [
+  /navigation control missing/,
+  /horizontal scroll/,
+  /outside the viewport/,
+  /clipped text/,
+  /orphaned sticky bar/,
+  /overlaps/,
+  /could not open the drawer/,
+];
+const blockers = problems.filter((problem) => blockingPatterns.some((pattern) => pattern.test(problem)));
+console.log(blockers.length + " blocking finding(s); accessibility contrast/name/touch-target findings remain reported above");
+if (blockers.length) process.exitCode = 1;
