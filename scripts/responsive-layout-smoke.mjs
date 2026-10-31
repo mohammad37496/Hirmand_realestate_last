@@ -152,6 +152,22 @@ try {
       failedRequests.push({ url: request.url(), error: errorText });
     });
 
+    // This dev-server smoke targets responsive layout, not the Nitro music
+    // API (which is not mounted by Vite's dev fallback). Keep the shared player
+    // deterministic and avoid treating its unrelated aborted fetch as a page
+    // failure. Music API behavior is covered by the server/API test suite.
+    await page.route("**/api/music", (request) => request.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ autoplay: true, tracks: [] }),
+    }));
+    // Headless Chromium can leave the native share sheet promise pending; the
+    // responsive smoke only needs to exercise the control without opening an
+    // operating-system share UI.
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "canShare", { configurable: true, value: () => false });
+    });
+
     try {
       // The route's initial view is chosen during mount from matchMedia. Start
       // the listing at a real phone viewport so the smoke test observes the
