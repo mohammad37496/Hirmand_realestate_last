@@ -56,6 +56,10 @@ test("integer input contract rejects malformed non-empty values", async () => {
   assert.equal(isInvalidIntegerInput("12.5"), true);
   assert.equal(isInvalidIntegerInput("-2"), true);
   assert.equal(isInvalidIntegerInput("-2", true), false);
+  assert.equal(isInvalidIntegerInput("٩٩٩"), false);
+  assert.equal(nullableIntegerInput("٩٩٩"), 999);
+  assert.equal(isInvalidIntegerInput("9007199254740992"), true);
+  assert.equal(nullableIntegerInput("9007199254740992"), null);
 });
 
 test("customer property area matches the API positive-integer contract before submission", () => {

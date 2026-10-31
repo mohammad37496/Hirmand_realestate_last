@@ -1,5 +1,6 @@
 import { Copy, Gauge, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
+import { nullableIntegerInput } from "@/lib/property-input-normalization";
 
 const ASSISTANT_CSS = `
 .admin-smart-tools{
@@ -202,8 +203,7 @@ const TYPE: Record<Props["propertyType"], string> = {
 };
 
 function cleanNumber(raw: string) {
-  const value = raw.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[^0-9]/g, "");
-  return value ? Number(value) : null;
+  return nullableIntegerInput(raw);
 }
 
 function buildTitle(p: Props) {
