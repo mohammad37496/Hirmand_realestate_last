@@ -114,11 +114,12 @@ try {
   await page.getByText("فایل به‌روزرسانی شد.", { exact: true }).waitFor({ state: "visible", timeout: 60000 });
 
   rows = await client.query(
-    "select id, slug, status, price, deposit, rent, published_at, availability_status from properties where id=$1 limit 1",
+    "select id, slug, title, status, price, deposit, rent, published_at, availability_status from properties where id=$1 limit 1",
     [propertyId],
   );
   if (!rows.rows[0]) throw new Error("Edited property row disappeared.");
   row = rows.rows[0];
+  if (String(row.title) !== editedTitle) throw new Error("Edit step did not persist the new title in PostgreSQL: " + String(row.title ?? "(null)"));
   if (row.status !== "published") throw new Error("Edit/publish step did not persist published status.");
   if (String(row.price) !== editedPrice) throw new Error("Edited price was not persisted.");
   if (!row.published_at) throw new Error("Published property has no published_at timestamp.");
@@ -128,13 +129,17 @@ try {
   await page.getByRole("button", { name: "ویرایش «" + editedTitle + "»" })
     .waitFor({ state: "visible", timeout: 15000 });
 
-  const detail = await page.goto(
+  const detailPage = await context.newPage();
+  const detail = await detailPage.goto(
     baseUrl + "/properties/" + encodeURIComponent(String(row.slug)),
-    { waitUntil: "domcontentloaded", timeout: 45000 },
+    { waitUntil: "networkidle", timeout: 45000 },
   );
   if (!detail || detail.status() >= 400) throw new Error("Published property detail returned HTTP " + (detail?.status() ?? 0));
-  if (!(await page.locator("body").innerText()).includes(editedTitle)) {
-    throw new Error("Published detail page does not reflect the edited listing title.");
+  const detailHeading = detailPage.locator(".property-detail-title-block");
+  await detailHeading.waitFor({ state: "visible", timeout: 15000 });
+  const renderedTitle = await detailHeading.innerText();
+  if (!renderedTitle.includes(editedTitle)) {
+    throw new Error("Published detail heading mismatch: expected " + editedTitle + ", received " + (renderedTitle || "(empty)") + "; url=" + detailPage.url());
   }
 
   // Create a lead through the public API so the production automatic matcher runs.
