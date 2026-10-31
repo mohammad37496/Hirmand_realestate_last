@@ -35,7 +35,7 @@ export function ConsultantsProvider({ children }: { children: ReactNode }) {
 
     void listConsultants()
       .then((rows) => {
-        if (!cancelled && rows.length) setConsultants(rows);
+        if (!cancelled) setConsultants(rows);
       })
       .catch(() => {
         // The bundled Hirmand team remains available when the database is unavailable.

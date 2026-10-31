@@ -118,17 +118,9 @@ export const listConsultants = createServerFn({ method: "GET" }).handler(async (
        where is_active = true
        order by sort_order asc, name asc`,
     );
-    const databaseConsultants = rows.map(normalize);
-    if (databaseConsultants.length) {
-      const databaseById = new Map(databaseConsultants.map((item) => [item.id.trim().toLowerCase(), item]));
-      const bundled = staticConsultants();
-      // Keep the two core Hirmand profiles reachable even when the DB contains
-      // only one active consultant (or one row was accidentally removed/disabled).
-      return [
-        ...databaseConsultants,
-        ...bundled.filter((item) => !databaseById.has(item.id.trim().toLowerCase())),
-      ];
-    }
+    // A successful database read is authoritative, including an empty result.
+    // Re-adding bundled profiles here would make deleted consultants reappear.
+    return rows.map(normalize);
   } catch (error) {
     console.warn("[consultants] database directory unavailable; using bundled team", error);
   }
