@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { adminNotificationVisibilityPredicate, getAdminNotificationAccess } from "./admin-notification-access.ts";
+import { loadAdminNotificationCandidates } from "./admin-notification-queries.ts";
 
 test("notification visibility follows lead, property and report permissions", () => {
   assert.deepEqual(getAdminNotificationAccess("owner"), {
@@ -82,4 +83,28 @@ test("unavailable notification storage is explicit and read-state writes fail cl
   assert.match(ui, /if \(!result\.success\) throw new Error/);
   assert.match(ui, /setUnread\(null\)/);
   assert.match(ui, /unread === null/);
+});
+
+test("notification source query failures reject instead of appearing as an empty inbox", async () => {
+  const access = getAdminNotificationAccess("owner");
+  const query = async <T = Record<string, unknown>>(text: string): Promise<T[]> => {
+    if (text.includes("customer_messages")) throw new Error("database unavailable");
+    return [] as T[];
+  };
+
+  await assert.rejects(loadAdminNotificationCandidates(query, access), /database unavailable/);
+});
+
+test("roles without source permissions do not run forbidden notification queries", async () => {
+  const access = getAdminNotificationAccess("viewer");
+  let calls = 0;
+  const query = async <T = Record<string, unknown>>(): Promise<T[]> => {
+    calls += 1;
+    throw new Error("query should not run");
+  };
+
+  assert.deepEqual(await loadAdminNotificationCandidates(query, access), {
+    leads: [], visits: [], messages: [], staleProperties: [],
+  });
+  assert.equal(calls, 0);
 });
