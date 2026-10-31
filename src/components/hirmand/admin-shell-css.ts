@@ -2220,7 +2220,7 @@ export const ADMIN_CSS = `
   .admin-topbar p{line-height:1.65}
   .admin-content{width:100%;max-width:none;padding:18px 16px calc(104px + env(safe-area-inset-bottom))}
   .admin-mobile-nav{bottom:max(8px,env(safe-area-inset-bottom));min-height:68px;gap:4px;padding:6px}
-  .admin-mobile-nav button,.admin-mobile-site{flex:1 1 0;min-width:0;min-height:54px;padding:6px 3px;font-size:.68rem}
+  .admin-mobile-nav button,.admin-mobile-site{flex:0 0 68px;min-width:68px;min-height:54px;padding:6px 3px;font-size:.68rem}
   .admin-mobile-nav button svg,.admin-mobile-site svg{width:20px;height:20px}
   .admin-mobile-nav button span,.admin-mobile-site span{max-width:100%;white-space:nowrap}
   .admin-sticky-bar{padding-inline:16px}
@@ -2260,7 +2260,7 @@ export const ADMIN_CSS = `
   .admin-dialog-actions{display:grid;grid-template-columns:1fr;gap:8px}
   .admin-dialog-actions>*{width:100%;min-height:46px}
   .admin-mobile-nav{left:8px;right:8px;min-height:66px;border-radius:19px}
-  .admin-mobile-nav button,.admin-mobile-site{font-size:.65rem}
+  .admin-mobile-nav button,.admin-mobile-site{flex-basis:64px;min-width:64px;font-size:.65rem}
   .admin-sticky-bar{padding:9px 12px calc(9px + env(safe-area-inset-bottom))}
   .admin-sticky-actions{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:8px}
   .admin-sticky-actions>*{min-width:0;min-height:46px}
@@ -2276,7 +2276,7 @@ export const ADMIN_CSS = `
   .admin-property-card{grid-template-columns:20px 56px minmax(0,1fr);gap:8px;padding:10px}
   .admin-property-thumb{width:56px;height:52px}
   .admin-mobile-nav{left:6px;right:6px;gap:2px;padding:5px}
-  .admin-mobile-nav button,.admin-mobile-site{padding-inline:1px;font-size:.61rem}
+  .admin-mobile-nav button,.admin-mobile-site{flex-basis:56px;min-width:56px;padding-inline:1px;font-size:.61rem}
 }
 @media(prefers-reduced-motion:reduce){.admin-app *{scroll-behavior:auto!important}}
 `;

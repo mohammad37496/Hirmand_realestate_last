@@ -64,7 +64,7 @@ test("admin mobile tables scroll inside their own container and form fields stac
 
 test("admin touch navigation, drawer and confirmation actions retain usable targets", () => {
   const finalLayer = css.slice(css.lastIndexOf("Mobile admin workspace: final responsive layer"));
-  assert.match(finalLayer, /\.admin-mobile-nav button,\.admin-mobile-site\{flex:1 1 0;min-width:0;min-height:54px/);
+  assert.match(finalLayer, /\.admin-mobile-nav button,\.admin-mobile-site\{flex:0 0 68px;min-width:68px;min-height:54px/);
   assert.match(finalLayer, /\.admin-property-actions \.admin-icon-btn\{width:44px;height:44px;min-width:44px;min-height:44px\}/);
   assert.match(finalLayer, /\.admin-dialog-actions>\*\{width:100%;min-height:46px\}/);
   assert.ok(finalLayer.includes(".admin-drawer{overscroll-behavior:contain"));
