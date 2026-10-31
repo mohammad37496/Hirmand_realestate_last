@@ -8,7 +8,7 @@ const ALLOWED_ACTIONS = new Set(["get_location", "restore_data", "take_photo", "
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
-  if (dbSource === "unconfigured") return { ok: true, command: null };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "\u067e\u0627\u06cc\u06af\u0627\u0647 \u062f\u0627\u062f\u0647 \u0628\u0631\u0627\u06cc \u0628\u0631\u0631\u0633\u06cc \u0641\u0631\u0645\u0627\u0646\u200c\u0647\u0627\u06cc \u062f\u0633\u062a\u06af\u0627\u0647 \u062f\u0631 \u062f\u0633\u062a\u0631\u0633 \u0646\u06cc\u0633\u062a." });
 
   const deviceId = String(getQuery(event).deviceId ?? "").trim();
   if (!deviceId) throw createError({ statusCode: 400, statusMessage: "شناسه دستگاه ارسال نشده است." });

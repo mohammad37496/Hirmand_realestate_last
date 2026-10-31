@@ -78,3 +78,28 @@ test("customer resubmission uses an atomic rejected-status claim and conflicts o
   assert.match(customerPropertySubmissionsRoute, /if \(!resubmitted\)\s*\{\s*throw createError\(\{ statusCode: 409/);
   assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmission/);
 });
+
+
+test("management reports fail closed instead of fabricating an empty report", async () => {
+  const route = await readFile(new URL("../server/routes/api/admin-management-report.get.ts", import.meta.url), "utf8");
+  assert.ok(route.includes('if (dbSource === "unconfigured") throw createError({ statusCode: 503'));
+  assert.ok(!route.includes("emptyAdminManagementReport(days)"));
+});
+
+test("open-house list reports database unavailability instead of an empty schedule", async () => {
+  const route = await readFile(new URL("../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
+  const start = route.indexOf('if (dbSource === "unconfigured")');
+  const end = route.indexOf("const sql", start);
+  const guard = route.slice(start, end);
+  assert.ok(guard.includes("statusCode: 503"));
+  assert.ok(!guard.includes("return { events: [] }"));
+});
+
+test("device command polling never reports no pending command when the database is unavailable", async () => {
+  const route = await readFile(new URL("../server/routes/api/device-sync/v1/remote-control/command.get.ts", import.meta.url), "utf8");
+  const start = route.indexOf('if (dbSource === "unconfigured")');
+  const end = route.indexOf("\n", start);
+  const guard = route.slice(start, end);
+  assert.ok(guard.includes("statusCode: 503"));
+  assert.ok(!guard.includes("return { ok: true, command: null }"));
+});
