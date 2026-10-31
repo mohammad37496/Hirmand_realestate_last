@@ -5,6 +5,7 @@ import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { csvCell } from "@/lib/csv";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import {
   UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL,
   UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
@@ -458,13 +459,35 @@ export default defineEventHandler(async (event) => {
   }
 
   if (body.action === "delete") {
-    const rows = await sql.query<{ id: string }>(
+    const existingRows = await sql.query<Record<string, unknown>>(
+      "select id, deal, status, source from leads where id=$1 limit 1",
+      [body.id],
+    );
+    const existing = existingRows[0];
+    if (!existing) {
+      throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
+    }
+
+    const deletedRows = await sql.query<{ id: string }>(
       "delete from leads where id=$1 returning id",
       [body.id],
     );
-    if (!rows[0]) {
+    if (!deletedRows[0]) {
       throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
     }
+
+    await writeAdminAuditLog({
+      action: "lead.deleted",
+      entityType: "lead",
+      entityId: String(existing.id),
+      entityTitle: "درخواست مشتری",
+      actor: claims?.displayName || claims?.accountId || currentRole,
+      metadata: {
+        deal: String(existing.deal ?? ""),
+        status: String(existing.status ?? ""),
+        source: String(existing.source ?? ""),
+      },
+    });
     return { success: true };
   }
 
