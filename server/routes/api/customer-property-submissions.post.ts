@@ -1,6 +1,6 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { z } from "zod";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
@@ -133,51 +133,53 @@ export default defineEventHandler(async (event) => {
     }
     if (parsed.data.website) throw createError({ statusCode: 400, statusMessage: "درخواست نامعتبر است." });
 
-    const previousReviewNote = String(submission.review_note ?? "").trim();
-    const resubmitted = await resubmitCustomerPropertySubmission(sql, {
-      id: String(submission.id),
-      ownerName: parsed.data.ownerName,
-      ownerPhone: parsed.data.ownerPhone,
-      propertyData: JSON.stringify(parsed.data),
-    });
-    if (!resubmitted) {
-      throw createError({ statusCode: 409, statusMessage: "Ø§ÛŒÙ† Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù‡Ù…Ø²Ù…Ø§Ù† ØªØºÛŒÛŒØ± Ú©Ø±Ø¯Ù‡ Ø§Ø³Øª. Ù„Ø·ÙØ§Ù‹ ÙˆØ¶Ø¹ÛŒØª Ø¬Ø¯ÛŒØ¯ Ø¢Ù† Ø±Ø§ Ø¨Ø±Ø±Ø³ÛŒ Ú©Ù†ÛŒØ¯." });
-    }
-    await sql.query(
-      "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'resubmit',$3,$4::jsonb)",
-      [crypto.randomUUID(), submission.id, "مشتری اطلاعات ملک را اصلاح و دوباره برای بررسی ارسال کرد.", JSON.stringify({ trackingToken })],
-    ).catch(() => {});
-    if (submission.lead_id) {
-      await sql.query(
-        "update leads set status='new', updated_at=current_timestamp, follow_up_at=current_timestamp + interval '2 hours', name=$2, phone=$3, job='مالک', deal=$4, property_type=$5, neighborhood=$6, note=$7 where id=$1",
-        [
-          submission.lead_id,
-          parsed.data.ownerName,
-          parsed.data.ownerPhone,
-          "اصلاح ثبت ملک - " + parsed.data.transactionType,
-          parsed.data.propertyType,
-          parsed.data.neighborhood,
-          buildLeadNote(parsed.data),
-        ],
-      ).catch(() => {});
-      await sql.query(
-        "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
-        [
-          submission.lead_id,
-          "اصلاح و ارسال مجدد ملک توسط مشتری",
-          previousReviewNote || "مشتری اطلاعات ملک را اصلاح و دوباره برای بررسی ارسال کرد.",
-          JSON.stringify({ submissionId: submission.id, trackingToken }),
-        ],
-      ).catch(() => {});
-    }
+  return withSqlTransaction(async (tx) => {
+      const previousReviewNote = String(submission.review_note ?? "").trim();
+      const resubmitted = await resubmitCustomerPropertySubmission(tx, {
+        id: String(submission.id),
+        ownerName: parsed.data.ownerName,
+        ownerPhone: parsed.data.ownerPhone,
+        propertyData: JSON.stringify(parsed.data),
+      });
+      if (!resubmitted) {
+        throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان تغییر کرده است. لطفاً وضعیت جدید آن را بررسی کنید." });
+      }
+      await tx.query(
+        "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'resubmit',$3,$4::jsonb)",
+        [crypto.randomUUID(), submission.id, "مشتری اطلاعات ملک را اصلاح و دوباره برای بررسی ارسال کرد.", JSON.stringify({ trackingToken })],
+      );
+      if (submission.lead_id) {
+        await tx.query(
+          "update leads set status='new', updated_at=current_timestamp, follow_up_at=current_timestamp + interval '2 hours', name=$2, phone=$3, job='مالک', deal=$4, property_type=$5, neighborhood=$6, note=$7 where id=$1",
+          [
+            submission.lead_id,
+            parsed.data.ownerName,
+            parsed.data.ownerPhone,
+            "اصلاح ثبت ملک - " + parsed.data.transactionType,
+            parsed.data.propertyType,
+            parsed.data.neighborhood,
+            buildLeadNote(parsed.data),
+          ],
+        );
+        await tx.query(
+          "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
+          [
+            submission.lead_id,
+            "اصلاح و ارسال مجدد ملک توسط مشتری",
+            previousReviewNote || "مشتری اطلاعات ملک را اصلاح و دوباره برای بررسی ارسال کرد.",
+            JSON.stringify({ submissionId: submission.id, trackingToken }),
+          ],
+        );
+      }
 
-    return {
-      success: true,
-      duplicate: false,
-      submissionId: String(submission.id),
-      trackingToken,
-      message: "اصلاحات ملک با موفقیت ارسال شد و دوباره در صف بررسی هیرمند قرار گرفت.",
-    };
+      return {
+        success: true,
+        duplicate: false,
+        submissionId: String(submission.id),
+        trackingToken,
+        message: "اصلاحات ملک با موفقیت ارسال شد و دوباره در صف بررسی هیرمند قرار گرفت.",
+      };
+  });
   }
 
   const parsed = submissionSchema.safeParse(rawBody);
@@ -191,69 +193,68 @@ export default defineEventHandler(async (event) => {
   const leadId = crypto.randomUUID();
   void getCookie(event, VISITOR_COOKIE);
 
-  const duplicateQuery = buildPendingSubmissionDuplicateQuery(parsed.data.ownerPhone, parsed.data);
-  const existing = await sql.query<{ id:string; public_tracking_token:string|null }>(duplicateQuery.sql, duplicateQuery.params);
-  if (existing[0]) {
-    return { success:true, duplicate:true, trackingToken: existing[0].public_tracking_token || trackingToken };
-  }
+  return withSqlTransaction(async (tx) => {
+    const normalizedTitle = parsed.data.title.trim().toLowerCase();
+    await tx.query("select pg_advisory_xact_lock(hashtext($1)::bigint)", ["phone:" + parsed.data.ownerPhone]);
+    await tx.query("select pg_advisory_xact_lock(hashtext($1)::bigint)", [`property:${parsed.data.neighborhood}|${parsed.data.areaM2}|${normalizedTitle}`]);
+    const duplicateQuery = buildPendingSubmissionDuplicateQuery(parsed.data.ownerPhone, parsed.data);
+    const existing = await tx.query<{ id:string; public_tracking_token:string|null }>(duplicateQuery.sql, duplicateQuery.params);
+    if (existing[0]) {
+      return { success:true, duplicate:true, trackingToken: existing[0].public_tracking_token || trackingToken };
+    }
 
-  try {
-    await sql.query(
-      "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,follow_up_at,public_tracking_token) values ($1,$2,$3,1,$4,$5,$6,$7,'',$8,'website',current_timestamp + interval '2 hours',$9)",
-      [
-        leadId,
-        parsed.data.ownerName,
-        parsed.data.ownerPhone,
-        "مالک",
-        "ثبت ملک - " + parsed.data.transactionType,
-        parsed.data.propertyType,
-        parsed.data.neighborhood,
-        buildLeadNote(parsed.data),
-        trackingToken,
-      ],
+      await tx.query(
+        "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,follow_up_at,public_tracking_token) values ($1,$2,$3,1,$4,$5,$6,$7,'',$8,'website',current_timestamp + interval '2 hours',$9)",
+        [
+          leadId,
+          parsed.data.ownerName,
+          parsed.data.ownerPhone,
+          "مالک",
+          "ثبت ملک - " + parsed.data.transactionType,
+          parsed.data.propertyType,
+          parsed.data.neighborhood,
+          buildLeadNote(parsed.data),
+          trackingToken,
+        ],
+      );
+      await tx.query(
+        "insert into customer_property_submissions (id,lead_id,public_tracking_token,status,owner_name,owner_phone,property_data,queue_started_at) values ($1,$2,$3,'pending',$4,$5,$6::jsonb,current_timestamp)",
+        [
+          submissionId,
+          leadId,
+          trackingToken,
+          parsed.data.ownerName,
+          parsed.data.ownerPhone,
+          JSON.stringify(parsed.data),
+        ],
+      );
+      await tx.query(
+        "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'follow_up',$2,$3,$4::jsonb)",
+        [
+          leadId,
+          "ثبت ملک توسط مشتری",
+          "ملک جدید برای بررسی و انتشار ارسال شده است.",
+          JSON.stringify({ submissionId, mediaCount: parsed.data.images.length }),
+        ],
+      );
+
+    const duplicateRows = await tx.query<{ id: string; public_tracking_token: string; owner_name: string; owner_phone: string }>(
+      "select id,public_tracking_token,owner_name,owner_phone from customer_property_submissions where id <> $5 and status in ('pending','approved') and (owner_phone=$1 or ((property_data->>'neighborhood')=$2 and (property_data->>'areaM2')=$3 and lower(coalesce(property_data->>'title',''))=$4)) order by created_at desc limit 3",
+      [parsed.data.ownerPhone, parsed.data.neighborhood, String(parsed.data.areaM2), normalizedTitle, submissionId],
     );
-    await sql.query(
-      "insert into customer_property_submissions (id,lead_id,public_tracking_token,status,owner_name,owner_phone,property_data,queue_started_at) values ($1,$2,$3,'pending',$4,$5,$6::jsonb,current_timestamp)",
-      [
-        submissionId,
-        leadId,
-        trackingToken,
-        parsed.data.ownerName,
-        parsed.data.ownerPhone,
-        JSON.stringify(parsed.data),
-      ],
+
+    await tx.query(
+      "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'created',$3,$4::jsonb)",
+      [crypto.randomUUID(), submissionId, "ثبت ملک جدید توسط مشتری و ورود به صف بررسی.", JSON.stringify({ trackingToken, possibleDuplicate: duplicateRows.length > 0 })],
     );
-    await sql.query(
-      "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'follow_up',$2,$3,$4::jsonb)",
-      [
-        leadId,
-        "ثبت ملک توسط مشتری",
-        "ملک جدید برای بررسی و انتشار ارسال شده است.",
-        JSON.stringify({ submissionId, mediaCount: parsed.data.images.length }),
-      ],
-    ).catch(() => {});
-  } catch (error) {
-    await sql.query("delete from leads where id=$1", [leadId]).catch(() => {});
-    throw error;
-  }
-
-  const normalizedTitle = parsed.data.title.trim().toLowerCase();
-  const duplicateRows = await sql.query<{ id: string; public_tracking_token: string; owner_name: string; owner_phone: string }>(
-    "select id,public_tracking_token,owner_name,owner_phone from customer_property_submissions where id <> $5 and status in ('pending','approved') and (owner_phone=$1 or ((property_data->>'neighborhood')=$2 and (property_data->>'areaM2')=$3 and lower(coalesce(property_data->>'title',''))=$4)) order by created_at desc limit 3",
-    [parsed.data.ownerPhone, parsed.data.neighborhood, String(parsed.data.areaM2), normalizedTitle, submissionId],
-  );
-
-  await sql.query(
-    "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'created',$3,$4::jsonb)",
-    [crypto.randomUUID(), submissionId, "ثبت ملک جدید توسط مشتری و ورود به صف بررسی.", JSON.stringify({ trackingToken, possibleDuplicate: duplicateRows.length > 0 })],
-  ).catch(() => {});
-  return {
-    success:true,
-    duplicate:false,
-    possibleDuplicate: duplicateRows.length > 0,
-    possibleDuplicateCount: duplicateRows.length,
-    submissionId,
-    trackingToken,
-    message:"ملک شما با موفقیت برای بررسی کارشناسان هیرمند ارسال شد.",
-  };
+    return {
+      success:true,
+      duplicate:false,
+      possibleDuplicate: duplicateRows.length > 0,
+      possibleDuplicateCount: duplicateRows.length,
+      submissionId,
+      trackingToken,
+      message:"ملک شما با موفقیت برای بررسی کارشناسان هیرمند ارسال شد.",
+    };
+  });
 });
