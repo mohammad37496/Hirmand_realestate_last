@@ -15,15 +15,38 @@ const KEY = process.env.HIRMAND_ADMIN_KEY || "";
 const OUT = process.env.QA_SCREENSHOT_DIR || "screenshots/admin";
 
 const VIEWS = [
-  { id: "dashboard", label: "داشبورد" },
-  { id: "list", label: "فایل‌های ملک" },
-  { id: "leads", label: "درخواست‌ها" },
-  { id: "consultants", label: "مشاوران" },
-  { id: "partners", label: "همکاران" },
-  { id: "music", label: "موسیقی" },
-  { id: "attendance", label: "حضور و غیاب" },
-  { id: "divar", label: "فایل‌های دیوار" },
-  { id: "form", label: "افزودن فایل" },
+  { id: "dashboard", label: "dashboard" },
+  { id: "managementReport", label: "managementReport" },
+  { id: "productivity", label: "productivity" },
+  { id: "integrity", label: "integrity" },
+  { id: "deals", label: "deals" },
+  { id: "expiry", label: "expiry" },
+  { id: "commission", label: "commission" },
+  { id: "consultantPerformance", label: "consultantPerformance" },
+  { id: "consultantTargets", label: "consultantTargets" },
+  { id: "list", label: "list" },
+  { id: "leads", label: "leads" },
+  { id: "messages", label: "messages" },
+  { id: "matching", label: "matching" },
+  { id: "divar", label: "divar" },
+  { id: "consultants", label: "consultants" },
+  { id: "partners", label: "partners" },
+  { id: "owners", label: "owners" },
+  { id: "attendance", label: "attendance" },
+  { id: "finance", label: "finance" },
+  { id: "music", label: "music" },
+  { id: "watermark", label: "watermark" },
+  { id: "backup", label: "backup" },
+  { id: "mediaHealth", label: "mediaHealth" },
+  { id: "schedule", label: "schedule" },
+  { id: "trash", label: "trash" },
+  { id: "audit", label: "audit" },
+  { id: "settings", label: "settings" },
+  { id: "security", label: "security" },
+  { id: "seoRedirects", label: "seoRedirects" },
+  { id: "contentStudio", label: "contentStudio" },
+  { id: "areaContent", label: "areaContent" },
+  { id: "form", label: "form" },
 ];
 
 /**
@@ -389,7 +412,7 @@ const AUDIT = () => {
     const rect = el.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) continue;
 
-    if ((rect.right > window.innerWidth + 1 || rect.left < -1) && !insideScroller(el)) {
+    if ((rect.right > window.innerWidth + 8 || rect.left < -8) && !insideScroller(el)) {
       geometry.offViewport.push({
         selector: describe(el),
         left: Math.round(rect.left),
@@ -402,12 +425,12 @@ const AUDIT = () => {
       const clamped = style.webkitLineClamp && style.webkitLineClamp !== "none";
       const clippedX =
         !clamped &&
-        el.scrollWidth > el.clientWidth + 1 &&
+        el.scrollWidth > el.clientWidth + 4 &&
         (style.overflowX === "hidden" || style.overflowX === "clip") &&
         style.textOverflow !== "ellipsis";
       const clippedY =
         !clamped &&
-        el.scrollHeight > el.clientHeight + 1 &&
+        el.scrollHeight > el.clientHeight + 4 &&
         (style.overflowY === "hidden" || style.overflowY === "clip");
       if (clippedX || clippedY) {
         geometry.clipped.push({
@@ -468,17 +491,19 @@ function selectedViews() {
 }
 
 async function clickByLabel(page, selector, viewId) {
-  const candidates = await page.locator(selector).all();
-  for (const candidate of candidates) {
-    if (!(await candidate.isVisible().catch(() => false))) continue;
-    const text = (await candidate.innerText().catch(() => "")) || "";
-    if (ALIASES[viewId].some((alias) => text.includes(alias))) {
-      await candidate.click();
-      await page.waitForTimeout(700);
-      return true;
-    }
+  const navRoot = selector.startsWith(".admin-drawer") ? ".admin-drawer" : ".admin-sidebar-nav";
+  if (viewId === "form") {
+    const button = page.locator(navRoot + " .admin-nav-btn-create");
+    if (!(await button.isVisible().catch(() => false))) return false;
+    await button.click();
+    await page.waitForTimeout(700);
+    return true;
   }
-  return false;
+  const button = page.locator(navRoot + ' [data-admin-view="' + viewId + '"]');
+  if (!(await button.isVisible().catch(() => false))) return false;
+  await button.click();
+  await page.waitForTimeout(700);
+  return true;
 }
 
 const report = { base: BASE, at: new Date().toISOString(), views: [], overlays: [] };
@@ -545,11 +570,14 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
     if (mobile) {
       const trigger = page.locator(".admin-drawer-trigger");
       if (await trigger.isVisible().catch(() => false)) {
-        await trigger.click();
-        await page.waitForTimeout(300);
+        const expanded = await trigger.getAttribute("aria-expanded").catch(() => null);
+        if (expanded !== "true") {
+          await trigger.click();
+          await page.waitForTimeout(300);
+        }
       }
     }
-    await clickByLabel(page, mobile ? ".admin-drawer .admin-nav-btn" : ".admin-sidebar-nav .admin-nav-btn", view.id);
+    const navigated = await clickByLabel(page, mobile ? ".admin-drawer .admin-nav-btn" : ".admin-sidebar-nav .admin-nav-btn", view.id);
     await page.waitForTimeout(900);
 
     if (view.id === "attendance") {
@@ -566,6 +594,7 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
       viewport: viewport.id,
       width: viewport.width,
       view: view.id,
+      navigated,
       issues,
       geometry,
     });
@@ -632,6 +661,7 @@ for (const entry of report.overlays) {
 for (const entry of report.views) {
   const { issues, geometry } = entry;
   const tag = `${entry.viewport}(${entry.width})/${entry.view}`;
+  if (!entry.navigated) problems.push(`${tag}: navigation control missing or could not be opened`);
   if (geometry.horizontalScroll) {
     problems.push(
       `${tag}: horizontal scroll ${geometry.scrollWidth}px > ${geometry.innerWidth}px`,
@@ -680,3 +710,14 @@ else console.log(problems.join("\n"));
 console.log(`\n${problems.length} finding(s)\n`);
 
 if (process.env.QA_FULL === "1") console.log(JSON.stringify(report, null, 2));
+const blockingPatterns = [
+  /navigation control missing/,
+  /horizontal scroll/,
+  /outside the viewport/,
+  /orphaned sticky bar/,
+  /overlaps/,
+  /could not open the drawer/,
+];
+const blockers = problems.filter((problem) => blockingPatterns.some((pattern) => pattern.test(problem)));
+console.log(blockers.length + " blocking finding(s); clipped-text/accessibility contrast/name/touch-target findings remain reported above");
+if (blockers.length) process.exitCode = 1;

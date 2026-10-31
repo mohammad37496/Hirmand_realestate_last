@@ -19,14 +19,37 @@ if (!KEY) {
 }
 
 const VIEWS = [
-  { id: "dashboard", label: "داشبورد" },
-  { id: "list", label: "فهرست فایل‌ها" },
-  { id: "leads", label: "درخواست‌ها" },
-  { id: "consultants", label: "مشاوران" },
-  { id: "partners", label: "همکاران" },
-  { id: "music", label: "موسیقی" },
-  { id: "attendance", label: "حضور و غیاب" },
-  { id: "divar", label: "فایل‌های دیوار" },
+  { id: "dashboard", label: "dashboard" },
+  { id: "managementReport", label: "managementReport" },
+  { id: "productivity", label: "productivity" },
+  { id: "integrity", label: "integrity" },
+  { id: "deals", label: "deals" },
+  { id: "expiry", label: "expiry" },
+  { id: "commission", label: "commission" },
+  { id: "consultantPerformance", label: "consultantPerformance" },
+  { id: "consultantTargets", label: "consultantTargets" },
+  { id: "list", label: "list" },
+  { id: "leads", label: "leads" },
+  { id: "messages", label: "messages" },
+  { id: "matching", label: "matching" },
+  { id: "divar", label: "divar" },
+  { id: "consultants", label: "consultants" },
+  { id: "partners", label: "partners" },
+  { id: "owners", label: "owners" },
+  { id: "attendance", label: "attendance" },
+  { id: "finance", label: "finance" },
+  { id: "music", label: "music" },
+  { id: "watermark", label: "watermark" },
+  { id: "backup", label: "backup" },
+  { id: "mediaHealth", label: "mediaHealth" },
+  { id: "schedule", label: "schedule" },
+  { id: "trash", label: "trash" },
+  { id: "audit", label: "audit" },
+  { id: "settings", label: "settings" },
+  { id: "security", label: "security" },
+  { id: "seoRedirects", label: "seoRedirects" },
+  { id: "contentStudio", label: "contentStudio" },
+  { id: "areaContent", label: "areaContent" },
 ];
 
 const VIEWPORTS = [
@@ -85,43 +108,28 @@ function attach(page, tag) {
   });
 }
 
-const ALIASES = {
-  dashboard: ["داشبورد"],
-  list: ["فایل‌های ملک", "فهرست"],
-  leads: ["درخواست‌ها"],
-  consultants: ["مشاوران"],
-  partners: ["همکاران"],
-  music: ["موسیقی"],
-  attendance: ["حضور"],
-  divar: ["دیوار"],
-};
-
-async function clickByLabel(page, selector, viewId) {
-  const candidates = await page.locator(selector).all();
-  for (const candidate of candidates) {
-    if (!(await candidate.isVisible().catch(() => false))) continue;
-    const text = (await candidate.innerText().catch(() => "")) || "";
-    const title = (await candidate.getAttribute("title").catch(() => null)) || "";
-    if (ALIASES[viewId].some((alias) => text.includes(alias) || title.includes(alias))) {
-      await candidate.click();
-      await page.waitForTimeout(700);
-      return true;
-    }
-  }
-  return false;
-}
-
 async function openView(page, view) {
   const isMobile = (page.viewportSize()?.width ?? 1440) <= 900;
   if (isMobile) {
     const trigger = page.locator(".admin-drawer-trigger");
     if (await trigger.isVisible().catch(() => false)) {
-      await trigger.click();
-      await page.waitForTimeout(350);
+      const expanded = await trigger.getAttribute("aria-expanded").catch(() => null);
+      if (expanded !== "true") {
+        await trigger.click();
+        await page.waitForTimeout(350);
+      }
     }
-    return clickByLabel(page, ".admin-drawer .admin-nav-btn", view.id);
+    const button = page.locator('.admin-drawer [data-admin-view="' + view.id + '"]');
+    if (!(await button.isVisible().catch(() => false))) return false;
+    await button.click();
+    await page.waitForTimeout(700);
+    return true;
   }
-  return clickByLabel(page, ".admin-sidebar-nav .admin-nav-btn", view.id);
+  const button = page.locator('.admin-sidebar-nav [data-admin-view="' + view.id + '"]');
+  if (!(await button.isVisible().catch(() => false))) return false;
+  await button.click();
+  await page.waitForTimeout(700);
+  return true;
 }
 
 async function run() {
@@ -162,7 +170,7 @@ async function run() {
     }
 
     for (const view of VIEWS) {
-      const before = consoleErrors.length + pageErrors.length;
+      const before = { errors: consoleErrors.length + pageErrors.length, requests: failedRequests.length, responses: badResponses.length };
       const navigated = await openView(page, view);
       await page.waitForTimeout(900);
 
@@ -183,6 +191,9 @@ async function run() {
 
       const text = await page.locator("body").innerText();
       const stuck = /در حال بارگذاری…|در حال ساخت داشبورد/.test(text);
+      const newErrors = consoleErrors.length + pageErrors.length - before.errors;
+      const newFailedRequests = failedRequests.length - before.requests;
+      const newBadResponses = badResponses.length - before.responses;
 
       await page.screenshot({
         path: `${OUT}/${viewport.id}-${view.id}.png`,
@@ -192,11 +203,13 @@ async function run() {
       results.push({
         viewport: viewport.id,
         view: view.id,
-        ok: navigated && overflow.scrollWidth <= overflow.clientWidth + 2 && !stuck,
+        ok: navigated && overflow.scrollWidth <= overflow.clientWidth + 2 && !stuck && newErrors === 0 && newFailedRequests === 0 && newBadResponses === 0 && text.length > 0,
         overflow: overflow.scrollWidth > overflow.clientWidth + 2,
         offenders: overflow.offenders,
         stuckLoading: stuck,
-        newErrors: consoleErrors.length + pageErrors.length - before,
+        newErrors,
+        newFailedRequests,
+        newBadResponses,
         bodyTextLength: text.length,
       });
     }
@@ -253,9 +266,9 @@ async function run() {
   // `/api/music` and friends are nitro handlers: they only exist in the
   // production build, so the dev server 404s them by design. Anything else
   // that came back 4xx/5xx is a real broken reference.
-  const unexpected = badResponses.filter((item) => !item.url.includes("/api/"));
+  const unexpected = badResponses;
   const failures = results.filter((item) => !item.ok);
-  if (failures.length || pageErrors.length || unexpected.length) {
+  if (failures.length || consoleErrors.length || pageErrors.length || failedRequests.length || unexpected.length) {
     process.exitCode = 1;
   }
 }
