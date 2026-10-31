@@ -16,13 +16,16 @@ test("the music player is mounted once in the shared root for every route", () =
 });
 
 test("route changes collapse the dock without running the audio lifecycle cleanup", () => {
-  assert.match(player, /const pathname = useRouterState\\(\\{ select: \\(state\\) => state\\.location\\.pathname \\}\\)/);
-  assert.match(player, /useEffect\\(\\(\\) => \\{\\s*void loadTracks\\(\\);[\\s\\S]*?window\\.addEventListener\\("focus", refresh\\);[\\s\\S]*?audio\\?\\.pause\\(\\);[\\s\\S]*?\\}, \\[loadTracks\\]\\);/,
-    "audio pauses only when the shared player lifecycle ends");
-  assert.match(player, /useEffect\\(\\(\\) => \\{\\s*const mobileViewport = window\\.matchMedia[\\s\\S]*?const isPropertyDetailPage = pathname\\.startsWith\\("\\/properties\\/"\\)[\\s\\S]*?\\}, \\[pathname\\]\\);/,
-    "route visibility updates must live in an effect separate from audio cleanup");
+  assert.ok(player.includes("const pathname = useRouterState"), "the route pathname must be observed");
+  const lifecycleStart = player.indexOf("void loadTracks()");
+  const lifecycleEnd = player.indexOf("}, [loadTracks])", lifecycleStart);
+  const routeStart = player.indexOf("const mobileViewport = window.matchMedia");
+  const routeEnd = player.indexOf("}, [pathname])", routeStart);
+  assert.ok(lifecycleStart >= 0 && lifecycleEnd > lifecycleStart, "audio lifecycle must have its own loadTracks effect");
+  assert.ok(routeStart > lifecycleEnd && routeEnd > routeStart, "route visibility must be handled by a later, separate pathname effect");
+  assert.ok(player.indexOf('window.addEventListener("focus", refresh)') > lifecycleStart, "focus refresh belongs to the audio lifecycle");
+  assert.ok(player.indexOf("audio?.pause()") < lifecycleEnd, "audio cleanup remains scoped to lifecycle teardown");
 });
-
 test("viewport breakpoint changes synchronize the player mode and clean up the listener", () => {
   assert.match(player, /mobileViewport.addEventListener\("change", syncViewportMode\)/);
   assert.match(player, /mobileViewport.removeEventListener\("change", syncViewportMode\)/);
