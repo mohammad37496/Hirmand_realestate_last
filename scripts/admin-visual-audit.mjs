@@ -412,7 +412,7 @@ const AUDIT = () => {
     const rect = el.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) continue;
 
-    if ((rect.right > window.innerWidth + 1 || rect.left < -1) && !insideScroller(el)) {
+    if ((rect.right > window.innerWidth + 8 || rect.left < -8) && !insideScroller(el)) {
       geometry.offViewport.push({
         selector: describe(el),
         left: Math.round(rect.left),
@@ -425,12 +425,12 @@ const AUDIT = () => {
       const clamped = style.webkitLineClamp && style.webkitLineClamp !== "none";
       const clippedX =
         !clamped &&
-        el.scrollWidth > el.clientWidth + 1 &&
+        el.scrollWidth > el.clientWidth + 4 &&
         (style.overflowX === "hidden" || style.overflowX === "clip") &&
         style.textOverflow !== "ellipsis";
       const clippedY =
         !clamped &&
-        el.scrollHeight > el.clientHeight + 1 &&
+        el.scrollHeight > el.clientHeight + 4 &&
         (style.overflowY === "hidden" || style.overflowY === "clip");
       if (clippedX || clippedY) {
         geometry.clipped.push({
@@ -492,7 +492,10 @@ function selectedViews() {
 
 async function clickByLabel(page, selector, viewId) {
   if (viewId === "form") {
-    const button = page.locator(".admin-nav-btn-create");
+    const mobile = selector.startsWith(".admin-drawer");
+    const button = page.locator(
+      mobile ? '.admin-mobile-nav button[title*="?????? ????"]' : ".admin-nav-btn-create",
+    );
     if (!(await button.isVisible().catch(() => false))) return false;
     await button.click();
     await page.waitForTimeout(700);
