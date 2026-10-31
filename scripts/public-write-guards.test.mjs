@@ -74,7 +74,7 @@ test("customer-submission media is never cached publicly after publication check
 });
 
 test("customer resubmission uses an atomic rejected-status claim and conflicts on stale state", () => {
-  assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmission\(sql,\s*\{/);
+  assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmission\(tx,\s*\{/);
   assert.match(customerPropertySubmissionsRoute, /if \(!resubmitted\)\s*\{\s*throw createError\(\{ statusCode: 409/);
   assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmission/);
 });
