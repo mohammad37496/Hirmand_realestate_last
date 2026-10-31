@@ -44,7 +44,34 @@ test("deal deletion returns document media only when the deal and documents are 
 
 test("deal deletion route removes returned files after the database delete succeeds", () => {
   const route = readFileSync(new URL("../../server/routes/api/admin-deals.post.ts", import.meta.url), "utf8");
+  const commissionRoute = readFileSync(new URL("../../server/routes/api/admin-commission.post.ts", import.meta.url), "utf8");
   assert.match(route, /DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL/);
   assert.match(route, /if\(!deleted\[0\]\?\.id\)/);
   assert.match(route, /deleteStoredMedia\(fileUrl\)/);
+  assert.match(commissionRoute, /withSqlTransaction\(insertSettlement\)/);
+  assert.match(commissionRoute, /where id=\$1 for update/);
+  assert.match(commissionRoute, /code === "23503"/);
+});
+
+test("deal settlement foreign key rejects new orphans and blocks concurrent deal removal", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table admin_deals (id text primary key);
+      create table admin_commission_settlements (id text primary key, deal_id text);
+      insert into admin_deals(id) values ('deal-1');
+      insert into admin_commission_settlements(id,deal_id) values ('legacy-orphan','deleted-deal');
+    `);
+    const migration = readFileSync(new URL("../../migrations/0109_admin_commission_settlement_deal_fk.sql", import.meta.url), "utf8");
+    await db.exec(migration);
+    await assert.rejects(
+      db.query("insert into admin_commission_settlements(id,deal_id) values ('new-orphan','missing-deal')"),
+      /foreign key/i,
+    );
+    await db.query("insert into admin_commission_settlements(id,deal_id) values ('settlement-1','deal-1')");
+    await assert.rejects(db.query("delete from admin_deals where id='deal-1'"), /foreign key/i);
+    assert.equal((await db.query("select id from admin_deals where id='deal-1'")).rows.length, 1);
+  } finally {
+    await db.close();
+  }
 });
