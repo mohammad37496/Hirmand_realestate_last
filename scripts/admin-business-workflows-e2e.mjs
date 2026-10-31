@@ -136,6 +136,7 @@ try {
     { waitUntil: "domcontentloaded", timeout: 45000 },
   );
   if (!detail || detail.status() >= 400) throw new Error("Published property detail returned HTTP " + (detail?.status() ?? 0));
+  await page.getByText(editedTitle, { exact: true }).waitFor({ state: "visible", timeout: 15000 });
   const detailText = await page.locator("body").innerText();
   const detailHeading = await page.locator("h1").first().innerText().catch(() => "");
   console.log("[admin-business-e2e] public detail evidence", JSON.stringify({
