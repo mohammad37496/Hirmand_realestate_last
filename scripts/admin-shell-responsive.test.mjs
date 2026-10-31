@@ -58,7 +58,7 @@ test("admin mobile workspace keeps compact two-column metrics at 390px and below
 
 test("admin mobile tables scroll inside their own container and form fields stack", () => {
   const finalLayer = css.slice(css.lastIndexOf("Mobile admin workspace: final responsive layer"));
-  assert.match(finalLayer, /\.admin-main :is\(\.admin-table-wrap,\.admin-target-table-wrap,\[class\*=\"table-wrap\"\]\)\{max-width:100%;overflow-x:auto/);
+  assert.match(finalLayer, /\.admin-main :is\(\.admin-table-wrap,\.admin-target-table-wrap,\[class\*="table-wrap"\]\)\{max-width:100%;overflow-x:auto/);
   assert.match(finalLayer, /\.admin-form-grid,\.admin-main \.admin-form-grid\{grid-template-columns:minmax\(0,1fr\)/);
 });
 
