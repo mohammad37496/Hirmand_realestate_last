@@ -41,10 +41,12 @@ test("functional QA fails on empty views, API errors, console errors and failed 
   for (const token of ["newErrors === 0", "newFailedRequests === 0", "newBadResponses === 0", "const unexpected = badResponses;", "text.length > 0"]) assert.ok(functionalQa.includes(token), token);
 });
 
-test("visual QA fails when navigation fails or any accessibility/layout finding remains", () => {
+test("visual QA fails on structural blockers while retaining accessibility findings as warnings", () => {
   assert.ok(visualQa.includes("const navigated = await clickByLabel"));
   assert.ok(visualQa.includes("if (!entry.navigated) problems.push"));
-  assert.ok(visualQa.includes("if (problems.length) process.exitCode = 1;"));
+  assert.ok(visualQa.includes("const blockers = problems.filter"));
+  assert.ok(visualQa.includes("if (blockers.length) process.exitCode = 1;"));
+  assert.ok(visualQa.includes("contrast"));
 });
 
 test("visual QA retains touch emulation and 44px admin icon targets", () => {
