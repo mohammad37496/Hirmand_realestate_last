@@ -115,6 +115,7 @@ import {
 } from "@/lib/property-options";
 import "@/property-gallery-mobile.css";
 import "@/property-detail-responsive-system.css";
+import "@/property-detail-professional.css";
 
 const TRANSACTION_LABEL: Record<Property["transactionType"], string> = {
   buy: "خرید",

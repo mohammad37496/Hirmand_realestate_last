@@ -726,6 +726,7 @@ try {
   assert.ok((await detailPage.innerText()).includes(detailTitle), "details page must render the selected property's actual title");
   const detailActions = detailPage.locator(".hd-actions-wrap > .pcard-actions");
   const detailActionButtons = detailActions.locator(".property-action");
+  const mobileContactActions = page.locator(".hd-mobile-actions");
   await detailActions.waitFor({ state: "visible", timeout: timeoutMs });
   assert.equal(await detailActionButtons.count(), 8, "property detail tools must expose all eight compact actions");
   assert.equal(await detailActions.locator(".property-actions-compact").count(), 1,
@@ -733,6 +734,37 @@ try {
   for (const width of [320, 390, 768, 1024, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(80);
+    const contactGeometry = await mobileContactActions.evaluate((rail) => {
+      const rect = rail.getBoundingClientRect();
+      const style = getComputedStyle(rail);
+      return {
+        display: style.display,
+        visibility: style.visibility,
+        position: style.position,
+        left: rect.left,
+        right: rect.right,
+        bottom: window.innerHeight - rect.bottom,
+        pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        buttons: [...rail.children].map((button) => {
+          const bounds = button.getBoundingClientRect();
+          return { width: bounds.width, height: bounds.height, text: button.textContent?.trim() };
+        }),
+      };
+    });
+    if (width <= 980) {
+      assert.notEqual(contactGeometry.display, "none", `mobile contact CTA must be displayed at ${width}px`);
+      assert.equal(contactGeometry.visibility, "visible", `mobile contact CTA must not be hidden at ${width}px`);
+      assert.equal(contactGeometry.position, "fixed", `mobile contact CTA must remain sticky at ${width}px`);
+      assert.ok(contactGeometry.left >= -1 && contactGeometry.right <= width + 1,
+        `mobile contact CTA must stay within the viewport at ${width}px: ${JSON.stringify(contactGeometry)}`);
+      assert.equal(contactGeometry.buttons.length, 3, `mobile contact CTA must expose call, WhatsApp and share at ${width}px`);
+      assert.ok(contactGeometry.buttons.every((button) => button.width >= 44 && button.height >= 44),
+        `mobile contact CTA targets must remain usable at ${width}px: ${JSON.stringify(contactGeometry.buttons)}`);
+      assert.equal(contactGeometry.pageOverflows, false, `mobile contact CTA must not cause page overflow at ${width}px`);
+      console.log(`[property-card-browser] detail contact CTA ${width}px: fixed, visible, three 44px targets, no page overflow`);
+    } else {
+      assert.equal(contactGeometry.display, "none", `mobile contact CTA must be hidden on desktop at ${width}px`);
+    }
     const geometry = await detailActions.evaluate((rail) => {
       const bounds = (element) => {
         const rect = element.getBoundingClientRect();

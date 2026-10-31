@@ -147,6 +147,10 @@ jobs:
           done
 
           npx playwright install --with-deps chromium
+          # Verify the property detail page against real local fixtures and
+          # an isolated migrated PGlite database, including the sticky mobile
+          # contact CTA at phone and tablet widths.
+          npm run test:property-card-browser
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
           node scripts/phone-bridge-e2e.mjs http://127.0.0.1:8081
           # End-to-end proof of the admin upload path: begin → chunks → complete,
