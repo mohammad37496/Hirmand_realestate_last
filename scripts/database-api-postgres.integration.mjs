@@ -129,7 +129,7 @@ try {
   await createSchemaFixture(admin);
 
   await admin.query(`
-    ALTER TABLE properties ADD COLUMN status text NOT NULL DEFAULT 'published';
+    ALTER TABLE properties ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'published';
     CREATE TABLE property_open_houses (
       id text PRIMARY KEY, property_id text NOT NULL REFERENCES properties(id),
       starts_at timestamptz NOT NULL, ends_at timestamptz NOT NULL,
