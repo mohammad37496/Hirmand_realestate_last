@@ -65,6 +65,10 @@ jobs:
           fi
           exit "${DEPLOY_STATUS}"
 
+      - name: Verify public production routes after release
+        timeout-minutes: 5
+        run: node scripts/live-site-smoke.mjs https://hirmandrealestate.ir
+
       # Opt-in collection prevents routine deployments from copying general
       # application logs to GitHub. A commit containing [diagnose-upload] enables
       # this one-time, narrowly filtered snapshot for the current incident.
