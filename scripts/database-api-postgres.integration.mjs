@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import pg from "pg";
 import { buildCustomerPropertySubmissionApprovalSql } from "../src/lib/customer-property-submission-approval.ts";
 import { resubmitCustomerPropertySubmission } from "../src/lib/customer-property-submission-resubmit.ts";
+import {
+  createOpenHouseSchedule,
+  registerOpenHouseRsvp,
+} from "../src/lib/property-open-house-scheduling.server.ts";
 import { acquireMigrationAdvisoryLock } from "./migration-lock.mjs";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -23,10 +28,36 @@ async function connectInSchema() {
   return client;
 }
 
+function releaseClient(client) {
+  const index = clients.indexOf(client);
+  if (index >= 0) clients.splice(index, 1);
+  client.release();
+}
+
 function sqlFor(client) {
   return {
     query: async (text, params = []) => (await client.query(text, params)).rows,
   };
+}
+
+async function inTransaction(client, callback, { delayInsertMs = 0 } = {}) {
+  await client.query("BEGIN");
+  try {
+    const tx = {
+      query: async (text, params = []) => {
+        if (delayInsertMs > 0 && /^\s*insert into (?:property_open_houses|property_open_house_rsvps)\b/i.test(text)) {
+          await new Promise((resolve) => setTimeout(resolve, delayInsertMs));
+        }
+        return (await client.query(text, params)).rows;
+      },
+    };
+    const result = await callback(tx);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  }
 }
 
 function approvalParams(propertyId, submissionId, eventId, slug) {
@@ -103,6 +134,83 @@ try {
   clients.push(admin);
   await createSchemaFixture(admin);
 
+  await admin.query(`
+    ALTER TABLE properties ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'published';
+    CREATE TABLE property_open_houses (
+      id text PRIMARY KEY, property_id text NOT NULL REFERENCES properties(id),
+      starts_at timestamptz NOT NULL, ends_at timestamptz NOT NULL,
+      capacity integer NOT NULL, note text NOT NULL DEFAULT '',
+      status text NOT NULL DEFAULT 'scheduled', created_at timestamptz NOT NULL DEFAULT current_timestamp
+    );
+    CREATE TABLE property_open_house_rsvps (
+      id text PRIMARY KEY, open_house_id text NOT NULL REFERENCES property_open_houses(id),
+      name text NOT NULL, phone text NOT NULL, party_size integer NOT NULL,
+      note text NOT NULL DEFAULT '', status text NOT NULL DEFAULT 'requested',
+      created_at timestamptz NOT NULL DEFAULT current_timestamp
+    );
+    INSERT INTO properties(id,title,status) VALUES ('open-house-property','Open house integration property','published');
+  `);
+  const openHouseMigration = await readFile(new URL("../migrations/0108_open_house_rsvp_concurrency.sql", import.meta.url), "utf8");
+  await admin.query(openHouseMigration);
+
+  const scheduleA = await connectInSchema();
+  const scheduleB = await connectInSchema();
+  const overlapResults = await Promise.all([
+    inTransaction(scheduleA, (tx) => createOpenHouseSchedule(tx, {
+      id: "open-house-a", propertyId: "open-house-property",
+      startsAt: "2030-06-01T10:00:00Z", endsAt: "2030-06-01T12:00:00Z", capacity: 1, note: "",
+    }), { delayInsertMs: 150 }),
+    inTransaction(scheduleB, (tx) => createOpenHouseSchedule(tx, {
+      id: "open-house-b", propertyId: "open-house-property",
+      startsAt: "2030-06-01T11:00:00Z", endsAt: "2030-06-01T13:00:00Z", capacity: 1, note: "",
+    }), { delayInsertMs: 150 }),
+  ]);
+  assert.equal(overlapResults.filter((result) => result.kind === "created").length, 1);
+  assert.equal(overlapResults.filter((result) => result.kind === "overlap").length, 1);
+  const createdOpenHouseId = overlapResults.find((result) => result.kind === "created")?.id;
+  assert.ok(createdOpenHouseId, "one overlapping open-house event must be created");
+  console.log("ok   PostgreSQL property row lock prevents concurrent overlapping open-house events");
+
+  const capacityResults = await Promise.all([
+    inTransaction(scheduleA, (tx) => registerOpenHouseRsvp(tx, {
+      id: "open-house-rsvp-a", eventId: createdOpenHouseId, name: "Guest A", phone: "09130000001", partySize: 1, note: "",
+    }, new Date("2030-01-01T00:00:00Z")), { delayInsertMs: 150 }),
+    inTransaction(scheduleB, (tx) => registerOpenHouseRsvp(tx, {
+      id: "open-house-rsvp-b", eventId: createdOpenHouseId, name: "Guest B", phone: "09130000002", partySize: 1, note: "",
+    }, new Date("2030-01-01T00:00:00Z")), { delayInsertMs: 150 }),
+  ]);
+  assert.equal(capacityResults.filter((result) => result.kind === "created").length, 1);
+  assert.equal(capacityResults.filter((result) => result.kind === "full").length, 1);
+  const bookedSeats = await admin.query(
+    "SELECT coalesce(sum(party_size),0)::int AS seats FROM property_open_house_rsvps WHERE open_house_id=$1 AND status <> 'cancelled'",
+    [createdOpenHouseId],
+  );
+  assert.equal(bookedSeats.rows[0]?.seats, 1);
+  console.log("ok   PostgreSQL event row lock prevents concurrent RSVP capacity oversubscription");
+
+  await admin.query(
+    "INSERT INTO property_open_houses(id,property_id,starts_at,ends_at,capacity) VALUES ('open-house-duplicate','open-house-property','2030-06-02T10:00:00Z','2030-06-02T12:00:00Z',8)",
+  );
+  const duplicateResults = await Promise.all([
+    inTransaction(scheduleA, (tx) => registerOpenHouseRsvp(tx, {
+      id: "open-house-duplicate-a", eventId: "open-house-duplicate", name: "Guest A", phone: "09130000003", partySize: 1, note: "",
+    }, new Date("2030-01-01T00:00:00Z")), { delayInsertMs: 150 }),
+    inTransaction(scheduleB, (tx) => registerOpenHouseRsvp(tx, {
+      id: "open-house-duplicate-b", eventId: "open-house-duplicate", name: "Guest B", phone: "09130000003", partySize: 1, note: "",
+    }, new Date("2030-01-01T00:00:00Z")), { delayInsertMs: 150 }),
+  ]);
+  assert.equal(duplicateResults.filter((result) => result.kind === "created").length, 1);
+  assert.equal(duplicateResults.filter((result) => result.kind === "duplicate").length, 1);
+  await assert.rejects(
+    admin.query(
+      "INSERT INTO property_open_house_rsvps(id,open_house_id,name,phone,party_size) VALUES ('open-house-duplicate-direct','open-house-duplicate','Guest C','09130000003',1)",
+    ),
+    /unique/i,
+  );
+  console.log("ok   PostgreSQL event row lock and partial unique index prevent duplicate active phone RSVPs");
+  releaseClient(scheduleA);
+  releaseClient(scheduleB);
+
   const raceA = await connectInSchema();
   const raceB = await connectInSchema();
   await admin.query(
@@ -126,6 +234,8 @@ try {
   assert.equal(resubmitted.rows[0]?.status, "pending");
   assert.ok(["Owner A", "Owner B"].includes(resubmitted.rows[0]?.owner_name));
   console.log("ok   PostgreSQL compare-and-set allows exactly one concurrent resubmission");
+  releaseClient(raceA);
+  releaseClient(raceB);
 
   await admin.query(
     `INSERT INTO leads (id,status) VALUES ('lead-failure','new'),('lead-success','new');
@@ -176,6 +286,7 @@ try {
   assert.equal((await admin.query("SELECT id FROM property_change_history WHERE property_id='property-success'")).rowCount, 1);
   assert.equal((await admin.query("SELECT id FROM customer_property_submission_events WHERE id='event-success'")).rowCount, 1);
   console.log("ok   PostgreSQL approval commits the property, CRM activity and review audit together");
+  releaseClient(approval);
 
   const lockOwner = await connectInSchema();
   const lockWaiter = await connectInSchema();
@@ -194,7 +305,7 @@ try {
   assert.equal(released.rows[0]?.unlocked, true);
   console.log("ok   PostgreSQL advisory-lock contention times out, then succeeds after the owner releases it");
 
-  console.log("\n4 passed, 0 failed (real PostgreSQL)");
+  console.log("\n7 passed, 0 failed (real PostgreSQL)");
 } finally {
   for (const client of clients.reverse()) {
     try {
