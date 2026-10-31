@@ -7,11 +7,16 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf
 
 test("deal APIs fail closed and do not report missing mutations as successful", () => {
   const route = read("server/routes/api/admin-deals.post.ts");
+  const deleteSql = read("src/lib/admin-deal-delete-sql.ts");
   const ui = read("src/components/hirmand/admin-deals.tsx");
   assert.match(route, /dbSource==="unconfigured"\)throw createError\(\{statusCode:503/);
   assert.match(route, /update admin_deals[\s\S]*returning id/);
   assert.match(route, /if\(!updated\.length\)throw createError\(\{statusCode:404/);
-  assert.match(route, /with removed_documents as \(delete from admin_deal_documents[\s\S]*not exists\(select 1 from admin_commission_settlements[\s\S]*delete from admin_deals[\s\S]*returning d\.id/);
+  assert.match(route, /DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL/);
+  assert.match(route, /if\(!deleted\[0\]\?\.id\)/);
+  assert.match(route, /deleteStoredMedia\(fileUrl\)/);
+  assert.match(deleteSql, /not exists \(select 1 from admin_commission_settlements/);
+  assert.match(deleteSql, /returning d\.id/);
   assert.match(route, /if\(linkedSettlement\.length\)throw createError\(\{statusCode:409/);
   assert.match(route, /throw createError\(\{statusCode:404,statusMessage:/);
   assert.match(route, /documentStatus\)\)\)throw createError\(\{statusCode:400/);
@@ -70,7 +75,10 @@ test("manager assistant uses aggregate data, role checks, server credentials and
 test("deal document seed is repeatable and deal removal deletes its documents in one statement", async () => {
   const db = new PGlite();
   try {
-    await db.exec("create table admin_deals(id text primary key); create table admin_deal_documents(id text primary key, deal_id text not null, document_type text not null, unique(deal_id,document_type)); create table admin_commission_settlements(id text primary key,deal_id text);");
+    const deleteSqlSource = read("src/lib/admin-deal-delete-sql.ts");
+    const deleteSql = deleteSqlSource.match(/export const DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL = `([\s\S]*?)`;/)?.[1];
+    assert.ok(deleteSql, "deal deletion SQL must remain independently executable");
+    await db.exec("create table admin_deals(id text primary key); create table admin_deal_documents(id text primary key, deal_id text not null, document_type text not null, file_url text, unique(deal_id,document_type)); create table admin_commission_settlements(id text primary key,deal_id text);");
     await db.query("insert into admin_deals(id) values($1)", ["deal-1"]);
     const seedSql = "insert into admin_deal_documents(id,deal_id,document_type) select gen_random_uuid()::text,$1,document_type from unnest($2::text[]) as docs(document_type) on conflict(deal_id,document_type) do nothing returning id";
     const seeded = await db.query(seedSql, ["deal-1", ["identity", "ownership"]]);
@@ -78,13 +86,16 @@ test("deal document seed is repeatable and deal removal deletes its documents in
     assert.equal(seeded.rows.length, 2);
     assert.equal(repeated.rows.length, 0);
     await db.query("insert into admin_commission_settlements(id,deal_id) values($1,$2)", ["settlement-1", "deal-1"]);
-    const blockedDelete = await db.query("with removed_documents as (delete from admin_deal_documents where deal_id=$1 and exists(select 1 from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id)) returning deal_id) delete from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id) returning d.id", ["deal-1"]);
-    assert.equal(blockedDelete.rows.length, 0);
+    await db.query("update admin_deal_documents set file_url='https://media.example/identity.pdf' where document_type='identity'");
+    const blockedDelete = await db.query(deleteSql, ["deal-1"]);
+    assert.equal(blockedDelete.rows[0]?.id, null);
+    assert.deepEqual(blockedDelete.rows[0]?.file_urls, []);
     assert.equal((await db.query("select id from admin_deal_documents where deal_id=$1", ["deal-1"])).rows.length, 2);
     await db.query("delete from admin_commission_settlements where deal_id=$1", ["deal-1"]);
-    const deleted = await db.query("with removed_documents as (delete from admin_deal_documents where deal_id=$1 and exists(select 1 from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id)) returning deal_id) delete from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id) returning d.id", ["deal-1"]);
+    const deleted = await db.query(deleteSql, ["deal-1"]);
     const remaining = await db.query("select id from admin_deal_documents where deal_id=$1", ["deal-1"]);
-    assert.equal(deleted.rows.length, 1);
+    assert.equal(deleted.rows[0]?.id, "deal-1");
+    assert.deepEqual(deleted.rows[0]?.file_urls, ["https://media.example/identity.pdf"]);
     assert.equal(remaining.rows.length, 0);
   } finally {
     await db.close();
