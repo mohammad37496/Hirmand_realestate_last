@@ -605,13 +605,13 @@ export async function handleChunkedUpload(
       if (isSignatureRejection(error)) {
         // Drop the object we just staged plus its chunks: keeping either would
         // leave an orphan file nothing will ever reference.
-        await deleteStoredMedia(stored?.url).catch(() => undefined);
         await sql
           .query(
             "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3",
             [uploadId, config.kind, uploadSessionScopePrefix(config.pathPrefix)],
           )
           .catch(() => undefined);
+        await deleteStoredMedia(stored?.url).catch(() => undefined);
         console.warn(
           `[upload] rejected ${session.kind} upload ${uploadId}: content does not match declared type`,
         );

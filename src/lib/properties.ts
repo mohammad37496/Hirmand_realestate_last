@@ -1510,6 +1510,9 @@ export const permanentlyDeleteProperty = createServerFn({ method: "POST" })
       ...(typeof existing.floor_plan_url === "string" && existing.floor_plan_url.trim()
         ? [existing.floor_plan_url.trim()]
         : []),
+      ...(typeof existing.virtual_tour_url === "string" && existing.virtual_tour_url.trim()
+        ? [existing.virtual_tour_url.trim()]
+        : []),
     ];
     await Promise.all(Array.from(new Set(mediaUrls)).map((url) => deleteStoredMedia(url)));
     await writeAdminAuditLog({

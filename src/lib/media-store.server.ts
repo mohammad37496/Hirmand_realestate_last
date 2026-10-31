@@ -9,6 +9,7 @@
 
 import { dbSource, getSql } from "@/lib/db";
 import { DB_MEDIA_PATH } from "@/lib/media";
+import { hasMediaUrlReferences } from "@/lib/media-reference-guard.server";
 import {
   deleteLiaraObject,
   liaraMediaProxyUrl,
@@ -332,6 +333,12 @@ export async function deleteStoredMedia(
   const liaraKey = liaraObjectKeyFromUrl(url) ?? liaraObjectKeyFromBrowserProxy(url);
   if (liaraKey) {
     try {
+      if (dbSource === "unconfigured") throw new Error("Cannot verify media references while the database is unavailable.");
+      const sql = await getSql();
+      if (await hasMediaUrlReferences(sql, url, liaraKey)) {
+        console.info("[media] Liara object retained because another record still references it", liaraKey);
+        return;
+      }
       await deleteLiaraObject(liaraKey);
     } catch (error) {
       console.warn("[media] Liara Object Storage delete failed", error);
@@ -346,6 +353,10 @@ export async function deleteStoredMedia(
     try {
       requireDatabase();
       const sql = await getSql();
+      if (await hasMediaUrlReferences(sql, url)) {
+        console.info("[media] database object retained because another record still references it", id);
+        return;
+      }
       await sql.query("delete from media_objects where id = $1", [id]);
     } catch (error) {
       console.warn("[media] database delete failed", error);
@@ -360,6 +371,12 @@ export async function deleteStoredMedia(
       parsed.hostname === "blob.vercel-storage.com" ||
       parsed.hostname.endsWith(".blob.vercel-storage.com");
     if (parsed.protocol === "https:" && isObjectStoreHost) {
+      if (dbSource === "unconfigured") throw new Error("Cannot verify media references while the database is unavailable.");
+      const sql = await getSql();
+      if (await hasMediaUrlReferences(sql, url)) {
+        console.info("[media] Blob object retained because another record still references it", parsed.pathname);
+        return;
+      }
       const { del } = await import("@vercel/blob");
       await del(url);
     }
@@ -441,11 +458,13 @@ export async function pruneStaleUploadSessions(
   if (dbSource === "unconfigured") return;
   try {
     const sql = await getSql();
-    await sql.query(
+    const expired = await sql.query<{ stored_url: string | null }>(
       `delete from media_upload_sessions
-       where created_at < current_timestamp - ($1::text || ' minutes')::interval`,
+       where created_at < current_timestamp - ($1::text || ' minutes')::interval
+       returning stored_url`,
       [String(maxAgeMinutes)],
     );
+    await Promise.all(expired.map((row) => deleteStoredMedia(row.stored_url)));
   } catch (error) {
     console.warn("[media] pruning stale upload sessions failed", error);
   }

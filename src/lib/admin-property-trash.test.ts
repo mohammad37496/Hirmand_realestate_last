@@ -7,7 +7,7 @@ import { deleteTrashedProperty, type TrashedPropertyRow } from "./admin-property
 test("permanent deletion returns only the row still in trash, preserving media after a concurrent restore", async () => {
   const db = new PGlite();
   try {
-    await db.exec("create table properties (id text primary key, title text, images jsonb, floor_plan_url text, deleted_at timestamptz, status text); insert into properties values ('restored', 'Restored property', '[\"https://media.test/restored.jpg\"]', 'https://media.test/plan.jpg', '2026-10-01T00:00:00Z', 'archived'), ('trashed', 'Trashed property', '[\"https://media.test/trashed.jpg\"]', null, '2026-10-01T00:00:00Z', 'archived');");
+    await db.exec("create table properties (id text primary key, title text, images jsonb, floor_plan_url text, virtual_tour_url text, deleted_at timestamptz, status text); insert into properties values ('restored', 'Restored property', '[\"https://media.test/restored.jpg\"]', 'https://media.test/plan.jpg', null, '2026-10-01T00:00:00Z', 'archived'), ('trashed', 'Trashed property', '[\"https://media.test/trashed.jpg\"]', null, 'https://media.test/tour.mp4', '2026-10-01T00:00:00Z', 'archived');");
     const query = async (statement: string, params: unknown[]) => (await db.query<TrashedPropertyRow>(statement, params)).rows;
     await db.query("update properties set deleted_at=null, status='draft' where id='restored'");
     assert.equal(await deleteTrashedProperty(query, "restored"), null);
@@ -18,6 +18,7 @@ test("permanent deletion returns only the row still in trash, preserving media a
     const deleted = await deleteTrashedProperty(query, "trashed");
     assert.equal(deleted?.id, "trashed");
     assert.deepEqual(deleted?.images, ["https://media.test/trashed.jpg"]);
+    assert.equal(deleted?.virtual_tour_url, "https://media.test/tour.mp4");
     assert.equal(await deleteTrashedProperty(query, "trashed"), null);
   } finally { await db.close(); }
 });
@@ -35,6 +36,7 @@ test("trash APIs and UI distinguish unavailable data and unsuccessful restore/de
   assert.match(permanent, /deleteTrashedProperty/);
   assert.match(permanent, /if \(!existing\) return \{ success: false, deleted: 0 \}/);
   assert.ok(permanent.indexOf("if (!existing)") < permanent.indexOf("deleteStoredMedia"));
+  assert.match(permanent, /existing\.virtual_tour_url/);
   assert.doesNotMatch(permanent, /select images, floor_plan_url, title from properties/);
   assert.match(ui, /result\.success !== true \|\| result\.restored !== 1/);
   assert.match(ui, /result\.success !== true \|\| result\.deleted !== 1/);

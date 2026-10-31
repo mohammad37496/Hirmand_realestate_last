@@ -339,20 +339,23 @@ async function beginUpload(
   const sql = await getSql();
   // Completed receipts and abandoned chunks are temporary; published media are
   // stored separately and are never removed by this cleanup.
-  await sql.query(
+  const expiredSessions = await sql.query<{ stored_url: string | null }>(
     `delete from property_media_upload_sessions
      where created_at < current_timestamp - interval '24 hours'
        and (
          state <> 'completing'
          or completion_started_at is null
          or completion_started_at < current_timestamp - interval '15 minutes'
-       )`,
+       )
+     returning stored_url`,
   ).catch((error) => {
     console.warn(
       "[property-media] stale session cleanup failed:",
       error instanceof Error ? error.message : error,
     );
+    return [] as Array<{ stored_url: string | null }>;
   });
+  await Promise.all(expiredSessions.map((row) => deleteStoredMedia(row.stored_url)));
 
   const uploadId = crypto.randomUUID();
   const totalChunks = Math.max(1, Math.ceil(sizeBytes / CHUNK_SIZE));
@@ -949,6 +952,14 @@ async function completeUpload(
              completion_started_at = case when stored_url is null then null
                else current_timestamp - interval '10 minutes' end,
              updated_at = current_timestamp
+         where id = $1 and state = 'completing'`,
+        [uploadId],
+      ).catch(() => undefined);
+    } else {
+      await sql.query(
+        `update property_media_upload_sessions
+         set state = 'failed', stored_url = null, stored_storage = null, stored_media_id = null,
+             completion_result = null, completion_started_at = null, updated_at = current_timestamp
          where id = $1 and state = 'completing'`,
         [uploadId],
       ).catch(() => undefined);

@@ -3,6 +3,8 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { deleteStoredMedia } from "@/lib/media-store.server";
+import { DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL } from "@/lib/admin-deal-delete-sql";
 
 type DealStatus = "prospect"|"negotiation"|"agreement"|"contracted"|"completed"|"cancelled";
 type DealType = "sale"|"rent"|"mortgage"|"buy";
@@ -55,12 +57,13 @@ export default defineEventHandler(async event=>{
     return {success:true};
   }
   if(action==="delete"){
-    const deleted=await sql.query("with removed_documents as (delete from admin_deal_documents where deal_id=$1 and exists(select 1 from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id)) returning deal_id) delete from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id) returning d.id",[id]);
-    if(!deleted.length){
+    const deleted=await sql.query<{id:string|null;file_urls:string[]}>(DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL,[id]);
+    if(!deleted[0]?.id){
       const linkedSettlement=await sql.query("select id from admin_commission_settlements where deal_id=$1 limit 1",[id]);
       if(linkedSettlement.length)throw createError({statusCode:409,statusMessage:"معامله دارای سابقه تسویه است و برای حفظ سوابق مالی قابل حذف نیست."});
       throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ چیزی حذف نشد."});
     }
+    await Promise.all(Array.from(new Set(deleted[0].file_urls ?? [])).map((fileUrl)=>deleteStoredMedia(fileUrl)));
     return {success:true};
   }
   if(action==="seed_documents"){
