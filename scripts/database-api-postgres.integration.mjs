@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import pg from "pg";
 import { buildCustomerPropertySubmissionApprovalSql } from "../src/lib/customer-property-submission-approval.ts";
 import { resubmitCustomerPropertySubmission } from "../src/lib/customer-property-submission-resubmit.ts";
@@ -141,10 +142,10 @@ try {
       note text NOT NULL DEFAULT '', status text NOT NULL DEFAULT 'requested',
       created_at timestamptz NOT NULL DEFAULT current_timestamp
     );
-    CREATE UNIQUE INDEX property_open_house_rsvps_active_phone_unique_idx
-      ON property_open_house_rsvps(open_house_id, phone) WHERE status <> 'cancelled';
     INSERT INTO properties(id,title,status) VALUES ('open-house-property','Open house integration property','published');
   `);
+  const openHouseMigration = await readFile(new URL("../migrations/0108_open_house_rsvp_concurrency.sql", import.meta.url), "utf8");
+  await admin.query(openHouseMigration);
 
   const scheduleA = await connectInSchema();
   const scheduleB = await connectInSchema();
@@ -191,6 +192,12 @@ try {
   ]);
   assert.equal(duplicateResults.filter((result) => result.kind === "created").length, 1);
   assert.equal(duplicateResults.filter((result) => result.kind === "duplicate").length, 1);
+  await assert.rejects(
+    admin.query(
+      "INSERT INTO property_open_house_rsvps(id,open_house_id,name,phone,party_size) VALUES ('open-house-duplicate-direct','open-house-duplicate','Guest C','09130000003',1)",
+    ),
+    /unique/i,
+  );
   console.log("ok   PostgreSQL event row lock and partial unique index prevent duplicate active phone RSVPs");
 
   const raceA = await connectInSchema();
