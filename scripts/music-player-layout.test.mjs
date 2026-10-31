@@ -164,3 +164,16 @@ test("tablet listing keeps the loading dock at the same compact geometry as play
   assert.match(loadingRules, /music-player-empty-copy\s*\{[\s\S]*?font-size: 0 !important;/);
   assert.match(browserTest, /const compactTabletListing = routePath === "\/properties" && viewport\.width >= 721 && viewport\.width <= 1024;/);
 });
+
+test("expanded mobile player controls retain 44px touch targets", () => {
+  const mobileRules = css.slice(css.indexOf("/* Mobile: keep only a small Hirmand music button"));
+  assert.match(mobileRules, /\.music-player-float\.is-expanded \.music-player-float-controls button\s*\{[^}]*width: 44px !important;[^}]*height: 44px !important;/s);
+  assert.match(mobileRules, /#hirmand-site-music-player\.is-expanded \.music-player-utility\s*\{[^}]*width: 44px !important;[^}]*height: 44px !important;/s);
+  assert.match(mobileRules, /#hirmand-site-music-player\.is-expanded \.music-player-float-playlist\s*\{[^}]*width: min\(326px, calc\(100vw - 48px\)\) !important;[^}]*box-sizing: border-box !important;/s);
+  assert.match(mobileRules, /\.music-player-float\.is-expanded \.music-player-volume-toggle,[\s\S]*?\.music-player-options button\s*\{[^}]*width: 44px !important;[^}]*height: 44px !important;/);
+  assert.match(mobileRules, /\.music-player-float\.is-expanded \.music-player-float-progress input\s*\{[^}]*height: 44px !important;/s);
+  assert.match(css, /@media \(max-width: 720px\)\s*\{\s*html body #hirmand-site-music-player:not\(\.is-expanded\)\s*\{[^}]*width: 44px !important;[^}]*height: 44px !important;/s);
+  assert.match(mobileRules, /\.music-player-float\.is-expanded,\s*html body \.music-player-float\.is-expanded:not\(\.music-player-float-empty\)\s*\{[^}]*width: min\(350px, calc\(100vw - 24px\)\) !important;[^}]*min-height: min\(74vh, 420px\) !important;/s);
+  const browserTest = fs.readFileSync(new URL("./music-player-browser.test.mjs", import.meta.url), "utf8");
+  assert.match(browserTest, /every visible mobile player control must have a 44px touch target/);
+});

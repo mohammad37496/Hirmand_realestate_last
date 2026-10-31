@@ -355,6 +355,7 @@ try {
   await page.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.muted === false);
   assert.deepEqual(runtimeErrors, [], "media control interactions must not produce browser runtime errors");
 
+  if (!process.argv.includes("--mobile-only")) {
   // Cover every generated top-level page family plus representative dynamic
   // routes and both management entry points. Auth-gated routes are still useful
   // here: the shared dock must survive the gate/redirect without duplicate mounts.
@@ -465,6 +466,7 @@ try {
   await assertDock(page, { width: 1024, height: 768 });
   const desktopContentVisible = await page.locator("#hirmand-site-music-player .music-player-full-content").evaluate((node) => getComputedStyle(node).display !== "none");
   assert.equal(desktopContentVisible, true, "mobile -> desktop must restore the full desktop player content");
+  }
 
   // Vite can occasionally fail one route's dynamically imported client entry
   // during a rapid full-route matrix. Retry that exact route once; suppress the
@@ -519,11 +521,51 @@ try {
   await errorPage.close();
 
   const mobilePage = await context.newPage();
-  await mobilePage.setViewportSize({ width: 390, height: 844 });
+  await mobilePage.setViewportSize({ width: 320, height: 568 });
+  await mobilePage.addInitScript(() => {
+    window.__qaMobilePauseCalls = 0;
+    const mediaPrototype = HTMLMediaElement.prototype;
+    Object.defineProperty(mediaPrototype, "paused", {
+      configurable: true,
+      get() { return this.__qaPaused ?? true; },
+    });
+    mediaPrototype.play = function () {
+      this.__qaPaused = false;
+      this.dispatchEvent(new Event("play"));
+      return Promise.resolve();
+    };
+    mediaPrototype.pause = function () {
+      window.__qaMobilePauseCalls += 1;
+      this.__qaPaused = true;
+      setTimeout(() => this.dispatchEvent(new Event("pause")), 0);
+    };
+  });
+  const silentWav = Buffer.alloc(44 + 8000);
+  silentWav.write("RIFF", 0);
+  silentWav.writeUInt32LE(36 + 8000, 4);
+  silentWav.write("WAVEfmt ", 8);
+  silentWav.writeUInt32LE(16, 16);
+  silentWav.writeUInt16LE(1, 20);
+  silentWav.writeUInt16LE(1, 22);
+  silentWav.writeUInt32LE(8000, 24);
+  silentWav.writeUInt32LE(8000, 28);
+  silentWav.writeUInt16LE(1, 32);
+  silentWav.writeUInt16LE(8, 34);
+  silentWav.write("data", 36);
+  silentWav.writeUInt32LE(8000, 40);
+  silentWav.fill(128, 44);
+  await mobilePage.route("**/qa-mobile-track-*.mp3", (route) => route.fulfill({
+    status: 200,
+    contentType: "audio/wav",
+    body: silentWav,
+  }));
   await mobilePage.route("**/api/music", (route) => route.fulfill({
     status: 200,
     contentType: "application/json",
-    body: JSON.stringify({ tracks: [] }),
+    body: JSON.stringify({ tracks: [
+      { id: "qa-mobile-track-1", title: "آهنگ اول", artist: "هیرمند", stream: "/qa-mobile-track-1.mp3" },
+      { id: "qa-mobile-track-2", title: "آهنگ دوم", artist: "هیرمند", stream: "/qa-mobile-track-2.mp3" },
+    ] }),
   }));
   await mobilePage.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
   await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
@@ -536,11 +578,106 @@ try {
   });
   assert.equal(mobileDock.count, 1, "mobile must retain the same single shared player instance");
   assert.equal(mobileDock.position, "fixed", "mobile launcher must remain viewport-fixed");
-  assert.ok(mobileDock.left >= 0 && mobileDock.right <= 390, `mobile launcher must remain inside the viewport: ${JSON.stringify(mobileDock)}`);
+  assert.ok(mobileDock.left >= 0 && mobileDock.right <= 320, `mobile launcher must remain inside the 320px viewport: ${JSON.stringify(mobileDock)}`);
+
+  await mobilePage.getByRole("button", { name: "باز کردن پلیر موسیقی" }).click();
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("is-expanded"));
+  const mobilePanel = await mobilePage.evaluate(() => {
+    const root = document.querySelector("#hirmand-site-music-player");
+    const panel = root?.getBoundingClientRect();
+    const targets = [...(root?.querySelectorAll("button, input[type=range]") ?? [])]
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+      })
+      .map((element) => ({
+        label: element.getAttribute("aria-label") || element.textContent?.trim() || element.tagName,
+        width: Math.round(element.getBoundingClientRect().width),
+        height: Math.round(element.getBoundingClientRect().height),
+      }));
+    return {
+      expanded: root?.classList.contains("is-expanded"),
+      left: panel?.left ?? -1,
+      right: panel?.right ?? Infinity,
+      width: panel?.width ?? 0,
+      height: panel?.height ?? 0,
+      top: panel?.top ?? -1,
+      bottom: panel?.bottom ?? Infinity,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      documentWidth: document.documentElement.scrollWidth,
+      targets,
+    };
+  });
+  assert.equal(mobilePanel.expanded, true, "the mobile launcher must open the full player panel");
+  assert.ok(mobilePanel.left >= 0 && mobilePanel.right <= mobilePanel.viewportWidth, `expanded mobile player must fit horizontally: ${JSON.stringify(mobilePanel)}`);
+  assert.ok(mobilePanel.width >= Math.min(350, mobilePanel.viewportWidth - 24) - 1, `expanded mobile player must retain its full panel width: ${JSON.stringify(mobilePanel)}`);
+  assert.ok(mobilePanel.height >= Math.min(mobilePanel.viewportHeight * 0.74, 420) - 1, `expanded mobile player must reserve room for its scrollable controls: ${JSON.stringify(mobilePanel)}`);
+  assert.ok(mobilePanel.top >= 0 && mobilePanel.bottom <= mobilePanel.viewportHeight, `expanded mobile player must fit vertically: ${JSON.stringify(mobilePanel)}`);
+  assert.ok(mobilePanel.documentWidth <= mobilePanel.viewportWidth, `expanded mobile player must not cause horizontal page overflow: ${JSON.stringify(mobilePanel)}`);
+  assert.deepEqual(
+    mobilePanel.targets.filter((target) => target.width < 44 || target.height < 44),
+    [],
+    `every visible mobile player control must have a 44px touch target: ${JSON.stringify(mobilePanel.targets)}`,
+  );
+
+  await mobilePage.getByRole("button", { name: "پخش", exact: true }).click();
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.paused === false);
+  await mobilePage.getByRole("button", { name: "آهنگ بعدی" }).click();
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player .music-player-float-meta strong")?.textContent === "آهنگ دوم");
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.paused === false);
+  await mobilePage.waitForTimeout(100);
+  assert.equal(await mobilePage.locator("#hirmand-site-music-player audio").evaluate((audio) => audio.paused), false,
+    "changing tracks from the mobile controls must keep playback active");
+  await mobilePage.locator("#hirmand-site-music-player .music-player-float-item").first().evaluate((item) => {
+    const content = item.closest(".music-player-full-content");
+    if (content) {
+      const contentRect = content.getBoundingClientRect();
+      const itemRect = item.getBoundingClientRect();
+      content.scrollTop += itemRect.top - contentRect.top - (content.clientHeight - itemRect.height) / 2;
+    }
+  });
+  await mobilePage.waitForTimeout(50);
+  const mobilePlaylistMetrics = await mobilePage.locator("#hirmand-site-music-player .music-player-float-item").first().evaluate((item) => {
+    const content = item.closest(".music-player-full-content");
+    const contentRect = content?.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    return {
+      item: { top: itemRect.top, bottom: itemRect.bottom, width: itemRect.width, height: itemRect.height },
+      content: { top: contentRect?.top, bottom: contentRect?.bottom, clientHeight: content?.clientHeight, scrollHeight: content?.scrollHeight, scrollTop: content?.scrollTop, overflowY: content ? getComputedStyle(content).overflowY : "missing" },
+      viewportHeight: window.innerHeight,
+    };
+  });
+  assert.ok(mobilePlaylistMetrics.item.top >= mobilePlaylistMetrics.content.top && mobilePlaylistMetrics.item.bottom <= mobilePlaylistMetrics.content.bottom,
+    `mobile playlist items must be reachable inside the scrollable panel: ${JSON.stringify(mobilePlaylistMetrics)}`);
+  await mobilePage.locator("#hirmand-site-music-player .music-player-float-item").first().click();
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player .music-player-float-meta strong")?.textContent === "آهنگ اول");
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.paused === false);
+  await mobilePage.waitForTimeout(100);
+  assert.equal(await mobilePage.locator("#hirmand-site-music-player audio").evaluate((audio) => audio.paused), false,
+    "selecting a track from the mobile playlist must keep playback active");
+  await mobilePage.getByRole("button", { name: "آهنگ بعدی" }).click();
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player .music-player-float-meta strong")?.textContent === "آهنگ دوم");
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player audio")?.paused === false);
+  const playingAudioNodeId = await mobilePage.locator("#hirmand-site-music-player audio").evaluate((audio) =>
+    audio.dataset.qaNodeId || (audio.dataset.qaNodeId = "mobile-audio-playing"));
+  const pauseCallsBeforeCollapse = await mobilePage.evaluate(() => window.__qaMobilePauseCalls);
+  await mobilePage.getByRole("button", { name: "جمع کردن پلیر" }).click();
+  await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("is-collapsed"));
+  const collapsedPlayback = await mobilePage.locator("#hirmand-site-music-player audio").evaluate((audio, pauseCountBeforeCollapse) => ({
+    paused: audio.paused,
+    nodeId: audio.dataset.qaNodeId ?? null,
+    pauseCalls: window.__qaMobilePauseCalls - pauseCountBeforeCollapse,
+  }), pauseCallsBeforeCollapse);
+  assert.equal(collapsedPlayback.paused, false,
+    `collapsing the mobile panel must not stop the current track: ${JSON.stringify(collapsedPlayback)}`);
+  assert.equal(collapsedPlayback.nodeId, playingAudioNodeId, "collapsing the player must preserve the same audio element");
+  assert.equal(collapsedPlayback.pauseCalls, 0, "collapsing the player must not call audio.pause");
   await mobilePage.close();
   await context.close();
 
-  console.log("[music-player-browser] PASS: loading -> loaded -> empty/error, single instance, SPA/full route navigation, back/reload, scroll, collapse/restore, desktop viewport geometry, and mobile launcher bounds.");
+  console.log("[music-player-browser] PASS: loading -> loaded -> empty/error, single instance, SPA/full route navigation, back/reload, scroll, collapse/restore, desktop viewport geometry, mobile playback, and 44px mobile touch targets.");
 } catch (error) {
   failed = true;
   console.error("[music-player-browser] FAIL");
