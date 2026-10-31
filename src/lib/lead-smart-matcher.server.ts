@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
+import { isMatchableProperty, MATCHABLE_PROPERTY_SQL } from "@/lib/property-matchability";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { normalizeMatchLabel, scoreAreaMatch } from "@/lib/admin-match-utils";
 
@@ -16,7 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const PROPERTY_COLUMNS = `
-  id, slug, title, transaction_type, property_type, neighborhood,
+  id, slug, status, availability_status, deleted_at, unpublish_at, title, transaction_type, property_type, neighborhood,
   area_m2, bedrooms, bathrooms, floor, floor_label, total_floors,
   built_year, parking, elevator, storage, painted, wallpaper, convertible,
   cabinet_type, flooring_type, cooling_system, heating_system, wall_closet_type,
@@ -398,7 +399,7 @@ export async function autoMatchLead(
   const candidateRows = await sql.query<Record<string, unknown>>(
     `select ${PROPERTY_COLUMNS}
      from properties
-     where status = 'published'
+     where ${MATCHABLE_PROPERTY_SQL}
        and (floor is null or floor = -60 or floor between 0 and 20)
        and (
          $1::text = ''
@@ -411,6 +412,7 @@ export async function autoMatchLead(
   );
 
   const scored = candidateRows
+    .filter(isMatchableProperty)
     .map((row) => ({ row, scored: scoreProperty(row, lead, mode, learned) }))
     .filter((item) => item.scored.hasMeaningfulSignal)
     .sort((a, b) =>
