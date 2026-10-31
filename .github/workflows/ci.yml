@@ -81,3 +81,44 @@ jobs:
         env:
           VITE_SITE_URL: https://www.hirmandrealestate.ir
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci
+
+      - name: Migrate PostgreSQL for database integration smoke tests
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci
+
+      - name: Database API PostgreSQL integration
+        run: npm run test:database-api:postgres
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci
+
+      - name: Phone Bridge HTTP authentication smoke
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci
+          PORT: "8082"
+          NITRO_PORT: "8082"
+          HOST: 127.0.0.1
+          NITRO_HOST: 127.0.0.1
+          PHONE_BRIDGE_PAIRING_TOKEN: ""
+          HIRMAND_PHONE_BRIDGE_TOKEN: ""
+          PHONE_BRIDGE_SYNC_TOKEN: ""
+        run: |
+          set -euo pipefail
+          node .output/server/index.mjs > /tmp/hirmand-phone-bridge-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=0
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8082/api/device-sync/v1/update >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != 1 ]; then
+            cat /tmp/hirmand-phone-bridge-http.log
+            exit 1
+          fi
+
+          node scripts/phone-bridge-e2e.mjs http://127.0.0.1:8082
