@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { isMigrationFile, migrationName, pendingMigrations } from "./migration-plan.mjs";
+import { acquireMigrationAdvisoryLock } from "./migration-lock.mjs";
 import { projectRoot } from "./with-app-env.mjs";
 
 const AUTH_MIGRATION = "0001_auth.sql";
@@ -111,11 +112,15 @@ test("the copy check reads both files and catches an edit", () => {
 test("PostgreSQL migration runners serialize concurrent starts with the same advisory lock", () => {
   const deployRunner = readFileSync(join(projectRoot(), "scripts", "migrate.mjs"), "utf8");
   const startupRunner = readFileSync(join(projectRoot(), "scripts", "prestart-migrate.mjs"), "utf8");
-  assert.match(deployRunner, /pg_advisory_lock\(741206510::bigint\)/);
+  assert.match(deployRunner, /acquireMigrationAdvisoryLock\(client, 741206510n/);
   assert.match(deployRunner, /pg_advisory_unlock\(741206510::bigint\)/);
   assert.match(startupRunner, /MIGRATION_LOCK_KEY\s*=\s*741206510n/);
-  assert.match(startupRunner, /pg_advisory_lock\(\$1::bigint/);
+  assert.match(startupRunner, /acquireMigrationAdvisoryLock\(client, MIGRATION_LOCK_KEY/);
   assert.match(startupRunner, /pg_advisory_unlock\(\$1::bigint/);
+  assert.match(deployRunner, /DB_MIGRATION_LOCK_TIMEOUT_MS/);
+  assert.match(startupRunner, /DB_MIGRATION_LOCK_TIMEOUT_MS/);
+  const lockHelper = readFileSync(join(projectRoot(), "scripts", "migration-lock.mjs"), "utf8");
+  assert.match(lockHelper, /pg_try_advisory_lock/);
   for (const source of [deployRunner, startupRunner]) {
     assert.match(source, /BEGIN/);
     assert.match(source, /ROLLBACK/);
@@ -138,4 +143,29 @@ test("migration error logging avoids row details and hints that may contain priv
     assert.match(source, /\["code",\s*"severity"\]/);
     assert.doesNotMatch(source, /\["code",\s*"detail",\s*"hint"/);
   }
+});
+
+
+test("migration advisory lock helper succeeds after a bounded retry", async () => {
+  let attempts = 0;
+  const client = {
+    async query(statement, params) {
+      assert.match(statement, /pg_try_advisory_lock/);
+      assert.deepEqual(params, ["741206510"]);
+      attempts += 1;
+      return { rows: [{ acquired: attempts >= 3 }] };
+    },
+  };
+  await acquireMigrationAdvisoryLock(client, 741206510n, { timeoutMs: 200, pollIntervalMs: 1 });
+  assert.equal(attempts, 3);
+});
+
+test("migration advisory lock helper fails closed after its configured timeout", async () => {
+  let attempts = 0;
+  const client = { async query() { attempts += 1; return { rows: [{ acquired: false }] }; } };
+  await assert.rejects(
+    acquireMigrationAdvisoryLock(client, 741206510n, { timeoutMs: 5, pollIntervalMs: 1 }),
+    /Timed out waiting for database migration advisory lock after 5ms/,
+  );
+  assert.ok(attempts >= 1);
 });
