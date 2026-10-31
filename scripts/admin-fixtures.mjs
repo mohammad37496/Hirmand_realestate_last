@@ -722,7 +722,7 @@ export const stubAdminApi = {
     });
   },
 
-  "**/api/admin-sales-funnel": async (route) =>
+  "**/api/admin-sales-funnel**": async (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -748,7 +748,7 @@ export const stubAdminApi = {
       }),
     }),
 
-  "**/api/admin-management-report": async (route) =>
+  "**/api/admin-management-report**": async (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
