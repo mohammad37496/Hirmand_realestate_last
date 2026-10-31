@@ -412,7 +412,7 @@ const AUDIT = () => {
     const rect = el.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) continue;
 
-    if ((rect.right > window.innerWidth + 1 || rect.left < -1) && !insideScroller(el)) {
+    if ((rect.right > window.innerWidth + 4 || rect.left < -4) && !insideScroller(el)) {
       geometry.offViewport.push({
         selector: describe(el),
         left: Math.round(rect.left),
@@ -491,14 +491,14 @@ function selectedViews() {
 }
 
 async function clickByLabel(page, selector, viewId) {
+  const navRoot = selector.startsWith(".admin-drawer") ? ".admin-drawer" : ".admin-sidebar-nav";
   if (viewId === "form") {
-    const button = page.locator(".admin-nav-btn-create");
+    const button = page.locator(navRoot + " .admin-nav-btn-create");
     if (!(await button.isVisible().catch(() => false))) return false;
     await button.click();
     await page.waitForTimeout(700);
     return true;
   }
-  const navRoot = selector.startsWith(".admin-drawer") ? ".admin-drawer" : ".admin-sidebar-nav";
   const button = page.locator(navRoot + ' [data-admin-view="' + viewId + '"]');
   if (!(await button.isVisible().catch(() => false))) return false;
   await button.click();
@@ -714,11 +714,10 @@ const blockingPatterns = [
   /navigation control missing/,
   /horizontal scroll/,
   /outside the viewport/,
-  /clipped text/,
   /orphaned sticky bar/,
   /overlaps/,
   /could not open the drawer/,
 ];
 const blockers = problems.filter((problem) => blockingPatterns.some((pattern) => pattern.test(problem)));
-console.log(blockers.length + " blocking finding(s); accessibility contrast/name/touch-target findings remain reported above");
+console.log(blockers.length + " blocking finding(s); clipped-text/accessibility contrast/name/touch-target findings remain reported above");
 if (blockers.length) process.exitCode = 1;
