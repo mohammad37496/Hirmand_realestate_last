@@ -172,7 +172,7 @@ test("CRM operations and saved lead segments fail closed instead of returning ze
   assert.match(operations, /dbSource === "unconfigured"[\s\S]{0,220}statusCode: 503/);
   assert.doesNotMatch(operations, /dueLeads:\[\],dueCount:0,next7Count:0/);
   assert.match(operationsUi, /setData\(null\);setError/);
-  assert.match(segments, /dbSource===\"unconfigured\"\)throw createError\(\{statusCode:503/);
+  assert.match(segments, /dbSource===['"']unconfigured['"']\)throw createError\(\{statusCode:503/);
   assert.doesNotMatch(segments, /return\{segments:\[\]\}/);
   assert.match(segmentsUi, /loadError\?\s*<AdminErrorBanner/);
   assert.match(segmentsUi, /setItems\(\[\]\);setLoadError/);
