@@ -81,24 +81,26 @@ try {
   await form.waitFor({ state: "visible", timeout: 10000 });
   await form.getByLabel("عنوان", { exact: true }).fill(title);
   await form.getByLabel("محله").fill("مرکز شهر");
-  await form.getByLabel("توضیحات", { exact: true }).fill(
-    "این فایل صرفاً برای آزمون یکپارچه گردش کار پنل مدیریت، پایگاه داده، انتشار عمومی و تطبیق مشتری ایجاد شده است.",
-  );
-  await form.getByLabel("قیمت فروش (تومان)").fill(price);
+  await form.getByLabel("توضیحات", { exact: true }).fill("");
+  await form.getByLabel("قیمت فروش (تومان)").fill("");
   await form.locator('select:has(option[value="published"])').selectOption("draft");
   await form.getByRole("button", { name: "ذخیره", exact: true }).click();
   await page.getByText("فایل جدید ذخیره شد.", { exact: true }).waitFor({ state: "visible", timeout: 60000 });
 
   let rows = await client.query(
-    "select id, slug, status, price, deposit, rent, availability_status from properties where title=$1 order by created_at desc limit 1",
+    "select id, slug, status, price, deposit, rent, description, availability_status from properties where title=$1 order by created_at desc limit 1",
     [title],
   );
   if (!rows.rows[0]) throw new Error("Create step reported success but no property row exists.");
   let row = rows.rows[0];
   propertyId = String(row.id);
   if (row.status !== "draft") throw new Error("New property must be saved as draft before publication.");
-  if (String(row.price) !== price) throw new Error("Created draft price does not match the submitted value.");
-  if (row.deposit !== null || row.rent !== null) throw new Error("Optional money columns must persist as SQL NULL.");
+  if (row.price !== null || row.deposit !== null || row.rent !== null) {
+    throw new Error("An incomplete draft must persist empty money columns as SQL NULL.");
+  }
+  if (String(row.description ?? "") !== "") {
+    throw new Error("An incomplete draft must preserve its empty description.");
+  }
 
   // Search in the admin file list, then edit the exact matching listing.
   const search = page.getByLabel("جستجوی فایل‌ها");
@@ -110,6 +112,9 @@ try {
   form = page.locator("form.admin-form-wrap");
   await form.waitFor({ state: "visible", timeout: 10000 });
   await form.getByLabel("عنوان", { exact: true }).fill(editedTitle);
+  await form.getByLabel("توضیحات", { exact: true }).fill(
+    "این فایل صرفاً برای آزمون یکپارچه گردش کار پنل مدیریت، پایگاه داده، انتشار عمومی و تطبیق مشتری ایجاد شده است.",
+  );
   await form.getByLabel("قیمت فروش (تومان)").fill(editedPrice);
   await form.locator('select:has(option[value="published"])').selectOption("published");
   await form.getByRole("button", { name: "ذخیره", exact: true }).click();

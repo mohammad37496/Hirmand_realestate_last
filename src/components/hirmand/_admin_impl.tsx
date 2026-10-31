@@ -48,7 +48,7 @@ import {
   Target,
 } from "lucide-react";
 import { NEIGHBORHOOD_NAMES, PROPERTY_TYPES, SITE, TEAM } from "@/lib/site";
-import { isInvalidIntegerInput, normalizeMoneyText } from "@/lib/property-input-normalization";
+import { isInvalidIntegerInput, isPropertyDescriptionValidForStatus, normalizeMoneyText } from "@/lib/property-input-normalization";
 import { stripPrivatePropertyDraftFields } from "@/lib/property-draft-storage";
 import { isAllowedMediaRef } from "@/lib/media";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
@@ -373,6 +373,11 @@ function isInvalidFloorInput(raw: string) {
   return floor !== null && !isAllowedPropertyFloorValue(floor);
 }
 
+function isOutsideIntegerRange(raw: string, minimum: number, maximum: number) {
+  const value = numberOrNull(raw);
+  return value !== null && (value < minimum || value > maximum);
+}
+
 function moneyOrNull(raw: string) {
   const normalized = normalizeMoneyText(raw);
   return normalized && /^\d{1,20}$/.test(normalized) ? normalized : null;
@@ -389,11 +394,16 @@ function hasInvalidPropertyIntegerInputs(form: Pick<
 >) {
   return (
     isInvalidIntegerInput(form.areaM2) ||
+    isOutsideIntegerRange(form.areaM2, 1, 100000) ||
     isInvalidIntegerInput(form.bedrooms) ||
+    isOutsideIntegerRange(form.bedrooms, 0, 30) ||
     isInvalidIntegerInput(form.bathrooms) ||
+    isOutsideIntegerRange(form.bathrooms, 0, 30) ||
     isInvalidFloorInput(form.floor) ||
     isInvalidIntegerInput(form.totalFloors) ||
-    isInvalidIntegerInput(form.builtYear)
+    isOutsideIntegerRange(form.totalFloors, 0, 200) ||
+    isInvalidIntegerInput(form.builtYear) ||
+    isOutsideIntegerRange(form.builtYear, 1200, 2500)
   );
 }
 
@@ -472,7 +482,7 @@ function propertyToForm(property: Property): FormState {
     propertyType: property.propertyType,
     neighborhood: property.neighborhood,
     address: property.address ?? "",
-    areaM2: property.areaM2 != null ? String(property.areaM2) : "",
+    areaM2: property.areaM2 != null && property.areaM2 > 0 ? String(property.areaM2) : "",
     bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
     bathrooms: property.bathrooms != null ? String(property.bathrooms) : "",
     floor: property.floor != null && isAllowedPropertyFloorValue(property.floor) ? String(property.floor) : "",
@@ -1443,6 +1453,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    const shouldPublish = !staffMode && form.status === "published";
     // A ref guard, not just `disabled={saving}`: two clicks inside the same
     // render pass both see `saving === false`.
     if (submitting.current) return;
@@ -1462,8 +1473,8 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       toast.error("نام و تلفن مشاور را مشخص کنید.");
       return;
     }
-    if (form.description.trim().length < 10) {
-      toast.error("توضیحات فایل را کامل‌تر بنویسید.");
+    if (!isPropertyDescriptionValidForStatus(staffMode ? "draft" : form.status, form.description)) {
+      toast.error("توضیحات فایل برای ذخیره در وضعیت غیرپیش‌نویس باید حداقل ۱۰ کاراکتر باشد.");
       return;
     }
     if ((form.latitude == null) !== (form.longitude == null)) {
@@ -1481,20 +1492,20 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
     const price = moneyOrNull(form.price);
     const deposit = moneyOrNull(form.deposit);
     const rent = moneyOrNull(form.rent);
-    if (form.transactionType === "sell" && price == null) {
-      toast.error("برای فایل فروش، قیمت فروش را وارد کنید.");
+    if (shouldPublish && form.transactionType === "sell" && price == null) {
+      toast.error("برای انتشار فایل فروش، قیمت فروش را وارد کنید.");
       return;
     }
-    if (form.transactionType === "rent" && deposit == null && rent == null) {
-      toast.error("برای فایل اجاره حداقل یکی از رهن یا اجاره را وارد کنید.");
+    if (shouldPublish && form.transactionType === "rent" && deposit == null && rent == null) {
+      toast.error("برای انتشار فایل اجاره، حداقل یکی از رهن یا اجاره را وارد کنید.");
       return;
     }
-    if (form.transactionType === "mortgage" && deposit == null) {
-      toast.error("برای فایل رهن، مبلغ رهن را وارد کنید.");
+    if (shouldPublish && form.transactionType === "mortgage" && deposit == null) {
+      toast.error("برای انتشار فایل رهن، مبلغ رهن را وارد کنید.");
       return;
     }
 
-    if (form.status === "published") {
+    if (shouldPublish) {
       const readiness = getPublishReadinessForForm(form);
       if (!readiness.ready) {
         toast.error("انتشار فایل متوقف شد: " + readiness.blockers.join(" "));
