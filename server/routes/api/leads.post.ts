@@ -1,10 +1,11 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { z } from "zod";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { buildBudgetLeadNote, budgetEquivalent } from "@/lib/budget-lead";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
+import { checkPropertyVisitSlot } from "@/lib/property-visit-scheduling.server";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -514,47 +515,52 @@ export default defineEventHandler(async (event) => {
 
   if (parsed.data.propertyId && parsed.data.visitPreferredAt) {
     const visitDate = new Date(parsed.data.visitPreferredAt);
-    const propertyRows = await sql.query<{ id: string; title: string; property_type: string; neighborhood: string; contact_name: string }>(
-      "select id, title, property_type, neighborhood, contact_name, availability_status from properties where id::text = $1 and status = 'published' and availability_status not in ('sold','rented','unavailable') limit 1",
-      [parsed.data.propertyId],
-    );
-    const property = propertyRows[0];
-    if (!property) throw createError({ statusCode: 404, statusMessage: "فایل موردنظر برای بازدید در دسترس نیست." });
-    const conflictRows = await sql.query<{ id: string }>(
-      "select id from leads where property_id::text=$1 and visit_status in ('requested','confirmed') and abs(extract(epoch from (visit_preferred_at - $2::timestamptz))) < 2700 limit 1",
-      [property.id, visitDate.toISOString()],
-    );
-    if (conflictRows[0]) {
+    const trackingToken = createPublicTrackingToken();
+    const reservation = await withSqlTransaction(async (tx) => {
+      const slot = await checkPropertyVisitSlot(tx, {
+        propertyId: parsed.data.propertyId!,
+        visitAt: visitDate.toISOString(),
+        requirePublicAvailability: true,
+      });
+      if (slot.kind !== "available") return slot;
+      const rows = await tx.query<{ id: string }>(
+        "insert into leads (id, name, phone, people_count, job, deal, property_type, neighborhood, consultant, note, source, follow_up_at, floor_preference, property_id, visit_preferred_at, visit_requested_at, visit_status, public_tracking_token) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'website',current_timestamp + interval '4 hours',$11,$12,$13,current_timestamp,'requested',$14) returning id",
+        [
+          crypto.randomUUID(),
+          parsed.data.name,
+          parsed.data.phone,
+          parsed.data.peopleCount ?? null,
+          parsed.data.job,
+          "بازدید",
+          slot.property.property_type,
+          slot.property.neighborhood,
+          slot.property.contact_name || parsed.data.consultant,
+          parsed.data.note.trim() || "درخواست بازدید فایل",
+          parsed.data.floorPreference,
+          slot.property.id,
+          visitDate.toISOString(),
+          trackingToken,
+        ],
+      );
+      return rows[0]
+        ? { kind: "created" as const, id: rows[0].id, property: slot.property, trackingToken }
+        : { kind: "insert_failed" as const };
+    });
+    if (reservation.kind === "property_missing") {
+      throw createError({ statusCode: 404, statusMessage: "فایل موردنظر برای بازدید در دسترس نیست." });
+    }
+    if (reservation.kind === "conflict") {
       throw createError({
         statusCode: 409,
         statusMessage: "این بازه برای این فایل قبلاً درخواستی دارد. لطفاً یکی از زمان‌های خالی را انتخاب کنید.",
       });
     }
-    const trackingToken = createPublicTrackingToken();
-    const rows = await sql.query<{ id: string }>(
-      "insert into leads (id, name, phone, people_count, job, deal, property_type, neighborhood, consultant, note, source, follow_up_at, floor_preference, property_id, visit_preferred_at, visit_requested_at, visit_status, public_tracking_token) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'website',current_timestamp + interval '4 hours',$11,$12,$13,current_timestamp,'requested',$14) returning id",
-      [
-        crypto.randomUUID(),
-        parsed.data.name,
-        parsed.data.phone,
-        parsed.data.peopleCount ?? null,
-        parsed.data.job,
-        "بازدید",
-        property.property_type,
-        property.neighborhood,
-        property.contact_name || parsed.data.consultant,
-        parsed.data.note.trim() || "درخواست بازدید فایل",
-        parsed.data.floorPreference,
-        property.id,
-        visitDate.toISOString(),
-        trackingToken,
-      ],
-    );
-    if (!rows[0]) throw createError({ statusCode: 500, statusMessage: "ثبت درخواست بازدید انجام نشد." });
+    if (reservation.kind === "insert_failed") throw createError({ statusCode: 500, statusMessage: "ثبت درخواست بازدید انجام نشد." });
+    const { property, id } = reservation;
     await sql.query(
       "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'visit',$2,$3,$4::jsonb)",
       [
-        rows[0].id,
+        id,
         "درخواست بازدید ثبت شد",
         "فایل: " + property.title,
         parsed.data.note.trim() || "درخواست بازدید از فایل",
@@ -562,14 +568,14 @@ export default defineEventHandler(async (event) => {
       ],
     ).catch(() => {});
     await createAutomaticFollowUp(sql, {
-      leadId: rows[0].id,
+      leadId: id,
       title: "پیگیری فوری درخواست بازدید: " + property.title,
       description: "مشتری برای این فایل درخواست بازدید ثبت کرده است؛ زمان پیشنهادی: " + visitDate.toLocaleString("fa-IR"),
       assignee: property.contact_name || parsed.data.consultant,
       priority: "urgent",
       dueMinutes: 60,
     });
-    return { success: true, duplicate: false, id: rows[0].id, visitRequested: true, trackingToken };
+    return { success: true, duplicate: false, id, visitRequested: true, trackingToken };
   }
   if (parsed.data.deal === "درخواست تأمین مالی" && parsed.data.propertyId) {
     const propertyRows = await sql.query<{
