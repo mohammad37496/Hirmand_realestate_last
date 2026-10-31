@@ -86,6 +86,9 @@ jobs:
         id: migrate_database
         run: npm run db:migrate
 
+      - name: Database API PostgreSQL integration
+        run: npm run test:database-api:postgres
+
       - name: Seed deterministic property-detail fixture
         run: node scripts/seed-browser-smoke.mjs
 
@@ -101,6 +104,9 @@ jobs:
           QA_VIEWPORTS: "320x568,360x800,390x844,412x915,768x1024,1024x768,1440x900,1920x1080"
           QA_SCREENSHOT_DIR: /workspace/screenshots/admin
           HIRMAND_ADMIN_KEY: browser-smoke-admin-key
+          PHONE_BRIDGE_PAIRING_TOKEN: ""
+          HIRMAND_PHONE_BRIDGE_TOKEN: ""
+          PHONE_BRIDGE_SYNC_TOKEN: ""
         run: |
           set -euo pipefail
           sudo mkdir -p /workspace
@@ -142,6 +148,7 @@ jobs:
 
           npx playwright install --with-deps chromium
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
+          node scripts/phone-bridge-e2e.mjs http://127.0.0.1:8081
           # End-to-end proof of the admin upload path: begin → chunks → complete,
           # then fetch served bytes and verify the watermark-on/watermark-off
           # paths against the same built runtime that runs in production.

@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, readRawBody, setResponseHeader } from "h3";
+import { createError, defineEventHandler, getHeader, readRawBody, setResponseHeader } from "h3";
 import { randomUUID, createHash } from "node:crypto";
 import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
@@ -23,6 +23,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای دریافت موقعیت آماده نیست." });
   }
 
+  // Reject anonymous callers before parsing their payload. Otherwise a
+  // missing deviceId leaks a 400 validation response instead of the expected
+  // 401 authentication boundary (and lets unauthenticated traffic reach the
+  // body parser and rate-limit bucket).
+  const authorization = getHeader(event, "authorization") ?? "";
+  if (!authorization.startsWith("Bearer ") || !authorization.slice(7).trim()) {
+    throw createError({ statusCode: 401, statusMessage: "توکن Phone Bridge ارسال نشده است." });
+  }
+
   const raw = await readRawBody(event);
   const body = raw ? Buffer.from(raw) : Buffer.alloc(0);
   if (!body.length || body.length > MAX_BODY_BYTES) {
@@ -39,14 +48,14 @@ export default defineEventHandler(async (event) => {
   const deviceId = stringValue(payload.deviceId, 120);
   if (!deviceId) throw createError({ statusCode: 400, statusMessage: "شناسه دستگاه ارسال نشده است." });
 
+  const auth = await authenticateDevice(event, deviceId);
+  if (auth.mode === "device") await requirePhoneBridgeSignedRequest(event, deviceId, body);
+
   await enforcePhoneBridgeRateLimit(event, "location", deviceId, {
     windowMs: 24 * 60 * 60 * 1000,
     maxHits: 5000,
     blockMs: 10 * 60 * 1000,
   });
-
-  const auth = await authenticateDevice(event, deviceId);
-  if (auth.mode === "device") await requirePhoneBridgeSignedRequest(event, deviceId, body);
 
   const sql = await getSql();
   const deviceRows = await sql.query<{ allowed_modules: unknown; enabled: boolean }>(
