@@ -42,6 +42,7 @@
     "test:music-player-browser": "node scripts/music-player-browser.test.mjs",
     "lint": "eslint .",
     "qa:admin": "node ./scripts/admin-qa.mjs",
+    "qa:admin:business-e2e": "node scripts/admin-business-workflows-e2e.mjs",
     "qa:admin-a11y": "node ./scripts/admin-visual-audit.mjs",
     "format": "prettier --write .",
     "test:template": "node --test 'scripts/**/*.test.mjs'",
