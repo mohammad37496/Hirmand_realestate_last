@@ -226,6 +226,7 @@ try {
     { id: "dedupe-duplicate", visit_status: "cancelled" },
   ]);
   console.log("ok   PostgreSQL dedupe SQL transfers the active visit and cancels the duplicate booking");
+  await admin.query("DELETE FROM lead_activities WHERE lead_id='dedupe-canonical'; DELETE FROM leads WHERE id IN ('dedupe-canonical','dedupe-duplicate')");
   releaseClient(visitA);
   releaseClient(visitB);
 
