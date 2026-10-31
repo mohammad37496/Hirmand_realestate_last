@@ -28,6 +28,12 @@ async function connectInSchema() {
   return client;
 }
 
+function releaseClient(client) {
+  const index = clients.indexOf(client);
+  if (index >= 0) clients.splice(index, 1);
+  client.release();
+}
+
 function sqlFor(client) {
   return {
     query: async (text, params = []) => (await client.query(text, params)).rows,
@@ -202,6 +208,8 @@ try {
     /unique/i,
   );
   console.log("ok   PostgreSQL event row lock and partial unique index prevent duplicate active phone RSVPs");
+  releaseClient(scheduleA);
+  releaseClient(scheduleB);
 
   const raceA = await connectInSchema();
   const raceB = await connectInSchema();
@@ -226,6 +234,8 @@ try {
   assert.equal(resubmitted.rows[0]?.status, "pending");
   assert.ok(["Owner A", "Owner B"].includes(resubmitted.rows[0]?.owner_name));
   console.log("ok   PostgreSQL compare-and-set allows exactly one concurrent resubmission");
+  releaseClient(raceA);
+  releaseClient(raceB);
 
   await admin.query(
     `INSERT INTO leads (id,status) VALUES ('lead-failure','new'),('lead-success','new');
@@ -276,6 +286,7 @@ try {
   assert.equal((await admin.query("SELECT id FROM property_change_history WHERE property_id='property-success'")).rowCount, 1);
   assert.equal((await admin.query("SELECT id FROM customer_property_submission_events WHERE id='event-success'")).rowCount, 1);
   console.log("ok   PostgreSQL approval commits the property, CRM activity and review audit together");
+  releaseClient(approval);
 
   const lockOwner = await connectInSchema();
   const lockWaiter = await connectInSchema();
