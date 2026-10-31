@@ -97,7 +97,7 @@ async function main() {
   ]);
   const cssType = cssResponse.headers.get("content-type") || "";
   const jsType = jsResponse.headers.get("content-type") || "";
-  requireCondition(/text\\/css/i.test(cssType), "Homepage CSS asset returned unexpected content-type: " + cssType);
+  requireCondition(/text\/css/i.test(cssType), "Homepage CSS asset returned unexpected content-type: " + cssType);
   requireCondition(/(?:java|ecma)script/i.test(jsType), "Homepage JavaScript asset returned unexpected content-type: " + jsType);
   await Promise.all([cssResponse.body?.cancel(), jsResponse.body?.cancel()]);
   record("homepage CSS/JS assets", css.pathname + " · " + js.pathname);
