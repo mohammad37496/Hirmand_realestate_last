@@ -15,6 +15,14 @@ test("the music player is mounted once in the shared root for every route", () =
     "route changes and the admin path must not create a separate player or hide the shared dock");
 });
 
+test("route changes collapse the dock without running the audio lifecycle cleanup", () => {
+  assert.match(player, /const pathname = useRouterState\\(\\{ select: \\(state\\) => state\\.location\\.pathname \\}\\)/);
+  assert.match(player, /useEffect\\(\\(\\) => \\{\\s*void loadTracks\\(\\);[\\s\\S]*?window\\.addEventListener\\("focus", refresh\\);[\\s\\S]*?audio\\?\\.pause\\(\\);[\\s\\S]*?\\}, \\[loadTracks\\]\\);/,
+    "audio pauses only when the shared player lifecycle ends");
+  assert.match(player, /useEffect\\(\\(\\) => \\{\\s*const mobileViewport = window\\.matchMedia[\\s\\S]*?const isPropertyDetailPage = pathname\\.startsWith\\("\\/properties\\/"\\)[\\s\\S]*?\\}, \\[pathname\\]\\);/,
+    "route visibility updates must live in an effect separate from audio cleanup");
+});
+
 test("viewport breakpoint changes synchronize the player mode and clean up the listener", () => {
   assert.match(player, /mobileViewport.addEventListener\("change", syncViewportMode\)/);
   assert.match(player, /mobileViewport.removeEventListener\("change", syncViewportMode\)/);
