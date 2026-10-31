@@ -22,8 +22,7 @@ export default defineEventHandler(async(event)=>{
   const body=await readBody<Record<string, unknown>>(event).catch(()=>({} as Record<string, unknown>));
   const action=String(body?.action??"");
   if (dbSource === "unconfigured") {
-    if (action === "list") return { events: [] };
-    throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای مدیریت بازدید گروهی تنظیم نشده است." });
+    throw createError({ statusCode: 503, statusMessage: "\u067e\u0627\u06cc\u06af\u0627\u0647 \u062f\u0627\u062f\u0647 \u0628\u0631\u0627\u06cc \u0628\u0627\u0632\u06cc\u0627\u0628\u06cc \u0632\u0645\u0627\u0646\u200c\u0647\u0627\u06cc \u0628\u0627\u0632\u062f\u06cc\u062f \u062f\u0631 \u062f\u0633\u062a\u0631\u0633 \u0646\u06cc\u0633\u062a." });
   }
   const sql=await getSql();
 

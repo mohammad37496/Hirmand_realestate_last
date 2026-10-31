@@ -15,12 +15,13 @@ test("unconfigured management report keeps every field the report UI and CSV con
   assert.deepEqual(report.topConsultants, []);
 });
 
-test("the report route preserves the selected date range in the unconfigured response", () => {
+test("the report route parses the requested range then fails closed when the database is unconfigured", () => {
   const route = readFileSync(new URL("../../server/routes/api/admin-management-report.get.ts", import.meta.url), "utf8");
   const daysIndex = route.indexOf("const query = getQuery(event)");
-  const fallbackIndex = route.indexOf("if (dbSource === \"unconfigured\") return emptyAdminManagementReport(days)");
-  assert.ok(daysIndex >= 0 && fallbackIndex > daysIndex);
-  assert.match(route, /available:\s*true/);
+  const unavailableIndex = route.indexOf('if (dbSource === "unconfigured") throw createError({ statusCode: 503');
+  assert.ok(daysIndex >= 0 && unavailableIndex > daysIndex);
+  assert.ok(!route.includes("emptyAdminManagementReport(days)"));
+  assert.ok(route.includes("statusCode: 503"));
 });
 
 test("management report UI rejects unavailable payloads and never keeps stale period data", () => {
