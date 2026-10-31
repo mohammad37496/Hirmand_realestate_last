@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
 import { pendingMigrations } from "../scripts/migration-plan.mjs";
+import { acquireMigrationAdvisoryLock } from "../scripts/migration-lock.mjs";
 import { resolveMigrationDatabaseUrl, sanitizePostgresConnectionString } from "./resolve-database-url.mjs";
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
@@ -24,7 +25,9 @@ export async function runMigrations({ connectionString }) {
     client = await pool.connect();
     // Keep the lock and all migration bookkeeping on one PostgreSQL session.
     // Concurrent deploys/startups must re-read _migrations only after acquiring it.
-    await client.query("SELECT pg_advisory_lock($1::bigint)", [MIGRATION_LOCK_KEY.toString()]);
+    await acquireMigrationAdvisoryLock(client, MIGRATION_LOCK_KEY, {
+      timeoutMs: Number(process.env.DB_MIGRATION_LOCK_TIMEOUT_MS ?? 30_000),
+    });
     lockAcquired = true;
 
     await client.query(
