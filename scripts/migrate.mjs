@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import pg from "pg";
 import { resolveMigrationDatabaseUrl, sanitizePostgresConnectionString } from "./resolve-database-url.mjs";
 import { pendingMigrations } from "./migration-plan.mjs";
+import { acquireMigrationAdvisoryLock } from "./migration-lock.mjs";
 
 const resolved = resolveMigrationDatabaseUrl();
 const databaseUrl = resolved.url ? sanitizePostgresConnectionString(resolved.url) : undefined;
@@ -44,7 +45,9 @@ async function main() {
 
   try {
     // A session-level lock serializes deploy hooks and concurrent app starts.
-    await client.query("SELECT pg_advisory_lock(741206510::bigint)");
+    await acquireMigrationAdvisoryLock(client, 741206510n, {
+      timeoutMs: Number(process.env.DB_MIGRATION_LOCK_TIMEOUT_MS ?? 30_000),
+    });
     migrationLockAcquired = true;
     await client.query(
       "CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
