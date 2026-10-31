@@ -161,20 +161,23 @@ try {
   ]);
   assert.equal(overlapResults.filter((result) => result.kind === "created").length, 1);
   assert.equal(overlapResults.filter((result) => result.kind === "overlap").length, 1);
+  const createdOpenHouseId = overlapResults.find((result) => result.kind === "created")?.id;
+  assert.ok(createdOpenHouseId, "one overlapping open-house event must be created");
   console.log("ok   PostgreSQL property row lock prevents concurrent overlapping open-house events");
 
   const capacityResults = await Promise.all([
     inTransaction(scheduleA, (tx) => registerOpenHouseRsvp(tx, {
-      id: "open-house-rsvp-a", eventId: "open-house-a", name: "Guest A", phone: "09130000001", partySize: 1, note: "",
+      id: "open-house-rsvp-a", eventId: createdOpenHouseId, name: "Guest A", phone: "09130000001", partySize: 1, note: "",
     }, new Date("2030-01-01T00:00:00Z")), { delayInsertMs: 150 }),
     inTransaction(scheduleB, (tx) => registerOpenHouseRsvp(tx, {
-      id: "open-house-rsvp-b", eventId: "open-house-a", name: "Guest B", phone: "09130000002", partySize: 1, note: "",
+      id: "open-house-rsvp-b", eventId: createdOpenHouseId, name: "Guest B", phone: "09130000002", partySize: 1, note: "",
     }, new Date("2030-01-01T00:00:00Z")), { delayInsertMs: 150 }),
   ]);
   assert.equal(capacityResults.filter((result) => result.kind === "created").length, 1);
   assert.equal(capacityResults.filter((result) => result.kind === "full").length, 1);
   const bookedSeats = await admin.query(
-    "SELECT coalesce(sum(party_size),0)::int AS seats FROM property_open_house_rsvps WHERE open_house_id='open-house-a' AND status <> 'cancelled'",
+    "SELECT coalesce(sum(party_size),0)::int AS seats FROM property_open_house_rsvps WHERE open_house_id=$1 AND status <> 'cancelled'",
+    [createdOpenHouseId],
   );
   assert.equal(bookedSeats.rows[0]?.seats, 1);
   console.log("ok   PostgreSQL event row lock prevents concurrent RSVP capacity oversubscription");
