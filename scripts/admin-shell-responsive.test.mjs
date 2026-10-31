@@ -49,3 +49,23 @@ test("admin browser audits accept an installed Chromium-compatible browser path"
     assert.match(source, /executablePath: process\.env\.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH/);
   }
 });
+
+test("admin mobile workspace keeps compact two-column metrics at 390px and below", () => {
+  const finalLayer = css.slice(css.lastIndexOf("Mobile admin workspace: final responsive layer"));
+  assert.match(finalLayer, /@media\(max-width:390px\)[\s\S]*?\.admin-stats-grid,\.admin-dashboard-stats\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(finalLayer, /\.admin-content\{padding:14px 12px calc\(108px \+ env\(safe-area-inset-bottom\)\)\}/);
+});
+
+test("admin mobile tables scroll inside their own container and form fields stack", () => {
+  const finalLayer = css.slice(css.lastIndexOf("Mobile admin workspace: final responsive layer"));
+  assert.match(finalLayer, /\.admin-main :is\(\.admin-table-wrap,\.admin-target-table-wrap,\[class\*=\"table-wrap\"\]\)\{max-width:100%;overflow-x:auto/);
+  assert.match(finalLayer, /\.admin-form-grid,\.admin-main \.admin-form-grid\{grid-template-columns:minmax\(0,1fr\)/);
+});
+
+test("admin touch navigation, drawer and confirmation actions retain usable targets", () => {
+  const finalLayer = css.slice(css.lastIndexOf("Mobile admin workspace: final responsive layer"));
+  assert.match(finalLayer, /\.admin-mobile-nav button,\.admin-mobile-site\{flex:1 1 0;min-width:0;min-height:54px/);
+  assert.match(finalLayer, /\.admin-property-actions \.admin-icon-btn\{width:44px;height:44px;min-width:44px;min-height:44px\}/);
+  assert.match(finalLayer, /\.admin-dialog-actions>\*\{width:100%;min-height:46px\}/);
+  assert.ok(finalLayer.includes(".admin-drawer{overscroll-behavior:contain"));
+});
