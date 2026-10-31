@@ -222,53 +222,6 @@ try {
     editedPrice,
     matchedPropertyId: propertyId,
   }, null, 2));
-  leadId = randomUUID();
-  const minBudget = (BigInt(editedPrice) - 100_000_000n).toString();
-  const maxBudget = (BigInt(editedPrice) + 100_000_000n).toString();
-  await client.query(
-    "insert into leads (id,name,phone,deal,property_type,neighborhood,status,source,budget_purchase,budget_purchase_min,budget_purchase_max,requested_amenities,requested_bedrooms) values ($1,$2,$3,$4,$5,$6,'new','website',$7,$8,$9,'[]'::jsonb,2)",
-    [leadId, "مشتری آزمایشی گردش کار", "09129999999", "خرید", "آپارتمان", "مرکز شهر", editedPrice, minBudget, maxBudget],
-  );
-
-  let matchResult = await postJsonFromPage(
-    page,
-    "/api/admin-match",
-    { action: "match", leadId, mode: "smart", limit: 24 },
-    "Available-property CRM matching",
-  );
-  if (!Array.isArray(matchResult.matches) || !matchResult.matches.some((item) => String(item.id) === propertyId)) {
-    throw new Error("CRM matching did not return the published, available property for the matching lead.");
-  }
-
-  // Regression: a still-published listing marked sold must not be recommended.
-  await client.query("update properties set availability_status='sold', updated_at=current_timestamp where id=$1", [propertyId]);
-  matchResult = await postJsonFromPage(
-    page,
-    "/api/admin-match",
-    { action: "match", leadId, mode: "smart", limit: 24 },
-    "Unavailable-property CRM matching",
-  );
-  if (Array.isArray(matchResult.matches) && matchResult.matches.some((item) => String(item.id) === propertyId)) {
-    throw new Error("CRM matching incorrectly included a sold/unavailable property.");
-  }
-
-  console.log(JSON.stringify({
-    ok: true,
-    scenarios: [
-      { name: "create draft", ok: true },
-      { name: "admin search", ok: true },
-      { name: "edit listing", ok: true },
-      { name: "publish listing", ok: true },
-      { name: "public detail reflects saved data", ok: true, httpStatus: detail.status() },
-      { name: "match available property to customer", ok: true },
-      { name: "exclude sold property from matching", ok: true },
-    ],
-    propertyId,
-    leadId,
-    finalStatus: "published",
-    editedPrice,
-    matchedPropertyId: propertyId,
-  }, null, 2));
 } finally {
   if (client) {
     const cleanupLeadIds = [leadId, unavailableLeadId].filter(Boolean);
