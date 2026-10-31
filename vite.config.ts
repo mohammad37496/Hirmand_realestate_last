@@ -175,6 +175,11 @@ export default defineConfig(({ command, isPreview }) => ({
       ? [
           nitro({
             preset: "node-server",
+            // Keep local verification builds off the constrained system drive.
+            // Production defaults remain the conventional project `.output`.
+            output: {
+              dir: process.env.HIRMAND_BUILD_OUTPUT_DIR?.trim() || "./.output",
+            },
             // Auto-registers server/middleware/* (the PWA install page +
             // manifest + head-tag middleware). Nitro v3 defaults serverDir to
             // false, so removing this silently unwires /?install=1 on deploys.
