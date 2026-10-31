@@ -7,6 +7,8 @@ import pg from "pg";
 import { chromium } from "playwright";
 import { randomUUID } from "node:crypto";
 
+const normalizeDigits = (value) => value.replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)));
+
 const baseUrl = (process.argv[2] || process.env.QA_BASE_URL || "http://127.0.0.1:8081").replace(/\/$/, "");
 const adminKey = process.env.HIRMAND_ADMIN_KEY?.trim();
 const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -138,7 +140,7 @@ try {
   const detailHeading = detailPage.locator(".property-detail-title-block");
   await detailHeading.waitFor({ state: "visible", timeout: 15000 });
   const renderedTitle = await detailHeading.innerText();
-  if (!renderedTitle.includes(editedTitle)) {
+  if (!normalizeDigits(renderedTitle).includes(normalizeDigits(editedTitle))) {
     throw new Error("Published detail heading mismatch: expected " + editedTitle + ", received " + (renderedTitle || "(empty)") + "; url=" + detailPage.url());
   }
 
