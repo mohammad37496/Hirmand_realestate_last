@@ -42,3 +42,21 @@ test("browser property drafts strip private values on save and restore", () => {
     assert.ok(code.includes(field + ": current." + field), field + " must be restored from current form state");
   }
 });
+
+ 
+test("admin map marker supports bounded keyboard movement", () => {
+  const code = read("src/components/hirmand/admin-location-picker.tsx");
+  assert.match(code, /aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"/);
+  assert.match(code, /event\.key === "ArrowUp"/);
+  assert.match(code, /event\.key === "ArrowDown"/);
+  assert.match(code, /event\.key === "ArrowLeft"/);
+  assert.match(code, /event\.key === "ArrowRight"/);
+  assert.match(code, /Math\.max\(-90, Math\.min\(90/);
+  assert.match(code, /Math\.max\(-180, Math\.min\(180/);
+});
+
+test("duplicate checker never sends draft-only matches to the public detail route", () => {
+  const code = read("src/components/hirmand/admin-property-duplicate-check.tsx");
+  assert.match(code, /match\.status === "published" \? \([\s\S]*?<a className="text-link" href=\{["']\/properties\//);
+  assert.match(code, /پیش‌نویس · فقط مدیریت/);
+});
