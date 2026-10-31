@@ -9,7 +9,7 @@ const EVENT_LABELS:Record<string,string>={created:"ثبت ملک دریافت ش
 
 export default defineEventHandler(async(event)=>{
  setResponseHeader(event,"cache-control","no-store");
- if(dbSource==="unconfigured")return {success:false,statusMessage:"سامانه ثبت ملک آنلاین فعال نیست."};
+ if(dbSource==="unconfigured")throw createError({statusCode:503,statusMessage:"سامانه وضعیت ثبت ملک در دسترس نیست."});
  assertSameOrigin(event);
  const throttle=await consumeAdminAttempt("owner-status:"+clientFingerprint(event));
  if(!throttle.allowed)throw createError({statusCode:429,statusMessage:"تعداد درخواست‌های پیگیری بیش از حد مجاز است. چند دقیقه دیگر دوباره تلاش کنید."});

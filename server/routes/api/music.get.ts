@@ -1,11 +1,11 @@
-import { defineEventHandler, setResponseHeader } from "h3";
+import { createError, defineEventHandler, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
 import { normalizeStoredMediaUrl } from "@/lib/music-library.server";
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
 
-  if (dbSource === "unconfigured") return { autoplay: true, tracks: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "کتابخانه موسیقی در دسترس نیست." });
 
   const sql = await getSql();
   const rows = await sql.query<Record<string, unknown>>(

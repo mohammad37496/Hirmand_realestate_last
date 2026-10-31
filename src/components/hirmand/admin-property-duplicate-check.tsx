@@ -35,7 +35,7 @@ export function AdminPropertyDuplicateCheck(props: Props) {
       toast.info("برای بررسی مشابه، عنوان و محله را تکمیل کنید.");
       return;
     }
-    setLoading(true);
+    setLoading(true);setChecked(false);setMatches([]);
     try {
       const response = await fetch("/api/admin-property-duplicates", {
         method: "POST",

@@ -93,7 +93,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (dbSource === "unconfigured") {
-    return { ok: true, devices: [], commands: [], unconfigured: true };
+    throw createError({ statusCode: 503, statusMessage: "مدیریت Phone Bridge در دسترس نیست؛ هیچ فرمان یا تغییری ثبت نشد." });
   }
 
   const sql = await getSql();

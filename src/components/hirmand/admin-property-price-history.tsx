@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { History, RefreshCw, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { formatToman } from "@/lib/money";
+import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
 type Item = {
   id: number;
@@ -17,9 +18,9 @@ const date = (v: string) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "mediu
 
 export function AdminPropertyPriceHistory({ propertyId }: { propertyId: string }) {
   const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState("");
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setLoadError("");
     try {
       const response = await fetch("/api/admin-property-price-history", {
         method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
@@ -27,9 +28,9 @@ export function AdminPropertyPriceHistory({ propertyId }: { propertyId: string }
       });
       const data = (await response.json()) as { history?: Item[]; statusMessage?: string };
       if (!response.ok) throw new Error(data.statusMessage || "تاریخچه قیمت بارگذاری نشد.");
-      setItems(Array.isArray(data.history) ? data.history : []);
+      if (!Array.isArray(data.history)) throw new Error("ساختار تاریخچه قیمت معتبر نیست."); setItems(data.history);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تاریخچه قیمت بارگذاری نشد.");
+      const message = error instanceof Error ? error.message : "تاریخچه قیمت بارگذاری نشد."; setItems([]); setLoadError(message); toast.error(message);
     } finally { setLoading(false); }
   }, [propertyId]);
   useEffect(() => { void load(); }, [load]);
@@ -40,7 +41,7 @@ export function AdminPropertyPriceHistory({ propertyId }: { propertyId: string }
       <div className="admin-price-history-head"><div><span className="kicker">کنترل قیمت</span><p>تغییرات فروش، رهن و اجاره ثبت می‌شوند؛ سوابق قبل از فعال‌شدن این قابلیت ممکن است موجود نباشند.</p></div>
         <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14} className={loading ? "admin-spin" : ""} /> بروزرسانی</button>
       </div>
-      {loading ? <div className="admin-empty">در حال دریافت تاریخچه…</div> : !items.length ? <div className="admin-empty">هنوز تغییر قیمت ثبت نشده است.</div> :
+      {loadError ? <AdminErrorBanner message={loadError} onRetry={() => void load()} /> : loading ? <div className="admin-empty">در حال دریافت تاریخچه…</div> : !items.length ? <div className="admin-empty">هنوز تغییر قیمت ثبت نشده است.</div> :
         <div className="admin-price-history-list">{items.map((item) => {
           const changes: Array<{ label: string; before: number | null; after: number | null; percent: number | null }> = [];
           if (item.priceBefore !== item.priceAfter && (item.priceBefore != null || item.priceAfter != null)) changes.push({ label: "فروش", before: item.priceBefore, after: item.priceAfter, percent: item.pricePercent });

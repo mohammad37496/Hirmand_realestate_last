@@ -92,7 +92,7 @@ export default defineEventHandler(async (event) => {
   if (!parsed.success) {
     throw createError({ statusCode: 422, statusMessage: "درخواست مدیریت نامعتبر است." });
   }
-  if (dbSource === "unconfigured") return { openCount: 0, reports: [] };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "گزارش‌های ملک در دسترس نیستند." });
   const sql = await getSql();
 
   if (parsed.data.action === "updateStatus") {

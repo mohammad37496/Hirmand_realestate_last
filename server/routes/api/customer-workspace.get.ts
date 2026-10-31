@@ -5,7 +5,7 @@ import { requireUserId } from "@/lib/auth/verify.server";
 export default defineEventHandler(async () => {
   const userId = await requireUserId();
   if (dbSource === "unconfigured") {
-    return { favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [], updatedAt: null };
+    throw createError({ statusCode: 503, statusMessage: "فضای شخصی مشتری در دسترس نیست؛ داده خالی فرض نشده است." });
   }
 
   const sql = await getSql();
