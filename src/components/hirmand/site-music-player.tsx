@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouterState } from "@tanstack/react-router";
 import {
   ChevronDown,
   ListMusic,
@@ -32,6 +33,7 @@ function clock(value: number) {
 }
 
 export function SiteMusicPlayer() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const audioRef = useRef<HTMLAudioElement>(null);
   const [tracks, setTracks] = useState<PublicTrack[]>([]);
   const [index, setIndex] = useState(0);
@@ -76,13 +78,6 @@ export function SiteMusicPlayer() {
 
   useEffect(() => {
     void loadTracks();
-    const mobileViewport = window.matchMedia("(max-width: 720px)");
-    setCollapsed(mobileViewport.matches);
-    const syncViewportMode = (event: MediaQueryListEvent) => {
-      setCollapsed(event.matches);
-      setExpanded(false);
-    };
-    mobileViewport.addEventListener("change", syncViewportMode);
     const refresh = () => {
       if (document.visibilityState === "visible") void loadTracks();
     };
@@ -90,10 +85,24 @@ export function SiteMusicPlayer() {
     window.addEventListener("focus", refresh);
     return () => {
       window.removeEventListener("focus", refresh);
-      mobileViewport.removeEventListener("change", syncViewportMode);
       audio?.pause();
     };
   }, [loadTracks]);
+
+  useEffect(() => {
+    const mobileViewport = window.matchMedia("(max-width: 720px)");
+    const isPropertyDetailPage = pathname.startsWith("/properties/") && pathname !== "/properties/";
+    setCollapsed(mobileViewport.matches || isPropertyDetailPage);
+    setExpanded(false);
+    const syncViewportMode = (event: MediaQueryListEvent) => {
+      setCollapsed(event.matches || isPropertyDetailPage);
+      setExpanded(false);
+    };
+    mobileViewport.addEventListener("change", syncViewportMode);
+    return () => {
+      mobileViewport.removeEventListener("change", syncViewportMode);
+    };
+  }, [pathname]);
 
   const activeTrack = tracks[index];
   const source = activeTrack?.stream || (activeTrack ? `/api/music/file/${encodeURIComponent(activeTrack.id)}` : "");
