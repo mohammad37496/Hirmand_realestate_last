@@ -1941,6 +1941,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                   <button
                     type="button"
                     className={"admin-nav-btn" + (active ? " is-active" : "")}
+                    data-admin-view={item.view}
                     aria-current={active ? "page" : undefined}
                     onClick={() => navigateTo(item.view)}
                   >
