@@ -152,6 +152,7 @@ jobs:
           node scripts/browser-smoke.mjs http://127.0.0.1:8081/ /workspace/screenshots/hirmand-preview.png
           node scripts/property-search-browser-smoke.mjs http://127.0.0.1:8081
           node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081
+          node scripts/admin-business-workflows-e2e.mjs http://127.0.0.1:8081
           # Keep the server alive while auditing admin layouts and accessibility.
           npm run qa:admin-a11y
 
