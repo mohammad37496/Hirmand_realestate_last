@@ -686,6 +686,7 @@ html body .music-player-float.is-collapsed .music-player-restore {
     left: 12px !important;
     width: min(350px, calc(100vw - 24px)) !important;
     height: auto !important;
+    min-height: min(74vh, 420px) !important;
     max-height: min(74vh, 620px) !important;
     padding: 12px !important;
     overflow: visible !important;
@@ -721,13 +722,73 @@ html body .music-player-float.is-collapsed .music-player-restore {
   }
 
   html body .music-player-float.is-expanded .music-player-float-controls button {
-    width: 28px !important;
-    height: 30px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
   }
 
   html body .music-player-float.is-expanded .music-player-float-controls .music-player-float-play {
-    width: 32px !important;
-    height: 32px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  /* Every control inside the open mobile panel needs a full touch target.
+     The old desktop-sized buttons were too small to use reliably by touch. */
+  html body .music-player-float.is-expanded .music-player-float-head {
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  html body #hirmand-site-music-player.is-expanded .music-player-utility {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
+  }
+
+  html body #hirmand-site-music-player.is-expanded .music-player-float-playlist {
+    display: block !important;
+    width: min(326px, calc(100vw - 48px)) !important;
+    max-width: min(326px, calc(100vw - 48px)) !important;
+    box-sizing: border-box !important;
+  }
+
+  html body #hirmand-site-music-player.is-expanded .music-player-full-content {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  html body #hirmand-site-music-player.is-expanded .music-player-float-item {
+    display: grid !important;
+    width: 100% !important;
+    min-height: 48px !important;
+    box-sizing: border-box !important;
+  }
+
+  html body .music-player-float.is-expanded .music-player-volume-control {
+    grid-template-columns: 44px minmax(0, 1fr) 34px !important;
+    min-height: 52px !important;
+    gap: 6px !important;
+  }
+
+  html body .music-player-float.is-expanded .music-player-volume-toggle,
+  html body .music-player-float.is-expanded .music-player-options button {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  html body .music-player-float.is-expanded .music-player-volume-control input,
+  html body .music-player-float.is-expanded .music-player-float-progress input {
+    height: 44px !important;
+    min-height: 44px !important;
   }
 
   html body .music-player-float-empty.is-collapsed {
@@ -1005,8 +1066,7 @@ html body .music-player-float-empty button {
 }
 
 @media (max-width: 720px) {
-  html body #hirmand-site-music-player,
-  html body #hirmand-site-music-player.music-player-float-empty {
+  html body #hirmand-site-music-player:not(.is-expanded) {
     bottom: calc(78px + env(safe-area-inset-bottom)) !important;
     left: 12px !important;
     width: 44px !important;

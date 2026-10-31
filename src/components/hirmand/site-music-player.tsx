@@ -50,6 +50,7 @@ export function SiteMusicPlayer() {
   const [error, setError] = useState("");
   const selectedTrackId = useRef<string | null>(null);
   const requestVersion = useRef(0);
+  const keepPlayingAfterTrackChangeRef = useRef(false);
 
   selectedTrackId.current = tracks[index]?.id ?? null;
 
@@ -111,6 +112,7 @@ export function SiteMusicPlayer() {
     const audio = audioRef.current;
     if (!audio) return;
     if (!source) {
+      keepPlayingAfterTrackChangeRef.current = false;
       audio.pause();
       audio.removeAttribute("src");
       audio.load();
@@ -135,6 +137,7 @@ export function SiteMusicPlayer() {
       return;
     }
     void audio.play().catch(() => {
+      keepPlayingAfterTrackChangeRef.current = false;
       setPlaying(false);
       setError("برای شروع پخش، دکمهٔ پخش را لمس کنید.");
     });
@@ -152,6 +155,7 @@ export function SiteMusicPlayer() {
     setError("");
     if (audio.paused) {
       void audio.play().then(() => setPlaying(true)).catch(() => {
+        keepPlayingAfterTrackChangeRef.current = false;
         setPlaying(false);
         setError("این آهنگ در حال حاضر قابل پخش نیست.");
       });
@@ -164,6 +168,7 @@ export function SiteMusicPlayer() {
   const stopPlayback = () => {
     const audio = audioRef.current;
     if (!audio) return;
+    keepPlayingAfterTrackChangeRef.current = false;
     audio.pause();
     audio.currentTime = 0;
     setCurrentTime(0);
@@ -177,6 +182,7 @@ export function SiteMusicPlayer() {
 
   const changeTrack = (step: number) => {
     if (!tracks.length) return;
+    keepPlayingAfterTrackChangeRef.current = true;
     setIndex((current) => {
       if (shuffle && step > 0 && tracks.length > 1) {
         const choices = tracks.map((_, i) => i).filter((i) => i !== current);
@@ -209,12 +215,22 @@ export function SiteMusicPlayer() {
       <audio
         ref={audioRef}
         preload="metadata"
-        onPlay={() => setPlaying(true)}
+        onPlay={() => {
+          keepPlayingAfterTrackChangeRef.current = false;
+          setPlaying(true);
+        }}
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
         onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
-        onPause={() => setPlaying(false)}
+        onPause={() => {
+          const audio = audioRef.current;
+          if (keepPlayingAfterTrackChangeRef.current || (playing && audio && !audio.paused)) return;
+          setPlaying(false);
+        }}
         onEnded={handleTrackEnded}
-        onError={() => { if (activeTrack) { setPlaying(false); setError("دریافت فایل صوتی ممکن نشد. اتصال سایت یا فایل را بررسی کنید."); } }}
+        onError={() => {
+          keepPlayingAfterTrackChangeRef.current = false;
+          if (activeTrack) { setPlaying(false); setError("دریافت فایل صوتی ممکن نشد. اتصال سایت یا فایل را بررسی کنید."); }
+        }}
       />
       <button
         type="button"
@@ -279,7 +295,7 @@ export function SiteMusicPlayer() {
               </div>
               <div className="music-player-float-playlist-head"><strong>انتخاب موسیقی</strong><span>{tracks.length.toLocaleString("fa-IR")} آهنگ</span></div>
               {tracks.map((track, trackIndex) => (
-                <button key={track.id} type="button" className={`music-player-float-item${trackIndex === index ? " is-active" : ""}`} onClick={() => { setIndex(trackIndex); setPlaying(true); }}>
+                <button key={track.id} type="button" className={`music-player-float-item${trackIndex === index ? " is-active" : ""}`} onClick={() => { keepPlayingAfterTrackChangeRef.current = true; setIndex(trackIndex); setPlaying(true); }}>
                   <span>{trackIndex === index && playing ? <span className="music-player-eq"><i /><i /><i /></span> : String(trackIndex + 1).padStart(2, "0")}</span>
                   <span><strong>{track.title}</strong><small>{track.artist || "املاک هیرمند"}</small></span>
                   {trackIndex === index && playing ? <Pause size={15} /> : <Play size={15} />}
