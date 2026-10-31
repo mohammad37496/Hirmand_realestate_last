@@ -63,3 +63,13 @@ test("admin API fixtures match query-string endpoints", () => {
 test("coverage regression test is part of the normal npm test command", () => {
   assert.ok(packageManifest.includes("scripts/admin-qa-coverage.test.mjs"));
 });
+
+test("visual audit scopes create navigation and keeps chart-label clipping diagnostic", () => {
+  assert.ok(visualQa.includes('const navRoot = selector.startsWith(".admin-drawer") ? ".admin-drawer" : ".admin-sidebar-nav";'));
+  assert.ok(visualQa.includes('page.locator(navRoot + " .admin-nav-btn-create")'));
+  assert.ok(visualQa.includes("rect.right > window.innerWidth + 8 || rect.left < -8"));
+  const start = visualQa.indexOf("const blockingPatterns = [");
+  const end = visualQa.indexOf("];", start);
+  assert.ok(!visualQa.slice(start, end).includes("clipped text"));
+  assert.ok(visualQa.includes("geometry.clipped.length"));
+});
