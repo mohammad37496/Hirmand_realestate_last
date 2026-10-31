@@ -47,6 +47,10 @@ const packageManifest = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8",
 );
+const pgliteRuntimeCopy = await readFile(
+  new URL("./copy-pglite-runtime.mjs", import.meta.url),
+  "utf8",
+);
 const ffmpegProvisioner = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
   "utf8",
@@ -251,6 +255,15 @@ test("npm and direct Liara builds both provision the watermark runtime", () => {
     /if \(isProduction\) \{\s*const \{ ensureFfmpegBinary \}/,
     "FFmpeg provisioning must not be gated on NODE_ENV=production alone",
   );
+});
+
+test("explicit PGlite builds include the WASM runtime beside the bundled server module", () => {
+  assert.match(packageManifest, /node scripts\/copy-pglite-runtime\.mjs/);
+  assert.match(pgliteRuntimeCopy, /PGLITE_DATA_DIR/,
+    "the optional PGlite runtime must only be copied for a build explicitly configured to use it");
+  assert.match(pgliteRuntimeCopy, /\["pglite\.data", "pglite\.wasm", "initdb\.wasm"\]/);
+  assert.match(pgliteRuntimeCopy, /join\(outputDir, "server", "_libs"\)/,
+    "PGlite assets must be colocated with the bundled module that resolves them via import.meta.url");
 });
 
 test("upload client diagnostics match fail-closed watermark handling", () => {
