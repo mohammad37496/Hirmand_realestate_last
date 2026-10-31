@@ -258,7 +258,7 @@ test("npm and direct Liara builds both provision the watermark runtime", () => {
 });
 
 test("explicit PGlite builds include the WASM runtime beside the bundled server module", () => {
-  assert.match(packageManifest, /node scripts\\/copy-pglite-runtime\\.mjs/);
+  assert.match(packageManifest, /node scripts\/copy-pglite-runtime\.mjs/);
   assert.match(pgliteRuntimeCopy, /PGLITE_DATA_DIR/,
     "the optional PGlite runtime must only be copied for a build explicitly configured to use it");
   assert.match(pgliteRuntimeCopy, /\["pglite\.data", "pglite\.wasm", "initdb\.wasm"\]/);
