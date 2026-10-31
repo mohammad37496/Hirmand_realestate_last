@@ -76,7 +76,7 @@ export function isInvalidIntegerInput(value: unknown, allowNegative = false): bo
   if (!normalized) return false;
   if (!/^-?\d+$/.test(normalized)) return true;
   const parsed = Number(normalized);
-  if (!Number.isInteger(parsed) || !Number.isFinite(parsed)) return true;
+  if (!Number.isSafeInteger(parsed)) return true;
   return !allowNegative && parsed < 0;
 }
 
