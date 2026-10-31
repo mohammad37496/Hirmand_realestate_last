@@ -114,12 +114,15 @@ try {
   await page.getByText("فایل به‌روزرسانی شد.", { exact: true }).waitFor({ state: "visible", timeout: 60000 });
 
   rows = await client.query(
-    "select id, slug, status, price, deposit, rent, published_at, availability_status from properties where id=$1 limit 1",
+    "select id, slug, title, status, price, deposit, rent, published_at, availability_status from properties where id=$1 limit 1",
     [propertyId],
   );
   if (!rows.rows[0]) throw new Error("Edited property row disappeared.");
   row = rows.rows[0];
   if (row.status !== "published") throw new Error("Edit/publish step did not persist published status.");
+  if (String(row.title ?? "") !== editedTitle) {
+    throw new Error("Edited property title was not persisted: " + JSON.stringify({ expected: editedTitle, actual: row.title }));
+  }
   if (String(row.price) !== editedPrice) throw new Error("Edited price was not persisted.");
   if (!row.published_at) throw new Error("Published property has no published_at timestamp.");
   if (String(row.availability_status ?? "available") !== "available") throw new Error("New listing should begin available.");
@@ -133,7 +136,17 @@ try {
     { waitUntil: "domcontentloaded", timeout: 45000 },
   );
   if (!detail || detail.status() >= 400) throw new Error("Published property detail returned HTTP " + (detail?.status() ?? 0));
-  if (!(await page.locator("body").innerText()).includes(editedTitle)) {
+  const detailText = await page.locator("body").innerText();
+  const detailHeading = await page.locator("h1").first().innerText().catch(() => "");
+  console.log("[admin-business-e2e] public detail evidence", JSON.stringify({
+    propertyId,
+    slug: row.slug,
+    expectedTitle: editedTitle,
+    databaseTitle: row.title,
+    heading: detailHeading,
+    bodyPreview: detailText.slice(0, 1200),
+  }));
+  if (!detailText.includes(editedTitle)) {
     throw new Error("Published detail page does not reflect the edited listing title.");
   }
 
