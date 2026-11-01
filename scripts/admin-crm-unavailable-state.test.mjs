@@ -280,9 +280,11 @@ test("sales funnel ignores stale range responses and clears data after a failed 
 
 test("sales control center maps period leads, calculates period conversion and excludes trashed files", () => {
   const route = read("server/routes/api/admin-sales-control-center.post.ts");
+  const dashboard = read("server/routes/api/admin-dashboard.post.ts");
   const ui = read("src/components/hirmand/admin-sales-control-center.tsx");
   const fileStats = route.split("with file_stats as (")[1]?.split("lead_stats as (")[0] ?? "";
   const eventStats = route.split("event_stats as (")[1]?.split("\n       )")[0] ?? "";
+  const dashboardEventStats = dashboard.split("event_stats as (")[1]?.split("\n       )")[0] ?? "";
   assert.match(route, /periodLeads:\s*Number\(row\.period_leads\)\s*\|\|\s*0/);
   assert.match(route, /conversionRate:\s*Number\(row\.period_leads\)\s*>\s*0/);
   assert.match(ui, /periodLeads:\s*number/);
@@ -290,6 +292,7 @@ test("sales control center maps period leads, calculates period conversion and e
   assert.match(fileStats, /deleted_at is null/);
   assert.match(fileStats, /status = 'published'/);
   assert.match(eventStats, /p\.deleted_at is null/, "consultant views must exclude soft-deleted properties");
+  assert.match(dashboardEventStats, /p\.deleted_at is null/, "dashboard consultant views must exclude soft-deleted properties");
   assert.match(ui, /const requestSequence\s*=\s*useRef\(0\)/);
   assert.match(ui, /const requestId = \+\+requestSequence\.current/);
   assert.match(ui, /requestId === requestSequence\.current/);

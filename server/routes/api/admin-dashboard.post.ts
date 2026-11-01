@@ -296,7 +296,8 @@ export default defineEventHandler(async (event) => {
                 count(*) filter (where e.event_name = 'whatsapp_click')::int as whatsapp
          from properties p
          join site_events e on e.property_slug = p.slug
-         where coalesce(trim(p.contact_name), '') <> ''
+         where p.deleted_at is null
+           and coalesce(trim(p.contact_name), '') <> ''
            and e.day >= (current_timestamp at time zone 'Asia/Tehran')::date - 29
          group by lower(trim(p.contact_name))
        )
