@@ -25,6 +25,19 @@ export async function saveConsultantWithSql(
   sql: Pick<Sql, "query">,
   data: ConsultantMutationInput,
 ) {
+  // Serialize name checks so concurrent saves cannot create two consultants
+  // whose assignments would be indistinguishable in name-based CRM queries.
+  await sql.query("lock table consultants in share row exclusive mode");
+  const duplicate = await sql.query<{ id: string }>(
+    `select id
+       from consultants
+      where lower(trim(name)) = lower(trim($1))
+        and id <> $2
+      limit 1`,
+    [data.name.trim(), data.id],
+  );
+  if (duplicate.length > 0) throw new Error("A consultant with this name already exists.");
+
   const existing = await sql.query<{ name: string }>(
     "select name from consultants where id = $1 limit 1 for update",
     [data.id],
