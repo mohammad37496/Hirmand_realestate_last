@@ -91,7 +91,8 @@ export default defineEventHandler(async (event) => {
            count(*) filter (where e.event_name = 'property_view')::int as views
          from properties p
          join site_events e on e.property_slug = p.slug
-         where coalesce(trim(p.contact_name), '') <> ''
+         where p.deleted_at is null
+           and coalesce(trim(p.contact_name), '') <> ''
            and e.day >= (current_timestamp at time zone 'Asia/Tehran')::date - ${days - 1}
          group by lower(trim(p.contact_name))
        )
