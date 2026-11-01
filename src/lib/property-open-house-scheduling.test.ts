@@ -18,7 +18,14 @@ function sqlFor(tx: { query: (text: string, params?: unknown[]) => Promise<{ row
 async function fixture() {
   const db = new PGlite();
   await db.exec(`
-    create table properties (id text primary key, status text not null);
+    create table properties (
+      id text primary key,
+      status text not null,
+      availability_status text not null default 'available',
+      deleted_at timestamptz,
+      publish_at timestamptz,
+      unpublish_at timestamptz
+    );
     create table property_open_houses (
       id text primary key, property_id text not null references properties(id),
       starts_at timestamptz not null, ends_at timestamptz not null,
@@ -96,6 +103,52 @@ test("concurrent overlapping open-house creation for one property admits only on
   }
 });
 
+test("open-house creation rejects sold, unavailable, unpublished and soft-deleted properties", async () => {
+  const db = await fixture();
+  try {
+    const statuses = ["sold", "rented", "unavailable"];
+    for (const availabilityStatus of statuses) {
+      await db.query("update properties set availability_status=$1,deleted_at=null,unpublish_at=null where id='property-1'", [availabilityStatus]);
+      const result = await transaction(db, (tx) => createOpenHouseSchedule(tx, {
+        id: `event-${availabilityStatus}`,
+        propertyId: "property-1",
+        startsAt: futureStart,
+        endsAt: futureEnd,
+        capacity: 8,
+        note: "",
+      }));
+      assert.deepEqual(result, { kind: "property_missing" });
+    }
+
+    await db.query("update properties set availability_status='available',unpublish_at='2020-01-01T00:00:00Z' where id='property-1'");
+    const expired = await transaction(db, (tx) => createOpenHouseSchedule(tx, {
+      id: "event-expired", propertyId: "property-1", startsAt: futureStart, endsAt: futureEnd, capacity: 8, note: "",
+    }));
+    assert.deepEqual(expired, { kind: "property_missing" });
+
+    await db.query("update properties set unpublish_at=null,deleted_at=current_timestamp where id='property-1'");
+    const deleted = await transaction(db, (tx) => createOpenHouseSchedule(tx, {
+      id: "event-deleted", propertyId: "property-1", startsAt: futureStart, endsAt: futureEnd, capacity: 8, note: "",
+    }));
+    assert.deepEqual(deleted, { kind: "property_missing" });
+    assert.equal((await db.query("select id from property_open_houses")).rows.length, 0);
+
+    await db.query("update properties set deleted_at=null,status='draft',publish_at='2020-01-01T00:00:00Z',availability_status='available' where id='property-1'");
+    const scheduledPublished = await transaction(db, (tx) => createOpenHouseSchedule(tx, {
+      id: "event-scheduled-published", propertyId: "property-1", startsAt: futureStart, endsAt: futureEnd, capacity: 8, note: "",
+    }));
+    assert.deepEqual(scheduledPublished, { kind: "created", id: "event-scheduled-published" });
+
+    await db.query("update properties set publish_at='2035-01-01T00:00:00Z' where id='property-1'");
+    const notYetPublished = await transaction(db, (tx) => createOpenHouseSchedule(tx, {
+      id: "event-not-yet-published", propertyId: "property-1", startsAt: futureStart, endsAt: futureEnd, capacity: 8, note: "",
+    }));
+    assert.deepEqual(notYetPublished, { kind: "property_missing" });
+  } finally {
+    await db.close();
+  }
+});
+
 test("concurrent RSVPs cannot exceed open-house capacity", async () => {
   const db = await fixture();
   try {
@@ -115,6 +168,44 @@ test("concurrent RSVPs cannot exceed open-house capacity", async () => {
     assert.equal(results.filter((result) => result.kind === "full").length, 1);
     const seats = await db.query<{ seats: number }>("select coalesce(sum(party_size),0)::int as seats from property_open_house_rsvps where open_house_id='event-1' and status <> 'cancelled'");
     assert.equal(seats.rows[0]?.seats, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test("RSVP rejects a property that becomes sold, unavailable, unpublished or soft-deleted", async () => {
+  const db = await fixture();
+  try {
+    await db.query(
+      "insert into property_open_houses(id,property_id,starts_at,ends_at,capacity) values($1,$2,$3,$4,8)",
+      ["event-1", "property-1", futureStart, futureEnd],
+    );
+    const unavailableCases = [
+      async () => db.query("update properties set availability_status='sold',deleted_at=null,unpublish_at=null where id='property-1'"),
+      async () => db.query("update properties set availability_status='unavailable',deleted_at=null,unpublish_at=null where id='property-1'"),
+      async () => db.query("update properties set availability_status='available',unpublish_at='2020-01-01T00:00:00Z' where id='property-1'"),
+      async () => db.query("update properties set unpublish_at=null,deleted_at=current_timestamp where id='property-1'"),
+    ];
+    for (let index = 0; index < unavailableCases.length; index += 1) {
+      await unavailableCases[index]();
+      const result = await transaction(db, (tx) => registerOpenHouseRsvp(tx, {
+        id: `rsvp-${index}`,
+        eventId: "event-1",
+        name: "Guest",
+        phone: `0913000000${index + 1}`,
+        partySize: 1,
+        note: "",
+      }, new Date("2030-01-01T00:00:00.000Z")));
+      assert.deepEqual(result, { kind: "property_unavailable" });
+    }
+    assert.equal((await db.query("select id from property_open_house_rsvps")).rows.length, 0);
+
+    await db.query("update properties set deleted_at=null,status='draft',publish_at='2020-01-01T00:00:00Z',unpublish_at=null,availability_status='available' where id='property-1'");
+    const scheduledPublished = await transaction(db, (tx) => registerOpenHouseRsvp(tx, {
+      id: "rsvp-scheduled-published", eventId: "event-1", name: "Scheduled guest", phone: "09130000009", partySize: 1, note: "",
+    }, new Date("2030-01-01T00:00:00.000Z")));
+    assert.deepEqual(scheduledPublished, { kind: "created", remainingSeats: 7 });
+    assert.equal((await db.query("select id from property_open_house_rsvps")).rows.length, 1);
   } finally {
     await db.close();
   }
@@ -165,4 +256,9 @@ test("cancelling an open house serializes with a concurrent RSVP and cancels act
   } finally {
     await db.close();
   }
+});
+
+test("public open-house listing hides events when the property is no longer publicly bookable", async () => {
+  const route = await readFile(new URL("../../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
+  assert.match(route, /PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL/);
 });

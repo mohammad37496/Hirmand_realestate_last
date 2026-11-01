@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import {
@@ -21,7 +22,8 @@ async function fixture() {
     create table properties (
       id text primary key, title text not null default '', property_type text not null default '',
       neighborhood text not null default '', contact_name text not null default '',
-      status text not null default 'published', availability_status text not null default 'available'
+      status text not null default 'published', availability_status text not null default 'available',
+      deleted_at timestamptz, publish_at timestamptz, unpublish_at timestamptz
     );
     create table leads (
       id text primary key, property_id text, visit_preferred_at timestamptz,
@@ -106,6 +108,82 @@ test("public reschedule cannot resurrect a visit cancelled after its tracking re
   } finally {
     await db.close();
   }
+});
+
+test("public visit scheduling rejects sold, unavailable, unpublished and soft-deleted properties", async () => {
+  const db = await fixture();
+  try {
+    for (const availabilityStatus of ["sold", "rented", "unavailable"]) {
+      await db.query("update properties set availability_status=$1,deleted_at=null,unpublish_at=null where id='property-1'", [availabilityStatus]);
+      const result = await transaction(db, (tx) => checkPropertyVisitSlot(tx, {
+        propertyId: "property-1",
+        visitAt: "2030-06-01T10:00:00Z",
+        requirePublicAvailability: true,
+      }));
+      assert.equal(result.kind, "property_missing", `${availabilityStatus} properties must not accept public visits`);
+    }
+
+    await db.query("update properties set availability_status='available',unpublish_at='2020-01-01T00:00:00Z' where id='property-1'");
+    const expired = await transaction(db, (tx) => checkPropertyVisitSlot(tx, {
+      propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", requirePublicAvailability: true,
+    }));
+    assert.equal(expired.kind, "property_missing");
+
+    await db.query("update properties set unpublish_at=null,deleted_at=current_timestamp where id='property-1'");
+    const deleted = await transaction(db, (tx) => checkPropertyVisitSlot(tx, {
+      propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", requirePublicAvailability: true,
+    }));
+    assert.equal(deleted.kind, "property_missing");
+
+    await db.query("update properties set deleted_at=null,status='draft',publish_at='2020-01-01T00:00:00Z',unpublish_at=null,availability_status='available' where id='property-1'");
+    const scheduledPublished = await transaction(db, (tx) => checkPropertyVisitSlot(tx, {
+      propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", requirePublicAvailability: true,
+    }));
+    assert.equal(scheduledPublished.kind, "available", "a scheduled draft becomes publicly bookable when publish_at has passed");
+
+    await db.query("update properties set publish_at='2035-01-01T00:00:00Z' where id='property-1'");
+    const notYetPublished = await transaction(db, (tx) => checkPropertyVisitSlot(tx, {
+      propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", requirePublicAvailability: true,
+    }));
+    assert.equal(notYetPublished.kind, "property_missing");
+  } finally {
+    await db.close();
+  }
+});
+
+test("public reschedule cannot move a visit after its property becomes unavailable", async () => {
+  const db = await fixture();
+  try {
+    await db.query(
+      "insert into leads(id,property_id,visit_preferred_at,visit_status,public_tracking_token) values('lead-1','property-1','2030-06-01T10:00:00Z','confirmed','HIR-30-ABCDEF123456')",
+    );
+    await db.query("update properties set availability_status='sold' where id='property-1'");
+    const result = await transaction(db, (tx) => reschedulePropertyVisit(tx, {
+      leadId: "lead-1",
+      trackingToken: "HIR-30-ABCDEF123456",
+      propertyId: "property-1",
+      expectedVisitAt: "2030-06-01T10:00:00Z",
+      visitAt: "2030-06-01T12:00:00Z",
+    }));
+    assert.equal(result, "property_missing");
+    const lead = await db.query<{ visit_status: string; visit_preferred_at: string }>(
+      "select visit_status,visit_preferred_at::text as visit_preferred_at from leads where id='lead-1'",
+    );
+    assert.equal(lead.rows[0]?.visit_status, "confirmed");
+    assert.equal(Date.parse(String(lead.rows[0]?.visit_preferred_at)), Date.parse("2030-06-01T10:00:00Z"));
+  } finally {
+    await db.close();
+  }
+});
+
+test("public slot and admin confirmation routes share the public availability guard", async () => {
+  const [slotsRoute, adminLeadsRoute] = await Promise.all([
+    readFile(new URL("../../server/routes/api/property-viewing-slots.get.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../server/routes/api/leads-admin.post.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(slotsRoute, /PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL/);
+  assert.match(slotsRoute, /statusCode:\s*404/);
+  assert.match(adminLeadsRoute, /requirePublicAvailability:\s*true/);
 });
 
 test("public cancellation cannot cancel a newer visit time from a stale tracking page", async () => {

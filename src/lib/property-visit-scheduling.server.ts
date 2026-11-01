@@ -2,6 +2,10 @@ type VisitSchedulingSql = {
   query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
 };
 
+// Mirrors public listing visibility, then excludes properties that cannot accept appointments.
+export const PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL =
+  "deleted_at is null and (status='published' or (status='draft' and publish_at is not null and publish_at <= current_timestamp)) and (unpublish_at is null or unpublish_at > current_timestamp) and availability_status not in ('sold','rented','unavailable')";
+
 export type VisitLeadSnapshot = {
   id?: string;
   property_id: string | null;
@@ -37,7 +41,7 @@ export async function lockPropertyVisitSchedule(
   requirePublicAvailability = false,
 ): Promise<PropertyVisitProperty | null> {
   const availability = requirePublicAvailability
-    ? "and status='published' and availability_status not in ('sold','rented','unavailable')"
+    ? `and ${PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL}`
     : "";
   const rows = await tx.query<{
     id: string;
@@ -146,6 +150,7 @@ export async function reschedulePropertyVisit(
     propertyId: input.propertyId,
     visitAt: input.visitAt,
     excludeLeadIds: [input.leadId],
+    requirePublicAvailability: true,
   });
   if (slot.kind === "property_missing") return "property_missing";
   if (slot.kind === "conflict") return "conflict";

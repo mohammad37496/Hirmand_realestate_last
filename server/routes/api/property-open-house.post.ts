@@ -9,6 +9,7 @@ import {
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL } from "@/lib/property-visit-scheduling.server";
 
 const phoneSchema=z.string().trim().regex(/^09\d{9}$/,"شماره موبایل معتبر نیست.");
 const publicSchema=z.discriminatedUnion("action",[
@@ -79,7 +80,7 @@ export default defineEventHandler(async(event)=>{
   const parsed=publicSchema.safeParse(body);
   if(!parsed.success) throw createError({statusCode:422,statusMessage:"اطلاعات بازدید گروهی معتبر نیست."});
   if(parsed.data.action==="list"){
-    const property=await sql.query<{id:string}>("select id from properties where id=$1 and status='published' limit 1",[parsed.data.propertyId]);
+    const property=await sql.query<{id:string}>(`select id from properties where id=$1 and ${PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL} limit 1`,[parsed.data.propertyId]);
     if(!property[0]) return {events:[]};
     const rows=await sql.query<Record<string,unknown>>("select oh.id,oh.starts_at,oh.ends_at,oh.capacity,oh.note,coalesce(sum(case when r.status <> 'cancelled' then r.party_size else 0 end),0)::int as booked_seats from property_open_houses oh left join property_open_house_rsvps r on r.open_house_id=oh.id where oh.property_id=$1 and oh.status='scheduled' and oh.ends_at > current_timestamp group by oh.id order by oh.starts_at asc limit 5",[parsed.data.propertyId]);
     return {events:rows.map(row=>({id:String(row.id),startsAt:iso(row.starts_at),endsAt:iso(row.ends_at),capacity:Number(row.capacity)||0,bookedSeats:Number(row.booked_seats)||0,remainingSeats:Math.max(0,(Number(row.capacity)||0)-(Number(row.booked_seats)||0)),note:String(row.note??"")}))};
