@@ -166,7 +166,8 @@ async function createSchemaFixture(admin) {
       property_type text NOT NULL DEFAULT '', neighborhood text NOT NULL DEFAULT '', contact_name text NOT NULL DEFAULT ''
     );
     CREATE TABLE leads (
-      id text PRIMARY KEY, status text NOT NULL, updated_at timestamptz,
+      id text PRIMARY KEY, status text NOT NULL, created_at timestamptz NOT NULL DEFAULT current_timestamp,
+      updated_at timestamptz,
       property_id text, visit_preferred_at timestamptz, visit_status text NOT NULL DEFAULT 'none',
       visit_requested_at timestamptz, public_tracking_token text,
       name text, phone text, people_count integer, job text, deal text, property_type text,
@@ -226,8 +227,18 @@ try {
   const admin = await pool.connect();
   clients.push(admin);
   await createSchemaFixture(admin);
-  const leadDedupeMigration = await readFile(new URL("../migrations/0111_atomic_lead_dedupe.sql", import.meta.url), "utf8");
-  await admin.query(leadDedupeMigration);
+  // The merge statement uses columns introduced by the same production
+  // migrations as the application schema. Keep this isolated PostgreSQL
+  // fixture aligned with those migrations instead of duplicating their DDL.
+  for (const migrationName of [
+    "0016_lead_attribution.sql",
+    "0038_lead_floor_preference.sql",
+    "0107_lead_area_preferences.sql",
+    "0111_atomic_lead_dedupe.sql",
+  ]) {
+    const migration = await readFile(new URL(`../migrations/${migrationName}`, import.meta.url), "utf8");
+    await admin.query(migration);
+  }
 
   await admin.query(`
     CREATE TABLE property_open_houses (
