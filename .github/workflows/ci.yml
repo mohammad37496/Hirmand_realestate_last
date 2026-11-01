@@ -97,6 +97,11 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci
 
+      - name: Property lifecycle PostgreSQL integration
+        run: npm run test:property-lifecycle:postgres
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci
+
       - name: Phone Bridge HTTP authentication smoke
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci
