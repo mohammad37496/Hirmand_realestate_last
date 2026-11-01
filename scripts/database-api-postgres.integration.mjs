@@ -424,10 +424,11 @@ try {
   console.log("ok   PostgreSQL relationship database failure rolls back prior lead, history and deal writes");
   releaseClient(financeFailureClient);
 
+  await admin.query("INSERT INTO properties(id,title) VALUES ('dedupe-visit-race-property','Dedupe visit race integration property')");
   await admin.query(`
     INSERT INTO leads(id,status,property_id,visit_preferred_at,visit_status)
-    VALUES ('dedupe-visit-race-canonical','new','visit-scheduling-property','2030-06-03T09:00:00Z','none'),
-           ('dedupe-visit-race-duplicate','new','visit-scheduling-property','2030-06-03T10:00:00Z','none');
+    VALUES ('dedupe-visit-race-canonical','new','dedupe-visit-race-property','2030-06-03T09:00:00Z','none'),
+           ('dedupe-visit-race-duplicate','new','dedupe-visit-race-property','2030-06-03T10:00:00Z','none');
   `);
   let releaseVisitActivation;
   let visitActivationStarted;
@@ -436,7 +437,7 @@ try {
   const activationPromise = inTransaction(visitA, async (tx) => {
     const before = (await tx.query("SELECT status,visit_status FROM leads WHERE id='dedupe-visit-race-duplicate'"))[0];
     const slot = await checkPropertyVisitSlot(tx, {
-      propertyId: "visit-scheduling-property",
+      propertyId: "dedupe-visit-race-property",
       visitAt: "2030-06-03T10:00:00Z",
       excludeLeadIds: ["dedupe-visit-race-duplicate"],
     });
