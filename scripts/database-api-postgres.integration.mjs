@@ -164,7 +164,7 @@ async function createSchemaFixture(admin) {
       id text PRIMARY KEY, title text NOT NULL,
       status text NOT NULL DEFAULT 'published', availability_status text NOT NULL DEFAULT 'available',
       property_type text NOT NULL DEFAULT '', neighborhood text NOT NULL DEFAULT '', contact_name text NOT NULL DEFAULT '',
-      deleted_at timestamptz, unpublish_at timestamptz
+      deleted_at timestamptz, publish_at timestamptz, unpublish_at timestamptz
     );
     CREATE TABLE leads (
       id text PRIMARY KEY, status text NOT NULL, created_at timestamptz NOT NULL DEFAULT current_timestamp,

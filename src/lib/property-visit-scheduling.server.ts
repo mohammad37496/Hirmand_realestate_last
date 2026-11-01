@@ -2,8 +2,9 @@ type VisitSchedulingSql = {
   query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
 };
 
+// Mirrors public listing visibility, then excludes properties that cannot accept appointments.
 export const PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL =
-  "status='published' and availability_status not in ('sold','rented','unavailable') and deleted_at is null and (unpublish_at is null or unpublish_at > current_timestamp)";
+  "deleted_at is null and (status='published' or (status='draft' and publish_at is not null and publish_at <= current_timestamp)) and (unpublish_at is null or unpublish_at > current_timestamp) and availability_status not in ('sold','rented','unavailable')";
 
 export type VisitLeadSnapshot = {
   id?: string;

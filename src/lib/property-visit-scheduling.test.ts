@@ -23,7 +23,7 @@ async function fixture() {
       id text primary key, title text not null default '', property_type text not null default '',
       neighborhood text not null default '', contact_name text not null default '',
       status text not null default 'published', availability_status text not null default 'available',
-      deleted_at timestamptz, unpublish_at timestamptz
+      deleted_at timestamptz, publish_at timestamptz, unpublish_at timestamptz
     );
     create table leads (
       id text primary key, property_id text, visit_preferred_at timestamptz,
@@ -134,6 +134,18 @@ test("public visit scheduling rejects sold, unavailable, unpublished and soft-de
       propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", requirePublicAvailability: true,
     }));
     assert.equal(deleted.kind, "property_missing");
+
+    await db.query("update properties set deleted_at=null,status='draft',publish_at='2020-01-01T00:00:00Z',unpublish_at=null,availability_status='available' where id='property-1'");
+    const scheduledPublished = await transaction(db, (tx) => checkPropertyVisitSlot(tx, {
+      propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", requirePublicAvailability: true,
+    }));
+    assert.equal(scheduledPublished.kind, "available", "a scheduled draft becomes publicly bookable when publish_at has passed");
+
+    await db.query("update properties set publish_at='2035-01-01T00:00:00Z' where id='property-1'");
+    const notYetPublished = await transaction(db, (tx) => checkPropertyVisitSlot(tx, {
+      propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", requirePublicAvailability: true,
+    }));
+    assert.equal(notYetPublished.kind, "property_missing");
   } finally {
     await db.close();
   }

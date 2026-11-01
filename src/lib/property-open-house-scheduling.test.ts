@@ -23,6 +23,7 @@ async function fixture() {
       status text not null,
       availability_status text not null default 'available',
       deleted_at timestamptz,
+      publish_at timestamptz,
       unpublish_at timestamptz
     );
     create table property_open_houses (
@@ -131,6 +132,18 @@ test("open-house creation rejects sold, unavailable, unpublished and soft-delete
     }));
     assert.deepEqual(deleted, { kind: "property_missing" });
     assert.equal((await db.query("select id from property_open_houses")).rows.length, 0);
+
+    await db.query("update properties set deleted_at=null,status='draft',publish_at='2020-01-01T00:00:00Z',availability_status='available' where id='property-1'");
+    const scheduledPublished = await transaction(db, (tx) => createOpenHouseSchedule(tx, {
+      id: "event-scheduled-published", propertyId: "property-1", startsAt: futureStart, endsAt: futureEnd, capacity: 8, note: "",
+    }));
+    assert.deepEqual(scheduledPublished, { kind: "created", id: "event-scheduled-published" });
+
+    await db.query("update properties set publish_at='2035-01-01T00:00:00Z' where id='property-1'");
+    const notYetPublished = await transaction(db, (tx) => createOpenHouseSchedule(tx, {
+      id: "event-not-yet-published", propertyId: "property-1", startsAt: futureStart, endsAt: futureEnd, capacity: 8, note: "",
+    }));
+    assert.deepEqual(notYetPublished, { kind: "property_missing" });
   } finally {
     await db.close();
   }
@@ -186,6 +199,13 @@ test("RSVP rejects a property that becomes sold, unavailable, unpublished or sof
       assert.deepEqual(result, { kind: "property_unavailable" });
     }
     assert.equal((await db.query("select id from property_open_house_rsvps")).rows.length, 0);
+
+    await db.query("update properties set deleted_at=null,status='draft',publish_at='2020-01-01T00:00:00Z',unpublish_at=null,availability_status='available' where id='property-1'");
+    const scheduledPublished = await transaction(db, (tx) => registerOpenHouseRsvp(tx, {
+      id: "rsvp-scheduled-published", eventId: "event-1", name: "Scheduled guest", phone: "09130000009", partySize: 1, note: "",
+    }, new Date("2030-01-01T00:00:00.000Z")));
+    assert.deepEqual(scheduledPublished, { kind: "created", remainingSeats: 7 });
+    assert.equal((await db.query("select id from property_open_house_rsvps")).rows.length, 1);
   } finally {
     await db.close();
   }
