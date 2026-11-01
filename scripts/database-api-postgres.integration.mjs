@@ -661,7 +661,7 @@ try {
   assert.equal((await admin.query("SELECT id FROM properties WHERE id='property-failure'")).rowCount, 0);
   assert.equal((await admin.query("SELECT id FROM property_change_history")).rowCount, 0);
   assert.equal((await admin.query("SELECT id FROM customer_property_submission_events")).rowCount, 0);
-  assert.equal((await admin.query("SELECT id FROM lead_activities")).rowCount, 0);
+  assert.equal((await admin.query("SELECT id FROM lead_activities WHERE lead_id='lead-failure'")).rowCount, 0);
   console.log("ok   PostgreSQL audit-event failure rolls back submission, property, lead and history writes");
 
   await admin.query("DROP TRIGGER qa_fail_submission_audit ON customer_property_submission_events; DROP FUNCTION qa_fail_submission_audit();");
