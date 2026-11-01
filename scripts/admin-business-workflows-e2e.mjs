@@ -6,6 +6,7 @@
 import pg from "pg";
 import { chromium } from "playwright";
 import { randomUUID } from "node:crypto";
+import { hashAdminPassword } from "../src/lib/admin-password.server.ts";
 
 const normalizeDigits = (value) => value.replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)));
 
@@ -31,10 +32,13 @@ if (!/^\d{1,20}$/.test(price) || BigInt(price) <= 0n) {
 const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
 let browser;
 let context;
+let salesContext;
 let client;
 let propertyId = null;
 let leadId = null;
 let unavailableLeadId = null;
+let salesAccountId = null;
+let salesTestAgencyName = null;
 
 async function postJsonFromPage(page, endpoint, payload, label) {
   // Use the live browser page so secure/session cookies and same-origin checks
@@ -68,6 +72,72 @@ try {
     data: { action: "login", adminKey },
   });
   if (!login.ok()) throw new Error("Admin session login failed: HTTP " + login.status());
+
+  // Exercise the real account-login/session path with a temporary sales role.
+  salesAccountId = randomUUID();
+  const salesUsername = "qa-sales-" + randomUUID();
+  const salesPassword = "QA-Sales-Password-2026!";
+  const salesPasswordHash = await hashAdminPassword(salesPassword);
+  await client.query(
+    "insert into admin_accounts (id,username,display_name,password_hash,role,is_active) values ($1,$2,'QA Sales', $3,'sales',true)",
+    [salesAccountId, salesUsername, salesPasswordHash],
+  );
+  salesContext = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: "fa-IR" });
+  const salesLogin = await salesContext.request.post(baseUrl + "/api/admin/session", {
+    data: { action: "login", username: salesUsername, password: salesPassword },
+  });
+  if (!salesLogin.ok()) throw new Error("Temporary sales account login failed: HTTP " + salesLogin.status());
+  const salesPage = await salesContext.newPage();
+  await salesPage.goto(baseUrl + "/admin", { waitUntil: "domcontentloaded", timeout: 45000 });
+  await salesPage.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => undefined);
+
+  salesTestAgencyName = "QA Partner Permission " + randomUUID();
+  const partnerSnapshot = async () => {
+    const snapshot = await client.query(`
+      select
+        (select coalesce(md5(string_agg(to_jsonb(a)::text, chr(10) order by a.id)), md5('')) from partner_accounts a) as accounts,
+        (select coalesce(md5(string_agg(to_jsonb(c)::text, chr(10) order by c.id)), md5('')) from partner_contracts c) as contracts,
+        (select coalesce(md5(string_agg(to_jsonb(r)::text, chr(10) order by r.id)), md5('')) from partner_rewards r) as rewards,
+        (select coalesce(md5(string_agg(to_jsonb(a)::text, chr(10) order by a.id)), md5('')) from partner_audit_logs a) as audits
+    `);
+    return snapshot.rows[0];
+  };
+  const partnerSnapshotBefore = await partnerSnapshot();
+  const salesPartnerActions = [
+    { action: "list" },
+    { action: "pending" },
+    { action: "details", partnerId: "qa-missing-partner" },
+    { action: "create", agencyName: salesTestAgencyName, contactName: "QA Sales", phone: "09" + randomUUID().replace(/\D/g, "").padEnd(9, "1").slice(0, 9) },
+    { action: "approve", contractId: "qa-missing-contract" },
+    { action: "reject", contractId: "qa-missing-contract" },
+    { action: "new-card", partnerId: "qa-missing-partner" },
+    { action: "claim-reward", partnerId: "qa-missing-partner" },
+    { action: "status", partnerId: "qa-missing-partner", status: "suspended" },
+  ];
+  const salesPartnerResponses = await salesPage.evaluate(async (actions) => Promise.all(actions.map(async (payload) => {
+    const response = await fetch("/api/admin/partners", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return { action: payload.action, status: response.status };
+  })), salesPartnerActions);
+  for (const response of salesPartnerResponses) {
+    if (response.status !== 403) {
+      throw new Error("Sales role must receive HTTP 403 for partner action " + response.action + "; received " + response.status);
+    }
+  }
+  const partnerSnapshotAfter = await partnerSnapshot();
+  if (JSON.stringify(partnerSnapshotAfter) !== JSON.stringify(partnerSnapshotBefore)) {
+    throw new Error("A denied sales partner request changed partner accounts, contracts, rewards, or audit rows.");
+  }
+  console.log("ok   active sales account is denied every partner-administration action without changing partner data");
+  await salesContext.close();
+  salesContext = null;
+  await client.query("delete from admin_sessions where account_id=$1", [salesAccountId]);
+  await client.query("delete from admin_accounts where id=$1", [salesAccountId]);
+  salesAccountId = null;
 
   const page = await context.newPage();
   await page.goto(baseUrl + "/admin", { waitUntil: "domcontentloaded", timeout: 45000 });
@@ -236,6 +306,11 @@ try {
   }, null, 2));
 } finally {
   if (client) {
+    if (salesAccountId) {
+      await client.query("delete from admin_sessions where account_id=$1", [salesAccountId]).catch(() => {});
+      await client.query("delete from admin_accounts where id=$1", [salesAccountId]).catch(() => {});
+    }
+    if (salesTestAgencyName) await client.query("delete from partner_accounts where agency_name=$1", [salesTestAgencyName]).catch(() => {});
     const cleanupLeadIds = [leadId, unavailableLeadId].filter(Boolean);
     if (cleanupLeadIds.length) {
       await client.query("delete from admin_tasks where entity_type='lead' and entity_id=any($1::text[])", [cleanupLeadIds]).catch(() => {});
@@ -250,6 +325,7 @@ try {
     }
     client.release();
   }
+  if (salesContext) await salesContext.close().catch(() => {});
   if (context) await context.close().catch(() => {});
   if (browser) await browser.close().catch(() => {});
   await pool.end();

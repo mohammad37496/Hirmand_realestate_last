@@ -51,7 +51,7 @@
     "test:media-cleanup:postgres": "node --experimental-strip-types scripts/media-cleanup-postgres.integration.mjs",
     "test:phone-bridge:http": "node scripts/phone-bridge-e2e.mjs",
     "start": "node scripts/prestart.mjs && node .output/server/index.mjs",
-    "qa:admin:business-e2e": "node scripts/admin-business-workflows-e2e.mjs"
+    "qa:admin:business-e2e": "node --experimental-strip-types scripts/admin-business-workflows-e2e.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
