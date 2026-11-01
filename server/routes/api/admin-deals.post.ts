@@ -6,9 +6,9 @@ import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { enqueueMediaCleanupJob, processMediaCleanupJobs } from "@/lib/media-store.server";
 import { lockMediaReferenceWrites } from "@/lib/media-cleanup-transaction.server";
 import { DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL } from "@/lib/admin-deal-delete-sql";
+import { updateAdminDealStatusWithSettlementGuard, type AdminDealStatus } from "@/lib/admin-deal-status-sql";
 import { lockLeadReferencesForMutation } from "@/lib/admin-lead-dedupe.server";
 
-type DealStatus = "prospect"|"negotiation"|"agreement"|"contracted"|"completed"|"cancelled";
 type DealType = "sale"|"rent"|"mortgage"|"buy";
 type DocStatus = "pending"|"received"|"verified"|"rejected";
 const DEFAULT_DOCUMENTS=["کارت ملی / شناسنامه","سند یا مدرک مالکیت","مدارک هویتی طرفین","مبایعه‌نامه / اجاره‌نامه","کد رهگیری","رسید بیعانه / ودیعه","استعلام‌ها و پایان‌کار","تسویه و رسید نهایی"];
@@ -22,7 +22,7 @@ async function requireDealsPermission(event:H3Event){
 }
 const clean=(v:unknown,max=300)=>typeof v==="string"?v.trim().slice(0,max):"";
 function money(v:unknown){const raw=clean(v,40).replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[٬،,\s]/g,"");return raw&&/^\d{1,20}(?:\.\d+)?$/.test(raw)?raw:null;}
-const validStatus=(v:unknown):DealStatus=>["prospect","negotiation","agreement","contracted","completed","cancelled"].includes(String(v))?String(v) as DealStatus:"prospect";
+const validStatus=(v:unknown):AdminDealStatus=>["prospect","negotiation","agreement","contracted","completed","cancelled"].includes(String(v))?String(v) as AdminDealStatus:"prospect";
 const validType=(v:unknown):DealType=>["sale","rent","mortgage","buy"].includes(String(v))?String(v) as DealType:"sale";
 
 export default defineEventHandler(async event=>{
@@ -62,8 +62,9 @@ export default defineEventHandler(async event=>{
   const id=clean(body.id,120); if(!id)throw createError({statusCode:400,statusMessage:"شناسه معامله مشخص نیست."});
   if(action==="status"){
     if(!["prospect","negotiation","agreement","contracted","completed","cancelled"].includes(String(body.status)))throw createError({statusCode:400,statusMessage:"وضعیت معامله معتبر نیست."});
-    const updated=await sql.query("update admin_deals set status=$2,updated_at=current_timestamp where id=$1 returning id",[id,body.status]);
-    if(!updated.length)throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ وضعیت تغییر نکرد."});
+    const result=await withSqlTransaction((tx)=>updateAdminDealStatusWithSettlementGuard(tx,id,body.status as AdminDealStatus));
+    if(result.kind==="missing")throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ وضعیت تغییر نکرد."});
+    if(result.kind==="settlement_exists")throw createError({statusCode:409,statusMessage:"این معامله تسویه فعال دارد؛ ابتدا تسویه را لغو کنید یا وضعیت معامله را قراردادی/نهایی نگه دارید."});
     return {success:true};
   }
   if(action==="delete"){

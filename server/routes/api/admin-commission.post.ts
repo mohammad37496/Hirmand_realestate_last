@@ -3,6 +3,7 @@ import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { updateCommissionSettlementStatusWithDealGuard, type AdminCommissionSettlementStatus } from "@/lib/admin-deal-status-sql";
 
 async function requireAdmin(event:H3Event){
   const token=getCookie(event,ADMIN_SESSION_COOKIE);
@@ -74,13 +75,11 @@ export default defineEventHandler(async event=>{
   const id=clean(body.id,120); if(!id) throw createError({statusCode:400,statusMessage:"شناسه تسویه مشخص نیست."});
   if(action==="status"){
     if(!["pending","approved","paid","cancelled"].includes(String(body.status)))throw createError({statusCode:400,statusMessage:"وضعیت تسویه معتبر نیست."});
-    const status=String(body.status);
-    const updated=await sql.query("update admin_commission_settlements set status=$2,paid_at=case when $2='paid' then coalesce(paid_at,current_timestamp) else null end,updated_at=current_timestamp where id=$1 and (status=$2 or (status='pending' and $2 in ('approved','cancelled')) or (status='approved' and $2 in ('paid','cancelled')) or (status='cancelled' and $2='pending')) returning id",[id,status]);
-    if(!updated.length){
-      const exists=await sql.query("select id from admin_commission_settlements where id=$1 limit 1",[id]);
-      if(!exists.length)throw createError({statusCode:404,statusMessage:"تسویه پیدا نشد؛ وضعیت تغییر نکرد."});
-      throw createError({statusCode:409,statusMessage:"تغییر وضعیت با گردش تأیید و پرداخت تسویه سازگار نیست."});
-    }
+    const status=String(body.status) as AdminCommissionSettlementStatus;
+    const result=await withSqlTransaction((tx)=>updateCommissionSettlementStatusWithDealGuard(tx,id,status));
+    if(result.kind==="missing")throw createError({statusCode:404,statusMessage:"تسویه پیدا نشد؛ وضعیت تغییر نکرد."});
+    if(result.kind==="deal_not_contractual")throw createError({statusCode:409,statusMessage:"برای فعال‌کردن تسویه، معامله باید قراردادی یا نهایی‌شده باشد."});
+    if(result.kind!=="updated")throw createError({statusCode:409,statusMessage:"تغییر وضعیت با گردش تأیید و پرداخت تسویه سازگار نیست."});
     return {success:true};
   }
   if(action==="delete"){

@@ -8,10 +8,15 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf
 test("deal APIs fail closed and do not report missing mutations as successful", () => {
   const route = read("server/routes/api/admin-deals.post.ts");
   const deleteSql = read("src/lib/admin-deal-delete-sql.ts");
+  const statusSql = read("src/lib/admin-deal-status-sql.ts");
   const ui = read("src/components/hirmand/admin-deals.tsx");
   assert.match(route, /dbSource==="unconfigured"\)throw createError\(\{statusCode:503/);
-  assert.match(route, /update admin_deals[\s\S]*returning id/);
-  assert.match(route, /if\(!updated\.length\)throw createError\(\{statusCode:404/);
+  assert.match(route, /withSqlTransaction\(\(tx\)=>updateAdminDealStatusWithSettlementGuard/);
+  assert.match(route, /result\.kind==="settlement_exists"\)throw createError\(\{statusCode:409/);
+  assert.match(statusSql, /select id from admin_deals where id=\$1 for update/);
+  assert.match(statusSql, /select id from admin_commission_settlements where deal_id=\$1 and status<>'cancelled'/);
+  assert.match(statusSql, /CONTRACTUAL_DEAL_STATUSES/);
+  assert.ok(statusSql.indexOf("select id from admin_deals where id=$1 for update") < statusSql.indexOf("select id from admin_commission_settlements where deal_id=$1 and status<>'cancelled'"));
   assert.match(route, /DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL/);
   assert.match(route, /if\(!deleted\[0\]\?\.id\)/);
   assert.match(route, /withSqlTransaction\(async \(tx\)/);
@@ -30,6 +35,7 @@ test("deal APIs fail closed and do not report missing mutations as successful", 
 test("commission settlements match real completed deals and protect approved payouts", () => {
   const route = read("server/routes/api/admin-commission.post.ts");
   const ui = read("src/components/hirmand/admin-commission-settlement.tsx");
+  const statusSql = read("src/lib/admin-deal-status-sql.ts");
   assert.match(route, /dbSource==="unconfigured"\) throw createError\(\{statusCode:503/);
   assert.match(route, /Number\.isSafeInteger\(commissionNumber\)/);
   assert.match(route, /select consultant,commission,status from admin_deals where id=\$1/);
@@ -38,9 +44,14 @@ test("commission settlements match real completed deals and protect approved pay
   assert.match(route, /where deal_id=\$1 and status<>'cancelled' limit 1/);
   assert.match(route, /returning id/);
   assert.match(route, /status in \('pending','cancelled'\) returning id/);
-  assert.match(route, /status='pending' and \$2 in \('approved','cancelled'\)/);
-  assert.match(route, /status='approved' and \$2 in \('paid','cancelled'\)/);
-  assert.match(route, /status='cancelled' and \$2='pending'/);
+  assert.match(statusSql, /status='pending' and \$2 in \('approved','cancelled'\)/);
+  assert.match(statusSql, /status='approved' and \$2 in \('paid','cancelled'\)/);
+  assert.match(statusSql, /status='cancelled' and \$2='pending'/);
+  assert.match(route, /withSqlTransaction\(\(tx\)=>updateCommissionSettlementStatusWithDealGuard/);
+  assert.match(statusSql, /select status from admin_deals where id=\$1 for update/);
+  assert.match(statusSql, /select deal_id from admin_commission_settlements where id=\$1 for update/);
+  assert.match(statusSql, /nextStatus !== "cancelled"/);
+  assert.ok(statusSql.indexOf("select status from admin_deals where id=$1 for update") < statusSql.indexOf("select deal_id from admin_commission_settlements where id=$1 for update"));
   assert.match(ui, /AdminErrorBanner message=\{loadError\}/);
   assert.match(ui, /canMoveStatus\(row\.status, "paid"\)/);
   assert.match(ui, /if \(!response\.ok\) throw new Error\(payload\?\.statusMessage/);
