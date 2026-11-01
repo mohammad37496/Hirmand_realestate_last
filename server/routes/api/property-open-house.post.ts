@@ -1,6 +1,11 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { z } from "zod";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
+import {
+  cancelOpenHouseSchedule,
+  createOpenHouseSchedule,
+  registerOpenHouseRsvp,
+} from "@/lib/property-open-house-scheduling.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -39,21 +44,28 @@ export default defineEventHandler(async(event)=>{
     if(!parsed.success) throw createError({statusCode:422,statusMessage:"اطلاعات اوپن‌هاوس معتبر نیست."});
 
     if(parsed.data.action==="create"){
-      const start=new Date(parsed.data.startsAt),end=new Date(parsed.data.endsAt);
+      const createData=parsed.data;
+      const start=new Date(createData.startsAt),end=new Date(createData.endsAt);
       if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())||end<=start) throw createError({statusCode:422,statusMessage:"زمان پایان باید بعد از زمان شروع باشد."});
       if(start.getTime()<Date.now()+15*60*1000) throw createError({statusCode:422,statusMessage:"زمان اوپن‌هاوس باید حداقل ۱۵ دقیقه از اکنون فاصله داشته باشد."});
-      const property=await sql.query<{id:string}>("select id from properties where id=$1 and status='published' limit 1",[parsed.data.propertyId]);
-      if(!property[0]) throw createError({statusCode:404,statusMessage:"فایل منتشرشده پیدا نشد."});
-      const overlaps=await sql.query<{id:string}>("select id from property_open_houses where property_id=$1 and status='scheduled' and starts_at < $3 and ends_at > $2 limit 1",[parsed.data.propertyId,start.toISOString(),end.toISOString()]);
-      if(overlaps[0]) throw createError({statusCode:409,statusMessage:"برای این فایل یک بازه بازدید گروهی هم‌پوشان از قبل ثبت شده است."});
       const id=crypto.randomUUID();
-      await sql.query("insert into property_open_houses(id,property_id,starts_at,ends_at,capacity,note) values($1,$2,$3,$4,$5,$6)",[id,parsed.data.propertyId,start.toISOString(),end.toISOString(),parsed.data.capacity,parsed.data.note]);
+      const result=await withSqlTransaction((tx)=>createOpenHouseSchedule(tx,{
+        id,
+        propertyId:createData.propertyId,
+        startsAt:start.toISOString(),
+        endsAt:end.toISOString(),
+        capacity:createData.capacity,
+        note:createData.note,
+      }));
+      if(result.kind==="property_missing") throw createError({statusCode:404,statusMessage:"فایل منتشرشده پیدا نشد."});
+      if(result.kind==="overlap") throw createError({statusCode:409,statusMessage:"برای این فایل یک بازه بازدید گروهی هم‌پوشان از قبل ثبت شده است."});
       return {success:true,id};
     }
 
     if(parsed.data.action==="cancel"){
-      await sql.query("update property_open_houses set status='cancelled' where id=$1",[parsed.data.id]);
-      await sql.query("update property_open_house_rsvps set status='cancelled' where open_house_id=$1 and status <> 'cancelled'",[parsed.data.id]);
+      const cancelData=parsed.data;
+      const cancelled=await withSqlTransaction((tx)=>cancelOpenHouseSchedule(tx,cancelData.id));
+      if(!cancelled) throw createError({statusCode:404,statusMessage:"بازدید گروهی پیدا نشد."});
       return {success:true};
     }
 
@@ -76,17 +88,19 @@ export default defineEventHandler(async(event)=>{
   const throttle=await consumeAdminAttempt("open-house-rsvp:"+clientFingerprint(event));
   if(!throttle.allowed) throw createError({statusCode:429,statusMessage:"ثبت‌نام بازدید گروهی بیش از حد مجاز انجام شده است. کمی بعد دوباره تلاش کنید."});
   assertSameOrigin(event);
-  const eventRows=await sql.query<{id:string;property_id:string;capacity:number;starts_at:string;status:string}>("select id,property_id,capacity,starts_at,status from property_open_houses where id=$1 limit 1",[parsed.data.eventId]);
-  const openHouse=eventRows[0];
-  if(!openHouse||openHouse.status!=="scheduled") throw createError({statusCode:404,statusMessage:"این بازدید گروهی دیگر فعال نیست."});
-  if(new Date(String(openHouse.starts_at)).getTime()<=Date.now()) throw createError({statusCode:409,statusMessage:"ثبت‌نام این بازدید بسته شده است."});
-  const property=await sql.query<{id:string}>("select id from properties where id=$1 and status='published' limit 1",[openHouse.property_id]);
-  if(!property[0]) throw createError({statusCode:404,statusMessage:"فایل موردنظر پیدا نشد."});
-  const duplicate=await sql.query<{id:string}>("select id from property_open_house_rsvps where open_house_id=$1 and phone=$2 and status <> 'cancelled' limit 1",[openHouse.id,parsed.data.phone]);
-  if(duplicate[0]) throw createError({statusCode:409,statusMessage:"این شماره قبلاً برای این بازدید ثبت‌نام کرده است."});
-  const booked=await sql.query<{seats:number}>("select coalesce(sum(party_size),0)::int as seats from property_open_house_rsvps where open_house_id=$1 and status <> 'cancelled'",[openHouse.id]);
-  const bookedSeats=Number(booked[0]?.seats)||0;
-  if(bookedSeats+parsed.data.partySize>Number(openHouse.capacity)) throw createError({statusCode:409,statusMessage:"ظرفیت این بازدید تکمیل شده است."});
-  await sql.query("insert into property_open_house_rsvps(id,open_house_id,name,phone,party_size,note) values($1,$2,$3,$4,$5,$6)",[crypto.randomUUID(),openHouse.id,parsed.data.name,parsed.data.phone,parsed.data.partySize,parsed.data.note]);
-  return {success:true,message:"ثبت‌نام شما برای بازدید گروهی انجام شد. هیرمند برای هماهنگی نهایی با شما تماس می‌گیرد.",remainingSeats:Math.max(0,Number(openHouse.capacity)-bookedSeats-parsed.data.partySize)};
+  const rsvpData=parsed.data;
+  const result=await withSqlTransaction((tx)=>registerOpenHouseRsvp(tx,{
+    id:crypto.randomUUID(),
+    eventId:rsvpData.eventId,
+    name:rsvpData.name,
+    phone:rsvpData.phone,
+    partySize:rsvpData.partySize,
+    note:rsvpData.note,
+  }));
+  if(result.kind==="not_found"||result.kind==="inactive") throw createError({statusCode:404,statusMessage:"این بازدید گروهی دیگر فعال نیست."});
+  if(result.kind==="closed") throw createError({statusCode:409,statusMessage:"ثبت‌نام این بازدید بسته شده است."});
+  if(result.kind==="property_unavailable") throw createError({statusCode:404,statusMessage:"فایل موردنظر پیدا نشد."});
+  if(result.kind==="duplicate") throw createError({statusCode:409,statusMessage:"این شماره قبلاً برای این بازدید ثبت‌نام کرده است."});
+  if(result.kind==="full") throw createError({statusCode:409,statusMessage:"ظرفیت این بازدید تکمیل شده است."});
+  return {success:true,message:"ثبت‌نام شما برای بازدید گروهی انجام شد. هیرمند برای هماهنگی نهایی با شما تماس می‌گیرد.",remainingSeats:result.remainingSeats};
 });
