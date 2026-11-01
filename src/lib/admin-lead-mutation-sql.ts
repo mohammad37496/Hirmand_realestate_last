@@ -1,16 +1,34 @@
 /** Update a lead and append its status activity in one atomic SQL statement. */
 export const UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL = `
-  with updated as (
-    update leads
+  with locked as materialized (
+    select id, visit_status as previous_visit_status
+    from leads
+    where id=$1 and merged_into_lead_id is null
+    for update
+  ), updated as (
+    update leads as lead
     set status=$2,
         follow_up_at=$3,
-        last_contacted_at=case when $2='contacted' then current_timestamp else last_contacted_at end,
+        last_contacted_at=case when $2='contacted' then current_timestamp else lead.last_contacted_at end,
+        visit_status=case
+          when $2 in ('closed','spam') and locked.previous_visit_status in ('requested','confirmed') then 'cancelled'
+          else lead.visit_status
+        end,
         updated_at=current_timestamp
-    where id=$1 and merged_into_lead_id is null
-    returning id
+    from locked
+    where lead.id=locked.id
+    returning lead.id, locked.previous_visit_status, lead.visit_status
   ), activity_log as (
     insert into lead_activities (lead_id, activity_type, title, note, metadata)
     select id, 'status', $4, $5, $6::jsonb from updated
+    returning lead_id
+  ), visit_activity_log as (
+    insert into lead_activities (lead_id, activity_type, title, note, metadata)
+    select id, 'visit', 'بازدید به‌دلیل بسته‌شدن درخواست لغو شد',
+      'وضعیت درخواست به ' || $2 || ' تغییر کرد؛ بازدید فعال به‌صورت خودکار لغو شد.',
+      jsonb_build_object('visitStatus','cancelled','reason','lead_closed','leadStatus',$2)
+    from updated
+    where previous_visit_status in ('requested','confirmed') and visit_status='cancelled'
     returning lead_id
   )
   select updated.id
