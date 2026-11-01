@@ -20,7 +20,7 @@ export type ConsultantMutationInput = {
   isActive: boolean;
 };
 
-/** Save a consultant and refresh its property contact snapshots on one transaction. */
+/** Save a consultant and refresh its CRM lead assignments and property contact snapshots on one transaction. */
 export async function saveConsultantWithSql(
   sql: Pick<Sql, "query">,
   data: ConsultantMutationInput,
@@ -73,6 +73,16 @@ export async function saveConsultantWithSql(
       data.isActive,
     ],
   );
+
+  if (previousName && previousName !== data.name.trim()) {
+    await sql.query(
+      `update leads
+          set consultant = $1,
+              updated_at = current_timestamp
+        where lower(trim(consultant)) = lower(trim($2))`,
+      [data.name.trim(), previousName],
+    );
+  }
 
   if (previousName) {
     await sql.query(
