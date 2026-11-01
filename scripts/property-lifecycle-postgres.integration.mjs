@@ -27,6 +27,12 @@ function sqlFor(client) {
   return async (statement, params = []) => (await client.query(statement, params)).rows;
 }
 
+function releaseClient(client) {
+  const index = clients.indexOf(client);
+  if (index >= 0) clients.splice(index, 1);
+  client.release();
+}
+
 async function inTransaction(client, callback) {
   await client.query("BEGIN");
   try {
@@ -272,6 +278,8 @@ try {
   assert.equal(restoreAudit.rows[0].actor, "qa-admin-a");
   assert.deepEqual(restoreAudit.rows[0].metadata, { restoredStatus: "published" });
   console.log("PASS property restore two-connection row-update race");
+  releaseClient(firstClient);
+  releaseClient(secondClient);
 
   await insertProperty(ids.historyFailure, "History rollback QA property");
   const historyClient = await pool.connect();
@@ -288,6 +296,7 @@ try {
     }),
     /simulated property history failure/,
   );
+  releaseClient(historyClient);
   await assertPropertyUnchanged(ids.historyFailure);
   console.log("PASS property soft-delete rollback on lifecycle-history failure");
 
@@ -301,6 +310,7 @@ try {
     }),
     /simulated property history failure/,
   );
+  releaseClient(restoreHistoryClient);
   await assertRestoreUnchanged(ids.restoreHistoryFailure);
   console.log("PASS property restore rollback on lifecycle-history failure");
 
@@ -319,6 +329,7 @@ try {
     }),
     /simulated property audit failure/,
   );
+  releaseClient(auditClient);
   await assertPropertyUnchanged(ids.auditFailure);
   console.log("PASS property soft-delete rollback on audit failure");
 
@@ -332,6 +343,7 @@ try {
     }),
     /simulated property audit failure/,
   );
+  releaseClient(restoreAuditClient);
   await assertRestoreUnchanged(ids.restoreAuditFailure);
   console.log("PASS property restore rollback on audit failure");
   console.log("PASS property lifecycle PostgreSQL integration (delete/restore races, history, audit, rollback)");
