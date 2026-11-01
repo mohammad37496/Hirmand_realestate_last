@@ -12,10 +12,17 @@ test("lead dedupe preview exposes callback and offer fields that merge preserves
   const previewStart = route.indexOf('if (action === "preview")');
   const previewEnd = route.indexOf('if (action !== "merge")', previewStart);
   const preview = route.slice(previewStart, previewEnd);
-  for (const field of ["callback_preferred_at", "offer_amount", "offer_conditions"]) assert.ok(preview.includes(field), "preview must expose " + field);
+  for (const field of [
+    "callback_preferred_at", "offer_amount", "offer_conditions", "acquisition_landing_path",
+    "floor_preference", "requested_area_min", "requested_area_max",
+  ]) assert.ok(preview.includes(field), "preview must expose " + field);
   assert.match(mergeSql, /callback_preferred_at = coalesce\(l\.callback_preferred_at, d\.callback_preferred_at\)/);
   assert.match(mergeSql, /offer_amount = coalesce\(l\.offer_amount, d\.offer_amount\)/);
   assert.ok(mergeSql.includes("offer_conditions = case when trim(coalesce(l.offer_conditions,'')) = '' then d.offer_conditions else l.offer_conditions end"));
+  assert.match(mergeSql, /acquisition_landing_path = coalesce\(l\.acquisition_landing_path, d\.acquisition_landing_path\)/);
+  assert.match(mergeSql, /floor_preference = case when trim\(coalesce\(l\.floor_preference,''\)\) = '' then d\.floor_preference else l\.floor_preference end/);
+  assert.match(mergeSql, /requested_area_min = coalesce\(l\.requested_area_min, d\.requested_area_min\)/);
+  assert.match(mergeSql, /requested_area_max = coalesce\(l\.requested_area_max, d\.requested_area_max\)/);
 });
 
 test("merging a duplicate lead preserves missing callback and offer data without overwriting canonical values", async () => {
@@ -56,14 +63,15 @@ async function dedupeFixture() {
       id text primary key, status text not null default 'new', merged_into_lead_id text,
       name text, phone text, people_count integer, job text, deal text, property_type text,
       neighborhood text, consultant text, note text, source text, acquisition_source text,
-      acquisition_medium text, acquisition_campaign text, acquisition_referrer text,
+      acquisition_medium text, acquisition_campaign text, acquisition_referrer text, acquisition_landing_path text,
       follow_up_at timestamptz, last_contacted_at timestamptz, callback_preferred_at timestamptz,
       offer_amount numeric, offer_conditions text, property_id text, visit_preferred_at timestamptz,
       visit_requested_at timestamptz, visit_status text not null default 'none', lease_deadline timestamptz,
       budget_deposit numeric, budget_rent numeric, budget_purchase numeric, budget_sale numeric,
       budget_deposit_min numeric, budget_deposit_max numeric, budget_rent_min numeric, budget_rent_max numeric,
       budget_purchase_min numeric, budget_purchase_max numeric, budget_sale_min numeric, budget_sale_max numeric,
-      budget_equivalent numeric, budget_bedrooms integer, budget_rate numeric, requested_bedrooms integer,
+      budget_equivalent numeric, budget_bedrooms integer, budget_rate numeric, floor_preference text not null default '',
+      requested_bedrooms integer, requested_area_min integer, requested_area_max integer,
       requested_amenities jsonb not null default '[]'::jsonb, matched_properties jsonb not null default '[]'::jsonb,
       match_count integer not null default 0, public_tracking_token text unique,
       updated_at timestamptz not null default current_timestamp

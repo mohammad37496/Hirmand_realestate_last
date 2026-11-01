@@ -12,14 +12,15 @@ async function fixture() {
       id text primary key, status text not null default 'new', merged_into_lead_id text, name text, phone text,
       people_count integer, job text, deal text, property_type text, neighborhood text, consultant text,
       note text, source text, acquisition_source text, acquisition_medium text, acquisition_campaign text,
-      acquisition_referrer text, follow_up_at timestamptz, last_contacted_at timestamptz,
+      acquisition_referrer text, acquisition_landing_path text, follow_up_at timestamptz, last_contacted_at timestamptz,
       callback_preferred_at timestamptz, offer_amount numeric, offer_conditions text,
       property_id text, visit_preferred_at timestamptz, visit_requested_at timestamptz,
       visit_status text not null default 'none', lease_deadline timestamptz,
       budget_deposit numeric, budget_rent numeric, budget_purchase numeric, budget_sale numeric,
       budget_deposit_min numeric, budget_deposit_max numeric, budget_rent_min numeric, budget_rent_max numeric,
       budget_purchase_min numeric, budget_purchase_max numeric, budget_sale_min numeric, budget_sale_max numeric,
-      budget_equivalent numeric, budget_bedrooms integer, budget_rate numeric, requested_bedrooms integer,
+      budget_equivalent numeric, budget_bedrooms integer, budget_rate numeric, floor_preference text not null default '',
+      requested_bedrooms integer, requested_area_min integer, requested_area_max integer,
       requested_amenities jsonb not null default '[]'::jsonb, matched_properties jsonb not null default '[]'::jsonb,
       match_count integer not null default 0, updated_at timestamptz not null default current_timestamp
     );
@@ -87,6 +88,42 @@ test("dedupe SQL moves the duplicate's only active visit onto a canonical lead",
     assert.equal(history.rows[0]?.metadata.mergedLeadId, "duplicate");
     const marker = await db.query<{ merged_into_lead_id: string }>("select merged_into_lead_id from leads where id='duplicate'");
     assert.equal(marker.rows[0]?.merged_into_lead_id, "canonical");
+  } finally {
+    await db.close();
+  }
+});
+
+test("dedupe SQL preserves acquisition landing path, floor and area preferences without overwriting canonical values", async () => {
+  const db = await fixture();
+  try {
+    await db.exec(`
+      insert into leads(id,name,phone,deal,acquisition_landing_path,floor_preference,requested_area_min,requested_area_max) values
+        ('canonical-empty','Canonical','09130000001','sale',null,'',null,null),
+        ('duplicate-filled','Duplicate','09130000001','sale','/campaign/landing','طبقه دوم',80,120),
+        ('canonical-keeps','Canonical keeps','09130000002','sale','/existing','طبقه اول',60,90),
+        ('duplicate-extra','Duplicate extra','09130000002','sale','/new','طبقه سوم',100,150);
+    `);
+    await merge(db, "canonical-empty", "duplicate-filled");
+    const filled = await db.query<{ acquisition_landing_path: string; floor_preference: string; requested_area_min: number; requested_area_max: number }>(
+      "select acquisition_landing_path,floor_preference,requested_area_min,requested_area_max from leads where id='canonical-empty'",
+    );
+    assert.deepEqual(filled.rows[0], {
+      acquisition_landing_path: "/campaign/landing",
+      floor_preference: "طبقه دوم",
+      requested_area_min: 80,
+      requested_area_max: 120,
+    });
+
+    await merge(db, "canonical-keeps", "duplicate-extra");
+    const kept = await db.query<{ acquisition_landing_path: string; floor_preference: string; requested_area_min: number; requested_area_max: number }>(
+      "select acquisition_landing_path,floor_preference,requested_area_min,requested_area_max from leads where id='canonical-keeps'",
+    );
+    assert.deepEqual(kept.rows[0], {
+      acquisition_landing_path: "/existing",
+      floor_preference: "طبقه اول",
+      requested_area_min: 60,
+      requested_area_max: 90,
+    });
   } finally {
     await db.close();
   }

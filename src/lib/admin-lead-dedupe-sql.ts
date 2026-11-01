@@ -35,6 +35,7 @@ export const MERGE_LEADS_WITH_ACTIVITY_SQL = `
       acquisition_medium = coalesce(l.acquisition_medium, d.acquisition_medium),
       acquisition_campaign = coalesce(l.acquisition_campaign, d.acquisition_campaign),
       acquisition_referrer = coalesce(l.acquisition_referrer, d.acquisition_referrer),
+      acquisition_landing_path = coalesce(l.acquisition_landing_path, d.acquisition_landing_path),
       follow_up_at = coalesce(l.follow_up_at, d.follow_up_at),
       last_contacted_at = coalesce(l.last_contacted_at, d.last_contacted_at),
       callback_preferred_at = coalesce(l.callback_preferred_at, d.callback_preferred_at),
@@ -69,7 +70,10 @@ export const MERGE_LEADS_WITH_ACTIVITY_SQL = `
       budget_equivalent = coalesce(l.budget_equivalent, d.budget_equivalent),
       budget_bedrooms = coalesce(l.budget_bedrooms, d.budget_bedrooms),
       budget_rate = coalesce(l.budget_rate, d.budget_rate),
+      floor_preference = case when trim(coalesce(l.floor_preference,'')) = '' then d.floor_preference else l.floor_preference end,
       requested_bedrooms = coalesce(l.requested_bedrooms, d.requested_bedrooms),
+      requested_area_min = coalesce(l.requested_area_min, d.requested_area_min),
+      requested_area_max = coalesce(l.requested_area_max, d.requested_area_max),
       requested_amenities = case
         when jsonb_array_length(coalesce(l.requested_amenities,'[]'::jsonb)) = 0
           then coalesce(d.requested_amenities,'[]'::jsonb)
