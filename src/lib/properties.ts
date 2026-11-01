@@ -16,6 +16,7 @@ import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type B
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { enqueueMediaCleanupJob, processMediaCleanupJobs } from "@/lib/media-store.server";
 import { lockMediaReferenceWrites } from "@/lib/media-cleanup-transaction.server";
+import { softDeleteProperty } from "@/lib/admin-property-soft-delete";
 import { deleteTrashedProperty, type TrashedPropertyRow } from "@/lib/admin-property-trash";
 import { bulkTrashActiveProperties } from "@/lib/admin-property-bulk-trash";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
@@ -2141,44 +2142,17 @@ export const listPropertyChangeHistory = createServerFn({ method: "POST" })
 export const deleteProperty = createServerFn({ method: "POST" })
   .validator(idSchema)
   .handler(async ({ data }) => {
-    await requireAdminPermission("property.manage");
-    const sql = await getSql();
-    const existingRows = await sql.query<Record<string, unknown>>(
-      `select ${DETAIL_COLUMNS} from properties where id = $1 limit 1`,
-      [data.id],
-    );
-    const existing = existingRows[0] ?? null;
-    const rows = await sql.query<Record<string, unknown>>(
-      `update properties
-       set deleted_at = current_timestamp,
-           deleted_from_status = status,
-           status = 'archived',
-           featured = false,
-           featured_until = null,
-           updated_at = current_timestamp
-       where id = $1 and deleted_at is null
-       returning id`,
-      [data.id],
-    );
+    const claims = await requireAdminPermission("property.manage");
+    const deletion = await withSqlTransaction(async (tx) => softDeleteProperty(
+      (statement, params) => tx.query(statement, params),
+      data.id,
+      (row) => mapProperty(row, { admin: true }),
+      String(claims?.displayName ?? "admin"),
+    ));
 
-    if (!rows.length) {
+    if (!deletion) {
       clearPropertyReadCache();
       return { success: false, deleted: 0 };
-    }
-
-    if (existing) {
-      await sql.query(
-        `insert into property_change_history (property_id, action, before_state, after_state)
-         values ($1, 'deleted', $2::jsonb, null)`,
-        [data.id, JSON.stringify(mapProperty(existing, { admin: true }))],
-      );
-      await writeAdminAuditLog({
-        action: "property.trashed",
-        entityType: "property",
-        entityId: data.id,
-        entityTitle: String(existing.title ?? ""),
-        metadata: { fromStatus: existing.status ?? null },
-      });
     }
 
     clearPropertyReadCache();

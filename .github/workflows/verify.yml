@@ -92,6 +92,9 @@ jobs:
       - name: Database API PostgreSQL integration
         run: npm run test:database-api:postgres
 
+      - name: Property lifecycle PostgreSQL integration
+        run: npm run test:property-lifecycle:postgres
+
       - name: Seed deterministic property-detail fixture
         run: node scripts/seed-browser-smoke.mjs
 
