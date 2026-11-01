@@ -28,6 +28,7 @@ export function buildCustomerPropertySubmissionApprovalSql(propertyInsertSql: st
       update leads
       set status='contacted', updated_at=current_timestamp
       where id in (select lead_id from claimed where lead_id is not null)
+        and merged_into_lead_id is null
         and exists (select 1 from inserted)
       returning id
     ),

@@ -2,28 +2,30 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { MERGE_LEADS_WITH_ACTIVITY_SQL } from "./admin-lead-dedupe-sql.ts";
+import { lockLeadDedupeSnapshot } from "./admin-lead-dedupe.server.ts";
 import { planLeadVisitMerge } from "./property-visit-scheduling.server.ts";
 
 async function fixture() {
   const db = new PGlite();
   await db.exec(`
     create table leads (
-      id text primary key, status text not null default 'new', name text, phone text,
+      id text primary key, status text not null default 'new', merged_into_lead_id text, name text, phone text,
       people_count integer, job text, deal text, property_type text, neighborhood text, consultant text,
       note text, source text, acquisition_source text, acquisition_medium text, acquisition_campaign text,
-      acquisition_referrer text, follow_up_at timestamptz, last_contacted_at timestamptz,
+      acquisition_referrer text, acquisition_landing_path text, follow_up_at timestamptz, last_contacted_at timestamptz,
       callback_preferred_at timestamptz, offer_amount numeric, offer_conditions text,
       property_id text, visit_preferred_at timestamptz, visit_requested_at timestamptz,
       visit_status text not null default 'none', lease_deadline timestamptz,
       budget_deposit numeric, budget_rent numeric, budget_purchase numeric, budget_sale numeric,
       budget_deposit_min numeric, budget_deposit_max numeric, budget_rent_min numeric, budget_rent_max numeric,
       budget_purchase_min numeric, budget_purchase_max numeric, budget_sale_min numeric, budget_sale_max numeric,
-      budget_equivalent numeric, budget_bedrooms integer, budget_rate numeric, requested_bedrooms integer,
+      budget_equivalent numeric, budget_bedrooms integer, budget_rate numeric, floor_preference text not null default '',
+      requested_bedrooms integer, requested_area_min integer, requested_area_max integer,
       requested_amenities jsonb not null default '[]'::jsonb, matched_properties jsonb not null default '[]'::jsonb,
       match_count integer not null default 0, updated_at timestamptz not null default current_timestamp
     );
     create table lead_activities (
-      id text primary key, lead_id text not null, activity_type text not null,
+      id text primary key default gen_random_uuid()::text, lead_id text not null, activity_type text not null,
       title text not null, note text not null default '', metadata jsonb not null default '{}'::jsonb
     );
   `);
@@ -79,6 +81,49 @@ test("dedupe SQL moves the duplicate's only active visit onto a canonical lead",
     assert.equal(active.rows[0]?.count, 1);
     const activities = await db.query<{ lead_id: string }>("select lead_id from lead_activities where id='activity-1'");
     assert.equal(activities.rows[0]?.lead_id, "canonical");
+    const history = await db.query<{ title: string; metadata: { mergedLeadId: string } }>(
+      "select title,metadata from lead_activities where title='ادغام لید تکراری'",
+    );
+    assert.equal(history.rows.length, 1);
+    assert.equal(history.rows[0]?.metadata.mergedLeadId, "duplicate");
+    const marker = await db.query<{ merged_into_lead_id: string }>("select merged_into_lead_id from leads where id='duplicate'");
+    assert.equal(marker.rows[0]?.merged_into_lead_id, "canonical");
+  } finally {
+    await db.close();
+  }
+});
+
+test("dedupe SQL preserves acquisition landing path, floor and area preferences without overwriting canonical values", async () => {
+  const db = await fixture();
+  try {
+    await db.exec(`
+      insert into leads(id,name,phone,deal,acquisition_landing_path,floor_preference,requested_area_min,requested_area_max) values
+        ('canonical-empty','Canonical','09130000001','sale',null,'',null,null),
+        ('duplicate-filled','Duplicate','09130000001','sale','/campaign/landing','طبقه دوم',80,120),
+        ('canonical-keeps','Canonical keeps','09130000002','sale','/existing','طبقه اول',60,90),
+        ('duplicate-extra','Duplicate extra','09130000002','sale','/new','طبقه سوم',100,150);
+    `);
+    await merge(db, "canonical-empty", "duplicate-filled");
+    const filled = await db.query<{ acquisition_landing_path: string; floor_preference: string; requested_area_min: number; requested_area_max: number }>(
+      "select acquisition_landing_path,floor_preference,requested_area_min,requested_area_max from leads where id='canonical-empty'",
+    );
+    assert.deepEqual(filled.rows[0], {
+      acquisition_landing_path: "/campaign/landing",
+      floor_preference: "طبقه دوم",
+      requested_area_min: 80,
+      requested_area_max: 120,
+    });
+
+    await merge(db, "canonical-keeps", "duplicate-extra");
+    const kept = await db.query<{ acquisition_landing_path: string; floor_preference: string; requested_area_min: number; requested_area_max: number }>(
+      "select acquisition_landing_path,floor_preference,requested_area_min,requested_area_max from leads where id='canonical-keeps'",
+    );
+    assert.deepEqual(kept.rows[0], {
+      acquisition_landing_path: "/existing",
+      floor_preference: "طبقه اول",
+      requested_area_min: 60,
+      requested_area_max: 90,
+    });
   } finally {
     await db.close();
   }
@@ -111,5 +156,57 @@ test("dedupe planner rejects moving an active visit onto cancelled or completed 
       { property_id: "property-1", visit_preferred_at: "2030-06-01T08:00:00Z", visit_status: status },
       { property_id: "property-1", visit_preferred_at: "2030-06-01T10:00:00Z", visit_status: "requested" },
     ).kind, "conflicting_visits");
+  }
+});
+
+test("dedupe SQL itself refuses to consume an active duplicate visit when canonical visit history is terminal", async () => {
+  const db = await fixture();
+  try {
+    for (const status of ["cancelled", "completed"]) {
+      await insertLead(db, { id: "canonical-" + status, propertyId: "property-1", visitAt: "2030-06-01T08:00:00Z", visitStatus: status });
+      await insertLead(db, { id: "duplicate-" + status, propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", visitStatus: "requested" });
+      const before = await db.query<{ id: string; visit_status: string }>("select id,visit_status from leads where id=any($1::text[]) order by id", [["canonical-" + status, "duplicate-" + status]]);
+      assert.deepEqual(before.rows.map((row) => row.visit_status), [status, "requested"]);
+      const result = await merge(db, "canonical-" + status, "duplicate-" + status);
+      assert.equal(result.rows[0]?.canonical_id, null);
+      const duplicate = await db.query<{ status: string; visit_status: string; merged_into_lead_id: string | null }>(
+        "select status,visit_status,merged_into_lead_id from leads where id=$1",
+        ["duplicate-" + status],
+      );
+      assert.equal(duplicate.rows[0]?.status, "new");
+      assert.equal(duplicate.rows[0]?.visit_status, "requested");
+      assert.equal(duplicate.rows[0]?.merged_into_lead_id, null);
+    }
+  } finally {
+    await db.close();
+  }
+});
+
+test("dedupe lead-row lock rejects a visit cancellation that changed after the route snapshot", async () => {
+  const db = await fixture();
+  try {
+    await insertLead(db, { id: "canonical", propertyId: "property-1", visitAt: null, visitStatus: "none" });
+    await insertLead(db, { id: "duplicate", propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", visitStatus: "requested" });
+    const snapshot = await db.query<{
+      id: string;
+      status: string;
+      merged_into_lead_id: string | null;
+      property_id: string | null;
+      visit_preferred_at: string | null;
+      visit_status: string | null;
+    }>("select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id", [["canonical", "duplicate"]]);
+    await db.query("update leads set visit_status='cancelled' where id='duplicate'");
+    const tx = {
+      query: async <T = Record<string, unknown>>(text: string, params?: unknown[]) =>
+        (await db.query<T>(text, params)).rows,
+    };
+    const result = await lockLeadDedupeSnapshot(tx, "canonical", "duplicate", snapshot.rows);
+    assert.equal(result.kind, "stale");
+    const duplicate = await db.query<{ visit_status: string; merged_into_lead_id: string | null }>(
+      "select visit_status,merged_into_lead_id from leads where id='duplicate'",
+    );
+    assert.deepEqual(duplicate.rows[0], { visit_status: "cancelled", merged_into_lead_id: null });
+  } finally {
+    await db.close();
   }
 });

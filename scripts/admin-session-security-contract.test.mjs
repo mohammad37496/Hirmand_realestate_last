@@ -97,13 +97,21 @@ test("lead dedupe scan does not turn database failures into an empty duplicate l
 test("lead dedupe merge locks both rows and requires both state transitions before success", async () => {
   const code = await source("server/routes/api/admin-lead-dedupe.post.ts");
   const mergeSql = await source("src/lib/admin-lead-dedupe-sql.ts");
-  assert.match(code, /MERGE_LEADS_WITH_ACTIVITY_SQL/);
-  assert.match(code, /\[canonicalId, duplicateId, \[canonicalId, duplicateId\]\]/);
-  assert.match(mergeSql, /locked as materialized\s*\([\s\S]*?where id = any\(\$3::text\[\]\) order by id for update/);
+  const mutation = await source("src/lib/admin-lead-dedupe.server.ts");
+  assert.match(code, /withSqlTransaction\(async \(tx\)/);
+  assert.match(code, /mergeLeadDedupeRelations\(tx, canonicalId, duplicateId\)/);
+  assert.match(code, /if \(!mutation\) return \{ kind: "stale" as const \}/);
+  assert.match(mutation, /MERGE_LEADS_WITH_ACTIVITY_SQL/);
+  assert.match(mutation, /update admin_deals set lead_id=\$1/);
+  assert.match(mutation, /update finance_transactions set lead_id=\$1/);
+  assert.match(mutation, /update admin_tasks set entity_id=\$1/);
+  assert.match(mergeSql, /locked as materialized\s*\([\s\S]*?where id = any\(\$3::text\[\]\) and merged_into_lead_id is null\s+order by id for update/);
   assert.match(mergeSql, /and \(select count\(\*\) from locked\) = 2/);
   assert.match(mergeSql, /where lead_id = \$2 and exists \(select 1 from merged\)/);
   assert.match(mergeSql, /where id = \$2 and exists \(select 1 from merged\)/);
-  assert.match(code, /!rows\[0\]\?\.canonical_id \|\| !rows\[0\]\?\.duplicate_id/);
+  assert.match(mergeSql, /merge_history as \(/);
+  assert.match(mergeSql, /merged_into_lead_id = \$1/);
+  assert.doesNotMatch(code + mutation, /\.catch\(\(\)\s*=>\s*\{\}\)/);
 });
 
 test("management report finance totals include exactly the selected calendar-day range", async () => {

@@ -3,6 +3,7 @@ import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { isMatchableProperty, MATCHABLE_PROPERTY_SQL } from "@/lib/property-matchability";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { normalizeMatchLabel, scoreAreaMatch } from "@/lib/admin-match-utils";
+import { SAVE_MATCH_RESULTS_WITH_ACTIVITY_SQL } from "@/lib/admin-match-mutation-sql";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 type SqlClient = Awaited<ReturnType<typeof getSql>>;
@@ -424,12 +425,8 @@ export async function autoMatchLead(
 
   const matches = scored.map(({ row, scored }) => serializeMatch(row, scored));
 
-  await sql.query(
-    `update leads
-     set matched_properties = $2::jsonb,
-         match_count = $3,
-         updated_at = current_timestamp
-     where id = $1`,
+  const saved = await sql.query(
+    SAVE_MATCH_RESULTS_WITH_ACTIVITY_SQL,
     [
       leadId,
       JSON.stringify(matches.map((match) => ({
@@ -444,25 +441,12 @@ export async function autoMatchLead(
         updatedAt: match.updatedAt,
       }))),
       matches.length,
-    ],
-  );
-
-  await sql.query(
-    `insert into lead_activities
-      (lead_id, activity_type, title, note, metadata)
-     values ($1,'match',$2,$3,$4::jsonb)`,
-    [
-      leadId,
       "پیشنهاد خودکار فایل‌ها انجام شد",
       "موتور تطبیق هوشمند به‌صورت خودکار " + matches.length + " فایل برای این لید پیشنهاد کرد.",
-      JSON.stringify({
-        mode,
-        automatic: true,
-        count: matches.length,
-        topScore: matches[0]?.score ?? null,
-      }),
+      JSON.stringify({ mode, automatic: true, count: matches.length, topScore: matches[0]?.score ?? null }),
     ],
-  ).catch(() => {});
+  );
+  if (!saved[0]) return { count: 0, matches: [] };
 
   return { count: matches.length, matches };
 }

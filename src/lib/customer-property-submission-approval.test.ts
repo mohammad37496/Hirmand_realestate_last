@@ -43,7 +43,7 @@ async function createFixture() {
       updated_at timestamptz not null default current_timestamp
     );
     create table properties (id text primary key, title text not null);
-    create table leads (id text primary key, status text not null, updated_at timestamptz);
+    create table leads (id text primary key, status text not null, merged_into_lead_id text, updated_at timestamptz);
     create table lead_activities (id bigint generated always as identity primary key, lead_id text not null, activity_type text not null, title text not null, note text not null, metadata jsonb not null);
     create table property_change_history (id bigint generated always as identity primary key, property_id text not null, action text not null, before_state jsonb, after_state jsonb);
     create table customer_property_submission_events (id text primary key, submission_id text not null, action text not null, note text not null, metadata jsonb not null);
@@ -129,6 +129,21 @@ test("approval rejects a stale property-data snapshot after an admin edit", asyn
   }
 });
 
+test("approving a submission retained on a merged duplicate never reopens that duplicate lead", async () => {
+  const db = await createFixture();
+  try {
+    await db.exec("insert into leads(id,status) values ('canonical-lead','new'); update leads set status='closed',merged_into_lead_id='canonical-lead' where id='lead-1'");
+    const result = await db.query<{ id: string }>(testApprovalSql(), approvalParams("property-merged-lead", "submission-1", "Approved"));
+    assert.equal(result.rows[0]?.id, "property-merged-lead");
+    const duplicate = await db.query<{ status: string; merged_into_lead_id: string }>("select status,merged_into_lead_id from leads where id='lead-1'");
+    assert.deepEqual(duplicate.rows[0], { status: "closed", merged_into_lead_id: "canonical-lead" });
+    assert.equal((await db.query<{ status: string }>("select status from customer_property_submissions where id='submission-1'")).rows[0]?.status, "approved");
+    assert.equal((await db.query<{ count: number }>("select count(*)::int as count from lead_activities where lead_id='lead-1'")).rows[0]?.count, 0);
+  } finally {
+    await db.close();
+  }
+});
+
 async function reviewStateFixture() {
   const db = new PGlite();
   await db.exec(`
@@ -138,7 +153,7 @@ async function reviewStateFixture() {
       review_note text not null default '', reviewed_at timestamptz,
       updated_at timestamptz not null default current_timestamp
     );
-    create table leads (id text primary key, status text not null, updated_at timestamptz);
+    create table leads (id text primary key, status text not null, merged_into_lead_id text, updated_at timestamptz);
     create table lead_activities (id bigint generated always as identity primary key, lead_id text not null, activity_type text not null, title text not null, note text not null, metadata jsonb not null);
     create table customer_property_submission_events (id text primary key, submission_id text not null, action text not null, note text not null, metadata jsonb not null);
     insert into leads (id,status) values ('lead-1','new');
@@ -310,7 +325,7 @@ async function bulkReviewFixture() {
       id text primary key, lead_id text, status text not null, review_note text not null default '',
       reviewed_at timestamptz, priority text not null default 'normal', updated_at timestamptz not null default current_timestamp
     );
-    create table leads (id text primary key, status text not null, updated_at timestamptz);
+    create table leads (id text primary key, status text not null, merged_into_lead_id text, updated_at timestamptz);
     create table lead_activities (
       id bigint generated always as identity primary key, lead_id text not null, activity_type text not null,
       title text not null, note text not null, metadata jsonb not null
@@ -357,6 +372,22 @@ test("bulk rejection rolls back submission and lead changes when CRM activity ca
     assert.equal(submission.rows[0]?.status, "pending");
     assert.equal(lead.rows[0]?.status, "new");
     assert.equal(events.rows.length, 0);
+  } finally {
+    await db.close();
+  }
+});
+
+test("bulk rejection preserves a merged duplicate lead's closed state and does not append activity to it", async () => {
+  const db = await bulkReviewFixture();
+  try {
+    await db.exec("insert into leads(id,status) values ('canonical-lead','new'); update leads set status='closed',merged_into_lead_id='canonical-lead' where id='lead-1'");
+    const result = await db.query(BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL, [["pending-1"], "Rejected after merge"]);
+    assert.equal(result.rows.length, 1);
+    assert.deepEqual((await db.query("select status,merged_into_lead_id from leads where id='lead-1'")).rows[0], {
+      status: "closed", merged_into_lead_id: "canonical-lead",
+    });
+    assert.equal((await db.query<{ count: number }>("select count(*)::int as count from lead_activities where lead_id='lead-1'")).rows[0]?.count, 0);
+    assert.equal((await db.query<{ status: string }>("select status from customer_property_submissions where id='pending-1'")).rows[0]?.status, "rejected");
   } finally {
     await db.close();
   }

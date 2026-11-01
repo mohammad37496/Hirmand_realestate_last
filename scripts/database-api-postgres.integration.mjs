@@ -7,9 +7,12 @@ import { resubmitCustomerPropertySubmission } from "../src/lib/customer-property
 import {
   cancelPropertyVisit,
   checkPropertyVisitSlot,
+  lockPropertyVisitSchedule,
+  planLeadVisitMerge,
   reschedulePropertyVisit,
 } from "../src/lib/property-visit-scheduling.server.ts";
-import { MERGE_LEADS_WITH_ACTIVITY_SQL } from "../src/lib/admin-lead-dedupe-sql.ts";
+import { lockLeadDedupeSnapshot, mergeLeadDedupeRelations } from "../src/lib/admin-lead-dedupe.server.ts";
+import { UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL } from "../src/lib/admin-lead-mutation-sql.ts";
 import {
   createOpenHouseSchedule,
   registerOpenHouseRsvp,
@@ -26,6 +29,7 @@ const pool = new Pool({ connectionString: databaseUrl, max: 6, connectionTimeout
 const schema = `qa_dbapi_${randomUUID().replaceAll("-", "")}`;
 const clients = [];
 let schemaCreated = false;
+const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function connectInSchema() {
   const client = await pool.connect();
@@ -64,6 +68,54 @@ async function inTransaction(client, callback, { delayInsertMs = 0 } = {}) {
     await client.query("ROLLBACK").catch(() => undefined);
     throw error;
   }
+}
+
+async function mergeUsingRouteSnapshot(tx, canonicalId, duplicateId) {
+  const snapshotRows = await tx.query(
+    "select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id",
+    [[canonicalId, duplicateId]],
+  );
+  if (snapshotRows.length !== 2) return { kind: "missing" };
+  const byId = new Map(snapshotRows.map((row) => [row.id, row]));
+  const canonicalSnapshot = byId.get(canonicalId);
+  const duplicateSnapshot = byId.get(duplicateId);
+  if (!canonicalSnapshot || !duplicateSnapshot) return { kind: "missing" };
+
+  const activeProperties = [canonicalSnapshot, duplicateSnapshot]
+    .filter((lead) => lead.visit_status === "requested" || lead.visit_status === "confirmed")
+    .map((lead) => lead.property_id == null ? "" : String(lead.property_id).trim())
+    .filter(Boolean);
+  for (const propertyId of [...new Set(activeProperties)].sort()) {
+    if (!await lockPropertyVisitSchedule(tx, propertyId)) return { kind: "property_missing" };
+  }
+
+  const locked = await lockLeadDedupeSnapshot(tx, canonicalId, duplicateId, snapshotRows);
+  if (locked.kind !== "locked") return locked;
+  const visitPlan = planLeadVisitMerge(locked.canonical, locked.duplicate);
+  if (visitPlan.kind === "conflicting_visits") return { kind: "conflicting_visits" };
+  if (visitPlan.kind === "keep_canonical" || visitPlan.kind === "move_duplicate") {
+    const slot = await checkPropertyVisitSlot(tx, {
+      propertyId: visitPlan.propertyId,
+      visitAt: new Date(Date.parse(visitPlan.visitAt)).toISOString(),
+      excludeLeadIds: [canonicalId, duplicateId],
+    });
+    if (slot.kind !== "available") return { kind: slot.kind === "property_missing" ? "property_missing" : "visit_conflict" };
+  }
+  if (locked.canonical.merged_into_lead_id || locked.duplicate.merged_into_lead_id) return { kind: "stale" };
+  const mutation = await mergeLeadDedupeRelations(tx, canonicalId, duplicateId);
+  return mutation ? { kind: "merged", mutation } : { kind: "stale" };
+}
+
+async function waitForLockWait(observer, pid, label) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const rows = await observer.query(
+      "select wait_event_type from pg_stat_activity where pid=$1",
+      [pid],
+    );
+    if (rows.rows[0]?.wait_event_type === "Lock") return;
+    await pause(10);
+  }
+  throw new Error(`Timed out waiting for PostgreSQL lock contention: ${label}`);
 }
 
 function approvalParams(propertyId, submissionId, eventId, slug) {
@@ -114,7 +166,8 @@ async function createSchemaFixture(admin) {
       property_type text NOT NULL DEFAULT '', neighborhood text NOT NULL DEFAULT '', contact_name text NOT NULL DEFAULT ''
     );
     CREATE TABLE leads (
-      id text PRIMARY KEY, status text NOT NULL, updated_at timestamptz,
+      id text PRIMARY KEY, status text NOT NULL, created_at timestamptz NOT NULL DEFAULT current_timestamp,
+      updated_at timestamptz,
       property_id text, visit_preferred_at timestamptz, visit_status text NOT NULL DEFAULT 'none',
       visit_requested_at timestamptz, public_tracking_token text,
       name text, phone text, people_count integer, job text, deal text, property_type text,
@@ -137,6 +190,22 @@ async function createSchemaFixture(admin) {
       note text NOT NULL,
       metadata jsonb NOT NULL
     );
+    CREATE TABLE admin_deals (
+      id text PRIMARY KEY, lead_id text, updated_at timestamptz NOT NULL DEFAULT current_timestamp
+    );
+    CREATE TABLE finance_transactions (
+      id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, lead_id text
+    );
+    CREATE TABLE admin_tasks (
+      id text PRIMARY KEY, title text NOT NULL, description text NOT NULL DEFAULT '',
+      status text NOT NULL DEFAULT 'open' CHECK(status IN ('open','done','cancelled')),
+      entity_type text NOT NULL, entity_id text, dedupe_key text,
+      created_at timestamptz NOT NULL DEFAULT current_timestamp,
+      updated_at timestamptz NOT NULL DEFAULT current_timestamp
+    );
+    CREATE UNIQUE INDEX admin_tasks_one_open_lead_overdue_followup_idx
+      ON admin_tasks(entity_type,entity_id,dedupe_key)
+      WHERE status='open' AND dedupe_key='overdue_follow_up';
     CREATE TABLE property_change_history (
       id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       property_id text NOT NULL,
@@ -158,6 +227,18 @@ try {
   const admin = await pool.connect();
   clients.push(admin);
   await createSchemaFixture(admin);
+  // The merge statement uses columns introduced by the same production
+  // migrations as the application schema. Keep this isolated PostgreSQL
+  // fixture aligned with those migrations instead of duplicating their DDL.
+  for (const migrationName of [
+    "0016_lead_attribution.sql",
+    "0038_lead_floor_preference.sql",
+    "0107_lead_area_preferences.sql",
+    "0111_atomic_lead_dedupe.sql",
+  ]) {
+    const migration = await readFile(new URL(`../migrations/${migrationName}`, import.meta.url), "utf8");
+    await admin.query(migration);
+  }
 
   await admin.query(`
     CREATE TABLE property_open_houses (
@@ -301,22 +382,235 @@ try {
            ('dedupe-duplicate','new','Duplicate','09130000004','visit-scheduling-property','2030-06-04T10:00:00Z','2030-06-04T09:00:00Z','requested');
     INSERT INTO lead_activities(lead_id,activity_type,title,note,metadata)
     VALUES ('dedupe-duplicate','visit','Visit requested','', '{}'::jsonb);
+    INSERT INTO admin_deals(id,lead_id) VALUES ('dedupe-deal','dedupe-duplicate');
+    INSERT INTO finance_transactions(lead_id) VALUES ('dedupe-duplicate');
+    INSERT INTO admin_tasks(id,title,entity_type,entity_id,dedupe_key,created_at) VALUES
+      ('dedupe-task-canonical-old','Old overdue','lead','dedupe-canonical','overdue_follow_up','2026-10-01T00:00:00Z'),
+      ('dedupe-task-duplicate-new','New overdue','lead','dedupe-duplicate','overdue_follow_up','2026-10-02T00:00:00Z'),
+      ('dedupe-task-duplicate-normal','Call customer','lead','dedupe-duplicate',null,'2026-10-03T00:00:00Z');
   `);
-  const dedupeResult = await admin.query(MERGE_LEADS_WITH_ACTIVITY_SQL, [
-    "dedupe-canonical", "dedupe-duplicate", ["dedupe-canonical", "dedupe-duplicate"],
-  ]);
-  assert.equal(dedupeResult.rows[0]?.canonical_id, "dedupe-canonical");
-  assert.equal(dedupeResult.rows[0]?.duplicate_id, "dedupe-duplicate");
+  const mergeClientA = await connectInSchema();
+  const mergeClientB = await connectInSchema();
+  const delayedMergeSql = {
+    query: async (text, params = []) => {
+      const rows = (await mergeClientA.query(text, params)).rows;
+      if (/^\s*with locked as materialized/i.test(text)) await new Promise((resolve) => setTimeout(resolve, 220));
+      return rows;
+    },
+  };
+  const firstMerge = inTransaction(mergeClientA, (_tx) => mergeLeadDedupeRelations(delayedMergeSql, "dedupe-canonical", "dedupe-duplicate"));
+  await new Promise((resolve) => setTimeout(resolve, 35));
+  const secondMerge = inTransaction(mergeClientB, (tx) => mergeLeadDedupeRelations(tx, "dedupe-canonical", "dedupe-duplicate"));
+  const [dedupeResult, repeatedDedupeResult] = await Promise.all([firstMerge, secondMerge]);
+  assert.deepEqual(dedupeResult, {
+    movedActivities: 1,
+    movedDeals: 1,
+    movedFinanceTransactions: 1,
+    movedTasks: 2,
+    cancelledTaskCollisions: 1,
+  });
+  assert.equal(repeatedDedupeResult, null, "a concurrent second merge must observe the committed merged marker and become stale");
   const mergedVisitRows = await admin.query(
     "SELECT id,visit_status,visit_preferred_at::text AS visit_preferred_at FROM leads WHERE id IN ('dedupe-canonical','dedupe-duplicate') ORDER BY id",
   );
   assert.equal(mergedVisitRows.rows[0]?.visit_status, "requested");
   assert.equal(new Date(mergedVisitRows.rows[0]?.visit_preferred_at).toISOString(), "2030-06-04T10:00:00.000Z");
   assert.equal(mergedVisitRows.rows[1]?.visit_status, "cancelled");
-  console.log("ok   PostgreSQL dedupe SQL transfers the active visit and cancels the duplicate booking");
-  await admin.query("DELETE FROM lead_activities WHERE lead_id='dedupe-canonical'; DELETE FROM leads WHERE id IN ('dedupe-canonical','dedupe-duplicate')");
+  assert.equal((await admin.query("SELECT merged_into_lead_id FROM leads WHERE id='dedupe-duplicate'")).rows[0]?.merged_into_lead_id, "dedupe-canonical");
+  assert.equal((await admin.query("SELECT lead_id FROM admin_deals WHERE id='dedupe-deal'")).rows[0]?.lead_id, "dedupe-canonical");
+  assert.equal((await admin.query("SELECT lead_id FROM finance_transactions")).rows[0]?.lead_id, "dedupe-canonical");
+  assert.equal((await admin.query("SELECT count(*)::int AS count FROM admin_tasks WHERE entity_id='dedupe-canonical' AND status='open'")).rows[0]?.count, 2);
+  assert.equal((await admin.query("SELECT status FROM admin_tasks WHERE id='dedupe-task-canonical-old'")).rows[0]?.status, "cancelled");
+  assert.equal((await admin.query("SELECT count(*)::int AS count FROM lead_activities WHERE title='ادغام لید تکراری'")).rows[0]?.count, 1);
+  console.log("ok   PostgreSQL dedupe transaction moves internal relationships, preserves one overdue task, and rejects concurrent replay");
+  releaseClient(mergeClientA);
+  releaseClient(mergeClientB);
+
+  await admin.query(`
+    INSERT INTO leads(id,status,name,phone) VALUES ('dedupe-fail-canonical','new','Canonical fail','09130000005'),('dedupe-fail-duplicate','new','Duplicate fail','09130000005');
+    INSERT INTO lead_activities(lead_id,activity_type,title,note,metadata) VALUES ('dedupe-fail-duplicate','call','Keep original','', '{}'::jsonb);
+    INSERT INTO admin_deals(id,lead_id) VALUES ('dedupe-fail-deal','dedupe-fail-duplicate');
+    INSERT INTO finance_transactions(lead_id) VALUES ('dedupe-fail-duplicate');
+    CREATE FUNCTION qa_fail_dedupe_history() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+      IF NEW.title='ادغام لید تکراری' THEN RAISE EXCEPTION 'qa injected dedupe history failure'; END IF;
+      RETURN NEW;
+    END;
+    $$;
+    CREATE TRIGGER qa_fail_dedupe_history BEFORE INSERT ON lead_activities FOR EACH ROW EXECUTE FUNCTION qa_fail_dedupe_history();
+  `);
+  const historyFailureClient = await connectInSchema();
+  await assert.rejects(
+    inTransaction(historyFailureClient, (tx) => mergeLeadDedupeRelations(tx, "dedupe-fail-canonical", "dedupe-fail-duplicate")),
+    /qa injected dedupe history failure/,
+  );
+  assert.equal((await admin.query("SELECT status,merged_into_lead_id FROM leads WHERE id='dedupe-fail-duplicate'")).rows[0]?.status, "new");
+  assert.equal((await admin.query("SELECT lead_id FROM lead_activities WHERE title='Keep original'")).rows[0]?.lead_id, "dedupe-fail-duplicate");
+  assert.equal((await admin.query("SELECT lead_id FROM admin_deals WHERE id='dedupe-fail-deal'")).rows[0]?.lead_id, "dedupe-fail-duplicate");
+  assert.equal((await admin.query("SELECT lead_id FROM finance_transactions ORDER BY id DESC LIMIT 1")).rows[0]?.lead_id, "dedupe-fail-duplicate");
+  await admin.query("DROP TRIGGER qa_fail_dedupe_history ON lead_activities; DROP FUNCTION qa_fail_dedupe_history();");
+  console.log("ok   PostgreSQL history insert failure rolls back the duplicate close, activities, deals and finance links");
+  releaseClient(historyFailureClient);
+
+  await admin.query(`
+    INSERT INTO leads(id,status,name,phone) VALUES ('dedupe-db-canonical','new','Canonical db','09130000006'),('dedupe-db-duplicate','new','Duplicate db','09130000006');
+    INSERT INTO admin_deals(id,lead_id) VALUES ('dedupe-db-deal','dedupe-db-duplicate');
+    INSERT INTO finance_transactions(lead_id) VALUES ('dedupe-db-duplicate');
+    CREATE FUNCTION qa_fail_dedupe_finance_link() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN RAISE EXCEPTION 'qa injected dedupe finance failure'; END;
+    $$;
+    CREATE TRIGGER qa_fail_dedupe_finance_link BEFORE UPDATE ON finance_transactions FOR EACH ROW EXECUTE FUNCTION qa_fail_dedupe_finance_link();
+  `);
+  const financeFailureClient = await connectInSchema();
+  await assert.rejects(
+    inTransaction(financeFailureClient, (tx) => mergeLeadDedupeRelations(tx, "dedupe-db-canonical", "dedupe-db-duplicate")),
+    /qa injected dedupe finance failure/,
+  );
+  assert.equal((await admin.query("SELECT status,merged_into_lead_id FROM leads WHERE id='dedupe-db-duplicate'")).rows[0]?.status, "new");
+  assert.equal((await admin.query("SELECT lead_id FROM admin_deals WHERE id='dedupe-db-deal'")).rows[0]?.lead_id, "dedupe-db-duplicate");
+  assert.equal((await admin.query("SELECT count(*)::int AS count FROM lead_activities WHERE title='ادغام لید تکراری'")).rows[0]?.count, 1);
+  await admin.query("DROP TRIGGER qa_fail_dedupe_finance_link ON finance_transactions; DROP FUNCTION qa_fail_dedupe_finance_link();");
+  console.log("ok   PostgreSQL relationship database failure rolls back prior lead, history and deal writes");
+  releaseClient(financeFailureClient);
+
+  await admin.query("INSERT INTO properties(id,title) VALUES ('dedupe-visit-race-property','Dedupe visit race integration property')");
+  await admin.query(`
+    INSERT INTO leads(id,status,property_id,visit_preferred_at,visit_status)
+    VALUES ('dedupe-visit-race-canonical','new','dedupe-visit-race-property','2030-06-03T09:00:00Z','none'),
+           ('dedupe-visit-race-duplicate','new','dedupe-visit-race-property','2030-06-03T10:00:00Z','none');
+  `);
+  let releaseVisitActivation;
+  let visitActivationStarted;
+  const activationStarted = new Promise((resolve) => { visitActivationStarted = resolve; });
+  const allowVisitActivation = new Promise((resolve) => { releaseVisitActivation = resolve; });
+  const activationPromise = inTransaction(visitA, async (tx) => {
+    const before = (await tx.query("SELECT status,visit_status FROM leads WHERE id='dedupe-visit-race-duplicate'"))[0];
+    const slot = await checkPropertyVisitSlot(tx, {
+      propertyId: "dedupe-visit-race-property",
+      visitAt: "2030-06-03T10:00:00Z",
+      excludeLeadIds: ["dedupe-visit-race-duplicate"],
+    });
+    assert.equal(slot.kind, "available");
+    visitActivationStarted();
+    await allowVisitActivation;
+    await tx.query("SELECT id FROM leads WHERE id='dedupe-visit-race-duplicate' FOR UPDATE");
+    return tx.query(UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL, [
+      "dedupe-visit-race-duplicate", "requested", "Visit requested", "Activation after merge", JSON.stringify({ visitStatus: "requested" }), before.visit_status, before.status,
+    ]);
+  });
+  await activationStarted;
+  await inTransaction(visitB, (tx) => mergeLeadDedupeRelations(tx, "dedupe-visit-race-canonical", "dedupe-visit-race-duplicate"));
+  releaseVisitActivation();
+  const staleActivation = await activationPromise;
+  assert.equal(staleActivation.length, 0, "a request that read the pre-merge status must not reactivate the closed duplicate");
+  assert.equal((await admin.query("SELECT status,visit_status FROM leads WHERE id='dedupe-visit-race-duplicate'")).rows[0]?.status, "closed");
+  console.log("ok   PostgreSQL status CAS prevents a delayed visit activation from reopening a deduped lead");
+
   releaseClient(visitA);
   releaseClient(visitB);
+
+  const terminalMergeClient = await connectInSchema();
+  for (const terminalStatus of ["cancelled", "completed"]) {
+    const canonicalId = `terminal-canonical-${terminalStatus}`;
+    const duplicateId = `terminal-duplicate-${terminalStatus}`;
+    await admin.query(
+      `INSERT INTO leads(id,status,property_id,visit_preferred_at,visit_status)
+       VALUES ($1,'new','visit-scheduling-property','2030-06-03T08:00:00Z',$3),
+              ($2,'new','visit-scheduling-property','2030-06-03T10:00:00Z','requested')`,
+      [canonicalId, duplicateId, terminalStatus],
+    );
+    const result = await inTransaction(terminalMergeClient, (tx) => mergeLeadDedupeRelations(tx, canonicalId, duplicateId));
+    assert.equal(result, null, `an active duplicate visit must not be moved over canonical ${terminalStatus} history`);
+    const rows = await admin.query(
+      "SELECT id,status,visit_status,merged_into_lead_id FROM leads WHERE id=ANY($1::text[]) ORDER BY id",
+      [[canonicalId, duplicateId]],
+    );
+    assert.equal(rows.rows.find((row) => row.id === canonicalId)?.visit_status, terminalStatus);
+    assert.equal(rows.rows.find((row) => row.id === duplicateId)?.visit_status, "requested");
+    assert.equal(rows.rows.find((row) => row.id === duplicateId)?.merged_into_lead_id, null);
+  }
+  releaseClient(terminalMergeClient);
+  console.log("ok   PostgreSQL dedupe preserves cancelled/completed canonical visit history and leaves active duplicate visits untouched");
+
+  const cancelOwner = await connectInSchema();
+  const mergeWaiter = await connectInSchema();
+  await admin.query(
+    `INSERT INTO leads(id,status,property_id,visit_preferred_at,visit_status,public_tracking_token)
+     VALUES ('cancel-before-merge-canonical','new','visit-scheduling-property',null,'none',null),
+            ('cancel-before-merge-duplicate','new','visit-scheduling-property','2030-06-05T10:00:00Z','requested','HIR-30-CANCEL123456')`,
+  );
+  let allowCancelCommit;
+  let signalCancelLocked;
+  const cancelLocked = new Promise((resolve) => { signalCancelLocked = resolve; });
+  const waitForCancelCommit = new Promise((resolve) => { allowCancelCommit = resolve; });
+  const cancelFirst = inTransaction(cancelOwner, async (tx) => {
+    const result = await cancelPropertyVisit(tx, {
+      leadId: "cancel-before-merge-duplicate",
+      trackingToken: "HIR-30-CANCEL123456",
+      propertyId: "visit-scheduling-property",
+      expectedVisitAt: "2030-06-05T10:00:00Z",
+    });
+    assert.equal(result, "cancelled");
+    signalCancelLocked();
+    await waitForCancelCommit;
+    return result;
+  });
+  await cancelLocked;
+  const mergeWaiterPid = Number((await mergeWaiter.query("SELECT pg_backend_pid() AS pid")).rows[0].pid);
+  const mergeAfterCancel = inTransaction(mergeWaiter, (tx) => mergeUsingRouteSnapshot(tx, "cancel-before-merge-canonical", "cancel-before-merge-duplicate"));
+  await waitForLockWait(admin, mergeWaiterPid, "dedupe waits behind public cancellation");
+  allowCancelCommit();
+  assert.equal(await cancelFirst, "cancelled");
+  assert.equal((await mergeAfterCancel).kind, "stale");
+  const cancelFirstRows = await admin.query(
+    "SELECT id,visit_status,merged_into_lead_id FROM leads WHERE id=ANY($1::text[]) ORDER BY id",
+    [["cancel-before-merge-canonical", "cancel-before-merge-duplicate"]],
+  );
+  assert.equal(cancelFirstRows.rows.find((row) => row.id === "cancel-before-merge-canonical")?.visit_status, "none");
+  assert.equal(cancelFirstRows.rows.find((row) => row.id === "cancel-before-merge-duplicate")?.visit_status, "cancelled");
+  assert.equal(cancelFirstRows.rows.find((row) => row.id === "cancel-before-merge-duplicate")?.merged_into_lead_id, null);
+  releaseClient(cancelOwner);
+  releaseClient(mergeWaiter);
+
+  const mergeOwner = await connectInSchema();
+  const cancelWaiter = await connectInSchema();
+  await admin.query(
+    `INSERT INTO leads(id,status,property_id,visit_preferred_at,visit_status,public_tracking_token)
+     VALUES ('merge-before-cancel-canonical','new','visit-scheduling-property',null,'none',null),
+            ('merge-before-cancel-duplicate','new','visit-scheduling-property','2030-06-06T10:00:00Z','requested','HIR-30-MERGE123456')`,
+  );
+  let allowMergeCommit;
+  let signalMergeLocked;
+  const mergeLocked = new Promise((resolve) => { signalMergeLocked = resolve; });
+  const waitForMergeCommit = new Promise((resolve) => { allowMergeCommit = resolve; });
+  const mergeFirst = inTransaction(mergeOwner, async (tx) => {
+    const result = await mergeUsingRouteSnapshot(tx, "merge-before-cancel-canonical", "merge-before-cancel-duplicate");
+    assert.equal(result.kind, "merged");
+    signalMergeLocked();
+    await waitForMergeCommit;
+    return result;
+  });
+  await mergeLocked;
+  const cancelWaiterPid = Number((await cancelWaiter.query("SELECT pg_backend_pid() AS pid")).rows[0].pid);
+  const cancelAfterMerge = inTransaction(cancelWaiter, (tx) => cancelPropertyVisit(tx, {
+    leadId: "merge-before-cancel-duplicate",
+    trackingToken: "HIR-30-MERGE123456",
+    propertyId: "visit-scheduling-property",
+    expectedVisitAt: "2030-06-06T10:00:00Z",
+  }));
+  await waitForLockWait(admin, cancelWaiterPid, "public cancellation waits behind dedupe");
+  allowMergeCommit();
+  await mergeFirst;
+  assert.equal(await cancelAfterMerge, "stale");
+  const mergeFirstRows = await admin.query(
+    "SELECT id,visit_status,visit_preferred_at,merged_into_lead_id FROM leads WHERE id=ANY($1::text[]) ORDER BY id",
+    [["merge-before-cancel-canonical", "merge-before-cancel-duplicate"]],
+  );
+  assert.equal(mergeFirstRows.rows.find((row) => row.id === "merge-before-cancel-canonical")?.visit_status, "requested");
+  assert.equal(mergeFirstRows.rows.find((row) => row.id === "merge-before-cancel-duplicate")?.visit_status, "cancelled");
+  releaseClient(mergeOwner);
+  releaseClient(cancelWaiter);
+  console.log("ok   PostgreSQL two-connection cancellation/merge races preserve exactly the winning visit state without stale success or lost active bookings");
 
   const raceA = await connectInSchema();
   const raceB = await connectInSchema();
@@ -378,7 +672,7 @@ try {
   assert.equal((await admin.query("SELECT id FROM properties WHERE id='property-failure'")).rowCount, 0);
   assert.equal((await admin.query("SELECT id FROM property_change_history")).rowCount, 0);
   assert.equal((await admin.query("SELECT id FROM customer_property_submission_events")).rowCount, 0);
-  assert.equal((await admin.query("SELECT id FROM lead_activities")).rowCount, 0);
+  assert.equal((await admin.query("SELECT id FROM lead_activities WHERE lead_id='lead-failure'")).rowCount, 0);
   console.log("ok   PostgreSQL audit-event failure rolls back submission, property, lead and history writes");
 
   await admin.query("DROP TRIGGER qa_fail_submission_audit ON customer_property_submission_events; DROP FUNCTION qa_fail_submission_audit();");
@@ -412,7 +706,7 @@ try {
   assert.equal(released.rows[0]?.unlocked, true);
   console.log("ok   PostgreSQL advisory-lock contention times out, then succeeds after the owner releases it");
 
-  console.log("\n10 passed, 0 failed (real PostgreSQL)");
+  console.log("\n15 passed, 0 failed (real PostgreSQL)");
 } finally {
   for (const client of clients.reverse()) {
     try {

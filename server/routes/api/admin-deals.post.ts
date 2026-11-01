@@ -6,6 +6,7 @@ import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { enqueueMediaCleanupJob, processMediaCleanupJobs } from "@/lib/media-store.server";
 import { lockMediaReferenceWrites } from "@/lib/media-cleanup-transaction.server";
 import { DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL } from "@/lib/admin-deal-delete-sql";
+import { lockLeadReferencesForMutation } from "@/lib/admin-lead-dedupe.server";
 
 type DealStatus = "prospect"|"negotiation"|"agreement"|"contracted"|"completed"|"cancelled";
 type DealType = "sale"|"rent"|"mortgage"|"buy";
@@ -46,8 +47,16 @@ export default defineEventHandler(async event=>{
     const title=clean(body.title,180), customerName=clean(body.customerName,120);
     if(!title||!customerName)throw createError({statusCode:400,statusMessage:"عنوان معامله و نام مشتری الزامی است."});
     const id=crypto.randomUUID();
-    await sql.query("insert into admin_deals(id,lead_id,property_id,title,deal_type,status,customer_name,customer_phone,consultant,amount,commission,contract_number,contract_date,closing_date,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)",
-      [id,clean(body.leadId,120)||null,clean(body.propertyId,120)||null,title,validType(body.dealType),validStatus(body.status),customerName,clean(body.customerPhone,40),clean(body.consultant,120),money(body.amount),money(body.commission),clean(body.contractNumber,120),clean(body.contractDate,20)||null,clean(body.closingDate,20)||null,clean(body.notes,2000),clean(claims?.displayName,120)||"مدیریت"]);
+    const leadId = clean(body.leadId,120) || null;
+    await withSqlTransaction(async (tx) => {
+      if (leadId) {
+        const lock = await lockLeadReferencesForMutation(tx, [leadId]);
+        if (lock.kind === "missing") throw createError({ statusCode: 404, statusMessage: "لید مرتبط با معامله پیدا نشد." });
+        if (lock.kind === "merged") throw createError({ statusCode: 409, statusMessage: `این لید ادغام شده است؛ معامله را به لید اصلی ${lock.canonicalId} متصل کنید.` });
+      }
+      await tx.query("insert into admin_deals(id,lead_id,property_id,title,deal_type,status,customer_name,customer_phone,consultant,amount,commission,contract_number,contract_date,closing_date,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)",
+        [id,leadId,clean(body.propertyId,120)||null,title,validType(body.dealType),validStatus(body.status),customerName,clean(body.customerPhone,40),clean(body.consultant,120),money(body.amount),money(body.commission),clean(body.contractNumber,120),clean(body.contractDate,20)||null,clean(body.closingDate,20)||null,clean(body.notes,2000),clean(claims?.displayName,120)||"مدیریت"]);
+    });
     return {success:true,id};
   }
   const id=clean(body.id,120); if(!id)throw createError({statusCode:400,statusMessage:"شناسه معامله مشخص نیست."});

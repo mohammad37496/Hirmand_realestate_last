@@ -12,6 +12,7 @@ export const BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL = `
     update leads
     set status='closed', updated_at=current_timestamp
     where id in (select distinct lead_id from rejected where lead_id is not null)
+      and merged_into_lead_id is null
     returning id
   ), lead_events as (
     insert into lead_activities (lead_id,activity_type,title,note,metadata)

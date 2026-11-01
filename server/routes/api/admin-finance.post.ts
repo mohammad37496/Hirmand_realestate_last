@@ -1,9 +1,10 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader, type H3Event } from "h3";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { lockLeadReferencesForMutation } from "@/lib/admin-lead-dedupe.server";
 
 type Kind = "income" | "expense";
 
@@ -99,11 +100,19 @@ export default defineEventHandler(async(event)=>{
     if (!isValidCalendarDate(date)) {
       throw createError({ statusCode: 400, statusMessage: "تاریخ معتبر نیست؛ سال، ماه و روز را بررسی کنید." });
     }
-    const row=(await sql.query<Record<string,unknown>>(
-      `insert into finance_transactions(kind,title,amount,transaction_date,property_id,lead_id,consultant,category,note)
-       values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
-      [kind,title,amount,date,body.propertyId?String(body.propertyId).slice(0,160):null,body.leadId?String(body.leadId).slice(0,160):null,String(body.consultant??"").trim().slice(0,80),String(body.category??"").trim().slice(0,80),String(body.note??"").trim().slice(0,1000)]
-    ))[0];
+    const leadId = body.leadId ? String(body.leadId).slice(0,160) : null;
+    const row=await withSqlTransaction(async (tx) => {
+      if (leadId) {
+        const lock = await lockLeadReferencesForMutation(tx, [leadId]);
+        if (lock.kind === "missing") throw createError({ statusCode: 404, statusMessage: "لید مرتبط با تراکنش مالی پیدا نشد." });
+        if (lock.kind === "merged") throw createError({ statusCode: 409, statusMessage: `این لید ادغام شده است؛ تراکنش را به لید اصلی ${lock.canonicalId} متصل کنید.` });
+      }
+      return (await tx.query<Record<string,unknown>>(
+        `insert into finance_transactions(kind,title,amount,transaction_date,property_id,lead_id,consultant,category,note)
+         values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
+        [kind,title,amount,date,body.propertyId?String(body.propertyId).slice(0,160):null,leadId,String(body.consultant??"").trim().slice(0,80),String(body.category??"").trim().slice(0,80),String(body.note??"").trim().slice(0,1000)]
+      ))[0];
+    });
     return {success:true,id:Number(row?.id)};
   }
 

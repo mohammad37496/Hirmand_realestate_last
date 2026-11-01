@@ -8,7 +8,7 @@ import {
   lockPropertyVisitSchedule,
   planLeadVisitMerge,
 } from "@/lib/property-visit-scheduling.server";
-import { MERGE_LEADS_WITH_ACTIVITY_SQL } from "@/lib/admin-lead-dedupe-sql";
+import { lockLeadDedupeSnapshot, mergeLeadDedupeRelations, type LeadDedupeSnapshotRow } from "@/lib/admin-lead-dedupe.server";
 
 const DIGIT_TRANSLATION = "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩";
 
@@ -50,6 +50,7 @@ export default defineEventHandler(async (event) => {
           ) as phone_key,
           lower(regexp_replace(trim(coalesce(name,'')), '[[:space:]]+', '', 'g')) as name_key
         from leads
+        where merged_into_lead_id is null
       ),
       pairs as (
         select a.id as a_id, a.name as a_name, a.phone as a_phone, a.status as a_status, a.consultant as a_consultant, a.property_id as a_property_id, a.created_at as a_created_at,
@@ -113,7 +114,7 @@ export default defineEventHandler(async (event) => {
 
   if (action === "preview") {
     const rows = await sql.query<Record<string, unknown>>(
-      "select id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,status,source,acquisition_source,acquisition_medium,acquisition_campaign,callback_preferred_at,offer_amount,offer_conditions,follow_up_at,last_contacted_at,property_id,visit_preferred_at,visit_requested_at,visit_status,lease_deadline,budget_deposit,budget_rent,budget_purchase,budget_sale,budget_deposit_min,budget_deposit_max,budget_rent_min,budget_rent_max,budget_purchase_min,budget_purchase_max,budget_sale_min,budget_sale_max,budget_equivalent,budget_bedrooms,budget_rate,requested_bedrooms,requested_amenities,matched_properties,match_count from leads where id = any($1::text[]) order by case when id=$2 then 0 else 1 end",
+      "select id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,status,source,acquisition_source,acquisition_medium,acquisition_campaign,acquisition_referrer,acquisition_landing_path,callback_preferred_at,offer_amount,offer_conditions,follow_up_at,last_contacted_at,property_id,visit_preferred_at,visit_requested_at,visit_status,lease_deadline,budget_deposit,budget_rent,budget_purchase,budget_sale,budget_deposit_min,budget_deposit_max,budget_rent_min,budget_rent_max,budget_purchase_min,budget_purchase_max,budget_sale_min,budget_sale_max,budget_equivalent,budget_bedrooms,budget_rate,floor_preference,requested_bedrooms,requested_area_min,requested_area_max,requested_amenities,matched_properties,match_count from leads where id = any($1::text[]) order by case when id=$2 then 0 else 1 end",
       [[canonicalId, duplicateId], canonicalId],
     );
     if (rows.length !== 2) throw createError({ statusCode: 404, statusMessage: "یکی از لیدهای انتخاب‌شده پیدا نشد." });
@@ -129,13 +130,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const mergeResult = await withSqlTransaction(async (tx) => {
-    const initialRows = await tx.query<{
-      id: string;
-      property_id: string | null;
-      visit_preferred_at: string | null;
-      visit_status: string | null;
-    }>(
-      "select id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id",
+    const initialRows = await tx.query<LeadDedupeSnapshotRow>(
+      "select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id",
       [[canonicalId, duplicateId]],
     );
     if (initialRows.length !== 2) return { kind: "missing" as const };
@@ -153,28 +149,9 @@ export default defineEventHandler(async (event) => {
       if (!property) return { kind: "property_missing" as const };
     }
 
-    const lockedRows = await tx.query<{
-      id: string;
-      property_id: string | null;
-      visit_preferred_at: string | null;
-      visit_status: string | null;
-    }>(
-      "select id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id for update",
-      [[canonicalId, duplicateId]],
-    );
-    if (lockedRows.length !== 2) return { kind: "stale" as const };
-    const lockedById = new Map(lockedRows.map((row) => [row.id, row]));
-    const canonical = lockedById.get(canonicalId);
-    const duplicate = lockedById.get(duplicateId);
-    if (!canonical || !duplicate) return { kind: "stale" as const };
-    const sameSnapshot = (before: typeof initialCanonical, after: typeof canonical) =>
-      String(before.property_id ?? "") === String(after.property_id ?? "") &&
-      String(before.visit_status ?? "none") === String(after.visit_status ?? "none") &&
-      (before.visit_preferred_at == null ? null : Date.parse(String(before.visit_preferred_at))) ===
-        (after.visit_preferred_at == null ? null : Date.parse(String(after.visit_preferred_at)));
-    if (!sameSnapshot(initialCanonical, canonical) || !sameSnapshot(initialDuplicate, duplicate)) {
-      return { kind: "stale" as const };
-    }
+    const locked = await lockLeadDedupeSnapshot(tx, canonicalId, duplicateId, initialRows);
+    if (locked.kind !== "locked") return { kind: locked.kind };
+    const { canonical, duplicate } = locked;
 
     const visitPlan = planLeadVisitMerge(canonical, duplicate);
     if (visitPlan.kind === "conflicting_visits") return { kind: "conflicting_visits" as const };
@@ -188,13 +165,10 @@ export default defineEventHandler(async (event) => {
       if (slot.kind === "conflict") return { kind: "visit_conflict" as const };
     }
 
-    const rows = await tx.query<Record<string, unknown>>(
-      MERGE_LEADS_WITH_ACTIVITY_SQL,
-      [canonicalId, duplicateId, [canonicalId, duplicateId]],
-    );
-
-    if (!rows[0]?.canonical_id || !rows[0]?.duplicate_id) return { kind: "stale" as const };
-    return { kind: "merged" as const, rows };
+    if (duplicate.merged_into_lead_id || canonical.merged_into_lead_id) return { kind: "stale" as const };
+    const mutation = await mergeLeadDedupeRelations(tx, canonicalId, duplicateId);
+    if (!mutation) return { kind: "stale" as const };
+    return { kind: "merged" as const, mutation };
   });
 
   if (mergeResult.kind === "missing" || mergeResult.kind === "stale") {
@@ -203,23 +177,10 @@ export default defineEventHandler(async (event) => {
   if (mergeResult.kind === "property_missing") throw createError({ statusCode: 404, statusMessage: "فایل مرتبط با بازدید پیدا نشد؛ ادغام انجام نشد." });
   if (mergeResult.kind === "conflicting_visits") throw createError({ statusCode: 409, statusMessage: "این دو لید بازدیدهای فعال متفاوتی دارند؛ ابتدا زمان‌های بازدید را تعیین تکلیف کنید." });
   if (mergeResult.kind === "visit_conflict") throw createError({ statusCode: 409, statusMessage: "زمان بازدید ادغام‌شده با بازدید فعال دیگری تداخل دارد." });
-  const rows = mergeResult.rows;
-
-  await sql.query(
-    "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'status',$2,$3,$4::jsonb)",
-    [
-      canonicalId,
-      "ادغام لید تکراری",
-      "رکورد " + duplicateId + " در این لید ادغام شد.",
-      "رکورد دوم بسته شد و فعالیت‌های آن منتقل شدند.",
-      JSON.stringify({ mergedLeadId: duplicateId }),
-    ],
-  ).catch(() => {});
-
   return {
     success: true,
     canonicalId,
     duplicateId,
-    movedActivities: Number(rows[0].moved_activities) || 0,
+    ...mergeResult.mutation,
   };
 });
