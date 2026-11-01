@@ -18,6 +18,7 @@ import { PROPERTY_OTHER_AMENITY_OPTIONS, labelForOption, PROPERTY_CABINET_OPTION
 import { formatToman } from "@/lib/money";
 import { propertyPath } from "@/lib/property-path";
 import { SITE } from "@/lib/site";
+import { LatestRequestSequence } from "@/lib/latest-request-sequence";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -215,6 +216,7 @@ export function AdminMatchingManager() {
   const [selectedLeadId, setSelectedLeadId] = useState("");
   const [mode, setMode] = useState<MatchMode>("smart");
   const [matches, setMatches] = useState<MatchProperty[]>([]);
+  const [matchesOwner, setMatchesOwner] = useState<{ leadId: string; requestId: number } | null>(null);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [matching, setMatching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,6 +224,8 @@ export function AdminMatchingManager() {
   const [activities, setActivities] = useState<Array<{ id:number; type:string; title:string; note:string; createdAt:string }>>([]);
   const [feedbackBusy, setFeedbackBusy] = useState<string | null>(null);
   const leadsRequestSequence = useRef(0);
+  const matchRequestSequence = useRef(new LatestRequestSequence());
+  const activitiesRequestSequence = useRef(0);
 
   const loadLeads = useCallback(async () => {
     const requestId = ++leadsRequestSequence.current;
@@ -267,7 +271,8 @@ export function AdminMatchingManager() {
 
   const selectedLead = leads.find((lead) => lead.id === selectedLeadId) ?? null;
 
-  async function loadActivities(leadId: string) {
+  const loadActivities = useCallback(async (leadId: string, requestId: number) => {
+    const activitiesRequestId = ++activitiesRequestSequence.current;
     try {
       const response = await fetch("/api/leads-admin", {
         method: "POST",
@@ -275,10 +280,35 @@ export function AdminMatchingManager() {
         body: JSON.stringify({ action: "activities", id: leadId }),
       });
       const data = await response.json().catch(() => ({}));
+      if (!matchRequestSequence.current.isCurrent(requestId) || activitiesRequestId !== activitiesRequestSequence.current) return;
       setActivities(Array.isArray(data.activities) ? data.activities : []);
     } catch {
-      setActivities([]);
+      if (matchRequestSequence.current.isCurrent(requestId) && activitiesRequestId === activitiesRequestSequence.current) setActivities([]);
     }
+  }, []);
+
+  const displayedMatches = matchesOwner?.leadId === selectedLeadId && matchRequestSequence.current.isCurrent(matchesOwner.requestId)
+    ? matches
+    : [];
+
+  function selectLead(leadId: string) {
+    if (leadId === selectedLeadId) return;
+    matchRequestSequence.current.invalidate();
+    activitiesRequestSequence.current += 1;
+    setMatches([]);
+    setMatchesOwner(null);
+    setActivities([]);
+    setSelectedLeadId(leadId);
+  }
+
+  function selectMode(nextMode: MatchMode) {
+    if (nextMode === mode) return;
+    matchRequestSequence.current.invalidate();
+    activitiesRequestSequence.current += 1;
+    setMatches([]);
+    setMatchesOwner(null);
+    setActivities([]);
+    setMode(nextMode);
   }
 
   function phoneIntl(phone: string) {
@@ -307,7 +337,10 @@ export function AdminMatchingManager() {
   }
 
   async function submitFeedback(match: MatchProperty, feedback: "sent" | "liked" | "rejected" | "visited") {
-    if (!selectedLeadId || feedbackBusy) return;
+    const owner = matchesOwner;
+    if (!owner || owner.leadId !== selectedLeadId || !matchRequestSequence.current.isCurrent(owner.requestId) || feedbackBusy) return;
+    const leadId = owner.leadId;
+    const requestId = owner.requestId;
     setFeedbackBusy(match.id);
     try {
       const response = await fetch("/api/admin-match", {
@@ -315,7 +348,7 @@ export function AdminMatchingManager() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action: "feedback",
-          leadId: selectedLeadId,
+          leadId,
           propertyId: match.id,
           propertyTitle: match.title,
           feedback,
@@ -328,50 +361,65 @@ export function AdminMatchingManager() {
         feedback === "liked" ? "پسند مشتری ثبت شد." :
         feedback === "rejected" ? "رد فایل ثبت شد." : "بازدید ثبت شد.",
       );
-      await loadActivities(selectedLeadId);
+      await loadActivities(leadId, requestId);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "ثبت نتیجه فایل انجام نشد.");
+      if (matchRequestSequence.current.isCurrent(requestId)) {
+        toast.error(e instanceof Error ? e.message : "ثبت نتیجه فایل انجام نشد.");
+      }
     } finally {
       setFeedbackBusy(null);
     }
   }
 
-  async function runMatch() {
-    if (!selectedLeadId || matching) return;
-    setMatching(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/admin-match", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ action: "match", leadId: selectedLeadId, mode, limit: 30 }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.statusMessage || data?.message || "مچ کردن انجام نشد.");
-      setMatches(Array.isArray(data.matches) ? data.matches : []);
-      await loadActivities(selectedLeadId);
-      if (!data.matches?.length) toast.info("برای این درخواست، فایل دارای سیگنال تطبیق پیدا نشد.");
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "مچ کردن انجام نشد.";
-      setError(message);
-      toast.error(message);
-    } finally {
-      setMatching(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!selectedLeadId) {
+  const runMatch = useCallback((leadId: string, matchMode: MatchMode) => {
+    if (!leadId) {
+      setMatches([]);
+      setMatchesOwner(null);
       setActivities([]);
+      setMatching(false);
       return;
     }
-    setExpandedId(null);
+    const requestId = matchRequestSequence.current.next();
+    setMatching(true);
+    setError(null);
+    setMatches([]);
+    setMatchesOwner(null);
     setActivities([]);
-    void runMatch();
-    // runMatch intentionally stays out of the dependency list: it is an event-style helper.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLeadId, mode]);
+    setExpandedId(null);
+    void (async () => {
+      try {
+        const response = await fetch("/api/admin-match", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ action: "match", leadId, mode: matchMode, limit: 30 }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.statusMessage || data?.message || "مچ کردن انجام نشد.");
+        if (!matchRequestSequence.current.isCurrent(requestId)) return;
+        setMatches(Array.isArray(data.matches) ? data.matches : []);
+        setMatchesOwner({ leadId, requestId });
+        await loadActivities(leadId, requestId);
+        if (matchRequestSequence.current.isCurrent(requestId) && !data.matches?.length) {
+          toast.info("برای این درخواست، فایل دارای سیگنال تطبیق پیدا نشد.");
+        }
+      } catch (e) {
+        if (!matchRequestSequence.current.isCurrent(requestId)) return;
+        const message = e instanceof Error ? e.message : "مچ کردن انجام نشد.";
+        setError(message);
+        toast.error(message);
+      } finally {
+        if (matchRequestSequence.current.isCurrent(requestId)) setMatching(false);
+      }
+    })();
+    return requestId;
+  }, [loadActivities]);
+
+  useEffect(() => {
+    const requestSequence = matchRequestSequence.current;
+    runMatch(selectedLeadId, mode);
+    return () => { requestSequence.invalidate(); };
+  }, [selectedLeadId, mode, runMatch]);
 
   return (
     <div className="admin-matching-page">
@@ -416,7 +464,7 @@ export function AdminMatchingManager() {
                 type="button"
                 key={lead.id}
                 className={"admin-matching-lead-item" + (lead.id === selectedLeadId ? " is-active" : "")}
-                onClick={() => setSelectedLeadId(lead.id)}
+                onClick={() => selectLead(lead.id)}
               >
                 <span className="admin-matching-lead-avatar"><UserRound size={17} /></span>
                 <span className="admin-matching-lead-copy">
@@ -501,15 +549,15 @@ export function AdminMatchingManager() {
                     <span className="kicker">معیار مچ</span>
                     <h2>بر چه اساسی فایل‌ها را پیدا کنم؟</h2>
                   </div>
-                  <button type="button" className="btn-gold" onClick={() => void runMatch()} disabled={matching}>
+                  <button type="button" className="btn-gold" onClick={() => void runMatch(selectedLeadId, mode)} disabled={matching}>
                     {matching ? <RefreshCw size={16} className="admin-spin" /> : <Sparkles size={16} />}
                     {matching ? "در حال مچ کردن…" : "مچ مجدد"}
                   </button>
                 </div>
                 <div className="admin-matching-send-all">
-                  {matches.length ? (
-                    <a className="btn-gold" href={whatsappForLead(selectedLead, matches)} target="_blank" rel="noopener noreferrer"
-                      onClick={() => void Promise.all(matches.slice(0, 8).map((item) => submitFeedback(item, "sent")))}>
+                  {displayedMatches.length ? (
+                    <a className="btn-gold" href={whatsappForLead(selectedLead, displayedMatches)} target="_blank" rel="noopener noreferrer"
+                      onClick={() => void Promise.all(displayedMatches.slice(0, 8).map((item) => submitFeedback(item, "sent")))}>
                       <Phone size={15} /> ارسال فایل‌های پیشنهادی در واتساپ
                     </a>
                   ) : null}
@@ -517,7 +565,7 @@ export function AdminMatchingManager() {
                 <div className="admin-matching-modes">
                   {(Object.entries(MODE_META) as Array<[MatchMode, typeof MODE_META.smart]>).map(([value, meta]) => (
                     <label key={value} className={"admin-matching-mode" + (mode === value ? " is-active" : "")}>
-                      <input type="radio" name="admin-match-mode" value={value} checked={mode === value} onChange={() => setMode(value)} />
+                      <input type="radio" name="admin-match-mode" value={value} checked={mode === value} onChange={() => selectMode(value)} />
                       <span><strong>{meta.title}</strong><small>{meta.description}</small></span>
                     </label>
                   ))}
@@ -528,18 +576,18 @@ export function AdminMatchingManager() {
                 <div className="admin-panel-head">
                   <div>
                     <span className="kicker">نتیجه</span>
-                    <h2>{matching ? "در حال پیدا کردن فایل مناسب…" : fa(matches.length) + " فایل پیشنهادی"}</h2>
+                    <h2>{matching ? "در حال پیدا کردن فایل مناسب…" : fa(displayedMatches.length) + " فایل پیشنهادی"}</h2>
                   </div>
                   <small>فقط فایل‌های منتشرشده بررسی شده‌اند.</small>
                 </div>
 
                 {matching ? (
                   <div className="admin-matching-loading">در حال محاسبه امتیاز و بررسی فایل‌های سایت…</div>
-                ) : matches.length === 0 ? (
+                ) : displayedMatches.length === 0 ? (
                   <div className="admin-matching-empty">فایل مناسبی با سیگنال کافی برای این معیار پیدا نشد.</div>
                 ) : (
                   <div className="admin-matching-results-list">
-                    {matches.map((match) => {
+                    {displayedMatches.map((match) => {
                       const open = expandedId === match.id;
                       const details = featureRows(match);
                       return (
