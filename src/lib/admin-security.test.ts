@@ -18,6 +18,7 @@ import { contentMatchesDeclaredType, sniffMediaBytes } from "./file-signature.se
 import { ADMIN_ROLE_PERMISSIONS, hasAdminPermission, normalizeAdminRole, type AdminPermission, type AdminRole } from "./admin-roles.ts";
 import { getPropertyExpiryActionPermission } from "./admin-property-expiry-permissions.ts";
 import { getCustomerPropertySubmissionActionPermission } from "./customer-property-submission-permissions.ts";
+import { assertAdminServerFnOriginFromHeaders } from "./admin-server-fn-guard.server.ts";
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -329,6 +330,29 @@ test("allows a same-origin write", () => {
   assert.doesNotThrow(() =>
     assertServerFnSameOrigin(headers({ origin: "https://hirmandrealestate.ir", host: "hirmandrealestate.ir" })),
   );
+});
+
+test("admin server-function origin guard reads real Headers and rejects cross-origin writes", () => {
+  const requestHeaders = new Headers({
+    origin: "https://evil.example",
+    host: "hirmandrealestate.ir",
+  });
+  assert.throws(
+    () => assertAdminServerFnOriginFromHeaders(requestHeaders),
+    (error: unknown) => {
+      assert.equal((error as { statusCode?: number })?.statusCode, 403);
+      return true;
+    },
+  );
+});
+
+test("admin server-function origin guard accepts the deployed host forwarded by its proxy", () => {
+  const requestHeaders = new Headers({
+    origin: "https://www.hirmandrealestate.ir",
+    host: "internal.upstream.local",
+    "x-forwarded-host": "www.hirmandrealestate.ir",
+  });
+  assert.doesNotThrow(() => assertAdminServerFnOriginFromHeaders(requestHeaders));
 });
 
 test("honours the forwarded host a reverse proxy sets", () => {
