@@ -6,8 +6,6 @@ export type TrashedPropertyRow = {
   virtual_tour_url: string | null;
 };
 
-type QueryRows = (statement: string, params: unknown[]) => Promise<TrashedPropertyRow[]>;
-
 type PropertyRestoreQuery = (
   statement: string,
   params: unknown[],
@@ -19,13 +17,33 @@ export type RestoredProperty = {
   status: string;
 };
 
-/** Delete only a row still in trash and return media references from the row actually deleted. */
-export async function deleteTrashedProperty(query: QueryRows, propertyId: string): Promise<TrashedPropertyRow | null> {
-  const rows = await query(
-    "delete from properties where id = $1 and deleted_at is not null returning id, title, images, floor_plan_url, virtual_tour_url",
-    [propertyId],
-  );
-  return rows[0] ?? null;
+export const DELETE_TRASHED_PROPERTY_SQL = `
+  delete from properties
+  where id = $1 and deleted_at is not null
+  returning id, title, images, floor_plan_url, virtual_tour_url
+`;
+
+export const INSERT_PROPERTY_PERMANENT_DELETE_AUDIT_SQL = `
+  insert into admin_audit_log
+    (action, entity_type, entity_id, entity_title, actor, metadata)
+  values ('property.permanently_deleted', 'property', $1, $2, $3, '{}'::jsonb)
+`;
+
+/** Permanently delete one trashed property and record the audit on the same transaction. */
+export async function permanentlyDeleteTrashedProperty(
+  query: PropertyRestoreQuery,
+  propertyId: string,
+  actor: string,
+): Promise<TrashedPropertyRow | null> {
+  const deleted = (await query(DELETE_TRASHED_PROPERTY_SQL, [propertyId]))[0] as TrashedPropertyRow | undefined;
+  if (!deleted) return null;
+
+  await query(INSERT_PROPERTY_PERMANENT_DELETE_AUDIT_SQL, [
+    String(deleted.id),
+    String(deleted.title ?? "").trim().slice(0, 220),
+    actor.trim().slice(0, 120) || "admin",
+  ]);
+  return deleted;
 }
 
 export const RESTORE_TRASHED_PROPERTY_SQL = `
