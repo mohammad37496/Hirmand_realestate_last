@@ -410,6 +410,7 @@ export default defineEventHandler(async (event) => {
           propertyId,
           visitAt: new Date(visitTime).toISOString(),
           excludeLeadIds: [leadId],
+          requirePublicAvailability: true,
         });
         if (slot.kind === "property_missing") return { kind: "property_missing" as const };
         if (slot.kind === "conflict") return { kind: "conflict" as const };

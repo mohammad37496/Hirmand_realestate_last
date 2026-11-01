@@ -163,7 +163,8 @@ async function createSchemaFixture(admin) {
     CREATE TABLE properties (
       id text PRIMARY KEY, title text NOT NULL,
       status text NOT NULL DEFAULT 'published', availability_status text NOT NULL DEFAULT 'available',
-      property_type text NOT NULL DEFAULT '', neighborhood text NOT NULL DEFAULT '', contact_name text NOT NULL DEFAULT ''
+      property_type text NOT NULL DEFAULT '', neighborhood text NOT NULL DEFAULT '', contact_name text NOT NULL DEFAULT '',
+      deleted_at timestamptz, unpublish_at timestamptz
     );
     CREATE TABLE leads (
       id text PRIMARY KEY, status text NOT NULL, created_at timestamptz NOT NULL DEFAULT current_timestamp,
@@ -313,6 +314,47 @@ try {
     /unique/i,
   );
   console.log("ok   PostgreSQL event row lock and partial unique index prevent duplicate active phone RSVPs");
+
+  let releasePropertyAvailability;
+  let propertyAvailabilityLocked;
+  const propertyAvailabilityStarted = new Promise((resolve) => { propertyAvailabilityLocked = resolve; });
+  const allowPropertyAvailabilityCommit = new Promise((resolve) => { releasePropertyAvailability = resolve; });
+  const markOpenHousePropertyUnavailable = inTransaction(scheduleA, async (tx) => {
+    await tx.query("UPDATE properties SET availability_status='sold' WHERE id='open-house-property'");
+    propertyAvailabilityLocked();
+    await allowPropertyAvailabilityCommit;
+  });
+  await propertyAvailabilityStarted;
+  const scheduleBPid = Number((await scheduleB.query("SELECT pg_backend_pid() AS pid")).rows[0].pid);
+  const createAfterSale = inTransaction(scheduleB, (tx) => createOpenHouseSchedule(tx, {
+    id: "open-house-after-sale",
+    propertyId: "open-house-property",
+    startsAt: "2030-06-04T10:00:00Z",
+    endsAt: "2030-06-04T12:00:00Z",
+    capacity: 8,
+    note: "",
+  }));
+  await waitForLockWait(admin, scheduleBPid, "open-house creation waits for property availability update");
+  releasePropertyAvailability();
+  await markOpenHousePropertyUnavailable;
+  assert.deepEqual(await createAfterSale, { kind: "property_missing" });
+
+  await admin.query("UPDATE properties SET availability_status='available' WHERE id='open-house-property'");
+  await admin.query(
+    "INSERT INTO property_open_houses(id,property_id,starts_at,ends_at,capacity) VALUES ('open-house-after-sale-rsvp','open-house-property','2030-06-05T10:00:00Z','2030-06-05T12:00:00Z',8)",
+  );
+  await admin.query("UPDATE properties SET availability_status='sold' WHERE id='open-house-property'");
+  const rsvpAfterSale = await inTransaction(scheduleA, (tx) => registerOpenHouseRsvp(tx, {
+    id: "open-house-rsvp-after-sale",
+    eventId: "open-house-after-sale-rsvp",
+    name: "Guest",
+    phone: "09130000005",
+    partySize: 1,
+    note: "",
+  }, new Date("2030-01-01T00:00:00Z")));
+  assert.deepEqual(rsvpAfterSale, { kind: "property_unavailable" });
+  assert.equal((await admin.query("SELECT id FROM property_open_house_rsvps WHERE id='open-house-rsvp-after-sale'")).rowCount, 0);
+  console.log("ok   PostgreSQL property row lock blocks open-house creation and RSVP after a property is sold");
   releaseClient(scheduleA);
   releaseClient(scheduleB);
 
@@ -375,6 +417,26 @@ try {
   assert.equal(cancelledVisit.rows[0]?.visit_status, "requested");
   assert.equal(new Date(cancelledVisit.rows[0]?.visit_preferred_at).toISOString(), "2030-06-03T14:00:00.000Z");
   console.log("ok   PostgreSQL property lock and snapshot compare-and-set prevent stale cancellation of a rescheduled visit");
+
+  await admin.query(
+    "INSERT INTO leads(id,status,property_id,visit_preferred_at,visit_status,public_tracking_token) VALUES ('visit-reschedule-after-sale','new','visit-scheduling-property','2030-06-03T16:00:00Z','confirmed','HIR-30-SOLD123456')",
+  );
+  await admin.query("UPDATE properties SET availability_status='sold' WHERE id='visit-scheduling-property'");
+  const rescheduleAfterSale = await inTransaction(visitA, (tx) => reschedulePropertyVisit(tx, {
+    leadId: "visit-reschedule-after-sale",
+    trackingToken: "HIR-30-SOLD123456",
+    propertyId: "visit-scheduling-property",
+    expectedVisitAt: "2030-06-03T16:00:00Z",
+    visitAt: "2030-06-03T18:00:00Z",
+  }));
+  assert.equal(rescheduleAfterSale, "property_missing");
+  const unchangedAfterSale = await admin.query(
+    "SELECT visit_status,visit_preferred_at FROM leads WHERE id='visit-reschedule-after-sale'",
+  );
+  assert.equal(unchangedAfterSale.rows[0]?.visit_status, "confirmed");
+  assert.equal(new Date(unchangedAfterSale.rows[0]?.visit_preferred_at).toISOString(), "2030-06-03T16:00:00.000Z");
+  await admin.query("UPDATE properties SET availability_status='available' WHERE id='visit-scheduling-property'");
+  console.log("ok   PostgreSQL public reschedule refuses a property that became sold after the original visit");
 
   await admin.query(`
     INSERT INTO leads(id,status,name,phone,property_id,visit_preferred_at,visit_requested_at,visit_status)

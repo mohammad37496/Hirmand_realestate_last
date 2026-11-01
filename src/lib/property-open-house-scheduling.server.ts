@@ -1,3 +1,5 @@
+import { PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL } from "./property-visit-scheduling.server.ts";
+
 type SchedulingSql = {
   query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
 };
@@ -20,7 +22,7 @@ export async function createOpenHouseSchedule(
 ): Promise<OpenHouseScheduleResult> {
   // Serialize event creation for one property before checking its schedule.
   const property = await tx.query<{ id: string }>(
-    "select id from properties where id=$1 and status='published' for update",
+    `select id from properties where id=$1 and ${PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL} for update`,
     [input.propertyId],
   );
   if (!property[0]) return { kind: "property_missing" };
@@ -76,7 +78,7 @@ export async function registerOpenHouseRsvp(
   if (new Date(String(openHouse.starts_at)).getTime() <= now.getTime()) return { kind: "closed" };
 
   const property = await tx.query<{ id: string }>(
-    "select id from properties where id=$1 and status='published' limit 1",
+    `select id from properties where id=$1 and ${PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL} for update`,
     [openHouse.property_id],
   );
   if (!property[0]) return { kind: "property_unavailable" };

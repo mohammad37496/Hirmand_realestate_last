@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
+import { PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL } from "@/lib/property-visit-scheduling.server";
 
 const querySchema = z.object({
   propertyId: z.string().trim().min(1).max(120),
@@ -21,6 +22,13 @@ export default defineEventHandler(async (event) => {
   if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "ظرفیت بازدید در دسترس نیست؛ زمان‌های آزاد قابل تأیید نیستند." });
 
   const sql = await getSql();
+  const property = await sql.query<{ id: string }>(
+    `select id from properties where id::text=$1 and ${PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL} limit 1`,
+    [parsed.data.propertyId],
+  );
+  if (!property[0]) {
+    throw createError({ statusCode: 404, statusMessage: "فایل برای رزرو بازدید در دسترس نیست." });
+  }
   const rows = await sql.query<{ visit_preferred_at: string }>(
     "select visit_preferred_at from leads where property_id::text=$1 and visit_status in ('requested','confirmed') and visit_preferred_at >= (($2::date)::timestamp at time zone 'Asia/Tehran') - interval '45 minutes' and visit_preferred_at < (($2::date + 1)::timestamp at time zone 'Asia/Tehran') + interval '45 minutes'",
     [parsed.data.propertyId, parsed.data.date],
