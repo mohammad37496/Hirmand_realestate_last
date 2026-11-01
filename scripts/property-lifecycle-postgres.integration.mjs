@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import { restoreTrashedProperty } from "../src/lib/admin-property-trash.ts";
+import { permanentlyDeleteTrashedProperty, restoreTrashedProperty } from "../src/lib/admin-property-trash.ts";
 import { softDeleteProperty } from "../src/lib/admin-property-soft-delete.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -19,6 +19,8 @@ const ids = {
   restoreConcurrent: `${prefix}-restore-concurrent`,
   restoreHistoryFailure: `${prefix}-restore-history-failure`,
   restoreAuditFailure: `${prefix}-restore-audit-failure`,
+  permanentDeleteAuditFailure: `${prefix}-permanent-delete-audit-failure`,
+  permanentDeleteSuccess: `${prefix}-permanent-delete-success`,
 };
 const clients = [];
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -346,6 +348,42 @@ try {
   releaseClient(restoreAuditClient);
   await assertRestoreUnchanged(ids.restoreAuditFailure);
   console.log("PASS property restore rollback on audit failure");
+
+  await insertTrashedProperty(ids.permanentDeleteAuditFailure, "Permanent-delete audit rollback QA property");
+  const permanentDeleteAuditClient = await pool.connect();
+  clients.push(permanentDeleteAuditClient);
+  await assert.rejects(
+    inTransaction(permanentDeleteAuditClient, async (query) => {
+      await permanentDeleteAuditClient.query("select set_config('hirmand.qa_fail_property_audit_id',$1,true)", [ids.permanentDeleteAuditFailure]);
+      return permanentlyDeleteTrashedProperty(query, ids.permanentDeleteAuditFailure, "qa-admin");
+    }),
+    /simulated property audit failure/,
+  );
+  releaseClient(permanentDeleteAuditClient);
+  const retainedAfterPermanentDeleteFailure = await pool.query(
+    "select id,deleted_at from properties where id=$1",
+    [ids.permanentDeleteAuditFailure],
+  );
+  assert.equal(retainedAfterPermanentDeleteFailure.rowCount, 1, "audit failure must roll back the permanent property deletion");
+  assert.ok(retainedAfterPermanentDeleteFailure.rows[0].deleted_at);
+  assert.equal((await pool.query("select id from admin_audit_log where entity_id=$1", [ids.permanentDeleteAuditFailure])).rowCount, 0);
+  console.log("PASS permanent property deletion rollback on audit failure");
+
+  await insertTrashedProperty(ids.permanentDeleteSuccess, "Permanent-delete success QA property");
+  const permanentDeleteClient = await pool.connect();
+  clients.push(permanentDeleteClient);
+  const permanentDelete = await inTransaction(permanentDeleteClient, (query) =>
+    permanentlyDeleteTrashedProperty(query, ids.permanentDeleteSuccess, "qa-admin-delete"),
+  );
+  assert.equal(permanentDelete?.id, ids.permanentDeleteSuccess);
+  releaseClient(permanentDeleteClient);
+  assert.equal((await pool.query("select id from properties where id=$1", [ids.permanentDeleteSuccess])).rowCount, 0);
+  const permanentDeleteAudit = await pool.query(
+    "select action,actor from admin_audit_log where entity_id=$1",
+    [ids.permanentDeleteSuccess],
+  );
+  assert.deepEqual(permanentDeleteAudit.rows, [{ action: "property.permanently_deleted", actor: "qa-admin-delete" }]);
+  console.log("PASS permanent property deletion and audit commit together");
   console.log("PASS property lifecycle PostgreSQL integration (delete/restore races, history, audit, rollback)");
 } finally {
   for (const client of clients) client.release();

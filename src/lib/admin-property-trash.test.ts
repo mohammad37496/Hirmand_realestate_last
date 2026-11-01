@@ -3,9 +3,8 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import {
-  deleteTrashedProperty,
+  permanentlyDeleteTrashedProperty,
   restoreTrashedProperty,
-  type TrashedPropertyRow,
 } from "./admin-property-trash.ts";
 
 async function createRestoreDb() {
@@ -56,20 +55,109 @@ function restoreInTransaction(db: PGlite, id: string, canPublish: boolean, actor
 test("permanent deletion returns only the row still in trash, preserving media after a concurrent restore", async () => {
   const db = new PGlite();
   try {
-    await db.exec("create table properties (id text primary key, title text, images jsonb, floor_plan_url text, virtual_tour_url text, deleted_at timestamptz, status text); insert into properties values ('restored', 'Restored property', '[\"https://media.test/restored.jpg\"]', 'https://media.test/plan.jpg', null, '2026-10-01T00:00:00Z', 'archived'), ('trashed', 'Trashed property', '[\"https://media.test/trashed.jpg\"]', null, 'https://media.test/tour.mp4', '2026-10-01T00:00:00Z', 'archived');");
-    const query = async (statement: string, params: unknown[]) => (await db.query<TrashedPropertyRow>(statement, params)).rows;
+    await db.exec(`
+      create table properties (
+        id text primary key, title text, images jsonb, floor_plan_url text,
+        virtual_tour_url text, deleted_at timestamptz, status text
+      );
+      create table admin_audit_log (
+        id bigserial primary key, action text not null, entity_type text not null,
+        entity_id text, entity_title text not null default '', actor text not null default 'admin',
+        metadata jsonb not null default '{}'::jsonb
+      );
+      insert into properties values
+        ('restored','Restored property','["https://media.test/restored.jpg"]','https://media.test/plan.jpg',null,'2026-10-01T00:00:00Z','archived'),
+        ('trashed','Trashed property','["https://media.test/trashed.jpg"]',null,'https://media.test/tour.mp4','2026-10-01T00:00:00Z','archived');
+    `);
+    const remove = (id: string) => db.transaction((tx) => permanentlyDeleteTrashedProperty(
+      async (statement, params) => (await tx.query<Record<string, unknown>>(statement, params)).rows,
+      id,
+      "qa-admin",
+    ));
     await db.query("update properties set deleted_at=null, status='draft' where id='restored'");
-    assert.equal(await deleteTrashedProperty(query, "restored"), null);
+    assert.equal(await remove("restored"), null);
     const restored = await db.query<{ images: string[]; deleted_at: string | null }>("select images, deleted_at from properties where id='restored'");
     assert.equal(restored.rows.length, 1);
     assert.equal(restored.rows[0]?.deleted_at, null);
     assert.deepEqual(restored.rows[0]?.images, ["https://media.test/restored.jpg"]);
-    const deleted = await deleteTrashedProperty(query, "trashed");
+    const deleted = await remove("trashed");
     assert.equal(deleted?.id, "trashed");
     assert.deepEqual(deleted?.images, ["https://media.test/trashed.jpg"]);
     assert.equal(deleted?.virtual_tour_url, "https://media.test/tour.mp4");
-    assert.equal(await deleteTrashedProperty(query, "trashed"), null);
+    assert.equal(await remove("trashed"), null);
   } finally { await db.close(); }
+});
+
+test("permanent deletion and its audit record commit together", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table properties (
+        id text primary key, title text, images jsonb, floor_plan_url text,
+        virtual_tour_url text, deleted_at timestamptz
+      );
+      create table admin_audit_log (
+        id bigserial primary key, action text not null, entity_type text not null,
+        entity_id text, entity_title text not null default '', actor text not null default 'admin',
+        metadata jsonb not null default '{}'::jsonb
+      );
+      insert into properties values
+        ('trashed','Trashed listing','[]',null,null,current_timestamp),
+        ('active','Active listing','[]',null,null,null);
+    `);
+    const remove = (id: string, actor = "qa-admin") => db.transaction(async (tx) =>
+      permanentlyDeleteTrashedProperty(
+        async (statement, params) => (await tx.query<Record<string, unknown>>(statement, params)).rows,
+        id,
+        actor,
+      ));
+
+    assert.deepEqual(await remove("active"), null);
+    assert.deepEqual(await remove("trashed", "  qa-deleter  "), {
+      id: "trashed", title: "Trashed listing", images: [], floor_plan_url: null, virtual_tour_url: null,
+    });
+    assert.deepEqual(await remove("trashed"), null);
+    const audit = await db.query<{ action: string; entity_id: string; entity_title: string; actor: string }>(
+      "select action,entity_id,entity_title,actor from admin_audit_log",
+    );
+    assert.deepEqual(audit.rows, [{
+      action: "property.permanently_deleted", entity_id: "trashed", entity_title: "Trashed listing", actor: "qa-deleter",
+    }]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("a permanent-delete audit failure rolls back the property deletion", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table properties (
+        id text primary key, title text, images jsonb, floor_plan_url text,
+        virtual_tour_url text, deleted_at timestamptz
+      );
+      create table admin_audit_log (
+        id bigserial primary key, action text not null, entity_type text not null,
+        entity_id text, entity_title text not null default '', actor text not null default 'admin',
+        metadata jsonb not null default '{}'::jsonb
+      );
+      insert into properties values ('trashed','Trashed listing','[]',null,null,current_timestamp);
+      create function qa_reject_permanent_delete_audit() returns trigger language plpgsql as $$
+      begin raise exception 'simulated permanent-delete audit failure'; end;
+      $$;
+      create trigger qa_reject_permanent_delete_audit before insert on admin_audit_log
+      for each row execute function qa_reject_permanent_delete_audit();
+    `);
+    await assert.rejects(db.transaction(async (tx) => permanentlyDeleteTrashedProperty(
+      async (statement, params) => (await tx.query<Record<string, unknown>>(statement, params)).rows,
+      "trashed",
+      "qa-admin",
+    )), /simulated permanent-delete audit failure/);
+    assert.equal((await db.query("select id from properties where id='trashed' and deleted_at is not null")).rows.length, 1);
+    assert.equal((await db.query("select id from admin_audit_log")).rows.length, 0);
+  } finally {
+    await db.close();
+  }
 });
 
 test("restore commits property state, lifecycle history and audit together while enforcing publish permission", async () => {
@@ -193,10 +281,11 @@ test("trash APIs and UI distinguish unavailable data and unsuccessful restore/de
   assert.match(restore, /restoreTrashedProperty/);
   assert.doesNotMatch(restore, /writeAdminAuditLog\(/);
   assert.doesNotMatch(restore, /catch\(\(\)\s*=>\s*\{\}\)/);
-  assert.match(permanent, /deleteTrashedProperty/);
+  assert.match(permanent, /permanentlyDeleteTrashedProperty/);
   assert.match(permanent, /if \(!deletion\) return \{ success: false, deleted: 0 \}/);
   assert.match(permanent, /withSqlTransaction\(async \(tx\)/);
   assert.match(permanent, /enqueueMediaCleanupJob\(tx, url\)/);
+  assert.doesNotMatch(permanent, /writeAdminAuditLog\(/);
   assert.match(permanent, /processMediaCleanupJobs\(jobIds, sql\)/);
   assert.ok(permanent.indexOf("if (!existing)") < permanent.indexOf("enqueueMediaCleanupJob"));
   assert.match(permanent, /existing\.virtual_tour_url/);

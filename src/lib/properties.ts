@@ -17,7 +17,7 @@ import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { enqueueMediaCleanupJob, processMediaCleanupJobs } from "@/lib/media-store.server";
 import { lockMediaReferenceWrites } from "@/lib/media-cleanup-transaction.server";
 import { softDeleteProperty } from "@/lib/admin-property-soft-delete";
-import { deleteTrashedProperty, restoreTrashedProperty, type TrashedPropertyRow } from "@/lib/admin-property-trash";
+import { permanentlyDeleteTrashedProperty, restoreTrashedProperty } from "@/lib/admin-property-trash";
 import { bulkTrashActiveProperties } from "@/lib/admin-property-bulk-trash";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
@@ -1472,13 +1472,14 @@ export const restoreDeletedProperty = createServerFn({ method: "POST" })
 export const permanentlyDeleteProperty = createServerFn({ method: "POST" })
   .validator(idSchema)
   .handler(async ({ data }) => {
-    await requireAdminPermission("property.manage");
+    const claims = await requireAdminPermission("property.manage");
     if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ حذف دائمی انجام نشد.");
     const sql = await getSql();
     const deletion = await withSqlTransaction(async (tx) => {
-      const existing = await deleteTrashedProperty(
-        (statement, params) => tx.query<TrashedPropertyRow>(statement, params),
+      const existing = await permanentlyDeleteTrashedProperty(
+        (statement, params) => tx.query<Record<string, unknown>>(statement, params),
         data.id,
+        String(claims?.displayName ?? "admin"),
       );
       if (!existing) return null;
       const mediaUrls = [
@@ -1502,12 +1503,6 @@ export const permanentlyDeleteProperty = createServerFn({ method: "POST" })
     if (!deletion) return { success: false, deleted: 0 };
     const { existing, jobIds } = deletion;
     await processMediaCleanupJobs(jobIds, sql);
-    await writeAdminAuditLog({
-      action: "property.permanently_deleted",
-      entityType: "property",
-      entityId: data.id,
-      entityTitle: String(existing.title ?? ""),
-    });
     clearPropertyReadCache();
     return { success: true, deleted: 1, title: String(existing.title ?? "") };
   });
