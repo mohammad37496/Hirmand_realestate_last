@@ -374,6 +374,8 @@ try {
   assert.equal((await admin.query("SELECT status FROM admin_tasks WHERE id='dedupe-task-canonical-old'")).rows[0]?.status, "cancelled");
   assert.equal((await admin.query("SELECT count(*)::int AS count FROM lead_activities WHERE title='ادغام لید تکراری'")).rows[0]?.count, 1);
   console.log("ok   PostgreSQL dedupe transaction moves internal relationships, preserves one overdue task, and rejects concurrent replay");
+  releaseClient(mergeClientA);
+  releaseClient(mergeClientB);
 
   await admin.query(`
     INSERT INTO leads(id,status,name,phone) VALUES ('dedupe-fail-canonical','new','Canonical fail','09130000005'),('dedupe-fail-duplicate','new','Duplicate fail','09130000005');
@@ -399,6 +401,7 @@ try {
   assert.equal((await admin.query("SELECT lead_id FROM finance_transactions ORDER BY id DESC LIMIT 1")).rows[0]?.lead_id, "dedupe-fail-duplicate");
   await admin.query("DROP TRIGGER qa_fail_dedupe_history ON lead_activities; DROP FUNCTION qa_fail_dedupe_history();");
   console.log("ok   PostgreSQL history insert failure rolls back the duplicate close, activities, deals and finance links");
+  releaseClient(historyFailureClient);
 
   await admin.query(`
     INSERT INTO leads(id,status,name,phone) VALUES ('dedupe-db-canonical','new','Canonical db','09130000006'),('dedupe-db-duplicate','new','Duplicate db','09130000006');
@@ -419,6 +422,7 @@ try {
   assert.equal((await admin.query("SELECT count(*)::int AS count FROM lead_activities WHERE title='ادغام لید تکراری'")).rows[0]?.count, 1);
   await admin.query("DROP TRIGGER qa_fail_dedupe_finance_link ON finance_transactions; DROP FUNCTION qa_fail_dedupe_finance_link();");
   console.log("ok   PostgreSQL relationship database failure rolls back prior lead, history and deal writes");
+  releaseClient(financeFailureClient);
 
   await admin.query(`
     INSERT INTO leads(id,status,property_id,visit_preferred_at,visit_status)
@@ -454,10 +458,6 @@ try {
 
   releaseClient(visitA);
   releaseClient(visitB);
-  releaseClient(mergeClientA);
-  releaseClient(mergeClientB);
-  releaseClient(historyFailureClient);
-  releaseClient(financeFailureClient);
 
   const terminalMergeClient = await connectInSchema();
   for (const terminalStatus of ["cancelled", "completed"]) {
