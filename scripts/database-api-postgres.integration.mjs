@@ -297,7 +297,7 @@ try {
 
   await admin.query(`
     INSERT INTO leads(id,status,name,phone,property_id,visit_preferred_at,visit_requested_at,visit_status)
-    VALUES ('dedupe-canonical','new','Canonical','09130000004','visit-scheduling-property',NULL,NULL,'none'),
+    VALUES ('dedupe-canonical','new','Canonical','09130000004','visit-scheduling-property','2030-06-03T08:00:00Z','2030-06-03T08:00:00Z','none'),
            ('dedupe-duplicate','new','Duplicate','09130000004','visit-scheduling-property','2030-06-04T10:00:00Z','2030-06-04T09:00:00Z','requested');
     INSERT INTO lead_activities(lead_id,activity_type,title,note,metadata)
     VALUES ('dedupe-duplicate','visit','Visit requested','', '{}'::jsonb);
@@ -308,12 +308,11 @@ try {
   assert.equal(dedupeResult.rows[0]?.canonical_id, "dedupe-canonical");
   assert.equal(dedupeResult.rows[0]?.duplicate_id, "dedupe-duplicate");
   const mergedVisitRows = await admin.query(
-    "SELECT id,visit_status FROM leads WHERE id IN ('dedupe-canonical','dedupe-duplicate') ORDER BY id",
+    "SELECT id,visit_status,visit_preferred_at::text AS visit_preferred_at FROM leads WHERE id IN ('dedupe-canonical','dedupe-duplicate') ORDER BY id",
   );
-  assert.deepEqual(mergedVisitRows.rows, [
-    { id: "dedupe-canonical", visit_status: "requested" },
-    { id: "dedupe-duplicate", visit_status: "cancelled" },
-  ]);
+  assert.equal(mergedVisitRows.rows[0]?.visit_status, "requested");
+  assert.equal(new Date(mergedVisitRows.rows[0]?.visit_preferred_at).toISOString(), "2030-06-04T10:00:00.000Z");
+  assert.equal(mergedVisitRows.rows[1]?.visit_status, "cancelled");
   console.log("ok   PostgreSQL dedupe SQL transfers the active visit and cancels the duplicate booking");
   await admin.query("DELETE FROM lead_activities WHERE lead_id='dedupe-canonical'; DELETE FROM leads WHERE id IN ('dedupe-canonical','dedupe-duplicate')");
   releaseClient(visitA);

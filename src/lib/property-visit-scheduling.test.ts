@@ -172,7 +172,7 @@ test("visit merge keeps one shared booking, moves a single active booking, and r
     kind: "keep_canonical", propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z",
   });
   assert.deepEqual(planLeadVisitMerge(
-    { property_id: "property-1", visit_preferred_at: null, visit_status: "none" },
+    { property_id: "property-1", visit_preferred_at: "2030-05-30T08:00:00Z", visit_status: "none" },
     { property_id: "property-1", visit_preferred_at: "2030-06-01T10:00:00Z", visit_status: "requested" },
   ), { kind: "move_duplicate", propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z" });
   assert.equal(planLeadVisitMerge(canonical, {

@@ -53,7 +53,9 @@ async function merge(db: PGlite, canonicalId: string, duplicateId: string) {
 test("dedupe SQL moves the duplicate's only active visit onto a canonical lead", async () => {
   const db = await fixture();
   try {
-    await insertLead(db, { id: "canonical", propertyId: "property-1", visitStatus: "none" });
+    await insertLead(db, {
+      id: "canonical", propertyId: "property-1", visitAt: "2030-05-30T08:00:00Z", visitStatus: "none",
+    });
     await insertLead(db, {
       id: "duplicate", propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", visitStatus: "requested",
     });
