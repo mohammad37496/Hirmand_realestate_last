@@ -14,6 +14,10 @@ import {
 import { lockLeadDedupeSnapshot, mergeLeadDedupeRelations } from "../src/lib/admin-lead-dedupe.server.ts";
 import { UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL } from "../src/lib/admin-lead-mutation-sql.ts";
 import {
+  updateAdminDealStatusWithSettlementGuard,
+  updateCommissionSettlementStatusWithDealGuard,
+} from "../src/lib/admin-deal-status-sql.ts";
+import {
   createOpenHouseSchedule,
   registerOpenHouseRsvp,
 } from "../src/lib/property-open-house-scheduling.server.ts";
@@ -192,7 +196,14 @@ async function createSchemaFixture(admin) {
       metadata jsonb NOT NULL
     );
     CREATE TABLE admin_deals (
-      id text PRIMARY KEY, lead_id text, updated_at timestamptz NOT NULL DEFAULT current_timestamp
+      id text PRIMARY KEY, lead_id text,
+      status text NOT NULL DEFAULT 'prospect' CHECK(status IN ('prospect','negotiation','agreement','contracted','completed','cancelled')),
+      updated_at timestamptz NOT NULL DEFAULT current_timestamp
+    );
+    CREATE TABLE admin_commission_settlements (
+      id text PRIMARY KEY, deal_id text REFERENCES admin_deals(id) ON DELETE RESTRICT,
+      status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','paid','cancelled')),
+      paid_at timestamptz, updated_at timestamptz NOT NULL DEFAULT current_timestamp
     );
     CREATE TABLE finance_transactions (
       id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, lead_id text
@@ -751,6 +762,73 @@ try {
   console.log("ok   PostgreSQL approval commits the property, CRM activity and review audit together");
   releaseClient(approval);
 
+  // Both deal downgrades and settlement reactivation lock the deal row first.
+  // Exercise both possible winners using independent PostgreSQL connections.
+  await admin.query(`
+    INSERT INTO admin_deals(id,status) VALUES
+      ('deal-downgrade-first','contracted'),('deal-reactivation-first','contracted');
+    INSERT INTO admin_commission_settlements(id,deal_id,status) VALUES
+      ('settlement-downgrade-first','deal-downgrade-first','cancelled'),
+      ('settlement-reactivation-first','deal-reactivation-first','cancelled');
+  `);
+
+  const downgradeOwner = await connectInSchema();
+  const reactivationWaiter = await connectInSchema();
+  let allowDowngradeCommit;
+  let signalDowngradeLocked;
+  const downgradeLocked = new Promise((resolve) => { signalDowngradeLocked = resolve; });
+  const waitForDowngradeCommit = new Promise((resolve) => { allowDowngradeCommit = resolve; });
+  const downgradeFirst = inTransaction(downgradeOwner, async (tx) => {
+    const result = await updateAdminDealStatusWithSettlementGuard(tx, "deal-downgrade-first", "cancelled");
+    assert.equal(result.kind, "updated");
+    signalDowngradeLocked();
+    await waitForDowngradeCommit;
+    return result;
+  });
+  await downgradeLocked;
+  const reactivationWaiterPid = Number((await reactivationWaiter.query("SELECT pg_backend_pid() AS pid")).rows[0].pid);
+  const reactivationAfterDowngrade = inTransaction(reactivationWaiter, (tx) =>
+    updateCommissionSettlementStatusWithDealGuard(tx, "settlement-downgrade-first", "pending"));
+  await waitForLockWait(admin, reactivationWaiterPid, "settlement reactivation waits behind deal downgrade");
+  allowDowngradeCommit();
+  await downgradeFirst;
+  assert.equal((await reactivationAfterDowngrade).kind, "deal_not_contractual");
+  const downgradeFirstState = await admin.query(
+    "SELECT d.status AS deal_status,s.status AS settlement_status FROM admin_deals d JOIN admin_commission_settlements s ON s.deal_id=d.id WHERE d.id='deal-downgrade-first'",
+  );
+  assert.deepEqual(downgradeFirstState.rows[0], { deal_status: "cancelled", settlement_status: "cancelled" });
+  releaseClient(downgradeOwner);
+  releaseClient(reactivationWaiter);
+
+  const reactivationOwner = await connectInSchema();
+  const downgradeWaiter = await connectInSchema();
+  let allowReactivationCommit;
+  let signalReactivationLocked;
+  const reactivationLocked = new Promise((resolve) => { signalReactivationLocked = resolve; });
+  const waitForReactivationCommit = new Promise((resolve) => { allowReactivationCommit = resolve; });
+  const reactivationFirst = inTransaction(reactivationOwner, async (tx) => {
+    const result = await updateCommissionSettlementStatusWithDealGuard(tx, "settlement-reactivation-first", "pending");
+    assert.equal(result.kind, "updated");
+    signalReactivationLocked();
+    await waitForReactivationCommit;
+    return result;
+  });
+  await reactivationLocked;
+  const downgradeWaiterPid = Number((await downgradeWaiter.query("SELECT pg_backend_pid() AS pid")).rows[0].pid);
+  const downgradeAfterReactivation = inTransaction(downgradeWaiter, (tx) =>
+    updateAdminDealStatusWithSettlementGuard(tx, "deal-reactivation-first", "cancelled"));
+  await waitForLockWait(admin, downgradeWaiterPid, "deal downgrade waits behind settlement reactivation");
+  allowReactivationCommit();
+  await reactivationFirst;
+  assert.equal((await downgradeAfterReactivation).kind, "settlement_exists");
+  const reactivationFirstState = await admin.query(
+    "SELECT d.status AS deal_status,s.status AS settlement_status FROM admin_deals d JOIN admin_commission_settlements s ON s.deal_id=d.id WHERE d.id='deal-reactivation-first'",
+  );
+  assert.deepEqual(reactivationFirstState.rows[0], { deal_status: "contracted", settlement_status: "pending" });
+  releaseClient(reactivationOwner);
+  releaseClient(downgradeWaiter);
+  console.log("ok   PostgreSQL deal downgrade and cancelled-settlement reactivation serialize on the deal row in both race orders");
+
   const lockOwner = await connectInSchema();
   const lockWaiter = await connectInSchema();
   const lockKey = 741206511n;
@@ -768,7 +846,7 @@ try {
   assert.equal(released.rows[0]?.unlocked, true);
   console.log("ok   PostgreSQL advisory-lock contention times out, then succeeds after the owner releases it");
 
-  console.log("\n15 passed, 0 failed (real PostgreSQL)");
+  console.log("\n16 passed, 0 failed (real PostgreSQL)");
 } finally {
   for (const client of clients.reverse()) {
     try {
