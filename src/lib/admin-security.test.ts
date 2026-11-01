@@ -95,12 +95,12 @@ test("the complete admin role matrix follows least privilege", () => {
     owner: [
       "property.manage", "property.create", "property.publish", "divar.import", "lead.manage",
       "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage",
-      "security.manage", "accounts.manage", "reports.view", "deal.manage", "commission.manage",
+      "security.manage", "accounts.manage", "reports.view", "deal.manage", "commission.manage", "partners.manage",
     ],
     manager: [
       "property.manage", "property.create", "property.publish", "divar.import", "lead.manage",
       "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage",
-      "security.manage", "reports.view", "deal.manage", "commission.manage",
+      "security.manage", "reports.view", "deal.manage", "commission.manage", "partners.manage",
     ],
     sales: [
       "property.manage", "property.create", "divar.import", "area.manage", "lead.manage",
@@ -117,7 +117,7 @@ test("the complete admin role matrix follows least privilege", () => {
     for (const permission of [
       "property.manage", "property.create", "property.publish", "divar.import", "lead.manage",
       "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage",
-      "security.manage", "accounts.manage", "reports.view", "deal.manage", "commission.manage",
+      "security.manage", "accounts.manage", "reports.view", "deal.manage", "commission.manage", "partners.manage",
     ]) {
       assert.equal(
         hasAdminPermission(role as AdminRole, permission as AdminPermission),
