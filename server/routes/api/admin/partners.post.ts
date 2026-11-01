@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "commission.manage")) {
+  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "partners.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت همکاری‌ها و پاداش‌ها برای این حساب فعال نیست." });
   }
   const body = (await readBody(event).catch(() => ({}))) as {

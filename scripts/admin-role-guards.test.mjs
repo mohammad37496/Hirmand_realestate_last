@@ -43,3 +43,14 @@ test("audit history reads and deletion both require security.manage", () => {
   assert.equal([...code.matchAll(/await requireAdmin\("security\.manage"\)/g)].length, 2);
   assert.match(code, /hasAdminPermission\(normalizeAdminRole\(claims\?\.role\), permission\)/);
 });
+
+test("partner administration API uses a dedicated permission and remains hidden from sales/content navigation", () => {
+  const route = source("server/routes/api/admin/partners.post.ts");
+  const adminUi = source("src/components/hirmand/_admin_impl.tsx");
+  assert.match(route, /hasAdminPermission\(normalizeAdminRole\(claims\?\.role\), "partners\.manage"\)/);
+  assert.doesNotMatch(route, /hasAdminPermission\(normalizeAdminRole\(claims\?\.role\), "commission\.manage"\)/);
+  const salesNav = adminUi.match(/if \(adminRole === "sales"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const contentNav = adminUi.match(/if \(adminRole === "content"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  assert.doesNotMatch(salesNav, /"partners"/);
+  assert.doesNotMatch(contentNav, /"partners"/);
+});
