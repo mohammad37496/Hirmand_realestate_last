@@ -58,6 +58,10 @@ test("sales funnel distinguishes unavailable analytics from a genuinely empty fu
   assert.match(route, /dbSource === "unconfigured"[\s\S]*statusCode: 503/);
   assert.match(route, /available: true/);
   assert.match(ui, /payload\.available !== true/);
+  assert.match(ui, /payload\.days !== days/);
+  assert.match(ui, /Array\.isArray\(payload\.statuses\)/);
+  assert.match(ui, /Array\.isArray\(payload\.sources\)/);
+  assert.match(ui, /Array\.isArray\(payload\.aging\)/);
   assert.match(ui, /error \? <div className="admin-empty" role="alert">/);
   assert.match(ui, /onClick=\{\(\) => void load\(\)\}/);
 });
@@ -246,4 +250,63 @@ test("property price history and duplicate check UIs do not preserve stale resul
   assert.match(history, /setLoadError\(message\)/);
   assert.match(history, /loadError \? <AdminErrorBanner/);
   assert.match(duplicates, /setChecked\(false\);setMatches\(\[\]\)/);
+});
+
+test("campaign KPIs use uncapped aggregate totals and ignore stale range responses", () => {
+  const route = read("server/routes/api/admin-campaign-performance.post.ts");
+  const totalsSql = read("src/lib/admin-campaign-performance-sql.ts");
+  const ui = read("src/components/hirmand/admin-campaign-performance.tsx");
+  assert.match(route, /ADMIN_CAMPAIGN_TOTALS_SQL/);
+  assert.match(route, /totalRows/);
+  assert.match(route, /campaigns:\s*Number\(totalsBase\.campaigns\)/);
+  assert.match(totalsSql, /count\(\*\)::int as campaigns/);
+  assert.match(route, /limit 50/);
+  assert.doesNotMatch(route, /const totals = mapped\.reduce/);
+  assert.match(ui, /const requestSequence\s*=\s*useRef\(0\)/);
+  assert.match(ui, /const requestId=\+\+requestSequence\.current/);
+  assert.match(ui, /requestId===requestSequence\.current/);
+  assert.match(ui, /return\s*\(\)=>\{requestSequence\.current\+=1;\}/);
+});
+
+test("sales funnel ignores stale range responses and clears data after a failed refresh", () => {
+  const ui = read("src/components/hirmand/admin-sales-funnel.tsx");
+  assert.match(ui, /const requestSequence\s*=\s*useRef\(0\)/);
+  assert.match(ui, /const requestId = \+\+requestSequence\.current/);
+  assert.match(ui, /requestId === requestSequence\.current/);
+  assert.match(ui, /setData\(null\);\s*setError\(message\)/);
+  assert.match(ui, /setError\(""\);\s*setData\(null\);\s*try/);
+  assert.match(ui, /return \(\) => \{ requestSequence\.current \+= 1; \};/);
+});
+
+test("sales control center maps period leads, calculates period conversion and excludes trashed files", () => {
+  const route = read("server/routes/api/admin-sales-control-center.post.ts");
+  const ui = read("src/components/hirmand/admin-sales-control-center.tsx");
+  const fileStats = route.split("with file_stats as (")[1]?.split("lead_stats as (")[0] ?? "";
+  assert.match(route, /periodLeads:\s*Number\(row\.period_leads\)\s*\|\|\s*0/);
+  assert.match(route, /conversionRate:\s*Number\(row\.period_leads\)\s*>\s*0/);
+  assert.match(ui, /periodLeads:\s*number/);
+  assert.match(ui, /fa\(item\.periodLeads\)/);
+  assert.match(fileStats, /deleted_at is null/);
+  assert.match(fileStats, /status = 'published'/);
+  assert.match(ui, /const requestSequence\s*=\s*useRef\(0\)/);
+  assert.match(ui, /const requestId = \+\+requestSequence\.current/);
+  assert.match(ui, /requestId === requestSequence\.current/);
+  assert.match(ui, /return \(\) => \{ requestSequence.current \+= 1; \};/);
+  assert.match(ui, /onClick=\{\(\) => void load\(days\)\}/);
+  assert.doesNotMatch(ui, /setDays\(next\);\s*void load\(next\)/, "the range effect must issue only one request");
+});
+
+test("owner search and consultant performance invalidate responses after query changes or unmount", () => {
+  const owners = read("src/components/hirmand/admin-owner-manager.tsx");
+  const performance = read("src/components/hirmand/admin-consultant-performance.tsx");
+  const matching = read("src/components/hirmand/admin-matching-manager.tsx");
+  assert.match(owners, /const requestSequence\s*=\s*useRef\(0\)/);
+  assert.match(owners, /if\(requestId!==requestSequence\.current\)return/);
+  assert.match(owners, /requestSequence\.current\+=1/);
+  assert.match(performance, /const requestId = \+\+requestRef\.current/);
+  assert.match(performance, /return \(\) => \{ requestRef.current \+= 1; \};/);
+  assert.match(matching, /const leadsRequestSequence = useRef\(0\)/);
+  assert.match(matching, /const requestId = \+\+leadsRequestSequence\.current/);
+  assert.match(matching, /if \(requestId !== leadsRequestSequence\.current\) return/);
+  assert.match(matching, /return \(\) => \{ leadsRequestSequence\.current \+= 1; \};/);
 });

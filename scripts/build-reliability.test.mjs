@@ -299,10 +299,15 @@ test("object-store offload never deletes the database fallback before saving the
   assert.ok(persistRemotePointer > remoteUpload && queueDbCopyCleanup > persistRemotePointer && processDbCopyCleanup > queueDbCopyCleanup);
 });
 
-test("FFmpeg release URL uses the same repository as its pinned release assets", () => {
+test("FFmpeg release URL uses an existing pinned BtbN release and checksum-verified GPL assets", () => {
   assert.match(ffmpegProvisioner, /https:\/\/github\.com\/BtbN\/FFmpeg-Builds\/releases\/download/);
   assert.doesNotMatch(ffmpegProvisioner, /\|\| "https:\/\/github\.com\/eugeneware\/ffmpeg-static\/releases\/download"/);
-  assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-28-g669f5ab083-linux64-gpl-9\.0\.tar\.xz/);
+  assert.match(ffmpegProvisioner, /const RELEASE_TAG = "autobuild-2026-11-01-12-49"/);
+  assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-42-gd7643a0fe3-linux64-gpl-9\.0\.tar\.xz/);
+  assert.match(ffmpegProvisioner, /11570b7bb1436ff432c91202ae0e7ea4be65359fd06650e18935c1ee9d005bf6/);
+  assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-42-gd7643a0fe3-linuxarm64-gpl-9\.0\.tar\.xz/);
+  assert.match(ffmpegProvisioner, /b45eb0c42d311d12f3bddcd7b3a29a3e7fcc2455076d13c79552d45b48d57c08/);
+  assert.doesNotMatch(ffmpegProvisioner, /autobuild-2026-10-18-13-01|n9\.0\.2-28-g669f5ab083/);
   assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
 });
 

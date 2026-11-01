@@ -944,3 +944,19 @@ main#top.property-detail-page.hd-property-detail-v2 ~ .hd-mobile-actions {
     color: #17613e !important;
   }
 }
+
+@media (max-width: 760px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 ~ .hd-mobile-actions:not(.is-visible) {
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateY(calc(100% + 18px)) !important;
+  }
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 ~ .hd-mobile-actions.is-visible {
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+    transition: transform .2s ease, visibility .2s ease !important;
+  }
+}

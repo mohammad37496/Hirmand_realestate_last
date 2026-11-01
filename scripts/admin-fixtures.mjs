@@ -1,16 +1,14 @@
 /**
  * Fixtures for the admin UI sweep.
  *
- * The dev server (Vite) does not register the nitro `server/routes/api/*`
- * handlers, so the browser needs them stubbed to render the authenticated
- * panel. Everything else — server functions, the database, React — runs for
- * real.
+ * The sweep runs against a Nitro preview so the real admin session endpoint
+ * can create a database-backed session. With QA_STUB_ADMIN_APIS=1, the other
+ * API endpoints use shaped fixtures while server functions and the database
+ * continue to run for real.
  *
- * Against a production preview (`npm run preview:restart`, port 8081) those
- * routes DO exist, and stubbing them there would replace the exact thing the
- * sweep is meant to exercise. `installAdminApiStubs` probes first and only
- * fills in what is genuinely missing, so the same script can be pointed at
- * either server.
+ * Without QA_STUB_ADMIN_APIS the preview's real API routes are exercised.
+ * The Vite dev server cannot validate database-backed sessions and is rejected
+ * by installAdminApiStubs rather than silently rendering a partial panel.
  */
 
 /** True when the target already serves the nitro API routes. */
@@ -20,23 +18,30 @@ export async function servesNitroApi(base) {
       method: "GET",
       headers: { accept: "application/json" },
     });
-    return response.status < 500;
+    return response.status !== 404 && response.status !== 405;
   } catch {
     return false;
   }
 }
 
 /**
- * Installs only the stubs the target server is missing.
- * Returns the list of route patterns that were stubbed, for the report.
+ * Installs shaped API fixtures on a Nitro preview, keeping the real session
+ * route active so the browser receives a database-backed admin cookie.
  */
 export async function installAdminApiStubs(page, base) {
-  if (await servesNitroApi(base)) return [];
+  const hasNitroApi = await servesNitroApi(base);
+  if (!hasNitroApi) {
+    throw new Error("Admin browser QA requires the Nitro preview server; Vite dev does not provide database-backed admin sessions.");
+  }
+  const forceStubs = process.env.QA_STUB_ADMIN_APIS === "1";
+  if (!forceStubs) return [];
   // Registered first, so it stays the lowest-priority handler: Playwright
   // matches the most recently registered route first, so every explicit stub
   // below still wins over this fallback.
   await page.route("**/api/**", async (route) => {
-    unshapedFallbacks.add(new URL(route.request().url()).pathname);
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname === "/api/admin/session") return route.continue();
+    unshapedFallbacks.add(pathname);
     return route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -44,9 +49,10 @@ export async function installAdminApiStubs(page, base) {
     });
   });
   for (const [pattern, handler] of Object.entries(stubAdminApi)) {
+    if (pattern === "**/api/admin/session") continue;
     await page.route(pattern, handler);
   }
-  return Object.keys(stubAdminApi);
+  return Object.keys(stubAdminApi).filter((pattern) => pattern !== "**/api/admin/session");
 }
 
 /**
@@ -55,63 +61,35 @@ export async function installAdminApiStubs(page, base) {
  */
 export const unshapedFallbacks = new Set();
 
-/**
- * Mints the same JWT the real `/api/admin/session` route issues, so the server
- * functions (`listAdminProperties`, `listConsultants`, …) see a valid session
- * even though only the nitro route is stubbed.
- */
-let cachedSessionCookie = null;
-async function adminSessionCookie() {
-  if (cachedSessionCookie) return cachedSessionCookie;
-  const { createHash } = await import("node:crypto");
-  const { SignJWT } = await import("jose");
-
-  const key = process.env.HIRMAND_ADMIN_KEY;
-  if (!key) throw new Error("HIRMAND_ADMIN_KEY is required for the admin QA sweep.");
-  const secret = createHash("sha256").update(key.trim()).digest();
-
-  const token = await new SignJWT({ role: "admin" })
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setSubject("hirmand-admin")
-    .setIssuedAt()
-    .setExpirationTime("8h")
-    .sign(secret);
-
-  cachedSessionCookie = `hirmand-admin=${token}; Path=/; HttpOnly; SameSite=Lax`;
-  return cachedSessionCookie;
-}
-
 export const stubAdminApi = {
-  "**/api/admin/session": async (route) => {
-    let body = {};
-    try {
-      body = route.request().postDataJSON() ?? {};
-    } catch {
-      body = {};
-    }
-    if (body.action === "logout") {
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        headers: { "set-cookie": "hirmand-admin=; Max-Age=0; Path=/" },
-        body: JSON.stringify({ success: true }),
-      });
-    }
-    if (body.action === "login" && !body.adminKey) {
-      // Session probe before login.
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true, authenticated: false }),
-      });
-    }
-    return route.fulfill({
+  "**/api/admin-kpi-snapshot**": async (route) =>
+    route.fulfill({
       status: 200,
       contentType: "application/json",
-      headers: { "set-cookie": await adminSessionCookie() },
-      body: JSON.stringify({ success: true, authenticated: true }),
-    });
-  },
+      body: JSON.stringify({
+        available: true,
+        snapshots: [{
+          date: "2026-11-01",
+          propertiesTotal: 128,
+          publishedProperties: 96,
+          leadsTotal: 214,
+          leadsLast7: 18,
+          contractsLast30: 7,
+          visitorsLast7: 1420,
+          callsLast30: 46,
+          whatsappLast30: 29,
+          overdueFollowups: 5,
+          incompleteProperties: 17,
+        }],
+      }),
+    }),
+
+  "**/api/music**": async (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ autoplay: false, tracks: [] }),
+    }),
 
   "**/api/admin-dashboard": async (route) =>
     route.fulfill({
@@ -243,6 +221,7 @@ export const stubAdminApi = {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
+        available: true,
         days,
         pipeline: { new: 18, contacted: 41, follow_up: 27, visited: 12, contract: 9 },
         summary: {
@@ -727,6 +706,7 @@ export const stubAdminApi = {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
+        available: true,
         days: 30,
         statuses: [
           { key: "new", label: "جدید", count: 18 },
@@ -753,6 +733,7 @@ export const stubAdminApi = {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
+        available: true,
         days: 30,
         properties: { created: 18, published: 12, draft: 4, archived: 2 },
         leads: { created: 71, open: 45, contract: 9, closed: 17 },

@@ -56,7 +56,7 @@ export async function setCustomerPropertySubmissionPriority(
     `with updated as (
        update customer_property_submissions
        set priority=$2,updated_at=current_timestamp
-       where id=$1
+       where id=$1 and status='pending'
        returning id,status
      ), review_events as (
        insert into customer_property_submission_events (id,submission_id,action,note,metadata)

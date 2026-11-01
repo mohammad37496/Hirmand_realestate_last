@@ -11,14 +11,14 @@ import { installAdminApiStubs, unshapedFallbacks } from "./admin-fixtures.mjs";
 
 const BASE = process.env.QA_BASE_URL || "http://127.0.0.1:8080";
 const KEY = process.env.HIRMAND_ADMIN_KEY || "";
-const OUT = "screenshots/admin";
+const OUT = process.env.QA_SCREENSHOT_DIR || "screenshots/admin";
 
 if (!KEY) {
   console.error("HIRMAND_ADMIN_KEY is required for the admin QA sweep.");
   process.exit(2);
 }
 
-const VIEWS = [
+const ALL_VIEWS = [
   { id: "dashboard", label: "dashboard" },
   { id: "managementReport", label: "managementReport" },
   { id: "productivity", label: "productivity" },
@@ -51,6 +51,11 @@ const VIEWS = [
   { id: "contentStudio", label: "contentStudio" },
   { id: "areaContent", label: "areaContent" },
 ];
+
+const requestedViewIds = process.env.QA_VIEW_IDS?.split(",").map((value) => value.trim()).filter(Boolean) ?? [];
+const unknownViewIds = requestedViewIds.filter((id) => !ALL_VIEWS.some((view) => view.id === id));
+if (unknownViewIds.length) throw new Error(`Unknown QA view IDs: ${unknownViewIds.join(", ")}`);
+const VIEWS = requestedViewIds.length ? ALL_VIEWS.filter((view) => requestedViewIds.includes(view.id)) : ALL_VIEWS;
 
 const VIEWPORTS = [
   { id: "desktop", width: 1440, height: 900 },
@@ -120,8 +125,11 @@ async function openView(page, view) {
       }
     }
     const button = page.locator('.admin-drawer [data-admin-view="' + view.id + '"]');
-    if (!(await button.isVisible().catch(() => false))) return false;
-    await button.click();
+    if (!(await button.isVisible().catch(() => false))) {
+      await page.locator(".admin-drawer-overlay").click().catch(() => {});
+      return false;
+    }
+    await button.click({ timeout: 8000 });
     await page.waitForTimeout(700);
     return true;
   }
@@ -170,6 +178,7 @@ async function run() {
     }
 
     for (const view of VIEWS) {
+      console.log(`[${viewport.id}] ${view.id}`);
       const before = { errors: consoleErrors.length + pageErrors.length, requests: failedRequests.length, responses: badResponses.length };
       const navigated = await openView(page, view);
       await page.waitForTimeout(900);
@@ -218,8 +227,11 @@ async function run() {
     if (viewport.width <= 900) {
       const trigger = page.locator(".admin-drawer-trigger");
       if (await trigger.isVisible().catch(() => false)) {
-        await trigger.click();
-        await page.waitForTimeout(350);
+        const expanded = await trigger.getAttribute("aria-expanded").catch(() => null);
+        if (expanded !== "true") {
+          await trigger.click();
+          await page.waitForTimeout(350);
+        }
       }
     }
     await page
@@ -263,12 +275,12 @@ async function run() {
   };
   console.log(JSON.stringify(summary, null, 2));
 
-  // `/api/music` and friends are nitro handlers: they only exist in the
-  // production build, so the dev server 404s them by design. Anything else
-  // that came back 4xx/5xx is a real broken reference.
+  // Every API used by a selected view must have an explicit fixture. The
+  // generic fallback is diagnostic only and must never make an empty panel
+  // look like a successful QA run.
   const unexpected = badResponses;
   const failures = results.filter((item) => !item.ok);
-  if (failures.length || consoleErrors.length || pageErrors.length || failedRequests.length || unexpected.length) {
+  if (failures.length || consoleErrors.length || pageErrors.length || failedRequests.length || unexpected.length || unshapedFallbacks.size) {
     process.exitCode = 1;
   }
 }

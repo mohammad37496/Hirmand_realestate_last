@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,22 +18,41 @@ export function AdminSalesFunnel() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const requestSequence = useRef(0);
   const load = useCallback(async () => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError("");
+    setData(null);
     try {
       const response = await fetch("/api/admin-sales-funnel?days=" + days, { credentials: "same-origin" });
       const payload = (await response.json()) as Data & { statusMessage?: string };
       if (!response.ok) throw new Error(payload.statusMessage || "قیف فروش بارگذاری نشد.");
       if (payload.available !== true) throw new Error("داده معتبر قیف فروش در دسترس نیست.");
-      setData(payload);
+      if (
+        payload.days !== days ||
+        !Array.isArray(payload.statuses) ||
+        !Array.isArray(payload.sources) ||
+        !Array.isArray(payload.aging) ||
+        !payload.conversions ||
+        typeof payload.conversions !== "object"
+      ) {
+        throw new Error("داده‌های قیف فروش معتبر نیست. لطفاً دوباره تلاش کنید.");
+      }
+      if (requestId === requestSequence.current) setData(payload);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "قیف فروش بارگذاری نشد.";
-      setError(message);
-      toast.error(message);
-    } finally { setLoading(false); }
+      if (requestId === requestSequence.current) {
+        const message = error instanceof Error ? error.message : "قیف فروش بارگذاری نشد.";
+        setData(null);
+        setError(message);
+        toast.error(message);
+      }
+    } finally { if (requestId === requestSequence.current) setLoading(false); }
   }, [days]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { requestSequence.current += 1; };
+  }, [load]);
   const maxStatus = useMemo(() => Math.max(1, ...(data?.statuses.map((x) => x.count) ?? [1])), [data]);
   return <section className="admin-panel admin-sales-funnel" dir="rtl">
     <div className="admin-panel-head"><div><span className="kicker">CRM و فروش</span><h2><BarChart3 size={18} /> قیف فروش و تبدیل لید</h2><p>ببینید چند درخواست وارد شده، در کدام مرحله مانده و چه مقدار به قرارداد رسیده است.</p></div>

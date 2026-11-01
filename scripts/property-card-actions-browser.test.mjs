@@ -734,6 +734,28 @@ try {
   for (const width of [320, 390, 768, 1024, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(80);
+    if (width <= 760) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(50);
+      const initialContactState = await mobileContactActions.evaluate((rail) => ({
+        visibility: getComputedStyle(rail).visibility,
+        visibleClass: rail.classList.contains("is-visible"),
+      }));
+      assert.equal(initialContactState.visibleClass, false,
+        "mobile contact CTA must stay tucked away while the property summary is visible");
+      assert.equal(initialContactState.visibility, "hidden",
+        "mobile contact CTA must not cover the property summary before it scrolls away");
+      await page.evaluate(() => {
+        const summary = document.querySelector(".hd-summary-card");
+        if (!summary) throw new Error("property summary is missing from the detail page");
+        const bounds = summary.getBoundingClientRect();
+        if (bounds.bottom >= 0) window.scrollBy(0, bounds.bottom + 2);
+      });
+      await page.waitForFunction(
+        () => document.querySelector(".hd-mobile-actions")?.classList.contains("is-visible"),
+        { timeout: timeoutMs },
+      );
+    }
     const contactGeometry = await mobileContactActions.evaluate((rail) => {
       const rect = rail.getBoundingClientRect();
       const style = getComputedStyle(rail);

@@ -54,7 +54,10 @@ export function AdminConsultantPerformance() {
     }
   }, [days]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { requestRef.current += 1; };
+  }, [load]);
 
   const totals = rows.reduce((acc, row) => ({
     leads: acc.leads + row.leads,

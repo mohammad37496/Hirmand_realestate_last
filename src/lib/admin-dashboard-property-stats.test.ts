@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { ADMIN_DASHBOARD_PROPERTY_STATS_SQL, ADMIN_DASHBOARD_PROPERTY_TYPES_SQL } from "./admin-dashboard-property-stats.ts";
 import { isAdminDashboardPayload } from "./admin-dashboard-contract.ts";
+import { ADMIN_CAMPAIGN_TOTALS_SQL } from "./admin-campaign-performance-sql.ts";
 
 const emptyDashboard = {
   properties: { total: 0, published: 0, draft: 0, archived: 0, featured: 0, withoutImages: 0, newLast7: 0, incomplete: 0 },
@@ -101,6 +102,50 @@ test("campaign performance fails closed instead of turning query failures into e
   assert.match(ui, /<AdminErrorBanner/);
   assert.match(ui, /setError\(/);
   assert.doesNotMatch(ui, /setData\(\{days:range,rows:\[\]/);
+});
+
+test("campaign totals include all grouped sources beyond the fifty visible rows", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table leads (
+        id text primary key, acquisition_source text, source text, acquisition_medium text,
+        acquisition_campaign text, last_contacted_at timestamptz, status text not null,
+        visit_requested_at timestamptz, visit_status text, created_at timestamptz not null
+      );
+    `);
+    for (let index = 0; index < 51; index += 1) {
+      await db.query(
+        `insert into leads (id,acquisition_source,acquisition_medium,acquisition_campaign,last_contacted_at,status,visit_requested_at,visit_status,created_at)
+         values ($1,$2,'web',$3,$4,$5,$6,$7,current_timestamp)`,
+        [
+          `lead-${index}`,
+          `source-${index}`,
+          `campaign-${index}`,
+          index % 2 === 0 ? new Date().toISOString() : null,
+          index === 0 ? "contract" : "new",
+          index % 3 === 0 ? new Date().toISOString() : null,
+          index % 3 === 0 ? "requested" : "none",
+        ],
+      );
+    }
+    const result = await db.query<{
+      campaigns: number;
+      leads: number;
+      contacted: number;
+      visits: number;
+      contracts: number;
+    }>(ADMIN_CAMPAIGN_TOTALS_SQL, [30]);
+    assert.deepEqual(result.rows[0], {
+      campaigns: 51,
+      leads: 51,
+      contacted: 26,
+      visits: 17,
+      contracts: 1,
+    });
+  } finally {
+    await db.close();
+  }
 });
 
 test("property quality and publication queue distinguish unavailable storage from empty results", () => {

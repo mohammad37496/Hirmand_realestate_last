@@ -636,6 +636,34 @@ export function PropertyDetailView({
   const [priceHistory, setPriceHistory] = useState<PropertyPriceHistoryItem[]>([]);
   const [priceWatchEnabled, setPriceWatchEnabled] = useState(false);
   const [priceWatchBusy, setPriceWatchBusy] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
+
+  useEffect(() => {
+    const summary = document.querySelector(".hd-summary-card");
+    const media = window.matchMedia("(max-width: 760px)");
+    let observer: IntersectionObserver | undefined;
+    const syncVisibility = () => {
+      observer?.disconnect();
+      if (!media.matches) {
+        setShowMobileActions(false);
+        return;
+      }
+      if (!summary) {
+        setShowMobileActions(true);
+        return;
+      }
+      observer = new IntersectionObserver(([entry]) => {
+        setShowMobileActions(!entry.isIntersecting);
+      }, { threshold: 0 });
+      observer.observe(summary);
+    };
+    syncVisibility();
+    media.addEventListener("change", syncVisibility);
+    return () => {
+      media.removeEventListener("change", syncVisibility);
+      observer?.disconnect();
+    };
+  }, [property?.slug]);
 
   useEffect(() => {
     if (!property) return;
@@ -1133,7 +1161,7 @@ export function PropertyDetailView({
         ) : null}
       </main>
 
-      <div className="property-mobile-actions hd-mobile-actions" aria-label="اقدام‌های تماس">
+      <div className={"property-mobile-actions hd-mobile-actions" + (showMobileActions ? " is-visible" : "")} aria-label="اقدام‌های تماس">
         <a href={telHref} className="hd-mobile-call" onClick={() => trackAnalyticsEvent("call_click", property.slug)}><Phone size={19} aria-hidden="true" /><span>تماس</span></a>
         {waHref ? <a href={waHref} className="hd-mobile-whatsapp" onClick={() => trackAnalyticsEvent("whatsapp_click", property.slug)} target="_blank" rel="noreferrer"><MessageCircle size={19} aria-hidden="true" /><span>واتساپ</span></a> : null}
         <button type="button" onClick={() => void copyPageUrl()} aria-label="کپی پیوند فایل">

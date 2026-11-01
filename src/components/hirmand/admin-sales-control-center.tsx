@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   BriefcaseBusiness,
@@ -76,9 +76,13 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestSequence = useRef(0);
 
   const load = useCallback(async (nextDays: 7 | 30 | 90 = 30) => {
+    const requestId = ++requestSequence.current;
     setLoading(true);
+    setData(null);
+    setError(null);
     try {
       const response = await fetch("/api/admin-sales-control-center", {
         method: "POST",
@@ -94,18 +98,23 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
       if (!result || typeof result.available !== "boolean" || !("pipeline" in result) || !("summary" in result) || !Array.isArray(result.consultants)) {
         throw new Error("ساختار پاسخ مرکز کنترل فروش معتبر نیست.");
       }
-      setData(result as SalesData);
-      setError(result.available ? null : "داده‌های مرکز کنترل فروش در دسترس نیست؛ پایگاه داده پیکربندی نشده است.");
+      if (requestId === requestSequence.current) {
+        setData(result as SalesData);
+        setError(result.available ? null : "داده‌های مرکز کنترل فروش در دسترس نیست؛ پایگاه داده پیکربندی نشده است.");
+      }
     } catch (loadError) {
-      setData(null);
-      setError(loadError instanceof Error ? loadError.message : "بارگذاری انجام نشد.");
+      if (requestId === requestSequence.current) {
+        setData(null);
+        setError(loadError instanceof Error ? loadError.message : "بارگذاری انجام نشد.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === requestSequence.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void load(days);
+    return () => { requestSequence.current += 1; };
   }, [days, load]);
 
   const rows = useMemo(() => {
@@ -201,14 +210,13 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
                 onClick={() => {
                   const next = value as 7 | 30 | 90;
                   setDays(next);
-                  void load(next);
                 }}
               >
                 {value === 7 ? "۷ روز" : value === 30 ? "۳۰ روز" : "۹۰ روز"}
               </button>
             ))}
           </div>
-          <button type="button" className="btn-ghost admin-sales-refresh" onClick={() => void load()} disabled={loading}>
+          <button type="button" className="btn-ghost admin-sales-refresh" onClick={() => void load(days)} disabled={loading}>
             <RefreshCw size={14} className={loading ? "admin-spin" : ""} />
             بروزرسانی
           </button>

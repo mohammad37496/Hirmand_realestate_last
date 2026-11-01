@@ -52,7 +52,8 @@ export default defineEventHandler(async (event) => {
          select lower(trim(contact_name)) as key,
                 count(*) filter (where status = 'published')::int as files
          from properties
-         where coalesce(trim(contact_name), '') <> ''
+         where deleted_at is null
+           and coalesce(trim(contact_name), '') <> ''
          group by lower(trim(contact_name))
        ),
        lead_stats as (
@@ -140,6 +141,7 @@ export default defineEventHandler(async (event) => {
       active: row.is_active === true || row.is_active === "t" || row.is_active === 1,
       files: Number(row.files) || 0,
       leads,
+      periodLeads: Number(row.period_leads) || 0,
       activeLeads: Number(row.active_leads) || 0,
       new7d: Number(row.new_7d) || 0,
       overdueLeads: Number(row.overdue_leads) || 0,
@@ -148,7 +150,7 @@ export default defineEventHandler(async (event) => {
       contracts: Number(row.contracts) || 0,
       periodContracts,
       views: Number(row.views) || 0,
-      conversionRate: leads > 0 ? Number(((periodContracts / leads) * 100).toFixed(1)) : 0,
+      conversionRate: Number(row.period_leads) > 0 ? Number(((periodContracts / Number(row.period_leads)) * 100).toFixed(1)) : 0,
     };
   });
 
