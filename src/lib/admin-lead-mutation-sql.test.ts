@@ -44,7 +44,7 @@ test("lead status, visit, note, follow-up and assignment updates each write a ma
   const db = await createDb();
   try {
     assert.equal((await db.query(UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "contacted", followUpAt, "Status changed", "New status: contacted", JSON.stringify({ status: "contacted" })])).rows.length, 1);
-    assert.equal((await db.query(UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "confirmed", "Visit confirmed", "Confirmed with customer", JSON.stringify({ visitStatus: "confirmed" })])).rows.length, 1);
+    assert.equal((await db.query(UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "confirmed", "Visit confirmed", "Confirmed with customer", JSON.stringify({ visitStatus: "confirmed" }), "none"])).rows.length, 1);
     const note = await db.query<{ note: string }>(UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL, ["lead-1", "updated note", "Internal note updated", JSON.stringify({ noteUpdated: true })]);
     assert.equal(note.rows[0]?.note, "updated note");
     assert.equal((await db.query(UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL, ["lead-1", followUpAt, "Follow-up scheduled", `Follow-up at ${followUpAt}`, JSON.stringify({ followUpAt })])).rows.length, 1);
@@ -78,7 +78,7 @@ test("failed activity inserts roll back every associated lead mutation", async (
   try {
     const mutations: Array<[string, unknown[]]> = [
       [UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "contacted", followUpAt, "Status changed", "New status: contacted", JSON.stringify({ status: "contacted" })]],
-      [UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "confirmed", "Visit confirmed", "Confirmed", JSON.stringify({ visitStatus: "confirmed" })]],
+      [UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "confirmed", "Visit confirmed", "Confirmed", JSON.stringify({ visitStatus: "confirmed" }), "none"]],
       [UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL, ["lead-1", "updated note", "Internal note updated", JSON.stringify({ noteUpdated: true })]],
       [UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL, ["lead-1", followUpAt, "Follow-up scheduled", `Follow-up at ${followUpAt}`, JSON.stringify({ followUpAt })]],
       [ASSIGN_LEAD_WITH_ACTIVITY_SQL, ["lead-1", "new consultant", "Consultant assigned", "Assignment from CRM balancing center", JSON.stringify({ consultant: "new consultant" })]],
@@ -105,13 +105,49 @@ test("failed activity inserts roll back every associated lead mutation", async (
   }
 });
 
+test("visit status compare-and-set does not overwrite a state changed by a concurrent request", async () => {
+  const db = await createDb();
+  try {
+    const rows = await db.query(
+      UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
+      ["lead-1", "confirmed", "Visit confirmed", "Confirmed", JSON.stringify({ visitStatus: "confirmed" }), "requested"],
+    );
+    assert.equal(rows.rows.length, 0);
+    const lead = await db.query<{ visit_status: string }>("select visit_status from leads where id='lead-1'");
+    assert.equal(lead.rows[0]?.visit_status, "none");
+    const activities = await db.query<{ count: number }>("select count(*)::int as count from lead_activities");
+    assert.equal(activities.rows[0]?.count, 0);
+  } finally {
+    await db.close();
+  }
+});
+
 test("CRM routes use atomic mutation-and-activity SQL without swallowing activity errors", () => {
   const leadsRoute = readFileSync(new URL("../../server/routes/api/leads-admin.post.ts", import.meta.url), "utf8");
   const assignmentRoute = readFileSync(new URL("../../server/routes/api/admin-lead-assignment.post.ts", import.meta.url), "utf8");
-  for (const name of ["UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL", "UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL", "UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL", "UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL"]) {
+  const publicActionsRoute = readFileSync(new URL("../../server/routes/api/public-lead-actions.post.ts", import.meta.url), "utf8");
+  const publicLeadsRoute = readFileSync(new URL("../../server/routes/api/leads.post.ts", import.meta.url), "utf8");
+  const dedupeRoute = readFileSync(new URL("../../server/routes/api/admin-lead-dedupe.post.ts", import.meta.url), "utf8");
+  const dedupeSql = readFileSync(new URL("./admin-lead-dedupe-sql.ts", import.meta.url), "utf8");
+  for (const name of ["UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL", "UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL", "UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL"]) {
     assert.match(leadsRoute, new RegExp(`sql\\.query<\\{[^>]+\\}>\\(\\s*${name}`));
   }
+  assert.match(leadsRoute, /tx\.query<\{ id: string \}>\(\s*UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL/);
   assert.match(assignmentRoute, /sql\.query<\{ id: string \}>\(\s*ASSIGN_LEAD_WITH_ACTIVITY_SQL/);
+  assert.match(leadsRoute, /withSqlTransaction\(async \(tx\)/);
+  assert.match(leadsRoute, /checkPropertyVisitSlot\(tx/);
+  assert.match(publicActionsRoute, /reschedulePropertyVisit\(tx/);
+  assert.match(publicActionsRoute, /cancelPropertyVisit\(tx/);
+  assert.match(publicLeadsRoute, /withSqlTransaction\(async \(tx\)/);
+  assert.match(publicLeadsRoute, /checkPropertyVisitSlot\(tx/);
+  assert.match(leadsRoute, /checkPropertyVisitSlot\(tx/);
+  assert.match(leadsRoute, /visitTime < Date\.now\(\) \+ 30 \* 60 \* 1000/);
+  assert.match(dedupeRoute, /planLeadVisitMerge\(canonical, duplicate\)/);
+  assert.match(dedupeRoute, /withSqlTransaction\(async \(tx\)/);
+  assert.match(dedupeRoute, /MERGE_LEADS_WITH_ACTIVITY_SQL/);
+  assert.match(dedupeRoute, /\[canonicalId, duplicateId, \[canonicalId, duplicateId\]\]/);
+  assert.match(dedupeSql, /id = any\(\$3::text\[\]\)/);
+  assert.match(dedupeSql, /visit_status = case when visit_status in \('requested','confirmed'\) then 'cancelled'/);
   assert.doesNotMatch(leadsRoute, /\.catch\(\(\)\s*=>\s*\{\}\)/);
   assert.doesNotMatch(assignmentRoute, /\.catch\(\(\)\s*=>\s*\{\}\)/);
 });

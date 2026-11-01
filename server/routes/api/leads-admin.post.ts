@@ -1,10 +1,11 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { csvCell } from "@/lib/csv";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { checkPropertyVisitSlot } from "@/lib/property-visit-scheduling.server";
 import {
   UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL,
   UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
@@ -344,6 +345,7 @@ export default defineEventHandler(async (event) => {
       statusMessage: "شناسه درخواست مشخص نیست.",
     });
   }
+  const leadId = body.id;
 
   if (body.action === "status") {
     if (!body.status || !STATUSES.includes(body.status)) {
@@ -374,11 +376,62 @@ export default defineEventHandler(async (event) => {
     if (!visitStatus || !["none","requested","confirmed","completed","cancelled"].includes(visitStatus)) {
       throw createError({ statusCode: 400, statusMessage: "وضعیت بازدید معتبر نیست." });
     }
-    const rows = await sql.query<{ id: string }>(
-      UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
-      [body.id, visitStatus, "وضعیت بازدید تغییر کرد", "وضعیت بازدید: " + visitStatus, JSON.stringify({ visitStatus })],
-    );
-    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
+    const result = await withSqlTransaction(async (tx) => {
+      const beforeRows = await tx.query<{
+        property_id: string | null;
+        visit_preferred_at: string | null;
+        visit_status: string | null;
+      }>("select property_id,visit_preferred_at,visit_status from leads where id=$1 limit 1", [leadId]);
+      const before = beforeRows[0];
+      if (!before) return { kind: "missing" as const };
+      const expectedStatus = String(before.visit_status ?? "none");
+      const propertyId = before.property_id == null ? "" : String(before.property_id).trim();
+      const visitAt = before.visit_preferred_at == null ? "" : String(before.visit_preferred_at);
+
+      if (visitStatus === "requested" || visitStatus === "confirmed") {
+        const visitTime = Date.parse(visitAt);
+        if (!propertyId || !visitAt || !Number.isFinite(visitTime) || visitTime < Date.now() + 30 * 60 * 1000) {
+          return { kind: "invalid_slot" as const };
+        }
+        const slot = await checkPropertyVisitSlot(tx, {
+          propertyId,
+          visitAt: new Date(visitTime).toISOString(),
+          excludeLeadIds: [leadId],
+        });
+        if (slot.kind === "property_missing") return { kind: "property_missing" as const };
+        if (slot.kind === "conflict") return { kind: "conflict" as const };
+      }
+
+      const lockedRows = await tx.query<{
+        property_id: string | null;
+        visit_preferred_at: string | null;
+        visit_status: string | null;
+      }>("select property_id,visit_preferred_at,visit_status from leads where id=$1 for update", [leadId]);
+      const locked = lockedRows[0];
+      if (!locked) return { kind: "missing" as const };
+      const lockedStatus = String(locked.visit_status ?? "none");
+      const lockedPropertyId = locked.property_id == null ? "" : String(locked.property_id).trim();
+      const lockedVisitTime = locked.visit_preferred_at == null ? null : Date.parse(String(locked.visit_preferred_at));
+      const beforeVisitTime = before.visit_preferred_at == null ? null : Date.parse(visitAt);
+      if (
+        lockedStatus !== expectedStatus ||
+        lockedPropertyId !== propertyId ||
+        lockedVisitTime !== beforeVisitTime
+      ) {
+        return { kind: "stale" as const };
+      }
+
+      const rows = await tx.query<{ id: string }>(
+        UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
+        [leadId, visitStatus, "وضعیت بازدید تغییر کرد", "وضعیت بازدید: " + visitStatus, JSON.stringify({ visitStatus }), expectedStatus],
+      );
+      return rows[0] ? { kind: "updated" as const } : { kind: "stale" as const };
+    });
+    if (result.kind === "missing") throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
+    if (result.kind === "invalid_slot") throw createError({ statusCode: 409, statusMessage: "برای تأیید بازدید، فایل و زمان آینده معتبر (حداقل ۳۰ دقیقه بعد) لازم است." });
+    if (result.kind === "property_missing") throw createError({ statusCode: 404, statusMessage: "فایل مرتبط با بازدید پیدا نشد." });
+    if (result.kind === "conflict") throw createError({ statusCode: 409, statusMessage: "این بازه برای بازدید دیگری رزرو شده است." });
+    if (result.kind === "stale") throw createError({ statusCode: 409, statusMessage: "وضعیت بازدید هم‌زمان تغییر کرده است؛ درخواست را تازه‌سازی کنید." });
     return { success: true, visitStatus };
   }
 
