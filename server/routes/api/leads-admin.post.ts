@@ -12,6 +12,7 @@ import {
   UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL,
   UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL,
 } from "@/lib/admin-lead-mutation-sql";
+import { lockLeadReferencesForMutation } from "@/lib/admin-lead-dedupe.server";
 
 type Status = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 type VisitStatus = "none" | "requested" | "confirmed" | "completed" | "cancelled";
@@ -331,9 +332,16 @@ export default defineEventHandler(async (event) => {
     const overdue = await sql.query<Record<string, unknown>>("select id, name, deal, neighborhood from leads where status not in ('closed','spam') and follow_up_at is not null and follow_up_at <= current_timestamp order by follow_up_at asc limit 500");
     let created = 0;
     for (const row of overdue) {
-      const exists = await sql.query<{ id: string }>("select id from admin_tasks where entity_type='lead' and entity_id=$1 and status='open' and dedupe_key='overdue_follow_up' limit 1",[String(row.id)]);
-      if (exists.length) continue;
-      const inserted = await sql.query<{ id: string }>("insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id,dedupe_key) values($1,$2,$3,'open','high',current_timestamp,'تیم هیرمند','lead',$4,'overdue_follow_up') on conflict (entity_type,entity_id,dedupe_key) where status='open' and dedupe_key='overdue_follow_up' do nothing returning id",[crypto.randomUUID(),"پیگیری فوری لید: "+String(row.name||"مشتری"),"لید "+String(row.deal||"درخواست ملکی")+(row.neighborhood?" · "+String(row.neighborhood):"")+" از موعد پیگیری عبور کرده است.",String(row.id)]);
+      const inserted = await withSqlTransaction(async (tx) => {
+        const lock = await lockLeadReferencesForMutation(tx, [String(row.id)]);
+        if (lock.kind !== "locked") return [];
+        const current = await tx.query<{ id: string; name: string | null; deal: string | null; neighborhood: string | null }>(
+          "select id,name,deal,neighborhood from leads where id=$1 and status not in ('closed','spam') and follow_up_at is not null and follow_up_at <= current_timestamp and merged_into_lead_id is null",
+          [String(row.id)],
+        );
+        if (!current[0]) return [];
+        return tx.query<{ id: string }>("insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id,dedupe_key) values($1,$2,$3,'open','high',current_timestamp,'تیم هیرمند','lead',$4,'overdue_follow_up') on conflict (entity_type,entity_id,dedupe_key) where status='open' and dedupe_key='overdue_follow_up' do nothing returning id",[crypto.randomUUID(),"پیگیری فوری لید: "+String(current[0].name||"مشتری"),"لید "+String(current[0].deal||"درخواست ملکی")+(current[0].neighborhood?" · "+String(current[0].neighborhood):"")+" از موعد پیگیری عبور کرده است.",String(row.id)]);
+      });
       created += inserted.length;
     }
     return { success:true, created };
@@ -378,13 +386,18 @@ export default defineEventHandler(async (event) => {
     }
     const result = await withSqlTransaction(async (tx) => {
       const beforeRows = await tx.query<{
+        status: string;
         property_id: string | null;
         visit_preferred_at: string | null;
         visit_status: string | null;
-      }>("select property_id,visit_preferred_at,visit_status from leads where id=$1 limit 1", [leadId]);
+      }>("select status,property_id,visit_preferred_at,visit_status from leads where id=$1 limit 1", [leadId]);
       const before = beforeRows[0];
       if (!before) return { kind: "missing" as const };
       const expectedStatus = String(before.visit_status ?? "none");
+      const expectedLeadStatus = String(before.status ?? "new");
+      if ((visitStatus === "requested" || visitStatus === "confirmed") && ["closed", "spam"].includes(expectedLeadStatus)) {
+        return { kind: "closed_lead" as const };
+      }
       const propertyId = before.property_id == null ? "" : String(before.property_id).trim();
       const visitAt = before.visit_preferred_at == null ? "" : String(before.visit_preferred_at);
 
@@ -403,18 +416,21 @@ export default defineEventHandler(async (event) => {
       }
 
       const lockedRows = await tx.query<{
+        status: string;
         property_id: string | null;
         visit_preferred_at: string | null;
         visit_status: string | null;
-      }>("select property_id,visit_preferred_at,visit_status from leads where id=$1 for update", [leadId]);
+      }>("select status,property_id,visit_preferred_at,visit_status from leads where id=$1 for update", [leadId]);
       const locked = lockedRows[0];
       if (!locked) return { kind: "missing" as const };
       const lockedStatus = String(locked.visit_status ?? "none");
+      const lockedLeadStatus = String(locked.status ?? "new");
       const lockedPropertyId = locked.property_id == null ? "" : String(locked.property_id).trim();
       const lockedVisitTime = locked.visit_preferred_at == null ? null : Date.parse(String(locked.visit_preferred_at));
       const beforeVisitTime = before.visit_preferred_at == null ? null : Date.parse(visitAt);
       if (
         lockedStatus !== expectedStatus ||
+        lockedLeadStatus !== expectedLeadStatus ||
         lockedPropertyId !== propertyId ||
         lockedVisitTime !== beforeVisitTime
       ) {
@@ -423,7 +439,7 @@ export default defineEventHandler(async (event) => {
 
       const rows = await tx.query<{ id: string }>(
         UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
-        [leadId, visitStatus, "وضعیت بازدید تغییر کرد", "وضعیت بازدید: " + visitStatus, JSON.stringify({ visitStatus }), expectedStatus],
+        [leadId, visitStatus, "وضعیت بازدید تغییر کرد", "وضعیت بازدید: " + visitStatus, JSON.stringify({ visitStatus }), expectedStatus, expectedLeadStatus],
       );
       return rows[0] ? { kind: "updated" as const } : { kind: "stale" as const };
     });
@@ -431,6 +447,7 @@ export default defineEventHandler(async (event) => {
     if (result.kind === "invalid_slot") throw createError({ statusCode: 409, statusMessage: "برای تأیید بازدید، فایل و زمان آینده معتبر (حداقل ۳۰ دقیقه بعد) لازم است." });
     if (result.kind === "property_missing") throw createError({ statusCode: 404, statusMessage: "فایل مرتبط با بازدید پیدا نشد." });
     if (result.kind === "conflict") throw createError({ statusCode: 409, statusMessage: "این بازه برای بازدید دیگری رزرو شده است." });
+    if (result.kind === "closed_lead") throw createError({ statusCode: 409, statusMessage: "برای لید بسته یا نامعتبر نمی‌توان بازدید فعال ثبت کرد." });
     if (result.kind === "stale") throw createError({ statusCode: 409, statusMessage: "وضعیت بازدید هم‌زمان تغییر کرده است؛ درخواست را تازه‌سازی کنید." });
     return { success: true, visitStatus };
   }
@@ -486,10 +503,15 @@ export default defineEventHandler(async (event) => {
     }
 
     const rows = await sql.query<{ id: number; created_at: string }>(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,$2,$3,$4,$5::jsonb) returning id, created_at",
+      "insert into lead_activities (lead_id, activity_type, title, note, metadata) select $1,$2,$3,$4,$5::jsonb where exists(select 1 from leads where id=$1 and merged_into_lead_id is null) returning id, created_at",
       [body.id, activityType, title || "فعالیت", note, JSON.stringify(body.activityMetadata ?? {})],
     );
-    if (!rows[0]) throw createError({ statusCode: 500, statusMessage: "ثبت فعالیت انجام نشد." });
+    if (!rows[0]) {
+      const current = await sql.query<{ merged_into_lead_id: string | null }>("select merged_into_lead_id from leads where id=$1 limit 1", [body.id]);
+      if (current[0]?.merged_into_lead_id) throw createError({ statusCode: 409, statusMessage: `این لید در ${current[0].merged_into_lead_id} ادغام شده است؛ فعالیت را روی لید اصلی ثبت کنید.` });
+      if (!current[0]) throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
+      throw createError({ statusCode: 500, statusMessage: "ثبت فعالیت انجام نشد." });
+    }
     return { success: true, id: Number(rows[0].id), createdAt: new Date(String(rows[0].created_at)).toISOString() };
   }
 
@@ -512,10 +534,12 @@ export default defineEventHandler(async (event) => {
 
   if (body.action === "delete") {
     const rows = await sql.query<{ id: string }>(
-      "delete from leads where id=$1 returning id",
+      "delete from leads where id=$1 and merged_into_lead_id is null returning id",
       [body.id],
     );
     if (!rows[0]) {
+      const current = await sql.query<{ merged_into_lead_id: string | null }>("select merged_into_lead_id from leads where id=$1 limit 1", [body.id]);
+      if (current[0]?.merged_into_lead_id) throw createError({ statusCode: 409, statusMessage: "رکورد ادغام‌شده برای حفظ کد رهگیری و سابقه مشتری قابل حذف نیست." });
       throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
     }
     return { success: true };

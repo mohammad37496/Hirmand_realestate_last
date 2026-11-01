@@ -72,7 +72,10 @@ test("productivity API validates lead associations and task mutations fail on in
   assert.match(route, /action === "list_leads"/);
   assert.match(route, /action === "list_properties"/);
   assert.match(route, /select id,slug,title,neighborhood,status from properties where deleted_at is null and status <> 'archived'/);
-  assert.match(route, /where \(\$8 <> 'lead' or exists\(select 1 from leads where id=\$9\)\) and \(\$8 <> 'property' or exists\(select 1 from properties/);
+  assert.match(route, /lockLeadReferencesForMutation\(tx, \[entityId\]\)/);
+  assert.match(route, /lockLeadReferencesForMutation\(tx, leadReferences\)/);
+  assert.match(route, /merged_into_lead_id is null/);
+  assert.match(route, /withSqlTransaction\(async \(tx\)/);
   assert.match(route, /body\.status !== undefined && !TASK_STATUSES\.includes/);
   assert.match(route, /body\.priority !== undefined && !PRIORITIES\.includes/);
   assert.match(route, /if \(!rows\[0\]\) throw createError\(\{ statusCode: 404, statusMessage: "وظیفه هنگام به‌روزرسانی/);

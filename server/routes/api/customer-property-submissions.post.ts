@@ -150,7 +150,7 @@ export default defineEventHandler(async (event) => {
       );
       if (submission.lead_id) {
         await tx.query(
-          "update leads set status='new', updated_at=current_timestamp, follow_up_at=current_timestamp + interval '2 hours', name=$2, phone=$3, job='مالک', deal=$4, property_type=$5, neighborhood=$6, note=$7 where id=$1",
+          "update leads set status='new', updated_at=current_timestamp, follow_up_at=current_timestamp + interval '2 hours', name=$2, phone=$3, job='مالک', deal=$4, property_type=$5, neighborhood=$6, note=$7 where id=$1 and merged_into_lead_id is null",
           [
             submission.lead_id,
             parsed.data.ownerName,
@@ -162,7 +162,7 @@ export default defineEventHandler(async (event) => {
           ],
         );
         await tx.query(
-          "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
+          "insert into lead_activities (lead_id,activity_type,title,note,metadata) select $1,'status',$2,$3,$4::jsonb where exists(select 1 from leads where id=$1 and merged_into_lead_id is null)",
           [
             submission.lead_id,
             "اصلاح و ارسال مجدد ملک توسط مشتری",

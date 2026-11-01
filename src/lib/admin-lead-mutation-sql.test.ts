@@ -8,6 +8,7 @@ import {
   UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL,
   UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL,
   UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
+  UPDATE_EXISTING_BUDGET_LEAD_SQL,
 } from "./admin-lead-mutation-sql.ts";
 
 async function createDb(rejectActivity = false) {
@@ -16,6 +17,7 @@ async function createDb(rejectActivity = false) {
     create table leads (
       id text primary key,
       status text not null default 'new',
+      merged_into_lead_id text,
       follow_up_at timestamptz,
       last_contacted_at timestamptz,
       visit_status text not null default 'none',
@@ -44,7 +46,7 @@ test("lead status, visit, note, follow-up and assignment updates each write a ma
   const db = await createDb();
   try {
     assert.equal((await db.query(UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "contacted", followUpAt, "Status changed", "New status: contacted", JSON.stringify({ status: "contacted" })])).rows.length, 1);
-    assert.equal((await db.query(UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "confirmed", "Visit confirmed", "Confirmed with customer", JSON.stringify({ visitStatus: "confirmed" }), "none"])).rows.length, 1);
+    assert.equal((await db.query(UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "confirmed", "Visit confirmed", "Confirmed with customer", JSON.stringify({ visitStatus: "confirmed" }), "none", "contacted"])).rows.length, 1);
     const note = await db.query<{ note: string }>(UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL, ["lead-1", "updated note", "Internal note updated", JSON.stringify({ noteUpdated: true })]);
     assert.equal(note.rows[0]?.note, "updated note");
     assert.equal((await db.query(UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL, ["lead-1", followUpAt, "Follow-up scheduled", `Follow-up at ${followUpAt}`, JSON.stringify({ followUpAt })])).rows.length, 1);
@@ -78,7 +80,7 @@ test("failed activity inserts roll back every associated lead mutation", async (
   try {
     const mutations: Array<[string, unknown[]]> = [
       [UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "contacted", followUpAt, "Status changed", "New status: contacted", JSON.stringify({ status: "contacted" })]],
-      [UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "confirmed", "Visit confirmed", "Confirmed", JSON.stringify({ visitStatus: "confirmed" }), "none"]],
+      [UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL, ["lead-1", "confirmed", "Visit confirmed", "Confirmed", JSON.stringify({ visitStatus: "confirmed" }), "none", "new"]],
       [UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL, ["lead-1", "updated note", "Internal note updated", JSON.stringify({ noteUpdated: true })]],
       [UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL, ["lead-1", followUpAt, "Follow-up scheduled", `Follow-up at ${followUpAt}`, JSON.stringify({ followUpAt })]],
       [ASSIGN_LEAD_WITH_ACTIVITY_SQL, ["lead-1", "new consultant", "Consultant assigned", "Assignment from CRM balancing center", JSON.stringify({ consultant: "new consultant" })]],
@@ -110,7 +112,7 @@ test("visit status compare-and-set does not overwrite a state changed by a concu
   try {
     const rows = await db.query(
       UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
-      ["lead-1", "confirmed", "Visit confirmed", "Confirmed", JSON.stringify({ visitStatus: "confirmed" }), "requested"],
+      ["lead-1", "confirmed", "Visit confirmed", "Confirmed", JSON.stringify({ visitStatus: "confirmed" }), "requested", "new"],
     );
     assert.equal(rows.rows.length, 0);
     const lead = await db.query<{ visit_status: string }>("select visit_status from leads where id='lead-1'");
@@ -122,11 +124,70 @@ test("visit status compare-and-set does not overwrite a state changed by a concu
   }
 });
 
+test("visit status CAS refuses to reactivate a lead closed by a concurrent dedupe", async () => {
+  const db = await createDb();
+  try {
+    await db.query("update leads set status='closed' where id='lead-1'");
+    const rows = await db.query(
+      UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL,
+      ["lead-1", "requested", "Visit requested", "Requested after merge", JSON.stringify({ visitStatus: "requested" }), "none", "new"],
+    );
+    assert.equal(rows.rows.length, 0);
+    const lead = await db.query<{ status: string; visit_status: string }>("select status,visit_status from leads where id='lead-1'");
+    assert.equal(lead.rows[0]?.status, "closed");
+    assert.equal(lead.rows[0]?.visit_status, "none");
+    assert.equal((await db.query("select id from lead_activities")).rows.length, 0);
+  } finally {
+    await db.close();
+  }
+});
+
+test("public budget refresh uses the canonical-lead guard and cannot mutate a merged duplicate", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table leads (
+        id text primary key, merged_into_lead_id text, name text, people_count integer, job text, deal text,
+        property_type text, neighborhood text, consultant text, note text, source text, follow_up_at timestamptz,
+        lease_deadline timestamptz, acquisition_source text, acquisition_medium text, acquisition_campaign text,
+        acquisition_referrer text, acquisition_landing_path text, budget_deposit numeric, budget_rent numeric,
+        budget_purchase numeric, budget_sale numeric, budget_rate numeric, budget_equivalent numeric,
+        budget_bedrooms integer, matched_properties jsonb, match_count integer, floor_preference text,
+        budget_deposit_min numeric, budget_deposit_max numeric, budget_rent_min numeric, budget_rent_max numeric,
+        budget_purchase_min numeric, budget_purchase_max numeric, budget_sale_min numeric, budget_sale_max numeric,
+        requested_amenities jsonb, requested_bedrooms integer, requested_area_min numeric, requested_area_max numeric,
+        public_tracking_token text, updated_at timestamptz
+      );
+      insert into leads(id,name,public_tracking_token) values
+        ('canonical','Before',null),('duplicate','Duplicate','HIR-26-BBBBBBBBBBBB');
+      update leads set merged_into_lead_id='canonical',name='Duplicate' where id='duplicate';
+    `);
+    const params = (id: string) => [
+      id, "After", 2, "job", "خرید", "apartment", "neighborhood", "consultant", "note", "budget_match",
+      1000, 100, 200, 300, 1, 500, 3, JSON.stringify([]), 0, "utm-source", "utm-medium", "campaign",
+      "referrer", "/landing", "floor", 900, 1100, 90, 120, 180, 220, 270, 330,
+      JSON.stringify(["parking"]), 2, 70, 90, "HIR-26-AAAAAAAAAAAA",
+    ];
+    const canonical = await db.query<{ id: string; public_tracking_token: string }>(UPDATE_EXISTING_BUDGET_LEAD_SQL, params("canonical"));
+    assert.equal(canonical.rows[0]?.id, "canonical");
+    assert.equal(canonical.rows[0]?.public_tracking_token, "HIR-26-AAAAAAAAAAAA");
+    const duplicate = await db.query(UPDATE_EXISTING_BUDGET_LEAD_SQL, params("duplicate"));
+    assert.equal(duplicate.rows.length, 0);
+    const preserved = await db.query<{ name: string; merged_into_lead_id: string }>(
+      "select name,merged_into_lead_id from leads where id='duplicate'",
+    );
+    assert.deepEqual(preserved.rows[0], { name: "Duplicate", merged_into_lead_id: "canonical" });
+  } finally {
+    await db.close();
+  }
+});
+
 test("CRM routes use atomic mutation-and-activity SQL without swallowing activity errors", () => {
   const leadsRoute = readFileSync(new URL("../../server/routes/api/leads-admin.post.ts", import.meta.url), "utf8");
   const assignmentRoute = readFileSync(new URL("../../server/routes/api/admin-lead-assignment.post.ts", import.meta.url), "utf8");
   const publicActionsRoute = readFileSync(new URL("../../server/routes/api/public-lead-actions.post.ts", import.meta.url), "utf8");
   const publicLeadsRoute = readFileSync(new URL("../../server/routes/api/leads.post.ts", import.meta.url), "utf8");
+  const mutationSql = readFileSync(new URL("./admin-lead-mutation-sql.ts", import.meta.url), "utf8");
   const dedupeRoute = readFileSync(new URL("../../server/routes/api/admin-lead-dedupe.post.ts", import.meta.url), "utf8");
   const dedupeSql = readFileSync(new URL("./admin-lead-dedupe-sql.ts", import.meta.url), "utf8");
   for (const name of ["UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL", "UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL", "UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL"]) {
@@ -139,15 +200,21 @@ test("CRM routes use atomic mutation-and-activity SQL without swallowing activit
   assert.match(publicActionsRoute, /reschedulePropertyVisit\(tx/);
   assert.match(publicActionsRoute, /cancelPropertyVisit\(tx/);
   assert.match(publicLeadsRoute, /withSqlTransaction\(async \(tx\)/);
+  assert.match(publicLeadsRoute, /UPDATE_EXISTING_BUDGET_LEAD_SQL/);
+  assert.match(publicLeadsRoute, /lockLeadReferencesForMutation\(tx, \[existing\[0\]\.id\]\)/);
+  assert.match(mutationSql, /where id=\$1 and merged_into_lead_id is null\s+returning id,public_tracking_token/);
   assert.match(publicLeadsRoute, /checkPropertyVisitSlot\(tx/);
   assert.match(leadsRoute, /checkPropertyVisitSlot\(tx/);
   assert.match(leadsRoute, /visitTime < Date\.now\(\) \+ 30 \* 60 \* 1000/);
   assert.match(dedupeRoute, /planLeadVisitMerge\(canonical, duplicate\)/);
   assert.match(dedupeRoute, /withSqlTransaction\(async \(tx\)/);
-  assert.match(dedupeRoute, /MERGE_LEADS_WITH_ACTIVITY_SQL/);
-  assert.match(dedupeRoute, /\[canonicalId, duplicateId, \[canonicalId, duplicateId\]\]/);
+  assert.match(dedupeRoute, /mergeLeadDedupeRelations\(tx, canonicalId, duplicateId\)/);
+  assert.match(dedupeRoute, /String\(before\.status \?\? ""\) === String\(after\.status \?\? ""\)/);
+  assert.doesNotMatch(dedupeRoute, /\.catch\(\(\)\s*=>\s*\{\}\)/);
   assert.match(dedupeSql, /id = any\(\$3::text\[\]\)/);
   assert.match(dedupeSql, /visit_status = case when visit_status in \('requested','confirmed'\) then 'cancelled'/);
+  assert.match(dedupeSql, /merge_history as \(/);
+  assert.match(dedupeSql, /merged_into_lead_id = \$1/);
   assert.doesNotMatch(leadsRoute, /\.catch\(\(\)\s*=>\s*\{\}\)/);
   assert.doesNotMatch(assignmentRoute, /\.catch\(\(\)\s*=>\s*\{\}\)/);
 });

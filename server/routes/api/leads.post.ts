@@ -6,6 +6,8 @@ import { buildBudgetLeadNote, budgetEquivalent } from "@/lib/budget-lead";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
 import { checkPropertyVisitSlot } from "@/lib/property-visit-scheduling.server";
+import { lockLeadReferencesForMutation } from "@/lib/admin-lead-dedupe.server";
+import { UPDATE_EXISTING_BUDGET_LEAD_SQL } from "@/lib/admin-lead-mutation-sql";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -32,10 +34,14 @@ async function createAutomaticFollowUp(sql: Awaited<ReturnType<typeof getSql>>, 
 }) {
   try {
     const dueAt = new Date(Date.now() + input.dueMinutes * 60_000).toISOString();
-    await sql.query(
-      "insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) values($1,$2,$3,'open',$4,$5,$6,'lead',$7)",
-      [crypto.randomUUID(), input.title, input.description, input.priority, dueAt, input.assignee?.trim() || "", input.leadId],
-    );
+    await withSqlTransaction(async (tx) => {
+      const lock = await lockLeadReferencesForMutation(tx, [input.leadId]);
+      if (lock.kind !== "locked") return;
+      await tx.query(
+        "insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) select $1,$2,$3,'open',$4,$5,$6,'lead',$7 where exists(select 1 from leads where id=$7 and merged_into_lead_id is null)",
+        [crypto.randomUUID(), input.title, input.description, input.priority, dueAt, input.assignee?.trim() || "", input.leadId],
+      );
+    });
   } catch (error) {
     console.error("[leads] automatic follow-up creation failed", error);
   }
@@ -216,7 +222,7 @@ export default defineEventHandler(async (event) => {
     }
   }
   const existing = await sql.query<{ id: string; public_tracking_token: string | null }>(
-    `select id, public_tracking_token from leads where phone = $1 and created_at > current_timestamp - interval '10 minutes' limit 1`,
+    `select id, public_tracking_token from leads where phone = $1 and merged_into_lead_id is null and created_at > current_timestamp - interval '10 minutes' limit 1`,
     [parsed.data.phone],
   );
 
@@ -250,17 +256,13 @@ export default defineEventHandler(async (event) => {
 
   if (existing[0] && !(parsed.data.propertyId && parsed.data.visitPreferredAt) && !parsed.data.callbackPreferredAt && parsed.data.offerAmount == null && !PROPERTY_SERVICE_REQUEST_DEALS.has(parsed.data.deal)) {
     if (parsed.data.source === "budget_match") {
-      await sql.query(
-        `update leads
-         set name=$2, people_count=$3, job=$4, deal=$5, property_type=$6, neighborhood=$7, consultant=$8, note=$9,
-             source=$10, follow_up_at=current_timestamp + interval '24 hours', lease_deadline=null, acquisition_source=$20, acquisition_medium=$21, acquisition_campaign=$22, acquisition_referrer=$23, acquisition_landing_path=$24, budget_deposit=$11, budget_rent=$12, budget_purchase=$13, budget_sale=$14, budget_rate=$15,
-             budget_equivalent=$16, budget_bedrooms=$17, matched_properties=$18::jsonb,
-             match_count=$19, floor_preference=$25, budget_deposit_min=$26, budget_deposit_max=$27,
-             budget_rent_min=$28, budget_rent_max=$29, budget_purchase_min=$30, budget_purchase_max=$31,
-             budget_sale_min=$32, budget_sale_max=$33, requested_amenities=$34::jsonb, requested_bedrooms=$35,
-             requested_area_min=$36, requested_area_max=$37, updated_at=current_timestamp
-         where id=$1`,
-        [
+      const nextTrackingToken = existing[0].public_tracking_token || createPublicTrackingToken();
+      const refreshed = await withSqlTransaction(async (tx) => {
+        const lock = await lockLeadReferencesForMutation(tx, [existing[0].id]);
+        if (lock.kind !== "locked") return null;
+        return (await tx.query<{ id: string; public_tracking_token: string | null }>(
+          UPDATE_EXISTING_BUDGET_LEAD_SQL,
+          [
           existing[0].id,
           parsed.data.name,
           parsed.data.peopleCount ?? null,
@@ -298,32 +300,29 @@ export default defineEventHandler(async (event) => {
           parsed.data.requestedBedrooms ?? null,
           parsed.data.requestedAreaMin ?? null,
           parsed.data.requestedAreaMax ?? null,
-        ],
-      );
+          nextTrackingToken,
+          ],
+        ))[0] ?? null;
+      });
+      if (!refreshed) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان ادغام یا تغییر کرده است؛ دوباره تلاش کنید." });
       try {
         await autoMatchLead(sql, existing[0].id, { mode: "smart", limit: 8 });
       } catch (error) {
         console.error("[leads] automatic smart matching failed for duplicate budget lead", error);
       }
-      const trackingToken =
-        existing[0].public_tracking_token || createPublicTrackingToken();
-      if (!existing[0].public_tracking_token) {
-        await sql.query(
-          "update leads set public_tracking_token=$2 where id=$1",
-          [existing[0].id, trackingToken],
-        );
-      }
-      return { success: true, duplicate: true, updated: true, id: existing[0].id, trackingToken };
+      return { success: true, duplicate: true, updated: true, id: existing[0].id, trackingToken: refreshed.public_tracking_token ?? nextTrackingToken };
     }
-    const trackingToken =
-      existing[0].public_tracking_token || createPublicTrackingToken();
-    if (!existing[0].public_tracking_token) {
-      await sql.query(
-        "update leads set public_tracking_token=$2 where id=$1",
-        [existing[0].id, trackingToken],
-      );
-    }
-    return { success: true, duplicate: true, id: existing[0].id, trackingToken };
+    const nextTrackingToken = existing[0].public_tracking_token || createPublicTrackingToken();
+    const tracking = await withSqlTransaction(async (tx) => {
+      const lock = await lockLeadReferencesForMutation(tx, [existing[0].id]);
+      if (lock.kind !== "locked") return null;
+      return (await tx.query<{ public_tracking_token: string | null }>(
+        "update leads set public_tracking_token=coalesce(public_tracking_token,$2),updated_at=current_timestamp where id=$1 and merged_into_lead_id is null returning public_tracking_token",
+        [existing[0].id, nextTrackingToken],
+      ))[0] ?? null;
+    });
+    if (!tracking) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان ادغام یا تغییر کرده است؛ دوباره تلاش کنید." });
+    return { success: true, duplicate: true, id: existing[0].id, trackingToken: tracking.public_tracking_token ?? nextTrackingToken };
   }
 
   if (parsed.data.callbackPreferredAt) {

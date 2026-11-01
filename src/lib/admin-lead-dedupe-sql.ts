@@ -1,14 +1,22 @@
-/** Merge a duplicate lead into its canonical row and move its timeline atomically. */
+/** Merge the lead rows, move CRM activities, close the duplicate, and write the audit event in one statement. */
 export const MERGE_LEADS_WITH_ACTIVITY_SQL = `
   with locked as materialized (
-    select id from leads where id = any($3::text[]) order by id for update
+    select id from leads
+    where id = any($3::text[]) and merged_into_lead_id is null
+    order by id for update
   ),
   duplicate as (
     select d.* from leads d
     join locked on locked.id = d.id
     where d.id = $2
+      and d.merged_into_lead_id is null
       and exists (select 1 from locked where id = $1)
       and (select count(*) from locked) = 2
+      and not exists (
+        select 1 from leads c
+        where c.id=$1 and c.visit_status in ('cancelled','completed')
+          and d.visit_status in ('requested','confirmed')
+      )
   ),
   merged as (
     update leads l
@@ -88,13 +96,23 @@ export const MERGE_LEADS_WITH_ACTIVITY_SQL = `
     update leads
     set
       status = 'closed',
+      merged_into_lead_id = $1,
       visit_status = case when visit_status in ('requested','confirmed') then 'cancelled' else visit_status end,
       note = concat_ws(E'\\n', nullif(trim(note),''), 'این لید در ' || to_char(current_timestamp,'YYYY-MM-DD HH24:MI') || ' با لید ' || $1 || ' ادغام شد.'),
       updated_at = current_timestamp
     where id = $2 and exists (select 1 from merged)
     returning id
+  ),
+  merge_history as (
+    insert into lead_activities (lead_id, activity_type, title, note, metadata)
+    select $1, 'status', 'ادغام لید تکراری',
+      'رکورد ' || $2 || ' در این لید ادغام شد. رکورد دوم بسته و فعالیت‌های CRM منتقل شدند.',
+      jsonb_build_object('mergedLeadId', $2, 'movedActivities', (select count(*) from moved_activities))
+    from closed_duplicate
+    returning id
   )
   select (select id from merged) as canonical_id,
          (select count(*) from moved_activities)::int as moved_activities,
-         (select id from closed_duplicate) as duplicate_id
+         (select id from closed_duplicate) as duplicate_id,
+         (select id from merge_history) as history_id
 `;

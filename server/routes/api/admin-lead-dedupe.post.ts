@@ -8,7 +8,7 @@ import {
   lockPropertyVisitSchedule,
   planLeadVisitMerge,
 } from "@/lib/property-visit-scheduling.server";
-import { MERGE_LEADS_WITH_ACTIVITY_SQL } from "@/lib/admin-lead-dedupe-sql";
+import { mergeLeadDedupeRelations } from "@/lib/admin-lead-dedupe.server";
 
 const DIGIT_TRANSLATION = "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩";
 
@@ -50,6 +50,7 @@ export default defineEventHandler(async (event) => {
           ) as phone_key,
           lower(regexp_replace(trim(coalesce(name,'')), '[[:space:]]+', '', 'g')) as name_key
         from leads
+        where merged_into_lead_id is null
       ),
       pairs as (
         select a.id as a_id, a.name as a_name, a.phone as a_phone, a.status as a_status, a.consultant as a_consultant, a.property_id as a_property_id, a.created_at as a_created_at,
@@ -131,11 +132,13 @@ export default defineEventHandler(async (event) => {
   const mergeResult = await withSqlTransaction(async (tx) => {
     const initialRows = await tx.query<{
       id: string;
+      status: string;
+      merged_into_lead_id: string | null;
       property_id: string | null;
       visit_preferred_at: string | null;
       visit_status: string | null;
     }>(
-      "select id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id",
+      "select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id",
       [[canonicalId, duplicateId]],
     );
     if (initialRows.length !== 2) return { kind: "missing" as const };
@@ -155,11 +158,13 @@ export default defineEventHandler(async (event) => {
 
     const lockedRows = await tx.query<{
       id: string;
+      status: string;
+      merged_into_lead_id: string | null;
       property_id: string | null;
       visit_preferred_at: string | null;
       visit_status: string | null;
     }>(
-      "select id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id for update",
+      "select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id for update",
       [[canonicalId, duplicateId]],
     );
     if (lockedRows.length !== 2) return { kind: "stale" as const };
@@ -168,6 +173,8 @@ export default defineEventHandler(async (event) => {
     const duplicate = lockedById.get(duplicateId);
     if (!canonical || !duplicate) return { kind: "stale" as const };
     const sameSnapshot = (before: typeof initialCanonical, after: typeof canonical) =>
+      String(before.status ?? "") === String(after.status ?? "") &&
+      String(before.merged_into_lead_id ?? "") === String(after.merged_into_lead_id ?? "") &&
       String(before.property_id ?? "") === String(after.property_id ?? "") &&
       String(before.visit_status ?? "none") === String(after.visit_status ?? "none") &&
       (before.visit_preferred_at == null ? null : Date.parse(String(before.visit_preferred_at))) ===
@@ -188,13 +195,10 @@ export default defineEventHandler(async (event) => {
       if (slot.kind === "conflict") return { kind: "visit_conflict" as const };
     }
 
-    const rows = await tx.query<Record<string, unknown>>(
-      MERGE_LEADS_WITH_ACTIVITY_SQL,
-      [canonicalId, duplicateId, [canonicalId, duplicateId]],
-    );
-
-    if (!rows[0]?.canonical_id || !rows[0]?.duplicate_id) return { kind: "stale" as const };
-    return { kind: "merged" as const, rows };
+    if (duplicate.merged_into_lead_id || canonical.merged_into_lead_id) return { kind: "stale" as const };
+    const mutation = await mergeLeadDedupeRelations(tx, canonicalId, duplicateId);
+    if (!mutation) return { kind: "stale" as const };
+    return { kind: "merged" as const, mutation };
   });
 
   if (mergeResult.kind === "missing" || mergeResult.kind === "stale") {
@@ -203,23 +207,10 @@ export default defineEventHandler(async (event) => {
   if (mergeResult.kind === "property_missing") throw createError({ statusCode: 404, statusMessage: "فایل مرتبط با بازدید پیدا نشد؛ ادغام انجام نشد." });
   if (mergeResult.kind === "conflicting_visits") throw createError({ statusCode: 409, statusMessage: "این دو لید بازدیدهای فعال متفاوتی دارند؛ ابتدا زمان‌های بازدید را تعیین تکلیف کنید." });
   if (mergeResult.kind === "visit_conflict") throw createError({ statusCode: 409, statusMessage: "زمان بازدید ادغام‌شده با بازدید فعال دیگری تداخل دارد." });
-  const rows = mergeResult.rows;
-
-  await sql.query(
-    "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'status',$2,$3,$4::jsonb)",
-    [
-      canonicalId,
-      "ادغام لید تکراری",
-      "رکورد " + duplicateId + " در این لید ادغام شد.",
-      "رکورد دوم بسته شد و فعالیت‌های آن منتقل شدند.",
-      JSON.stringify({ mergedLeadId: duplicateId }),
-    ],
-  ).catch(() => {});
-
   return {
     success: true,
     canonicalId,
     duplicateId,
-    movedActivities: Number(rows[0].moved_activities) || 0,
+    ...mergeResult.mutation,
   };
 });

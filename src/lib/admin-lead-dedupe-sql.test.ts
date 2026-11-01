@@ -8,7 +8,7 @@ async function fixture() {
   const db = new PGlite();
   await db.exec(`
     create table leads (
-      id text primary key, status text not null default 'new', name text, phone text,
+      id text primary key, status text not null default 'new', merged_into_lead_id text, name text, phone text,
       people_count integer, job text, deal text, property_type text, neighborhood text, consultant text,
       note text, source text, acquisition_source text, acquisition_medium text, acquisition_campaign text,
       acquisition_referrer text, follow_up_at timestamptz, last_contacted_at timestamptz,
@@ -23,7 +23,7 @@ async function fixture() {
       match_count integer not null default 0, updated_at timestamptz not null default current_timestamp
     );
     create table lead_activities (
-      id text primary key, lead_id text not null, activity_type text not null,
+      id text primary key default gen_random_uuid()::text, lead_id text not null, activity_type text not null,
       title text not null, note text not null default '', metadata jsonb not null default '{}'::jsonb
     );
   `);
@@ -79,6 +79,13 @@ test("dedupe SQL moves the duplicate's only active visit onto a canonical lead",
     assert.equal(active.rows[0]?.count, 1);
     const activities = await db.query<{ lead_id: string }>("select lead_id from lead_activities where id='activity-1'");
     assert.equal(activities.rows[0]?.lead_id, "canonical");
+    const history = await db.query<{ title: string; metadata: { mergedLeadId: string } }>(
+      "select title,metadata from lead_activities where title='ادغام لید تکراری'",
+    );
+    assert.equal(history.rows.length, 1);
+    assert.equal(history.rows[0]?.metadata.mergedLeadId, "duplicate");
+    const marker = await db.query<{ merged_into_lead_id: string }>("select merged_into_lead_id from leads where id='duplicate'");
+    assert.equal(marker.rows[0]?.merged_into_lead_id, "canonical");
   } finally {
     await db.close();
   }
@@ -111,5 +118,28 @@ test("dedupe planner rejects moving an active visit onto cancelled or completed 
       { property_id: "property-1", visit_preferred_at: "2030-06-01T08:00:00Z", visit_status: status },
       { property_id: "property-1", visit_preferred_at: "2030-06-01T10:00:00Z", visit_status: "requested" },
     ).kind, "conflicting_visits");
+  }
+});
+
+test("dedupe SQL itself refuses to consume an active duplicate visit when canonical visit history is terminal", async () => {
+  const db = await fixture();
+  try {
+    for (const status of ["cancelled", "completed"]) {
+      await insertLead(db, { id: "canonical-" + status, propertyId: "property-1", visitAt: "2030-06-01T08:00:00Z", visitStatus: status });
+      await insertLead(db, { id: "duplicate-" + status, propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", visitStatus: "requested" });
+      const before = await db.query<{ id: string; visit_status: string }>("select id,visit_status from leads where id=any($1::text[]) order by id", [["canonical-" + status, "duplicate-" + status]]);
+      assert.deepEqual(before.rows.map((row) => row.visit_status), [status, "requested"]);
+      const result = await merge(db, "canonical-" + status, "duplicate-" + status);
+      assert.equal(result.rows[0]?.canonical_id, null);
+      const duplicate = await db.query<{ status: string; visit_status: string; merged_into_lead_id: string | null }>(
+        "select status,visit_status,merged_into_lead_id from leads where id=$1",
+        ["duplicate-" + status],
+      );
+      assert.equal(duplicate.rows[0]?.status, "new");
+      assert.equal(duplicate.rows[0]?.visit_status, "requested");
+      assert.equal(duplicate.rows[0]?.merged_into_lead_id, null);
+    }
+  } finally {
+    await db.close();
   }
 });
