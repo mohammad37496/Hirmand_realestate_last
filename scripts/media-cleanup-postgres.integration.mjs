@@ -104,11 +104,15 @@ try {
   let writerSettled = false;
   const lateWriter = writer.query(
     "insert into property_video_renditions(source_url,renditions) values($1,'{}'::jsonb)", [secondUrl],
+  ).then(
+    () => null,
+    (error) => error,
   ).finally(() => { writerSettled = true; });
   await pause(100);
   assert.equal(writerSettled, false, "writer must wait while the deleter holds the shared transaction lock");
   await deleter.query("commit");
-  await assert.rejects(lateWriter, (error) => error.code === "23503");
+  const lateWriterError = await lateWriter;
+  assert.equal(lateWriterError?.code, "23503", "the blocked writer must be rejected by the durable deleting tombstone");
   assert.equal((await admin.query("select source_url from property_video_renditions where source_url=$1", [secondUrl])).rows.length, 0);
   console.log("ok   PostgreSQL deleting tombstone blocks video URL resurrection before external deletion");
 
