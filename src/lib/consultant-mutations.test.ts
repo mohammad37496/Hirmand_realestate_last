@@ -39,8 +39,15 @@ async function createDb() {
     create table properties (
       id text primary key, contact_name text, contact_phone text, updated_at timestamptz
     );
+    create table leads (
+      id text primary key, consultant text not null default '', updated_at timestamptz not null default current_timestamp
+    );
     insert into consultants (id,name,role,phone,phone_display,icon,bio,whatsapp,telegram,eitaa,instagram,rubika,bale,igap,soroush,sort_order,is_active)
       values ('consultant-1','مشاور قبلی','مشاور','09121111111','۰۹۱۲۱۱۱۱۱۱۱','handshake','','','','','','','','','',10,true);
+    insert into leads (id,consultant) values
+      ('lead-1',(select name from consultants where id='consultant-1')),
+      ('lead-2','  ' || (select name from consultants where id='consultant-1') || '  '),
+      ('lead-3','Another Consultant');
     insert into properties (id,contact_name,contact_phone) values
       ('property-1','مشاور قبلی','09121111111'),
       ('property-2','  مشاور قبلی  ','09121111111');
@@ -54,16 +61,22 @@ function transactionSql(tx: { query: (text: string, params?: unknown[]) => Promi
   } as Pick<Sql, "query">;
 }
 
-test("consultant save updates the consultant and every matching property contact together", async () => {
+test("consultant rename updates CRM lead assignments and every matching property contact together", async () => {
   const db = await createDb();
   try {
     await db.transaction(async (tx) => saveConsultantWithSql(transactionSql(tx), consultant));
     const saved = await db.query<{ name: string; phone: string }>("select name,phone from consultants where id='consultant-1'");
     const properties = await db.query<{ contact_name: string; contact_phone: string }>("select contact_name,contact_phone from properties order by id");
+    const leads = await db.query<{ id: string; consultant: string }>("select id,consultant from leads order by id");
     assert.deepEqual(saved.rows[0], { name: consultant.name, phone: consultant.phone });
     assert.deepEqual(properties.rows, [
       { contact_name: consultant.name, contact_phone: consultant.phone },
       { contact_name: consultant.name, contact_phone: consultant.phone },
+    ]);
+    assert.deepEqual(leads.rows, [
+      { id: "lead-1", consultant: consultant.name },
+      { id: "lead-2", consultant: consultant.name },
+      { id: "lead-3", consultant: "Another Consultant" },
     ]);
   } finally {
     await db.close();
@@ -91,6 +104,30 @@ test("a property contact sync failure rolls back the consultant update", async (
       { contact_name: "مشاور قبلی", contact_phone: "09121111111" },
       { contact_name: "  مشاور قبلی  ", contact_phone: "09121111111" },
     ]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("a property contact sync failure rolls back the lead reassignment too", async () => {
+  const db = await createDb();
+  try {
+    await db.exec(`
+      create function reject_contact_sync() returns trigger language plpgsql as $$
+      begin raise exception 'simulated property sync failure'; end;
+      $$;
+      create trigger reject_contact_sync before update on properties
+      for each row execute function reject_contact_sync();
+    `);
+    await assert.rejects(
+      db.transaction(async (tx) => saveConsultantWithSql(transactionSql(tx), consultant)),
+      /simulated property sync failure/,
+    );
+    const saved = await db.query<{ name: string }>("select name from consultants where id='consultant-1'");
+    const leads = await db.query<{ id: string; consultant: string }>("select id,consultant from leads order by id");
+    assert.equal(leads.rows[0]?.consultant.trim(), saved.rows[0]?.name);
+    assert.equal(leads.rows[1]?.consultant.trim(), saved.rows[0]?.name);
+    assert.equal(leads.rows[2]?.consultant, "Another Consultant");
   } finally {
     await db.close();
   }
