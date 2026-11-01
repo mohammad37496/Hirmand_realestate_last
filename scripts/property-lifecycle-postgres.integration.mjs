@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import pg from "pg";
+import { restoreTrashedProperty } from "../src/lib/admin-property-trash.ts";
 import { softDeleteProperty } from "../src/lib/admin-property-soft-delete.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -15,12 +16,21 @@ const ids = {
   concurrent: `${prefix}-concurrent`,
   historyFailure: `${prefix}-history-failure`,
   auditFailure: `${prefix}-audit-failure`,
+  restoreConcurrent: `${prefix}-restore-concurrent`,
+  restoreHistoryFailure: `${prefix}-restore-history-failure`,
+  restoreAuditFailure: `${prefix}-restore-audit-failure`,
 };
 const clients = [];
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function sqlFor(client) {
   return async (statement, params = []) => (await client.query(statement, params)).rows;
+}
+
+function releaseClient(client) {
+  const index = clients.indexOf(client);
+  if (index >= 0) clients.splice(index, 1);
+  client.release();
 }
 
 async function inTransaction(client, callback) {
@@ -42,6 +52,14 @@ async function insertProperty(id, title) {
        property_type, neighborhood, description, contact_name, contact_phone
      ) values ($1,$2,'published',true,current_timestamp + interval '1 day',$3,'sell','apartment','QA','QA','QA','QA')`,
     [id, `${id}-${randomUUID()}`, title],
+  );
+}
+
+async function insertTrashedProperty(id, title) {
+  await insertProperty(id, title);
+  await pool.query(
+    "update properties set status='archived',deleted_at=current_timestamp,deleted_from_status='published',featured=false,featured_until=null where id=$1",
+    [id],
   );
 }
 
@@ -68,6 +86,20 @@ async function assertPropertyUnchanged(id) {
     deleted_from_status: null,
     featured: true,
   });
+  const history = await pool.query("select id from property_change_history where property_id=$1", [id]);
+  const audit = await pool.query("select id from admin_audit_log where entity_id=$1", [id]);
+  assert.equal(history.rowCount, 0);
+  assert.equal(audit.rowCount, 0);
+}
+
+async function assertRestoreUnchanged(id) {
+  const result = await pool.query(
+    "select status,deleted_at,deleted_from_status from properties where id=$1",
+    [id],
+  );
+  assert.equal(result.rows[0]?.status, "archived");
+  assert.ok(result.rows[0]?.deleted_at);
+  assert.equal(result.rows[0]?.deleted_from_status, "published");
   const history = await pool.query("select id from property_change_history where property_id=$1", [id]);
   const audit = await pool.query("select id from admin_audit_log where entity_id=$1", [id]);
   assert.equal(history.rowCount, 0);
@@ -185,6 +217,70 @@ try {
   assert.deepEqual(concurrentAudit.rows[0].metadata, { fromStatus: "published" });
   console.log("PASS property soft-delete two-connection row-lock race");
 
+  await insertTrashedProperty(ids.restoreConcurrent, "Concurrent restore QA property");
+  let firstRestoreOpen = false;
+  let secondRestoreOpen = false;
+  let secondRestorePromise;
+  try {
+    await firstClient.query("BEGIN");
+    firstRestoreOpen = true;
+    const firstRestore = await restoreTrashedProperty(
+      sqlFor(firstClient), ids.restoreConcurrent, true, "qa-admin-a",
+    );
+    assert.deepEqual(firstRestore, {
+      id: ids.restoreConcurrent,
+      title: "Concurrent restore QA property",
+      status: "published",
+    });
+
+    await secondClient.query("BEGIN");
+    secondRestoreOpen = true;
+    secondRestorePromise = restoreTrashedProperty(
+      sqlFor(secondClient), ids.restoreConcurrent, true, "qa-admin-b",
+    ).then((value) => ({ value }), (error) => ({ error }));
+    assert.equal(await waitForLock(secondPid), true, "the second restore must wait for the first row update");
+    await firstClient.query("COMMIT");
+    firstRestoreOpen = false;
+    const secondRestore = await secondRestorePromise;
+    if (secondRestore.error) throw secondRestore.error;
+    assert.equal(secondRestore.value, null, "the second restore must become an idempotent no-op after the first commits");
+    await secondClient.query("COMMIT");
+    secondRestoreOpen = false;
+  } catch (error) {
+    if (firstRestoreOpen) await firstClient.query("ROLLBACK").catch(() => undefined);
+    if (secondRestoreOpen) await secondClient.query("ROLLBACK").catch(() => undefined);
+    if (secondRestorePromise) await secondRestorePromise;
+    throw error;
+  }
+  const restoredProperty = await pool.query(
+    "select status,deleted_at,deleted_from_status from properties where id=$1",
+    [ids.restoreConcurrent],
+  );
+  assert.deepEqual(restoredProperty.rows[0], {
+    status: "published",
+    deleted_at: null,
+    deleted_from_status: null,
+  });
+  const restoreHistory = await pool.query(
+    "select action,before_state,after_state from property_change_history where property_id=$1",
+    [ids.restoreConcurrent],
+  );
+  const restoreAudit = await pool.query(
+    "select action,actor,metadata from admin_audit_log where entity_id=$1",
+    [ids.restoreConcurrent],
+  );
+  assert.equal(restoreHistory.rowCount, 1);
+  assert.equal(restoreHistory.rows[0].action, "updated");
+  assert.deepEqual(restoreHistory.rows[0].before_state, { status: "trash" });
+  assert.deepEqual(restoreHistory.rows[0].after_state, { status: "published" });
+  assert.equal(restoreAudit.rowCount, 1);
+  assert.equal(restoreAudit.rows[0].action, "property.restored");
+  assert.equal(restoreAudit.rows[0].actor, "qa-admin-a");
+  assert.deepEqual(restoreAudit.rows[0].metadata, { restoredStatus: "published" });
+  console.log("PASS property restore two-connection row-update race");
+  releaseClient(firstClient);
+  releaseClient(secondClient);
+
   await insertProperty(ids.historyFailure, "History rollback QA property");
   const historyClient = await pool.connect();
   clients.push(historyClient);
@@ -200,8 +296,23 @@ try {
     }),
     /simulated property history failure/,
   );
+  releaseClient(historyClient);
   await assertPropertyUnchanged(ids.historyFailure);
   console.log("PASS property soft-delete rollback on lifecycle-history failure");
+
+  await insertTrashedProperty(ids.restoreHistoryFailure, "Restore history rollback QA property");
+  const restoreHistoryClient = await pool.connect();
+  clients.push(restoreHistoryClient);
+  await assert.rejects(
+    inTransaction(restoreHistoryClient, async (query) => {
+      await restoreHistoryClient.query("select set_config('hirmand.qa_fail_property_history_id',$1,true)", [ids.restoreHistoryFailure]);
+      return restoreTrashedProperty(query, ids.restoreHistoryFailure, true, "qa-admin");
+    }),
+    /simulated property history failure/,
+  );
+  releaseClient(restoreHistoryClient);
+  await assertRestoreUnchanged(ids.restoreHistoryFailure);
+  console.log("PASS property restore rollback on lifecycle-history failure");
 
   await insertProperty(ids.auditFailure, "Audit rollback QA property");
   const auditClient = await pool.connect();
@@ -218,9 +329,24 @@ try {
     }),
     /simulated property audit failure/,
   );
+  releaseClient(auditClient);
   await assertPropertyUnchanged(ids.auditFailure);
   console.log("PASS property soft-delete rollback on audit failure");
-  console.log("PASS property lifecycle PostgreSQL integration (two connections, history, audit, rollback)");
+
+  await insertTrashedProperty(ids.restoreAuditFailure, "Restore audit rollback QA property");
+  const restoreAuditClient = await pool.connect();
+  clients.push(restoreAuditClient);
+  await assert.rejects(
+    inTransaction(restoreAuditClient, async (query) => {
+      await restoreAuditClient.query("select set_config('hirmand.qa_fail_property_audit_id',$1,true)", [ids.restoreAuditFailure]);
+      return restoreTrashedProperty(query, ids.restoreAuditFailure, true, "qa-admin");
+    }),
+    /simulated property audit failure/,
+  );
+  releaseClient(restoreAuditClient);
+  await assertRestoreUnchanged(ids.restoreAuditFailure);
+  console.log("PASS property restore rollback on audit failure");
+  console.log("PASS property lifecycle PostgreSQL integration (delete/restore races, history, audit, rollback)");
 } finally {
   for (const client of clients) client.release();
   await pool.query("drop trigger if exists qa_reject_property_trash_history on property_change_history").catch(() => undefined);

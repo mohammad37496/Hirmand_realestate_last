@@ -17,7 +17,7 @@ import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { enqueueMediaCleanupJob, processMediaCleanupJobs } from "@/lib/media-store.server";
 import { lockMediaReferenceWrites } from "@/lib/media-cleanup-transaction.server";
 import { softDeleteProperty } from "@/lib/admin-property-soft-delete";
-import { deleteTrashedProperty, type TrashedPropertyRow } from "@/lib/admin-property-trash";
+import { deleteTrashedProperty, restoreTrashedProperty, type TrashedPropertyRow } from "@/lib/admin-property-trash";
 import { bulkTrashActiveProperties } from "@/lib/admin-property-bulk-trash";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
@@ -1458,40 +1458,15 @@ export const restoreDeletedProperty = createServerFn({ method: "POST" })
     const claims = await requireAdminPermission("property.manage");
     const canPublish = hasAdminPermission(normalizeAdminRole(claims?.role), "property.publish");
     if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ بازیابی فایل انجام نشد.");
-    const sql = await getSql();
-    const rows = await sql.query<Record<string, unknown>>(
-      `update properties
-       set status = case
-         when deleted_from_status = 'published' and $2::boolean = false then 'draft'
-         when deleted_from_status in ('draft','published','archived') then deleted_from_status
-         else 'draft'
-       end,
-       deleted_at = null,
-       deleted_from_status = null,
-       updated_at = current_timestamp
-       where id = $1 and deleted_at is not null
-       returning id, title, status`,
-      [data.id, canPublish],
-    );
-    if (!rows[0]) return { success: false, restored: 0 };
-    await sql.query(
-      `insert into property_change_history (property_id, action, before_state, after_state)
-       values ($1, 'updated', $2::jsonb, $3::jsonb)`,
-      [
-        data.id,
-        JSON.stringify({ status: "trash" }),
-        JSON.stringify({ status: String(rows[0].status ?? "draft") }),
-      ],
-    ).catch(() => {});
-    await writeAdminAuditLog({
-      action: "property.restored",
-      entityType: "property",
-      entityId: data.id,
-      entityTitle: String(rows[0].title ?? ""),
-      metadata: { restoredStatus: String(rows[0].status ?? "draft") },
-    });
+    const restored = await withSqlTransaction(async (tx) => restoreTrashedProperty(
+      (statement, params) => tx.query(statement, params),
+      data.id,
+      canPublish,
+      String(claims?.displayName ?? "admin"),
+    ));
+    if (!restored) return { success: false, restored: 0 };
     clearPropertyReadCache();
-    return { success: true, restored: 1, title: String(rows[0].title ?? "") };
+    return { success: true, restored: 1, title: restored.title };
   });
 
 export const permanentlyDeleteProperty = createServerFn({ method: "POST" })
