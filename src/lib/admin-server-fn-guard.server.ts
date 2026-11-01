@@ -7,12 +7,13 @@
  */
 
 import { getRequestHeaders } from "@tanstack/react-start/server";
-import { assertServerFnSameOrigin } from "@/lib/admin-rate-limit.server";
+import { assertServerFnSameOrigin } from "./admin-rate-limit.server.ts";
 
 export function assertAdminServerFnOrigin() {
-  const headers = getRequestHeaders();
-  assertServerFnSameOrigin((name) => {
-    const record = headers as unknown as Record<string, string | undefined>;
-    return record[name] ?? record[name.toLowerCase()] ?? null;
-  });
+  assertAdminServerFnOriginFromHeaders(getRequestHeaders());
+}
+
+/** Kept separately so the real Headers contract can be regression-tested. */
+export function assertAdminServerFnOriginFromHeaders(headers: Pick<Headers, "get">) {
+  assertServerFnSameOrigin((name) => headers.get(name) ?? null);
 }
