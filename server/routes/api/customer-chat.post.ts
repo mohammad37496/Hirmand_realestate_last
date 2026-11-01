@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
 
   const sql = await getSql();
   const leadRows = await sql.query<{ id:string; trackingToken:string; name:string }>(
-    "select id,tracking_token as \"trackingToken\",name from leads where upper(tracking_token)=upper($1) limit 1",
+    "select id,public_tracking_token as \"trackingToken\",name from leads where upper(public_tracking_token)=upper($1) limit 1",
     [body.data.code],
   );
   const lead = leadRows[0];

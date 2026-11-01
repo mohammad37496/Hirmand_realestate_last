@@ -27,13 +27,14 @@ export const ADMIN_CUSTOMER_CHAT_THREAD_SQL = `
   order by messages.created_at asc, messages.id asc
 `;
 
-/** Insert only if the tracking token still identifies a lead at write time. */
+/** Insert only if the public tracking token still identifies a lead at write time. */
 export const INSERT_ADMIN_CUSTOMER_CHAT_REPLY_SQL = `
   insert into customer_messages
     (id, lead_id, tracking_token, sender_type, sender_name, message)
-  select $1, id, tracking_token, 'admin', $2, $3
+  select $1, id, public_tracking_token, 'admin', $2, $3
   from leads
-  where upper(tracking_token) = upper($4)
+  where upper(public_tracking_token) = upper($4)
+    and public_tracking_token is not null
   order by id
   limit 1
   returning id

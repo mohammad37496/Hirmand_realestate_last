@@ -57,7 +57,7 @@ test("admin reply insertion is atomic with lead lookup and rejects a vanished tr
   const db = new PGlite();
   try {
     await db.exec(`
-      create table leads (id text primary key, tracking_token text not null);
+      create table leads (id text primary key, public_tracking_token text not null);
       create table customer_messages (
         id text primary key,
         lead_id text not null references leads(id) on delete cascade,
@@ -76,12 +76,21 @@ test("admin reply insertion is atomic with lead lookup and rejects a vanished tr
     assert.equal(first.rows[0].id, "message-1");
     const sender = await db.query<{ sender_name: string }>("select sender_name from customer_messages where id='message-1'");
     assert.equal(sender.rows[0].sender_name, "مشاور احراز‌شده");
+    const storedToken = await db.query<{ tracking_token: string }>("select tracking_token from customer_messages where id='message-1'");
+    assert.equal(storedToken.rows[0].tracking_token, "HIR-26-AAAAAAAAAAAA");
 
     await db.query("delete from leads where id=$1", ["lead-1"]);
     const afterDelete = await db.query<{ id: string }>(INSERT_ADMIN_CUSTOMER_CHAT_REPLY_SQL, [
       "message-2", "مشاور احراز‌شده", "پاسخ دوم", "HIR-26-AAAAAAAAAAAA",
     ]);
     assert.equal(afterDelete.rows.length, 0);
+
+    const customerGet = routeSource("customer-chat.get.ts");
+    const customerPost = routeSource("customer-chat.post.ts");
+    assert.match(customerGet, /upper\(public_tracking_token\)\s*=\s*upper\(\$1\)/);
+    assert.match(customerPost, /public_tracking_token as/);
+    assert.match(customerPost, /upper\(public_tracking_token\)=upper\(\$1\)/);
+    assert.doesNotMatch(customerGet + customerPost, /leads[^\n]*\btracking_token\b/);
 
     const route = routeSource("admin-customer-chat.post.ts");
     assert.match(route, /const senderName = claims\?\.displayName\?\.trim\(\) \|\| "هیرمند"/);
