@@ -57,7 +57,17 @@ export default defineEventHandler(async event=>{
     return {success:true};
   }
   if(action==="delete"){
-    const deleted=await sql.query<{id:string|null;file_urls:string[]}>(DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL,[id]);
+    let deleted: Array<{id:string|null;file_urls:string[]}>;
+    try {
+      deleted=await sql.query<{id:string|null;file_urls:string[]}>(DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL,[id]);
+    } catch (error) {
+      const code=error&&typeof error==="object"&&"code" in error?String(error.code):"";
+      if(code==="23503"){
+        const linkedSettlement=await sql.query("select id from admin_commission_settlements where deal_id=$1 limit 1",[id]);
+        if(linkedSettlement.length)throw createError({statusCode:409,statusMessage:"معامله دارای سابقه تسویه است و برای حفظ سوابق مالی قابل حذف نیست."});
+      }
+      throw error;
+    }
     if(!deleted[0]?.id){
       const linkedSettlement=await sql.query("select id from admin_commission_settlements where deal_id=$1 limit 1",[id]);
       if(linkedSettlement.length)throw createError({statusCode:409,statusMessage:"معامله دارای سابقه تسویه است و برای حفظ سوابق مالی قابل حذف نیست."});

@@ -48,6 +48,7 @@ test("deal deletion route removes returned files after the database delete succe
   assert.match(route, /DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL/);
   assert.match(route, /if\(!deleted\[0\]\?\.id\)/);
   assert.match(route, /deleteStoredMedia\(fileUrl\)/);
+  assert.match(route, /code==="23503"/);
   assert.match(commissionRoute, /withSqlTransaction\(insertSettlement\)/);
   assert.match(commissionRoute, /where id=\$1 for update/);
   assert.match(commissionRoute, /code === "23503"/);
