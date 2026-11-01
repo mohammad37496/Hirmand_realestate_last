@@ -26,6 +26,7 @@ export function mediaReferenceNeedles(url: string, liaraKey?: string | null): st
     const parsed = new URL(url, "https://hirmand.invalid");
     if (parsed.pathname !== "/api/liara-media") {
       add(parsed.pathname);
+      if (parsed.origin !== "https://hirmand.invalid") add(`${parsed.origin}${parsed.pathname}`);
       try {
         add(decodeURIComponent(parsed.pathname));
       } catch {
@@ -36,6 +37,13 @@ export function mediaReferenceNeedles(url: string, liaraKey?: string | null): st
     if (nestedUrl) {
       add(nestedUrl);
       add(encodeURIComponent(nestedUrl));
+      try {
+        const nested = new URL(nestedUrl);
+        add(nested.pathname);
+        add(`${nested.origin}${nested.pathname}`);
+      } catch {
+        // The nested URL string and its encoded form remain valid candidates.
+      }
     }
   } catch {
     // The original value is still a useful reference needle.
@@ -52,6 +60,7 @@ export async function hasMediaUrlReferences(
   sql: MediaReferenceSql,
   url: string,
   liaraKey?: string | null,
+  options: { ignoreVideoSourceUrl?: boolean } = {},
 ): Promise<boolean> {
   const needles = mediaReferenceNeedles(url, liaraKey);
   if (!needles.length) return false;
@@ -65,7 +74,7 @@ export async function hasMediaUrlReferences(
        union all select url from music_tracks
        union all select property_data::text from customer_property_submissions
        union all select file_url from admin_deal_documents
-       union all select source_url from property_video_renditions
+       ${options.ignoreVideoSourceUrl ? "" : "union all select source_url from property_video_renditions"}
        union all select renditions::text from property_video_renditions
        union all select stored_url from property_media_upload_sessions where state <> 'failed'
        union all select '/api/media/' || stored_media_id from property_media_upload_sessions where state <> 'failed' and stored_media_id is not null
@@ -83,4 +92,45 @@ export async function hasMediaUrlReferences(
     [needles],
   );
   return rows[0]?.referenced === true;
+}
+
+function collectStringValues(value: unknown, output: string[] = []): string[] {
+  if (typeof value === "string") {
+    output.push(value);
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectStringValues(item, output);
+  } else if (value && typeof value === "object") {
+    for (const item of Object.values(value)) collectStringValues(item, output);
+  }
+  return output;
+}
+
+/** Remove a video's rendition manifest only after every non-manifest owner has released its source. */
+export async function removeOrphanedVideoRenditionManifest(
+  sql: MediaReferenceSql,
+  url: string,
+  liaraKey?: string | null,
+): Promise<{ removed: boolean; renditionUrls: string[] }> {
+  const needles = mediaReferenceNeedles(url, liaraKey);
+  const manifests = await sql.query<{ source_url: string; renditions: unknown }>(
+    "select source_url,renditions from property_video_renditions where source_url = any($1::text[]) limit 2",
+    [needles],
+  );
+  if (manifests.length !== 1) return { removed: false, renditionUrls: [] };
+  const manifest = manifests[0];
+  const renditionState = manifest.renditions && typeof manifest.renditions === "object"
+    ? manifest.renditions as Record<string, unknown>
+    : null;
+  // A background encoder still owns this manifest. Keep the source and all
+  // renditions until it has stopped publishing variants.
+  if (renditionState?.processing === true) return { removed: false, renditionUrls: [] };
+  if (await hasMediaUrlReferences(sql, url, liaraKey, { ignoreVideoSourceUrl: true })) {
+    return { removed: false, renditionUrls: [] };
+  }
+  const deleted = await sql.query<{ renditions: unknown }>(
+    "delete from property_video_renditions where source_url=$1 returning renditions",
+    [manifest.source_url],
+  );
+  if (!deleted.length) return { removed: false, renditionUrls: [] };
+  return { removed: true, renditionUrls: collectStringValues(deleted[0].renditions) };
 }

@@ -9,7 +9,7 @@
 
 import { dbSource, getSql } from "@/lib/db";
 import { DB_MEDIA_PATH } from "@/lib/media";
-import { hasMediaUrlReferences } from "@/lib/media-reference-guard.server";
+import { hasMediaUrlReferences, removeOrphanedVideoRenditionManifest } from "@/lib/media-reference-guard.server";
 import {
   deleteLiaraObject,
   liaraMediaProxyUrl,
@@ -384,6 +384,25 @@ export async function deleteStoredMedia(
     console.warn("[media] object store delete failed", error);
     if (options.throwOnFailure) throw error;
   }
+}
+
+/** Delete property media and its rendition files only after reference checks succeed. */
+export async function deletePropertyMedia(url: string): Promise<void> {
+  if (!url?.trim()) return;
+  if (dbSource === "unconfigured") {
+    // deleteStoredMedia rejects when it cannot verify references; do not turn
+    // an unavailable database into a successful cleanup response.
+    await deleteStoredMedia(url, { throwOnFailure: true });
+    return;
+  }
+  const sql = await getSql();
+  const liaraKey = liaraObjectKeyFromUrl(url) ?? liaraObjectKeyFromBrowserProxy(url);
+  const manifest = await removeOrphanedVideoRenditionManifest(sql, url, liaraKey);
+  if (manifest.removed) {
+    const renditionUrls = Array.from(new Set(manifest.renditionUrls.filter((renditionUrl) => renditionUrl !== url)));
+    await Promise.all(renditionUrls.map((renditionUrl) => deleteStoredMedia(renditionUrl, { throwOnFailure: true })));
+  }
+  await deleteStoredMedia(url, { throwOnFailure: true });
 }
 
 export type MediaMeta = {

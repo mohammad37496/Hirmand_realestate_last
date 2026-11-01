@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
-import { hasMediaUrlReferences, mediaReferenceNeedles } from "./media-reference-guard.server.ts";
+import {
+  hasMediaUrlReferences,
+  mediaReferenceNeedles,
+  removeOrphanedVideoRenditionManifest,
+} from "./media-reference-guard.server.ts";
 
 async function fixture() {
   const db = new PGlite();
@@ -11,7 +15,7 @@ async function fixture() {
     create table music_tracks (url text);
     create table customer_property_submissions (property_data jsonb);
     create table admin_deal_documents (file_url text);
-    create table property_video_renditions (source_url text, renditions jsonb);
+    create table property_video_renditions (source_url text primary key, renditions jsonb);
     create table property_media_upload_sessions (stored_url text, stored_media_id text, completion_result jsonb, state text not null default 'completed');
     create table media_upload_sessions (stored_url text, stored_media_id text, completion_result jsonb, completion_state text not null default 'completed');
     create table area_contents (hero_image text, gallery jsonb);
@@ -39,7 +43,7 @@ test("media reference guard protects every persisted owner and upload receipt", 
       () => db.query("insert into customer_property_submissions(property_data) values(jsonb_build_object('property',jsonb_build_object('images',jsonb_build_array($1::text))))", [url]),
       () => db.query("insert into admin_deal_documents(file_url) values($1)", [url]),
       () => db.query("insert into property_video_renditions(source_url) values($1)", [url]),
-      () => db.query("insert into property_video_renditions(renditions) values(jsonb_build_object('mp4',$1::text))", [url]),
+      () => db.query("insert into property_video_renditions(source_url,renditions) values('https://media.example/manifest.mp4',jsonb_build_object('mp4',$1::text))", [url]),
       () => db.query("insert into property_media_upload_sessions(stored_url) values($1)", [url]),
       () => db.query("insert into property_media_upload_sessions(completion_result) values(jsonb_build_object('url',$1::text))", [url]),
       () => db.query("insert into media_upload_sessions(stored_url) values($1)", [url]),
@@ -125,6 +129,60 @@ test("stored database media ids in active upload receipts are protected", async 
   }
 });
 
+test("orphaned video manifests are removed and return rendition URLs for guarded cleanup", async () => {
+  const db = await fixture();
+  try {
+    const sourceUrl = "https://media.example/video/source.mp4";
+    const renditionUrl = "https://media.example/video/720.mp4";
+    await db.query(
+      "insert into property_video_renditions(source_url,renditions) values($1,jsonb_build_object('720p',$2::text))",
+      [sourceUrl, renditionUrl],
+    );
+    const removed = await removeOrphanedVideoRenditionManifest(sqlFor(db), sourceUrl);
+    assert.equal(removed.removed, true);
+    assert.deepEqual(removed.renditionUrls, [renditionUrl]);
+    assert.equal((await db.query("select source_url from property_video_renditions")).rows.length, 0);
+  } finally {
+    await db.close();
+  }
+});
+
+test("video manifests stay when the source or rendition is still referenced elsewhere", async () => {
+  const db = await fixture();
+  try {
+    const sourceUrl = "https://media.example/video/source.mp4";
+    await db.query("insert into property_video_renditions(source_url,renditions) values($1,'{}'::jsonb)", [sourceUrl]);
+    await db.query("insert into properties(images) values(jsonb_build_array($1::text))", [sourceUrl]);
+    assert.equal((await removeOrphanedVideoRenditionManifest(sqlFor(db), sourceUrl)).removed, false);
+    await db.exec("truncate properties, property_video_renditions");
+    await db.query(
+      "insert into property_video_renditions(source_url,renditions) values('https://media.example/video/other.mp4',jsonb_build_object('source',$1::text))",
+      [sourceUrl],
+    );
+    await db.query("insert into property_video_renditions(source_url,renditions) values($1,'{}'::jsonb)", [sourceUrl]);
+    assert.equal((await removeOrphanedVideoRenditionManifest(sqlFor(db), sourceUrl)).removed, false);
+    assert.equal((await db.query("select source_url from property_video_renditions where source_url=$1", [sourceUrl])).rows.length, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test("video manifests remain while the background rendition encoder is processing", async () => {
+  const db = await fixture();
+  try {
+    const sourceUrl = "https://media.example/video/processing.mp4";
+    await db.query(
+      "insert into property_video_renditions(source_url,renditions) values($1,jsonb_build_object('processing',true))",
+      [sourceUrl],
+    );
+    const result = await removeOrphanedVideoRenditionManifest(sqlFor(db), sourceUrl);
+    assert.equal(result.removed, false);
+    assert.equal((await db.query("select source_url from property_video_renditions where source_url=$1", [sourceUrl])).rows.length, 1);
+  } finally {
+    await db.close();
+  }
+});
+
 test("rejected property uploads clear their failed receipt before deleting the staged object", () => {
   const source = readFileSync(new URL("./property-media-upload.server.ts", import.meta.url), "utf8");
   assert.match(source, /state = 'failed', stored_url = null, stored_storage = null, stored_media_id = null/);
@@ -140,4 +198,6 @@ test("rejected property uploads clear their failed receipt before deleting the s
   const sessionDelete = chunkedUpload.indexOf("delete from media_upload_sessions", rejectionStart);
   const objectDelete = chunkedUpload.indexOf("deleteStoredMedia(stored?.url)", rejectionStart);
   assert.ok(rejectionStart >= 0 && sessionDelete >= 0 && objectDelete > sessionDelete);
+  const properties = readFileSync(new URL("./properties.ts", import.meta.url), "utf8");
+  assert.match(properties, /deletePropertyMedia/);
 });

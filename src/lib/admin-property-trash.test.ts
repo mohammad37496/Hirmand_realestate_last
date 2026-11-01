@@ -35,7 +35,7 @@ test("trash APIs and UI distinguish unavailable data and unsuccessful restore/de
   assert.match(trashList, /dbSource === "unconfigured"\) throw new Error/);
   assert.match(permanent, /deleteTrashedProperty/);
   assert.match(permanent, /if \(!existing\) return \{ success: false, deleted: 0 \}/);
-  assert.ok(permanent.indexOf("if (!existing)") < permanent.indexOf("deleteStoredMedia"));
+  assert.ok(permanent.indexOf("if (!existing)") < permanent.indexOf("deletePropertyMedia"));
   assert.match(permanent, /existing\.virtual_tour_url/);
   assert.doesNotMatch(permanent, /select images, floor_plan_url, title from properties/);
   assert.match(ui, /result\.success !== true \|\| result\.restored !== 1/);

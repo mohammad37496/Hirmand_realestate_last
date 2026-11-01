@@ -14,7 +14,7 @@ import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
 import { resolveFileCodeLookup } from "@/lib/property-file-code";
 import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type BudgetMatchDetails } from "@/lib/budget-matching";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
-import { deleteStoredMedia } from "@/lib/media-store.server";
+import { deletePropertyMedia } from "@/lib/media-store.server";
 import { deleteTrashedProperty, type TrashedPropertyRow } from "@/lib/admin-property-trash";
 import { bulkTrashActiveProperties } from "@/lib/admin-property-bulk-trash";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
@@ -1514,7 +1514,7 @@ export const permanentlyDeleteProperty = createServerFn({ method: "POST" })
         ? [existing.virtual_tour_url.trim()]
         : []),
     ];
-    await Promise.all(Array.from(new Set(mediaUrls)).map((url) => deleteStoredMedia(url)));
+    await Promise.all(Array.from(new Set(mediaUrls)).map((url) => deletePropertyMedia(url)));
     await writeAdminAuditLog({
       action: "property.permanently_deleted",
       entityType: "property",
