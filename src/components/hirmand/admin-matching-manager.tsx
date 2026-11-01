@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeCheck,
   Building2,
@@ -221,8 +221,10 @@ export function AdminMatchingManager() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activities, setActivities] = useState<Array<{ id:number; type:string; title:string; note:string; createdAt:string }>>([]);
   const [feedbackBusy, setFeedbackBusy] = useState<string | null>(null);
+  const leadsRequestSequence = useRef(0);
 
-  const loadLeads = async () => {
+  const loadLeads = useCallback(async () => {
+    const requestId = ++leadsRequestSequence.current;
     setLoadingLeads(true);
     setError(null);
     try {
@@ -234,19 +236,23 @@ export function AdminMatchingManager() {
       });
       if (!response.ok) throw new Error("بارگذاری درخواست‌ها انجام نشد.");
       const data = await response.json() as { leads?: Lead[] };
+      if (requestId !== leadsRequestSequence.current) return;
       const next = Array.isArray(data.leads) ? data.leads : [];
       setLeads(next);
-      if (!selectedLeadId && next[0]) setSelectedLeadId(next[0].id);
+      setSelectedLeadId((current) => current || next[0]?.id || "");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "بارگذاری درخواست‌ها انجام نشد.");
+      if (requestId === leadsRequestSequence.current) {
+        setError(e instanceof Error ? e.message : "بارگذاری درخواست‌ها انجام نشد.");
+      }
     } finally {
-      setLoadingLeads(false);
+      if (requestId === leadsRequestSequence.current) setLoadingLeads(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadLeads();
-  }, []);
+    return () => { leadsRequestSequence.current += 1; };
+  }, [loadLeads]);
 
   const visibleLeads = useMemo(() => {
     const q = leadQuery.trim().toLocaleLowerCase("fa-IR");

@@ -52,6 +52,11 @@ test("admin browser audits accept an installed Chromium-compatible browser path"
 
 test("admin mobile workspace keeps compact two-column metrics at 390px and below", () => {
   const finalLayer = css.slice(css.lastIndexOf("Mobile admin workspace: final responsive layer"));
+  assert.doesNotMatch(
+    css,
+    /\.admin-stats-grid,\.admin-dashboard-stats\{grid-template-columns:1fr!important\}/,
+    "an older important one-column rule must not override the final two-column mobile layout",
+  );
   assert.match(finalLayer, /@media\(max-width:390px\)[\s\S]*?\.admin-stats-grid,\.admin-dashboard-stats\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(finalLayer, /\.admin-content\{padding:14px 12px calc\(108px \+ env\(safe-area-inset-bottom\)\)\}/);
 });

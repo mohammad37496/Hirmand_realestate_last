@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { ADMIN_CAMPAIGN_TOTALS_SQL } from "@/lib/admin-campaign-performance-sql";
 
 const ALLOWED_DAYS = new Set([7, 30, 90]);
 
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const sql = await getSql();
-  const [rows, daily, quality] = await Promise.all([
+  const [rows, daily, quality, totalRows] = await Promise.all([
     sql.query<Record<string, unknown>>(
       `select
          coalesce(nullif(trim(acquisition_source), ''), nullif(trim(source), ''), 'direct') as source,
@@ -66,6 +67,7 @@ export default defineEventHandler(async (event) => {
        from leads
        where created_at >= current_timestamp - interval '${days} days'`,
     ),
+    sql.query<Record<string, unknown>>(ADMIN_CAMPAIGN_TOTALS_SQL, [days]),
   ]);
 
   const mapped = rows.map((row) => {
@@ -93,10 +95,14 @@ export default defineEventHandler(async (event) => {
     campaign: qualityLeads ? Number(((Number(qualityBase.campaign) || 0) / qualityLeads * 100).toFixed(1)) : 0,
   };
 
-  const totals = mapped.reduce(
-    (acc, row) => ({ campaigns: acc.campaigns + 1, leads: acc.leads + row.leads, contacted: acc.contacted + row.contacted, visits: acc.visits + row.visits, contracts: acc.contracts + row.contracts }),
-    { campaigns: 0, leads: 0, contacted: 0, visits: 0, contracts: 0 },
-  );
+  const totalsBase = totalRows[0] ?? {};
+  const totals = {
+    campaigns: Number(totalsBase.campaigns) || 0,
+    leads: Number(totalsBase.leads) || 0,
+    contacted: Number(totalsBase.contacted) || 0,
+    visits: Number(totalsBase.visits) || 0,
+    contracts: Number(totalsBase.contracts) || 0,
+  };
 
   return { days, rows: mapped, daily: dailyMapped, quality: qualityMapped, totals };
 });

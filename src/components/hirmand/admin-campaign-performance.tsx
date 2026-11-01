@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, CalendarRange, CheckCircle2, ClipboardCheck, PhoneCall, RefreshCw, Target, UsersRound } from "lucide-react";
 import { AdminErrorBanner } from "@/components/hirmand/admin-ui";
 
@@ -18,8 +18,10 @@ export function AdminCampaignPerformance(){
   const [data,setData]=useState<Data|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
+  const requestSequence=useRef(0);
 
   const load=useCallback(async(range:7|30|90)=>{
+    const requestId=++requestSequence.current;
     setLoading(true);
     setError("");
     setData(null);
@@ -28,14 +30,19 @@ export function AdminCampaignPerformance(){
       const result=await response.json().catch(()=>null) as Data|{statusMessage?:string}|null;
       if(!response.ok)throw new Error(result&&"statusMessage" in result?result.statusMessage:"گزارش کمپین‌ها در دسترس نیست.");
       if(!result||!("rows" in result)||!Array.isArray(result.rows)||!("daily" in result)||!Array.isArray(result.daily)||!("quality" in result)||!result.quality||!("totals" in result)||!result.totals)throw new Error("ساختار پاسخ گزارش کمپین‌ها نامعتبر است.");
-      setData(result as Data);
+      if(requestId===requestSequence.current)setData(result as Data);
     }catch(loadError){
-      setData(null);
-      setError(loadError instanceof Error ? loadError.message : "دریافت گزارش کمپین‌ها ناموفق بود.");
-    }finally{setLoading(false);}
+      if(requestId===requestSequence.current){
+        setData(null);
+        setError(loadError instanceof Error ? loadError.message : "دریافت گزارش کمپین‌ها ناموفق بود.");
+      }
+    }finally{if(requestId===requestSequence.current)setLoading(false);}
   },[]);
 
-  useEffect(()=>{void load(days);},[days,load]);
+  useEffect(()=>{
+    void load(days);
+    return ()=>{requestSequence.current+=1;};
+  },[days,load]);
   const maxDaily=useMemo(()=>Math.max(1,...(data?.daily.map((item)=>item.leads)??[1])),[data]);
 
   return <section className="admin-panel admin-campaign-performance" style={{marginTop:18}} aria-label="عملکرد کمپین‌های بازاریابی">

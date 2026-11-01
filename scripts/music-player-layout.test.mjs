@@ -48,6 +48,14 @@ test("the shared player stays viewport-fixed and uses a compact mobile launcher"
     "the minimized dock must keep the same viewport edge across route wrappers");
 });
 
+
+test("route-based collapse changes never tear down the active audio element", () => {
+  assert.match(player, /useEffect\(\(\) => \{\s*void loadTracks\(\);[\s\S]*?window\.addEventListener\("focus", refresh\);[\s\S]*?audio\?\.pause\(\);[\s\S]*?\}, \[loadTracks\]\);/,
+    "audio cleanup must be tied to the player lifecycle, not the current route");
+  assert.match(player, /useEffect\(\(\) => \{\s*const mobileViewport = window\.matchMedia[\s\S]*?mobileViewport\.removeEventListener\("change", syncViewportMode\);[\s\S]*?\}, \[pathname\]\);/,
+    "route changes should update collapsed state in a separate effect");
+});
+
 test("the player exposes working collapse and restore controls without unmounting audio", () => {
   assert.match(player, /className="music-player-restore"[\s\S]*?onClick=\{\(\) => \{ setCollapsed\(false\); if \(window\.matchMedia\("\(max-width: 720px\)"\)\.matches\) setExpanded\(true\); \}\}[\s\S]*?aria-label="باز کردن پلیر موسیقی"/s);
   assert.match(player, /className="music-player-utility music-player-hide" onClick=\{\(\) => \{ setExpanded\(false\); setCollapsed\(true\); \}\} aria-label="جمع کردن پلیر"/);

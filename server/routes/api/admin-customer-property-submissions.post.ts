@@ -318,7 +318,14 @@ export default defineEventHandler(async (event) => {
       priority,
       note: "اولویت پرونده به " + priority + " تغییر کرد.",
     });
-    if (!updated) throw createError({ statusCode: 404, statusMessage: "درخواست ثبت ملک پیدا نشد." });
+    if (!updated) {
+      const existing = await sql.query<{ status: string }>(
+        "select status from customer_property_submissions where id=$1 limit 1",
+        [String(body.id)],
+      );
+      if (!existing.length) throw createError({ statusCode: 404, statusMessage: "درخواست ثبت ملک پیدا نشد." });
+      throw createError({ statusCode: 409, statusMessage: "اولویت فقط برای درخواست‌های در انتظار بررسی قابل تغییر است." });
+    }
     return { success: true, status: updated.status, priority };
   }
 

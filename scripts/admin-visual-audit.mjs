@@ -14,7 +14,7 @@ const BASE = process.env.QA_BASE_URL || "http://127.0.0.1:8080";
 const KEY = process.env.HIRMAND_ADMIN_KEY || "";
 const OUT = process.env.QA_SCREENSHOT_DIR || "screenshots/admin";
 
-const VIEWS = [
+const ALL_VIEWS = [
   { id: "dashboard", label: "dashboard" },
   { id: "managementReport", label: "managementReport" },
   { id: "productivity", label: "productivity" },
@@ -48,6 +48,11 @@ const VIEWS = [
   { id: "areaContent", label: "areaContent" },
   { id: "form", label: "form" },
 ];
+
+const requestedViewIds = process.env.QA_VIEW_IDS?.split(",").map((value) => value.trim()).filter(Boolean) ?? [];
+const unknownViewIds = requestedViewIds.filter((id) => !ALL_VIEWS.some((view) => view.id === id));
+if (unknownViewIds.length) throw new Error(`Unknown QA view IDs: ${unknownViewIds.join(", ")}`);
+const VIEWS = requestedViewIds.length ? ALL_VIEWS.filter((view) => requestedViewIds.includes(view.id)) : ALL_VIEWS;
 
 /**
  * Viewport matrix.

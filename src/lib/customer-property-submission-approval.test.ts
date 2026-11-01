@@ -286,6 +286,25 @@ test("single assignment and priority updates commit their review events together
   }
 });
 
+test("priority changes cannot mutate approved or rejected submissions", async () => {
+  const { db, sql } = await reviewStateFixture();
+  try {
+    for (const status of ["approved", "rejected"]) {
+      await db.query("update customer_property_submissions set status=$1,priority='normal' where id='submission-1'", [status]);
+      assert.equal(await setCustomerPropertySubmissionPriority(sql, {
+        id: "submission-1", priority: "high", note: "اولویت بالا",
+      }), null);
+      const submission = await db.query<{ status: string; priority: string }>(
+        "select status,priority from customer_property_submissions where id='submission-1'",
+      );
+      assert.deepEqual(submission.rows[0], { status, priority: "normal" });
+    }
+    assert.equal((await db.query("select id from customer_property_submission_events where action='priority'")).rows.length, 0);
+  } finally {
+    await db.close();
+  }
+});
+
 test("assignment, priority and edit mutations roll back when their review event insert fails", async () => {
   const { db, sql } = await reviewStateFixture();
   try {

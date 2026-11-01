@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Phone, Search, UserRound } from "lucide-react";
 import { propertyPath } from "@/lib/property-path";
 import { formatToman } from "@/lib/money";
@@ -24,22 +24,25 @@ export function AdminOwnerManager(){
   const [available,setAvailable]=useState<boolean|null>(null);
   const [expanded,setExpanded]=useState<string|null>(null);
   const [error,setError]=useState("");
+  const requestSequence=useRef(0);
 
   const load=useCallback(async()=>{
+    const requestId=++requestSequence.current;
     setLoading(true); setError("");
     try{
       const response=await fetch("/api/admin-owners",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"list",query})});
       const data=await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(data?.statusMessage||data?.message||"بارگذاری مالکین انجام نشد.");
       if(typeof data.available!=="boolean"||!Array.isArray(data.owners)) throw new Error("ساختار پاسخ مالکین معتبر نیست.");
+      if(requestId!==requestSequence.current)return;
       setAvailable(data.available);
       setOwners(data.available?data.owners:[]);
       if(!data.available) setError("اطلاعات مالکین در دسترس نیست؛ پایگاه داده پیکربندی نشده است.");
-    }catch(e){setAvailable(null);setError(e instanceof Error?e.message:"بارگذاری مالکین انجام نشد.");}
-    finally{setLoading(false);}
+    }catch(e){if(requestId===requestSequence.current){setAvailable(null);setOwners([]);setError(e instanceof Error?e.message:"بارگذاری مالکین انجام نشد.");}}
+    finally{if(requestId===requestSequence.current)setLoading(false);}
   },[query]);
 
-  useEffect(()=>{const t=window.setTimeout(()=>void load(),250);return()=>window.clearTimeout(t)},[load]);
+  useEffect(()=>{const t=window.setTimeout(()=>void load(),250);return()=>{window.clearTimeout(t);requestSequence.current+=1;}},[load]);
 
   const totalFiles=useMemo(()=>owners.reduce((n,o)=>n+o.fileCount,0),[owners]);
 
