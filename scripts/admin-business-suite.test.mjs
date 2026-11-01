@@ -14,7 +14,10 @@ test("deal APIs fail closed and do not report missing mutations as successful", 
   assert.match(route, /if\(!updated\.length\)throw createError\(\{statusCode:404/);
   assert.match(route, /DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL/);
   assert.match(route, /if\(!deleted\[0\]\?\.id\)/);
-  assert.match(route, /deleteStoredMedia\(fileUrl\)/);
+  assert.match(route, /withSqlTransaction\(async \(tx\)/);
+  assert.match(route, /enqueueMediaCleanupJob\(tx, fileUrl\)/);
+  assert.match(route, /processMediaCleanupJobs\(cleanupJobIds, sql\)/);
+  assert.ok(route.indexOf("lockMediaReferenceWrites(tx)") < route.indexOf("const rows = await tx.query"));
   assert.match(deleteSql, /not exists \(select 1 from admin_commission_settlements/);
   assert.match(deleteSql, /returning d\.id/);
   assert.match(route, /if\(linkedSettlement\.length\)throw createError\(\{statusCode:409/);

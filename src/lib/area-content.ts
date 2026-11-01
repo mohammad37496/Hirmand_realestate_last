@@ -1,12 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { allAreas, findAreaBySlug, type AreaInfo } from "@/lib/areas";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
+import { enqueueMediaCleanupJob, processMediaCleanupJobs } from "@/lib/media-store.server";
+import { lockMediaReferenceWrites } from "@/lib/media-cleanup-transaction.server";
 
 export type AreaContent = {
   slug: string;
@@ -187,28 +189,48 @@ export const saveAdminAreaContent = createServerFn({ method: "POST" })
     }
 
     const sql = await getSql();
-    const rows = await sql.query<Record<string, unknown>>(
-      "insert into area_contents (slug, area_name, group_title, intro, about, highlights, amenities, transportation, market_note, hero_image, gallery, seo_title, seo_description, is_published, updated_at) " +
-      "values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,current_timestamp) " +
-      "on conflict (slug) do update set area_name=excluded.area_name, group_title=excluded.group_title, intro=excluded.intro, about=excluded.about, highlights=excluded.highlights, amenities=excluded.amenities, transportation=excluded.transportation, market_note=excluded.market_note, hero_image=excluded.hero_image, gallery=excluded.gallery, seo_title=excluded.seo_title, seo_description=excluded.seo_description, is_published=excluded.is_published, updated_at=current_timestamp " +
-      "returning *",
-      [
-        area.slug,
-        area.name,
-        area.groupTitle,
-        data.intro,
-        data.about,
-        data.highlights,
-        data.amenities,
-        data.transportation,
-        data.marketNote,
-        data.heroImage,
-        JSON.stringify(gallery),
-        data.seoTitle,
-        data.seoDescription,
-        data.isPublished,
-      ],
-    );
+    const saved = await withSqlTransaction(async (tx) => {
+      await lockMediaReferenceWrites(tx);
+      const previous = await tx.query<{ hero_image: string; gallery: unknown }>(
+        "select hero_image,gallery from area_contents where slug=$1 for update",
+        [area.slug],
+      );
+      const rows = await tx.query<Record<string, unknown>>(
+        "insert into area_contents (slug, area_name, group_title, intro, about, highlights, amenities, transportation, market_note, hero_image, gallery, seo_title, seo_description, is_published, updated_at) " +
+        "values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,current_timestamp) " +
+        "on conflict (slug) do update set area_name=excluded.area_name, group_title=excluded.group_title, intro=excluded.intro, about=excluded.about, highlights=excluded.highlights, amenities=excluded.amenities, transportation=excluded.transportation, market_note=excluded.market_note, hero_image=excluded.hero_image, gallery=excluded.gallery, seo_title=excluded.seo_title, seo_description=excluded.seo_description, is_published=excluded.is_published, updated_at=current_timestamp " +
+        "returning *",
+        [
+          area.slug,
+          area.name,
+          area.groupTitle,
+          data.intro,
+          data.about,
+          data.highlights,
+          data.amenities,
+          data.transportation,
+          data.marketNote,
+          data.heroImage,
+          JSON.stringify(gallery),
+          data.seoTitle,
+          data.seoDescription,
+          data.isPublished,
+        ],
+      );
+      const oldUrls = new Set([
+        previous[0]?.hero_image?.trim() ?? "",
+        ...parseGallery(previous[0]?.gallery),
+      ].filter(Boolean));
+      const newUrls = new Set([data.heroImage, ...gallery].filter(Boolean));
+      const jobIds: number[] = [];
+      for (const url of oldUrls) {
+        if (newUrls.has(url)) continue;
+        const [job] = await enqueueMediaCleanupJob(tx, url);
+        if (job) jobIds.push(job.id);
+      }
+      return { rows, jobIds };
+    });
+    const { rows, jobIds } = saved;
 
     await writeAdminAuditLog({
       action: "area_content_saved",
@@ -217,6 +239,8 @@ export const saveAdminAreaContent = createServerFn({ method: "POST" })
       entityTitle: area.name,
       metadata: { published: data.isPublished, galleryCount: gallery.length },
     });
+
+    await processMediaCleanupJobs(jobIds, sql);
 
     return mapContent(area, rows[0]);
   });

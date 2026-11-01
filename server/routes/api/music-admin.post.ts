@@ -5,14 +5,14 @@ import {
   readBody,
   setResponseHeader,
 } from "h3";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import {
   ADMIN_SESSION_COOKIE,
   getAdminSessionClaims,
   verifyAdminSessionToken,
 } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
-import { deleteStoredMedia } from "@/lib/media-store.server";
+import { enqueueMediaCleanupJob, processMediaCleanupJobs } from "@/lib/media-store.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { REORDER_MUSIC_TRACKS_SQL } from "@/lib/admin-music-reorder";
 import {
@@ -159,14 +159,17 @@ export default defineEventHandler(async (event) => {
   }
 
   if (action === "delete") {
-    const rows = await sql.query<{ url: string }>(
-      "select url from music_tracks where id = $1 limit 1",
-      [body.id],
-    );
-    await sql.query("delete from music_tracks where id = $1", [body.id]);
-    await deleteStoredMedia(
-      rows[0]?.url ? normalizeStoredMediaUrl(rows[0].url) : null,
-    );
+    const jobIds = await withSqlTransaction(async (tx) => {
+      const rows = await tx.query<{ url: string }>(
+        "delete from music_tracks where id = $1 returning url",
+        [body.id],
+      );
+      const url = rows[0]?.url ? normalizeStoredMediaUrl(rows[0].url) : null;
+      if (!url) return [];
+      const [job] = await enqueueMediaCleanupJob(tx, url);
+      return job ? [job.id] : [];
+    });
+    await processMediaCleanupJobs(jobIds, sql);
     return { success: true };
   }
 

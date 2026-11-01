@@ -15,11 +15,12 @@ async function fixture() {
     create table music_tracks (url text);
     create table customer_property_submissions (property_data jsonb);
     create table admin_deal_documents (file_url text);
-    create table property_video_renditions (source_url text primary key, renditions jsonb);
+    create table property_video_renditions (source_url text primary key, renditions jsonb, created_at timestamptz not null default current_timestamp);
     create table property_media_upload_sessions (stored_url text, stored_media_id text, completion_result jsonb, state text not null default 'completed');
     create table media_upload_sessions (stored_url text, stored_media_id text, completion_result jsonb, completion_state text not null default 'completed');
     create table area_contents (hero_image text, gallery jsonb);
   `);
+  await db.exec(readFileSync(new URL("../../migrations/0110_media_cleanup_outbox_and_reference_lock.sql", import.meta.url), "utf8"));
   return db;
 }
 
@@ -200,21 +201,114 @@ test("video manifests remain while the background rendition encoder is processin
   }
 });
 
+test("an old processing manifest is retained because age does not prove its encoder stopped", async () => {
+  const db = await fixture();
+  try {
+    const sourceUrl = "https://media.example/video/stale-processing.mp4";
+    const renditionUrl = "https://media.example/video/stale-720.mp4";
+    await db.query(
+      "insert into property_video_renditions(source_url,renditions,created_at) values($1,jsonb_build_object('720p',$2::text,'processing',true),current_timestamp - interval '2 hours')",
+      [sourceUrl, renditionUrl],
+    );
+    const result = await removeOrphanedVideoRenditionManifest(sqlFor(db), sourceUrl);
+    assert.equal(result.removed, false);
+    assert.deepEqual(result.renditionUrls, []);
+    assert.equal((await db.query("select source_url from property_video_renditions where source_url=$1", [sourceUrl])).rows.length, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test("a completed cleanup tombstone rejects a racing video rendition writer", async () => {
+  const db = await fixture();
+  try {
+    const sourceUrl = "https://media.example/video/deleted.mp4";
+    await db.query(
+      "insert into media_cleanup_jobs(media_url,reference_tokens,status) values($1,array[$1]::text[],'completed')",
+      [sourceUrl],
+    );
+    await assert.rejects(
+      db.query("insert into property_video_renditions(source_url,renditions) values($1,'{}'::jsonb)", [sourceUrl]),
+      (error: unknown) => (error as { code?: string }).code === "23503",
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test("the media-reference advisory lock serializes a concurrent video writer behind deletion", async () => {
+  const db = await fixture();
+  let releaseDelete!: () => void;
+  let signalLocked!: () => void;
+  const locked = new Promise<void>((resolve) => { signalLocked = resolve; });
+  const hold = new Promise<void>((resolve) => { releaseDelete = resolve; });
+  try {
+    const sourceUrl = "https://media.example/video/race.mp4";
+    const deleting = db.transaction(async (tx) => {
+      await tx.query("select pg_advisory_xact_lock(74120261101::bigint)");
+      signalLocked();
+      await hold;
+      await tx.query(
+        "insert into media_cleanup_jobs(media_url,reference_tokens,status) values($1,array[$1]::text[],'completed')",
+        [sourceUrl],
+      );
+    });
+    await locked;
+    const writing = db.transaction(async (tx) => tx.query(
+      "insert into property_video_renditions(source_url,renditions) values($1,'{}'::jsonb)", [sourceUrl],
+    ));
+    releaseDelete();
+    await deleting;
+    await assert.rejects(writing, (error: unknown) => (error as { code?: string }).code === "23503");
+    assert.equal((await db.query("select source_url from property_video_renditions where source_url=$1", [sourceUrl])).rows.length, 0);
+  } finally {
+    releaseDelete();
+    await db.close();
+  }
+});
+
+test("cleanup job insertion and manifest removal roll back together", async () => {
+  const db = await fixture();
+  try {
+    const sourceUrl = "https://media.example/video/rollback.mp4";
+    await db.query("insert into property_video_renditions(source_url,renditions) values($1,'{}'::jsonb)", [sourceUrl]);
+    await assert.rejects(db.transaction(async (tx) => {
+      await tx.query("select pg_advisory_xact_lock(74120261101::bigint)");
+      await tx.query("insert into media_cleanup_jobs(media_url,reference_tokens) values($1,array[$1]::text[])", [sourceUrl]);
+      await tx.query("delete from property_video_renditions where source_url=$1", [sourceUrl]);
+      throw new Error("simulate transaction abort");
+    }), /simulate transaction abort/);
+    assert.equal((await db.query("select source_url from property_video_renditions where source_url=$1", [sourceUrl])).rows.length, 1);
+    assert.equal((await db.query("select id from media_cleanup_jobs where media_url=$1", [sourceUrl])).rows.length, 0);
+  } finally {
+    await db.close();
+  }
+});
+
 test("rejected property uploads clear their failed receipt before deleting the staged object", () => {
   const source = readFileSync(new URL("./property-media-upload.server.ts", import.meta.url), "utf8");
   assert.match(source, /state = 'failed', stored_url = null, stored_storage = null, stored_media_id = null/);
-  assert.match(source, /returning stored_url/);
-  assert.match(source, /expiredSessions\.map\(\(row\) => deleteStoredMedia\(row\.stored_url\)\)/);
+  assert.match(source, /for \(const row of expiredSessions\) \{\s*const url = row\.stored_url \|\| \(row\.stored_media_id \? `\/api\/media\/\$\{encodeURIComponent\(row\.stored_media_id\)\}` : null\);\s*if \(url\) await enqueueMediaCleanupJob\(tx, url\);/);
+  assert.match(source, /await retryPendingMediaCleanupJobs\(\)/);
 
   const mediaStore = readFileSync(new URL("./media-store.server.ts", import.meta.url), "utf8");
-  assert.match(mediaStore, /returning stored_url/);
-  assert.match(mediaStore, /expired\.map\(\(row\) => deleteStoredMedia\(row\.stored_url\)\)/);
+  assert.match(mediaStore, /prepareMediaCleanupJobInTransaction\(tx, jobId, async \(renditionUrl\)/);
+  assert.match(mediaStore, /status in \('pending','deleting'\) and next_attempt_at <= current_timestamp/);
 
   const chunkedUpload = readFileSync(new URL("./chunked-upload.server.ts", import.meta.url), "utf8");
   const rejectionStart = chunkedUpload.indexOf("if (isSignatureRejection(error))");
   const sessionDelete = chunkedUpload.indexOf("delete from media_upload_sessions", rejectionStart);
-  const objectDelete = chunkedUpload.indexOf("deleteStoredMedia(stored?.url)", rejectionStart);
-  assert.ok(rejectionStart >= 0 && sessionDelete >= 0 && objectDelete > sessionDelete);
+  const cleanupEnqueue = chunkedUpload.indexOf("enqueueMediaCleanupJob(tx, stored.url)", rejectionStart);
+  assert.ok(rejectionStart >= 0 && sessionDelete >= 0 && cleanupEnqueue > sessionDelete);
   const properties = readFileSync(new URL("./properties.ts", import.meta.url), "utf8");
-  assert.match(properties, /deletePropertyMedia/);
+  assert.match(properties, /enqueueMediaCleanupJob\(tx, url\)/);
+});
+
+test("property media replacement queues removed images and floor assets under the shared writer lock", () => {
+  const properties = readFileSync(new URL("./properties.ts", import.meta.url), "utf8");
+  const save = properties.slice(properties.indexOf("export const saveProperty"), properties.indexOf("export const listPropertyChangeHistory"));
+  assert.match(save, /lockMediaReferenceWrites\(tx\)/);
+  assert.match(save, /select images,floor_plan_url,virtual_tour_url from properties where id=\$1 and deleted_at is null for update/);
+  assert.match(save, /enqueueMediaCleanupJob\(tx, url\)/);
+  assert.match(save, /processMediaCleanupJobs\(mediaCleanupJobIds, sql\)/);
 });

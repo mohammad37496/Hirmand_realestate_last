@@ -86,6 +86,9 @@ jobs:
         id: migrate_database
         run: npm run db:migrate
 
+      - name: Media cleanup PostgreSQL integration
+        run: npm run test:media-cleanup:postgres
+
       - name: Database API PostgreSQL integration
         run: npm run test:database-api:postgres
 

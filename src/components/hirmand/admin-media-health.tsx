@@ -44,12 +44,13 @@ export function AdminMediaHealth({ canCleanup }: { canCleanup: boolean }) {
   useEffect(() => { void scan(); }, [scan]);
 
   async function cleanup() {
-    const ok = window.confirm("رسانه‌های یتیم داخل پایگاه داده و آپلودهای نیمه‌کاره قدیمی پاک شوند؟ فایل‌های موجود در Liara Object Storage به‌صورت حدسی حذف نمی‌شوند.");
+    const ok = window.confirm("رسانه‌های یتیم و آپلودهای نیمه‌کاره قدیمی بررسی و پاک‌سازی شوند؟ فایل‌های Liara فقط پس از بررسی مرجع‌ها و ثبت کار قابل‌بازیابی حذف می‌شوند.");
     if (!ok) return;
     setCleaning(true);
     try {
       const result = await cleanupAdminMedia({ data: { staleMinutes: 120 } });
-      toast.success(`${result.orphanDeleted.toLocaleString("fa-IR")} رسانه یتیم و ${result.staleSessionsDeleted.toLocaleString("fa-IR")} آپلود نیمه‌کاره پاک شد.`);
+      const retained = result.orphanRetained + result.staleMediaRetained;
+      toast.success(`${result.orphanDeleted.toLocaleString("fa-IR")} رسانه یتیم حذف شد؛ ${result.staleSessionsDeleted.toLocaleString("fa-IR")} نشست منقضی جمع‌آوری شد${retained ? `؛ ${retained.toLocaleString("fa-IR")} رسانهٔ مشترک حفظ شد` : ""}${result.cleanupPending ? `؛ ${result.cleanupPending.toLocaleString("fa-IR")} پاک‌سازی در صف retry باقی ماند` : ""}.`);
       await scan();
     } catch (error) {
       setData(null);
@@ -92,6 +93,7 @@ export function AdminMediaHealth({ canCleanup }: { canCleanup: boolean }) {
             <div className="admin-panel admin-health-card"><span>رسانه دارای مرجع</span><strong>{data.referencedDatabaseObjects.toLocaleString("fa-IR")}</strong><small>در فایل‌های فعال</small></div>
             <div className="admin-panel admin-health-card" data-tone={data.orphanObjects ? "danger" : undefined}><span>رسانه یتیم</span><strong>{data.orphanObjects.toLocaleString("fa-IR")}</strong><small>قابل پاک‌سازی امن از DB</small></div>
             <div className="admin-panel admin-health-card" data-tone={data.staleUploadSessions ? "danger" : undefined}><span>آپلود نیمه‌کاره</span><strong>{data.staleUploadSessions.toLocaleString("fa-IR")}</strong><small>{data.staleUploadChunks.toLocaleString("fa-IR")} تکه‌ی معلق</small></div>
+            <div className="admin-panel admin-health-card" data-tone={data.pendingMediaCleanupJobs ? "danger" : undefined}><span>پاک‌سازی در انتظار retry</span><strong>{data.pendingMediaCleanupJobs.toLocaleString("fa-IR")}</strong><small>کارهای ذخیره‌شده و قابل‌بازیابی</small></div>
           </div>
 
           <section className="admin-panel">
@@ -101,7 +103,7 @@ export function AdminMediaHealth({ canCleanup }: { canCleanup: boolean }) {
             </div>
             <div className="admin-health-rules">
               <div><HardDrive size={15} /><span>فقط رسانه‌های DB که دیگر هیچ فایل فعالی به آن‌ها ارجاع نمی‌دهد حذف می‌شوند.</span></div>
-              <div><Unplug size={15} /><span>رسانه‌های موجود در Liara Object Storage یا URLهای خارجی عمداً در این پاک‌سازی دستکاری نمی‌شوند.</span></div>
+              <div><Unplug size={15} /><span>فایل‌های Liara فقط پس از بررسی همهٔ مرجع‌ها و از مسیر صف قابل‌بازیابی حذف می‌شوند؛ URLهای خارجی ناشناخته دست‌نخورده می‌مانند.</span></div>
               <div><ShieldCheck size={15} /><span>آپلودهای بدون تکمیلِ بیشتر از ۲ ساعت نیز قابل جمع‌آوری هستند تا حجم DB بی‌جهت رشد نکند.</span></div>
             </div>
             <small className="admin-health-timestamp">آخرین اسکن: {new Date(data.scannedAt).toLocaleString("fa-IR")}</small>

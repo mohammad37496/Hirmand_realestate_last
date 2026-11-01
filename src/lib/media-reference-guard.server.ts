@@ -60,7 +60,7 @@ export async function hasMediaUrlReferences(
   sql: MediaReferenceSql,
   url: string,
   liaraKey?: string | null,
-  options: { ignoreVideoSourceUrl?: boolean; ignoreVideoManifestSourceUrl?: string } = {},
+  options: { ignoreVideoManifestSourceUrl?: string } = {},
 ): Promise<boolean> {
   const needles = mediaReferenceNeedles(url, liaraKey);
   if (!needles.length) return false;
@@ -74,7 +74,7 @@ export async function hasMediaUrlReferences(
        union all select url from music_tracks
        union all select property_data::text from customer_property_submissions
        union all select file_url from admin_deal_documents
-       ${options.ignoreVideoSourceUrl ? "" : "union all select source_url from property_video_renditions"}
+       union all select source_url from property_video_renditions where ($2::text is null or source_url <> $2)
        union all select renditions::text from property_video_renditions where ($2::text is null or source_url <> $2)
        union all select stored_url from property_media_upload_sessions where state <> 'failed'
        union all select '/api/media/' || stored_media_id from property_media_upload_sessions where state <> 'failed' and stored_media_id is not null
@@ -113,7 +113,7 @@ export async function removeOrphanedVideoRenditionManifest(
 ): Promise<{ removed: boolean; renditionUrls: string[] }> {
   const needles = mediaReferenceNeedles(url, liaraKey);
   const manifests = await sql.query<{ source_url: string; renditions: unknown }>(
-    "select source_url,renditions from property_video_renditions where source_url = any($1::text[]) limit 2",
+    "select source_url,renditions from property_video_renditions where source_url = any($1::text[]) or exists (select 1 from unnest($1::text[]) as needles(needle) where length(needle) >= 8 and position(needle in property_video_renditions.source_url) > 0) limit 2",
     [needles],
   );
   if (manifests.length !== 1) return { removed: false, renditionUrls: [] };
@@ -121,10 +121,10 @@ export async function removeOrphanedVideoRenditionManifest(
   const renditionState = manifest.renditions && typeof manifest.renditions === "object"
     ? manifest.renditions as Record<string, unknown>
     : null;
-  // A background encoder still owns this manifest. Keep the source and all
-  // renditions until it has stopped publishing variants.
+  // created_at is not a lease: FFmpeg can run longer than 30 minutes without
+  // publishing a rendition. Only the encoder may clear its processing flag.
   if (renditionState?.processing === true) return { removed: false, renditionUrls: [] };
-  if (await hasMediaUrlReferences(sql, url, liaraKey, { ignoreVideoSourceUrl: true, ignoreVideoManifestSourceUrl: manifest.source_url })) {
+  if (await hasMediaUrlReferences(sql, url, liaraKey, { ignoreVideoManifestSourceUrl: manifest.source_url })) {
     return { removed: false, renditionUrls: [] };
   }
   const deleted = await sql.query<{ renditions: unknown }>(

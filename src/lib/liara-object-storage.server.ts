@@ -200,7 +200,10 @@ async function send(input: {
 
   try {
     const response = await fetch(url, request);
-    if (response.ok) return true;
+    // DELETE is idempotent for cleanup retries: an object already removed by
+    // a previous attempt (including a crash before the DB completion update)
+    // is a successful end state.
+    if (response.ok || (input.method === "DELETE" && response.status === 404)) return true;
 
     const detail = (await response.text().catch(() => "")).trim().slice(0, 400);
     console.warn(

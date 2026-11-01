@@ -26,14 +26,16 @@ import {
   consumeAdminAttempt,
   tooManyAttemptsError,
 } from "@/lib/admin-rate-limit.server";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
+import { lockMediaReferenceWrites } from "@/lib/media-cleanup-transaction.server";
 import { contentMatchesDeclaredType } from "@/lib/file-signature.server";
 import { matchesUploadSessionScope, uploadSessionScopePrefix } from "@/lib/upload-session-scope";
 import {
-  deleteStoredMedia,
+  enqueueMediaCleanupJob,
   getMediaMeta,
   pruneStaleUploadSessions,
   readMediaRange,
+  retryPendingMediaCleanupJobs,
   storeAssembledUpload,
   type StoredMedia,
 } from "@/lib/media-store.server";
@@ -217,38 +219,40 @@ export async function handleChunkedUpload(
       );
     }
 
-    const sql = await getSql();
-    const insertedChunks = await sql.query<{ session_id: string }>(
-      `with scoped_session as (
-         select id
-         from media_upload_sessions
+    const row = await withSqlTransaction(async (tx) => {
+      // The chunk CTE locks its session row before the following UPDATE. Take
+      // the shared media lock first to preserve the global lock order against
+      // stale-session cleanup (which deletes chunk rows and then the session).
+      await lockMediaReferenceWrites(tx);
+      const insertedChunks = await tx.query<{ session_id: string }>(
+        `with scoped_session as (
+           select id
+           from media_upload_sessions
+           where id = $1
+             and kind = $4
+             and left(pathname, length($5)) = $5
+             and completion_state = 'pending'
+           for update
+         )
+         insert into media_upload_chunks (session_id, chunk_index, data)
+         select id, $2, $3 from scoped_session
+         on conflict (session_id, chunk_index) do update set data = excluded.data
+         returning session_id`,
+        [uploadIdHeader, index, bytes, config.kind, uploadSessionScopePrefix(config.pathPrefix)],
+      );
+      if (!insertedChunks[0]) return null;
+      const counters = await tx.query<SessionRow>(
+        `update media_upload_sessions
+         set received_chunks = (select count(*) from media_upload_chunks where session_id = $1),
+             bytes_received = (select coalesce(sum(octet_length(data)), 0) from media_upload_chunks where session_id = $1)
          where id = $1
-           and kind = $4
-           and left(pathname, length($5)) = $5
-           and completion_state = 'pending'
-         for update
-       )
-       insert into media_upload_chunks (session_id, chunk_index, data)
-       select id, $2, $3 from scoped_session
-       on conflict (session_id, chunk_index) do update set data = excluded.data
-       returning session_id`,
-      [uploadIdHeader, index, bytes, config.kind, uploadSessionScopePrefix(config.pathPrefix)],
-    );
-    if (!insertedChunks[0]) {
-      throw httpError("آپلود در حال نهایی‌سازی است؛ کمی بعد دوباره تلاش کنید.", 409);
-    }
-
-    const counters = await sql.query<SessionRow>(
-      `update media_upload_sessions
-       set received_chunks = (select count(*) from media_upload_chunks where session_id = $1),
-           bytes_received = (select coalesce(sum(octet_length(data)), 0) from media_upload_chunks where session_id = $1)
-       where id = $1
-         and kind = $2
-         and left(pathname, length($3)) = $3
-       returning received_chunks, bytes_received, total_bytes, total_chunks`,
-      [uploadIdHeader, config.kind, uploadSessionScopePrefix(config.pathPrefix)],
-    );
-    const row = counters[0];
+           and kind = $2
+           and left(pathname, length($3)) = $3
+         returning received_chunks, bytes_received, total_bytes, total_chunks`,
+        [uploadIdHeader, config.kind, uploadSessionScopePrefix(config.pathPrefix)],
+      );
+      return counters[0] ?? null;
+    });
     if (!row) throw httpError("آپلود در حال نهایی‌سازی است؛ وضعیت قطعه را دوباره بررسی کنید.", 409);
 
     return {
@@ -426,7 +430,9 @@ export async function handleChunkedUpload(
       };
     }
 
-    void pruneStaleUploadSessions().catch(() => undefined);
+    void pruneStaleUploadSessions().catch((error) => {
+      console.error("[upload] stale-session/media cleanup retry failed", error);
+    });
 
     return {
       uploadId,
@@ -605,13 +611,18 @@ export async function handleChunkedUpload(
       if (isSignatureRejection(error)) {
         // Drop the object we just staged plus its chunks: keeping either would
         // leave an orphan file nothing will ever reference.
-        await sql
-          .query(
-            "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3",
-            [uploadId, config.kind, uploadSessionScopePrefix(config.pathPrefix)],
-          )
-          .catch(() => undefined);
-        await deleteStoredMedia(stored?.url).catch(() => undefined);
+        try {
+          await withSqlTransaction(async (tx) => {
+            await tx.query(
+              "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3",
+              [uploadId, config.kind, uploadSessionScopePrefix(config.pathPrefix)],
+            );
+            if (stored?.url) await enqueueMediaCleanupJob(tx, stored.url);
+          });
+          await retryPendingMediaCleanupJobs();
+        } catch (cleanupError) {
+          console.error(`[upload] rejected object cleanup remains queued for ${uploadId}`, cleanupError);
+        }
         console.warn(
           `[upload] rejected ${session.kind} upload ${uploadId}: content does not match declared type`,
         );
@@ -629,13 +640,17 @@ export async function handleChunkedUpload(
 
       // Leave an assembled object retryable, but do not leave a permanently
       // locked session if a transient database/network error occurred.
-      await sql.query(
-        `update media_upload_sessions
-         set completion_state = case when stored_url is null then 'pending' else 'assembled' end,
-             completion_started_at = case when stored_url is null then null else current_timestamp - interval '10 minutes' end
-         where id = $1 and kind = $2 and left(pathname, length($3)) = $3`,
-        [uploadId, config.kind, uploadSessionScopePrefix(config.pathPrefix)],
-      ).catch(() => undefined);
+      try {
+        await sql.query(
+          `update media_upload_sessions
+           set completion_state = case when stored_url is null then 'pending' else 'assembled' end,
+               completion_started_at = case when stored_url is null then null else current_timestamp - interval '10 minutes' end
+           where id = $1 and kind = $2 and left(pathname, length($3)) = $3`,
+          [uploadId, config.kind, uploadSessionScopePrefix(config.pathPrefix)],
+        );
+      } catch (stateError) {
+        throw new AggregateError([error, stateError], "Upload finalization failed and its retry state could not be persisted.");
+      }
       throw error;
     }
   }

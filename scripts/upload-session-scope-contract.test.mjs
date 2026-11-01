@@ -10,7 +10,8 @@ test("chunk writes lock and revalidate the session kind, storage prefix, and pen
   requirePattern(/matchesUploadSessionScope\(session, config\.kind, config\.pathPrefix\)/, "chunk requests must validate the loaded session scope");
   requirePattern(/with scoped_session as \([\s\S]*?for update[\s\S]*?completion_state = 'pending'/, "chunk insertion must lock a pending, correctly scoped session row");
   requirePattern(/left\(pathname, length\(\$5\)\) = \$5/, "chunk insert must enforce the storage path prefix in SQL");
-  requirePattern(/if \(!insertedChunks\[0\]\)/, "a chunk rejected by the atomic scope check must not report success");
+  requirePattern(/withSqlTransaction\(async \(tx\) => \{[\s\S]*?lockMediaReferenceWrites\(tx\)[\s\S]*?const insertedChunks/, "chunk writers must take the shared media lock before locking the upload-session row");
+  requirePattern(/if \(!insertedChunks\[0\]\) return null/, "a chunk rejected by the atomic scope check must not report success");
 });
 
 test("begin, completion receipts, failure recovery, and abort remain scoped to the owning route", () => {
@@ -22,7 +23,7 @@ test("begin, completion receipts, failure recovery, and abort remain scoped to t
 });
 
 test("the actual chunk-insert SQL rejects cross-route and non-pending sessions", async () => {
-  const match = protocol.match(/const insertedChunks = await sql\.query<\{ session_id: string \}>\(\s*`([\s\S]*?)`,\s*\[uploadIdHeader, index, bytes, config\.kind, uploadSessionScopePrefix\(config\.pathPrefix\)\]/);
+  const match = protocol.match(/const insertedChunks = await tx\.query<\{ session_id: string \}>\(\s*`([\s\S]*?)`,\s*\[uploadIdHeader, index, bytes, config\.kind, uploadSessionScopePrefix\(config\.pathPrefix\)\]/);
   assert.ok(match, "extract the production chunk insert query instead of testing a copy");
   const insertChunkSql = match[1];
   const db = new PGlite();
