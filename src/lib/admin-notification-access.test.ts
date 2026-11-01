@@ -95,6 +95,46 @@ test("notification source query failures reject instead of appearing as an empty
   await assert.rejects(loadAdminNotificationCandidates(query, access), /database unavailable/);
 });
 
+test("merged leads do not create stale lead or visit alerts and unread duplicate-thread messages point to canonical lead", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table leads (
+        id text primary key, merged_into_lead_id text, name text not null,
+        status text not null, follow_up_at timestamptz, visit_status text not null,
+        visit_requested_at timestamptz
+      );
+      create table customer_messages (
+        id text primary key, lead_id text not null, sender_type text not null,
+        read_by_admin_at timestamptz, created_at timestamptz not null
+      );
+      create table properties (
+        id text primary key, title text not null, deleted_at timestamptz,
+        status text not null, images jsonb not null default '[]'::jsonb,
+        updated_at timestamptz not null default current_timestamp
+      );
+      insert into leads(id,merged_into_lead_id,name,status,follow_up_at,visit_status,visit_requested_at) values
+        ('canonical',null,'Canonical','new',current_timestamp - interval '1 day','none',null),
+        ('duplicate','canonical','Duplicate','closed',current_timestamp - interval '1 day','requested',current_timestamp);
+      insert into customer_messages(id,lead_id,sender_type,created_at) values
+        ('message-1','duplicate','customer',current_timestamp);
+    `);
+    const access = getAdminNotificationAccess("owner");
+    const result = await loadAdminNotificationCandidates(
+      async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+        (await db.query<T>(text, params)).rows,
+      access,
+    );
+    assert.deepEqual(result.leads.map((row) => row.id), ["canonical"]);
+    assert.deepEqual(result.visits, []);
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.messages[0].lead_id, "canonical");
+    assert.equal(result.messages[0].unread_count, 1);
+  } finally {
+    await db.close();
+  }
+});
+
 test("roles without source permissions do not run forbidden notification queries", async () => {
   const access = getAdminNotificationAccess("viewer");
   let calls = 0;
