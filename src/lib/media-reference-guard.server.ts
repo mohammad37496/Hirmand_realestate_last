@@ -60,7 +60,7 @@ export async function hasMediaUrlReferences(
   sql: MediaReferenceSql,
   url: string,
   liaraKey?: string | null,
-  options: { ignoreVideoSourceUrl?: boolean } = {},
+  options: { ignoreVideoSourceUrl?: boolean; ignoreVideoManifestSourceUrl?: string } = {},
 ): Promise<boolean> {
   const needles = mediaReferenceNeedles(url, liaraKey);
   if (!needles.length) return false;
@@ -75,7 +75,7 @@ export async function hasMediaUrlReferences(
        union all select property_data::text from customer_property_submissions
        union all select file_url from admin_deal_documents
        ${options.ignoreVideoSourceUrl ? "" : "union all select source_url from property_video_renditions"}
-       union all select renditions::text from property_video_renditions
+       union all select renditions::text from property_video_renditions where ($2::text is null or source_url <> $2)
        union all select stored_url from property_media_upload_sessions where state <> 'failed'
        union all select '/api/media/' || stored_media_id from property_media_upload_sessions where state <> 'failed' and stored_media_id is not null
        union all select completion_result::text from property_media_upload_sessions where state <> 'failed'
@@ -89,7 +89,7 @@ export async function hasMediaUrlReferences(
        select 1 from media_refs r cross join needles n
        where n.needle <> '' and position(n.needle in coalesce(r.value,'')) > 0
      ) as referenced`,
-    [needles],
+    [needles, options.ignoreVideoManifestSourceUrl ?? null],
   );
   return rows[0]?.referenced === true;
 }
@@ -124,7 +124,7 @@ export async function removeOrphanedVideoRenditionManifest(
   // A background encoder still owns this manifest. Keep the source and all
   // renditions until it has stopped publishing variants.
   if (renditionState?.processing === true) return { removed: false, renditionUrls: [] };
-  if (await hasMediaUrlReferences(sql, url, liaraKey, { ignoreVideoSourceUrl: true })) {
+  if (await hasMediaUrlReferences(sql, url, liaraKey, { ignoreVideoSourceUrl: true, ignoreVideoManifestSourceUrl: manifest.source_url })) {
     return { removed: false, renditionUrls: [] };
   }
   const deleted = await sql.query<{ renditions: unknown }>(

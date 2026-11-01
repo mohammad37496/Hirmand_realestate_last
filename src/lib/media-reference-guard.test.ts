@@ -147,6 +147,23 @@ test("orphaned video manifests are removed and return rendition URLs for guarded
   }
 });
 
+test("synchronous video manifest cleanup ignores its own highest-quality source entry", async () => {
+  const db = await fixture();
+  try {
+    const sourceUrl = "https://media.example/video/highest.mp4";
+    const lowerUrl = "https://media.example/video/720.mp4";
+    await db.query(
+      "insert into property_video_renditions(source_url,renditions) values($1,jsonb_build_object('1080p',$1::text,'720p',$2::text))",
+      [sourceUrl, lowerUrl],
+    );
+    const result = await removeOrphanedVideoRenditionManifest(sqlFor(db), sourceUrl);
+    assert.equal(result.removed, true);
+    assert.deepEqual(new Set(result.renditionUrls), new Set([sourceUrl, lowerUrl]));
+  } finally {
+    await db.close();
+  }
+});
+
 test("video manifests stay when the source or rendition is still referenced elsewhere", async () => {
   const db = await fixture();
   try {
