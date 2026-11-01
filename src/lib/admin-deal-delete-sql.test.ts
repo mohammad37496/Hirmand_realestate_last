@@ -64,6 +64,7 @@ test("deal settlement foreign key rejects new orphans and blocks concurrent deal
     `);
     const migration = readFileSync(new URL("../../migrations/0109_admin_commission_settlement_deal_fk.sql", import.meta.url), "utf8");
     await db.exec(migration);
+    await db.exec(migration);
     await assert.rejects(
       db.query("insert into admin_commission_settlements(id,deal_id) values ('new-orphan','missing-deal')"),
       /foreign key/i,
