@@ -7,16 +7,27 @@
  * still-used object.
  */
 export const ADMIN_MEDIA_REFERENCED_IDS_SQL = `
-  select distinct substring(image.value from '/api/media/([^/?#]+)') as id
-  from properties p
-  cross join lateral jsonb_array_elements_text(coalesce(p.images, '[]'::jsonb)) as image(value)
-  where image.value like '%/api/media/%'
-    and substring(image.value from '/api/media/([^/?#]+)') is not null
-  union
-  select distinct substring(p.floor_plan_url from '/api/media/([^/?#]+)') as id
-  from properties p
-  where p.floor_plan_url like '%/api/media/%'
-    and substring(p.floor_plan_url from '/api/media/([^/?#]+)') is not null
+  select distinct substring(refs.value from '/api/media/([^/?#"]+)') as id
+  from (
+    select images::text as value from properties
+    union all select floor_plan_url from properties
+    union all select virtual_tour_url from properties
+    union all select url from music_tracks
+    union all select property_data::text from customer_property_submissions
+    union all select file_url from admin_deal_documents
+    union all select source_url from property_video_renditions
+    union all select renditions::text from property_video_renditions
+    union all select stored_url from property_media_upload_sessions where state <> 'failed'
+    union all select '/api/media/' || stored_media_id from property_media_upload_sessions where state <> 'failed' and stored_media_id is not null
+    union all select completion_result::text from property_media_upload_sessions where state <> 'failed'
+    union all select stored_url from media_upload_sessions where completion_state <> 'failed'
+    union all select '/api/media/' || stored_media_id from media_upload_sessions where completion_state <> 'failed' and stored_media_id is not null
+    union all select completion_result::text from media_upload_sessions where completion_state <> 'failed'
+    union all select hero_image from area_contents
+    union all select gallery::text from area_contents
+  ) refs
+  where refs.value like '%/api/media/%'
+    and substring(refs.value from '/api/media/([^/?#"]+)') is not null
 `;
 
 export const ADMIN_MEDIA_ORPHAN_UPLOADS_SQL = `

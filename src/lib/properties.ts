@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
 import { cachedPropertyRead, clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { z } from "zod";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { isPropertyDescriptionValidForStatus, nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
 import { EXACT_PROPERTY_DUPLICATE_SQL, propertyDuplicateKeyChanged, publicationCriticalFieldsChanged, resolvePropertySaveStatus } from "@/lib/property-save-guards";
 import { buildPublicPropertyFilterParams, buildPublicPropertyWhereSql, PRICE_EXPR } from "@/lib/property-search-sql";
@@ -14,7 +14,8 @@ import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
 import { resolveFileCodeLookup } from "@/lib/property-file-code";
 import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type BudgetMatchDetails } from "@/lib/budget-matching";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
-import { deleteStoredMedia } from "@/lib/media-store.server";
+import { enqueueMediaCleanupJob, processMediaCleanupJobs } from "@/lib/media-store.server";
+import { lockMediaReferenceWrites } from "@/lib/media-cleanup-transaction.server";
 import { deleteTrashedProperty, type TrashedPropertyRow } from "@/lib/admin-property-trash";
 import { bulkTrashActiveProperties } from "@/lib/admin-property-bulk-trash";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
@@ -1498,20 +1499,33 @@ export const permanentlyDeleteProperty = createServerFn({ method: "POST" })
     await requireAdminPermission("property.manage");
     if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ حذف دائمی انجام نشد.");
     const sql = await getSql();
-    const existing = await deleteTrashedProperty(
-      (statement, params) => sql.query<TrashedPropertyRow>(statement, params),
-      data.id,
-    );
-    if (!existing) return { success: false, deleted: 0 };
-    const mediaUrls = [
-      ...(Array.isArray(existing.images)
-        ? existing.images.filter((item): item is string => typeof item === "string")
-        : []),
-      ...(typeof existing.floor_plan_url === "string" && existing.floor_plan_url.trim()
-        ? [existing.floor_plan_url.trim()]
-        : []),
-    ];
-    await Promise.all(Array.from(new Set(mediaUrls)).map((url) => deleteStoredMedia(url)));
+    const deletion = await withSqlTransaction(async (tx) => {
+      const existing = await deleteTrashedProperty(
+        (statement, params) => tx.query<TrashedPropertyRow>(statement, params),
+        data.id,
+      );
+      if (!existing) return null;
+      const mediaUrls = [
+        ...(Array.isArray(existing.images)
+          ? existing.images.filter((item): item is string => typeof item === "string")
+          : []),
+        ...(typeof existing.floor_plan_url === "string" && existing.floor_plan_url.trim()
+          ? [existing.floor_plan_url.trim()]
+          : []),
+        ...(typeof existing.virtual_tour_url === "string" && existing.virtual_tour_url.trim()
+          ? [existing.virtual_tour_url.trim()]
+          : []),
+      ];
+      const jobIds: number[] = [];
+      for (const url of new Set(mediaUrls)) {
+        const [job] = await enqueueMediaCleanupJob(tx, url);
+        if (job) jobIds.push(job.id);
+      }
+      return { existing, jobIds };
+    });
+    if (!deletion) return { success: false, deleted: 0 };
+    const { existing, jobIds } = deletion;
+    await processMediaCleanupJobs(jobIds, sql);
     await writeAdminAuditLog({
       action: "property.permanently_deleted",
       entityType: "property",
@@ -1717,7 +1731,16 @@ export const saveProperty = createServerFn({ method: "POST" })
     const savedConvertible =
       (data.transactionType === "rent" || data.transactionType === "mortgage") ? data.convertible : false;
 
-    await sql.query(
+    const saveResult = await withSqlTransaction(async (tx) => {
+      await lockMediaReferenceWrites(tx);
+      const previousMediaRows = await tx.query<{ images: unknown; floor_plan_url: string | null; virtual_tour_url: string | null }>(
+        "select images,floor_plan_url,virtual_tour_url from properties where id=$1 and deleted_at is null for update",
+        [id],
+      );
+      if (data.id && !previousMediaRows[0]) {
+        throw new Error("فایل موردنظر حذف شده یا دیگر در دسترس نیست. فهرست را تازه‌سازی کنید.");
+      }
+      await tx.query(
       `insert into properties (
         id, slug, status, featured, title, transaction_type, property_type, city,
         neighborhood, address, area_m2, bedrooms, bathrooms, floor, total_floors,
@@ -1930,13 +1953,32 @@ export const saveProperty = createServerFn({ method: "POST" })
         data.internalNote,
         data.floorPlanUrl.trim(),
       ],
-    );
+      );
 
-    const rows = await sql.query<Record<string, unknown>>(
-      `select ${DETAIL_COLUMNS} from properties where id = $1 and deleted_at is null limit 1`,
-      [id],
-    );
-    if (!rows[0]) throw new Error("فایل ثبت نشد.");
+      const rows = await tx.query<Record<string, unknown>>(
+        `select ${DETAIL_COLUMNS} from properties where id = $1 and deleted_at is null limit 1`,
+        [id],
+      );
+      if (!rows[0]) throw new Error("فایل ثبت نشد.");
+      const oldUrls = new Set([
+        ...parseJsonArray(previousMediaRows[0]?.images),
+        previousMediaRows[0]?.floor_plan_url?.trim() ?? "",
+        previousMediaRows[0]?.virtual_tour_url?.trim() ?? "",
+      ].filter(Boolean));
+      const newUrls = new Set([
+        ...data.images,
+        data.floorPlanUrl.trim(),
+        data.virtualTourUrl.trim(),
+      ].filter(Boolean));
+      const jobIds: number[] = [];
+      for (const url of oldUrls) {
+        if (newUrls.has(url)) continue;
+        const [job] = await enqueueMediaCleanupJob(tx, url);
+        if (job) jobIds.push(job.id);
+      }
+      return { rows, jobIds };
+    });
+    const { rows, jobIds: mediaCleanupJobIds } = saveResult;
 
     if (existing) {
       const asNumber = (value: unknown) => {
@@ -1989,6 +2031,8 @@ export const saveProperty = createServerFn({ method: "POST" })
       entityTitle: String(rows[0]?.title ?? ""),
       metadata: { status: rows[0]?.status ?? null },
     });
+
+    await processMediaCleanupJobs(mediaCleanupJobIds, sql);
 
     clearPropertyReadCache();
     return mapProperty(rows[0], { admin: true });

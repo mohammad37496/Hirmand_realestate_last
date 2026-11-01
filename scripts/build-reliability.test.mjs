@@ -293,9 +293,10 @@ test("object-store offload never deletes the database fallback before saving the
   const persistDbPointer = mediaStore.indexOf("set completion_state = 'assembled', stored_url = $2", mediaStore.indexOf("// Commit a usable database URL"));
   const remoteUpload = mediaStore.indexOf("remoteUrl = await putLiaraObject", persistDbPointer);
   const persistRemotePointer = mediaStore.indexOf("remoteStored.url", remoteUpload);
-  const deleteDbCopy = mediaStore.indexOf('delete from media_objects where id = $1', persistRemotePointer);
+  const queueDbCopyCleanup = mediaStore.indexOf("enqueueMediaCleanupJob(tx, `${DB_MEDIA_PATH}${id}`)", persistRemotePointer);
+  const processDbCopyCleanup = mediaStore.indexOf("processMediaCleanupJobs(cleanupJobIds, sql)", queueDbCopyCleanup);
   assert.ok(persistDbPointer >= 0 && remoteUpload > persistDbPointer);
-  assert.ok(persistRemotePointer > remoteUpload && deleteDbCopy > persistRemotePointer);
+  assert.ok(persistRemotePointer > remoteUpload && queueDbCopyCleanup > persistRemotePointer && processDbCopyCleanup > queueDbCopyCleanup);
 });
 
 test("FFmpeg release URL uses the same repository as its pinned release assets", () => {

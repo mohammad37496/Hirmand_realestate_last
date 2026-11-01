@@ -14,7 +14,7 @@ import {
   setResponseHeader,
   type H3Event,
 } from "h3";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import {
   ADMIN_SESSION_COOKIE,
   getAdminSessionClaims,
@@ -32,7 +32,7 @@ import { watermarkPropertyMediaFile } from "@/lib/property-media-file-processing
 import { copyFile, mkdtemp, open, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { deleteLiaraObject, liaraStorageConfigured, putLiaraObjectFromFile } from "@/lib/liara-object-storage.server";
+import { liaraStorageConfigured } from "@/lib/liara-object-storage.server";
 import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
 import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
 import {
@@ -42,7 +42,11 @@ import {
 import type { PropertyWatermarkPosition, PropertyWatermarkSettings } from "@/lib/property-watermark";
 import {
   deleteStoredMedia,
+  deletePropertyMedia,
+  enqueueMediaCleanupJob,
   mediaUrlForBrowser,
+  putLiaraObjectFromFileSafely,
+  retryPendingMediaCleanupJobs,
   storeMedia,
   type StoredMedia,
 } from "@/lib/media-store.server";
@@ -93,12 +97,16 @@ async function queueLargeVideoRenditions(input: {
       `update property_video_renditions set renditions = $2::jsonb, created_at = current_timestamp where source_url = $1`,
       [input.sourceUrl, JSON.stringify({ processing: false })],
     ).catch(() => undefined);
+    await deletePropertyMedia(input.sourceUrl).catch((cleanupError) => {
+      console.warn("[property-media] failed to retry cleanup after video staging failure", cleanupError);
+    });
     console.warn("[property-media] could not stage background quality job:", error instanceof Error ? error.message : error);
     return;
   }
 
   void (async () => {
     const renditionUrls: Record<string, string> = {};
+    let processingFailed = false;
     try {
       for await (const rendition of createPropertyVideoRenditionFiles({
         inputPath,
@@ -106,7 +114,7 @@ async function queueLargeVideoRenditions(input: {
         pathname: input.pathname,
         workDir,
       })) {
-        const storedUrl = await putLiaraObjectFromFile({
+        const storedUrl = await putLiaraObjectFromFileSafely({
           key: rendition.pathname,
           filePath: rendition.path,
           contentType: rendition.contentType,
@@ -124,6 +132,7 @@ async function queueLargeVideoRenditions(input: {
         );
       }
     } catch (error) {
+      processingFailed = true;
       console.warn(
         `[property-media] background quality processing failed for ${input.sourceUrl}:`,
         error instanceof Error ? error.message : error,
@@ -136,6 +145,16 @@ async function queueLargeVideoRenditions(input: {
          where source_url = $1`,
         [input.sourceUrl],
       ).catch(() => undefined);
+      await deletePropertyMedia(input.sourceUrl).catch((cleanupError) => {
+        console.warn("[property-media] deferred video media cleanup remains queued", cleanupError);
+      });
+      if (processingFailed) {
+        for (const renditionUrl of Object.values(renditionUrls)) {
+          await deleteStoredMedia(renditionUrl).catch((cleanupError) => {
+            console.warn("[property-media] unregistered rendition cleanup remains queued", cleanupError);
+          });
+        }
+      }
       await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
     }
   })();
@@ -339,20 +358,20 @@ async function beginUpload(
   const sql = await getSql();
   // Completed receipts and abandoned chunks are temporary; published media are
   // stored separately and are never removed by this cleanup.
-  await sql.query(
-    `delete from property_media_upload_sessions
-     where created_at < current_timestamp - interval '24 hours'
-       and (
-         state <> 'completing'
-         or completion_started_at is null
-         or completion_started_at < current_timestamp - interval '15 minutes'
-       )`,
-  ).catch((error) => {
-    console.warn(
-      "[property-media] stale session cleanup failed:",
-      error instanceof Error ? error.message : error,
+  await withSqlTransaction(async (tx) => {
+    const expiredSessions = await tx.query<{ stored_url: string | null; stored_media_id: string | null }>(
+      `delete from property_media_upload_sessions
+       where created_at < current_timestamp - interval '24 hours'
+         and (state <> 'completing' or completion_started_at is null
+           or completion_started_at < current_timestamp - interval '15 minutes')
+       returning stored_url,stored_media_id`,
     );
+    for (const row of expiredSessions) {
+      const url = row.stored_url || (row.stored_media_id ? `/api/media/${encodeURIComponent(row.stored_media_id)}` : null);
+      if (url) await enqueueMediaCleanupJob(tx, url);
+    }
   });
+  await retryPendingMediaCleanupJobs();
 
   const uploadId = crypto.randomUUID();
   const totalChunks = Math.max(1, Math.ceil(sizeBytes / CHUNK_SIZE));
@@ -574,7 +593,7 @@ async function completeLargePropertyMediaUpload(
     }
 
     const finalStat = await stat(finalPath);
-    storedUrl = await putLiaraObjectFromFile({
+    storedUrl = await putLiaraObjectFromFileSafely({
       key: finalPathname,
       filePath: finalPath,
       contentType: finalContentType,
@@ -628,7 +647,9 @@ async function completeLargePropertyMediaUpload(
     return result;
   } catch (error) {
     if (!receiptSaved) {
-      if (storedUrl) await deleteLiaraObject(finalPathname).catch(() => undefined);
+      if (storedUrl) await deleteStoredMedia(storedUrl).catch((cleanupError) => {
+        console.error("[property-media] failed to queue staged object cleanup", cleanupError);
+      });
     }
     throw error;
   } finally {
@@ -709,12 +730,16 @@ async function completeUpload(
     try {
       return await completeLargePropertyMediaUpload(uploadId, session, totalChunks, totalBytes);
     } catch (error) {
-      await sql.query(
-        `update property_media_upload_sessions
-         set state = 'pending', completion_started_at = null, updated_at = current_timestamp
-         where id = $1 and state = 'completing'`,
-        [uploadId],
-      ).catch(() => undefined);
+      try {
+        await sql.query(
+          `update property_media_upload_sessions
+           set state = 'pending', completion_started_at = null, updated_at = current_timestamp
+           where id = $1 and state = 'completing'`,
+          [uploadId],
+        );
+      } catch (stateError) {
+        throw new AggregateError([error, stateError], "Large media upload failed and its retry state could not be persisted.");
+      }
       throw error;
     }
   }
@@ -943,30 +968,40 @@ async function completeUpload(
         ? Number((error as { statusCode?: unknown }).statusCode)
         : null;
     if (errorStatus !== 415) {
-      await sql.query(
-        `update property_media_upload_sessions
-         set state = case when stored_url is null then 'pending' else 'completing' end,
-             completion_started_at = case when stored_url is null then null
-               else current_timestamp - interval '10 minutes' end,
-             updated_at = current_timestamp
-         where id = $1 and state = 'completing'`,
-        [uploadId],
-      ).catch(() => undefined);
-    }
-    if (storedVideoRenditions.length && !completionReceiptSaved) {
-      if (renditionManifestSource) {
+      try {
         await sql.query(
-          "delete from property_video_renditions where source_url = $1",
-          [renditionManifestSource],
-        ).catch(() => undefined);
+          `update property_media_upload_sessions
+           set state = case when stored_url is null then 'pending' else 'completing' end,
+               completion_started_at = case when stored_url is null then null
+                 else current_timestamp - interval '10 minutes' end,
+               updated_at = current_timestamp
+           where id = $1 and state = 'completing'`,
+          [uploadId],
+        );
+      } catch (stateError) {
+        throw new AggregateError([error, stateError], "Media upload failed and its retry state could not be persisted.");
       }
-      await Promise.all(
-        storedVideoRenditions.map((rendition) =>
-          deleteStoredMedia(rendition.url).catch(() => undefined),
-        ),
-      );
-    } else if (stored && errorStatus === 415) {
-      await deleteStoredMedia(stored.url).catch(() => undefined);
+    } else {
+      await withSqlTransaction(async (tx) => {
+        await tx.query(
+          `update property_media_upload_sessions
+           set state = 'failed', stored_url = null, stored_storage = null, stored_media_id = null,
+               completion_result = null, completion_started_at = null, updated_at = current_timestamp
+           where id = $1 and state = 'completing'`,
+          [uploadId],
+        );
+        if (storedVideoRenditions.length && !completionReceiptSaved) {
+          if (renditionManifestSource) {
+            await tx.query("delete from property_video_renditions where source_url = $1", [renditionManifestSource]);
+          }
+          for (const rendition of storedVideoRenditions) await enqueueMediaCleanupJob(tx, rendition.url);
+        } else if (stored) {
+          await enqueueMediaCleanupJob(tx, stored.url);
+        }
+      });
+      await retryPendingMediaCleanupJobs().catch((cleanupError) => {
+        console.error(`[property-media] rejected upload cleanup remains queued for ${uploadId}`, cleanupError);
+      });
     }
     console.error(
       `[property-media] finalize failed for ${uploadId}: ${error instanceof Error ? error.message : String(error)}`,

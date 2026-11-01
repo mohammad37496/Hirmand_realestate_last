@@ -1,8 +1,11 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader, type H3Event } from "h3";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { enqueueMediaCleanupJob, processMediaCleanupJobs } from "@/lib/media-store.server";
+import { lockMediaReferenceWrites } from "@/lib/media-cleanup-transaction.server";
+import { DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL } from "@/lib/admin-deal-delete-sql";
 
 type DealStatus = "prospect"|"negotiation"|"agreement"|"contracted"|"completed"|"cancelled";
 type DealType = "sale"|"rent"|"mortgage"|"buy";
@@ -55,12 +58,38 @@ export default defineEventHandler(async event=>{
     return {success:true};
   }
   if(action==="delete"){
-    const deleted=await sql.query("with removed_documents as (delete from admin_deal_documents where deal_id=$1 and exists(select 1 from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id)) returning deal_id) delete from admin_deals d where d.id=$1 and not exists(select 1 from admin_commission_settlements s where s.deal_id=d.id) returning d.id",[id]);
-    if(!deleted.length){
+    let deleted: Array<{id:string|null;file_urls:string[]}>;
+    let cleanupJobIds: number[] = [];
+    try {
+      const result = await withSqlTransaction(async (tx) => {
+        // This route locks the deal row inside its DELETE CTE. Acquire the shared
+        // media lock first so document writers (which take it in their trigger
+        // before FK row locks) cannot form a row-lock/advisory-lock cycle.
+        await lockMediaReferenceWrites(tx);
+        const rows = await tx.query<{id:string|null;file_urls:string[]}>(DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL,[id]);
+        const jobIds: number[] = [];
+        for (const fileUrl of new Set(rows[0]?.file_urls ?? [])) {
+          const [job] = await enqueueMediaCleanupJob(tx, fileUrl);
+          if (job) jobIds.push(job.id);
+        }
+        return { rows, jobIds };
+      });
+      deleted = result.rows;
+      cleanupJobIds = result.jobIds;
+    } catch (error) {
+      const code=error&&typeof error==="object"&&"code" in error?String(error.code):"";
+      if(code==="23503"){
+        const linkedSettlement=await sql.query("select id from admin_commission_settlements where deal_id=$1 limit 1",[id]);
+        if(linkedSettlement.length)throw createError({statusCode:409,statusMessage:"معامله دارای سابقه تسویه است و برای حفظ سوابق مالی قابل حذف نیست."});
+      }
+      throw error;
+    }
+    if(!deleted[0]?.id){
       const linkedSettlement=await sql.query("select id from admin_commission_settlements where deal_id=$1 limit 1",[id]);
       if(linkedSettlement.length)throw createError({statusCode:409,statusMessage:"معامله دارای سابقه تسویه است و برای حفظ سوابق مالی قابل حذف نیست."});
       throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ چیزی حذف نشد."});
     }
+    await processMediaCleanupJobs(cleanupJobIds, sql);
     return {success:true};
   }
   if(action==="seed_documents"){
@@ -73,8 +102,18 @@ export default defineEventHandler(async event=>{
     const documentType=clean(body.documentType,160); if(!documentType)throw createError({statusCode:400,statusMessage:"نوع مدرک مشخص نیست."});
     if(!["pending","received","verified","rejected"].includes(String(body.documentStatus)))throw createError({statusCode:400,statusMessage:"وضعیت مدرک معتبر نیست."});
     const status=String(body.documentStatus) as DocStatus;
-    const saved=await sql.query("insert into admin_deal_documents(id,deal_id,document_type,status,file_url,note,received_at,verified_at) select $1,$2,$3,$4,$5,$6,case when $4 in ('received','verified') then current_timestamp else null end,case when $4='verified' then current_timestamp else null end where exists(select 1 from admin_deals where id=$2) on conflict(deal_id,document_type) do update set status=excluded.status,file_url=excluded.file_url,note=excluded.note,received_at=excluded.received_at,verified_at=excluded.verified_at,updated_at=current_timestamp returning id",[crypto.randomUUID(),id,documentType,status,clean(body.fileUrl,1000),clean(body.note,1200)]);
-    if(!saved.length)throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ مدرک ثبت نشد."});
+    const fileUrl=clean(body.fileUrl,1000);
+    const saved=await withSqlTransaction(async (tx)=>{
+      await lockMediaReferenceWrites(tx);
+      const previous=await tx.query<{file_url:string}>("select file_url from admin_deal_documents where deal_id=$1 and document_type=$2 for update",[id,documentType]);
+      const rows=await tx.query("insert into admin_deal_documents(id,deal_id,document_type,status,file_url,note,received_at,verified_at) select $1,$2,$3,$4,$5,$6,case when $4 in ('received','verified') then current_timestamp else null end,case when $4='verified' then current_timestamp else null end where exists(select 1 from admin_deals where id=$2) on conflict(deal_id,document_type) do update set status=excluded.status,file_url=excluded.file_url,note=excluded.note,received_at=excluded.received_at,verified_at=excluded.verified_at,updated_at=current_timestamp returning id",[crypto.randomUUID(),id,documentType,status,fileUrl,clean(body.note,1200)]);
+      const oldUrl=previous[0]?.file_url?.trim();
+      const jobIds:number[]=[];
+      if(oldUrl && oldUrl!==fileUrl){const [job]=await enqueueMediaCleanupJob(tx,oldUrl);if(job)jobIds.push(job.id);}
+      return {rows,jobIds};
+    });
+    if(!saved.rows.length)throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ مدرک ثبت نشد."});
+    await processMediaCleanupJobs(saved.jobIds,sql);
     return {success:true};
   }
   if(action==="documents"){

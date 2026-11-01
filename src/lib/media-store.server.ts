@@ -7,8 +7,10 @@
  * keep the fast CDN path while everything still works with just `DATABASE_URL`.
  */
 
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction, type Sql } from "@/lib/db";
 import { DB_MEDIA_PATH } from "@/lib/media";
+import { hasMediaUrlReferences, mediaReferenceNeedles, removeOrphanedVideoRenditionManifest } from "@/lib/media-reference-guard.server";
+import { assertMediaCleanupDatabaseConfigured, assertMediaObjectWritable, deletePreparedMediaCleanupJobInTransaction, lockMediaObjectIdentity, lockMediaReferenceWrites, prepareMediaCleanupJobInTransaction, upsertMediaCleanupJob } from "@/lib/media-cleanup-transaction.server";
 import {
   deleteLiaraObject,
   liaraMediaProxyUrl,
@@ -16,6 +18,7 @@ import {
   liaraObjectKeyFromUrl,
   liaraStorageConfigured,
   putLiaraObject,
+  putLiaraObjectFromFile,
 } from "@/lib/liara-object-storage.server";
 
 /** Largest assembled file we will hand to the object store from memory. */
@@ -88,6 +91,36 @@ async function putToObjectStore(
   }
 }
 
+/** Upload to a deterministic Liara key only while its per-object cleanup lock is held. */
+export async function putLiaraObjectSafely(input: {
+  key: string;
+  body: Buffer | Uint8Array;
+  contentType: string;
+}): Promise<string | null> {
+  requireDatabase();
+  const mediaUrl = `liara://${input.key}`;
+  return withSqlTransaction(async (tx) => {
+    await lockMediaObjectIdentity(tx, mediaUrl);
+    await assertMediaObjectWritable(tx, mediaUrl, input.key);
+    return putLiaraObject(input);
+  });
+}
+
+/** File-backed rendition uploads use the same tombstone check as byte uploads. */
+export async function putLiaraObjectFromFileSafely(input: {
+  key: string;
+  filePath: string;
+  contentType: string;
+}): Promise<string | null> {
+  requireDatabase();
+  const mediaUrl = `liara://${input.key}`;
+  return withSqlTransaction(async (tx) => {
+    await lockMediaObjectIdentity(tx, mediaUrl);
+    await assertMediaObjectWritable(tx, mediaUrl, input.key);
+    return putLiaraObjectFromFile(input);
+  });
+}
+
 /**
  * Persist bytes and return a URL that can be handed straight to a browser.
  * Prefers the object storage CDN, then falls back to the database so media is
@@ -102,6 +135,7 @@ export async function storeMedia(input: {
   /** Skip legacy foreign Blob storage for sources that must stay on Hirmand/Liara/DB. */
   allowLegacyBlob?: boolean;
 }): Promise<StoredMedia> {
+  requireDatabase();
   const bytes = toBytes(input.data);
   const contentType = input.contentType || "application/octet-stream";
 
@@ -109,11 +143,15 @@ export async function storeMedia(input: {
   // response, return the same durable object instead of inserting a duplicate.
   if (input.id) {
     requireDatabase();
-    const sql = await getSql();
-    const existing = await sql.query<Record<string, unknown>>(
-      `select id, pathname, content_type from media_objects where id = $1 limit 1`,
-      [input.id],
-    );
+    const existing = await withSqlTransaction(async (tx) => {
+      const url = `${DB_MEDIA_PATH}${input.id}`;
+      await lockMediaObjectIdentity(tx, url);
+      await assertMediaObjectWritable(tx, url);
+      return tx.query<Record<string, unknown>>(
+        `select id, pathname, content_type from media_objects where id = $1 limit 1`,
+        [input.id],
+      );
+    });
     if (existing[0]) {
       if (
         String(existing[0].pathname ?? "") !== input.pathname ||
@@ -126,7 +164,7 @@ export async function storeMedia(input: {
   }
 
   if (liaraStorageConfigured()) {
-    const url = await putLiaraObject({
+    const url = await putLiaraObjectSafely({
       key: input.pathname,
       body: bytes,
       contentType,
@@ -141,26 +179,30 @@ export async function storeMedia(input: {
   }
 
   requireDatabase();
-  const sql = await getSql();
   const id = input.id ?? crypto.randomUUID();
-  await sql.query(
-    `insert into media_objects (id, pathname, content_type, size_bytes, data)
-     values ($1, $2, $3, $4, $5)
-     on conflict (id) do nothing`,
-    [id, input.pathname, contentType, bytes.length, bytes],
-  );
+  await withSqlTransaction(async (tx) => {
+    const url = `${DB_MEDIA_PATH}${id}`;
+    await lockMediaObjectIdentity(tx, url);
+    await assertMediaObjectWritable(tx, url);
+    await tx.query(
+      `insert into media_objects (id, pathname, content_type, size_bytes, data)
+       values ($1, $2, $3, $4, $5)
+       on conflict (id) do nothing`,
+      [id, input.pathname, contentType, bytes.length, bytes],
+    );
 
-  const stored = await sql.query<Record<string, unknown>>(
-    "select pathname, content_type from media_objects where id = $1 limit 1",
-    [id],
-  );
-  if (
-    !stored[0] ||
-    String(stored[0].pathname ?? "") !== input.pathname ||
-    String(stored[0].content_type ?? "") !== contentType
-  ) {
-    throw new Error("ذخیره رسانه در فضای پایدار تأیید نشد.");
-  }
+    const stored = await tx.query<Record<string, unknown>>(
+      "select pathname, content_type from media_objects where id = $1 limit 1",
+      [id],
+    );
+    if (
+      !stored[0] ||
+      String(stored[0].pathname ?? "") !== input.pathname ||
+      String(stored[0].content_type ?? "") !== contentType
+    ) {
+      throw new Error("ذخیره رسانه در فضای پایدار تأیید نشد.");
+    }
+  });
 
   return { url: `${DB_MEDIA_PATH}${id}`, storage: "database", id };
 }
@@ -262,7 +304,11 @@ export async function storeAssembledUpload(input: {
         };
       }
     } catch (error) {
-      await sql.query("delete from media_objects where id = $1", [id]).catch(() => undefined);
+      try {
+        await deleteStoredMedia(`${DB_MEDIA_PATH}${id}`, { throwOnFailure: true });
+      } catch (cleanupError) {
+        throw new AggregateError([error, cleanupError], "Media transformation failed and its staged object cleanup could not be completed.");
+      }
       throw error;
     }
   }
@@ -287,7 +333,7 @@ export async function storeAssembledUpload(input: {
     let remoteUrl: string | null = null;
 
     if (liaraStorageConfigured()) {
-      remoteUrl = await putLiaraObject({
+      remoteUrl = await putLiaraObjectSafely({
         key: pathname,
         body: dataResult.bytes,
         contentType,
@@ -312,10 +358,15 @@ export async function storeAssembledUpload(input: {
         [input.sessionId, remoteStored.url, remoteStored.storage, remoteStored.id],
       );
 
-      await sql.query("delete from media_objects where id = $1", [id]).catch((error) => {
-        // An extra DB copy is safer than losing the only recoverable URL.
-        console.warn("[media] duplicate database copy cleanup failed", error instanceof Error ? error.message : error);
+      const cleanupJobIds = await withSqlTransaction(async (tx) => {
+        await tx.query(
+          "update media_upload_sessions\n     set completion_state = 'assembled', stored_url = $2, stored_storage = $3, stored_media_id = $4\n     where id = $1",
+          [input.sessionId, remoteStored.url, remoteStored.storage, remoteStored.id],
+        );
+        const [job] = await enqueueMediaCleanupJob(tx, `${DB_MEDIA_PATH}${id}`);
+        return job ? [job.id] : [];
       });
+      await processMediaCleanupJobs(cleanupJobIds, sql);
       stored = remoteStored;
     }
   }
@@ -328,45 +379,139 @@ export async function deleteStoredMedia(
   options: { throwOnFailure?: boolean } = {},
 ): Promise<void> {
   if (!url) return;
-
   const liaraKey = liaraObjectKeyFromUrl(url) ?? liaraObjectKeyFromBrowserProxy(url);
-  if (liaraKey) {
-    try {
-      await deleteLiaraObject(liaraKey);
-    } catch (error) {
-      console.warn("[media] Liara Object Storage delete failed", error);
-      if (options.throwOnFailure) throw error;
-    }
-    return;
-  }
-
-  if (isDatabaseMediaUrl(url)) {
-    const id = mediaIdFromUrl(url);
-    if (!id) return;
-    try {
-      requireDatabase();
-      const sql = await getSql();
-      await sql.query("delete from media_objects where id = $1", [id]);
-    } catch (error) {
-      console.warn("[media] database delete failed", error);
-      if (options.throwOnFailure) throw error;
-    }
-    return;
-  }
-
+  const databaseId = mediaIdFromUrl(url);
+  let blobUrl = false;
+  let liaraProxyUrl = false;
   try {
     const parsed = new URL(url);
-    const isObjectStoreHost =
-      parsed.hostname === "blob.vercel-storage.com" ||
-      parsed.hostname.endsWith(".blob.vercel-storage.com");
-    if (parsed.protocol === "https:" && isObjectStoreHost) {
-      const { del } = await import("@vercel/blob");
-      await del(url);
-    }
-  } catch (error) {
-    console.warn("[media] object store delete failed", error);
-    if (options.throwOnFailure) throw error;
+    blobUrl = parsed.protocol === "https:" && (parsed.hostname === "blob.vercel-storage.com" || parsed.hostname.endsWith(".blob.vercel-storage.com"));
+    liaraProxyUrl = parsed.pathname === "/api/liara-media";
+  } catch { /* unsupported URL */ }
+  if (liaraProxyUrl && !liaraKey) throw new Error("Cannot resolve the Liara object key for media cleanup.");
+  if (!liaraKey && !databaseId && !blobUrl) return;
+  assertMediaCleanupDatabaseConfigured(dbSource);
+
+  const sql = await getSql();
+  const [job] = await withSqlTransaction(async (tx) => enqueueMediaCleanupJob(tx, url));
+  if (!job) throw new Error("Media cleanup could not be queued for retry.");
+  await processMediaCleanupJob(job.id, sql);
+  void options;
+}
+
+/** Persist a cleanup request in the caller's transaction before its owner row is removed. */
+export async function enqueueMediaCleanupJob(sql: Sql, url: string): Promise<Array<{ id: number }>> {
+  const liaraKey = liaraObjectKeyFromUrl(url) ?? liaraObjectKeyFromBrowserProxy(url);
+  const databaseId = mediaIdFromUrl(url);
+  let isBlob = false;
+  try {
+    const parsed = new URL(url);
+    isBlob = parsed.protocol === "https:" && (parsed.hostname === "blob.vercel-storage.com" || parsed.hostname.endsWith(".blob.vercel-storage.com"));
+  } catch { /* unsupported URL */ }
+  if (!liaraKey && !databaseId && !isBlob) return [];
+  let canonicalUrl = url;
+  if (liaraKey) canonicalUrl = `liara://${liaraKey}`;
+  else if (databaseId) canonicalUrl = `${DB_MEDIA_PATH}${databaseId}`;
+  else if (isBlob) {
+    const parsed = new URL(url);
+    canonicalUrl = `${parsed.origin}${parsed.pathname}`;
   }
+  return upsertMediaCleanupJob(sql, {
+    mediaUrl: canonicalUrl,
+    liaraKey,
+    referenceTokens: mediaReferenceNeedles(url, liaraKey),
+  });
+}
+
+async function processMediaCleanupJob(jobId: number, sql: Sql): Promise<"completed" | "retained" | "missing"> {
+  let prepared: Awaited<ReturnType<typeof prepareMediaCleanupJobInTransaction>>;
+  const renditionJobIds: number[] = [];
+  try {
+    prepared = await withSqlTransaction((tx) => prepareMediaCleanupJobInTransaction(tx, jobId, async (renditionUrl) => {
+      const [renditionJob] = await enqueueMediaCleanupJob(tx, renditionUrl);
+      if (renditionJob) renditionJobIds.push(renditionJob.id);
+    }));
+    if (prepared.status !== "deleting") return prepared.status;
+    // The deleting tombstone is already committed. A job-row lock serializes
+    // concurrent workers while the idempotent external DELETE runs; a crash
+    // rolls back completion but never the tombstone that blocks new writers.
+    const result = await withSqlTransaction((tx) => deletePreparedMediaCleanupJobInTransaction(tx, jobId, async (job) => {
+      if (job.liara_key) await deleteLiaraObject(job.liara_key);
+      else {
+        const { del } = await import("@vercel/blob");
+        await del(job.media_url);
+      }
+    }));
+    if (result === "completed" && renditionJobIds.length) {
+      await processMediaCleanupJobs(renditionJobIds, sql);
+    }
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 1000) : "Unknown media cleanup failure";
+    try {
+      await sql.query("update media_cleanup_jobs set attempts=attempts+1,last_error=$2,next_attempt_at=current_timestamp + make_interval(secs => least(3600,power(2,least(attempts,10))::integer)),updated_at=current_timestamp where id=$1 and status in ('pending','retained','deleting')", [jobId, message]);
+    } catch (persistError) {
+      throw new AggregateError([error, persistError], "Media cleanup failed and its retry metadata could not be persisted.");
+    }
+    throw error;
+  }
+}
+
+export async function retryPendingMediaCleanupJobs(limit = 20, forceRetained = false): Promise<{ completed: number; retained: number }> {
+  if (dbSource === "unconfigured") return { completed: 0, retained: 0 };
+  const sql = await getSql();
+  const jobs = await sql.query<{ id: number }>("select id from media_cleanup_jobs where (status in ('pending','deleting') and next_attempt_at <= current_timestamp) or ($2::boolean and status='retained') order by next_attempt_at,id limit $1", [Math.max(1, Math.min(100, Math.trunc(limit))), forceRetained]);
+  return processMediaCleanupJobs(jobs.map((job) => job.id), sql);
+}
+
+export async function processMediaCleanupJobs(jobIds: number[], existingSql?: Sql): Promise<{ completed: number; retained: number }> {
+  assertMediaCleanupDatabaseConfigured(dbSource);
+  const sql = existingSql ?? await getSql();
+  const failures: unknown[] = [];
+  let completed = 0;
+  let retained = 0;
+  for (const jobId of [...new Set(jobIds)]) {
+    try {
+      const result = await processMediaCleanupJob(jobId, sql);
+      if (result === "completed") completed += 1;
+      else if (result === "retained") retained += 1;
+    } catch (error) { failures.push(error); }
+  }
+  if (failures.length) throw new AggregateError(failures, "One or more media cleanup jobs remain pending.");
+  return { completed, retained };
+}
+
+/** Queue the source and all orphaned renditions atomically before deleting any object. */
+export async function deletePropertyMedia(url: string): Promise<void> {
+  if (!url?.trim()) return;
+  assertMediaCleanupDatabaseConfigured(dbSource);
+  const sql = await getSql();
+  const jobs = await withSqlTransaction(async (tx) => {
+    await lockMediaReferenceWrites(tx);
+    const liaraKey = liaraObjectKeyFromUrl(url) ?? liaraObjectKeyFromBrowserProxy(url);
+    const manifest = await removeOrphanedVideoRenditionManifest(tx, url, liaraKey);
+    if (!manifest.removed && await hasMediaUrlReferences(tx, url, liaraKey)) return [];
+    const candidates = [...new Set((manifest.removed ? [...manifest.renditionUrls, url] : [url]).filter(Boolean))];
+    const queued: number[] = [];
+    for (const candidate of candidates) {
+      const [job] = await enqueueMediaCleanupJob(tx, candidate);
+      if (job) queued.push(job.id);
+    }
+    return queued;
+  });
+  for (const jobId of jobs) await processMediaCleanupJob(jobId, sql);
+}
+
+/** Revisit old rendition manifests after a crashed encoder or a concurrent property deletion. */
+export async function pruneOrphanedVideoRenditionManifests(limit = 25): Promise<number> {
+  if (dbSource === "unconfigured") return 0;
+  const sql = await getSql();
+  const manifests = await sql.query<{ source_url: string }>(
+    "select source_url from property_video_renditions where created_at < current_timestamp - interval '30 minutes' and coalesce(renditions->>'processing','false') <> 'true' order by created_at limit $1",
+    [Math.max(1, Math.min(100, Math.trunc(limit)))],
+  );
+  for (const manifest of manifests) await deletePropertyMedia(manifest.source_url);
+  return manifests.length;
 }
 
 export type MediaMeta = {
@@ -440,13 +585,22 @@ export async function pruneStaleUploadSessions(
 ): Promise<void> {
   if (dbSource === "unconfigured") return;
   try {
-    const sql = await getSql();
-    await sql.query(
-      `delete from media_upload_sessions
-       where created_at < current_timestamp - ($1::text || ' minutes')::interval`,
-      [String(maxAgeMinutes)],
-    );
+    await withSqlTransaction(async (tx) => {
+      const expired = await tx.query<{ stored_url: string | null; stored_media_id: string | null }>(
+        `delete from media_upload_sessions
+         where created_at < current_timestamp - ($1::text || ' minutes')::interval
+         returning stored_url,stored_media_id`,
+        [String(maxAgeMinutes)],
+      );
+      for (const row of expired) {
+        const url = row.stored_url || (row.stored_media_id ? `${DB_MEDIA_PATH}${row.stored_media_id}` : null);
+        if (url) await enqueueMediaCleanupJob(tx, url);
+      }
+    });
+    await pruneOrphanedVideoRenditionManifests();
+    await retryPendingMediaCleanupJobs();
   } catch (error) {
     console.warn("[media] pruning stale upload sessions failed", error);
+    throw error;
   }
 }

@@ -1,0 +1,101 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+import { PGlite } from "@electric-sql/pglite";
+import { DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL } from "./admin-deal-delete-sql.ts";
+
+test("deal deletion returns document media only when the deal and documents are deleted", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table admin_deals (id text primary key);
+      create table admin_commission_settlements (id text primary key, deal_id text not null references admin_deals(id));
+      create table admin_deal_documents (id text primary key, deal_id text not null references admin_deals(id), file_url text);
+      insert into admin_deals(id) values ('deletable'),('settled');
+      insert into admin_deal_documents(id,deal_id,file_url) values
+        ('doc-1','deletable','https://media.example/deal.pdf'),
+        ('doc-2','deletable','https://media.example/deal.pdf'),
+        ('doc-3','deletable',''),
+        ('doc-4','settled','https://media.example/settled.pdf');
+      insert into admin_commission_settlements(id,deal_id) values ('settlement-1','settled');
+    `);
+
+    const deleted = await db.query<{ id: string | null; file_urls: string[] }>(
+      DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL,
+      ["deletable"],
+    );
+    assert.equal(deleted.rows[0]?.id, "deletable");
+    assert.deepEqual(deleted.rows[0]?.file_urls, ["https://media.example/deal.pdf"]);
+    assert.equal((await db.query("select id from admin_deals where id='deletable'")).rows.length, 0);
+    assert.equal((await db.query("select id from admin_deal_documents where deal_id='deletable'")).rows.length, 0);
+
+    const blocked = await db.query<{ id: string | null; file_urls: string[] }>(
+      DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL,
+      ["settled"],
+    );
+    assert.equal(blocked.rows[0]?.id, null);
+    assert.deepEqual(blocked.rows[0]?.file_urls, []);
+    assert.equal((await db.query("select id from admin_deals where id='settled'")).rows.length, 1);
+    assert.equal((await db.query("select id from admin_deal_documents where deal_id='settled'")).rows.length, 1);
+  } finally {
+    await db.close();
+  }
+});
+
+test("deal deletion route durably queues document media in the same transaction", () => {
+  const route = readFileSync(new URL("../../server/routes/api/admin-deals.post.ts", import.meta.url), "utf8");
+  const commissionRoute = readFileSync(new URL("../../server/routes/api/admin-commission.post.ts", import.meta.url), "utf8");
+  assert.match(route, /DELETE_ADMIN_DEAL_WITH_DOCUMENTS_SQL/);
+  assert.match(route, /if\(!deleted\[0\]\?\.id\)/);
+  assert.match(route, /withSqlTransaction\(async \(tx\)/);
+  assert.match(route, /enqueueMediaCleanupJob\(tx, fileUrl\)/);
+  assert.match(route, /processMediaCleanupJobs\(cleanupJobIds, sql\)/);
+  assert.ok(route.indexOf("lockMediaReferenceWrites(tx)") < route.indexOf("const rows = await tx.query"));
+  assert.doesNotMatch(route, /deleteStoredMedia\(fileUrl\)/);
+  assert.match(route, /code==="23503"/);
+  assert.match(commissionRoute, /withSqlTransaction\(insertSettlement\)/);
+  assert.match(commissionRoute, /where id=\$1 for update/);
+  assert.match(commissionRoute, /code === "23503"/);
+});
+
+test("music deletion queues its stored object in the same transaction as row removal", () => {
+  const route = readFileSync(new URL("../../server/routes/api/music-admin.post.ts", import.meta.url), "utf8");
+  assert.match(route, /withSqlTransaction\(async \(tx\)/);
+  assert.match(route, /delete from music_tracks where id = \$1 returning url/);
+  assert.match(route, /enqueueMediaCleanupJob\(tx, url\)/);
+  assert.match(route, /processMediaCleanupJobs\(jobIds, sql\)/);
+  assert.doesNotMatch(route, /deleteStoredMedia\(/);
+});
+
+test("replacing a deal document queues the old file while holding the shared media lock", () => {
+  const route = readFileSync(new URL("../../server/routes/api/admin-deals.post.ts", import.meta.url), "utf8");
+  const documentAction = route.slice(route.indexOf('if(action==="document")'));
+  assert.match(documentAction, /lockMediaReferenceWrites\(tx\)/);
+  assert.match(documentAction, /select file_url from admin_deal_documents where deal_id=\$1 and document_type=\$2 for update/);
+  assert.match(documentAction, /enqueueMediaCleanupJob\(tx,oldUrl\)/);
+  assert.match(documentAction, /processMediaCleanupJobs\(saved\.jobIds,sql\)/);
+});
+
+test("deal settlement foreign key rejects new orphans and blocks concurrent deal removal", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table admin_deals (id text primary key);
+      create table admin_commission_settlements (id text primary key, deal_id text);
+      insert into admin_deals(id) values ('deal-1');
+      insert into admin_commission_settlements(id,deal_id) values ('legacy-orphan','deleted-deal');
+    `);
+    const migration = readFileSync(new URL("../../migrations/0109_admin_commission_settlement_deal_fk.sql", import.meta.url), "utf8");
+    await db.exec(migration);
+    await db.exec(migration);
+    await assert.rejects(
+      db.query("insert into admin_commission_settlements(id,deal_id) values ('new-orphan','missing-deal')"),
+      /foreign key/i,
+    );
+    await db.query("insert into admin_commission_settlements(id,deal_id) values ('settlement-1','deal-1')");
+    await assert.rejects(db.query("delete from admin_deals where id='deal-1'"), /foreign key/i);
+    assert.equal((await db.query("select id from admin_deals where id='deal-1'")).rows.length, 1);
+  } finally {
+    await db.close();
+  }
+});

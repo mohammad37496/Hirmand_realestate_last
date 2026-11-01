@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader, type H3Event } from "h3";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -45,19 +45,29 @@ export default defineEventHandler(async event=>{
     if(!Number.isSafeInteger(commissionNumber)||!Number.isSafeInteger(consultantNumber)||commissionNumber<=0||consultantNumber<0)throw createError({statusCode:400,statusMessage:"مبالغ کمیسیون باید عدد صحیح و در محدوده مجاز باشند."});
     if(consultantNumber>commissionNumber) throw createError({statusCode:400,statusMessage:"سهم مشاور نمی‌تواند بیشتر از کمیسیون کل باشد."});
     const dealId=clean(body.dealId,120)||null;
-    if(dealId){
-      const linkedDeal=await sql.query<Record<string,unknown>>("select consultant,commission,status from admin_deals where id=$1 limit 1",[dealId]);
-      if(!linkedDeal.length)throw createError({statusCode:404,statusMessage:"معامله مرتبط پیدا نشد."});
-      const deal=linkedDeal[0];
-      if(!["contracted","completed"].includes(String(deal.status)))throw createError({statusCode:409,statusMessage:"تسویه فقط برای معامله قراردادی یا نهایی‌شده امکان‌پذیر است."});
-      if(String(deal.consultant??"").trim()&&String(deal.consultant).trim()!==consultant)throw createError({statusCode:409,statusMessage:"نام مشاور با مشاور ثبت‌شده در معامله مطابقت ندارد."});
-      if(deal.commission==null||Number(deal.commission)!==commissionNumber)throw createError({statusCode:409,statusMessage:"مبلغ کمیسیون باید با مبلغ ثبت‌شده در معامله یکسان باشد."});
-      const existingSettlement=await sql.query("select id from admin_commission_settlements where deal_id=$1 and status<>'cancelled' limit 1",[dealId]);
-      if(existingSettlement.length)throw createError({statusCode:409,statusMessage:"برای این معامله قبلاً یک تسویه فعال ثبت شده است."});
-    }
     const id=crypto.randomUUID();
-    await sql.query("insert into admin_commission_settlements(id,consultant,deal_id,commission_amount,consultant_share,office_share,status,note,created_by) values($1,$2,$3,$4,$5,$6,'pending',$7,$8)",
-      [id,consultant,dealId,commissionNumber,consultantNumber,commissionNumber-consultantNumber,clean(body.note,1200),clean(claims?.displayName,120)||"مدیریت"]);
+    const insertSettlement = async (tx: Awaited<ReturnType<typeof getSql>>) => {
+      if(dealId){
+        const linkedDeal=await tx.query<Record<string,unknown>>("select consultant,commission,status from admin_deals where id=$1 for update",[dealId]);
+        if(!linkedDeal.length)throw createError({statusCode:404,statusMessage:"معامله مرتبط پیدا نشد."});
+        const deal=linkedDeal[0];
+        if(!["contracted","completed"].includes(String(deal.status)))throw createError({statusCode:409,statusMessage:"تسویه فقط برای معامله قراردادی یا نهایی‌شده امکان‌پذیر است."});
+        if(String(deal.consultant??"").trim()&&String(deal.consultant).trim()!==consultant)throw createError({statusCode:409,statusMessage:"نام مشاور با مشاور ثبت‌شده در معامله مطابقت ندارد."});
+        if(deal.commission==null||Number(deal.commission)!==commissionNumber)throw createError({statusCode:409,statusMessage:"مبلغ کمیسیون باید با مبلغ ثبت‌شده در معامله یکسان باشد."});
+        const existingSettlement=await tx.query("select id from admin_commission_settlements where deal_id=$1 and status<>'cancelled' limit 1",[dealId]);
+        if(existingSettlement.length)throw createError({statusCode:409,statusMessage:"برای این معامله قبلاً یک تسویه فعال ثبت شده است."});
+      }
+      await tx.query("insert into admin_commission_settlements(id,consultant,deal_id,commission_amount,consultant_share,office_share,status,note,created_by) values($1,$2,$3,$4,$5,$6,'pending',$7,$8)",
+        [id,consultant,dealId,commissionNumber,consultantNumber,commissionNumber-consultantNumber,clean(body.note,1200),clean(claims?.displayName,120)||"مدیریت"]);
+    };
+    try {
+      if(dealId) await withSqlTransaction(insertSettlement);
+      else await insertSettlement(sql);
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if(code === "23503") throw createError({statusCode:409,statusMessage:"معامله در همین زمان حذف شده است؛ تسویه ثبت نشد."});
+      throw error;
+    }
     return {success:true,id};
   }
 
