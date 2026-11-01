@@ -189,6 +189,7 @@ test("CRM routes use atomic mutation-and-activity SQL without swallowing activit
   const publicLeadsRoute = readFileSync(new URL("../../server/routes/api/leads.post.ts", import.meta.url), "utf8");
   const mutationSql = readFileSync(new URL("./admin-lead-mutation-sql.ts", import.meta.url), "utf8");
   const dedupeRoute = readFileSync(new URL("../../server/routes/api/admin-lead-dedupe.post.ts", import.meta.url), "utf8");
+  const dedupeServer = readFileSync(new URL("./admin-lead-dedupe.server.ts", import.meta.url), "utf8");
   const dedupeSql = readFileSync(new URL("./admin-lead-dedupe-sql.ts", import.meta.url), "utf8");
   for (const name of ["UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL", "UPDATE_LEAD_NOTE_WITH_ACTIVITY_SQL", "UPDATE_LEAD_FOLLOW_UP_WITH_ACTIVITY_SQL"]) {
     assert.match(leadsRoute, new RegExp(`sql\\.query<\\{[^>]+\\}>\\(\\s*${name}`));
@@ -209,7 +210,8 @@ test("CRM routes use atomic mutation-and-activity SQL without swallowing activit
   assert.match(dedupeRoute, /planLeadVisitMerge\(canonical, duplicate\)/);
   assert.match(dedupeRoute, /withSqlTransaction\(async \(tx\)/);
   assert.match(dedupeRoute, /mergeLeadDedupeRelations\(tx, canonicalId, duplicateId\)/);
-  assert.match(dedupeRoute, /String\(before\.status \?\? ""\) === String\(after\.status \?\? ""\)/);
+  assert.match(dedupeRoute, /lockLeadDedupeSnapshot\(tx, canonicalId, duplicateId, initialRows\)/);
+  assert.match(dedupeServer, /String\(before\.status \?\? ""\) === String\(after\.status \?\? ""\)/);
   assert.doesNotMatch(dedupeRoute, /\.catch\(\(\)\s*=>\s*\{\}\)/);
   assert.match(dedupeSql, /id = any\(\$3::text\[\]\)/);
   assert.match(dedupeSql, /visit_status = case when visit_status in \('requested','confirmed'\) then 'cancelled'/);

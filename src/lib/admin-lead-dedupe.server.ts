@@ -9,6 +9,54 @@ export type LeadReferenceLockResult =
   | { kind: "missing" }
   | { kind: "merged"; canonicalId: string };
 
+export type LeadDedupeSnapshotRow = {
+  id: string;
+  status: string;
+  merged_into_lead_id: string | null;
+  property_id: string | null;
+  visit_preferred_at: string | null;
+  visit_status: string | null;
+};
+
+export type LeadDedupeSnapshotLockResult =
+  | { kind: "locked"; canonical: LeadDedupeSnapshotRow; duplicate: LeadDedupeSnapshotRow }
+  | { kind: "missing" }
+  | { kind: "stale" };
+
+/** Lock both leads in deterministic order and compare the pre-lock route snapshot. */
+export async function lockLeadDedupeSnapshot(
+  tx: LeadDedupeSql,
+  canonicalId: string,
+  duplicateId: string,
+  snapshotRows: LeadDedupeSnapshotRow[],
+): Promise<LeadDedupeSnapshotLockResult> {
+  const lockedRows = await tx.query<LeadDedupeSnapshotRow>(
+    "select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id for update",
+    [[canonicalId, duplicateId]],
+  );
+  if (lockedRows.length !== 2) return { kind: "missing" };
+
+  const beforeById = new Map(snapshotRows.map((row) => [row.id, row]));
+  const afterById = new Map(lockedRows.map((row) => [row.id, row]));
+  const initialCanonical = beforeById.get(canonicalId);
+  const initialDuplicate = beforeById.get(duplicateId);
+  const canonical = afterById.get(canonicalId);
+  const duplicate = afterById.get(duplicateId);
+  if (!initialCanonical || !initialDuplicate || !canonical || !duplicate) return { kind: "missing" };
+
+  const sameSnapshot = (before: LeadDedupeSnapshotRow, after: LeadDedupeSnapshotRow) =>
+    String(before.status ?? "") === String(after.status ?? "") &&
+    String(before.merged_into_lead_id ?? "") === String(after.merged_into_lead_id ?? "") &&
+    String(before.property_id ?? "") === String(after.property_id ?? "") &&
+    String(before.visit_status ?? "none") === String(after.visit_status ?? "none") &&
+    (before.visit_preferred_at == null ? null : Date.parse(String(before.visit_preferred_at))) ===
+      (after.visit_preferred_at == null ? null : Date.parse(String(after.visit_preferred_at)));
+  if (!sameSnapshot(initialCanonical, canonical) || !sameSnapshot(initialDuplicate, duplicate)) {
+    return { kind: "stale" };
+  }
+  return { kind: "locked", canonical, duplicate };
+}
+
 /** Lock lead references before creating or moving an internal CRM relationship. */
 export async function lockLeadReferencesForMutation(
   tx: LeadDedupeSql,

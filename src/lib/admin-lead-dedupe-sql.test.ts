@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { MERGE_LEADS_WITH_ACTIVITY_SQL } from "./admin-lead-dedupe-sql.ts";
+import { lockLeadDedupeSnapshot } from "./admin-lead-dedupe.server.ts";
 import { planLeadVisitMerge } from "./property-visit-scheduling.server.ts";
 
 async function fixture() {
@@ -139,6 +140,35 @@ test("dedupe SQL itself refuses to consume an active duplicate visit when canoni
       assert.equal(duplicate.rows[0]?.visit_status, "requested");
       assert.equal(duplicate.rows[0]?.merged_into_lead_id, null);
     }
+  } finally {
+    await db.close();
+  }
+});
+
+test("dedupe lead-row lock rejects a visit cancellation that changed after the route snapshot", async () => {
+  const db = await fixture();
+  try {
+    await insertLead(db, { id: "canonical", propertyId: "property-1", visitAt: null, visitStatus: "none" });
+    await insertLead(db, { id: "duplicate", propertyId: "property-1", visitAt: "2030-06-01T10:00:00Z", visitStatus: "requested" });
+    const snapshot = await db.query<{
+      id: string;
+      status: string;
+      merged_into_lead_id: string | null;
+      property_id: string | null;
+      visit_preferred_at: string | null;
+      visit_status: string | null;
+    }>("select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id", [["canonical", "duplicate"]]);
+    await db.query("update leads set visit_status='cancelled' where id='duplicate'");
+    const tx = {
+      query: async <T = Record<string, unknown>>(text: string, params?: unknown[]) =>
+        (await db.query<T>(text, params)).rows,
+    };
+    const result = await lockLeadDedupeSnapshot(tx, "canonical", "duplicate", snapshot.rows);
+    assert.equal(result.kind, "stale");
+    const duplicate = await db.query<{ visit_status: string; merged_into_lead_id: string | null }>(
+      "select visit_status,merged_into_lead_id from leads where id='duplicate'",
+    );
+    assert.deepEqual(duplicate.rows[0], { visit_status: "cancelled", merged_into_lead_id: null });
   } finally {
     await db.close();
   }

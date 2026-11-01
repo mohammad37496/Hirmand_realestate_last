@@ -8,7 +8,7 @@ import {
   lockPropertyVisitSchedule,
   planLeadVisitMerge,
 } from "@/lib/property-visit-scheduling.server";
-import { mergeLeadDedupeRelations } from "@/lib/admin-lead-dedupe.server";
+import { lockLeadDedupeSnapshot, mergeLeadDedupeRelations, type LeadDedupeSnapshotRow } from "@/lib/admin-lead-dedupe.server";
 
 const DIGIT_TRANSLATION = "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩";
 
@@ -130,14 +130,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const mergeResult = await withSqlTransaction(async (tx) => {
-    const initialRows = await tx.query<{
-      id: string;
-      status: string;
-      merged_into_lead_id: string | null;
-      property_id: string | null;
-      visit_preferred_at: string | null;
-      visit_status: string | null;
-    }>(
+    const initialRows = await tx.query<LeadDedupeSnapshotRow>(
       "select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id",
       [[canonicalId, duplicateId]],
     );
@@ -156,32 +149,9 @@ export default defineEventHandler(async (event) => {
       if (!property) return { kind: "property_missing" as const };
     }
 
-    const lockedRows = await tx.query<{
-      id: string;
-      status: string;
-      merged_into_lead_id: string | null;
-      property_id: string | null;
-      visit_preferred_at: string | null;
-      visit_status: string | null;
-    }>(
-      "select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id for update",
-      [[canonicalId, duplicateId]],
-    );
-    if (lockedRows.length !== 2) return { kind: "stale" as const };
-    const lockedById = new Map(lockedRows.map((row) => [row.id, row]));
-    const canonical = lockedById.get(canonicalId);
-    const duplicate = lockedById.get(duplicateId);
-    if (!canonical || !duplicate) return { kind: "stale" as const };
-    const sameSnapshot = (before: typeof initialCanonical, after: typeof canonical) =>
-      String(before.status ?? "") === String(after.status ?? "") &&
-      String(before.merged_into_lead_id ?? "") === String(after.merged_into_lead_id ?? "") &&
-      String(before.property_id ?? "") === String(after.property_id ?? "") &&
-      String(before.visit_status ?? "none") === String(after.visit_status ?? "none") &&
-      (before.visit_preferred_at == null ? null : Date.parse(String(before.visit_preferred_at))) ===
-        (after.visit_preferred_at == null ? null : Date.parse(String(after.visit_preferred_at)));
-    if (!sameSnapshot(initialCanonical, canonical) || !sameSnapshot(initialDuplicate, duplicate)) {
-      return { kind: "stale" as const };
-    }
+    const locked = await lockLeadDedupeSnapshot(tx, canonicalId, duplicateId, initialRows);
+    if (locked.kind !== "locked") return { kind: locked.kind };
+    const { canonical, duplicate } = locked;
 
     const visitPlan = planLeadVisitMerge(canonical, duplicate);
     if (visitPlan.kind === "conflicting_visits") return { kind: "conflicting_visits" as const };

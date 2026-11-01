@@ -7,9 +7,11 @@ import { resubmitCustomerPropertySubmission } from "../src/lib/customer-property
 import {
   cancelPropertyVisit,
   checkPropertyVisitSlot,
+  lockPropertyVisitSchedule,
+  planLeadVisitMerge,
   reschedulePropertyVisit,
 } from "../src/lib/property-visit-scheduling.server.ts";
-import { mergeLeadDedupeRelations } from "../src/lib/admin-lead-dedupe.server.ts";
+import { lockLeadDedupeSnapshot, mergeLeadDedupeRelations } from "../src/lib/admin-lead-dedupe.server.ts";
 import { UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL } from "../src/lib/admin-lead-mutation-sql.ts";
 import {
   createOpenHouseSchedule,
@@ -66,6 +68,42 @@ async function inTransaction(client, callback, { delayInsertMs = 0 } = {}) {
     await client.query("ROLLBACK").catch(() => undefined);
     throw error;
   }
+}
+
+async function mergeUsingRouteSnapshot(tx, canonicalId, duplicateId) {
+  const snapshotRows = await tx.query(
+    "select id,status,merged_into_lead_id,property_id,visit_preferred_at,visit_status from leads where id=any($1::text[]) order by id",
+    [[canonicalId, duplicateId]],
+  );
+  if (snapshotRows.length !== 2) return { kind: "missing" };
+  const byId = new Map(snapshotRows.map((row) => [row.id, row]));
+  const canonicalSnapshot = byId.get(canonicalId);
+  const duplicateSnapshot = byId.get(duplicateId);
+  if (!canonicalSnapshot || !duplicateSnapshot) return { kind: "missing" };
+
+  const activeProperties = [canonicalSnapshot, duplicateSnapshot]
+    .filter((lead) => lead.visit_status === "requested" || lead.visit_status === "confirmed")
+    .map((lead) => lead.property_id == null ? "" : String(lead.property_id).trim())
+    .filter(Boolean);
+  for (const propertyId of [...new Set(activeProperties)].sort()) {
+    if (!await lockPropertyVisitSchedule(tx, propertyId)) return { kind: "property_missing" };
+  }
+
+  const locked = await lockLeadDedupeSnapshot(tx, canonicalId, duplicateId, snapshotRows);
+  if (locked.kind !== "locked") return locked;
+  const visitPlan = planLeadVisitMerge(locked.canonical, locked.duplicate);
+  if (visitPlan.kind === "conflicting_visits") return { kind: "conflicting_visits" };
+  if (visitPlan.kind === "keep_canonical" || visitPlan.kind === "move_duplicate") {
+    const slot = await checkPropertyVisitSlot(tx, {
+      propertyId: visitPlan.propertyId,
+      visitAt: new Date(Date.parse(visitPlan.visitAt)).toISOString(),
+      excludeLeadIds: [canonicalId, duplicateId],
+    });
+    if (slot.kind !== "available") return { kind: slot.kind === "property_missing" ? "property_missing" : "visit_conflict" };
+  }
+  if (locked.canonical.merged_into_lead_id || locked.duplicate.merged_into_lead_id) return { kind: "stale" };
+  const mutation = await mergeLeadDedupeRelations(tx, canonicalId, duplicateId);
+  return mutation ? { kind: "merged", mutation } : { kind: "stale" };
 }
 
 async function waitForLockWait(observer, pid, label) {
@@ -508,17 +546,18 @@ try {
   });
   await cancelLocked;
   const mergeWaiterPid = Number((await mergeWaiter.query("SELECT pg_backend_pid() AS pid")).rows[0].pid);
-  const mergeAfterCancel = inTransaction(mergeWaiter, (tx) => mergeLeadDedupeRelations(tx, "cancel-before-merge-canonical", "cancel-before-merge-duplicate"));
+  const mergeAfterCancel = inTransaction(mergeWaiter, (tx) => mergeUsingRouteSnapshot(tx, "cancel-before-merge-canonical", "cancel-before-merge-duplicate"));
   await waitForLockWait(admin, mergeWaiterPid, "dedupe waits behind public cancellation");
   allowCancelCommit();
   assert.equal(await cancelFirst, "cancelled");
-  assert.ok(await mergeAfterCancel);
+  assert.equal((await mergeAfterCancel).kind, "stale");
   const cancelFirstRows = await admin.query(
     "SELECT id,visit_status,merged_into_lead_id FROM leads WHERE id=ANY($1::text[]) ORDER BY id",
     [["cancel-before-merge-canonical", "cancel-before-merge-duplicate"]],
   );
-  assert.equal(cancelFirstRows.rows.find((row) => row.id === "cancel-before-merge-canonical")?.visit_status, "cancelled");
-  assert.equal(cancelFirstRows.rows.find((row) => row.id === "cancel-before-merge-duplicate")?.merged_into_lead_id, "cancel-before-merge-canonical");
+  assert.equal(cancelFirstRows.rows.find((row) => row.id === "cancel-before-merge-canonical")?.visit_status, "none");
+  assert.equal(cancelFirstRows.rows.find((row) => row.id === "cancel-before-merge-duplicate")?.visit_status, "cancelled");
+  assert.equal(cancelFirstRows.rows.find((row) => row.id === "cancel-before-merge-duplicate")?.merged_into_lead_id, null);
   releaseClient(cancelOwner);
   releaseClient(mergeWaiter);
 
@@ -534,8 +573,8 @@ try {
   const mergeLocked = new Promise((resolve) => { signalMergeLocked = resolve; });
   const waitForMergeCommit = new Promise((resolve) => { allowMergeCommit = resolve; });
   const mergeFirst = inTransaction(mergeOwner, async (tx) => {
-    const result = await mergeLeadDedupeRelations(tx, "merge-before-cancel-canonical", "merge-before-cancel-duplicate");
-    assert.ok(result);
+    const result = await mergeUsingRouteSnapshot(tx, "merge-before-cancel-canonical", "merge-before-cancel-duplicate");
+    assert.equal(result.kind, "merged");
     signalMergeLocked();
     await waitForMergeCommit;
     return result;
