@@ -22,7 +22,7 @@ export const UPDATE_LEAD_VISIT_STATUS_WITH_ACTIVITY_SQL = `
   with updated as (
     update leads
     set visit_status=$2, updated_at=current_timestamp
-    where id=$1
+    where id=$1 and ($6::text is null or visit_status=$6)
     returning id
   ), activity_log as (
     insert into lead_activities (lead_id, activity_type, title, note, metadata)

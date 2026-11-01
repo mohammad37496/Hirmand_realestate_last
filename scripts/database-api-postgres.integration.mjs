@@ -5,6 +5,12 @@ import pg from "pg";
 import { buildCustomerPropertySubmissionApprovalSql } from "../src/lib/customer-property-submission-approval.ts";
 import { resubmitCustomerPropertySubmission } from "../src/lib/customer-property-submission-resubmit.ts";
 import {
+  cancelPropertyVisit,
+  checkPropertyVisitSlot,
+  reschedulePropertyVisit,
+} from "../src/lib/property-visit-scheduling.server.ts";
+import { MERGE_LEADS_WITH_ACTIVITY_SQL } from "../src/lib/admin-lead-dedupe-sql.ts";
+import {
   createOpenHouseSchedule,
   registerOpenHouseRsvp,
 } from "../src/lib/property-open-house-scheduling.server.ts";
@@ -102,8 +108,27 @@ async function createSchemaFixture(admin) {
       owner_phone text,
       property_data jsonb NOT NULL DEFAULT '{}'::jsonb
     );
-    CREATE TABLE properties (id text PRIMARY KEY, title text NOT NULL);
-    CREATE TABLE leads (id text PRIMARY KEY, status text NOT NULL, updated_at timestamptz);
+    CREATE TABLE properties (
+      id text PRIMARY KEY, title text NOT NULL,
+      status text NOT NULL DEFAULT 'published', availability_status text NOT NULL DEFAULT 'available',
+      property_type text NOT NULL DEFAULT '', neighborhood text NOT NULL DEFAULT '', contact_name text NOT NULL DEFAULT ''
+    );
+    CREATE TABLE leads (
+      id text PRIMARY KEY, status text NOT NULL, updated_at timestamptz,
+      property_id text, visit_preferred_at timestamptz, visit_status text NOT NULL DEFAULT 'none',
+      visit_requested_at timestamptz, public_tracking_token text,
+      name text, phone text, people_count integer, job text, deal text, property_type text,
+      neighborhood text, consultant text, note text, source text, acquisition_source text,
+      acquisition_medium text, acquisition_campaign text, acquisition_referrer text,
+      follow_up_at timestamptz, last_contacted_at timestamptz, callback_preferred_at timestamptz,
+      offer_amount numeric, offer_conditions text, lease_deadline timestamptz,
+      budget_deposit numeric, budget_rent numeric, budget_purchase numeric, budget_sale numeric,
+      budget_deposit_min numeric, budget_deposit_max numeric, budget_rent_min numeric, budget_rent_max numeric,
+      budget_purchase_min numeric, budget_purchase_max numeric, budget_sale_min numeric, budget_sale_max numeric,
+      budget_equivalent numeric, budget_bedrooms integer, budget_rate numeric, requested_bedrooms integer,
+      requested_amenities jsonb NOT NULL DEFAULT '[]'::jsonb,
+      matched_properties jsonb NOT NULL DEFAULT '[]'::jsonb, match_count integer NOT NULL DEFAULT 0
+    );
     CREATE TABLE lead_activities (
       id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       lead_id text NOT NULL,
@@ -135,7 +160,6 @@ try {
   await createSchemaFixture(admin);
 
   await admin.query(`
-    ALTER TABLE properties ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'published';
     CREATE TABLE property_open_houses (
       id text PRIMARY KEY, property_id text NOT NULL REFERENCES properties(id),
       starts_at timestamptz NOT NULL, ends_at timestamptz NOT NULL,
@@ -210,6 +234,89 @@ try {
   console.log("ok   PostgreSQL event row lock and partial unique index prevent duplicate active phone RSVPs");
   releaseClient(scheduleA);
   releaseClient(scheduleB);
+
+  await admin.query("INSERT INTO properties(id,title) VALUES ('visit-scheduling-property','Visit scheduling integration property')");
+  const visitA = await connectInSchema();
+  const visitB = await connectInSchema();
+  const createVisit = (client, id) => inTransaction(client, async (tx) => {
+    const slot = await checkPropertyVisitSlot(tx, {
+      propertyId: "visit-scheduling-property",
+      visitAt: "2030-06-03T10:00:00Z",
+    });
+    if (slot.kind !== "available") return slot.kind;
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    await tx.query(
+      "INSERT INTO leads(id,status,property_id,visit_preferred_at,visit_status) VALUES ($1,'new','visit-scheduling-property','2030-06-03T10:00:00Z','requested')",
+      [id],
+    );
+    return "created";
+  });
+  const visitCreateResults = await Promise.all([
+    createVisit(visitA, "visit-race-a"),
+    createVisit(visitB, "visit-race-b"),
+  ]);
+  assert.equal(visitCreateResults.filter((result) => result === "created").length, 1);
+  assert.equal(visitCreateResults.filter((result) => result === "conflict").length, 1);
+  console.log("ok   PostgreSQL property row lock prevents concurrent public visit bookings");
+
+  await admin.query(
+    "INSERT INTO leads(id,status,property_id,visit_preferred_at,visit_status,public_tracking_token) VALUES ('visit-reschedule-race','new','visit-scheduling-property','2030-06-03T12:00:00Z','confirmed','HIR-30-ABCDEF123456')",
+  );
+  const delayedVisitSql = {
+    query: async (text, params = []) => {
+      if (/^\s*update leads/i.test(text)) await new Promise((resolve) => setTimeout(resolve, 150));
+      return (await visitA.query(text, params)).rows;
+    },
+  };
+  const reschedulePromise = inTransaction(visitA, () => reschedulePropertyVisit(delayedVisitSql, {
+    leadId: "visit-reschedule-race",
+    trackingToken: "HIR-30-ABCDEF123456",
+    propertyId: "visit-scheduling-property",
+    expectedVisitAt: "2030-06-03T12:00:00Z",
+    visitAt: "2030-06-03T14:00:00Z",
+  }));
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  const delayedCancelSql = {
+    query: async (text, params = []) => {
+      if (/^\s*update leads/i.test(text)) await new Promise((resolve) => setTimeout(resolve, 250));
+      return (await visitB.query(text, params)).rows;
+    },
+  };
+  const cancelPromise = inTransaction(visitB, () => cancelPropertyVisit(delayedCancelSql, {
+    leadId: "visit-reschedule-race",
+    trackingToken: "HIR-30-ABCDEF123456",
+    propertyId: "visit-scheduling-property",
+    expectedVisitAt: "2030-06-03T12:00:00Z",
+  }));
+  assert.equal(await reschedulePromise, "rescheduled");
+  assert.equal(await cancelPromise, "stale");
+  const cancelledVisit = await admin.query("SELECT visit_status,visit_preferred_at FROM leads WHERE id='visit-reschedule-race'");
+  assert.equal(cancelledVisit.rows[0]?.visit_status, "requested");
+  assert.equal(new Date(cancelledVisit.rows[0]?.visit_preferred_at).toISOString(), "2030-06-03T14:00:00.000Z");
+  console.log("ok   PostgreSQL property lock and snapshot compare-and-set prevent stale cancellation of a rescheduled visit");
+
+  await admin.query(`
+    INSERT INTO leads(id,status,name,phone,property_id,visit_preferred_at,visit_requested_at,visit_status)
+    VALUES ('dedupe-canonical','new','Canonical','09130000004','visit-scheduling-property','2030-06-03T08:00:00Z','2030-06-03T08:00:00Z','none'),
+           ('dedupe-duplicate','new','Duplicate','09130000004','visit-scheduling-property','2030-06-04T10:00:00Z','2030-06-04T09:00:00Z','requested');
+    INSERT INTO lead_activities(lead_id,activity_type,title,note,metadata)
+    VALUES ('dedupe-duplicate','visit','Visit requested','', '{}'::jsonb);
+  `);
+  const dedupeResult = await admin.query(MERGE_LEADS_WITH_ACTIVITY_SQL, [
+    "dedupe-canonical", "dedupe-duplicate", ["dedupe-canonical", "dedupe-duplicate"],
+  ]);
+  assert.equal(dedupeResult.rows[0]?.canonical_id, "dedupe-canonical");
+  assert.equal(dedupeResult.rows[0]?.duplicate_id, "dedupe-duplicate");
+  const mergedVisitRows = await admin.query(
+    "SELECT id,visit_status,visit_preferred_at::text AS visit_preferred_at FROM leads WHERE id IN ('dedupe-canonical','dedupe-duplicate') ORDER BY id",
+  );
+  assert.equal(mergedVisitRows.rows[0]?.visit_status, "requested");
+  assert.equal(new Date(mergedVisitRows.rows[0]?.visit_preferred_at).toISOString(), "2030-06-04T10:00:00.000Z");
+  assert.equal(mergedVisitRows.rows[1]?.visit_status, "cancelled");
+  console.log("ok   PostgreSQL dedupe SQL transfers the active visit and cancels the duplicate booking");
+  await admin.query("DELETE FROM lead_activities WHERE lead_id='dedupe-canonical'; DELETE FROM leads WHERE id IN ('dedupe-canonical','dedupe-duplicate')");
+  releaseClient(visitA);
+  releaseClient(visitB);
 
   const raceA = await connectInSchema();
   const raceB = await connectInSchema();
@@ -305,7 +412,7 @@ try {
   assert.equal(released.rows[0]?.unlocked, true);
   console.log("ok   PostgreSQL advisory-lock contention times out, then succeeds after the owner releases it");
 
-  console.log("\n7 passed, 0 failed (real PostgreSQL)");
+  console.log("\n10 passed, 0 failed (real PostgreSQL)");
 } finally {
   for (const client of clients.reverse()) {
     try {
