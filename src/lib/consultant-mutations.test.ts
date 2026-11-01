@@ -83,6 +83,50 @@ test("consultant rename updates CRM lead assignments and every matching property
   }
 });
 
+test("consultant save rejects duplicate names after trimming and case normalization", async () => {
+  const db = await createDb();
+  try {
+    await db.query(
+      `insert into consultants
+        (id,name,role,phone,phone_display,icon,bio,whatsapp,telegram,eitaa,instagram,rubika,bale,igap,soroush,sort_order,is_active)
+       select 'consultant-2','  ' || upper($1) || '  ',role,phone,phone_display,icon,bio,whatsapp,telegram,eitaa,instagram,rubika,bale,igap,soroush,20,is_active
+         from consultants where id='consultant-1'`,
+      [consultant.name],
+    );
+
+    await assert.rejects(
+      db.transaction(async (tx) => saveConsultantWithSql(transactionSql(tx), consultant)),
+      /A consultant with this name already exists/,
+    );
+
+    const consultants = await db.query<{ id: string; name: string }>("select id,name from consultants order by id");
+    assert.equal(consultants.rows[0]?.id, "consultant-1");
+    assert.notEqual(consultants.rows[0]?.name, consultant.name);
+    assert.equal(consultants.rows[1]?.name.trim().toLowerCase(), consultant.name.trim().toLowerCase());
+  } finally {
+    await db.close();
+  }
+});
+
+test("concurrent consultant saves cannot create the same normalized name", async () => {
+  const db = await createDb();
+  try {
+    const results = await Promise.allSettled([
+      db.transaction(async (tx) => saveConsultantWithSql(transactionSql(tx), consultant)),
+      db.transaction(async (tx) => saveConsultantWithSql(transactionSql(tx), { ...consultant, id: "consultant-2" })),
+    ]);
+    assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+    assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+    const duplicates = await db.query<{ id: string }>(
+      "select id from consultants where lower(trim(name))=lower(trim($1))",
+      [consultant.name],
+    );
+    assert.equal(duplicates.rows.length, 1);
+  } finally {
+    await db.close();
+  }
+});
+
 test("a property contact sync failure rolls back the consultant update", async () => {
   const db = await createDb();
   try {
