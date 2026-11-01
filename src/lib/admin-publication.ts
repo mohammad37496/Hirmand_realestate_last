@@ -1,13 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { dbSource, getSql } from "@/lib/db";
+import { dbSource, getSql, withSqlTransaction } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
+import { reviewPropertyPublicationWithSql } from "@/lib/admin-publication-review";
 
 async function requirePublicationPermission(permission: "property.manage" | "property.publish") {
   const token = getCookie(ADMIN_SESSION_COOKIE);
@@ -114,54 +115,17 @@ export const reviewPropertyPublication = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const claims = await requirePublicationPermission("property.publish");
     if (dbSource === "unconfigured") throw new Error("پایگاه داده تنظیم نشده است.");
-    const sql = await getSql();
-    const reviewRows = await sql.query<Record<string, unknown>>(
-      `select r.id,r.property_id,r.status,p.title,p.transaction_type,p.neighborhood,p.description,
-              p.contact_name,p.contact_phone,p.price,p.deposit,p.rent,p.images,p.area_m2,p.features,
-              p.latitude,p.longitude
-       from property_publication_reviews r
-       join properties p on p.id=r.property_id
-       where r.id=$1 limit 1`,
-      [data.reviewId],
-    );
-    const review = reviewRows[0];
-    if (!review) throw new Error("درخواست انتشار پیدا نشد.");
-    if (String(review.status) !== "pending") throw new Error("این درخواست قبلاً بررسی شده است.");
-
-    if (data.decision === "approve") {
-      const readiness = getPublishReadiness({
-        transactionType: String(review.transaction_type ?? "sell") as "sell" | "buy" | "rent" | "mortgage",
-        title: String(review.title ?? ""),
-        neighborhood: String(review.neighborhood ?? ""),
-        description: String(review.description ?? ""),
-        contactName: String(review.contact_name ?? ""),
-        contactPhone: String(review.contact_phone ?? ""),
-        price: String(review.price ?? ""),
-        deposit: String(review.deposit ?? ""),
-        rent: String(review.rent ?? ""),
-        imageCount: Array.isArray(review.images) ? review.images.length : 0,
-        areaM2: review.area_m2 == null ? "" : String(review.area_m2),
-        features: Array.isArray(review.features) ? review.features.join("\n") : String(review.features ?? ""),
-        latitude: review.latitude == null ? null : Number(review.latitude),
-        longitude: review.longitude == null ? null : Number(review.longitude),
-      });
-      if (!readiness.ready) throw new Error("انتشار تأیید نشد چون فایل دیگر آماده انتشار نیست: " + readiness.blockers.join(" "));
-      await sql.query(
-        "update properties set status='published',published_at=coalesce(published_at,current_timestamp),updated_at=current_timestamp where id=$1 and deleted_at is null",
-        [String(review.property_id)],
-      );
-    }
-    await sql.query(
-      `update property_publication_reviews
-       set status=$2,reviewed_by=$3,review_note=$4,reviewed_at=current_timestamp
-       where id=$1`,
-      [data.reviewId, data.decision === "approve" ? "approved" : "rejected", claims?.displayName || "مدیر", data.note],
-    );
+    const review = await withSqlTransaction((transactionSql) => reviewPropertyPublicationWithSql(transactionSql, {
+      reviewId: data.reviewId,
+      decision: data.decision,
+      note: data.note,
+      actor: claims?.displayName || "مدیر",
+    }));
     await writeAdminAuditLog({
       action: data.decision === "approve" ? "property.publication_approved" : "property.publication_rejected",
       entityType: "property",
-      entityId: String(review.property_id),
-      entityTitle: String(review.title ?? ""),
+      entityId: review.propertyId,
+      entityTitle: review.title,
       metadata: { reviewId: data.reviewId, note: data.note },
     });
     clearPropertyReadCache();
