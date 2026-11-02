@@ -3,7 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
-import { emptyAdminManagementReport } from "@/lib/admin-management-report-contract";
+import { MANAGEMENT_REPORT_DEALS_SQL, MANAGEMENT_REPORT_TOP_CONSULTANTS_SQL } from "@/lib/admin-management-report-sql";
 
 const n = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const clean = (value: unknown) => typeof value === "string" ? value : "";
@@ -20,9 +20,9 @@ export default defineEventHandler(async (event) => {
   const [p,l,d,c,top]=await Promise.all([
     sql.query<Record<string,unknown>>("select count(*)::int as created,count(*) filter(where status='published')::int as published,count(*) filter(where status='draft')::int as draft,count(*) filter(where status='archived')::int as archived from properties where created_at >= current_timestamp - ($1::int * interval '1 day')",[days]),
     sql.query<Record<string,unknown>>("select count(*)::int as created,count(*) filter(where status in ('new','contacted','follow_up','visited','contract'))::int as open,count(*) filter(where status='contract')::int as contract,count(*) filter(where status='closed')::int as closed from leads where created_at >= current_timestamp - ($1::int * interval '1 day')",[days]),
-    sql.query<Record<string,unknown>>("select count(*)::int as created,count(*) filter(where status='completed')::int as completed,count(*) filter(where status='contracted')::int as contracted,coalesce(sum(amount),0)::numeric as volume,coalesce(sum(commission),0)::numeric as commission from admin_deals where created_at >= current_timestamp - ($1::int * interval '1 day')",[days]),
+    sql.query<Record<string,unknown>>(MANAGEMENT_REPORT_DEALS_SQL,[days]),
     sql.query<Record<string,unknown>>("select coalesce(sum(amount) filter(where kind='income'),0)::numeric as income,coalesce(sum(amount) filter(where kind='expense'),0)::numeric as expense from finance_transactions where transaction_date >= current_date - ($1::int - 1) and transaction_date < current_date + 1",[days]),
-    sql.query<Record<string,unknown>>("select consultant,count(*)::int as deals,coalesce(sum(amount),0)::numeric as volume from admin_deals where created_at >= current_timestamp - ($1::int * interval '1 day') and trim(consultant)<>'' group by consultant order by volume desc limit 10",[days]),
+    sql.query<Record<string,unknown>>(MANAGEMENT_REPORT_TOP_CONSULTANTS_SQL,[days]),
   ]);
   const role = normalizeAdminRole(claims?.role);
   const financeAllowed = hasAdminPermission(role, "finance.manage");
