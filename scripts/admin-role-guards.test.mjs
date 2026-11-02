@@ -54,3 +54,23 @@ test("partner administration API uses a dedicated permission and remains hidden 
   assert.doesNotMatch(salesNav, /"partners"/);
   assert.doesNotMatch(contentNav, /"partners"/);
 });
+
+test("consultant targets and commission performance reads require deal.manage like the visible UI roles", () => {
+  const route = source("server/routes/api/admin-consultant-targets.post.ts");
+  const adminUi = source("src/components/hirmand/_admin_impl.tsx");
+  assert.match(route, /hasAdminPermission\(normalizeAdminRole\(claims\?\.role\), "deal\.manage"\)/);
+  assert.doesNotMatch(route, /hasAdminPermission\(normalizeAdminRole\(claims\?\.role\), "reports\.view"\)/);
+  const contentNav = adminUi.match(/if \(adminRole === "content"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const viewerNav = adminUi.match(/return navItems\.filter\(\(item\) => item\.view === "dashboard" \|\| item\.view === "managementReport"\)/)?.[0] ?? "";
+  assert.doesNotMatch(contentNav, /"consultantTargets"/);
+  assert.doesNotMatch(viewerNav, /"consultantTargets"/);
+});
+
+test("the real admin workflow E2E exercises consultant-target API access for each role class", () => {
+  const e2e = source("scripts/admin-business-workflows-e2e.mjs");
+  assert.match(e2e, /consultantTargetsResponse\(salesPage\)/);
+  assert.match(e2e, /loginAsTemporaryRole\("manager"\)/);
+  assert.match(e2e, /for \(const role of \["content", "viewer"\]\)/);
+  assert.match(e2e, /targetsResponse\.status !== 403/);
+  assert.match(e2e, /consultantTargetsResponse\(page\)/);
+});
