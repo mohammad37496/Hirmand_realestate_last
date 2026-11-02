@@ -3122,7 +3122,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                 {form.id ? (
                   <>
                     <AdminPropertyQuestions propertyId={form.id} />
-                    <AdminPropertyOpenHouse propertyId={form.id} />
+                    <AdminPropertyOpenHouse propertyId={form.id} canViewRsvps={canManageLeads} />
                   </>
                 ) : null}
 

@@ -7,6 +7,8 @@ import {
   createOpenHouseSchedule,
   registerOpenHouseRsvp,
 } from "./property-open-house-scheduling.server.ts";
+import { listOpenHouseAdminData } from "./property-open-house-admin-list.ts";
+import { hasAdminPermission } from "./admin-roles.ts";
 
 function sqlFor(tx: { query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[] }> }) {
   return {
@@ -261,4 +263,48 @@ test("cancelling an open house serializes with a concurrent RSVP and cancels act
 test("public open-house listing hides events when the property is no longer publicly bookable", async () => {
   const route = await readFile(new URL("../../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
   assert.match(route, /PUBLIC_PROPERTY_VISIT_AVAILABILITY_SQL/);
+});
+
+test("property managers can list open-house schedules without querying RSVP PII unless they also manage leads", async () => {
+  const db = await fixture();
+  try {
+    await db.query(
+      "insert into property_open_houses(id,property_id,starts_at,ends_at,capacity) values('event-admin-list','property-1',$1,$2,8)",
+      [futureStart, futureEnd],
+    );
+    await db.query(
+      "insert into property_open_house_rsvps(id,open_house_id,name,phone,party_size,note) values('rsvp-admin-list','event-admin-list','Guest Private','09130000001',2,'Private customer note')",
+    );
+
+    const queries: string[] = [];
+    const sql = {
+      query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) => {
+        queries.push(text);
+        return (await db.query<T>(text, params)).rows;
+      },
+    };
+    const propertyOnly = await listOpenHouseAdminData(sql, "property-1", false);
+    assert.equal(propertyOnly?.events.length, 1);
+    assert.deepEqual(propertyOnly?.rsvps, []);
+    assert.equal(queries.some((query) => /select\s+r\.id,r\.open_house_id,r\.name,r\.phone/i.test(query)), false);
+
+    const withLeadPermission = await listOpenHouseAdminData(sql, "property-1", true);
+    assert.equal(withLeadPermission?.rsvps.length, 1);
+    assert.equal(withLeadPermission?.rsvps[0]?.phone, "09130000001");
+
+    assert.equal(hasAdminPermission("content", "property.manage"), true);
+    assert.equal(hasAdminPermission("content", "lead.manage"), false);
+    assert.equal(hasAdminPermission("sales", "property.manage"), true);
+    assert.equal(hasAdminPermission("sales", "lead.manage"), true);
+
+    const route = await readFile(new URL("../../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
+    assert.match(route, /hasAdminPermission\(role, "property\.manage"\)/);
+    assert.match(route, /const canViewRsvps = hasAdminPermission\(role, "lead\.manage"\)/);
+    const adminUi = await readFile(new URL("../components/hirmand/admin-property-features.tsx", import.meta.url), "utf8");
+    assert.match(adminUi, /canViewRsvps\?\s*<div className="admin-open-house-rsvps"/);
+    const adminShell = await readFile(new URL("../components/hirmand/_admin_impl.tsx", import.meta.url), "utf8");
+    assert.match(adminShell, /<AdminPropertyOpenHouse propertyId=\{form\.id\} canViewRsvps=\{canManageLeads\}/);
+  } finally {
+    await db.close();
+  }
 });
