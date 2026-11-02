@@ -7,7 +7,7 @@ import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
 import { checkPropertyVisitSlot } from "@/lib/property-visit-scheduling.server";
 import { lockLeadReferencesForMutation } from "@/lib/admin-lead-dedupe.server";
-import { UPDATE_EXISTING_BUDGET_LEAD_SQL } from "@/lib/admin-lead-mutation-sql";
+import { buildPublicDuplicateResponse, buildRecentPublicLeadDuplicateQuery } from "@/lib/public-lead-dedupe";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -221,10 +221,8 @@ export default defineEventHandler(async (event) => {
       console.error("[leads] acquisition lookup unavailable", error);
     }
   }
-  const existing = await sql.query<{ id: string; public_tracking_token: string | null }>(
-    `select id, public_tracking_token from leads where phone = $1 and merged_into_lead_id is null and created_at > current_timestamp - interval '10 minutes' limit 1`,
-    [parsed.data.phone],
-  );
+  const duplicateQuery = buildRecentPublicLeadDuplicateQuery(parsed.data.phone);
+  const existing = await sql.query<{ id: string }>(duplicateQuery.sql, duplicateQuery.params);
 
   const budgetDepositMin = parsed.data.budgetDepositMin ?? parsed.data.budgetDeposit ?? 0;
   const budgetDeposit = parsed.data.budgetDepositMax ?? parsed.data.budgetDeposit ?? budgetDepositMin;
@@ -255,74 +253,9 @@ export default defineEventHandler(async (event) => {
     : parsed.data.note;
 
   if (existing[0] && !(parsed.data.propertyId && parsed.data.visitPreferredAt) && !parsed.data.callbackPreferredAt && parsed.data.offerAmount == null && !PROPERTY_SERVICE_REQUEST_DEALS.has(parsed.data.deal)) {
-    if (parsed.data.source === "budget_match") {
-      const nextTrackingToken = existing[0].public_tracking_token || createPublicTrackingToken();
-      const refreshed = await withSqlTransaction(async (tx) => {
-        const lock = await lockLeadReferencesForMutation(tx, [existing[0].id]);
-        if (lock.kind !== "locked") return null;
-        return (await tx.query<{ id: string; public_tracking_token: string | null }>(
-          UPDATE_EXISTING_BUDGET_LEAD_SQL,
-          [
-          existing[0].id,
-          parsed.data.name,
-          parsed.data.peopleCount ?? null,
-          parsed.data.job,
-          parsed.data.deal,
-          parsed.data.propertyType,
-          parsed.data.neighborhood,
-          parsed.data.consultant,
-          note,
-          parsed.data.source,
-          budgetDeposit || null,
-          budgetRent || null,
-          budgetPurchase || null,
-          budgetSale || null,
-          DEFAULT_MATCH_RAHN_RATE,
-          equivalent || null,
-          parsed.data.budgetBedrooms ?? null,
-          JSON.stringify(matchedProperties),
-          matchedProperties.length,
-          acquisition.source,
-          acquisition.medium,
-          acquisition.campaign,
-          acquisition.referrer,
-          acquisition.landingPath,
-          parsed.data.floorPreference,
-          budgetDepositMin || null,
-          budgetDeposit || null,
-          budgetRentMin || null,
-          budgetRent || null,
-          budgetPurchaseMin || null,
-          budgetPurchase || null,
-          budgetSaleMin || null,
-          budgetSale || null,
-          JSON.stringify(parsed.data.requestedAmenities),
-          parsed.data.requestedBedrooms ?? null,
-          parsed.data.requestedAreaMin ?? null,
-          parsed.data.requestedAreaMax ?? null,
-          nextTrackingToken,
-          ],
-        ))[0] ?? null;
-      });
-      if (!refreshed) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان ادغام یا تغییر کرده است؛ دوباره تلاش کنید." });
-      try {
-        await autoMatchLead(sql, existing[0].id, { mode: "smart", limit: 8 });
-      } catch (error) {
-        console.error("[leads] automatic smart matching failed for duplicate budget lead", error);
-      }
-      return { success: true, duplicate: true, updated: true, id: existing[0].id, trackingToken: refreshed.public_tracking_token ?? nextTrackingToken };
-    }
-    const nextTrackingToken = existing[0].public_tracking_token || createPublicTrackingToken();
-    const tracking = await withSqlTransaction(async (tx) => {
-      const lock = await lockLeadReferencesForMutation(tx, [existing[0].id]);
-      if (lock.kind !== "locked") return null;
-      return (await tx.query<{ public_tracking_token: string | null }>(
-        "update leads set public_tracking_token=coalesce(public_tracking_token,$2),updated_at=current_timestamp where id=$1 and merged_into_lead_id is null returning public_tracking_token",
-        [existing[0].id, nextTrackingToken],
-      ))[0] ?? null;
-    });
-    if (!tracking) throw createError({ statusCode: 409, statusMessage: "این درخواست هم‌زمان ادغام یا تغییر کرده است؛ دوباره تلاش کنید." });
-    return { success: true, duplicate: true, id: existing[0].id, trackingToken: tracking.public_tracking_token ?? nextTrackingToken };
+    return buildPublicDuplicateResponse(
+      "درخواست مشابهی اخیراً دریافت شده است. برای حفظ امنیت، کد رهگیری قبلی دوباره نمایش داده نمی‌شود؛ اگر کد قبلی را در اختیار ندارید با تیم هیرمند تماس بگیرید.",
+    );
   }
 
   if (parsed.data.callbackPreferredAt) {

@@ -238,7 +238,6 @@ test("CRM routes use atomic mutation-and-activity SQL without swallowing activit
   const assignmentRoute = readFileSync(new URL("../../server/routes/api/admin-lead-assignment.post.ts", import.meta.url), "utf8");
   const publicActionsRoute = readFileSync(new URL("../../server/routes/api/public-lead-actions.post.ts", import.meta.url), "utf8");
   const publicLeadsRoute = readFileSync(new URL("../../server/routes/api/leads.post.ts", import.meta.url), "utf8");
-  const mutationSql = readFileSync(new URL("./admin-lead-mutation-sql.ts", import.meta.url), "utf8");
   const dedupeRoute = readFileSync(new URL("../../server/routes/api/admin-lead-dedupe.post.ts", import.meta.url), "utf8");
   const dedupeServer = readFileSync(new URL("./admin-lead-dedupe.server.ts", import.meta.url), "utf8");
   const dedupeSql = readFileSync(new URL("./admin-lead-dedupe-sql.ts", import.meta.url), "utf8");
@@ -252,9 +251,10 @@ test("CRM routes use atomic mutation-and-activity SQL without swallowing activit
   assert.match(publicActionsRoute, /reschedulePropertyVisit\(tx/);
   assert.match(publicActionsRoute, /cancelPropertyVisit\(tx/);
   assert.match(publicLeadsRoute, /withSqlTransaction\(async \(tx\)/);
-  assert.match(publicLeadsRoute, /UPDATE_EXISTING_BUDGET_LEAD_SQL/);
-  assert.match(publicLeadsRoute, /lockLeadReferencesForMutation\(tx, \[existing\[0\]\.id\]\)/);
-  assert.match(mutationSql, /where id=\$1 and merged_into_lead_id is null\s+returning id,public_tracking_token/);
+  assert.match(publicLeadsRoute, /buildRecentPublicLeadDuplicateQuery\(parsed\.data\.phone\)/);
+  assert.match(publicLeadsRoute, /return buildPublicDuplicateResponse\(/);
+  assert.doesNotMatch(publicLeadsRoute, /UPDATE_EXISTING_BUDGET_LEAD_SQL/);
+  assert.match(publicLeadsRoute, /lockLeadReferencesForMutation\(tx, \[input\.leadId\]\)/);
   assert.match(publicLeadsRoute, /checkPropertyVisitSlot\(tx/);
   assert.match(leadsRoute, /checkPropertyVisitSlot\(tx/);
   assert.match(leadsRoute, /visitTime < Date\.now\(\) \+ 30 \* 60 \* 1000/);

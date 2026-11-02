@@ -6,6 +6,7 @@ import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { resubmitCustomerPropertySubmission } from "@/lib/customer-property-submission-resubmit";
 import { buildPendingSubmissionDuplicateQuery } from "@/lib/customer-property-submission-dedupe";
+import { buildPublicDuplicateResponse } from "@/lib/public-lead-dedupe";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -198,9 +199,11 @@ export default defineEventHandler(async (event) => {
     await tx.query("select pg_advisory_xact_lock(hashtext($1)::bigint)", ["phone:" + parsed.data.ownerPhone]);
     await tx.query("select pg_advisory_xact_lock(hashtext($1)::bigint)", [`property:${parsed.data.neighborhood}|${parsed.data.areaM2}|${normalizedTitle}`]);
     const duplicateQuery = buildPendingSubmissionDuplicateQuery(parsed.data.ownerPhone, parsed.data);
-    const existing = await tx.query<{ id:string; public_tracking_token:string|null }>(duplicateQuery.sql, duplicateQuery.params);
+    const existing = await tx.query<{ id:string }>(duplicateQuery.sql, duplicateQuery.params);
     if (existing[0]) {
-      return { success:true, duplicate:true, trackingToken: existing[0].public_tracking_token || trackingToken };
+      return buildPublicDuplicateResponse(
+        "درخواست مشابهی برای این ملک قبلاً دریافت شده است. برای حفظ امنیت، کد رهگیری قبلی دوباره نمایش داده نمی‌شود؛ برای پیگیری از کدی که هنگام ثبت قبلی دریافت کرده‌اید استفاده کنید.",
+      );
     }
 
       await tx.query(

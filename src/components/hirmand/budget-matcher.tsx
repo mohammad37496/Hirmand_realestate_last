@@ -161,6 +161,7 @@ export function BudgetMatcher() {
   const [searched, setSearched] = useState(false);
   const [leadSaving, setLeadSaving] = useState(false);
   const [leadSaved, setLeadSaved] = useState(false);
+  const [leadDuplicate, setLeadDuplicate] = useState(false);
   const [leadTrackingToken, setLeadTrackingToken] = useState("");
 
   useEffect(() => {
@@ -291,6 +292,7 @@ export function BudgetMatcher() {
       });
       const result = (await response.json().catch(() => null)) as {
         success?: boolean;
+        duplicate?: boolean;
         statusMessage?: string;
         message?: string;
         trackingToken?: string;
@@ -298,10 +300,11 @@ export function BudgetMatcher() {
       if (!response.ok || !result?.success) {
         throw new Error(result?.statusMessage || result?.message || "ثبت درخواست انجام نشد.");
       }
+      setLeadDuplicate(Boolean(result.duplicate));
       if (result?.trackingToken) setLeadTrackingToken(result.trackingToken);
       setLeadSaved(true);
       trackAnalyticsEvent("budget_match_contact");
-      toast.success("درخواست پیگیری برای تیم هیرمند ثبت شد.");
+      toast.success(result.duplicate ? "درخواست مشابه اخیر قبلاً دریافت شده است." : "درخواست پیگیری برای تیم هیرمند ثبت شد.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "ثبت درخواست انجام نشد.");
     } finally {
@@ -320,6 +323,7 @@ export function BudgetMatcher() {
     setMatches([]);
     setSearched(false);
     setLeadSaved(false);
+    setLeadDuplicate(false);
     setLeadTrackingToken("");
   }
 
@@ -675,8 +679,10 @@ export function BudgetMatcher() {
             <div className="budget-lead-success">
               <div className="budget-success-icon"><CheckCircle2 size={22} /></div>
               <div>
-                <strong>درخواست شما با موفقیت ثبت شد.</strong>
-                <p>بودجه و نتیجه تطبیق در CRM هیرمند ذخیره شده است و مشاور منتخب می‌تواند آن را پیگیری کند.</p>
+                <strong>{leadDuplicate ? "درخواست مشابه قبلی شناسایی شد." : "درخواست شما با موفقیت ثبت شد."}</strong>
+                <p>{leadDuplicate
+                  ? "درخواست قبلی در بازه اخیر دریافت شده است. برای حفظ امنیت، کد رهگیری قبلی دوباره نمایش داده نمی‌شود؛ اگر کد را ندارید با هیرمند تماس بگیرید."
+                  : "بودجه و نتیجه تطبیق در CRM هیرمند ذخیره شده است و مشاور منتخب می‌تواند آن را پیگیری کند."}</p>
               </div>
               <div className="budget-lead-success-actions">
                 <a

@@ -84,12 +84,10 @@ test("new submissions deduplicate only an identical pending property payload, no
     `);
     const find = async (phone: string, data: unknown) => {
       const query = buildPendingSubmissionDuplicateQuery(phone, data);
-      const result = await db.query<{ id: string; public_tracking_token: string }>(query.sql, query.params);
+      const result = await db.query<{ id: string }>(query.sql, query.params);
       return result.rows;
     };
-    assert.deepEqual(await find("09130000000", { title: "Apartment A", areaM2: 100 }), [
-      { id: "existing", public_tracking_token: "HIR-26-AAAAAAAAAAAA" },
-    ]);
+    assert.deepEqual(await find("09130000000", { title: "Apartment A", areaM2: 100 }), [{ id: "existing" }]);
     assert.deepEqual(await find("09130000000", { title: "Apartment B", areaM2: 140 }), []);
     assert.deepEqual(await find("09131111111", { title: "Apartment A", areaM2: 100 }), []);
     const route = await readFile(new URL("../../server/routes/api/customer-property-submissions.post.ts", import.meta.url), "utf8");

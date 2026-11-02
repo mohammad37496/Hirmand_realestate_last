@@ -28,6 +28,7 @@ export function PropertyFinancingRequest({ property }: { property: Property }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [duplicate, setDuplicate] = useState(false);
   const [trackingToken, setTrackingToken] = useState("");
 
   const price = useMemo(() => amount(property.price ?? ""), [property.price]);
@@ -82,13 +83,14 @@ export function PropertyFinancingRequest({ property }: { property: Property }) {
           matches: [],
         }),
       });
-      const payload = await response.json().catch(() => null) as { success?: boolean; trackingToken?: string; statusMessage?: string; message?: string } | null;
+      const payload = await response.json().catch(() => null) as { success?: boolean; duplicate?: boolean; trackingToken?: string; statusMessage?: string; message?: string } | null;
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.statusMessage || payload?.message || "ثبت درخواست تأمین مالی انجام نشد.");
       }
       setTrackingToken(payload.trackingToken || "");
+      setDuplicate(Boolean(payload.duplicate));
       setDone(true);
-      toast.success("درخواست بررسی تأمین مالی ثبت شد.");
+      toast.success(payload.duplicate ? "درخواست مشابه اخیر قبلاً دریافت شده است." : "درخواست بررسی تأمین مالی ثبت شد.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "ثبت درخواست انجام نشد.");
     } finally {
@@ -111,9 +113,11 @@ export function PropertyFinancingRequest({ property }: { property: Property }) {
         <div className="property-financing-success" role="status">
           <span><CheckCircle2 size={24} /></span>
           <div>
-            <strong>درخواست شما ثبت شد.</strong>
-            <p>مشاور هیرمند اطلاعات فایل و سناریوی مالی شما را بررسی می‌کند.</p>
-            <small>کد پیگیری: <bdi dir="ltr">{trackingToken || "—"}</bdi></small>
+            <strong>{duplicate ? "درخواست مشابه قبلی شناسایی شد." : "درخواست شما ثبت شد."}</strong>
+            <p>{duplicate
+              ? "درخواست مشابهی اخیراً دریافت شده است. برای حفظ امنیت، کد رهگیری قبلی دوباره نمایش داده نمی‌شود؛ اگر کد قبلی را ندارید با تیم هیرمند تماس بگیرید."
+              : "مشاور هیرمند اطلاعات فایل و سناریوی مالی شما را بررسی می‌کند."}</p>
+            {trackingToken ? <small>کد پیگیری: <bdi dir="ltr">{trackingToken}</bdi></small> : null}
           </div>
         </div>
       ) : (

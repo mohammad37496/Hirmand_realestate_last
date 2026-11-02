@@ -109,7 +109,9 @@ function SubmitPropertyPage() {
   const [progress, setProgress] = useState(0);
   const [uploadLabel, setUploadLabel] = useState("");
   const [error, setError] = useState("");
-  const [done, setDone] = useState("");
+  const [done, setDone] = useState(false);
+  const [doneTrackingToken, setDoneTrackingToken] = useState("");
+  const [doneDuplicate, setDoneDuplicate] = useState(false);
   const [editToken, setEditToken] = useState("");
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -345,7 +347,9 @@ function SubmitPropertyPage() {
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.statusMessage || payload?.message || "ثبت ملک انجام نشد.");
       }
-      setDone(String(payload.trackingToken || ""));
+      setDone(true);
+      setDoneTrackingToken(String(payload.trackingToken || ""));
+      setDoneDuplicate(Boolean(payload.duplicate));
       try { window.localStorage.removeItem(CUSTOMER_DRAFT_KEY); } catch {
         // Ignore storage failures; the submission already succeeded.
       }
@@ -365,13 +369,15 @@ function SubmitPropertyPage() {
         <section className="owner-success customer-submission-success">
           <div className="owner-success-icon"><CheckCircle2 size={30} /></div>
           <span className="kicker">ارسال موفق</span>
-          <h1>{editToken ? "اصلاحات ملک شما دریافت شد." : "اطلاعات ملک شما دریافت شد."}</h1>
-          <p>{editToken ? "نسخه اصلاح‌شده دوباره در صف بررسی قرار گرفت و تا تأیید کارشناسان در بخش فایل‌های عمومی نمایش داده نمی‌شود." : "فایل ابتدا در صف بررسی هیرمند قرار می‌گیرد و تا تأیید کارشناسان در بخش فایل‌های عمومی نمایش داده نمی‌شود."}</p>
-          <div className="owner-tracking">
+          <h1>{doneDuplicate ? "درخواست مشابه قبلاً دریافت شده است." : editToken ? "اصلاحات ملک شما دریافت شد." : "اطلاعات ملک شما دریافت شد."}</h1>
+          <p>{doneDuplicate
+            ? "درخواست مشابه این ملک پیش‌تر در صف بررسی ثبت شده است. برای حفظ امنیت، کد رهگیری قبلی دوباره نمایش داده نمی‌شود؛ برای پیگیری از کدی که هنگام ثبت قبلی دریافت کرده‌اید استفاده کنید. اگر کد در دسترس نیست با هیرمند تماس بگیرید."
+            : editToken ? "نسخه اصلاح‌شده دوباره در صف بررسی قرار گرفت و تا تأیید کارشناسان در بخش فایل‌های عمومی نمایش داده نمی‌شود." : "فایل ابتدا در صف بررسی هیرمند قرار می‌گیرد و تا تأیید کارشناسان در بخش فایل‌های عمومی نمایش داده نمی‌شود."}</p>
+          {doneTrackingToken ? <div className="owner-tracking">
             <small>کد رهگیری</small>
-            <strong dir="ltr">{done || "—"}</strong>
-            {done ? <a className="btn-gold" href={"/request-tracking?code=" + encodeURIComponent(done)}><Send size={16}/> پیگیری درخواست</a> : null}
-          </div>
+            <strong dir="ltr">{doneTrackingToken}</strong>
+            <a className="btn-gold" href={"/request-tracking?code=" + encodeURIComponent(doneTrackingToken)}><Send size={16}/> پیگیری درخواست</a>
+          </div> : null}
           <Link className="btn-ghost" to="/properties">مشاهده فایل‌های منتشرشده</Link>
         </section>
       </main>
