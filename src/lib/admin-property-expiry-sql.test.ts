@@ -27,6 +27,8 @@ async function createDb({ rejectAction }: { rejectAction?: "archive" | "task" | 
       unpublish_at timestamptz,
       updated_at timestamptz,
       published_at timestamptz,
+      featured boolean not null default false,
+      featured_until timestamptz,
       created_at timestamptz not null default current_timestamp
     );
     create table admin_tasks (
@@ -76,25 +78,33 @@ test("expiry panel validates availability and exposes retry instead of showing f
   assert.match(component, /if\(!data\?\.available\)return[\s\S]*AdminErrorBanner/);
   assert.match(component, /loadError&&!data[\s\S]*onRetry/);
 });
-test("archiving updates only active expired properties and logs exactly those updates", async () => {
+test("archiving updates only active expired properties, clears featured flags, and logs exactly those updates", async () => {
   const db = await createDb();
   try {
     await db.exec(`
-      insert into properties (id,status,deleted_at,unpublish_at) values
-        ('expired','published',null,current_timestamp-interval '1 day'),
-        ('trashed','published',current_timestamp,current_timestamp-interval '1 day'),
-        ('future','published',null,current_timestamp+interval '1 day');
+      insert into properties (id,status,deleted_at,unpublish_at,featured,featured_until) values
+        ('expired','published',null,current_timestamp-interval '1 day',true,current_timestamp+interval '5 days'),
+        ('expired-old-featured','published',null,current_timestamp-interval '1 day',true,current_timestamp-interval '1 day'),
+        ('trashed','published',current_timestamp,current_timestamp-interval '1 day',true,current_timestamp+interval '5 days'),
+        ('future','published',null,current_timestamp+interval '1 day',true,current_timestamp+interval '5 days');
     `);
     const archived = await db.query<{ property_id: string }>(ARCHIVE_EXPIRED_PROPERTIES_SQL, ["مدیر"]);
-    assert.deepEqual(archived.rows.map((row) => row.property_id), ["expired"]);
-    const rows = await db.query<{ id: string; status: string }>("select id,status from properties order by id");
+    assert.deepEqual(archived.rows.map((row) => row.property_id).sort(), ["expired", "expired-old-featured"]);
+    const rows = await db.query<{ id: string; status: string; featured: boolean; has_featured_until: boolean }>(
+      "select id,status,featured,featured_until is not null as has_featured_until from properties order by id",
+    );
     assert.deepEqual(rows.rows, [
-      { id: "expired", status: "archived" },
-      { id: "future", status: "published" },
-      { id: "trashed", status: "published" },
+      { id: "expired", status: "archived", featured: false, has_featured_until: false },
+      { id: "expired-old-featured", status: "archived", featured: false, has_featured_until: false },
+      { id: "future", status: "published", featured: true, has_featured_until: true },
+      { id: "trashed", status: "published", featured: true, has_featured_until: true },
     ]);
     const events = await db.query<{ property_id: string }>("select property_id from admin_property_expiry_actions where action='archive'");
-    assert.deepEqual(events.rows.map((row) => row.property_id), ["expired"]);
+    assert.deepEqual(events.rows.map((row) => row.property_id).sort(), ["expired", "expired-old-featured"]);
+    const staleFeatured = await db.query<{ count: number }>(
+      "select count(*)::int as count from properties where status='archived' and featured=true",
+    );
+    assert.equal(staleFeatured.rows[0]?.count, 0, "archived listings must not remain in featured dashboard or action-center queries");
   } finally {
     await db.close();
   }
@@ -103,10 +113,12 @@ test("archiving updates only active expired properties and logs exactly those up
 test("failed archive audit rolls back the property status change", async () => {
   const db = await createDb({ rejectAction: "archive" });
   try {
-    await db.exec("insert into properties (id,status,unpublish_at) values ('expired','published',current_timestamp-interval '1 day')");
+    await db.exec("insert into properties (id,status,unpublish_at,featured,featured_until) values ('expired','published',current_timestamp-interval '1 day',true,current_timestamp+interval '5 days')");
     await assert.rejects(db.query(ARCHIVE_EXPIRED_PROPERTIES_SQL, ["مدیر"]));
-    const rows = await db.query<{ status: string }>("select status from properties where id='expired'");
-    assert.equal(rows.rows[0]?.status, "published");
+    const rows = await db.query<{ status: string; featured: boolean; has_featured_until: boolean }>(
+      "select status,featured,featured_until is not null as has_featured_until from properties where id='expired'",
+    );
+    assert.deepEqual(rows.rows[0], { status: "published", featured: true, has_featured_until: true });
   } finally {
     await db.close();
   }
