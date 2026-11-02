@@ -95,6 +95,9 @@ jobs:
       - name: Property lifecycle PostgreSQL integration
         run: npm run test:property-lifecycle:postgres
 
+      - name: Admin productivity property-association PostgreSQL concurrency
+        run: npm run test:admin-productivity-property-race
+
       - name: Seed deterministic property-detail fixture
         run: node scripts/seed-browser-smoke.mjs
 
