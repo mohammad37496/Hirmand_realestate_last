@@ -23,8 +23,8 @@ import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import {
-  BULK_SET_PROPERTY_FEATURED_SQL,
   BULK_UPDATE_PROPERTY_STATUS_SQL,
+  bulkSetPropertyFeaturedWithSql,
   resolveFeaturedStateForPropertyStatus,
 } from "@/lib/admin-property-status-featured";
 import {
@@ -1280,68 +1280,9 @@ export const bulkSetPropertyFeatured = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const claims = await requireAdminPermission("property.manage");
     const includeOwnerDetails = hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage");
-    const sql = await getSql();
-
-    const beforeRows = await sql.query<Record<string, unknown>>(
-      `select id, title, status, featured, price, deposit, rent, contact_name, contact_phone
-       from properties
-       where id = any($1::text[])`,
-      [data.ids],
+    const rows = await withSqlTransaction((tx) =>
+      bulkSetPropertyFeaturedWithSql(tx.query, data.ids, data.featured, includeOwnerDetails),
     );
-
-    const rows = await sql.query<Record<string, unknown>>(
-      BULK_SET_PROPERTY_FEATURED_SQL,
-      [data.featured, data.ids],
-    );
-
-    if (rows.length) {
-      const updatedIds = new Set(rows.map((row) => String(row.id)));
-      const changedBeforeRows = beforeRows.filter((row) => updatedIds.has(String(row.id)));
-      const beforePayload = JSON.stringify(
-        changedBeforeRows.map((row) => ({
-          id: String(row.id),
-          before_state: {
-            title: row.title == null ? null : String(row.title),
-            status: row.status == null ? null : String(row.status),
-            featured: Boolean(row.featured),
-            price: row.price == null ? null : String(row.price),
-            deposit: row.deposit == null ? null : String(row.deposit),
-            rent: row.rent == null ? null : String(row.rent),
-            contactName: row.contact_name == null ? null : String(row.contact_name),
-            contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
-          },
-        })),
-      );
-      const afterOwnerJsonFields = includeOwnerDetails
-        ? ", 'ownerName', p.owner_name, 'ownerPhone', p.owner_phone, 'ownerInfo', p.owner_info"
-        : "";
-      await sql.query(
-        `with before as (
-           select *
-           from jsonb_to_recordset($1::jsonb)
-             as b(id text, before_state jsonb)
-         )
-         insert into property_change_history (property_id, action, before_state, after_state)
-         select
-           p.id,
-           'updated',
-           before.before_state,
-           jsonb_build_object(
-             'title', p.title,
-             'status', p.status,
-             'availabilityStatus', p.availability_status,
-             'featured', p.featured,
-             'price', p.price,
-             'deposit', p.deposit,
-             'rent', p.rent,
-             'contactName', p.contact_name,
-             'contactPhone', p.contact_phone${afterOwnerJsonFields}
-           )
-         from properties p
-         join before on before.id = p.id`,
-        [beforePayload],
-      );
-    }
     clearPropertyReadCache();
     return { success: true, updated: rows.length };
   });

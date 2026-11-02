@@ -242,7 +242,8 @@ test("property trash snapshots omit private owner columns for property managers 
 test("bulk property status and featured mutations do not fetch private owner columns for ordinary property managers", () => {
   const statusSql = source("src/lib/admin-property-status-featured.ts");
   const properties = source("src/lib/properties.ts");
-  assert.doesNotMatch(statusSql, /returning[^`]*owner_(?:name|phone|info)/s);
+  const baseStatusSql = statusSql.slice(0, statusSql.indexOf("export type PropertyFeaturedQuery"));
+  assert.doesNotMatch(baseStatusSql, /returning[^`]*owner_(?:name|phone|info)/s);
   const bulkStatusStart = properties.indexOf("export const bulkUpdatePropertyStatus");
   const bulkFeaturedStart = properties.indexOf("export const bulkSetPropertyFeatured", bulkStatusStart);
   const saveStart = properties.indexOf("export const saveProperty", bulkFeaturedStart);
@@ -250,8 +251,8 @@ test("bulk property status and featured mutations do not fetch private owner col
   const bulkFeatured = properties.slice(bulkFeaturedStart, saveStart);
   assert.match(bulkStatus, /includeOwnerDetails \? ", owner_name, owner_phone, owner_info" : ""/);
   assert.match(bulkStatus, /afterOwnerJsonFields/);
-  assert.match(bulkFeatured, /afterOwnerJsonFields/);
-  assert.doesNotMatch(statusSql, /owner_name|owner_phone|owner_info/);
+  assert.match(bulkFeatured, /bulkSetPropertyFeaturedWithSql\(tx\.query/);
+  assert.match(statusSql, /const afterOwnerJsonFields = includeOwnerDetails[\s\S]*?p\.owner_name[\s\S]*?p\.owner_phone[\s\S]*?p\.owner_info/);
 });
 
 test("alternate owner data APIs gate their sensitive query or response fields", () => {
