@@ -75,8 +75,8 @@ export default defineEventHandler(async (event) => {
 
   await assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "reports.view")) {
-    throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش عملکرد فایل برای این حساب فعال نیست." });
+  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "property.manage")) {
+    throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت فایل برای مشاهده عملکرد اختصاصی آن فعال نیست." });
   }
 
   const body = (await readBody(event).catch(() => ({}))) as { propertyId?: unknown };

@@ -13,6 +13,7 @@ const normalizeDigits = (value) => value.replace(/[۰-۹]/g, (digit) => String("
 const baseUrl = (process.argv[2] || process.env.QA_BASE_URL || "http://127.0.0.1:8081").replace(/\/$/, "");
 const adminKey = process.env.HIRMAND_ADMIN_KEY?.trim();
 const databaseUrl = process.env.DATABASE_URL?.trim();
+const roleCheckPropertyId = process.env.BROWSER_SMOKE_PROPERTY_ID?.trim();
 const title = process.env.ADMIN_WORKFLOW_PROPERTY_TITLE?.trim() || ("فایل آزمون گردش کار هیرمند " + Date.now());
 const price = process.env.ADMIN_WORKFLOW_PROPERTY_PRICE?.trim() || "12345678901";
 const editedTitle = title + " (ویرایش)";
@@ -20,6 +21,7 @@ const editedPrice = (BigInt(price) + 10_000_000n).toString();
 
 if (!adminKey) throw new Error("HIRMAND_ADMIN_KEY is required for the business workflow E2E.");
 if (!databaseUrl) throw new Error("DATABASE_URL is required for the business workflow E2E.");
+if (!roleCheckPropertyId) throw new Error("BROWSER_SMOKE_PROPERTY_ID is required for the property-performance role E2E.");
 const database = new URL(databaseUrl);
 const databaseName = decodeURIComponent(database.pathname.slice(1));
 if (!["localhost", "127.0.0.1", "::1"].includes(database.hostname) || !/(?:^|[_-])(?:test|verify)$/i.test(databaseName)) {
@@ -111,6 +113,18 @@ async function dataHealthResponse(page) {
   });
 }
 
+async function propertyPerformanceResponse(page, propertyId) {
+  return page.evaluate(async (id) => {
+    const response = await fetch("/api/admin-property-performance", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ propertyId: id }),
+    });
+    return { status: response.status, bodyText: await response.text() };
+  }, propertyId);
+}
+
 try {
   client = await pool.connect();
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
@@ -146,6 +160,10 @@ try {
   const salesDataHealthResponse = await dataHealthResponse(salesPage);
   if (salesDataHealthResponse.status !== 403) {
     throw new Error("Sales role must receive HTTP 403 for data-health scan; received HTTP " + salesDataHealthResponse.status);
+  }
+  const salesPropertyPerformance = await propertyPerformanceResponse(salesPage, roleCheckPropertyId);
+  if (salesPropertyPerformance.status !== 200) {
+    throw new Error("Sales role must be able to read property performance; received HTTP " + salesPropertyPerformance.status);
   }
 
   salesTestAgencyName = "QA Partner Permission " + randomUUID();
@@ -200,8 +218,12 @@ try {
   if (managerDataHealthResponse.status !== 200) {
     throw new Error("Manager role must be able to run data-health scan; received HTTP " + managerDataHealthResponse.status);
   }
+  const managerPropertyPerformance = await propertyPerformanceResponse(managerPage, roleCheckPropertyId);
+  if (managerPropertyPerformance.status !== 200) {
+    throw new Error("Manager role must be able to read property performance; received HTTP " + managerPropertyPerformance.status);
+  }
 
-  for (const role of ["content", "viewer"]) {
+  for (const role of ["content", "viewer", "staff"]) {
     const restrictedPage = await loginAsTemporaryRole(role);
     const targetsResponse = await consultantTargetsResponse(restrictedPage);
     if (targetsResponse.status !== 403) {
@@ -216,6 +238,14 @@ try {
     }
     if (/orphan_lead|unknown_consultant|entityId|"findings"/.test(dataHealth.bodyText)) {
       throw new Error(role + " role received CRM integrity data in a denied response.");
+    }
+    const propertyPerformance = await propertyPerformanceResponse(restrictedPage, roleCheckPropertyId);
+    const expectedPropertyPerformanceStatus = role === "content" ? 200 : 403;
+    if (propertyPerformance.status !== expectedPropertyPerformanceStatus) {
+      throw new Error(role + " role must receive HTTP " + expectedPropertyPerformanceStatus + " for property performance; received " + propertyPerformance.status);
+    }
+    if (expectedPropertyPerformanceStatus === 403 && /contactName|leadSources|"leads"/.test(propertyPerformance.bodyText)) {
+      throw new Error(role + " role received private property or lead performance data in a denied response.");
     }
   }
   console.log("ok   consultant targets are readable by sales/manager and denied to content/viewer over direct API requests");
@@ -237,6 +267,10 @@ try {
   const ownerDataHealthResponse = await dataHealthResponse(page);
   if (ownerDataHealthResponse.status !== 200) {
     throw new Error("Owner role must be able to run data-health scan; received HTTP " + ownerDataHealthResponse.status);
+  }
+  const ownerPropertyPerformance = await propertyPerformanceResponse(page, roleCheckPropertyId);
+  if (ownerPropertyPerformance.status !== 200) {
+    throw new Error("Owner role must be able to read property performance; received HTTP " + ownerPropertyPerformance.status);
   }
 
   await page.locator(".admin-sidebar .admin-sidebar-nav")
@@ -385,6 +419,7 @@ try {
     scenarios: [
       { name: "consultant targets role enforcement", ok: true },
       { name: "data-health role enforcement", ok: true },
+      { name: "individual property-performance role enforcement", ok: true },
       { name: "create draft", ok: true },
       { name: "admin search", ok: true },
       { name: "edit listing", ok: true },
