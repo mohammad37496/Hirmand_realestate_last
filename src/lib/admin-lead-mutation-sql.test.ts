@@ -107,6 +107,57 @@ test("failed activity inserts roll back every associated lead mutation", async (
   }
 });
 
+test("closing or spamming a lead atomically cancels its active visit and records both timeline events", async () => {
+  for (const [status, visitStatus] of [["closed", "requested"], ["spam", "confirmed"]] as const) {
+    const db = await createDb();
+    try {
+      await db.query("update leads set visit_status=$1 where id='lead-1'", [visitStatus]);
+      const updated = await db.query(
+        UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL,
+        ["lead-1", status, null, "Status changed", "New status: " + status, JSON.stringify({ status })],
+      );
+      assert.equal(updated.rows.length, 1);
+
+      const lead = await db.query<{ status: string; visit_status: string }>(
+        "select status,visit_status from leads where id='lead-1'",
+      );
+      assert.deepEqual(lead.rows[0], { status, visit_status: "cancelled" });
+
+      const activities = await db.query<{ activity_type: string; metadata: Record<string, unknown> }>(
+        "select activity_type,metadata from lead_activities order by id",
+      );
+      assert.deepEqual(activities.rows.map((activity) => activity.activity_type).sort(), ["status", "visit"]);
+      const visitActivity = activities.rows.find((activity) => activity.activity_type === "visit");
+      assert.deepEqual(visitActivity?.metadata, {
+        visitStatus: "cancelled",
+        reason: "lead_closed",
+        leadStatus: status,
+      });
+    } finally {
+      await db.close();
+    }
+  }
+});
+
+test("non-terminal lead status changes preserve an active visit", async () => {
+  const db = await createDb();
+  try {
+    await db.query("update leads set visit_status='requested' where id='lead-1'");
+    await db.query(
+      UPDATE_LEAD_STATUS_WITH_ACTIVITY_SQL,
+      ["lead-1", "contacted", followUpAt, "Status changed", "New status: contacted", JSON.stringify({ status: "contacted" })],
+    );
+    const lead = await db.query<{ status: string; visit_status: string }>(
+      "select status,visit_status from leads where id='lead-1'",
+    );
+    assert.deepEqual(lead.rows[0], { status: "contacted", visit_status: "requested" });
+    const activities = await db.query<{ activity_type: string }>("select activity_type from lead_activities order by id");
+    assert.deepEqual(activities.rows.map((activity) => activity.activity_type), ["status"]);
+  } finally {
+    await db.close();
+  }
+});
+
 test("visit status compare-and-set does not overwrite a state changed by a concurrent request", async () => {
   const db = await createDb();
   try {
