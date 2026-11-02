@@ -33,6 +33,11 @@ test("dashboard skips the complete consultant performance query without lead.man
   assert.match(route, /queryIfAllowed\(canViewLeadDetails,\s*\(\) => sql\.query[\s\S]*?with file_stats as \([\s\S]*?from consultants c/);
 });
 
+test("dashboard Promise.all results keep the lead SLA and consultant performance queries aligned", () => {
+  const route = readFileSync(new URL("../../server/routes/api/admin-dashboard.post.ts", import.meta.url), "utf8");
+  assert.match(route, /const \[[\s\S]*?consultantStats,\s*leadSla,\s*consultantPerformance\] = await Promise\.all\(/);
+});
+
 test("dashboard does not render the latest-leads section without lead.manage", () => {
   const ui = readFileSync(new URL("../../src/components/hirmand/admin-dashboard.tsx", import.meta.url), "utf8");
   assert.match(ui, /\{canManageLeads \? <section className="admin-panel">[\s\S]*?<h2>آخرین درخواست‌ها<\/h2>[\s\S]*?<\/section> : null\}/);

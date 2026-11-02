@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const sql = await getSql();
-  const [propertyStats, leadStats, propertyTypes, leadDays, musicStats, recentLeads, visitorStats, activeVisitorStats, visitorDays, topPages, topProperties, eventStats, visitorSources, followUps, consultantStats, consultantPerformance, leadSla] = await Promise.all([
+  const [propertyStats, leadStats, propertyTypes, leadDays, musicStats, recentLeads, visitorStats, activeVisitorStats, visitorDays, topPages, topProperties, eventStats, visitorSources, followUps, consultantStats, leadSla, consultantPerformance] = await Promise.all([
     sql.query<Record<string, unknown>>(ADMIN_DASHBOARD_PROPERTY_STATS_SQL),
     sql.query<Record<string, unknown>>(`
       select
@@ -343,6 +343,7 @@ export default defineEventHandler(async (event) => {
   const active = (activeVisitorStats[0] ?? {}) as Record<string, unknown>;
   const followUp = (followUps[0] ?? {}) as Record<string, unknown>;
   const c = (consultantStats[0] ?? {}) as Record<string, unknown>;
+  const sla = (leadSla[0] ?? {}) as Record<string, unknown>;
 
   return {
     properties: {
@@ -431,8 +432,8 @@ export default defineEventHandler(async (event) => {
       next7: Number(followUp.next7) || 0,
     },
     leadSla: {
-      overdue: Number((leadSla[0] ?? {}).overdue) || 0,
-      newOver4Hours: Number((leadSla[0] ?? {}).new_over_4h) || 0,
+      overdue: Number(sla.overdue) || 0,
+      newOver4Hours: Number(sla.new_over_4h) || 0,
     },
     consultantPerformance: (consultantPerformance as Array<Record<string, unknown>>).map((row) => ({
       id: String(row.id ?? ""),
