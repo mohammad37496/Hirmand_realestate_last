@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { buildCustomerPropertySubmissionApprovalSql } from "./customer-property-submission-approval.ts";
+import { ownerStatusEventNote } from "./customer-property-owner-status.ts";
 import {
   BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL,
   BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL,
@@ -15,6 +16,19 @@ import {
 } from "./customer-property-submission-review-state.ts";
 
 const initialUpdatedAt = "2026-10-29T00:00:00.123456Z";
+
+test("public owner timeline hides internal approval notes but keeps explicit owner feedback", () => {
+  assert.equal(ownerStatusEventNote("approve", "یادداشت داخلی کارشناس"), "");
+  assert.equal(ownerStatusEventNote("reject", "لطفاً تصویر سند را اصلاح کنید."), "لطفاً تصویر سند را اصلاح کنید.");
+  assert.equal(ownerStatusEventNote("assign", "پرونده به مشاور تخصیص یافت."), "پرونده به مشاور تخصیص یافت.");
+  assert.equal(ownerStatusEventNote("priority", "فوری شد"), "");
+
+  const ownerStatusRoute = fs.readFileSync(
+    new URL("../../server/routes/api/owner-property-status.post.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(ownerStatusRoute, /note:ownerStatusEventNote\(row\.action,row\.note\)/);
+});
 
 function approvalParams(propertyId: string, submissionId: string, note: string) {
   const params = Array.from({ length: 48 }, () => null as string | null);
