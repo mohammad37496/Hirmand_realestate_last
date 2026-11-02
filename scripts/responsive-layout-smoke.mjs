@@ -4,7 +4,8 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl = process.argv[2] ?? process.env.RESPONSIVE_SMOKE_BASE_URL ?? "http://127.0.0.1:8081";
-const viewportMatrix = [
+const j7ProMode = process.env.RESPONSIVE_SMOKE_J7_PRO === "1";
+const viewportMatrix = j7ProMode ? [{ width: 360, height: 640 }] : [
   { width: 320, height: 568 },
   { width: 360, height: 640 },
   { width: 375, height: 667 },
@@ -61,7 +62,7 @@ const routes = [
   `/file/${encodeURIComponent(propertyId)}`,
   `/v/${encodeURIComponent(propertySlug)}/${encodeURIComponent(propertyId)}`,
 ];
-const selectedRoutes = process.env.RESPONSIVE_SMOKE_ONLY_PROPERTIES === "1" ? ["/", "/properties"] : routes;
+const selectedRoutes = j7ProMode || process.env.RESPONSIVE_SMOKE_ONLY_PROPERTIES === "1" ? ["/", "/properties"] : routes;
 
 const screenshotRoutes = new Set([
   "/",
@@ -106,8 +107,9 @@ try {
   for (const route of selectedRoutes) {
     const page = await browser.newPage({
       viewport: { width: 320, height: 900 },
-      deviceScaleFactor: 1,
-      hasTouch: process.env.RESPONSIVE_SMOKE_TOUCH === "1",
+      deviceScaleFactor: j7ProMode ? 3 : 1,
+      isMobile: j7ProMode,
+      hasTouch: j7ProMode || process.env.RESPONSIVE_SMOKE_TOUCH === "1",
     });
     page.setDefaultTimeout(12_000);
     const pageErrors = [];
@@ -603,14 +605,21 @@ try {
           }
 
           const primaryTargets = [];
+          const undersizedInputText = [];
           if (viewport <= 430) {
-            const primarySelectors = ".pf-quick .pf-chip,.pf-views button,.pf-filter-clear-all,.pf-mobile-reference-more,.pf-mobile-reference-reset,.pf-filter-btn,.pf-close,.pf-show-results,.pf-tools > a,.pf-tools > button,.pf-tools > select,.pf-sort .pf-select,.pf-mobile-search-cta,.pf-grid.is-list-view > .pcard .pcard-actions .property-action";
+            const primarySelectors = ".pf-quick .pf-chip,.pf-views button,.pf-filter-clear-all,.pf-mobile-reference-more,.pf-mobile-reference-reset,.pf-mobile-reference-field input,.pf-mobile-reference-field select,.pf-mobile-reference-neighborhood,.pf-filter-btn,.pf-close,.pf-show-results,.pf-tools > a,.pf-tools > button,.pf-tools > select,.pf-sort .pf-select,.pf-mobile-search-cta,.pf-grid.is-list-view > .pcard .pcard-actions .property-action";
             for (const element of document.querySelectorAll(primarySelectors)) {
               const style = getComputedStyle(element);
               if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
               if (element.closest(".leaflet-container, .maplibregl-map")) continue;
               const rect = element.getBoundingClientRect();
               if (rect.width < 1 || rect.height < 1) continue;
+              if (element.matches(".pf-mobile-reference-field input, .pf-mobile-reference-field select") && Number.parseFloat(style.fontSize) < 16) {
+                undersizedInputText.push({
+                  element: element.tagName.toLowerCase() + (typeof element.className === "string" && element.className.trim() ? "." + element.className.trim().split(/\s+/).slice(0, 2).join(".") : ""),
+                  fontSize: style.fontSize,
+                });
+              }
               // Chromium can report a 43.98px border box after fractional
               // parent layout/transform even when the CSS hit target is 44px.
               // Use the same half-pixel tolerance as the card action contract.
@@ -762,6 +771,7 @@ try {
             brokenWords: brokenWords.slice(0, 8),
             smallTargets: smallTargets.slice(0, 8),
             primaryTargets: primaryTargets.slice(0, 12),
+            undersizedInputText: undersizedInputText.slice(0, 8),
             musicDock,
             floatingContact,
             propertyGallery,
@@ -905,6 +915,9 @@ try {
         }
         if (route === "/properties" && width <= 430 && metrics.primaryTargets?.length) {
           failures.push(`/properties @ ${width}x${height}px: primary listing controls below 44px touch targets (${JSON.stringify(metrics.primaryTargets)})`);
+        }
+        if (route === "/properties" && width <= 430 && metrics.undersizedInputText?.length) {
+          failures.push(`/properties @ ${width}x${height}px: mobile filter inputs use text below 16px and can trigger focus zoom (${JSON.stringify(metrics.undersizedInputText)})`);
         }
         if (route === "/properties" && metrics.musicDock) {
           const dock = metrics.musicDock;

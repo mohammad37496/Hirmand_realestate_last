@@ -68,6 +68,17 @@ testRunner.test("property marketplace mobile refinement stays scoped and below t
     "the active-filter reset control should have a stable selector for accessible mobile sizing");
   assert.match(mobilePass, /\.pf-filter-overview \.pf-filter-clear-all \{[^}]*min-height: 44px !important;/s,
     "the active-filter reset control should remain a 44px target on narrow phones");
+  const finalMobileReference = propertiesMobileReferenceCss.slice(0, propertiesMobileReferenceCss.indexOf("/* Match the compact, scan-friendly mobile experience on the home page too."));
+  assert.match(finalMobileReference, /\.pf-mobile-reference-field input,[\s\S]*?min-height: 44px !important;[\s\S]*?font-size: 16px !important;/s,
+    "the final mobile reference stylesheet must keep filter inputs at 44px with 16px text after the shared hardening layer");
+  assert.match(finalMobileReference, /\.pf-mobile-reference-more,[\s\S]*?min-height: 44px !important;/s,
+    "the final mobile filter actions must preserve 44px touch targets");
+  assert.match(responsiveSmoke, /\.pf-mobile-reference-field input[\s\S]*?\.pf-mobile-reference-neighborhood/,
+    "the browser matrix must measure the mobile filter controls rendered by the reference layout");
+  assert.match(responsiveSmoke, /undersizedInputText[\s\S]*?below 16px/,
+    "the browser matrix must reject mobile filter input text below 16px");
+  assert.match(responsiveSmoke, /RESPONSIVE_SMOKE_J7_PRO[\s\S]*?width: 360, height: 640[\s\S]*?deviceScaleFactor: j7ProMode \? 3 : 1[\s\S]*?isMobile: j7ProMode[\s\S]*?hasTouch: j7ProMode/,
+    "a dedicated J7 Pro profile must exercise 360x640, DPR 3 and mobile touch emulation");
 });
 
 testRunner.test("property marketplace mobile cards keep full-width image ratios and touch actions", () => {
@@ -428,7 +439,7 @@ testRunner.test("property detail uses one consistent icon treatment for specific
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
-  assert.match(browserSmoke, /const viewportMatrix = \[/, "browser smoke must use explicit width and height scenarios");
+  assert.match(browserSmoke, /const viewportMatrix = j7ProMode \? \[\{ width: 360, height: 640 \}\] : \[/, "browser smoke must support a J7 Pro profile alongside the full width and height matrix");
   for (const scenario of ["width: 320, height: 568", "width: 360, height: 640", "width: 375, height: 667", "width: 390, height: 844", "width: 412, height: 652", "width: 412, height: 732", "width: 430, height: 932", "width: 768, height: 1024", "width: 1024, height: 768", "width: 1280, height: 900", "width: 1440, height: 900", "width: 1920, height: 1080"]) {
     assert.ok(browserSmoke.includes(scenario), `responsive matrix should include ${scenario}`);
   }
@@ -576,9 +587,11 @@ testRunner.test("the final mobile reference card layout overrides legacy stacked
 });
 
 testRunner.test("responsive browser smoke covers the required viewport matrix", () => {
-  const matrix = responsiveSmoke.match(/const viewportMatrix = \[([\s\S]*?)\];/);
-  assert.ok(matrix, "responsive smoke must define an explicit width/height viewport matrix");
-  const pairs = [...matrix[1].matchAll(/width: (\d+), height: (\d+)/g)]
+  const matrixStart = responsiveSmoke.indexOf("const viewportMatrix = j7ProMode ?");
+  const matrixEnd = responsiveSmoke.indexOf("const propertyId", matrixStart);
+  const matrix = responsiveSmoke.slice(matrixStart, matrixEnd);
+  assert.ok(matrixStart >= 0 && matrixEnd > matrixStart, "responsive smoke must define an explicit width/height viewport matrix");
+  const pairs = [...matrix.matchAll(/width: (\d+), height: (\d+)/g)]
     .map((match) => [Number(match[1]), Number(match[2])]);
   const required = [
     [320, 568], [360, 640], [375, 667], [390, 844],
@@ -901,10 +914,8 @@ testRunner.test("mobile map result cards use the Hirmand navy-and-gold signature
 
 
 testRunner.test("responsive browser matrix covers the requested mobile, tablet, laptop and desktop widths", () => {
-  const matrix = responsiveSmoke.slice(
-    responsiveSmoke.indexOf("const viewportMatrix = ["),
-    responsiveSmoke.indexOf("];", responsiveSmoke.indexOf("const viewportMatrix = [")),
-  );
+  const matrixStart = responsiveSmoke.indexOf("const viewportMatrix = j7ProMode ?");
+  const matrix = responsiveSmoke.slice(matrixStart, responsiveSmoke.indexOf("const propertyId", matrixStart));
   for (const width of [320, 360, 375, 390, 430, 768, 1024, 1280, 1366, 1440, 1920]) {
     assert.ok(matrix.includes(`width: ${width},`), `missing responsive viewport width: ${width}px`);
   }
