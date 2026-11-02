@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { buildCustomerPropertySubmissionApprovalSql } from "./customer-property-submission-approval.ts";
-import { ownerStatusEventNote } from "./customer-property-owner-status.ts";
+import { ownerStatusEventNote, publicCustomerPropertyReviewNote } from "./customer-property-owner-status.ts";
 import {
   BULK_REJECT_CUSTOMER_PROPERTY_SUBMISSIONS_SQL,
   BULK_SET_CUSTOMER_PROPERTY_SUBMISSION_PRIORITY_SQL,
@@ -22,12 +22,20 @@ test("public owner timeline hides internal approval notes but keeps explicit own
   assert.equal(ownerStatusEventNote("reject", "لطفاً تصویر سند را اصلاح کنید."), "لطفاً تصویر سند را اصلاح کنید.");
   assert.equal(ownerStatusEventNote("assign", "پرونده به مشاور تخصیص یافت."), "پرونده به مشاور تخصیص یافت.");
   assert.equal(ownerStatusEventNote("priority", "فوری شد"), "");
+  assert.equal(publicCustomerPropertyReviewNote("pending", "یادداشت داخلی ویرایش مدیر"), "");
+  assert.equal(publicCustomerPropertyReviewNote("approved", "یادداشت داخلی تأیید"), "");
+  assert.equal(publicCustomerPropertyReviewNote("rejected", "لطفاً تصویر سند را اصلاح کنید."), "لطفاً تصویر سند را اصلاح کنید.");
 
   const ownerStatusRoute = fs.readFileSync(
     new URL("../../server/routes/api/owner-property-status.post.ts", import.meta.url),
     "utf8",
   );
   assert.match(ownerStatusRoute, /note:ownerStatusEventNote\(row\.action,row\.note\)/);
+  const publicLeadTrackingRoute = fs.readFileSync(
+    new URL("../../server/routes/api/public-lead-tracking.get.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(publicLeadTrackingRoute, /publicCustomerPropertyReviewNote\(\s*customerPropertySubmissionStatus\s*,\s*row\.customer_property_submission_review_note\s*,?\s*\)/);
 });
 
 function approvalParams(propertyId: string, submissionId: string, note: string) {

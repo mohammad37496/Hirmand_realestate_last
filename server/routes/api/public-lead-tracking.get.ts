@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
 import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { publicCustomerPropertyReviewNote } from "@/lib/customer-property-owner-status";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 type VisitStatus = "none" | "requested" | "confirmed" | "completed" | "cancelled";
@@ -69,7 +70,10 @@ export default defineEventHandler(async (event) => {
   const offerAmount = row.offer_amount == null ? null : Number(row.offer_amount);
   const offerConditions = String(row.offer_conditions ?? "");
   const customerPropertySubmissionStatus = row.customer_property_submission_status == null ? null : String(row.customer_property_submission_status);
-  const customerPropertySubmissionReviewNote = row.customer_property_submission_review_note == null ? "" : String(row.customer_property_submission_review_note);
+  const customerPropertySubmissionReviewNote = publicCustomerPropertyReviewNote(
+    customerPropertySubmissionStatus,
+    row.customer_property_submission_review_note,
+  );
 
   const timeline: Array<{
     type: "created" | "status" | "visit";

@@ -12,3 +12,8 @@ export function ownerStatusEventNote(action: unknown, note: unknown): string {
     ? String(note ?? "")
     : "";
 }
+
+/** Submission review notes are owner feedback only after an explicit rejection. */
+export function publicCustomerPropertyReviewNote(status: unknown, note: unknown): string {
+  return String(status ?? "") === "rejected" ? String(note ?? "") : "";
+}
