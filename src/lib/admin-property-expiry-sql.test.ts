@@ -203,6 +203,32 @@ test("property extension and audit event commit together", async () => {
   }
 });
 
+test("property extension refuses archived or trashed rows and does not write a false audit event", async () => {
+  const db = await createDb();
+  try {
+    await db.exec(`
+      insert into properties (id,status,deleted_at,unpublish_at) values
+        ('archived','archived',null,'2026-11-01T00:00:00Z'),
+        ('trashed','published',current_timestamp,'2026-11-01T00:00:00Z');
+    `);
+    const archived = await db.query<{ property_id: string }>(EXTEND_PROPERTY_EXPIRY_SQL, ["archived", 30, "event-archived", "مدیر"]);
+    const trashed = await db.query<{ property_id: string }>(EXTEND_PROPERTY_EXPIRY_SQL, ["trashed", 30, "event-trashed", "مدیر"]);
+    assert.equal(archived.rows.length, 0, "an archived listing is no longer in the expiry center and must not report a successful extension");
+    assert.equal(trashed.rows.length, 0, "a trashed listing must not be extended through a stale or direct request");
+    const properties = await db.query<{ id: string; status: string; expiry_unchanged: boolean }>(
+      "select id,status,unpublish_at='2026-11-01T00:00:00Z'::timestamptz as expiry_unchanged from properties order by id",
+    );
+    assert.deepEqual(properties.rows, [
+      { id: "archived", status: "archived", expiry_unchanged: true },
+      { id: "trashed", status: "published", expiry_unchanged: true },
+    ]);
+    const events = await db.query("select id from admin_property_expiry_actions where action='extend'");
+    assert.equal(events.rows.length, 0, "rejected extensions must not create audit records");
+  } finally {
+    await db.close();
+  }
+});
+
 test("failed extension audit rolls back the expiry change", async () => {
   const db = await createDb({ rejectAction: "extend" });
   try {

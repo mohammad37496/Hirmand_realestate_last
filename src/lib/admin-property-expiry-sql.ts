@@ -58,7 +58,9 @@ export const EXTEND_PROPERTY_EXPIRY_SQL = `
   with updated as (
     update properties
     set unpublish_at=current_timestamp+($2::int*interval '1 day'), updated_at=current_timestamp
-    where id=$1 and deleted_at is null
+    where id=$1
+      and deleted_at is null
+      and status='published'
     returning id
   ), logged as (
     insert into admin_property_expiry_actions (id,property_id,action,details,created_by)
