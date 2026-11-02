@@ -65,24 +65,25 @@ test("admin dashboard property metrics exclude trashed listings and expired feat
       insert into properties (id,status,featured,featured_until,images,created_at,description,neighborhood,property_type,deleted_at) values
         ('active-published','published',true,current_timestamp + interval '2 days','["/a.webp"]',current_timestamp,'A complete property description with more than one hundred and twenty characters. This is a realistic complete test description for the property.', 'مرکز شهر','apartment',null),
         ('active-draft','draft',true,current_timestamp - interval '1 day','[]',current_timestamp,'','', 'villa',null),
+        ('active-archived','archived',true,current_timestamp + interval '2 days','["/archived.webp"]',current_timestamp,'An archived listing with complete description text long enough to pass quality checks. This additional sentence keeps the description above the dashboard completeness threshold.','مرکز شهر','apartment',null),
         ('trashed-published','published',true,null,'[]',current_timestamp,'','', 'land',current_timestamp);
     `);
 
     const stats = await db.query<Record<string, number>>(ADMIN_DASHBOARD_PROPERTY_STATS_SQL);
     assert.deepEqual(stats.rows[0], {
-      total: 2,
+      total: 3,
       published: 1,
       draft: 1,
-      archived: 0,
+      archived: 1,
       featured: 1,
       without_images: 1,
-      new_last7: 2,
+      new_last7: 3,
       incomplete: 1,
     });
 
     const types = await db.query<{ property_type: string; count: number }>(ADMIN_DASHBOARD_PROPERTY_TYPES_SQL);
     assert.deepEqual(Object.fromEntries(types.rows.map((row) => [row.property_type, row.count])), {
-      apartment: 1,
+      apartment: 2,
       villa: 1,
     });
   } finally {
