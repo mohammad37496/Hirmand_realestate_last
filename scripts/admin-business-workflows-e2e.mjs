@@ -443,7 +443,15 @@ try {
       if (restrictedDashboard.status !== 200) throw new Error(role + " report dashboard should remain available; received HTTP " + restrictedDashboard.status);
       const restrictedDashboardData = JSON.parse(restrictedDashboard.bodyText);
       if (restrictedDashboardData.recentLeads?.length !== 0 || restrictedDashboardData.consultantPerformance?.length !== 0 || restrictedDashboardData.consultantPerformance?.some((item) => item.phone) || restrictedDashboardData.consultants?.withFiles !== null) {
-        throw new Error(role + " dashboard queried or returned private lead/consultant performance or phone details without lead.manage.");
+        const dashboardAccessDiagnostic = {
+          recentLeadsIsArray: Array.isArray(restrictedDashboardData.recentLeads),
+          recentLeadsCount: Array.isArray(restrictedDashboardData.recentLeads) ? restrictedDashboardData.recentLeads.length : null,
+          consultantPerformanceIsArray: Array.isArray(restrictedDashboardData.consultantPerformance),
+          consultantPerformanceCount: Array.isArray(restrictedDashboardData.consultantPerformance) ? restrictedDashboardData.consultantPerformance.length : null,
+          consultantPhonePresent: Array.isArray(restrictedDashboardData.consultantPerformance) && restrictedDashboardData.consultantPerformance.some((item) => Boolean(item.phone)),
+          consultantsWithFiles: restrictedDashboardData.consultants?.withFiles ?? "missing-or-null",
+        };
+        throw new Error(role + " dashboard queried or returned private lead/consultant performance or phone details without lead.manage: " + JSON.stringify(dashboardAccessDiagnostic));
       }
       if (await restrictedPage.getByRole("heading", { name: "آخرین درخواست‌ها" }).count() !== 0) {
         throw new Error(role + " dashboard rendered the private recent-leads section without lead.manage.");
