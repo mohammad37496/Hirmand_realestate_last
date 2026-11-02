@@ -39,6 +39,8 @@ let leadId = null;
 let unavailableLeadId = null;
 let salesAccountId = null;
 let salesTestAgencyName = null;
+const temporaryRoleAccounts = [];
+const temporaryRoleContexts = [];
 
 async function postJsonFromPage(page, endpoint, payload, label) {
   // Use the live browser page so secure/session cookies and same-origin checks
@@ -61,6 +63,40 @@ async function postJsonFromPage(page, endpoint, payload, label) {
   } catch {
     throw new Error(label + " returned invalid JSON: " + result.bodyText.slice(0, 500));
   }
+}
+
+async function loginAsTemporaryRole(role) {
+  const accountId = randomUUID();
+  const username = "qa-" + role + "-" + randomUUID();
+  const password = "QA-Role-Password-2026!";
+  const passwordHash = await hashAdminPassword(password);
+  await client.query(
+    "insert into admin_accounts (id,username,display_name,password_hash,role,is_active) values ($1,$2,$3,$4,$5,true)",
+    [accountId, username, "QA " + role, passwordHash, role],
+  );
+  temporaryRoleAccounts.push(accountId);
+  const roleContext = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: "fa-IR" });
+  temporaryRoleContexts.push(roleContext);
+  const response = await roleContext.request.post(baseUrl + "/api/admin/session", {
+    data: { action: "login", username, password },
+  });
+  if (!response.ok()) throw new Error("Temporary " + role + " account login failed: HTTP " + response.status());
+  const rolePage = await roleContext.newPage();
+  await rolePage.goto(baseUrl + "/admin", { waitUntil: "domcontentloaded", timeout: 45000 });
+  await rolePage.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => undefined);
+  return rolePage;
+}
+
+async function consultantTargetsResponse(page) {
+  return page.evaluate(async () => {
+    const response = await fetch("/api/admin-consultant-targets", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "list", month: "2026-11" }),
+    });
+    return { status: response.status, bodyText: await response.text() };
+  });
 }
 
 try {
@@ -90,6 +126,11 @@ try {
   const salesPage = await salesContext.newPage();
   await salesPage.goto(baseUrl + "/admin", { waitUntil: "domcontentloaded", timeout: 45000 });
   await salesPage.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => undefined);
+
+  const salesTargetsResponse = await consultantTargetsResponse(salesPage);
+  if (salesTargetsResponse.status !== 200) {
+    throw new Error("Sales role must be able to read consultant targets; received HTTP " + salesTargetsResponse.status);
+  }
 
   salesTestAgencyName = "QA Partner Permission " + randomUUID();
   const partnerSnapshot = async () => {
@@ -133,6 +174,25 @@ try {
     throw new Error("A denied sales partner request changed partner accounts, contracts, rewards, or audit rows.");
   }
   console.log("ok   active sales account is denied every partner-administration action without changing partner data");
+
+  const managerPage = await loginAsTemporaryRole("manager");
+  const managerTargetsResponse = await consultantTargetsResponse(managerPage);
+  if (managerTargetsResponse.status !== 200) {
+    throw new Error("Manager role must be able to read consultant targets; received HTTP " + managerTargetsResponse.status);
+  }
+
+  for (const role of ["content", "viewer"]) {
+    const restrictedPage = await loginAsTemporaryRole(role);
+    const targetsResponse = await consultantTargetsResponse(restrictedPage);
+    if (targetsResponse.status !== 403) {
+      throw new Error(role + " role must receive HTTP 403 for consultant target list; received " + targetsResponse.status);
+    }
+    if (/commissionTarget|leadTarget|consultantTarget|"commissions"/.test(targetsResponse.bodyText)) {
+      throw new Error(role + " role received consultant target data in a denied response.");
+    }
+  }
+  console.log("ok   consultant targets are readable by sales/manager and denied to content/viewer over direct API requests");
+
   await salesContext.close();
   salesContext = null;
   await client.query("delete from admin_sessions where account_id=$1", [salesAccountId]);
@@ -142,6 +202,10 @@ try {
   const page = await context.newPage();
   await page.goto(baseUrl + "/admin", { waitUntil: "domcontentloaded", timeout: 45000 });
   await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => undefined);
+  const ownerTargetsResponse = await consultantTargetsResponse(page);
+  if (ownerTargetsResponse.status !== 200) {
+    throw new Error("Owner role must be able to read consultant targets; received HTTP " + ownerTargetsResponse.status);
+  }
 
   await page.locator(".admin-sidebar .admin-sidebar-nav")
     .getByRole("button", { name: "فایل جدید" })
@@ -287,6 +351,7 @@ try {
   console.log(JSON.stringify({
     ok: true,
     scenarios: [
+      { name: "consultant targets role enforcement", ok: true },
       { name: "create draft", ok: true },
       { name: "admin search", ok: true },
       { name: "edit listing", ok: true },
@@ -306,6 +371,10 @@ try {
   }, null, 2));
 } finally {
   if (client) {
+    for (const accountId of temporaryRoleAccounts) {
+      await client.query("delete from admin_sessions where account_id=$1", [accountId]).catch(() => {});
+      await client.query("delete from admin_accounts where id=$1", [accountId]).catch(() => {});
+    }
     if (salesAccountId) {
       await client.query("delete from admin_sessions where account_id=$1", [salesAccountId]).catch(() => {});
       await client.query("delete from admin_accounts where id=$1", [salesAccountId]).catch(() => {});
@@ -325,6 +394,7 @@ try {
     }
     client.release();
   }
+  for (const roleContext of temporaryRoleContexts) await roleContext.close().catch(() => {});
   if (salesContext) await salesContext.close().catch(() => {});
   if (context) await context.close().catch(() => {});
   if (browser) await browser.close().catch(() => {});
