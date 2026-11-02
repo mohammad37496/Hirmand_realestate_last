@@ -36,6 +36,10 @@ test("dashboard skips the complete consultant performance query without lead.man
 test("dashboard Promise.all results keep the lead SLA and consultant performance queries aligned", () => {
   const route = readFileSync(new URL("../../server/routes/api/admin-dashboard.post.ts", import.meta.url), "utf8");
   assert.match(route, /const \[[\s\S]*?consultantStats,\s*leadSla,\s*consultantPerformance\] = await Promise\.all\(/);
+  const promiseAllStart = route.indexOf("const [propertyStats");
+  const leadSlaQuery = route.indexOf("as new_over_4h", promiseAllStart);
+  const consultantPerformanceQuery = route.indexOf("queryIfAllowed(canViewLeadDetails, () => sql.query", route.indexOf("queryIfAllowed(canViewLeadDetails, () => sql.query", promiseAllStart) + 1);
+  assert.ok(promiseAllStart >= 0 && leadSlaQuery > promiseAllStart && consultantPerformanceQuery > leadSlaQuery, "the Promise.all query array must keep lead SLA before consultant performance");
 });
 
 test("dashboard does not render the latest-leads section without lead.manage", () => {
