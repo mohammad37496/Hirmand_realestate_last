@@ -26,7 +26,8 @@ async function findFreePort() {
 const port = await findFreePort();
 const baseUrl = `http://127.0.0.1:${port}`;
 const visualMode = process.argv[2] === "visual";
-const responsiveMode = process.argv[2] === "responsive";
+const j7ProMode = process.argv[2] === "j7-pro";
+const responsiveMode = process.argv[2] === "responsive" || j7ProMode;
 let server;
 let serverLog = "";
 
@@ -121,7 +122,7 @@ try {
       PROPERTY_CARD_VISUAL_BASE_URL: `${baseUrl}/properties`,
       PROPERTY_CARD_VISUAL_SCREENSHOT_DIR: process.env.PROPERTY_CARD_VISUAL_SCREENSHOT_DIR || join(dbDir, "screenshots"),
       ...(responsiveMode ? {
-        RESPONSIVE_SMOKE_ONLY_PROPERTIES: "1",
+        ...(j7ProMode ? { RESPONSIVE_SMOKE_J7_PRO: "1" } : { RESPONSIVE_SMOKE_ONLY_PROPERTIES: "1" }),
         RESPONSIVE_SCREENSHOT_DIR: join(dbDir, "responsive-screenshots"),
       } : {}),
     },
@@ -133,7 +134,7 @@ try {
     child.once("exit", (code, signal) => resolveExit(code ?? (signal ? 1 : 0)));
   });
   if (exitCode !== 0) throw new Error(`Local property-card browser assertions failed with exit code ${exitCode}.`);
-  console.log(`[property-card-local-browser] PASS (${responsiveMode ? "responsive smoke" : visualMode ? "visual QA" : "action QA"}): real local app + isolated migrated PGlite database + 3 controlled published fixtures`);
+  console.log(`[property-card-local-browser] PASS (${j7ProMode ? "Galaxy J7 Pro device smoke" : responsiveMode ? "responsive smoke" : visualMode ? "visual QA" : "action QA"}): real local app + isolated migrated PGlite database + 3 controlled published fixtures`);
 } catch (error) {
   console.error("[property-card-local-browser] FAIL");
   console.error(error instanceof Error ? error.stack ?? error.message : String(error));
