@@ -276,6 +276,9 @@ test("trash APIs and UI distinguish unavailable data and unsuccessful restore/de
   const restoreStart = properties.indexOf("export const restoreDeletedProperty", trashStart);
   const trashList = properties.slice(trashStart, restoreStart);
   const restore = properties.slice(restoreStart, permanentStart);
+  assert.match(trashList, /await requireAdminPermission\("trash\.manage"\)/);
+  assert.match(restore, /requireAdminPermission\("trash\.manage"\)/);
+  assert.match(permanent, /requireAdminPermission\("trash\.manage"\)/);
   assert.match(trashList, /dbSource === "unconfigured"\) throw new Error/);
   assert.match(restore, /withSqlTransaction\(async \(tx\)/);
   assert.match(restore, /restoreTrashedProperty/);

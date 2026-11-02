@@ -1429,7 +1429,7 @@ export const bulkDeleteProperties = createServerFn({ method: "POST" })
 export const listAdminTrashProperties = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(200).optional().default(100) }))
   .handler(async ({ data }) => {
-    await requireAdminPermission("property.manage");
+    await requireAdminPermission("trash.manage");
     if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ سطل بازیابی بارگذاری نشد.");
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
@@ -1446,7 +1446,7 @@ export const listAdminTrashProperties = createServerFn({ method: "POST" })
 export const restoreDeletedProperty = createServerFn({ method: "POST" })
   .validator(idSchema)
   .handler(async ({ data }) => {
-    const claims = await requireAdminPermission("property.manage");
+    const claims = await requireAdminPermission("trash.manage");
     const canPublish = hasAdminPermission(normalizeAdminRole(claims?.role), "property.publish");
     if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ بازیابی فایل انجام نشد.");
     const restored = await withSqlTransaction(async (tx) => restoreTrashedProperty(
@@ -1463,7 +1463,7 @@ export const restoreDeletedProperty = createServerFn({ method: "POST" })
 export const permanentlyDeleteProperty = createServerFn({ method: "POST" })
   .validator(idSchema)
   .handler(async ({ data }) => {
-    const claims = await requireAdminPermission("property.manage");
+    const claims = await requireAdminPermission("trash.manage");
     if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ حذف دائمی انجام نشد.");
     const sql = await getSql();
     const deletion = await withSqlTransaction(async (tx) => {
