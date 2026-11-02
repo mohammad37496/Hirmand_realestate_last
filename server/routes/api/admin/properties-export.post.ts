@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "property.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی خروجی گرفتن از فایل‌ها برای این حساب فعال نیست." });
   }
+  const includeOwnerDetails = hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage");
   if (dbSource === "unconfigured") {
     throw createError({
       statusCode: 503,
@@ -28,11 +29,11 @@ export default defineEventHandler(async (event) => {
     "select id, title, slug, status, featured, featured_until, transaction_type, property_type, " +
     "neighborhood, address, area_m2, bedrooms, bathrooms, floor, floor_label, total_floors, " +
     "built_year, parking, elevator, storage, painted, wallpaper, orientation, convertible, price, deposit, rent, " +
-    "contact_name, contact_phone, owner_name, owner_phone, owner_info, created_at, updated_at " +
+    "contact_name, contact_phone, " + (includeOwnerDetails ? "owner_name, owner_phone, owner_info, " : "") + "created_at, updated_at " +
     "from properties order by created_at desc",
   );
 
   setResponseHeader(event, "content-type", "text/csv; charset=utf-8");
   setResponseHeader(event, "content-disposition", "attachment; filename=\"hirmand-properties.csv\"");
-  return propertyExportCsv(rows);
+  return propertyExportCsv(rows, includeOwnerDetails);
 });

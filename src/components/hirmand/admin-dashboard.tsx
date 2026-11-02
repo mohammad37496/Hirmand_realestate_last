@@ -234,6 +234,7 @@ export function AdminDashboard({
   onOpenMusic: () => void;
 }) {
   const canManageProperties = hasAdminPermission(role, "property.manage");
+  const canManageOwnerDirectory = hasAdminPermission(role, "owner-directory.manage");
   const canManageLeads = hasAdminPermission(role, "lead.manage");
   const canManageContent = hasAdminPermission(role, "content.manage");
   const canManageTeam = role === "owner" || role === "manager";
@@ -481,7 +482,7 @@ export function AdminDashboard({
 
       {canManageLeads ? <AdminAgenda onOpenLeads={onOpenLeads} /> : null}
 
-      {canManageProperties ? <AdminCustomerPropertySubmissions /> : null}
+      {canManageOwnerDirectory ? <AdminCustomerPropertySubmissions /> : null}
       {canManageProperties ? <AdminPropertyQualityCenter /> : null}
 
       <section className="admin-dashboard-health" aria-label="سلامت کتابخانه فایل‌ها و تیم">

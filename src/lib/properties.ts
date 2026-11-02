@@ -372,7 +372,7 @@ function roundPublicCoordinate(value: number | null): number | null {
   return value == null ? null : Math.round(value * 1000) / 1000;
 }
 
-function mapProperty(row: Record<string, unknown>, options: { admin?: boolean } = {}): Property {
+function mapProperty(row: Record<string, unknown>, options: { admin?: boolean; ownerDetails?: boolean } = {}): Property {
   const isAdmin = options.admin === true;
   const latitude = numberOrNull(row.latitude);
   const longitude = numberOrNull(row.longitude);
@@ -422,9 +422,9 @@ function mapProperty(row: Record<string, unknown>, options: { admin?: boolean } 
     contactName: String(row.contact_name),
     contactPhone: String(row.contact_phone),
     ...(isAdmin ? {
-      ownerName: row.owner_name == null ? "" : String(row.owner_name),
-      ownerPhone: row.owner_phone == null ? "" : String(row.owner_phone),
-      ownerInfo: row.owner_info == null ? "" : String(row.owner_info),
+      ownerName: options.ownerDetails && row.owner_name != null ? String(row.owner_name) : "",
+      ownerPhone: options.ownerDetails && row.owner_phone != null ? String(row.owner_phone) : "",
+      ownerInfo: options.ownerDetails && row.owner_info != null ? String(row.owner_info) : "",
       internalPriority:
         row.internal_priority === "low" || row.internal_priority === "high" || row.internal_priority === "urgent"
           ? row.internal_priority
@@ -462,11 +462,13 @@ const LIST_COLUMNS = `
   heating_system, wall_closet_type, other_amenities, price, deposit, rent,
   features, images, contact_name, contact_phone, published_at, created_at, updated_at,
   latitude, longitude, price_drop_percent, virtual_tour_url, floor_plan_url, floor_label, orientation,
-  owner_name, owner_phone, owner_info, internal_priority, internal_note,
+  internal_priority, internal_note,
   publish_at, unpublish_at, deleted_at, deleted_from_status,
   last_verified_at, last_verified_by,
   left(description, 280) as description
 `;
+
+const OWNER_DETAIL_COLUMNS = "owner_name, owner_phone, owner_info";
 
 const CARD_COLUMNS = `
   id, slug, status, availability_status, featured, featured_until, title, transaction_type, property_type,
@@ -514,7 +516,7 @@ const DETAIL_COLUMNS = `
   heating_system, wall_closet_type, other_amenities, price, deposit, rent, description,
   features, images, contact_name, contact_phone, published_at, created_at, updated_at,
   latitude, longitude, price_drop_percent, virtual_tour_url, floor_plan_url, floor_label, orientation,
-  owner_name, owner_phone, owner_info, internal_priority, internal_note,
+  internal_priority, internal_note,
   publish_at, unpublish_at, deleted_at, deleted_from_status,
   last_verified_at, last_verified_by
 `;
@@ -1051,7 +1053,16 @@ const ADMIN_PRICE_EXPR =
   "case when transaction_type = 'rent' then coalesce(rent, deposit) " +
   "when transaction_type = 'mortgage' then deposit else price end";
 
-function adminPropertyWhereSql() {
+function adminPropertyWhereSql(includeOwnerDetails: boolean) {
+  const ownerSearch = includeOwnerDetails
+    ? "or coalesce(owner_name, '') ilike '%' || $6 || '%' or coalesce(owner_phone, '') ilike '%' || $6 || '%' or owner_info ilike '%' || $6 || '%'"
+    : "";
+  const phoneSearch = includeOwnerDetails
+    ? ADMIN_PROPERTY_PHONE_SEARCH_SQL
+    : `or (
+        $13::text is not null and
+        translate(coalesce(contact_phone,''), '۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789') ilike '%' || $13 || '%'
+      )`;
   return [
     "deleted_at is null",
     "and ($1::text is null or status = $1)",
@@ -1059,7 +1070,7 @@ function adminPropertyWhereSql() {
     "and ($3::text is null or property_type = $3)",
     "and ($4::text is null or neighborhood = $4)",
     "and ($5::boolean is false or (featured = true and (featured_until is null or featured_until >= current_timestamp)))",
-    `and ($6::text is null or title ilike '%' || $6 || '%' or neighborhood ilike '%' || $6 || '%' or coalesce(address, '') ilike '%' || $6 || '%' or contact_name ilike '%' || $6 || '%' or contact_phone ilike '%' || $6 || '%' or owner_name ilike '%' || $6 || '%' or owner_phone ilike '%' || $6 || '%' or owner_info ilike '%' || $6 || '%' or id ilike '%' || $6 || '%' ${ADMIN_PROPERTY_PHONE_SEARCH_SQL})`,
+    `and ($6::text is null or title ilike '%' || $6 || '%' or neighborhood ilike '%' || $6 || '%' or coalesce(address, '') ilike '%' || $6 || '%' or contact_name ilike '%' || $6 || '%' or contact_phone ilike '%' || $6 || '%' ${ownerSearch} or id ilike '%' || $6 || '%' ${phoneSearch})`,
     // Media is a jsonb array, so `jsonb_array_length` needs an empty-array
     // guard — a null column would otherwise raise instead of returning 0.
     "and ($7::boolean is null or (coalesce(jsonb_array_length(images), 0) > 0) = $7)",
@@ -1086,19 +1097,20 @@ const ADMIN_SORT_CLAUSE = `
 export const listAdminProperties = createServerFn({ method: "POST" })
   .validator(adminListSchema)
   .handler(async ({ data }) => {
-    await requireAdminPermission("property.manage");
+    const claims = await requireAdminPermission("property.manage");
+    const includeOwnerDetails = hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage");
     if (dbSource === "unconfigured") return [];
     const sql = await getSql();
     const filters = adminFilterParams(data);
     const rows = await sql.query<Record<string, unknown>>(
-      `select ${LIST_COLUMNS}
+      `select ${LIST_COLUMNS}${includeOwnerDetails ? `, ${OWNER_DETAIL_COLUMNS}` : ""}
        from properties
-       where ${adminPropertyWhereSql()}
+       where ${adminPropertyWhereSql(includeOwnerDetails)}
        ${ADMIN_SORT_CLAUSE}
        limit $15 offset $16`,
       [...filters, data.sort, data.limit, data.offset],
     );
-    return rows.map((row) => mapProperty(row, { admin: true }));
+    return rows.map((row) => mapProperty(row, { admin: true, ownerDetails: includeOwnerDetails }));
   });
 
 export const countAdminProperties = createServerFn({ method: "POST" })
@@ -1137,13 +1149,14 @@ export const countAdminProperties = createServerFn({ method: "POST" })
 export const countFilteredAdminProperties = createServerFn({ method: "POST" })
   .validator(adminListSchema)
   .handler(async ({ data }) => {
-    await requireAdminPermission("property.manage");
+    const claims = await requireAdminPermission("property.manage");
+    const includeOwnerDetails = hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage");
     if (dbSource === "unconfigured") return 0;
     const sql = await getSql();
     const rows = await sql.query<{ count: number }>(
       `select count(*)::int as count
        from properties
-       where ${adminPropertyWhereSql()}`,
+       where ${adminPropertyWhereSql(includeOwnerDetails)}`,
       adminFilterParams(data),
     );
     return Number(rows[0]?.count) || 0;
@@ -1152,15 +1165,15 @@ export const countFilteredAdminProperties = createServerFn({ method: "POST" })
 export const bulkUpdatePropertyStatus = createServerFn({ method: "POST" })
   .validator(adminBulkStatusSchema)
   .handler(async ({ data }) => {
-    await requireAdminPermission("property.manage");
+    const claims = await requireAdminPermission("property.manage");
+    const includeOwnerDetails = hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage");
     if (data.status === "published") {
       await requireAdminPermission("property.publish");
     }
     const sql = await getSql();
 
     const beforeRows = await sql.query<Record<string, unknown>>(
-      `select id, title, status, featured, price, deposit, rent, contact_name, contact_phone,
-              owner_name, owner_phone, owner_info, neighborhood, transaction_type, description,
+      `select id, title, status, featured, price, deposit, rent, contact_name, contact_phone${includeOwnerDetails ? ", owner_name, owner_phone, owner_info" : ""}, neighborhood, transaction_type, description,
               area_m2, features, images, latitude, longitude
        from properties
        where id = any($1::text[])
@@ -1215,12 +1228,17 @@ export const bulkUpdatePropertyStatus = createServerFn({ method: "POST" })
             rent: row.rent == null ? null : String(row.rent),
             contactName: row.contact_name == null ? null : String(row.contact_name),
             contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
-            ownerName: row.owner_name == null ? null : String(row.owner_name),
-            ownerPhone: row.owner_phone == null ? null : String(row.owner_phone),
-            ownerInfo: row.owner_info == null ? null : String(row.owner_info),
+            ...(includeOwnerDetails ? {
+              ownerName: row.owner_name == null ? null : String(row.owner_name),
+              ownerPhone: row.owner_phone == null ? null : String(row.owner_phone),
+              ownerInfo: row.owner_info == null ? null : String(row.owner_info),
+            } : {}),
           },
         })),
       );
+      const afterOwnerJsonFields = includeOwnerDetails
+        ? ", 'ownerName', p.owner_name, 'ownerPhone', p.owner_phone, 'ownerInfo', p.owner_info"
+        : "";
       await sql.query(
         `with before as (
            select *
@@ -1241,10 +1259,7 @@ export const bulkUpdatePropertyStatus = createServerFn({ method: "POST" })
              'deposit', p.deposit,
              'rent', p.rent,
              'contactName', p.contact_name,
-             'contactPhone', p.contact_phone,
-             'ownerName', p.owner_name,
-             'ownerPhone', p.owner_phone,
-             'ownerInfo', p.owner_info
+             'contactPhone', p.contact_phone${afterOwnerJsonFields}
            )
          from properties p
          join before on before.id = p.id`,
@@ -1263,7 +1278,8 @@ export const bulkUpdatePropertyStatus = createServerFn({ method: "POST" })
 export const bulkSetPropertyFeatured = createServerFn({ method: "POST" })
   .validator(adminBulkFeaturedSchema)
   .handler(async ({ data }) => {
-    await requireAdminPermission("property.manage");
+    const claims = await requireAdminPermission("property.manage");
+    const includeOwnerDetails = hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage");
     const sql = await getSql();
 
     const beforeRows = await sql.query<Record<string, unknown>>(
@@ -1296,6 +1312,9 @@ export const bulkSetPropertyFeatured = createServerFn({ method: "POST" })
           },
         })),
       );
+      const afterOwnerJsonFields = includeOwnerDetails
+        ? ", 'ownerName', p.owner_name, 'ownerPhone', p.owner_phone, 'ownerInfo', p.owner_info"
+        : "";
       await sql.query(
         `with before as (
            select *
@@ -1316,10 +1335,7 @@ export const bulkSetPropertyFeatured = createServerFn({ method: "POST" })
              'deposit', p.deposit,
              'rent', p.rent,
              'contactName', p.contact_name,
-             'contactPhone', p.contact_phone,
-             'ownerName', p.owner_name,
-             'ownerPhone', p.owner_phone,
-             'ownerInfo', p.owner_info
+             'contactPhone', p.contact_phone${afterOwnerJsonFields}
            )
          from properties p
          join before on before.id = p.id`,
@@ -1433,14 +1449,14 @@ export const listAdminTrashProperties = createServerFn({ method: "POST" })
     if (dbSource === "unconfigured") throw new Error("پایگاه داده در دسترس نیست؛ سطل بازیابی بارگذاری نشد.");
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
-      `select ${DETAIL_COLUMNS}
+      `select ${DETAIL_COLUMNS}, ${OWNER_DETAIL_COLUMNS}
        from properties
        where deleted_at is not null
        order by deleted_at desc
        limit $1`,
       [data.limit],
     );
-    return rows.map((row) => mapProperty(row, { admin: true }));
+    return rows.map((row) => mapProperty(row, { admin: true, ownerDetails: true }));
   });
 
 export const restoreDeletedProperty = createServerFn({ method: "POST" })
@@ -1612,6 +1628,7 @@ export const saveProperty = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const claims = await requireAdminPermission(data.id ? "property.manage" : "property.create");
     const role = normalizeAdminRole(claims?.role);
+    const includeOwnerDetails = hasAdminPermission(role, "owner-directory.manage");
     const requestedStatus = data.status ?? "draft";
     if (role === "staff" && (data.id || requestedStatus !== "draft" || data.featured || Boolean(data.featuredUntil))) {
       throw new Error("کارکنان فقط مجاز به ثبت فایل جدید به‌صورت پیش‌نویس هستند.");
@@ -1620,7 +1637,7 @@ export const saveProperty = createServerFn({ method: "POST" })
 
     const id = data.id ?? crypto.randomUUID();
     const existingRows = await sql.query<Record<string, unknown>>(
-      `select ${DETAIL_COLUMNS} from properties where id = $1 and deleted_at is null limit 1`,
+      `select ${DETAIL_COLUMNS}${includeOwnerDetails ? `, ${OWNER_DETAIL_COLUMNS}` : ""} from properties where id = $1 and deleted_at is null limit 1`,
       [id],
     );
     const existing = existingRows[0] ?? null;
@@ -1761,9 +1778,9 @@ export const saveProperty = createServerFn({ method: "POST" })
         wallpaper = excluded.wallpaper,
         convertible = excluded.convertible,
         orientation = excluded.orientation,
-        owner_name = excluded.owner_name,
-        owner_phone = excluded.owner_phone,
-        owner_info = excluded.owner_info,
+        owner_name = case when $50::boolean then excluded.owner_name else properties.owner_name end,
+        owner_phone = case when $50::boolean then excluded.owner_phone else properties.owner_phone end,
+        owner_info = case when $50::boolean then excluded.owner_info else properties.owner_info end,
         availability_status = excluded.availability_status,
         internal_priority = excluded.internal_priority,
         internal_note = excluded.internal_note,
@@ -1912,18 +1929,19 @@ export const saveProperty = createServerFn({ method: "POST" })
         // violated the NOT NULL constraint and made every property create or
         // update from /admin fail with
         // `null value in column "owner_name" of relation "properties"`.
-        role === "staff" ? "" : data.ownerName.trim(),
-        role === "staff" ? "" : data.ownerPhone.trim(),
-        role === "staff" ? "" : data.ownerInfo.trim(),
+        includeOwnerDetails ? data.ownerName.trim() : "",
+        includeOwnerDetails ? data.ownerPhone.trim() : "",
+        includeOwnerDetails ? data.ownerInfo.trim() : "",
         data.availabilityStatus,
         data.internalPriority,
         data.internalNote,
         data.floorPlanUrl.trim(),
+        includeOwnerDetails,
       ],
       );
 
       const rows = await tx.query<Record<string, unknown>>(
-        `select ${DETAIL_COLUMNS} from properties where id = $1 and deleted_at is null limit 1`,
+        `select ${DETAIL_COLUMNS}${includeOwnerDetails ? `, ${OWNER_DETAIL_COLUMNS}` : ""} from properties where id = $1 and deleted_at is null limit 1`,
         [id],
       );
       if (!rows[0]) throw new Error("فایل ثبت نشد.");
@@ -1987,8 +2005,8 @@ export const saveProperty = createServerFn({ method: "POST" })
       [
         id,
         action,
-        existing ? JSON.stringify(mapProperty(existing, { admin: true })) : null,
-        JSON.stringify(mapProperty(rows[0], { admin: true })),
+        existing ? JSON.stringify(mapProperty(existing, { admin: true, ownerDetails: includeOwnerDetails })) : null,
+        JSON.stringify(mapProperty(rows[0], { admin: true, ownerDetails: includeOwnerDetails })),
       ],
     );
     await writeAdminAuditLog({
@@ -2002,7 +2020,7 @@ export const saveProperty = createServerFn({ method: "POST" })
     await processMediaCleanupJobs(mediaCleanupJobIds, sql);
 
     clearPropertyReadCache();
-    return mapProperty(rows[0], { admin: true });
+    return mapProperty(rows[0], { admin: true, ownerDetails: includeOwnerDetails });
   });
 
 export const listPropertyChangeHistory = createServerFn({ method: "POST" })
@@ -2011,7 +2029,8 @@ export const listPropertyChangeHistory = createServerFn({ method: "POST" })
     limit: z.number().int().min(1).max(30).optional().default(12),
   }))
   .handler(async ({ data }) => {
-    await requireAdminPermission("property.manage");
+    const claims = await requireAdminPermission("property.manage");
+    const includeOwnerDetails = hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage");
     if (dbSource === "unconfigured") return [];
     const sql = await getSql();
     const rows = await sql.query<{
@@ -2021,7 +2040,9 @@ export const listPropertyChangeHistory = createServerFn({ method: "POST" })
       after_state: unknown;
       changed_at: string | Date;
     }>(
-      `select id, action, before_state, after_state, changed_at
+      `select id, action, ${includeOwnerDetails
+        ? "before_state, after_state"
+        : "before_state - 'ownerName' - 'ownerPhone' - 'ownerInfo' as before_state, after_state - 'ownerName' - 'ownerPhone' - 'ownerInfo' as after_state"}, changed_at
        from property_change_history
        where property_id = $1
        order by changed_at desc, id desc
@@ -2109,11 +2130,13 @@ export const deleteProperty = createServerFn({ method: "POST" })
   .validator(idSchema)
   .handler(async ({ data }) => {
     const claims = await requireAdminPermission("property.manage");
+    const includeOwnerDetails = hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage");
     const deletion = await withSqlTransaction(async (tx) => softDeleteProperty(
       (statement, params) => tx.query(statement, params),
       data.id,
-      (row) => mapProperty(row, { admin: true }),
+      (row) => mapProperty(row, { admin: true, ownerDetails: includeOwnerDetails }),
       String(claims?.displayName ?? "admin"),
+      includeOwnerDetails,
     ));
 
     if (!deletion) {

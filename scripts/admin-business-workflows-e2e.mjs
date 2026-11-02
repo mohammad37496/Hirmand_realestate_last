@@ -41,6 +41,10 @@ let leadId = null;
 let unavailableLeadId = null;
 let salesAccountId = null;
 let salesTestAgencyName = null;
+let ownerFixtureOriginal = null;
+let ownerFixtureMarker = null;
+let ownerFixturePhone = null;
+let ownerFixtureRestoreError = null;
 const temporaryRoleAccounts = [];
 const temporaryRoleContexts = [];
 
@@ -125,8 +129,38 @@ async function propertyPerformanceResponse(page, propertyId) {
   }, propertyId);
 }
 
+async function rawAdminPost(page, endpoint, payload = {}) {
+  return page.evaluate(async ({ endpoint, payload }) => {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    return { status: response.status, bodyText: await response.text() };
+  }, { endpoint, payload });
+}
+
+const ownerDirectoryResponse = (page) => rawAdminPost(page, "/api/admin-owners", { action: "list" });
+const ownerExportResponse = (page) => rawAdminPost(page, "/api/admin/properties-export", {});
+const customerSubmissionResponse = (page, action = "list") =>
+  rawAdminPost(page, "/api/admin-customer-property-submissions", { action, id: "qa-owner-directory-denied" });
+const productivitySummaryResponse = (page) => rawAdminPost(page, "/api/admin-productivity", { action: "summary" });
+
 try {
   client = await pool.connect();
+  const ownerFixtureRows = await client.query(
+    "select owner_name,owner_phone,owner_info from properties where id=$1 limit 1",
+    [roleCheckPropertyId],
+  );
+  if (!ownerFixtureRows.rows[0]) throw new Error("Owner-directory E2E fixture property does not exist.");
+  ownerFixtureOriginal = ownerFixtureRows.rows[0];
+  ownerFixtureMarker = "QA_OWNER_DIRECTORY_" + randomUUID();
+  ownerFixturePhone = "09" + randomUUID().replace(/\D/g, "").padEnd(9, "1").slice(0, 9);
+  await client.query(
+    "update properties set owner_name=$2,owner_phone=$3,owner_info=$4 where id=$1",
+    [roleCheckPropertyId, ownerFixtureMarker, ownerFixturePhone, ownerFixtureMarker + "_PRIVATE_NOTE"],
+  );
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
   context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: "fa-IR" });
 
@@ -165,6 +199,96 @@ try {
   if (salesPropertyPerformance.status !== 200) {
     throw new Error("Sales role must be able to read property performance; received HTTP " + salesPropertyPerformance.status);
   }
+
+  const ownerSensitiveSnapshot = async () => {
+    const snapshot = await client.query(`
+      select
+        (select md5(coalesce(string_agg(to_jsonb(s)::text, E'\\n' order by s.id),'')) from customer_property_submissions s) as submissions,
+        (select md5(coalesce(string_agg(to_jsonb(e)::text, E'\\n' order by e.id),'')) from customer_property_submission_events e) as submission_events,
+        (select md5(coalesce(string_agg(to_jsonb(h)::text, E'\\n' order by h.id),'')) from property_change_history h) as property_history,
+        (select md5(coalesce(string_agg(to_jsonb(a)::text, E'\\n' order by a.id),'')) from admin_audit_log a) as admin_audit
+    `);
+    return snapshot.rows[0];
+  };
+  const ownerDirectoryDeniedBeforeSensitiveQuery = async (restrictedPage, role) => {
+    await client.query("begin");
+    let response;
+    try {
+      // Hold the table lock from a separate connection. An unauthorized
+      // request must return 403 without waiting for (or issuing) the owner
+      // directory SELECT. If the handler queries first, this request times out.
+      await client.query("lock table properties in access exclusive mode");
+      let timeoutId;
+      try {
+        response = await Promise.race([
+          ownerDirectoryResponse(restrictedPage),
+          new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error(role + " owner-directory request waited on the sensitive properties query before authorization.")), 3000);
+          }),
+        ]);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } finally {
+      await client.query("rollback");
+    }
+    if (response.status !== 403 || response.bodyText.includes(ownerFixtureMarker) || response.bodyText.includes(ownerFixturePhone)) {
+      throw new Error(role + " role must be denied before the owner-directory database query and receive no private owner data.");
+    }
+    return response;
+  };
+  const customerSubmissionDeniedBeforeSensitiveQuery = async (restrictedPage, role) => {
+    await client.query("begin");
+    let response;
+    try {
+      await client.query("lock table customer_property_submissions in access exclusive mode");
+      let timeoutId;
+      try {
+        response = await Promise.race([
+          customerSubmissionResponse(restrictedPage, "reject"),
+          new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error(role + " customer-submission request waited on private submission SQL before authorization.")), 3000);
+          }),
+        ]);
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    } finally {
+      await client.query("rollback");
+    }
+    if (response.status !== 403 || response.bodyText.includes(ownerFixtureMarker) || response.bodyText.includes(ownerFixturePhone)) {
+      throw new Error(role + " role must be denied before customer-submission owner data is queried or mutated.");
+    }
+    return response;
+  };
+  const ownerSnapshotBeforeDeniedSales = await ownerSensitiveSnapshot();
+  await ownerDirectoryDeniedBeforeSensitiveQuery(salesPage, "sales");
+  const salesOwnerExport = await ownerExportResponse(salesPage);
+  if (salesOwnerExport.status !== 200 || salesOwnerExport.bodyText.includes(ownerFixtureMarker) || salesOwnerExport.bodyText.includes("صاحب فایل")) {
+    throw new Error("Sales property export must retain property data but omit private owner fields and CSV columns.");
+  }
+  await customerSubmissionDeniedBeforeSensitiveQuery(salesPage, "sales");
+  const salesProductivitySummary = await productivitySummaryResponse(salesPage);
+  if (salesProductivitySummary.status !== 200 || salesProductivitySummary.bodyText.includes(ownerFixtureMarker) || salesProductivitySummary.bodyText.includes(ownerFixturePhone)) {
+    throw new Error("Sales productivity summary must omit private duplicate-owner groups and phone numbers.");
+  }
+  const salesPropertyTitleRows = await client.query("select title from properties where id=$1", [roleCheckPropertyId]);
+  await salesPage.locator(".admin-sidebar .admin-sidebar-nav").getByRole("button", { name: "فایل‌های ملک" }).click();
+  const salesPropertySearch = salesPage.getByLabel("جستجوی فایل‌ها");
+  await salesPropertySearch.waitFor({ state: "visible", timeout: 10000 });
+  await salesPropertySearch.fill(String(salesPropertyTitleRows.rows[0]?.title ?? ""));
+  await salesPage.getByText(String(salesPropertyTitleRows.rows[0]?.title ?? ""), { exact: true }).waitFor({ state: "visible", timeout: 15000 });
+  await salesPropertySearch.fill(ownerFixturePhone);
+  await salesPage.getByText(String(salesPropertyTitleRows.rows[0]?.title ?? ""), { exact: true }).waitFor({ state: "hidden", timeout: 15000 });
+  const salesPropertyListText = await salesPage.locator("body").innerText();
+  if (salesPropertyListText.includes(ownerFixtureMarker) || salesPropertyListText.includes(ownerFixturePhone)) {
+    throw new Error("Sales property server-function list exposed private owner fields in the UI.");
+  }
+  const ownerSnapshotAfterDeniedSales = await ownerSensitiveSnapshot();
+  if (JSON.stringify(ownerSnapshotAfterDeniedSales) !== JSON.stringify(ownerSnapshotBeforeDeniedSales)) {
+    throw new Error("Denied sales customer-submission mutation changed submission, history, or audit data.");
+  }
+  console.log("ok   sales is denied before the owner-directory SQL, receives redacted property exports, and cannot mutate private submission data");
 
   salesTestAgencyName = "QA Partner Permission " + randomUUID();
   const partnerSnapshot = async () => {
@@ -222,6 +346,21 @@ try {
   if (managerPropertyPerformance.status !== 200) {
     throw new Error("Manager role must be able to read property performance; received HTTP " + managerPropertyPerformance.status);
   }
+  const managerOwnerDirectory = await ownerDirectoryResponse(managerPage);
+  if (managerOwnerDirectory.status !== 200 || !managerOwnerDirectory.bodyText.includes(ownerFixtureMarker)) {
+    throw new Error("Manager role must be able to read the authorized owner directory, including its fixture owner.");
+  }
+  const managerOwnerExport = await ownerExportResponse(managerPage);
+  if (managerOwnerExport.status !== 200 || !managerOwnerExport.bodyText.includes(ownerFixtureMarker)) {
+    throw new Error("Manager property export must include owner fields after owner-directory authorization.");
+  }
+  const managerCustomerSubmissions = await customerSubmissionResponse(managerPage);
+  if (managerCustomerSubmissions.status !== 200) {
+    throw new Error("Manager role must be able to read the customer-property submission queue; received HTTP " + managerCustomerSubmissions.status);
+  }
+  if (await managerPage.locator(".admin-sidebar .admin-sidebar-nav").getByRole("button", { name: "مالکین" }).count() !== 1) {
+    throw new Error("Manager navigation must expose the owner-directory view.");
+  }
 
   for (const role of ["content", "viewer", "staff"]) {
     const restrictedPage = await loginAsTemporaryRole(role);
@@ -247,6 +386,42 @@ try {
     if (expectedPropertyPerformanceStatus === 403 && /contactName|leadSources|"leads"/.test(propertyPerformance.bodyText)) {
       throw new Error(role + " role received private property or lead performance data in a denied response.");
     }
+    await ownerDirectoryDeniedBeforeSensitiveQuery(restrictedPage, role);
+    const ownerExport = await ownerExportResponse(restrictedPage);
+    const expectedOwnerExportStatus = role === "content" ? 200 : 403;
+    if (ownerExport.status !== expectedOwnerExportStatus) {
+      throw new Error(role + " role must receive HTTP " + expectedOwnerExportStatus + " for property export; received " + ownerExport.status);
+    }
+    if (expectedOwnerExportStatus === 200 && (ownerExport.bodyText.includes(ownerFixtureMarker) || ownerExport.bodyText.includes("صاحب فایل"))) {
+      throw new Error(role + " role received private owner fields in property CSV export.");
+    }
+    const beforeDeniedSubmissionMutation = await ownerSensitiveSnapshot();
+    await customerSubmissionDeniedBeforeSensitiveQuery(restrictedPage, role);
+    const afterDeniedSubmissionMutation = await ownerSensitiveSnapshot();
+    if (JSON.stringify(afterDeniedSubmissionMutation) !== JSON.stringify(beforeDeniedSubmissionMutation)) {
+      throw new Error(role + " denied customer-submission mutation changed submission, history, or audit data.");
+    }
+    const productivity = await productivitySummaryResponse(restrictedPage);
+    if (productivity.status === 200 && (productivity.bodyText.includes(ownerFixtureMarker) || productivity.bodyText.includes(ownerFixturePhone))) {
+      throw new Error(role + " role received private duplicate-owner data in productivity summary.");
+    }
+    if (await restrictedPage.locator(".admin-sidebar .admin-sidebar-nav").getByRole("button", { name: "مالکین" }).count() !== 0) {
+      throw new Error(role + " role must not see the owner-directory navigation item.");
+    }
+    if (role === "content") {
+      const propertyTitle = String(salesPropertyTitleRows.rows[0]?.title ?? "");
+      await restrictedPage.locator(".admin-sidebar .admin-sidebar-nav").getByRole("button", { name: "فایل‌های ملک" }).click();
+      const propertySearch = restrictedPage.getByLabel("جستجوی فایل‌ها");
+      await propertySearch.waitFor({ state: "visible", timeout: 10000 });
+      await propertySearch.fill(propertyTitle);
+      await restrictedPage.getByText(propertyTitle, { exact: true }).waitFor({ state: "visible", timeout: 15000 });
+      await propertySearch.fill(ownerFixturePhone);
+      await restrictedPage.getByText(propertyTitle, { exact: true }).waitFor({ state: "hidden", timeout: 15000 });
+      const contentPropertyListText = await restrictedPage.locator("body").innerText();
+      if (contentPropertyListText.includes(ownerFixtureMarker) || contentPropertyListText.includes(ownerFixturePhone)) {
+        throw new Error("Content property list exposed private owner fields or matched an owner-only phone search.");
+      }
+    }
   }
   console.log("ok   consultant targets are readable by sales/manager and denied to content/viewer over direct API requests");
   console.log("ok   data-health scans are restricted to owner/manager over direct API requests");
@@ -271,6 +446,21 @@ try {
   const ownerPropertyPerformance = await propertyPerformanceResponse(page, roleCheckPropertyId);
   if (ownerPropertyPerformance.status !== 200) {
     throw new Error("Owner role must be able to read property performance; received HTTP " + ownerPropertyPerformance.status);
+  }
+  const ownerDirectory = await ownerDirectoryResponse(page);
+  if (ownerDirectory.status !== 200 || !ownerDirectory.bodyText.includes(ownerFixtureMarker)) {
+    throw new Error("Owner role must be able to read the authorized owner directory, including its fixture owner.");
+  }
+  const ownerExport = await ownerExportResponse(page);
+  if (ownerExport.status !== 200 || !ownerExport.bodyText.includes(ownerFixtureMarker)) {
+    throw new Error("Owner property export must include owner fields after owner-directory authorization.");
+  }
+  const ownerCustomerSubmissions = await customerSubmissionResponse(page);
+  if (ownerCustomerSubmissions.status !== 200) {
+    throw new Error("Owner role must be able to read customer property submissions; received HTTP " + ownerCustomerSubmissions.status);
+  }
+  if (await page.locator(".admin-sidebar .admin-sidebar-nav").getByRole("button", { name: "مالکین" }).count() !== 1) {
+    throw new Error("Owner navigation must expose the owner-directory view.");
   }
 
   await page.locator(".admin-sidebar .admin-sidebar-nav")
@@ -439,6 +629,24 @@ try {
   }, null, 2));
 } finally {
   if (client) {
+    if (ownerFixtureOriginal) {
+      try {
+        await client.query(
+          "update properties set owner_name=$2,owner_phone=$3,owner_info=$4 where id=$1",
+          [roleCheckPropertyId, ownerFixtureOriginal.owner_name, ownerFixtureOriginal.owner_phone, ownerFixtureOriginal.owner_info],
+        );
+        const restored = await client.query(
+          "select owner_name,owner_phone,owner_info from properties where id=$1 limit 1",
+          [roleCheckPropertyId],
+        );
+        const restoredRow = restored.rows[0];
+        if (!restoredRow || ["owner_name", "owner_phone", "owner_info"].some((key) => restoredRow[key] !== ownerFixtureOriginal[key])) {
+          ownerFixtureRestoreError = new Error("Owner-directory E2E fixture private fields were not restored to their original values.");
+        }
+      } catch (error) {
+        ownerFixtureRestoreError = error;
+      }
+    }
     for (const accountId of temporaryRoleAccounts) {
       await client.query("delete from admin_sessions where account_id=$1", [accountId]).catch(() => {});
       await client.query("delete from admin_accounts where id=$1", [accountId]).catch(() => {});
@@ -468,3 +676,5 @@ try {
   if (browser) await browser.close().catch(() => {});
   await pool.end();
 }
+
+if (ownerFixtureRestoreError) throw ownerFixtureRestoreError;

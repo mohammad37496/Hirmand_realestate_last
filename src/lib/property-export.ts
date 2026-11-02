@@ -39,7 +39,7 @@ const ORIENTATION_LABELS: Record<string, string> = {
 };
 
 /** Return data cells in exactly the same order as PROPERTY_EXPORT_HEADERS. */
-export function propertyExportRow(row: Record<string, unknown>): unknown[] {
+export function propertyExportRow(row: Record<string, unknown>, includeOwnerDetails = true): unknown[] {
   const floor = row.floor == null ? null : Number(row.floor);
   const exportFloor = floor === null ? null : isAllowedPropertyFloorValue(floor) ? floor : "";
   return [
@@ -72,9 +72,7 @@ export function propertyExportRow(row: Record<string, unknown>): unknown[] {
     row.rent,
     row.contact_name,
     row.contact_phone,
-    row.owner_name,
-    row.owner_phone,
-    row.owner_info,
+    ...(includeOwnerDetails ? [row.owner_name, row.owner_phone, row.owner_info] : []),
     row.created_at,
     row.updated_at,
   ];
@@ -82,10 +80,17 @@ export function propertyExportRow(row: Record<string, unknown>): unknown[] {
 
 export const PROPERTY_EXPORT_HEADERS = HEADERS;
 
-export function propertyExportCsv(rows: Record<string, unknown>[]): string {
+export function propertyExportHeaders(includeOwnerDetails = true): readonly string[] {
+  return includeOwnerDetails ? HEADERS : HEADERS.filter((header) =>
+    header !== "صاحب فایل" && header !== "تلفن صاحب فایل" && header !== "اطلاعات صاحب فایل",
+  );
+}
+
+export function propertyExportCsv(rows: Record<string, unknown>[], includeOwnerDetails = true): string {
+  const headers = propertyExportHeaders(includeOwnerDetails);
   const lines = [
-    PROPERTY_EXPORT_HEADERS.map(csvCell).join(","),
-    ...rows.map((row) => propertyExportRow(row).map(csvCell).join(",")),
+    headers.map(csvCell).join(","),
+    ...rows.map((row) => propertyExportRow(row, includeOwnerDetails).map(csvCell).join(",")),
   ];
   return "\uFEFF" + lines.join("\n");
 }

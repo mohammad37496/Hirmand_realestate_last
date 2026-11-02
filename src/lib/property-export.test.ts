@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PROPERTY_EXPORT_HEADERS,
   csvCell,
+  propertyExportHeaders,
   propertyExportCsv,
   propertyExportRow,
 } from "./property-export.ts";
@@ -62,6 +63,27 @@ test("property export rows stay aligned with all CSV headers", () => {
   assert.equal(csvRows.length, 2);
   assert.equal(csvRows[0].split(",").length, PROPERTY_EXPORT_HEADERS.length);
   assert.equal(csvRows[1].split(",").length, PROPERTY_EXPORT_HEADERS.length);
+});
+
+test("property CSV export omits private owner columns and values for roles without directory access", () => {
+  const row = {
+    id: "property-private-owner",
+    title: "فایل نمونه",
+    slug: "sample",
+    status: "published",
+    price: "8500000000",
+    owner_name: "PRIVATE_OWNER_NAME_MARKER",
+    owner_phone: "PRIVATE_OWNER_PHONE_MARKER",
+    owner_info: "PRIVATE_OWNER_INFO_MARKER",
+  };
+  const headers = propertyExportHeaders(false);
+  const csv = propertyExportCsv([row], false);
+  assert.ok(!headers.includes("صاحب فایل"));
+  assert.ok(!headers.includes("تلفن صاحب فایل"));
+  assert.ok(!headers.includes("اطلاعات صاحب فایل"));
+  assert.match(csv, /8500000000/);
+  assert.doesNotMatch(csv, /PRIVATE_OWNER_(?:NAME|PHONE|INFO)_MARKER/);
+  assert.equal(csv.replace(/^\uFEFF/, "").split("\n")[0].split(",").length, headers.length);
 });
 
 test("CSV cells quote separators and neutralize spreadsheet formulas", () => {

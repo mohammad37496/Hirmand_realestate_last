@@ -19,9 +19,11 @@ async function requireAdmin(event: H3Event) {
   }
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
+  const role = normalizeAdminRole(claims?.role);
+  if (!hasAdminPermission(role, "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت وظایف و بهره‌وری برای این حساب فعال نیست." });
   }
+  return hasAdminPermission(role, "owner-directory.manage");
 }
 
 function cleanText(value: unknown, max = 240) {
@@ -54,7 +56,7 @@ function serializeTask(row: Record<string, unknown>) {
   };
 }
 
-async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
+async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>, includeOwnerDirectory: boolean) {
   const results = await Promise.all([
     sql.query<Record<string, unknown>>(
       "select count(*) filter (where status='open')::int as open, " +
@@ -74,13 +76,13 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
       "count(*) filter (where status='published' and deleted_at is null and featured=true and featured_until is not null and featured_until < current_timestamp)::int as expired_featured " +
       "from properties"
     ),
-    sql.query<Record<string, unknown>>(
+    includeOwnerDirectory ? sql.query<Record<string, unknown>>(
       "select coalesce(nullif(trim(owner_phone),''),'') as owner_phone, count(*)::int as file_count, " +
       "min(trim(coalesce(neighborhood,''))) as neighborhood, " +
       "jsonb_agg(jsonb_build_object('id',id,'slug',slug,'title',title) order by updated_at desc) as files " +
       "from properties where status <> 'archived' and coalesce(trim(owner_phone),'') <> '' " +
       "group by coalesce(nullif(trim(owner_phone),''),'') having count(*) > 1 order by file_count desc limit 12"
-    ),
+    ) : Promise.resolve([] as Record<string, unknown>[]),
     sql.query<Record<string, unknown>>(
       "select lower(trim(title)) as title_key, min(trim(title)) as title, min(trim(neighborhood)) as neighborhood, " +
       "count(*)::int as file_count, jsonb_agg(jsonb_build_object('id',id,'slug',slug,'title',title) order by updated_at desc) as files " +
@@ -191,7 +193,7 @@ async function validateTaskEntityAssociation(
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
-  await requireAdmin(event);
+  const includeOwnerDirectory = await requireAdmin(event);
 
   const body = (await readBody(event).catch(() => ({}))) as {
     action?: "summary" | "list_tasks" | "list_leads" | "list_properties" | "create_task" | "update_task" | "delete_task";
@@ -318,5 +320,5 @@ export default defineEventHandler(async (event) => {
     return { available: true, properties: rows.map((row) => ({ id: String(row.id), slug: String(row.slug ?? ""), title: String(row.title ?? "فایل ملک"), neighborhood: String(row.neighborhood ?? ""), status: String(row.status ?? "draft") })) };
   }
 
-  return loadSummary(sql);
+  return loadSummary(sql, includeOwnerDirectory);
 });

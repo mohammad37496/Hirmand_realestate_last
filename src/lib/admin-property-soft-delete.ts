@@ -16,6 +16,19 @@ export const LOCK_ACTIVE_PROPERTY_FOR_TRASH_SQL = `
   for update
 `;
 
+export const LOCK_ACTIVE_PROPERTY_FOR_TRASH_WITHOUT_OWNER_DETAILS_SQL = `
+  select id, slug, status, availability_status, featured, featured_until, title, transaction_type, property_type, city,
+         neighborhood, address, area_m2, bedrooms, bathrooms, floor, floor_label, orientation, total_floors, built_year, parking, elevator,
+         storage, painted, wallpaper, convertible, cabinet_type, flooring_type, cooling_system, heating_system,
+         wall_closet_type, other_amenities, price, deposit, rent, description, features, images, contact_name,
+         contact_phone, internal_priority, internal_note, published_at, publish_at, unpublish_at, deleted_at,
+         deleted_from_status, created_at, updated_at, virtual_tour_url, floor_plan_url, latitude, longitude,
+         price_drop_percent, last_verified_at, last_verified_by
+  from properties
+  where id = $1 and deleted_at is null
+  for update
+`;
+
 export const SOFT_DELETE_PROPERTY_SQL = `
   update properties
   set deleted_at = current_timestamp,
@@ -49,8 +62,12 @@ export async function softDeleteProperty(
   propertyId: string,
   serializeBeforeState: (row: Record<string, unknown>) => unknown,
   actor: string,
+  includeOwnerDetails = true,
 ): Promise<SoftDeletedProperty | null> {
-  const existing = (await query(LOCK_ACTIVE_PROPERTY_FOR_TRASH_SQL, [propertyId]))[0];
+  const lockSql = includeOwnerDetails
+    ? LOCK_ACTIVE_PROPERTY_FOR_TRASH_SQL
+    : LOCK_ACTIVE_PROPERTY_FOR_TRASH_WITHOUT_OWNER_DETAILS_SQL;
+  const existing = (await query(lockSql, [propertyId]))[0];
   if (!existing) return null;
 
   const deleted = (await query(SOFT_DELETE_PROPERTY_SQL, [propertyId]))[0];
