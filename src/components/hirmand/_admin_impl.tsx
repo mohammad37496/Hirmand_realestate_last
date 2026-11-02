@@ -646,6 +646,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
   }, [navItems, adminRole]);
 
   const canManageProperties = hasAdminPermission(adminRole, "property.manage");
+  const canManageOwnerDirectory = hasAdminPermission(adminRole, "owner-directory.manage");
   const canCreateProperties = hasAdminPermission(adminRole, "property.create") || canManageProperties;
   const canManageLeads = hasAdminPermission(adminRole, "lead.manage");
   const canPublishProperties = hasAdminPermission(adminRole, "property.publish");
@@ -2311,7 +2312,9 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                       <input
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="جستجو بر اساس کد فایل، عنوان، محله، مشاور، مالک یا تلفن…"
+                        placeholder={canManageOwnerDirectory
+                          ? "جستجو بر اساس کد فایل، عنوان، محله، مشاور، مالک یا تلفن…"
+                          : "جستجو بر اساس کد فایل، عنوان، محله یا مشاور…"}
                         aria-label="جستجوی فایل‌ها"
                       />
                     </label>
@@ -2546,7 +2549,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                           <p>
                             {property.neighborhood} · {property.contactName}
                           </p>
-                          {(property.ownerName || property.ownerPhone || property.ownerInfo) ? (
+                          {canManageOwnerDirectory && (property.ownerName || property.ownerPhone || property.ownerInfo) ? (
                             <details className="admin-property-owner">
                               <summary>
                                 <KeyRound size={13} aria-hidden="true" />
@@ -3258,7 +3261,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                   </div>
                 </fieldset>
 
-                {!staffMode ? (
+                {canManageOwnerDirectory ? (
                   <fieldset className="admin-section admin-owner-section" id="section-owner">
                     <legend>اطلاعات صاحب فایل — خصوصی</legend>
                   <div className="admin-private-notice">

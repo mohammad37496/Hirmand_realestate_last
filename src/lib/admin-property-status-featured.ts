@@ -25,7 +25,7 @@ export const BULK_UPDATE_PROPERTY_STATUS_SQL = `
       updated_at = current_timestamp
   where id = any($2::text[])
     and deleted_at is null
-  returning id, title, status, featured, price, deposit, rent, contact_name, contact_phone, owner_name, owner_phone, owner_info
+  returning id, title, status, featured, price, deposit, rent, contact_name, contact_phone
 `;
 
 /** Only published, non-trashed properties may be turned into featured listings. */

@@ -52,3 +52,13 @@ test("property schedule listing and updates are limited to owner and manager", (
   assert.equal(hasAdminPermission("staff", "schedule.manage"), false);
   assert.equal(hasAdminPermission("viewer", "schedule.manage"), false);
 });
+
+test("owner directory access is independent and limited to owner and manager", () => {
+  assert.equal(hasAdminPermission("owner", "owner-directory.manage"), true);
+  assert.equal(hasAdminPermission("manager", "owner-directory.manage"), true);
+  assert.equal(hasAdminPermission("sales", "owner-directory.manage"), false);
+  assert.equal(hasAdminPermission("content", "owner-directory.manage"), false);
+  assert.equal(hasAdminPermission("staff", "owner-directory.manage"), false);
+  assert.equal(hasAdminPermission("viewer", "owner-directory.manage"), false);
+  assert.equal(hasAdminPermission(normalizeAdminRole("admin"), "owner-directory.manage"), true);
+});

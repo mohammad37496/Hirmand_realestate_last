@@ -48,8 +48,8 @@ export default defineEventHandler(async (event) => {
   }
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "property.manage")) {
-    throw createError({ statusCode: 403, statusMessage: "دسترسی بررسی و انتشار فایل‌های ارسالی مشتریان برای این حساب فعال نیست." });
+  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage")) {
+    throw createError({ statusCode: 403, statusMessage: "دسترسی به اطلاعات خصوصی مالکین و صف ثبت ملک برای این حساب فعال نیست." });
   }
   const body = (await readBody(event)) as {
     action?: Action;

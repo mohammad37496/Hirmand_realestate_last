@@ -11,7 +11,7 @@ async function requireAdmin(event: H3Event) {
   }
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "property.manage")) {
+  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "owner-directory.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی اطلاعات مالکین برای این حساب فعال نیست." });
   }
 }
