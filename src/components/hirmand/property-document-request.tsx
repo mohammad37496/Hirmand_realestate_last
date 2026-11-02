@@ -54,6 +54,8 @@ export function PropertyDocumentRequest({ property }: { property: Property }) {
   const [phone, setPhone] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [duplicate, setDuplicate] = useState(false);
   const [trackingToken, setTrackingToken] = useState<string | null>(null);
 
   function toggle(id: string) {
@@ -105,14 +107,16 @@ export function PropertyDocumentRequest({ property }: { property: Property }) {
           matches: [],
         }),
       });
-      const payload = await response.json().catch(() => null) as { success?: boolean; trackingToken?: string; message?: string; statusMessage?: string } | null;
+      const payload = await response.json().catch(() => null) as { success?: boolean; duplicate?: boolean; trackingToken?: string; message?: string; statusMessage?: string } | null;
       if (!response.ok || !payload?.success) {
         throw new Error(payload?.statusMessage || payload?.message || "ثبت درخواست بررسی مدارک انجام نشد.");
       }
       setTrackingToken(payload.trackingToken || null);
+      setDuplicate(Boolean(payload.duplicate));
+      setSubmitted(true);
       setSelected([]);
       setNote("");
-      toast.success("درخواست بررسی مدارک برای هیرمند ثبت شد.");
+      toast.success(payload.duplicate ? "درخواست مشابه اخیر قبلاً دریافت شده است." : "درخواست بررسی مدارک برای هیرمند ثبت شد.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "ثبت درخواست انجام نشد.");
     } finally {
@@ -131,15 +135,17 @@ export function PropertyDocumentRequest({ property }: { property: Property }) {
         <span className="property-new-feature-badge"><ShieldCheck size={13} /> ارسال امن فرم</span>
       </header>
 
-      {trackingToken ? (
+      {submitted ? (
         <div className="property-document-request-success" role="status">
           <span className="property-document-request-success-icon"><CheckCircle2 size={24} /></span>
           <div>
-            <strong>درخواست شما ثبت شد.</strong>
-            <p>هیرمند درخواست بررسی موارد انتخابی را دریافت کرد و برای هماهنگی با شما تماس می‌گیرد.</p>
+            <strong>{duplicate ? "درخواست مشابه قبلی شناسایی شد." : "درخواست شما ثبت شد."}</strong>
+            <p>{duplicate
+              ? "درخواست مشابهی اخیراً دریافت شده است. برای حفظ امنیت، کد رهگیری قبلی دوباره نمایش داده نمی‌شود؛ اگر کد قبلی را ندارید با تیم هیرمند تماس بگیرید."
+              : "هیرمند درخواست بررسی موارد انتخابی را دریافت کرد و برای هماهنگی با شما تماس می‌گیرد."}</p>
             {trackingToken ? <small>کد پیگیری: <bdi dir="ltr">{trackingToken}</bdi></small> : null}
           </div>
-          <button type="button" className="btn-ghost" onClick={() => setTrackingToken(null)}>ثبت درخواست جدید</button>
+          <button type="button" className="btn-ghost" onClick={() => { setSubmitted(false); setDuplicate(false); setTrackingToken(null); }}>ثبت درخواست جدید</button>
         </div>
       ) : (
         <>

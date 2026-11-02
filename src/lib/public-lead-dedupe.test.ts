@@ -97,10 +97,12 @@ test("pending customer-property duplicate lookup never selects or returns the pr
 });
 
 test("duplicate UI confirms receipt without presenting a previous tracking code as the caller's own", async () => {
-  const [submitProperty, budgetMatcher, inquiryForm] = await Promise.all([
+  const [submitProperty, budgetMatcher, inquiryForm, documentRequest, financingRequest] = await Promise.all([
     readFile(new URL("../routes/submit-property.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/hirmand/budget-matcher.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/hirmand/inquiry-form.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/hirmand/property-document-request.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/hirmand/property-financing-request.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(submitProperty, /setDoneDuplicate\(Boolean\(payload\.duplicate\)\)/);
   assert.match(submitProperty, /doneDuplicate \? "درخواست مشابه قبلاً دریافت شده است/);
@@ -108,4 +110,8 @@ test("duplicate UI confirms receipt without presenting a previous tracking code 
   assert.match(budgetMatcher, /setLeadDuplicate\(Boolean\(result\.duplicate\)\)/);
   assert.match(budgetMatcher, /leadDuplicate \? "درخواست مشابه قبلی شناسایی شد/);
   assert.match(inquiryForm, /result\.duplicate\s*\?/);
+  assert.match(documentRequest, /setSubmitted\(true\)/);
+  assert.match(documentRequest, /duplicate \? "درخواست مشابه قبلی شناسایی شد/);
+  assert.match(financingRequest, /setDuplicate\(Boolean\(payload\.duplicate\)\)/);
+  assert.match(financingRequest, /duplicate \? "درخواست مشابه قبلی شناسایی شد/);
 });
