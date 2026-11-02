@@ -122,6 +122,12 @@ test("management report UI rejects unavailable payloads and never keeps stale pe
   assert.match(ui, /disabled=\{!data \|\| data\.days !== days \|\| loading\}/);
 });
 
+test("management report UI hides every deal metric from roles without deal.manage", () => {
+  const ui = readFileSync(new URL("../components/hirmand/admin-management-report.tsx", import.meta.url), "utf8");
+  assert.match(ui, /\.\.\.\(canViewDeals \? \[\["معامله تکمیل‌شده", String\(data\.deals\.completed\)\]\] : \[\]\)/);
+  assert.match(ui, /\{canViewDeals \? <>[\s\S]*?data\.deals\.completed[\s\S]*?data\.deals\.volume[\s\S]*?data\.deals\.commission[\s\S]*?<\/> : null\}/);
+});
+
 test("property CSV export fails with 503 instead of returning an empty success file without a database", () => {
   const route = readFileSync(new URL("../../server/routes/api/admin/properties-export.post.ts", import.meta.url), "utf8");
   const permissionIndex = route.indexOf('hasAdminPermission(normalizeAdminRole(claims?.role), "property.manage")');
