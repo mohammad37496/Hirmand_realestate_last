@@ -4,8 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { loadAdminProductivityTableCounts } from "@/lib/admin-productivity-table-counts";
-import { lockLeadReferencesForMutation } from "@/lib/admin-lead-dedupe.server";
-import { lockActivePropertyForTask } from "@/lib/admin-productivity-task-association";
+import { lockActivePropertyForTask, lockTaskLeadReferences } from "@/lib/admin-productivity-task-association";
 
 type TaskStatus = "open" | "done" | "cancelled";
 type Priority = "low" | "normal" | "high" | "urgent";
@@ -227,14 +226,15 @@ export default defineEventHandler(async (event) => {
     await validateTaskEntityAssociation(sql, entityType, entityId);
     const rows = await withSqlTransaction(async (tx) => {
       if (entityType === "lead" && entityId) {
-        const lock = await lockLeadReferencesForMutation(tx, [entityId]);
+        const lock = await lockTaskLeadReferences(tx, [entityId], entityId);
         if (lock.kind === "missing") throw createError({ statusCode: 404, statusMessage: "لید مرتبط با وظیفه پیدا نشد." });
         if (lock.kind === "merged") throw createError({ statusCode: 409, statusMessage: `این لید ادغام شده است؛ وظیفه را به لید اصلی ${lock.canonicalId} متصل کنید.` });
+        if (lock.kind === "inactive") throw createError({ statusCode: 409, statusMessage: "اتصال وظیفه به لید بسته یا هرزنامه مجاز نیست." });
       }
       if (entityType === "property" && entityId && !await lockActivePropertyForTask(tx, entityId)) return [];
       return tx.query(
         "insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) " +
-        "select $1,$2,$3,$4,$5,$6,$7,$8,$9 where ($8 <> 'lead' or exists(select 1 from leads where id=$9 and merged_into_lead_id is null)) and ($8 <> 'property' or exists(select 1 from properties where id=$9 and deleted_at is null and status <> 'archived')) returning *",
+        "select $1,$2,$3,$4,$5,$6,$7,$8,$9 where ($8 <> 'lead' or exists(select 1 from leads where id=$9 and merged_into_lead_id is null and status not in ('closed','spam'))) and ($8 <> 'property' or exists(select 1 from properties where id=$9 and deleted_at is null and status <> 'archived')) returning *",
         [crypto.randomUUID(), title, cleanText(body.description, 1200), status, priority, dueAt,
          cleanText(body.assignee, 100), entityType, entityId]
       );
@@ -263,9 +263,11 @@ export default defineEventHandler(async (event) => {
         String(existing.entity_type ?? "") === "lead" ? String(existing.entity_id ?? "") : "",
         entityType === "lead" ? String(entityId ?? "") : "",
       ];
-      const lock = await lockLeadReferencesForMutation(tx, leadReferences);
+      const associationChanged = entityType !== String(existing.entity_type ?? "") || String(entityId ?? "") !== String(existing.entity_id ?? "");
+      const lock = await lockTaskLeadReferences(tx, leadReferences, associationChanged && entityType === "lead" ? entityId : null);
       if (lock.kind === "missing") throw createError({ statusCode: 404, statusMessage: "لید مرتبط با وظیفه پیدا نشد." });
       if (lock.kind === "merged") throw createError({ statusCode: 409, statusMessage: `این لید ادغام شده است؛ وظیفه را به لید اصلی ${lock.canonicalId} متصل کنید.` });
+      if (lock.kind === "inactive") throw createError({ statusCode: 409, statusMessage: "اتصال وظیفه به لید بسته یا هرزنامه مجاز نیست." });
       if (entityType === "property" && entityId && !await lockActivePropertyForTask(tx, entityId)) return [];
       const current = (await tx.query<Record<string, unknown>>("select entity_type,entity_id from admin_tasks where id=$1 for update", [id]))[0];
       if (!current || String(current.entity_type ?? "") !== String(existing.entity_type ?? "") || String(current.entity_id ?? "") !== String(existing.entity_id ?? "")) {
@@ -273,12 +275,12 @@ export default defineEventHandler(async (event) => {
       }
       return tx.query(
         "update admin_tasks set title=$2, description=$3, status=$4, priority=$5, due_at=$6, assignee=$7, entity_type=$8, entity_id=$9, updated_at=current_timestamp " +
-        "where id=$1 and ($8 <> 'lead' or exists(select 1 from leads where id=$9 and merged_into_lead_id is null)) and ($8 <> 'property' or exists(select 1 from properties where id=$9 and deleted_at is null and status <> 'archived')) returning *",
+        "where id=$1 and ($8 <> 'lead' or not $10::boolean or exists(select 1 from leads where id=$9 and merged_into_lead_id is null and status not in ('closed','spam'))) and ($8 <> 'property' or exists(select 1 from properties where id=$9 and deleted_at is null and status <> 'archived')) returning *",
         [id, title,
          body.description === undefined ? String(existing.description ?? "") : cleanText(body.description, 1200),
          status, priority, dueAt,
          body.assignee === undefined ? String(existing.assignee ?? "") : cleanText(body.assignee, 100),
-         entityType, entityId]
+         entityType, entityId, associationChanged && entityType === "lead"]
       );
     });
     if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "وظیفه هنگام به‌روزرسانی پیدا نشد." });
