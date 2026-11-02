@@ -11,6 +11,7 @@ export type AdminPermission =
   | "area.manage"
   | "settings.manage"
   | "backup.manage"
+  | "trash.manage"
   | "security.manage"
   | "accounts.manage"
   | "reports.view"
@@ -39,6 +40,7 @@ export const ADMIN_ROLE_PERMISSIONS: Record<AdminRole, readonly AdminPermission[
     "area.manage",
     "settings.manage",
     "backup.manage",
+    "trash.manage",
     "security.manage",
     "accounts.manage",
     "reports.view",
@@ -57,6 +59,7 @@ export const ADMIN_ROLE_PERMISSIONS: Record<AdminRole, readonly AdminPermission[
     "area.manage",
     "settings.manage",
     "backup.manage",
+    "trash.manage",
     "security.manage",
     "reports.view",
     "deal.manage",

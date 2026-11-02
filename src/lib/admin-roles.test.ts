@@ -34,3 +34,12 @@ test("individual property performance is limited to roles that can manage proper
   assert.equal(hasAdminPermission("staff", "property.manage"), false);
   assert.equal(hasAdminPermission("viewer", "property.manage"), false);
 });
+
+test("trash listing, restore and permanent deletion are limited to owner and manager", () => {
+  assert.equal(hasAdminPermission("owner", "trash.manage"), true);
+  assert.equal(hasAdminPermission("manager", "trash.manage"), true);
+  assert.equal(hasAdminPermission("sales", "trash.manage"), false);
+  assert.equal(hasAdminPermission("content", "trash.manage"), false);
+  assert.equal(hasAdminPermission("staff", "trash.manage"), false);
+  assert.equal(hasAdminPermission("viewer", "trash.manage"), false);
+});

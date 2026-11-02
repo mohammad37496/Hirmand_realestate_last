@@ -94,12 +94,12 @@ test("the complete admin role matrix follows least privilege", () => {
   const expected: Record<string, readonly string[]> = {
     owner: [
       "property.manage", "property.create", "property.publish", "divar.import", "lead.manage",
-      "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage",
+      "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage", "trash.manage",
       "security.manage", "accounts.manage", "reports.view", "deal.manage", "commission.manage", "partners.manage",
     ],
     manager: [
       "property.manage", "property.create", "property.publish", "divar.import", "lead.manage",
-      "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage",
+      "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage", "trash.manage",
       "security.manage", "reports.view", "deal.manage", "commission.manage", "partners.manage",
     ],
     sales: [
@@ -116,7 +116,7 @@ test("the complete admin role matrix follows least privilege", () => {
     assert.deepEqual([...ADMIN_ROLE_PERMISSIONS[role as keyof typeof ADMIN_ROLE_PERMISSIONS]].sort(), [...permissions].sort(), `${role} permissions`);
     for (const permission of [
       "property.manage", "property.create", "property.publish", "divar.import", "lead.manage",
-      "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage",
+      "finance.manage", "content.manage", "area.manage", "settings.manage", "backup.manage", "trash.manage",
       "security.manage", "accounts.manage", "reports.view", "deal.manage", "commission.manage", "partners.manage",
     ]) {
       assert.equal(

@@ -109,3 +109,27 @@ test("individual property performance requires property.manage rather than broad
   assert.match(e2e, /propertyPerformanceResponse\(restrictedPage, roleCheckPropertyId\)/);
   assert.match(e2e, /propertyPerformanceResponse\(page, roleCheckPropertyId\)/);
 });
+
+test("trash server functions require a dedicated owner/manager permission matching navigation", () => {
+  const properties = source("src/lib/properties.ts");
+  const adminUi = source("src/components/hirmand/_admin_impl.tsx");
+  const listStart = properties.indexOf("export const listAdminTrashProperties");
+  const restoreStart = properties.indexOf("export const restoreDeletedProperty", listStart);
+  const permanentStart = properties.indexOf("export const permanentlyDeleteProperty", restoreStart);
+  const schedulesStart = properties.indexOf("export const listAdminPropertySchedules", permanentStart);
+  const list = properties.slice(listStart, restoreStart);
+  const restore = properties.slice(restoreStart, permanentStart);
+  const permanent = properties.slice(permanentStart, schedulesStart);
+  assert.match(list, /requireAdminPermission\("trash\.manage"\)/);
+  assert.match(restore, /requireAdminPermission\("trash\.manage"\)/);
+  assert.match(permanent, /requireAdminPermission\("trash\.manage"\)/);
+  assert.match(adminUi, /if \(adminRole === "owner" \|\| adminRole === "manager"\) return navItems/);
+  const salesNav = adminUi.match(/if \(adminRole === "sales"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const contentNav = adminUi.match(/if \(adminRole === "content"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const staffNav = adminUi.match(/if \(adminRole === "staff"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const viewerNav = adminUi.match(/return navItems\.filter\(\(item\) => item\.view === "dashboard" \|\| item\.view === "managementReport"\)/)?.[0] ?? "";
+  assert.doesNotMatch(salesNav, /"trash"/);
+  assert.doesNotMatch(contentNav, /"trash"/);
+  assert.doesNotMatch(staffNav, /"trash"/);
+  assert.doesNotMatch(viewerNav, /"trash"/);
+});
