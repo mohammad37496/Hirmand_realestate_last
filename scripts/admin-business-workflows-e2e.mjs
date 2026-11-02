@@ -196,11 +196,6 @@ try {
     data: { action: "login", adminKey },
   });
   if (!login.ok()) throw new Error("Admin session login failed: HTTP " + login.status());
-  const ownerManagementReport = await context.request.get(baseUrl + "/api/admin-management-report?days=30");
-  if (!ownerManagementReport.ok() || (await ownerManagementReport.json()).finance === null) {
-    throw new Error("Owner role must retain finance and deal access in management reports.");
-  }
-
   // Exercise the real account-login/session path with a temporary sales role.
   salesAccountId = randomUUID();
   const salesUsername = "qa-sales-" + randomUUID();
@@ -505,6 +500,11 @@ try {
   const page = await context.newPage();
   await page.goto(baseUrl + "/admin", { waitUntil: "domcontentloaded", timeout: 45000 });
   await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => undefined);
+  const ownerManagementReport = await managementReportResponse(page);
+  const ownerManagementReportData = JSON.parse(ownerManagementReport.bodyText);
+  if (ownerManagementReport.status !== 200 || ownerManagementReportData.finance === null) {
+    throw new Error("Owner role must retain finance and deal access in management reports; received HTTP " + ownerManagementReport.status + " with payload " + ownerManagementReport.bodyText.slice(0, 500));
+  }
   const ownerTargetsResponse = await consultantTargetsResponse(page);
   if (ownerTargetsResponse.status !== 200) {
     throw new Error("Owner role must be able to read consultant targets; received HTTP " + ownerTargetsResponse.status);
