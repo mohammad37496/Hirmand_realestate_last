@@ -25,8 +25,9 @@ export async function listOpenHouseAdminData(
     [propertyId],
   );
 
-  // RSVP rows contain names, phone numbers and free-form customer notes.
-  // Do not even query this table for property managers without lead.manage.
+  // The schedule query above uses only aggregate seat counts. Row-level RSVP
+  // records contain names, phone numbers and free-form notes; never select
+  // those details without lead.manage.
   const rsvps = includeRsvps
     ? await sql.query<Record<string, unknown>>(
         `select r.id,r.open_house_id,r.name,r.phone,r.party_size,r.note,r.status,r.created_at
