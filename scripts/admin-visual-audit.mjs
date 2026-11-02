@@ -9,7 +9,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { chromium } from "playwright";
-import { installAdminApiStubs } from "./admin-fixtures.mjs";
+import { installAdminApiStubs, unshapedFallbacks } from "./admin-fixtures.mjs";
 
 const BASE = process.env.QA_BASE_URL || "http://127.0.0.1:8080";
 const KEY = process.env.HIRMAND_ADMIN_KEY || "";
@@ -122,24 +122,22 @@ async function activate(locator, options = {}) {
   return touchInputMode ? locator.tap(options) : locator.click(options);
 }
 
-const ALIASES = {
-  dashboard: ["داشبورد"],
-  list: ["فایل‌های ملک", "فهرست"],
-  leads: ["درخواست‌ها"],
-  consultants: ["مشاوران"],
-  partners: ["همکاران"],
-  music: ["موسیقی"],
-  attendance: ["حضور و غیاب"],
-  divar: ["فایل‌های دیوار"],
-  form: ["فایل جدید"],
-};
-
 const AUDIT = () => {
   const parse = (value) => {
     const match = String(value).match(/rgba?\(([^)]+)\)/);
-    if (!match) return null;
-    const parts = match[1].split(",").map((part) => Number(part.trim()));
-    return { r: parts[0], g: parts[1], b: parts[2], a: parts[3] === undefined ? 1 : parts[3] };
+    if (match) {
+      const parts = match[1].split(",").map((part) => Number(part.trim()));
+      return { r: parts[0], g: parts[1], b: parts[2], a: parts[3] === undefined ? 1 : parts[3] };
+    }
+    const hex = String(value).match(/^#([\da-f]{3}|[\da-f]{6})$/i);
+    if (!hex) return null;
+    const digits = hex[1].length === 3 ? hex[1].split("").map((part) => part + part).join("") : hex[1];
+    return {
+      r: Number.parseInt(digits.slice(0, 2), 16),
+      g: Number.parseInt(digits.slice(2, 4), 16),
+      b: Number.parseInt(digits.slice(4, 6), 16),
+      a: 1,
+    };
   };
 
   const luminance = ({ r, g, b }) => {
@@ -181,13 +179,20 @@ const AUDIT = () => {
   const gradientStop = (image) => {
     if (!image || image === "none") return null;
     if (!/gradient/i.test(image)) return null;
-    const matches = image.match(/rgba?\([^)]+\)/g);
+    const matches = image.match(/rgba?\([^)]+\)|#[\da-f]{3,6}\b/gi);
     if (!matches) return null;
-    for (const candidate of matches) {
-      const color = parse(candidate);
-      if (color && color.a > 0.05) return color;
-    }
-    return null;
+    const colors = matches.map(parse).filter((color) => color && color.a >= 0.9);
+    if (!colors.length) return null;
+    // Pick the most opaque stop, not a translucent first-layer glow. Average
+    // equally opaque stops to approximate the middle of a multi-stop gradient.
+    const maxAlpha = Math.max(...colors.map((color) => color.a));
+    const opaque = colors.filter((color) => color.a >= maxAlpha - 0.01);
+    return {
+      r: opaque.reduce((sum, color) => sum + color.r, 0) / opaque.length,
+      g: opaque.reduce((sum, color) => sum + color.g, 0) / opaque.length,
+      b: opaque.reduce((sum, color) => sum + color.b, 0) / opaque.length,
+      a: maxAlpha,
+    };
   };
 
   const effectiveBackground = (element) => {
@@ -317,10 +322,15 @@ const AUDIT = () => {
   for (const element of Array.from(
     document.querySelectorAll("button, a[href], input:not([type=hidden]), select, textarea, [role=button]"),
   )) {
+    const controlName = (element.getAttribute("aria-label") || element.getAttribute("title") || element.textContent || "").trim();
+    if (element.closest(".leaflet-control-attribution, .maplibregl-ctrl-attrib") || /OpenStreetMap|MapLibre|Leaflet/i.test(controlName)) continue;
     const rect = element.getBoundingClientRect();
     if (rect.width < 2 || rect.height < 2) continue;
     const style = getComputedStyle(element);
     if (style.display === "none" || style.visibility === "hidden") continue;
+    // Clipped file inputs are intentionally activated through their visible
+    // dropzone/button; measuring their 1px accessibility proxy is misleading.
+    if (style.clipPath !== "none" || style.clip !== "auto") continue;
 
     const name =
       element.getAttribute("aria-label") ||
@@ -384,6 +394,26 @@ const AUDIT = () => {
       if (overlapX > 4 && overlapY > 4) {
         issues.overlaps.push({ a: a.name, b: b.name, overlapX: Math.round(overlapX), overlapY: Math.round(overlapY) });
       }
+    }
+  }
+
+  // The mobile topbar title and its action row are separate grid items. A
+  // broad `.admin-topbar > div` selector can accidentally place both in the
+  // same grid cell while the page still reports no horizontal overflow.
+  const topbarTitle = document.querySelector(".admin-topbar > div:not(.admin-topbar-actions)");
+  const topbarActions = document.querySelector(".admin-topbar-actions");
+  if (topbarTitle && topbarActions) {
+    const titleRect = topbarTitle.getBoundingClientRect();
+    const actionsRect = topbarActions.getBoundingClientRect();
+    const overlapX = Math.min(titleRect.right, actionsRect.right) - Math.max(titleRect.left, actionsRect.left);
+    const overlapY = Math.min(titleRect.bottom, actionsRect.bottom) - Math.max(titleRect.top, actionsRect.top);
+    if (overlapX > 4 && overlapY > 4) {
+      issues.overlaps.push({
+        a: "admin-topbar-title",
+        b: "admin-topbar-actions",
+        overlapX: Math.round(overlapX),
+        overlapY: Math.round(overlapY),
+      });
     }
   }
 
@@ -518,7 +548,27 @@ async function clickByLabel(page, selector, viewId) {
   return true;
 }
 
-const report = { base: BASE, at: new Date().toISOString(), views: [], overlays: [] };
+const viewports = [...parseViewports(), ...parseZooms()];
+const stubbedApiRoutes = new Set();
+const report = {
+  base: BASE,
+  at: new Date().toISOString(),
+  execution: {
+    keyProvided: Boolean(KEY),
+    apiMode: process.env.QA_STUB_ADMIN_APIS === "1" ? "shaped-fixtures" : "real-routes",
+    databaseMode: process.env.DATABASE_URL?.trim() ? "postgres" : process.env.PGLITE_DATA_DIR?.trim() ? "pglite" : "environment-default",
+    touchInputMode,
+    deviceScaleFactor,
+    viewports: viewports.map(({ id, width, height, zoom }) => ({ id, width, height, ...(zoom ? { zoom } : {}) })),
+  },
+  authentication: { attempts: [] },
+  stubbedApiRoutes: [],
+  views: [],
+  overlays: [],
+  runtimeErrors: [],
+  unshapedFallbacks: [],
+};
+unshapedFallbacks.clear();
 
 const launchOptions = {
   headless: true,
@@ -568,7 +618,7 @@ async function auditOpenOverlay(page, viewport, kind, open) {
   }
 }
 
-for (const viewport of [...parseViewports(), ...parseZooms()]) {
+for (const viewport of viewports) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     locale: "fa-IR",
@@ -577,7 +627,16 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
     isMobile: viewport.width <= 640,
   });
   const page = await context.newPage();
-  await installAdminApiStubs(page, BASE);
+  let activeView = "login";
+  page.on("pageerror", (error) => {
+    const message = String(error).slice(0, 400);
+    // Headless Chromium has no GPU; the map's WebGL context error is an
+    // environmental limitation, not an admin application runtime failure.
+    if (message.includes("Could not create a WebGL context")) return;
+    report.runtimeErrors.push({ viewport: viewport.id, view: activeView, message });
+  });
+  const installedApiStubs = await installAdminApiStubs(page, BASE);
+  installedApiStubs.forEach((route) => stubbedApiRoutes.add(route));
 
   await page.goto(`${BASE}/admin`, { waitUntil: "networkidle", timeout: 60_000 });
   await page.waitForTimeout(500);
@@ -586,8 +645,14 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
     await activate(page.locator('button[type="submit"]'));
     await page.waitForTimeout(2500);
   }
+  report.authentication.attempts.push({
+    viewport: viewport.id,
+    keyProvided: Boolean(KEY),
+    loginAccepted: !(await page.locator('input[type="password"]').count()),
+  });
 
   for (const view of selectedViews()) {
+    activeView = view.id;
     const mobile = viewport.width <= 900;
     if (mobile) {
       const trigger = page.locator(".admin-drawer-trigger");
@@ -725,6 +790,14 @@ for (const entry of report.views) {
     problems.push(`${tag}: ${item.a} overlaps ${item.b} by ${item.overlapX}x${item.overlapY}px`);
   }
 }
+for (const entry of report.runtimeErrors) {
+  problems.push(`${entry.viewport}/${entry.view}: runtime error ${entry.message}`);
+}
+report.unshapedFallbacks = [...unshapedFallbacks].sort();
+report.stubbedApiRoutes = [...stubbedApiRoutes].sort();
+for (const pathname of report.unshapedFallbacks) {
+  problems.push(`unshaped fallback: ${pathname}`);
+}
 
 console.log(`\n=== admin audit: ${report.views.length} view/viewport pairs ===`);
 if (problems.length === 0) console.log("no findings");
@@ -745,6 +818,8 @@ const blockingPatterns = [
   /outside the viewport/,
   /orphaned sticky bar/,
   /overlaps/,
+  /runtime error/,
+  /unshaped fallback/,
   /could not open the drawer/,
 ];
 const blockers = problems.filter((problem) => blockingPatterns.some((pattern) => pattern.test(problem)));

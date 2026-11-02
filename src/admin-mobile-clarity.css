@@ -1,8 +1,7 @@
 /* Hirmand Admin — mobile drawer legibility
-   The admin shell was designed around a dark desktop sidebar. On phones the same
-   nav markup is rendered inside a light drawer, so the original light-on-dark
-   nav colors become nearly invisible. Keep the desktop palette untouched and
-   remap only the mobile drawer controls to the light workspace tokens.
+   The drawer keeps the navy navigation surface while its brand and footer areas
+   remain light. Active/create controls stay gold-on-light; inactive labels are
+   light-on-navy at every mobile drawer width.
 */
 @media (max-width: 900px) {
   .admin-app .admin-drawer {
@@ -24,11 +23,11 @@
   }
 
   .admin-app .admin-drawer .admin-sidebar-nav {
-    background: linear-gradient(180deg, #ffffff 0%, #fbf8f2 100%);
+    background: linear-gradient(180deg, #081320 0%, #0b1a2b 100%) !important;
   }
 
   .admin-app .admin-drawer .admin-nav-btn {
-    color: #43515c !important;
+    color: #e4e8ed !important;
     background: transparent !important;
     border: 1px solid transparent !important;
     text-shadow: none !important;
@@ -37,7 +36,7 @@
   }
 
   .admin-app .admin-drawer .admin-nav-btn svg {
-    color: #687681 !important;
+    color: #c8d1da !important;
     opacity: 1 !important;
   }
 
@@ -64,6 +63,27 @@
   .admin-app .admin-drawer .admin-nav-btn.is-active svg {
     color: #8a5e14 !important;
     opacity: 1 !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn-create {
+    color: #7a5414 !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn-create .admin-nav-btn-label,
+  .admin-app .admin-drawer .admin-nav-btn-meta {
+    color: #7a5414 !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn-meta {
+    padding: 4px 8px !important;
+    border: 1px solid #ead8bd !important;
+    border-radius: 999px !important;
+    background: #f3e7ce !important;
+    font-weight: 800 !important;
+  }
+
+  .admin-app .admin-drawer .admin-sidebar-foot-label {
+    color: #59636e !important;
   }
 
   .admin-app .admin-drawer .admin-sidebar-foot {

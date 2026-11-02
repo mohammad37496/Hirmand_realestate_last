@@ -204,7 +204,7 @@ export function AdminAreaContentManager() {
       <div className="admin-area-layout">
         <aside className="admin-area-directory">
           <div className="admin-area-directory-head"><strong>فهرست محله‌ها</strong><span>{filteredAreas.length.toLocaleString("fa-IR")} نتیجه</span></div>
-          <label className="admin-area-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="جست‌وجوی نام محله…" /></label>
+          <label className="admin-area-search"><Search size={17} /><input aria-label="جست‌وجوی نام محله" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="جست‌وجوی نام محله…" /></label>
           <div className="admin-area-list">
             {filteredAreas.map((area) => (
               <button key={area.slug} type="button" className={"admin-area-list-item" + (selectedSlug === area.slug ? " is-active" : "")} onClick={() => selectArea(area)}>

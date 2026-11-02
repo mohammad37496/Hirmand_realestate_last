@@ -82,7 +82,7 @@ const CENTER_CSS = [
 ".admin-productivity-empty{padding:20px;text-align:center;color:var(--subtle);border:1px dashed var(--line-2);border-radius:var(--r-md)}",
 ".admin-productivity-notice{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--brass-300);background:var(--brass-100);border-radius:var(--r-md);color:var(--navy-900)}",
 ".admin-productivity-notice strong{display:block;font-size:.78rem}.admin-productivity-notice span{display:block;margin-top:3px;color:var(--muted);font-size:.68rem;line-height:1.8}",
-"@media (max-width:1000px){.admin-productivity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-productivity-panels{grid-template-columns:1fr}}",
+"@media (max-width:1100px){.admin-productivity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-productivity-panels{grid-template-columns:1fr}.admin-productivity-form{grid-template-columns:repeat(2,minmax(0,1fr))}}",
 "@media (max-width:700px){.admin-productivity-grid{grid-template-columns:1fr 1fr}.admin-productivity-form{grid-template-columns:1fr}.admin-productivity-task{grid-template-columns:auto minmax(0,1fr)}.admin-productivity-actions{grid-column:1/-1;justify-content:flex-start}.admin-productivity-health-row{grid-template-columns:minmax(0,1fr) auto}.admin-productivity-health-row a{grid-column:1/-1;justify-self:start}}",
 "@media (max-width:460px){.admin-productivity-grid{grid-template-columns:1fr}}",
 ].join("\n");

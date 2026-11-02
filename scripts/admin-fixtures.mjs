@@ -621,6 +621,109 @@ export const stubAdminApi = {
     });
   },
 
+  "**/api/admin-lead-assignment": async (route) => {
+    let body = {};
+    try {
+      body = route.request().postDataJSON() ?? {};
+    } catch {
+      body = {};
+    }
+    if (body.action === "assign") {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
+    }
+    const consultant = { name: "مشاور نمونه", phone: "09120000001", activeLeads: 8, overdue: 1, viewingRequests: 3, score: 82 };
+    const alternatives = [{ name: "مشاور دوم", phone: "09120000002", score: 76 }];
+    const recommendations = buildLeads(3).map((lead) => ({
+      lead: { id: lead.id, name: lead.name, phone: lead.phone, deal: lead.deal, propertyType: lead.propertyType, neighborhood: lead.neighborhood, createdAt: lead.createdAt },
+      suggested: { name: consultant.name, phone: consultant.phone, score: consultant.score },
+      alternatives,
+    }));
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ available: true, consultants: [consultant], recommendations }),
+    });
+  },
+
+  "**/api/admin-lead-segments": async (route) => {
+    let body = {};
+    try {
+      body = route.request().postDataJSON() ?? {};
+    } catch {
+      body = {};
+    }
+    if (body.action === "list") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ segments: [{ id: "segment-hot-rent", title: "لیدهای مهم رهن اصفهان", query: "اصفهان", status: "all", sort: "recent", matchCount: 12 }] }),
+      });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
+  },
+
+  "**/api/admin-action-center": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, items: [], summary: { urgent: 0, high: 0, total: 0 } }) }),
+
+  "**/api/admin-agenda": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, overdueFollowUps: [], upcomingVisits: [], upcomingCallbacks: [] }) }),
+
+  "**/api/admin-backup**": async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("mode") === "verify") {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ verifiedAt: new Date().toISOString(), coreReady: true, tables: [] }) });
+    }
+    if (url.searchParams.get("mode") === "history") {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ backups: [] }) });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ deleted: 0, success: true }) });
+  },
+
+  "**/api/admin-consultant-performance**": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, consultants: [] }) }),
+
+  "**/api/admin-consultant-targets": async (route) => {
+    let body = {};
+    try { body = route.request().postDataJSON() ?? {}; } catch { body = {}; }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body.action === "list" ? { available: true, rows: [] } : { success: true }) });
+  },
+
+  "**/api/admin-customer-chat**": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ conversations: [] }) }),
+
+  "**/api/admin-customer-property-submissions": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, submissions: [], total: 0, page: 1, pageSize: 25, counts: { pending: 0, approved: 0, rejected: 0 }, queueStats: { overdue: 0, highPriority: 0, unassigned: 0, averageAgeHours: 0, consultants: [] } }) }),
+
+  "**/api/admin-data-health": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, findings: [], summary: { critical: 0, warning: 0, info: 0, open: 0 } }) }),
+
+  "**/api/admin-deals": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ deals: [], leads: [], properties: [], stats: { total: 0, negotiation: 0, contracted: 0, completed: 0, volume: 0, commissions: 0 } }) }),
+
+  "**/api/admin-finance": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ transactions: [], summary: { income: 0, expense: 0, balance: 0 } }) }),
+
+  "**/api/admin-finance-insights": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, months: [], categories: [], consultants: [], outstanding: 0 }) }),
+
+  "**/api/admin-lead-dedupe": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, groups: [], total: 0 }) }),
+
+  "**/api/admin-match": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ leads: [] }) }),
+
+  "**/api/admin-message-templates": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, templates: [] }) }),
+
+  "**/api/admin-owners": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, owners: [] }) }),
+
+  "**/api/admin-property-expiry": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, expired: [], soon: [], review: [] }) }),
+
+  "**/api/property-reports": async (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ openCount: 0, reports: [] }) }),
+
   "**/api/music-admin": async (route) =>
     route.fulfill({
       status: 200,
@@ -834,10 +937,21 @@ export function buildLeads(count) {
     budgetSaleMin: null,
     budgetSaleMax: null,
     requestedBedrooms: 3,
+    requestedAreaMin: index % 2 ? 90 : null,
+    requestedAreaMax: index % 2 ? 130 : null,
     budgetEquivalent: 524_000_000_000,
     budgetBedrooms: 2,
     budgetRate: 10000000,
     matchCount: 3,
+    propertyId: null,
+    callbackPreferredAt: null,
+    offerAmount: null,
+    offerConditions: "",
+    visitPreferredAt: index % 4 === 0 ? new Date(now + (index + 1) * 86_400_000).toISOString() : null,
+    visitRequestedAt: index % 4 === 0 ? new Date(now - index * 3_600_000).toISOString() : null,
+    visitStatus: index % 4 === 0 ? (index % 8 === 0 ? "confirmed" : "requested") : "none",
+    priorityScore: 90 - (index % 40),
+    priority: ["hot", "warm", "cold"][index % 3],
     matchedProperties: [
       {
         slug: "sample-one",
