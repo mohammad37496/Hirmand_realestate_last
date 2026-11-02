@@ -2,7 +2,10 @@
 export const ARCHIVE_EXPIRED_PROPERTIES_SQL = `
   with archived as (
     update properties
-    set status='archived', updated_at=current_timestamp
+    set status='archived',
+        featured=false,
+        featured_until=null,
+        updated_at=current_timestamp
     where deleted_at is null
       and status='published'
       and unpublish_at is not null
