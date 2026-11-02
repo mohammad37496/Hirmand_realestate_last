@@ -4,6 +4,23 @@ import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { emptyAdminManagementReport } from "./admin-management-report-contract.ts";
 import { MANAGEMENT_REPORT_DEALS_SQL, MANAGEMENT_REPORT_TOP_CONSULTANTS_SQL } from "./admin-management-report-sql.ts";
+import { queryIfAllowed } from "./admin-query-access.ts";
+import { hasAdminPermission } from "./admin-roles.ts";
+
+test("management report permissions separate general reports, deals and finance", () => {
+  for (const role of ["content", "viewer"] as const) {
+    assert.equal(hasAdminPermission(role, "reports.view"), true);
+    assert.equal(hasAdminPermission(role, "deal.manage"), false);
+    assert.equal(hasAdminPermission(role, "finance.manage"), false);
+  }
+  assert.equal(hasAdminPermission("sales", "reports.view"), true);
+  assert.equal(hasAdminPermission("sales", "deal.manage"), true);
+  assert.equal(hasAdminPermission("sales", "finance.manage"), false);
+  for (const role of ["owner", "manager"] as const) {
+    assert.equal(hasAdminPermission(role, "deal.manage"), true);
+    assert.equal(hasAdminPermission(role, "finance.manage"), true);
+  }
+});
 
 test("unconfigured management report keeps every field the report UI and CSV consume", () => {
   const report = emptyAdminManagementReport(90);
@@ -26,6 +43,13 @@ test("the report route parses the requested range then fails closed when the dat
   assert.ok(route.includes("statusCode: 503"));
   assert.match(route, /MANAGEMENT_REPORT_DEALS_SQL/);
   assert.match(route, /MANAGEMENT_REPORT_TOP_CONSULTANTS_SQL/);
+  const permissionIndex = route.indexOf('const financeAllowed = hasAdminPermission(role, "finance.manage")');
+  const sqlIndex = route.indexOf("const sql=await getSql()");
+  assert.ok(permissionIndex >= 0 && sqlIndex > permissionIndex, "underlying report permissions must be resolved before report queries");
+  assert.match(route, /queryIfAllowed\(financeAllowed,[\s\S]*?finance_transactions/);
+  assert.match(route, /queryIfAllowed\(dealsAllowed,[\s\S]*?MANAGEMENT_REPORT_DEALS_SQL/);
+  assert.match(route, /queryIfAllowed\(dealsAllowed,[\s\S]*?MANAGEMENT_REPORT_TOP_CONSULTANTS_SQL/);
+  assert.doesNotMatch(route, /dealsAllowed \? MANAGEMENT_REPORT_DEALS_SQL/);
 });
 
 test("management report excludes cancelled deals from business volume, commission and consultant ranking", async () => {
@@ -76,6 +100,16 @@ test("management report excludes cancelled deals from business volume, commissio
   } finally {
     await db.close();
   }
+});
+
+test("roles without deal permission never invoke the admin_deals report query", async () => {
+  let queryCount = 0;
+  const result = await queryIfAllowed(false, async () => {
+    queryCount += 1;
+    return [{ created: 99, volume: "9000000", commission: "900000" }];
+  }, [] as Array<{ created: number; volume: string; commission: string }>);
+  assert.deepEqual(result, []);
+  assert.equal(queryCount, 0);
 });
 
 test("management report UI rejects unavailable payloads and never keeps stale period data", () => {

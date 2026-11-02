@@ -146,6 +146,34 @@ const ownerExportResponse = (page) => rawAdminPost(page, "/api/admin/properties-
 const customerSubmissionResponse = (page, action = "list") =>
   rawAdminPost(page, "/api/admin-customer-property-submissions", { action, id: "qa-owner-directory-denied" });
 const productivitySummaryResponse = (page) => rawAdminPost(page, "/api/admin-productivity", { action: "summary" });
+const managementReportResponse = (page) => page.evaluate(async () => {
+  const response = await fetch("/api/admin-management-report?days=30", { credentials: "same-origin" });
+  return { status: response.status, bodyText: await response.text() };
+});
+const dashboardResponse = (page) => rawAdminPost(page, "/api/admin-dashboard", {});
+
+async function responseWhileSensitiveTableLocked(page, role, tableName, request) {
+  await client.query("begin");
+  let response;
+  try {
+    await client.query(`lock table ${tableName} in access exclusive mode`);
+    let timeoutId;
+    try {
+      response = await Promise.race([
+        request(page),
+        new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error(role + " report request queried restricted table " + tableName + " before permission filtering.")), 3000);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } finally {
+    await client.query("rollback");
+  }
+  if (response.status !== 200) throw new Error(role + " report request should remain available without querying restricted table " + tableName + "; received HTTP " + response.status + ".");
+  return response;
+}
 
 try {
   client = await pool.connect();
@@ -168,6 +196,10 @@ try {
     data: { action: "login", adminKey },
   });
   if (!login.ok()) throw new Error("Admin session login failed: HTTP " + login.status());
+  const ownerManagementReport = await context.request.get(baseUrl + "/api/admin-management-report?days=30");
+  if (!ownerManagementReport.ok() || (await ownerManagementReport.json()).finance === null) {
+    throw new Error("Owner role must retain finance and deal access in management reports.");
+  }
 
   // Exercise the real account-login/session path with a temporary sales role.
   salesAccountId = randomUUID();
@@ -198,6 +230,11 @@ try {
   const salesPropertyPerformance = await propertyPerformanceResponse(salesPage, roleCheckPropertyId);
   if (salesPropertyPerformance.status !== 200) {
     throw new Error("Sales role must be able to read property performance; received HTTP " + salesPropertyPerformance.status);
+  }
+  const salesDashboard = await dashboardResponse(salesPage);
+  const salesDashboardData = JSON.parse(salesDashboard.bodyText);
+  if (salesDashboard.status !== 200 || !Array.isArray(salesDashboardData.recentLeads) || !Array.isArray(salesDashboardData.consultantPerformance)) {
+    throw new Error("Sales role with lead.manage must retain the CRM dashboard detail collections.");
   }
 
   const ownerSensitiveSnapshot = async () => {
@@ -271,6 +308,14 @@ try {
   const salesProductivitySummary = await productivitySummaryResponse(salesPage);
   if (salesProductivitySummary.status !== 200 || salesProductivitySummary.bodyText.includes(ownerFixtureMarker) || salesProductivitySummary.bodyText.includes(ownerFixturePhone)) {
     throw new Error("Sales productivity summary must omit private duplicate-owner groups and phone numbers.");
+  }
+  const salesManagementReport = await responseWhileSensitiveTableLocked(salesPage, "sales", "finance_transactions", managementReportResponse);
+  const salesManagementReportData = JSON.parse(salesManagementReport.bodyText);
+  if (salesManagementReportData.finance !== null) {
+    throw new Error("Sales management report must not query or return finance totals without finance.manage.");
+  }
+  if (typeof salesManagementReportData.deals?.created !== "number" || salesManagementReportData.deals?.volume === undefined) {
+    throw new Error("Sales management report should retain the permitted deal summary without finance totals.");
   }
   const salesPropertyTitleRows = await client.query("select title from properties where id=$1", [roleCheckPropertyId]);
   await salesPage.locator(".admin-sidebar .admin-sidebar-nav").getByRole("button", { name: "فایل‌های ملک" }).click();
@@ -350,6 +395,10 @@ try {
   if (managerOwnerDirectory.status !== 200 || !managerOwnerDirectory.bodyText.includes(ownerFixtureMarker)) {
     throw new Error("Manager role must be able to read the authorized owner directory, including its fixture owner.");
   }
+  const managerManagementReport = await managementReportResponse(managerPage);
+  if (managerManagementReport.status !== 200 || JSON.parse(managerManagementReport.bodyText).finance === null) {
+    throw new Error("Manager role must retain finance access in management reports.");
+  }
   const managerOwnerExport = await ownerExportResponse(managerPage);
   if (managerOwnerExport.status !== 200 || !managerOwnerExport.bodyText.includes(ownerFixtureMarker)) {
     throw new Error("Manager property export must include owner fields after owner-directory authorization.");
@@ -387,6 +436,27 @@ try {
       throw new Error(role + " role received private property or lead performance data in a denied response.");
     }
     await ownerDirectoryDeniedBeforeSensitiveQuery(restrictedPage, role);
+    if (role === "content" || role === "viewer") {
+      const restrictedManagementReport = await responseWhileSensitiveTableLocked(restrictedPage, role, "finance_transactions", managementReportResponse);
+      const restrictedDealReport = await responseWhileSensitiveTableLocked(restrictedPage, role, "admin_deals", managementReportResponse);
+      const restrictedManagementReportData = JSON.parse(restrictedManagementReport.bodyText);
+      const restrictedDealReportData = JSON.parse(restrictedDealReport.bodyText);
+      if (restrictedManagementReportData.finance !== null || restrictedDealReportData.deals?.created !== 0 || restrictedDealReportData.deals?.completed !== 0 || restrictedDealReportData.deals?.contracted !== 0 || restrictedDealReportData.deals?.volume !== 0 || restrictedDealReportData.deals?.commission !== 0 || restrictedDealReportData.topConsultants?.length !== 0) {
+        throw new Error(role + " report must not query or expose finance/deal details without their underlying permissions.");
+      }
+      const restrictedDashboard = await dashboardResponse(restrictedPage);
+      if (restrictedDashboard.status !== 200) throw new Error(role + " report dashboard should remain available; received HTTP " + restrictedDashboard.status);
+      const restrictedDashboardData = JSON.parse(restrictedDashboard.bodyText);
+      if (restrictedDashboardData.recentLeads?.length !== 0 || restrictedDashboardData.consultantPerformance?.length !== 0 || restrictedDashboardData.consultantPerformance?.some((item) => item.phone) || restrictedDashboardData.consultants?.withFiles !== null) {
+        throw new Error(role + " dashboard queried or returned private lead/consultant performance or phone details without lead.manage.");
+      }
+      if (await restrictedPage.getByRole("heading", { name: "آخرین درخواست‌ها" }).count() !== 0) {
+        throw new Error(role + " dashboard rendered the private recent-leads section without lead.manage.");
+      }
+    } else {
+      const staffManagementReport = await managementReportResponse(restrictedPage);
+      if (staffManagementReport.status !== 403) throw new Error("Staff role must be denied management reports without reports.view.");
+    }
     const ownerExport = await ownerExportResponse(restrictedPage);
     const expectedOwnerExportStatus = role === "content" ? 200 : 403;
     if (ownerExport.status !== expectedOwnerExportStatus) {

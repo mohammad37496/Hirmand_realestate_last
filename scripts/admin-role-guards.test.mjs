@@ -178,6 +178,12 @@ test("owner directory API requires its dedicated permission before reading the r
   assert.match(e2e, /ownerDirectoryDeniedBeforeSensitiveQuery/);
   assert.match(e2e, /lock table customer_property_submissions in access exclusive mode/);
   assert.match(e2e, /customerSubmissionDeniedBeforeSensitiveQuery/);
+  assert.match(e2e, /responseWhileSensitiveTableLocked/);
+  assert.match(e2e, /finance_transactions/);
+  assert.match(e2e, /admin_deals/);
+  assert.match(e2e, /restrictedDashboardData\.recentLeads/);
+  assert.match(e2e, /restrictedDashboardData\.consultantPerformance\?\.length !== 0/);
+  assert.match(e2e, /salesManagementReportData\.finance !== null/);
   assert.match(e2e, /salesPropertySearch\.fill\(ownerFixturePhone\)/);
   assert.match(e2e, /if \(role === "content"\)[\s\S]*?propertySearch\.fill\(ownerFixturePhone\)/);
   assert.match(e2e, /Owner-directory E2E fixture private fields were not restored/);

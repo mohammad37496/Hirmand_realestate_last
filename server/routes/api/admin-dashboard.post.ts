@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { queryIfAllowed } from "@/lib/admin-query-access";
 import { ADMIN_DASHBOARD_PROPERTY_STATS_SQL, ADMIN_DASHBOARD_PROPERTY_TYPES_SQL } from "@/lib/admin-dashboard-property-stats";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
@@ -89,12 +90,12 @@ export default defineEventHandler(async (event) => {
         coalesce(sum(size_bytes), 0)::bigint as size_bytes
        from music_tracks
     `),
-    sql.query<Record<string, unknown>>(`
+    queryIfAllowed(canViewLeadDetails, () => sql.query<Record<string, unknown>>(`
       select id, name, phone, deal, neighborhood, status, created_at
       from leads
       order by created_at desc
       limit 6
-    `),
+    `), [] as Record<string, unknown>[]),
     sql.query<Record<string, unknown>>(`
       select
         count(*) filter (
@@ -223,29 +224,42 @@ export default defineEventHandler(async (event) => {
       unavailableSections.add("followUps");
       return [{}];
     }),
-    sql.query<Record<string, unknown>>(
-      `select
-        (select count(*)::int from consultants) as total,
-        (select count(*)::int from consultants where is_active = true) as active,
-        (
-          select count(*)::int
-          from (
-            select contact_name, contact_phone
-            from properties
-            where coalesce(trim(contact_name), '') <> ''
-              and deleted_at is null
-            group by contact_name, contact_phone
-          ) assigned
-          inner join consultants c
-            on lower(c.name) = lower(assigned.contact_name)
-            and c.phone = assigned.contact_phone
-        ) as consultants_with_files,
-        (
-          select count(distinct lower(coalesce(consultant, '')))::int
-          from leads
-          where coalesce(trim(consultant), '') <> ''
-        ) as consultants_with_leads
-    `).catch((error) => {
+    (canViewLeadDetails
+      ? sql.query<Record<string, unknown>>(
+          `select
+            (select count(*)::int from consultants) as total,
+            (select count(*)::int from consultants where is_active = true) as active,
+            (
+              select count(*)::int
+              from (
+                select contact_name, contact_phone
+                from properties
+                where coalesce(trim(contact_name), '') <> ''
+                  and deleted_at is null
+                group by contact_name, contact_phone
+              ) assigned
+              inner join consultants c
+                on lower(c.name) = lower(assigned.contact_name)
+                and c.phone = assigned.contact_phone
+            ) as consultants_with_files,
+            (
+              select count(distinct lower(coalesce(consultant, '')))::int
+              from leads
+              where coalesce(trim(consultant), '') <> ''
+            ) as consultants_with_leads
+          `)
+      : sql.query<Record<string, unknown>>(
+          `select
+            (select count(*)::int from consultants) as total,
+            (select count(*)::int from consultants where is_active = true) as active,
+            null::int as consultants_with_files,
+            (
+              select count(distinct lower(coalesce(consultant, '')))::int
+              from leads
+              where coalesce(trim(consultant), '') <> ''
+            ) as consultants_with_leads
+          `)
+    ).catch((error) => {
       console.error("[admin-dashboard] consultant stats unavailable", error);
       unavailableSections.add("consultants");
       return [{}];
@@ -271,7 +285,7 @@ export default defineEventHandler(async (event) => {
       unavailableSections.add("leadSla");
       return [{}];
     }),
-    sql.query<Record<string, unknown>>(
+    queryIfAllowed(canViewLeadDetails, () => sql.query<Record<string, unknown>>(
       `with file_stats as (
          select lower(trim(contact_name)) as key,
                 count(*) filter (where status = 'published')::int as files
@@ -320,7 +334,7 @@ export default defineEventHandler(async (event) => {
       console.error("[admin-dashboard] consultant performance unavailable", error);
       unavailableSections.add("consultantPerformance");
       return [] as Record<string, unknown>[];
-    }),
+    }), [] as Record<string, unknown>[]),
   ]);
   const p = propertyStats[0] ?? {};
   const l = leadStats[0] ?? {};
@@ -344,7 +358,7 @@ export default defineEventHandler(async (event) => {
     consultants: {
       total: Number(c.total) || 0,
       active: Number(c.active) || 0,
-      withFiles: Number(c.consultants_with_files) || 0,
+      withFiles: c.consultants_with_files == null ? null : Number(c.consultants_with_files) || 0,
       withLeads: Number(c.consultants_with_leads) || 0,
     },
     leads: {
