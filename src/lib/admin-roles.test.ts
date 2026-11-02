@@ -43,3 +43,12 @@ test("trash listing, restore and permanent deletion are limited to owner and man
   assert.equal(hasAdminPermission("staff", "trash.manage"), false);
   assert.equal(hasAdminPermission("viewer", "trash.manage"), false);
 });
+
+test("property schedule listing and updates are limited to owner and manager", () => {
+  assert.equal(hasAdminPermission("owner", "schedule.manage"), true);
+  assert.equal(hasAdminPermission("manager", "schedule.manage"), true);
+  assert.equal(hasAdminPermission("sales", "schedule.manage"), false);
+  assert.equal(hasAdminPermission("content", "schedule.manage"), false);
+  assert.equal(hasAdminPermission("staff", "schedule.manage"), false);
+  assert.equal(hasAdminPermission("viewer", "schedule.manage"), false);
+});
