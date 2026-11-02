@@ -33,6 +33,7 @@ const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const musicPlayerCss = fs.readFileSync(new URL("../src/music-player.css", import.meta.url), "utf8");
+const siteMobileTouchContractCss = fs.readFileSync(new URL("../src/site-mobile-touch-contract.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
 const propertiesHirmandSignatureCss = fs.readFileSync(new URL("../src/properties-hirmand-signature.css", import.meta.url), "utf8");
 const propertiesMobileReferenceCss = fs.readFileSync(new URL("../src/properties-mobile-reference.css", import.meta.url), "utf8");
@@ -42,6 +43,8 @@ const propertyDetailLuxuryCss = fs.readFileSync(new URL("../src/property-detail-
 const propertyExperienceRedesignCss = fs.readFileSync(new URL("../src/property-experience-redesign.css", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
+const localBrowserHarness = fs.readFileSync(new URL("./property-card-local-browser.test.mjs", import.meta.url), "utf8");
+const adminVisualAudit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
 const propertyDetailViewSource = fs.readFileSync(new URL("../src/components/hirmand/property-detail-view.tsx", import.meta.url), "utf8");
 const propertyQuestionLogSource = fs.readFileSync(new URL("../src/components/hirmand/property-question-log.tsx", import.meta.url), "utf8");
 const propertyShowcaseSource = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
@@ -131,8 +134,8 @@ testRunner.test("property marketplace mobile controls retain working search, fil
     "the browser smoke must detect a root width that leaves a blank strip beside the mobile viewport");
   assert.match(responsiveSmoke, /mobileMarketplace\.activeViewIndex\s*!==\s*0\s*\|\|\s*mobileMarketplace\.hasMap/,
     "the browser smoke must verify that the initial mobile state shows listings rather than the map");
-  assert.match(responsiveSmoke, /viewButtons\.nth\(2\)\.click\(\)[\s\S]*?viewButtons\.nth\(0\)\.click\(\)/,
-    "the browser smoke must exercise map-to-list mode switching");
+  assert.match(responsiveSmoke, /activate\(viewButtons\.nth\(2\)\)[\s\S]*?activate\(viewButtons\.nth\(0\)\)/,
+    "the browser smoke must exercise map-to-list mode switching with the active pointer input");
   assert.match(responsiveSmoke, /buttons\.length === 3 && buttons\[0\]\?\.getAttribute\("aria-pressed"\) === "true"/,
     "the browser smoke must wait for React hydration and the mobile default before clicking view controls");
   assert.match(responsiveSmoke, /card\.actionsBounds\.top < card\.mediaBounds\.bottom && card\.actionsBounds\.bottom > card\.mediaBounds\.top/,
@@ -530,7 +533,7 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
 });
 
 
-testRunner.test("responsive guardrails load before the scoped final music-player layer", () => {
+testRunner.test("responsive guardrails and the shared touch contract load after scoped page layers", () => {
   const stylesheetLinks = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: (\w+) \}/g)]
     .map((match) => match[1]);
   assert.equal(
@@ -539,20 +542,22 @@ testRunner.test("responsive guardrails load before the scoped final music-player
     "the responsive guardrail stylesheet must load before the page-scoped mobile reference layer",
   );
   assert.equal(
-    stylesheetLinks.at(-2),
+    stylesheetLinks.at(-3),
     "propertiesMobileReferenceCss",
-    "the dedicated mobile listing layer must remain immediately before the scoped music-player layer",
+    "the dedicated mobile listing layer must remain after the responsive guardrail layer",
   );
   assert.equal(
-    stylesheetLinks.at(-3),
+    stylesheetLinks.at(-4),
     "responsiveHardeningCss",
     "the responsive guardrail stylesheet must remain after the general-purpose page layers",
   );
   assert.equal(
-    stylesheetLinks.at(-1),
+    stylesheetLinks.at(-2),
     "musicPlayerCss",
-    "the player-only final layer must load last to correct the dock without undoing other responsive guardrails",
+    "the player layer must load before the final touch contract so its own controls can retain their dedicated sizing",
   );
+  assert.equal(stylesheetLinks.at(-1), "siteMobileTouchContractCss",
+    "the shared touch contract must load last to win over conflicting route-specific button and input sizes");
   assert.match(rootRoute, /import musicPlayerCss from "\.\.\/music-player\.css\?url";/);
 });
 
@@ -595,7 +600,7 @@ testRunner.test("responsive browser smoke covers the required viewport matrix", 
     .map((match) => [Number(match[1]), Number(match[2])]);
   const required = [
     [320, 568], [360, 640], [375, 667], [390, 844],
-    [412, 652], [412, 732], [430, 932],
+    [412, 652], [412, 732], [414, 896], [430, 932],
     [768, 1024], [1024, 768],
     [1280, 900], [1440, 900], [1920, 1080],
   ];
@@ -608,6 +613,74 @@ testRunner.test("responsive browser smoke covers the required viewport matrix", 
   assert.match(responsiveSmoke, /await page\.setViewportSize\(\{ width, height \}\)/);
   assert.match(responsiveSmoke, /viewportMatrix\.length/);
   assert.ok(responsiveSmoke.includes("`${routeFileName(route)}-${width}x${height}.png`"));
+  assert.match(responsiveSmoke, /const fullRoutesMode = process\.env\.RESPONSIVE_SMOKE_FULL_ROUTES === "1"/,
+    "the responsive smoke must allow the complete route list to run in the J7 Pro profile");
+  assert.match(responsiveSmoke, /!fullRoutesMode && \(j7ProMode/,
+    "the full-site J7 Pro run must not silently reduce coverage to the homepage and listing page");
+  assert.match(responsiveSmoke, /const galleryHydrated = await page\.waitForFunction/,
+    "gallery interactions must wait for React hydration before testing touch and mouse input");
+  assert.match(responsiveSmoke, /"--disable-extensions"/,
+    "browser extensions must not mutate server markup before hydration in the smoke environment");
+  assert.match(responsiveSmoke, /async function activate\(locator, options = \{\}\)[\s\S]*?locator\.tap\(options\)/,
+    "mobile browser interactions must use real touch taps instead of mouse clicks");
+  assert.match(responsiveSmoke, /hydrationErrors[\s\S]*?React hydration mismatch/,
+    "React hydration mismatches must fail responsive QA rather than remain console-only diagnostics");
+  assert.match(responsiveSmoke, /notFoundResponses[\s\S]*?same-origin resources returned HTTP 404/,
+    "same-origin 404 responses must be diagnosed and fail responsive QA");
+  assert.match(responsiveSmoke, /route === "\/request-property"[\s\S]*?inquiry-tracking-success[\s\S]*?trackingToken/,
+    "the real inquiry form must cover validation and a successful local Nitro submission");
+  assert.match(responsiveSmoke, /route === "\/submit-property"[\s\S]*?customer-property-error/,
+    "the owner submission form must expose its required-field error state without writing data");
+  assert.match(responsiveSmoke, /route === "\/valuation"[\s\S]*?valuation-error/,
+    "the valuation form must expose its invalid-area validation state");
+});
+
+testRunner.test("full-site browser QA has repeatable local and Galaxy J7 Pro entry points", () => {
+  assert.match(packageJson, /"test:site-responsive":\s*"node scripts\/property-card-local-browser\.test\.mjs site-responsive"/,
+    "all routes must be testable with the complete responsive viewport matrix and isolated local fixtures");
+  assert.match(packageJson, /"test:site-j7-pro":\s*"node scripts\/property-card-local-browser\.test\.mjs site-j7-pro"/,
+    "all routes must be testable in the Galaxy J7 Pro device profile");
+  assert.match(localBrowserHarness, /BROWSER_SMOKE_PROPERTY_ID: "pcard-fixture-001"/,
+    "full-site browser QA must resolve a real isolated property detail fixture");
+  assert.match(localBrowserHarness, /BROWSER_SMOKE_PROPERTY_SLUG: "qa-apartment-long-title"/,
+    "the detail route must use the seeded local property slug");
+  assert.match(localBrowserHarness, /const nitroMode = fullSiteMode[\s\S]*?\.output", "server", "index\.mjs"[\s\S]*?PGLITE_DATA_DIR: dbDir[\s\S]*?NODE_ENV: nitroMode \? \(adminAuditMode \? "development" : "production"\)/,
+    "full-site QA must exercise real Nitro API routes against the isolated migrated PGlite database, not Vite's API-less dev server");
+  assert.match(localBrowserHarness, /adminOnlyMode[\s\S]*?admin-visual-audit\.mjs[\s\S]*?QA_STUB_ADMIN_APIS: "0"/,
+    "the admin dashboard visual sweep must run against the local Nitro API without substituting mocked responses");
+  assert.match(localBrowserHarness, /QA_REPORT_PATH: process\.env\.RESPONSIVE_ADMIN_REPORT_PATH/);
+  assert.match(adminVisualAudit, /QA_REPORT_PATH\?\.trim\(\)[\s\S]*?writeFileSync\(reportPath, JSON\.stringify/,
+    "the authenticated admin sweep must persist structured evidence so unique accessibility findings can be fixed");
+  assert.match(adminVisualAudit, /deviceScaleFactor,[\s\S]*?hasTouch: touchInputMode \|\| viewport\.width <= 1024/);
+  assert.match(adminVisualAudit, /async function activate\(locator, options = \{\}\)[\s\S]*?locator\.tap\(options\)/,
+    "the admin visual sweep must support the exact high-DPI touch profile and tap-based navigation");
+});
+
+testRunner.test("mobile site controls keep readable form text and 44px touch targets across routes", () => {
+  assert.match(rootRoute, /siteMobileTouchContractCss/,
+    "the shared mobile control contract must be linked by the root route");
+  assert.match(rootRoute, /href: siteMobileTouchContractCss/,
+    "the mobile control contract must load after the other global responsive layers");
+  assert.match(siteMobileTouchContractCss, /max-width:\s*430px/,
+    "the touch contract must cover compact phone viewports");
+  assert.match(siteMobileTouchContractCss, /min-height:\s*44px !important/,
+    "interactive controls must have a 44px minimum touch height");
+  assert.match(siteMobileTouchContractCss, /font-size:\s*16px !important/,
+    "editable text controls must avoid iOS focus zoom and remain readable");
+  assert.match(siteMobileTouchContractCss, /menu-toggle[\s\S]*?flex:\s*0 0 44px !important/,
+    "the mobile header menu control must retain its 44px hit area");
+  assert.match(siteMobileTouchContractCss, /hd-breadcrumb > span\[aria-current="page"\][\s\S]*?text-overflow:\s*ellipsis !important/,
+    "long Persian property titles must not collide with breadcrumb links on compact screens");
+  assert.match(browserSmoke, /breadcrumbTitleOverlap/,
+    "browser smoke must compare breadcrumb bounds with the visible property title");
+  assert.match(siteMobileTouchContractCss, /#hirmand-site-music-player\.is-collapsed[\s\S]*?position:\s*static !important/,
+    "the collapsed music control must stay in document flow on every mobile route");
+  assert.match(siteMobileTouchContractCss, /\.floating-call-menu[\s\S]*?position:\s*static !important/,
+    "the contact menu must not cover mobile forms or property content");
+  assert.match(siteMobileTouchContractCss, /\.customer-property-submit-page, \.request-property-page\)[\s\S]*?min-height:\s*46px !important/,
+    "public form submit controls must retain a 46px base height on compact touch screens");
+  assert.match(siteMobileTouchContractCss, /\.request-property-page\)[\s\S]*?:active\s*\{\s*transform:\s*none !important;/,
+    "pressed-state transforms must not shrink form controls below their required touch target");
 });
 
 

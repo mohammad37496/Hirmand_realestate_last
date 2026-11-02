@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -26,8 +27,12 @@ async function findFreePort() {
 const port = await findFreePort();
 const baseUrl = `http://127.0.0.1:${port}`;
 const visualMode = process.argv[2] === "visual";
-const j7ProMode = process.argv[2] === "j7-pro";
-const responsiveMode = process.argv[2] === "responsive" || j7ProMode;
+const j7ProMode = process.argv[2] === "j7-pro" || process.argv[2] === "site-j7-pro";
+const adminOnlyMode = process.argv[2] === "site-admin-responsive";
+const fullSiteMode = process.argv[2] === "site-responsive" || process.argv[2] === "site-j7-pro" || adminOnlyMode;
+const responsiveMode = !adminOnlyMode && (process.argv[2] === "responsive" || j7ProMode || fullSiteMode);
+const nitroMode = fullSiteMode;
+const adminAuditMode = adminOnlyMode || process.env.RESPONSIVE_SMOKE_ADMIN_AUDIT === "1";
 let server;
 let serverLog = "";
 
@@ -55,7 +60,8 @@ async function seedDatabase() {
          area_m2, bedrooms, built_year, price, deposit, rent, description, features, images,
          contact_name, contact_phone, published_at, created_at, updated_at)
          values ($1,$2,'published',$3,$4,$5,$6,$7,$8,$9,nullif($10,'')::numeric,null, null,
-         'دادهٔ آزمایشی محلی برای آزمون رابط واقعی کارت ملک.', '[]'::jsonb, '[]'::jsonb,
+         'دادهٔ آزمایشی محلی برای آزمون رابط واقعی کارت ملک.', '[]'::jsonb,
+         case when $1 = 'pcard-fixture-001' then '["/images/type-apartment.jpg","/images/type-villa.jpg"]'::jsonb else '[]'::jsonb end,
          'مشاور آزمایشی','09130000000',now(),now(),now())
          on conflict (id) do nothing`,
         [id, slug, title, transaction, type, neighborhood, area, bedrooms, year, price],
@@ -83,9 +89,22 @@ function startServer() {
   ]) {
     delete isolatedEnv[key];
   }
-  server = spawn(process.execPath, [join(root, "scripts/with-app-env.mjs"), "vite", "dev", "--host", "127.0.0.1", "--port", String(port)], {
+  const serverArgs = nitroMode
+    ? [join(root, ".output", "server", "index.mjs")]
+    : [join(root, "scripts/with-app-env.mjs"), "vite", "dev", "--host", "127.0.0.1", "--port", String(port)];
+  if (nitroMode) assert.ok(existsSync(serverArgs[0]), "full-site responsive QA requires a freshly built Nitro server; run npm run build first");
+  server = spawn(process.execPath, serverArgs, {
     cwd: root,
-    env: { ...isolatedEnv, PGLITE_DATA_DIR: dbDir, NODE_ENV: "development", CI: "" },
+    env: {
+      ...isolatedEnv,
+      PGLITE_DATA_DIR: dbDir,
+      NODE_ENV: nitroMode ? (adminAuditMode ? "development" : "production") : "development",
+      PORT: String(port),
+      NITRO_PORT: String(port),
+      HOST: "127.0.0.1",
+      NITRO_HOST: "127.0.0.1",
+      CI: "",
+    },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -96,45 +115,83 @@ function startServer() {
 async function waitForServer() {
   const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
-    if (server.exitCode !== null) throw new Error(`Local Vite server exited early.\n${serverLog}`);
+    if (server.exitCode !== null) throw new Error(`Local ${nitroMode ? "Nitro" : "Vite"} server exited early.\n${serverLog}`);
     try {
       const response = await fetch(`${baseUrl}/properties`, { signal: AbortSignal.timeout(2500) });
       if (response.ok) return;
     } catch { /* server is still booting */ }
     await delay(500);
   }
-  throw new Error(`Local Vite server did not become ready.\n${serverLog}`);
+  throw new Error(`Local ${nitroMode ? "Nitro" : "Vite"} server did not become ready.\n${serverLog}`);
 }
 
 try {
   await seedDatabase();
+  if (nitroMode) {
+    const runtimeCopy = spawnSync(process.execPath, [join(root, "scripts/copy-pglite-runtime.mjs")], {
+      cwd: root,
+      env: { ...process.env, PGLITE_DATA_DIR: dbDir },
+      encoding: "utf8",
+      windowsHide: true,
+    });
+    assert.equal(runtimeCopy.status, 0, `Nitro QA could not provision the isolated PGlite runtime.\n${runtimeCopy.stdout}\n${runtimeCopy.stderr}`);
+  }
   startServer();
   await waitForServer();
-  const testScript = responsiveMode
-    ? "responsive-layout-smoke.mjs"
-    : visualMode ? "desktop-property-card-visual-qa.mjs" : "property-card-actions-browser.test.mjs";
-  const childArgs = [join(root, "scripts", testScript), ...(responsiveMode ? [baseUrl] : [])];
-  const child = spawn(process.execPath, childArgs, {
-    cwd: root,
-    env: {
-      ...process.env,
-      PROPERTY_CARD_BROWSER_BASE_URL: baseUrl,
-      PROPERTY_CARD_VISUAL_BASE_URL: `${baseUrl}/properties`,
-      PROPERTY_CARD_VISUAL_SCREENSHOT_DIR: process.env.PROPERTY_CARD_VISUAL_SCREENSHOT_DIR || join(dbDir, "screenshots"),
-      ...(responsiveMode ? {
-        ...(j7ProMode ? { RESPONSIVE_SMOKE_J7_PRO: "1" } : { RESPONSIVE_SMOKE_ONLY_PROPERTIES: "1" }),
-        RESPONSIVE_SCREENSHOT_DIR: join(dbDir, "responsive-screenshots"),
-      } : {}),
-    },
-    stdio: "inherit",
-    windowsHide: true,
-  });
-  const exitCode = await new Promise((resolveExit, reject) => {
-    child.once("error", reject);
-    child.once("exit", (code, signal) => resolveExit(code ?? (signal ? 1 : 0)));
-  });
-  if (exitCode !== 0) throw new Error(`Local property-card browser assertions failed with exit code ${exitCode}.`);
-  console.log(`[property-card-local-browser] PASS (${j7ProMode ? "Galaxy J7 Pro device smoke" : responsiveMode ? "responsive smoke" : visualMode ? "visual QA" : "action QA"}): real local app + isolated migrated PGlite database + 3 controlled published fixtures`);
+  if (!adminOnlyMode) {
+    const testScript = responsiveMode
+      ? "responsive-layout-smoke.mjs"
+      : visualMode ? "desktop-property-card-visual-qa.mjs" : "property-card-actions-browser.test.mjs";
+    const childArgs = [join(root, "scripts", testScript), ...(responsiveMode ? [baseUrl] : [])];
+    const child = spawn(process.execPath, childArgs, {
+      cwd: root,
+      env: {
+        ...process.env,
+        PROPERTY_CARD_BROWSER_BASE_URL: baseUrl,
+        PROPERTY_CARD_VISUAL_BASE_URL: `${baseUrl}/properties`,
+        PROPERTY_CARD_VISUAL_SCREENSHOT_DIR: process.env.PROPERTY_CARD_VISUAL_SCREENSHOT_DIR || join(dbDir, "screenshots"),
+        BROWSER_SMOKE_PROPERTY_ID: "pcard-fixture-001",
+        BROWSER_SMOKE_PROPERTY_SLUG: "qa-apartment-long-title",
+        ...(responsiveMode ? {
+          ...(j7ProMode ? { RESPONSIVE_SMOKE_J7_PRO: "1" } : {}),
+          ...(fullSiteMode ? { RESPONSIVE_SMOKE_FULL_ROUTES: "1" } : { RESPONSIVE_SMOKE_ONLY_PROPERTIES: "1" }),
+          RESPONSIVE_SCREENSHOT_DIR: process.env.RESPONSIVE_SCREENSHOT_DIR || join(dbDir, "responsive-screenshots"),
+        } : {}),
+      },
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    const exitCode = await new Promise((resolveExit, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code, signal) => resolveExit(code ?? (signal ? 1 : 0)));
+    });
+    if (exitCode !== 0) throw new Error(`Local property-card browser assertions failed with exit code ${exitCode}.`);
+  }
+
+  if (adminAuditMode) {
+    assert.ok(nitroMode, "admin responsive QA requires the built Nitro server");
+    assert.ok(process.env.HIRMAND_ADMIN_KEY?.trim(), "admin responsive QA requires a temporary local HIRMAND_ADMIN_KEY");
+    const adminAudit = spawnSync(process.execPath, [join(root, "scripts/admin-visual-audit.mjs")], {
+      cwd: root,
+      env: {
+        ...process.env,
+        QA_BASE_URL: baseUrl,
+        QA_VIEWPORTS: process.env.RESPONSIVE_ADMIN_VIEWPORTS || "360x640",
+        QA_DEVICE_SCALE_FACTOR: process.env.RESPONSIVE_ADMIN_DPR || "3",
+        QA_TOUCH: process.env.RESPONSIVE_ADMIN_TOUCH || "1",
+        QA_SCREENSHOT_DIR: process.env.RESPONSIVE_ADMIN_SCREENSHOT_DIR || join(root, "artifacts", "responsive-site-audit-20261102", "admin-responsive"),
+        QA_SCREENSHOTS: process.env.RESPONSIVE_ADMIN_SCREENSHOTS || "1",
+        QA_REPORT_PATH: process.env.RESPONSIVE_ADMIN_REPORT_PATH || join(root, "artifacts", "responsive-site-audit-20261102", "admin-responsive", "report.json"),
+        QA_QUIET: process.env.RESPONSIVE_ADMIN_QUIET || "0",
+        QA_STUB_ADMIN_APIS: "0",
+      },
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    assert.equal(adminAudit.status, 0, `Admin responsive visual audit failed with exit code ${adminAudit.status ?? "unknown"}.`);
+  }
+
+  console.log(`[property-card-local-browser] PASS (${adminOnlyMode ? "admin responsive visual audit" : j7ProMode ? "Galaxy J7 Pro device smoke" : fullSiteMode ? "full-site responsive smoke" : responsiveMode ? "responsive smoke" : visualMode ? "visual QA" : "action QA"}): real local app + isolated migrated PGlite database + 3 controlled published fixtures`);
 } catch (error) {
   console.error("[property-card-local-browser] FAIL");
   console.error(error instanceof Error ? error.stack ?? error.message : String(error));

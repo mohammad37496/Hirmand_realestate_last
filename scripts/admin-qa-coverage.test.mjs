@@ -60,7 +60,7 @@ test("visual QA fails on structural blockers while retaining accessibility findi
 });
 
 test("visual QA retains touch emulation and 44px admin icon targets", () => {
-  assert.ok(visualQa.includes("hasTouch: viewport.width <= 1024"));
+  assert.ok(visualQa.includes("hasTouch: touchInputMode || viewport.width <= 1024"));
   assert.ok(visualQa.includes("isMobile: viewport.width <= 640"));
   assert.ok(visualQa.includes("touchViewport && adminIconButton ? 44 : 32"));
 });

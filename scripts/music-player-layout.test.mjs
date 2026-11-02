@@ -4,6 +4,7 @@ import test from "node:test";
 
 const player = fs.readFileSync(new URL("../src/components/hirmand/site-music-player.tsx", import.meta.url), "utf8");
 const css = fs.readFileSync(new URL("../src/music-player.css", import.meta.url), "utf8");
+const touchContract = fs.readFileSync(new URL("../src/site-mobile-touch-contract.css", import.meta.url), "utf8");
 const root = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
 
@@ -184,4 +185,18 @@ test("expanded mobile player controls retain 44px touch targets", () => {
   assert.match(mobileRules, /\.music-player-float\.is-expanded,\s*html body \.music-player-float\.is-expanded:not\(\.music-player-float-empty\)\s*\{[^}]*width: min\(350px, calc\(100vw - 24px\)\) !important;[^}]*min-height: min\(74vh, 420px\) !important;/s);
   const browserTest = fs.readFileSync(new URL("./music-player-browser.test.mjs", import.meta.url), "utf8");
   assert.match(browserTest, /every visible mobile player control must have a 44px touch target/);
+});
+
+test("music-player browser QA supports an installed Chrome fallback when Playwright Chromium is absent", () => {
+  const browserTest = fs.readFileSync(new URL("./music-player-browser.test.mjs", import.meta.url), "utf8");
+  assert.match(browserTest, /const launchOptions = \{[\s\S]*?--disable-extensions/);
+  assert.match(browserTest, /try \{\s*browser = await chromium\.launch\(launchOptions\);\s*\} catch \(error\) \{[\s\S]*?channel: "chrome"/);
+});
+
+test("collapsed mobile music player stays in normal flow and browser QA checks that it cannot overlap page content", () => {
+  assert.match(touchContract, /#hirmand-site-music-player\.is-collapsed\s*\{[\s\S]*?position:\s*static !important;[\s\S]*?inset:\s*auto !important;[\s\S]*?margin:\s*16px 12px calc\(86px \+ env\(safe-area-inset-bottom\)\) auto !important;/);
+  assert.match(touchContract, /\.action-menu\.floating-call-menu[\s\S]*?margin:\s*14px auto calc\(86px \+ env\(safe-area-inset-bottom\)\) !important;/);
+  const browserTest = fs.readFileSync(new URL("./music-player-browser.test.mjs", import.meta.url), "utf8");
+  assert.match(browserTest, /mobileDock\.position, "static"[\s\S]*?mobileDock\.top >= mobileDock\.contentBottom/);
+  assert.match(browserTest, /collapsedGeometry\.position, "static"[\s\S]*?collapsedGeometry\.top >= collapsedGeometry\.contentBottom/);
 });

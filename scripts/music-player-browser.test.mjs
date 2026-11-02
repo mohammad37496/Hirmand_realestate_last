@@ -240,7 +240,19 @@ try {
   const baseUrl = `http://127.0.0.1:${port}`;
   startServer(port);
   await waitForServer(baseUrl);
-  browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+  const launchOptions = {
+    headless: true,
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim()
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.trim() }
+      : {}),
+    args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-extensions"],
+  };
+  try {
+    browser = await chromium.launch(launchOptions);
+  } catch (error) {
+    if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim()) throw error;
+    browser = await chromium.launch({ ...launchOptions, channel: "chrome" });
+  }
 
   let holdFirstResponse = true;
   let releaseFirstResponse;
@@ -574,11 +586,23 @@ try {
     const node = nodes[0];
     if (!node) return { count: nodes.length, missing: true };
     const rect = node.getBoundingClientRect();
-    return { count: nodes.length, position: getComputedStyle(node).position, left: rect.left, right: rect.right };
+    const mainRect = document.querySelector("main")?.getBoundingClientRect();
+    return {
+      count: nodes.length,
+      position: getComputedStyle(node).position,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top + window.scrollY,
+      contentBottom: mainRect ? mainRect.bottom + window.scrollY : 0,
+      scrollWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    };
   });
   assert.equal(mobileDock.count, 1, "mobile must retain the same single shared player instance");
-  assert.equal(mobileDock.position, "fixed", "mobile launcher must remain viewport-fixed");
+  assert.equal(mobileDock.position, "static", "collapsed mobile launcher must stay in normal flow so it cannot cover editable content");
   assert.ok(mobileDock.left >= 0 && mobileDock.right <= 320, `mobile launcher must remain inside the 320px viewport: ${JSON.stringify(mobileDock)}`);
+  assert.ok(mobileDock.top >= mobileDock.contentBottom - 1, `collapsed mobile launcher must follow the page content instead of overlapping it: ${JSON.stringify(mobileDock)}`);
+  assert.ok(mobileDock.scrollWidth <= mobileDock.viewportWidth, `collapsed mobile launcher must not cause horizontal overflow: ${JSON.stringify(mobileDock)}`);
 
   await mobilePage.getByRole("button", { name: "باز کردن پلیر موسیقی" }).click();
   await mobilePage.waitForFunction(() => document.querySelector("#hirmand-site-music-player")?.classList.contains("is-expanded"));
@@ -674,6 +698,20 @@ try {
     `collapsing the mobile panel must not stop the current track: ${JSON.stringify(collapsedPlayback)}`);
   assert.equal(collapsedPlayback.nodeId, playingAudioNodeId, "collapsing the player must preserve the same audio element");
   assert.equal(collapsedPlayback.pauseCalls, 0, "collapsing the player must not call audio.pause");
+  const collapsedGeometry = await mobilePage.locator("#hirmand-site-music-player").evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    const mainRect = document.querySelector("main")?.getBoundingClientRect();
+    return {
+      position: getComputedStyle(node).position,
+      top: rect.top + window.scrollY,
+      contentBottom: mainRect ? mainRect.bottom + window.scrollY : 0,
+      scrollWidth: document.documentElement.scrollWidth,
+      viewportWidth: window.innerWidth,
+    };
+  });
+  assert.equal(collapsedGeometry.position, "static", `collapsed mobile player must leave fixed positioning: ${JSON.stringify(collapsedGeometry)}`);
+  assert.ok(collapsedGeometry.top >= collapsedGeometry.contentBottom - 1, `collapsed player must not overlap page content: ${JSON.stringify(collapsedGeometry)}`);
+  assert.ok(collapsedGeometry.scrollWidth <= collapsedGeometry.viewportWidth, `collapsed player must not widen the mobile document: ${JSON.stringify(collapsedGeometry)}`);
   await mobilePage.close();
   await context.close();
 
