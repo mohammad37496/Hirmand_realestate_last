@@ -29,10 +29,10 @@ test("data-health API and panel fail closed for unavailable storage and no-op re
   const route = readFileSync(new URL("../../server/routes/api/admin-data-health.post.ts", import.meta.url), "utf8");
   const ui = readFileSync(new URL("../components/hirmand/admin-data-health.tsx", import.meta.url), "utf8");
   const actionIndex = route.indexOf('const action = body.action ?? "scan"');
-  const permissionIndex = route.indexOf('hasAdminPermission(role, "settings.manage")');
+  const permissionIndex = route.indexOf('hasAdminPermission(normalizeAdminRole(claims?.role), "settings.manage")');
   const unavailableIndex = route.indexOf('if (dbSource === "unconfigured")');
 
-  assert.ok(actionIndex >= 0 && permissionIndex > actionIndex && unavailableIndex > permissionIndex);
+  assert.ok(permissionIndex >= 0 && actionIndex > permissionIndex && unavailableIndex > actionIndex);
   assert.match(route, /statusCode:\s*503/);
   assert.match(route, /resolveAdminDataHealthFinding/);
   assert.match(route, /return \{ available:true/);

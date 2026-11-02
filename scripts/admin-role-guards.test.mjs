@@ -74,3 +74,27 @@ test("the real admin workflow E2E exercises consultant-target API access for eac
   assert.match(e2e, /targetsResponse\.status !== 403/);
   assert.match(e2e, /consultantTargetsResponse\(page\)/);
 });
+
+test("data-health scans require settings.manage and match the owner/manager-only UI", () => {
+  const route = source("server/routes/api/admin-data-health.post.ts");
+  const adminUi = source("src/components/hirmand/_admin_impl.tsx");
+  assert.match(route, /hasAdminPermission\(normalizeAdminRole\(claims\?\.role\), "settings\.manage"\)/);
+  assert.doesNotMatch(route, /"reports\.view"/);
+  const salesNav = adminUi.match(/if \(adminRole === "sales"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const contentNav = adminUi.match(/if \(adminRole === "content"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const staffNav = adminUi.match(/if \(adminRole === "staff"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const viewerNav = adminUi.match(/return navItems\.filter\(\(item\) => item\.view === "dashboard" \|\| item\.view === "managementReport"\)/)?.[0] ?? "";
+  assert.doesNotMatch(salesNav, /"integrity"/);
+  assert.doesNotMatch(contentNav, /"integrity"/);
+  assert.doesNotMatch(staffNav, /"integrity"/);
+  assert.doesNotMatch(viewerNav, /"integrity"/);
+});
+
+test("the real admin workflow E2E checks data-health API access for every role class", () => {
+  const e2e = source("scripts/admin-business-workflows-e2e.mjs");
+  assert.match(e2e, /dataHealthResponse\(salesPage\)/);
+  assert.match(e2e, /dataHealthResponse\(managerPage\)/);
+  assert.match(e2e, /dataHealthResponse\(restrictedPage\)/);
+  assert.match(e2e, /dataHealthResponse\(page\)/);
+  assert.match(e2e, /data-health scan/);
+});

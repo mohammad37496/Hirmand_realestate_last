@@ -6,28 +6,23 @@ import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { AdminDataHealthCheckError, runAdminDataHealthChecks } from "@/lib/admin-data-health-checks";
 import { resolveAdminDataHealthFinding } from "@/lib/admin-data-health-findings";
 
-async function requireReportAccess(event: H3Event) {
+async function requireDataHealthAccess(event: H3Event) {
   const token = getCookie(event, ADMIN_SESSION_COOKIE);
   if (!await verifyAdminSessionToken(token)) throw createError({ statusCode: 401, statusMessage: "نشست مدیریت معتبر نیست." });
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "reports.view")) {
-    throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش برای این حساب فعال نیست." });
+  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "settings.manage")) {
+    throw createError({ statusCode: 403, statusMessage: "دسترسی کنترل سلامت داده برای این حساب فعال نیست." });
   }
-  return claims;
 }
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
-  const claims = await requireReportAccess(event);
-  const role = normalizeAdminRole(claims?.role);
+  await requireDataHealthAccess(event);
   const body = (await readBody(event).catch(() => ({}))) as { action?: "scan" | "resolve"; findingId?: number };
   const action = body.action ?? "scan";
 
   if (action === "resolve") {
-    if (!hasAdminPermission(role, "settings.manage")) {
-      throw createError({ statusCode: 403, statusMessage: "فقط مدیران می‌توانند یافته‌های سلامت داده را تعیین‌تکلیف کنند." });
-    }
     if (!Number.isInteger(body.findingId) || Number(body.findingId) <= 0) throw createError({ statusCode: 400, statusMessage: "شناسه یافته نامعتبر است." });
   }
 
