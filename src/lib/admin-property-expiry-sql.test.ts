@@ -10,6 +10,7 @@ import {
 import {
   BULK_SET_PROPERTY_FEATURED_SQL,
   BULK_UPDATE_PROPERTY_STATUS_SQL,
+  bulkSetPropertyFeaturedWithSql,
   resolveFeaturedStateForPropertyStatus,
 } from "./admin-property-status-featured.ts";
 
@@ -339,6 +340,49 @@ test("bulk feature action cannot re-feature archived, draft, or trashed properti
   }
 });
 
+test("bulk feature mutation rolls back its property update when history persistence fails", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table properties (
+        id text primary key, title text not null, status text not null,
+        featured boolean not null default false, featured_until timestamptz,
+        deleted_at timestamptz, updated_at timestamptz not null default current_timestamp,
+        price numeric, deposit numeric, rent numeric, contact_name text, contact_phone text,
+        availability_status text not null default 'available', owner_name text, owner_phone text, owner_info text
+      );
+      create table property_change_history (
+        id serial primary key, property_id text not null, action text not null check (action <> 'updated'),
+        before_state jsonb, after_state jsonb
+      );
+      insert into properties (id,title,status,featured,deleted_at)
+      values ('rollback-feature','Rollback feature','published',false,null);
+    `);
+
+    await assert.rejects(db.transaction(async (tx) => {
+      const query = async (statement: string, params: unknown[]) =>
+        (await tx.query<Record<string, unknown>>(statement, params)).rows;
+      await bulkSetPropertyFeaturedWithSql(query, ["rollback-feature"], true);
+    }));
+
+    const property = await db.query<{ featured: boolean }>(
+      "select featured from properties where id='rollback-feature'",
+    );
+    assert.equal(property.rows[0]?.featured, false, "feature update must roll back with failed history insert");
+  } finally {
+    await db.close();
+  }
+});
+
+test("bulk featured server function runs its locked mutation and history write in one SQL transaction", () => {
+  const properties = readFileSync(new URL("./properties.ts", import.meta.url), "utf8");
+  const start = properties.indexOf("export const bulkSetPropertyFeatured");
+  const end = properties.indexOf("export const bulkAssignPropertyConsultant", start);
+  const handler = properties.slice(start, end);
+  assert.match(handler, /withSqlTransaction\(\(tx\)\s*=>\s*bulkSetPropertyFeaturedWithSql\(tx\.query/);
+  assert.match(readFileSync(new URL("./admin-property-status-featured.ts", import.meta.url), "utf8"), /where id = any\(\$1::text\[\]\)\s+for update/);
+});
+
 test("the migration clears legacy featured flags from archived and trashed properties only", async () => {
   const db = new PGlite();
   try {
@@ -374,13 +418,15 @@ test("the migration clears legacy featured flags from archived and trashed prope
 
 test("property save, bulk status, and featured dashboard readers share the archive invariant", () => {
   const properties = readFileSync(new URL("./properties.ts", import.meta.url), "utf8");
+  const featuredSql = readFileSync(new URL("./admin-property-status-featured.ts", import.meta.url), "utf8");
   const actionCenter = readFileSync(new URL("../../server/routes/api/admin-action-center.post.ts", import.meta.url), "utf8");
   const productivity = readFileSync(new URL("../../server/routes/api/admin-productivity.post.ts", import.meta.url), "utf8");
   assert.match(properties, /resolveFeaturedStateForPropertyStatus\(\s*saveStatus,\s*data\.featured,\s*data\.featuredUntil,?\s*\)/);
   assert.match(properties, /featuredState\.featured,/);
   assert.match(properties, /BULK_UPDATE_PROPERTY_STATUS_SQL/);
-  assert.match(properties, /BULK_SET_PROPERTY_FEATURED_SQL/);
-  assert.match(properties, /changedBeforeRows = beforeRows\.filter/);
+  assert.match(properties, /bulkSetPropertyFeaturedWithSql\(tx\.query/);
+  assert.match(featuredSql, /BULK_SET_PROPERTY_FEATURED_SQL/);
+  assert.match(featuredSql, /where id = any\(\$1::text\[\]\)\s+for update/);
   assert.match(actionCenter, /where status='published' and deleted_at is null and featured=true and featured_until is not null/);
   assert.match(productivity, /status='published' and deleted_at is null and featured=true and featured_until is not null/);
 });
