@@ -70,7 +70,7 @@ test("the real admin workflow E2E exercises consultant-target API access for eac
   const e2e = source("scripts/admin-business-workflows-e2e.mjs");
   assert.match(e2e, /consultantTargetsResponse\(salesPage\)/);
   assert.match(e2e, /loginAsTemporaryRole\("manager"\)/);
-  assert.match(e2e, /for \(const role of \["content", "viewer"\]\)/);
+  assert.match(e2e, /for \(const role of \["content", "viewer", "staff"\]\)/);
   assert.match(e2e, /targetsResponse\.status !== 403/);
   assert.match(e2e, /consultantTargetsResponse\(page\)/);
 });
@@ -97,4 +97,15 @@ test("the real admin workflow E2E checks data-health API access for every role c
   assert.match(e2e, /dataHealthResponse\(restrictedPage\)/);
   assert.match(e2e, /dataHealthResponse\(page\)/);
   assert.match(e2e, /data-health scan/);
+});
+
+test("individual property performance requires property.manage rather than broad report visibility", () => {
+  const route = source("server/routes/api/admin-property-performance.post.ts");
+  const e2e = source("scripts/admin-business-workflows-e2e.mjs");
+  assert.match(route, /hasAdminPermission\(normalizeAdminRole\(claims\?\.role\), "property\.manage"\)/);
+  assert.doesNotMatch(route, /"reports\.view"/);
+  assert.match(e2e, /propertyPerformanceResponse\(salesPage, roleCheckPropertyId\)/);
+  assert.match(e2e, /propertyPerformanceResponse\(managerPage, roleCheckPropertyId\)/);
+  assert.match(e2e, /propertyPerformanceResponse\(restrictedPage, roleCheckPropertyId\)/);
+  assert.match(e2e, /propertyPerformanceResponse\(page, roleCheckPropertyId\)/);
 });

@@ -25,3 +25,12 @@ test("data-health integrity scans are limited to owner and manager roles", () =>
   assert.equal(hasAdminPermission("staff", "settings.manage"), false);
   assert.equal(hasAdminPermission("viewer", "settings.manage"), false);
 });
+
+test("individual property performance is limited to roles that can manage property records", () => {
+  assert.equal(hasAdminPermission("owner", "property.manage"), true);
+  assert.equal(hasAdminPermission("manager", "property.manage"), true);
+  assert.equal(hasAdminPermission("sales", "property.manage"), true);
+  assert.equal(hasAdminPermission("content", "property.manage"), true);
+  assert.equal(hasAdminPermission("staff", "property.manage"), false);
+  assert.equal(hasAdminPermission("viewer", "property.manage"), false);
+});
