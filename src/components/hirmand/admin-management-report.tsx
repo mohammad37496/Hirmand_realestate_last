@@ -64,7 +64,7 @@ export function AdminManagementReport({ role }: { role: AdminRole }) {
       ["لیدهای ایجادشده", String(data.leads.created)],
       ["لیدهای باز", String(data.leads.open)],
       ["قرارداد", String(data.leads.contract)],
-      ["معامله تکمیل‌شده", String(data.deals.completed)],
+      ...(canViewDeals ? [["معامله تکمیل‌شده", String(data.deals.completed)]] : []),
       ...(canViewDeals ? [["حجم معاملات", String(data.deals.volume)], ["کمیسیون معاملات", String(data.deals.commission)]] : []),
       ...(data.finance ? [["درآمد دفتر", String(data.finance.income)], ["هزینه دفتر", String(data.finance.expense)], ["مانده دفتر", String(data.finance.balance)]] : []),
     ];
@@ -84,7 +84,7 @@ export function AdminManagementReport({ role }: { role: AdminRole }) {
       </div>
     </div>
     {loadError ? <AdminErrorBanner message={loadError} onRetry={() => void load()} /> : loading || !data || data.days !== days ? <div className="admin-empty">در حال آماده‌سازی گزارش…</div> : data ? <>
-      <div className="admin-report-kpis"><div><span>فایل‌های جدید</span><strong>{fa(data.properties.created)}</strong></div><div><span>لیدهای جدید</span><strong>{fa(data.leads.created)}</strong></div><div><span>معامله تکمیل‌شده</span><strong>{fa(data.deals.completed)}</strong></div>{canViewDeals ? <><div><span>حجم معاملات</span><strong>{money(data.deals.volume)}</strong></div><div><span>کمیسیون</span><strong>{money(data.deals.commission)}</strong></div></> : null}{data.finance ? <div><span>مانده مالی</span><strong>{money(data.finance.balance)}</strong></div> : null}</div>
+      <div className="admin-report-kpis"><div><span>فایل‌های جدید</span><strong>{fa(data.properties.created)}</strong></div><div><span>لیدهای جدید</span><strong>{fa(data.leads.created)}</strong></div>{canViewDeals ? <><div><span>معامله تکمیل‌شده</span><strong>{fa(data.deals.completed)}</strong></div><div><span>حجم معاملات</span><strong>{money(data.deals.volume)}</strong></div><div><span>کمیسیون</span><strong>{money(data.deals.commission)}</strong></div></> : null}{data.finance ? <div><span>مانده مالی</span><strong>{money(data.finance.balance)}</strong></div> : null}</div>
       <div className="admin-report-grid"><section><h3>وضعیت فایل‌ها</h3><p>منتشرشده {fa(data.properties.published)} · پیش‌نویس {fa(data.properties.draft)} · بایگانی {fa(data.properties.archived)}</p></section>
         <section><h3>وضعیت CRM</h3><p>لید باز {fa(data.leads.open)} · قرارداد {fa(data.leads.contract)} · بسته‌شده {fa(data.leads.closed)}</p></section>
         {data.finance ? <section><h3><WalletCards size={15} /> مالی</h3><p>درآمد {money(data.finance.income)} · هزینه {money(data.finance.expense)} · مانده {money(data.finance.balance)}</p></section> : null}

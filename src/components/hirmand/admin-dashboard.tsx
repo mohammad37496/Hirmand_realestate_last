@@ -54,7 +54,7 @@ type DashboardData = {
   consultants: {
     total: number;
     active: number;
-    withFiles: number;
+    withFiles: number | null;
     withLeads: number;
   };
   leads: {
@@ -520,7 +520,7 @@ export function AdminDashboard({
           <span>
             <small>مشاور دارای فایل / لید</small>
             <strong>
-              {isUnavailable("consultants") ? "—" : `${fa(data.consultants.withFiles)} / ${fa(data.consultants.withLeads)}`}
+              {isUnavailable("consultants") ? "—" : `${data.consultants.withFiles == null ? "—" : fa(data.consultants.withFiles)} / ${fa(data.consultants.withLeads)}`}
             </strong>
           </span>
           <ArrowLeft size={16} />
@@ -975,7 +975,7 @@ export function AdminDashboard({
         </section>
       </div>
 
-      <section className="admin-panel">
+      {canManageLeads ? <section className="admin-panel">
         <div className="admin-panel-head">
           <div>
             <span className="kicker">پیگیری</span>
@@ -1012,7 +1012,7 @@ export function AdminDashboard({
             ))}
           </div>
         )}
-      </section>
+      </section> : null}
 
 
     </div>
