@@ -133,3 +133,26 @@ test("trash server functions require a dedicated owner/manager permission matchi
   assert.doesNotMatch(staffNav, /"trash"/);
   assert.doesNotMatch(viewerNav, /"trash"/);
 });
+
+test("property schedule server functions require a dedicated owner/manager permission matching navigation", () => {
+  const properties = source("src/lib/properties.ts");
+  const adminUi = source("src/components/hirmand/_admin_impl.tsx");
+  const listStart = properties.indexOf("export const listAdminPropertySchedules");
+  const updateStart = properties.indexOf("export const updatePropertySchedule", listStart);
+  const nextStart = properties.indexOf("export const saveProperty", updateStart);
+  const list = properties.slice(listStart, updateStart);
+  const update = properties.slice(updateStart, nextStart);
+  assert.match(list, /requireAdminPermission\("schedule\.manage"\)/);
+  assert.match(update, /requireAdminPermission\("schedule\.manage"\)/);
+  assert.doesNotMatch(list, /requireAdminPermission\("property\.manage"\)/);
+  assert.doesNotMatch(update, /requireAdminPermission\("property\.manage"\)/);
+  assert.match(adminUi, /if \(adminRole === "owner" \|\| adminRole === "manager"\) return navItems/);
+  const salesNav = adminUi.match(/if \(adminRole === "sales"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const contentNav = adminUi.match(/if \(adminRole === "content"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const staffNav = adminUi.match(/if \(adminRole === "staff"\) \{([\s\S]*?)\n {4}\}/)?.[1] ?? "";
+  const viewerNav = adminUi.match(/return navItems\.filter\(\(item\) => item\.view === "dashboard" \|\| item\.view === "managementReport"\)/)?.[0] ?? "";
+  assert.doesNotMatch(salesNav, /"schedule"/);
+  assert.doesNotMatch(contentNav, /"schedule"/);
+  assert.doesNotMatch(staffNav, /"schedule"/);
+  assert.doesNotMatch(viewerNav, /"schedule"/);
+});

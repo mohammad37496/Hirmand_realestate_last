@@ -1501,7 +1501,7 @@ export const permanentlyDeleteProperty = createServerFn({ method: "POST" })
 export const listAdminPropertySchedules = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(200).optional().default(100) }))
   .handler(async ({ data }) => {
-    await requireAdminPermission("property.manage");
+    await requireAdminPermission("schedule.manage");
     if (dbSource === "unconfigured") return [];
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
@@ -1534,7 +1534,7 @@ export const updatePropertySchedule = createServerFn({ method: "POST" })
     unpublishAt: z.string().datetime({ offset: true }).nullable().optional(),
   }))
   .handler(async ({ data }) => {
-    const claims = await requireAdminPermission("property.manage");
+    const claims = await requireAdminPermission("schedule.manage");
     if (data.publishAt && !hasAdminPermission(normalizeAdminRole(claims?.role), "property.publish")) {
       throw new Error("تنظیم زمان انتشار نهایی فقط برای مدیران مجاز است.");
     }
