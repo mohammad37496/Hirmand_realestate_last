@@ -33,6 +33,7 @@ import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css
 import propertiesHirmandSignatureCss from "../properties-hirmand-signature.css?url";
 import propertyExperienceRedesignCss from "../property-experience-redesign.css?url";
 import musicPlayerCss from "../music-player.css?url";
+import siteMobileTouchContractCss from "../site-mobile-touch-contract.css?url";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -86,6 +87,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: responsiveHardeningCss },
       { rel: "stylesheet", href: propertiesMobileReferenceCss },
       { rel: "stylesheet", href: musicPlayerCss },
+      { rel: "stylesheet", href: siteMobileTouchContractCss },
     ],
   }),
   component: RootDocument,

@@ -5,6 +5,7 @@ import { chromium } from "playwright";
 
 const baseUrl = process.argv[2] ?? process.env.RESPONSIVE_SMOKE_BASE_URL ?? "http://127.0.0.1:8081";
 const j7ProMode = process.env.RESPONSIVE_SMOKE_J7_PRO === "1";
+const touchInputMode = j7ProMode || process.env.RESPONSIVE_SMOKE_TOUCH === "1";
 const viewportMatrix = j7ProMode ? [{ width: 360, height: 640 }] : [
   { width: 320, height: 568 },
   { width: 360, height: 640 },
@@ -62,7 +63,8 @@ const routes = [
   `/file/${encodeURIComponent(propertyId)}`,
   `/v/${encodeURIComponent(propertySlug)}/${encodeURIComponent(propertyId)}`,
 ];
-const selectedRoutes = j7ProMode || process.env.RESPONSIVE_SMOKE_ONLY_PROPERTIES === "1" ? ["/", "/properties"] : routes;
+const fullRoutesMode = process.env.RESPONSIVE_SMOKE_FULL_ROUTES === "1";
+const selectedRoutes = !fullRoutesMode && (j7ProMode || process.env.RESPONSIVE_SMOKE_ONLY_PROPERTIES === "1") ? ["/", "/properties"] : routes;
 
 const screenshotRoutes = new Set([
   "/",
@@ -84,7 +86,9 @@ const launchOptions = {
   ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim()
     ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.trim() }
     : {}),
-  args: ["--no-sandbox", "--disable-dev-shm-usage"],
+  // Keep developer-installed Chrome extensions from mutating SSR markup
+  // before React hydrates; the smoke must validate the application itself.
+  args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-extensions"],
 };
 let browser;
 try {
@@ -103,10 +107,14 @@ function routeFileName(route) {
   return route.replace(/[?].*$/, "").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "") || "home";
 }
 
+async function activate(locator, options = {}) {
+  return touchInputMode ? locator.tap(options) : locator.click(options);
+}
+
 try {
   for (const route of selectedRoutes) {
     const page = await browser.newPage({
-      viewport: { width: 320, height: 900 },
+      viewport: j7ProMode ? { width: 360, height: 640 } : { width: 320, height: 900 },
       deviceScaleFactor: j7ProMode ? 3 : 1,
       isMobile: j7ProMode,
       hasTouch: j7ProMode || process.env.RESPONSIVE_SMOKE_TOUCH === "1",
@@ -114,15 +122,27 @@ try {
     page.setDefaultTimeout(12_000);
     const pageErrors = [];
     const consoleErrors = [];
+    const consoleDiagnostics = [];
     const failedRequests = [];
     const failedResponses = [];
+    const successfulResponses = [];
+    const notFoundResponses = [];
     const failedImageResponses = new Map();
     const appOrigin = new URL(baseUrl).origin;
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("console", (message) => {
-      if (message.type() === "error") consoleErrors.push(message.text());
+      if (message.type() === "error") {
+        consoleErrors.push(message.text());
+        consoleDiagnostics.push({ text: message.text(), location: message.location() });
+      }
     });
     page.on("response", (response) => {
+      if (response.status() < 400) successfulResponses.push({ url: response.url(), status: response.status() });
+      if (response.status() === 404) {
+        let sameOrigin = false;
+        try { sameOrigin = new URL(response.url()).origin === appOrigin; } catch { /* retain the diagnostic */ }
+        notFoundResponses.push({ url: response.url(), status: 404, resourceType: response.request().resourceType(), sameOrigin });
+      }
       if (response.request().resourceType() === "image" && response.status() >= 400) {
         try {
           if (new URL(response.url()).origin === appOrigin) {
@@ -187,6 +207,20 @@ try {
       }
       // Give the client enough time to hydrate before interacting with React controls.
       await page.waitForTimeout(500);
+      // Vite can return a one-off 504 while it optimizes a lazily imported
+      // dependency. Retry only that generated dependency after the optimizer
+      // has completed; retain all application/API failures as hard errors.
+      const transientViteFailures = failedResponses.filter((item) => item.status === 504 && item.url.includes("/node_modules/.vite/deps/"));
+      if (transientViteFailures.length) {
+        await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
+        await page.waitForTimeout(700);
+        for (const failed of transientViteFailures) {
+          if (successfulResponses.some((item) => item.url === failed.url)) {
+            const index = failedResponses.indexOf(failed);
+            if (index >= 0) failedResponses.splice(index, 1);
+          }
+        }
+      }
       // Optional local stylesheet injection lets maintainers validate a CSS
       // candidate against the live DOM/data without pretending it is deployed.
       for (const cssFile of [process.env.RESPONSIVE_SMOKE_CSS_FILE, process.env.RESPONSIVE_SMOKE_CARD_CSS_FILE].filter(Boolean)) {
@@ -221,12 +255,12 @@ try {
           failures.push(`/properties @ 320px: initial mobile view should prioritize listings instead of opening the map workspace (${JSON.stringify(mobileMarketplace)})`);
         }
         const viewButtons = page.locator(".pf-views button");
-        await viewButtons.nth(2).click();
+        await activate(viewButtons.nth(2));
         const mapWorkspace = page.locator(".pf-map-divar-layout");
         if (!(await mapWorkspace.waitFor({ state: "attached", timeout: 5_000 }).then(() => true).catch(() => false))) {
           failures.push("/properties @ 320px: selecting map view did not open the map/list workspace");
         }
-        await viewButtons.nth(0).click();
+        await activate(viewButtons.nth(0));
         if (await mapWorkspace.waitFor({ state: "detached", timeout: 5_000 }).then(() => false).catch(() => true)) {
           failures.push("/properties @ 320px: returning to listings did not close the map workspace");
         }
@@ -288,7 +322,7 @@ try {
             // Keep the control away from the sticky site header after scrolling.
             await page.evaluate(() => window.scrollBy(0, -100));
             await page.waitForTimeout(80);
-            await button.click({ timeout: 5_000 });
+            await activate(button, { timeout: 5_000 });
             await page.waitForTimeout(120);
             if (page.url() !== actionUrl) {
               failures.push(`/properties @ 320px: action '${label}' navigated to ${page.url()} instead of remaining independent from the property link`);
@@ -297,10 +331,10 @@ try {
               break;
             }
             if (index === 3 && await page.locator(".property-qr-dialog").count()) {
-              await page.locator(".property-qr-close").click();
+              await activate(page.locator(".property-qr-close"));
             }
             if (index === 4 && await page.locator(".property-brief-dialog").count()) {
-              await page.locator(".property-brief-close").first().click();
+              await activate(page.locator(".property-brief-close").first());
             }
             if (index === 0 || index === 7) {
               const pressed = await button.getAttribute("aria-pressed");
@@ -317,7 +351,7 @@ try {
           await filterButton.waitFor({ state: "visible" });
           let drawerOpened = false;
           for (let attempt = 0; attempt < 2 && !drawerOpened; attempt += 1) {
-            await filterButton.click();
+            await activate(filterButton);
             try {
               await page.waitForFunction(
                 () => document.querySelector(".pf-filter-btn")?.getAttribute("aria-expanded") === "true",
@@ -336,7 +370,7 @@ try {
           await drawer.waitFor({ state: "visible", timeout: 3_000 });
           const neighborhoodTrigger = page.locator(".pf-neighborhood-trigger").first();
           if (await neighborhoodTrigger.isVisible().catch(() => false)) {
-            await neighborhoodTrigger.click();
+            await activate(neighborhoodTrigger);
             const neighborhoodDialog = page.locator(".pf-neighborhood-dialog[role=dialog]").first();
             await neighborhoodDialog.waitFor({ state: "visible", timeout: 8_000 });
             const dialogOverflow = await page.evaluate(() => Math.max(
@@ -347,10 +381,10 @@ try {
               failures.push("/properties @ 320px while neighborhood modal is open: horizontal overflow " + dialogOverflow + "px");
             }
             const closeNeighborhood = page.getByRole("button", { name: "بستن انتخاب محله" }).first();
-            if (await closeNeighborhood.isVisible().catch(() => false)) await closeNeighborhood.click();
+            if (await closeNeighborhood.isVisible().catch(() => false)) await activate(closeNeighborhood);
           }
           const closeFilters = page.locator(".pf-close").first();
-          if (await closeFilters.isVisible().catch(() => false)) await closeFilters.click();
+          if (await closeFilters.isVisible().catch(() => false)) await activate(closeFilters);
         }
       }
 
@@ -364,23 +398,118 @@ try {
         if (await homeFavorite.count()) {
           await homeFavorite.scrollIntoViewIfNeeded();
           const before = await homeFavorite.getAttribute("aria-pressed");
-          await homeFavorite.click();
+          await activate(homeFavorite);
           const after = await homeFavorite.getAttribute("aria-pressed");
           if (after === before || after !== "true") {
             failures.push("/ @ 320px: homepage property favorite action did not toggle to its active state");
           }
-          await homeFavorite.click();
+          await activate(homeFavorite);
           if (await homeFavorite.getAttribute("aria-pressed") !== "false") {
             failures.push("/ @ 320px: homepage property favorite action did not restore its inactive state");
           }
           await page.evaluate(() => window.scrollTo(0, 0));
         }
+        const menuToggle = page.locator(".header-redesign .menu-toggle");
+        if (await menuToggle.isVisible().catch(() => false)) {
+          await activate(menuToggle);
+          const mobileMenu = page.locator(".header-redesign .mobile-menu");
+          const opened = await mobileMenu.waitFor({ state: "visible", timeout: 3_000 }).then(() => true).catch(() => false);
+          if (!opened || await menuToggle.getAttribute("aria-expanded") !== "true") {
+            failures.push("/ @ mobile: the header menu did not open and expose its expanded state");
+          } else {
+            const menuState = await page.evaluate(() => ({
+              bodyLocked: document.body.classList.contains("menu-open"),
+              hidden: document.querySelector(".header-redesign .mobile-menu")?.getAttribute("aria-hidden"),
+              overflow: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+              links: [...document.querySelectorAll(".header-redesign .mobile-menu a")].filter((link) => {
+                const rect = link.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+              }).length,
+            }));
+            if (!menuState.bodyLocked || menuState.hidden !== "false" || menuState.overflow > 1 || !menuState.links) {
+              failures.push(`/ @ mobile: header menu open state is inconsistent (${JSON.stringify(menuState)})`);
+            }
+            const financeTrigger = page.locator(".header-redesign .mobile-tools-trigger").first();
+            if (await financeTrigger.isVisible().catch(() => false)) {
+              await activate(financeTrigger);
+              if (await financeTrigger.getAttribute("aria-expanded") !== "true") failures.push("/ @ mobile: finance submenu did not expand");
+            }
+          }
+          await activate(menuToggle);
+          if (await menuToggle.getAttribute("aria-expanded") !== "false" || await page.locator("body").evaluate((body) => body.classList.contains("menu-open"))) {
+            failures.push("/ @ mobile: closing the header menu did not restore the page scroll state");
+          }
+        } else {
+          failures.push("/ @ mobile: the responsive header menu toggle is missing or hidden");
+        }
+      }
+
+      if (route === "/request-property") {
+        const form = page.locator("form.inquiry-form");
+        await form.waitFor({ state: "visible", timeout: 8_000 });
+        const submit = form.locator('button[type="submit"]');
+        await submit.scrollIntoViewIfNeeded();
+        await activate(submit);
+        const validation = form.locator('[role="alert"]').first();
+        const validationText = await validation.innerText().catch(() => "");
+        if (!validationText.includes("نام را وارد کنید")) {
+          failures.push(`${route}: empty inquiry form did not expose its name validation state (${validationText || "no alert"})`);
+        }
+
+        await form.locator("#inq-name").fill("آزمون واکنش‌گرایی هیرمند");
+        await form.locator("#inq-phone").fill("09131112222");
+        await form.locator("#inq-people-count").fill("2");
+        await form.locator("#inq-job").fill("کارمند آزمایشی");
+        await form.locator("#inq-deal").selectOption({ label: "خرید" });
+        await form.locator("#inq-type").selectOption({ label: "آپارتمان" });
+        await form.locator("#inq-budget-purchase-min").fill("1000000000");
+        await form.locator("#inq-budget-purchase-max").fill("2000000000");
+        await activate(submit);
+        const success = form.locator('.inquiry-tracking-success[role="status"]');
+        const saved = await success.waitFor({ state: "visible", timeout: 15_000 }).then(() => true).catch(() => false);
+        const trackingToken = saved ? (await success.locator("strong").innerText().catch(() => "")).trim() : "";
+        if (!saved || !/^HIR-\d{2}-[A-F0-9]{12}$/.test(trackingToken)) {
+          const resultText = await form.locator("[role='alert']").first().innerText().catch(() => "");
+          failures.push(`${route}: valid inquiry did not reach its tracking success state (${resultText || "missing success panel"})`);
+        }
+        summaries.push({ route, formInteractions: { validation: validationText, success: saved, trackingTokenPresent: Boolean(trackingToken) } });
+      }
+
+      if (route === "/submit-property") {
+        const form = page.locator("form.customer-property-form");
+        await form.waitFor({ state: "visible", timeout: 8_000 });
+        const submit = form.locator('button[type="submit"]');
+        await submit.scrollIntoViewIfNeeded();
+        await activate(submit);
+        const validation = form.locator('.customer-property-error[role="alert"]');
+        const validationText = await validation.innerText().catch(() => "");
+        if (!validationText.includes("نام مالک را وارد کنید")) {
+          failures.push(`${route}: empty owner submission did not expose its validation state (${validationText || "no alert"})`);
+        }
+        summaries.push({ route, formInteractions: { validation: validationText, submissionBlocked: Boolean(validationText) } });
+      }
+
+      if (route === "/valuation") {
+        const form = page.locator("form.valuation-form");
+        await form.waitFor({ state: "visible", timeout: 8_000 });
+        await activate(form.locator('button[type="submit"]'));
+        const validation = form.locator('.valuation-error[role="alert"]');
+        const validationText = await validation.innerText().catch(() => "");
+        if (!validationText.includes("متراژ را بین ۳۰ تا ۲٬۰۰۰ متر وارد کنید")) {
+          failures.push(`${route}: invalid area did not expose its validation state (${validationText || "no alert"})`);
+        }
+        summaries.push({ route, formInteractions: { validation: validationText } });
       }
 
       if (route.startsWith("/properties/")) {
-        await page.setViewportSize({ width: 320, height: 900 });
+        await page.setViewportSize(j7ProMode ? { width: 360, height: 640 } : { width: 320, height: 900 });
         const thumbs = page.locator(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb");
         await thumbs.first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => undefined);
+        const galleryHydrated = await page.waitForFunction(() => {
+          const button = document.querySelector(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb");
+          return Boolean(button && Object.keys(button).some((key) => key.startsWith("__reactProps$")));
+        }, null, { timeout: 8_000 }).then(() => true).catch(() => false);
+        if (!galleryHydrated) failures.push(`${route}: the property gallery did not hydrate before interaction checks`);
         const thumbCount = await thumbs.count();
         if (thumbCount < 2) {
           failures.push(`${route}: seeded property detail did not expose multiple gallery thumbnails (found ${thumbCount})`);
@@ -388,12 +517,38 @@ try {
           const firstCounter = await page.locator(".hd-gallery-controls .property-gallery-counter").innerText().catch(() => "");
           await thumbs.nth(1).scrollIntoViewIfNeeded();
           const scrollBeforeSelection = await page.evaluate(() => window.scrollY);
-          await thumbs.nth(1).click();
-          if (await thumbs.nth(1).getAttribute("aria-pressed") !== "true") {
-            failures.push(`${route}: selecting the second thumbnail did not update its active state`);
+          await thumbs.nth(1).evaluate((button) => {
+            const events = [];
+            for (const type of ["touchstart", "touchend", "pointerdown", "pointerup", "click"]) {
+              button.addEventListener(type, () => events.push(type), { once: true, capture: true });
+            }
+            window.__galleryTouchEvents = events;
+          });
+          await activate(thumbs.nth(1));
+          const activeUpdated = await page.waitForFunction(
+            () => document.querySelectorAll(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb")[1]?.getAttribute("aria-pressed") === "true",
+            null,
+            { timeout: 3_000 },
+          ).then(() => true).catch(() => false);
+          if (!activeUpdated) {
+            const state = await thumbs.nth(1).evaluate((button) => ({
+              pressed: button.getAttribute("aria-pressed"),
+              disabled: button.disabled,
+              className: button.className,
+              rect: (() => { const r = button.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; })(),
+              active: [...document.querySelectorAll(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb")].map((item) => item.getAttribute("aria-pressed")),
+              events: window.__galleryTouchEvents ?? [],
+              hitTarget: (() => { const r = button.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return { tag: hit?.tagName, className: hit?.className?.baseVal ?? hit?.className ?? "", isButton: hit === button || button.contains(hit) }; })(),
+            }));
+            failures.push(`${route}: selecting the second thumbnail did not update its active state (${JSON.stringify(state)})`);
           }
-          const secondCounter = await page.locator(".hd-gallery-controls .property-gallery-counter").innerText().catch(() => "");
-          if (!secondCounter || secondCounter === firstCounter) {
+          await page.waitForFunction(
+            (previous) => document.querySelector(".hd-gallery-controls .property-gallery-counter")?.textContent?.trim() !== previous,
+            firstCounter,
+            { timeout: 3_000 },
+          ).catch(() => undefined);
+          const settledSecondCounter = await page.locator(".hd-gallery-controls .property-gallery-counter").innerText().catch(() => "");
+          if (!settledSecondCounter || settledSecondCounter === firstCounter) {
             failures.push(`${route}: selecting a thumbnail did not update the current-image counter`);
           }
           const scrollAfterSelection = await page.evaluate(() => window.scrollY);
@@ -401,14 +556,14 @@ try {
             failures.push(`${route}: selecting a thumbnail unexpectedly moved the page scroll position (${scrollBeforeSelection} → ${scrollAfterSelection})`);
           }
           const nextButton = page.locator('.hd-gallery-controls button[aria-label="تصویر بعدی"]').first();
-          await nextButton.click();
+          await activate(nextButton);
           const thirdCounter = await page.locator(".hd-gallery-controls .property-gallery-counter").innerText().catch(() => "");
-          if (!thirdCounter || thirdCounter === secondCounter) {
+          if (!thirdCounter || thirdCounter === settledSecondCounter) {
             failures.push(`${route}: the next-image control did not advance the image counter`);
           }
           const expandButton = page.locator(".hd-gallery-main .hd-gallery-expand").first();
           if (await expandButton.isVisible().catch(() => false)) {
-            await expandButton.click();
+            await activate(expandButton);
             const lightbox = page.locator(".hd-lightbox[role='dialog']").first();
             const opened = await lightbox.waitFor({ state: "visible", timeout: 3_000 }).then(() => true).catch(() => false);
             if (!opened) {
@@ -668,12 +823,14 @@ try {
             width: Math.round(dockRect.width), height: Math.round(dockRect.height),
             position: getComputedStyle(dock).position,
             activePlayer: !dock.classList.contains("music-player-float-empty"),
+            collapsed: dock.classList.contains("is-collapsed"),
             buttons: dockButtons,
           } : null;
           const floatingContact = contact && contactRect ? {
             left: Math.round(contactRect.left), right: Math.round(contactRect.right),
             top: Math.round(contactRect.top), bottom: Math.round(contactRect.bottom),
             width: Math.round(contactRect.width), height: Math.round(contactRect.height),
+            position: contact ? getComputedStyle(contact).position : "",
           } : null;
 
           let propertyGallery = null;
@@ -760,6 +917,102 @@ try {
             };
           }
 
+          const breadcrumb = document.querySelector(".property-detail-page.hd-property-detail-v2 .hd-breadcrumb");
+          const breadcrumbItems = breadcrumb ? [...breadcrumb.children].map((element) => {
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return {
+              tag: element.tagName.toLowerCase(),
+              text: (element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 36),
+              left: Math.round(rect.left), right: Math.round(rect.right),
+              top: Math.round(rect.top), bottom: Math.round(rect.bottom),
+              width: Math.round(rect.width), height: Math.round(rect.height),
+              fontSize: style.fontSize, whiteSpace: style.whiteSpace,
+            };
+          }) : [];
+          const breadcrumbOverlap = breadcrumbItems.some((item, index) => breadcrumbItems.slice(index + 1).some((other) =>
+            item.left < other.right - 1 && item.right > other.left + 1 && item.top < other.bottom - 1 && item.bottom > other.top + 1,
+          ));
+          const breadcrumbTitle = document.querySelector(".property-detail-page.hd-property-detail-v2 .property-detail-title-block");
+          const breadcrumbTitleOverlap = Boolean(breadcrumb && breadcrumbTitle && (() => {
+            const a = breadcrumb.getBoundingClientRect();
+            const b = breadcrumbTitle.getBoundingClientRect();
+            return a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1;
+          })());
+          const formControls = [];
+          if (viewport <= 430) {
+            for (const element of document.querySelectorAll("input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='range']),select,textarea")) {
+              const style = getComputedStyle(element);
+              if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+              const rect = element.getBoundingClientRect();
+              if (rect.width < 1 || rect.height < 1) continue;
+              if (rect.height < 43.5 || Number.parseFloat(style.fontSize) < 16) {
+                formControls.push({
+                  tag: element.tagName.toLowerCase(),
+                  type: element.getAttribute("type") || "",
+                  label: element.getAttribute("aria-label") || element.getAttribute("placeholder") || element.name || "",
+                  width: Math.round(rect.width), height: Math.round(rect.height), fontSize: style.fontSize,
+                });
+              }
+            }
+          }
+          const choiceControls = [];
+          if (viewport <= 430) {
+            for (const element of document.querySelectorAll("input[type='checkbox'],input[type='radio']")) {
+              const style = getComputedStyle(element);
+              if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+              const hitArea = element.closest("label") || element.parentElement;
+              const rect = hitArea?.getBoundingClientRect();
+              if (!rect || rect.width < 1 || rect.height < 1) continue;
+              if (rect.width < 43.5 || rect.height < 43.5) {
+                choiceControls.push({ type: element.type, label: (hitArea.textContent || "").trim().replace(/\s+/g, " ").slice(0, 40), width: Math.round(rect.width), height: Math.round(rect.height) });
+              }
+            }
+          }
+          const undersizedButtons = [];
+          if (viewport <= 430) {
+            for (const element of document.querySelectorAll("button,[role='button']")) {
+              const style = getComputedStyle(element);
+              if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+              if (element.closest(".leaflet-container,.maplibregl-map,.music-player-float")) continue;
+              const rect = element.getBoundingClientRect();
+              if (rect.width < 1 || rect.height < 1) continue;
+              if (rect.width < 43.5 || rect.height < 43.5) {
+                undersizedButtons.push({
+                  label: (element.innerText || element.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ").slice(0, 40),
+                  width: Math.round(rect.width), height: Math.round(rect.height),
+                });
+              }
+            }
+          }
+          const touchContractDiagnostics = viewport <= 430 ? {
+            stylesheetLoaded: [...document.styleSheets].some((sheet) => sheet.href?.includes("site-mobile-touch-contract")),
+            finance: (() => {
+              const input = document.querySelector(".finance-tool-page .commission-fields input, .finance-tool-page .commission-fields select");
+              const tab = document.querySelector(".finance-tool-page .commission-tabs button");
+              const describe = (element) => {
+                if (!element) return null;
+                const style = getComputedStyle(element);
+                const rect = element.getBoundingClientRect();
+                return { tag: element.tagName, fontSize: style.fontSize, minHeight: style.minHeight, height: style.height, transform: style.transform, rectHeight: Math.round(rect.height) };
+              };
+              return { input: describe(input), tab: describe(tab), stylesheets: [...document.styleSheets].map((sheet) => sheet.href).filter(Boolean).slice(-6) };
+            })(),
+          } : null;
+          let homeMusicDock = null;
+          if (viewport <= 720 && document.querySelector(".site-home")) {
+            const dock = document.querySelector(".music-player-float.is-collapsed");
+            const actions = [...document.querySelectorAll(".site-home .hero-actions > a")];
+            if (dock) {
+              const dockRect = dock.getBoundingClientRect();
+              const overlaps = actions.some((element) => {
+                const rect = element.getBoundingClientRect();
+                return dockRect.left < rect.right - 1 && dockRect.right > rect.left + 1 && dockRect.top < rect.bottom - 1 && dockRect.bottom > rect.top + 1;
+              });
+              homeMusicDock = { position: getComputedStyle(dock).position, overlapsHeroActions: overlaps };
+            }
+          }
+
           return {
             viewport,
             viewportHeight,
@@ -775,6 +1028,12 @@ try {
             musicDock,
             floatingContact,
             propertyGallery,
+            breadcrumb: breadcrumb ? { height: Math.round(breadcrumb.getBoundingClientRect().height), overlap: breadcrumbOverlap, titleOverlap: breadcrumbTitleOverlap, items: breadcrumbItems } : null,
+            formControls: formControls.slice(0, 12),
+            choiceControls: choiceControls.slice(0, 12),
+            undersizedButtons: undersizedButtons.slice(0, 12),
+            touchContractDiagnostics,
+            homeMusicDock,
             filterSidebar: filterSidebarMetrics,
             title: document.title,
           };
@@ -833,7 +1092,7 @@ try {
         if (route === "/properties") {
           const viewButtons = page.locator(".pf-views button");
           for (const { mode, index } of [{ mode: "list", index: 0 }, { mode: "grid", index: 1 }]) {
-            await viewButtons.nth(index).click();
+            await activate(viewButtons.nth(index));
             await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
             const cardContracts = await page.locator(".pf-grid > .pcard").evaluateAll((cards) => cards.map((card) => {
               const rect = (element) => {
@@ -890,20 +1149,52 @@ try {
               if (await gridFavorite.count()) {
                 const before = await gridFavorite.getAttribute("aria-pressed");
                 await gridFavorite.scrollIntoViewIfNeeded();
-                await gridFavorite.click();
+                await activate(gridFavorite);
                 const after = await gridFavorite.getAttribute("aria-pressed");
                 if (after === before || !["true", "false"].includes(after ?? "")) failures.push(`${gridPrefix}: grid-view favorite action did not toggle its pressed state`);
-                await gridFavorite.click();
+                await activate(gridFavorite);
                 if (await gridFavorite.getAttribute("aria-pressed") !== before) failures.push(`${gridPrefix}: grid-view favorite action did not restore its original pressed state`);
               }
             }
           }
-          await viewButtons.nth(0).click();
+          await activate(viewButtons.nth(0));
         }
 
         summaries.push({ route, ...metrics });
         if (metrics.overflow > 1) {
           failures.push(`${route} @ ${width}x${height}px: horizontal overflow ${metrics.overflow}px; elements=${JSON.stringify(metrics.offenders)}`);
+        }
+        if (route.startsWith("/properties/") && width <= 430 && metrics.breadcrumb) {
+          if (metrics.breadcrumb.overlap) {
+            failures.push(`${route} @ ${width}x${height}px: breadcrumb items overlap (${JSON.stringify(metrics.breadcrumb.items)})`);
+          }
+          if (metrics.breadcrumb.titleOverlap) {
+            failures.push(`${route} @ ${width}x${height}px: breadcrumb overlaps the property title`);
+          }
+          if (metrics.breadcrumb.items.some((item) => Number.parseFloat(item.fontSize) > 14)) {
+            failures.push(`${route} @ ${width}x${height}px: breadcrumb current-page text is oversized (${JSON.stringify(metrics.breadcrumb.items)})`);
+          }
+        }
+        if (width <= 430 && metrics.formControls?.length) {
+          failures.push(`${route} @ ${width}x${height}px: visible form fields are below 44px or use text below 16px (${JSON.stringify(metrics.formControls)})`);
+        }
+        if (width <= 430 && metrics.choiceControls?.length) {
+          failures.push(`${route} @ ${width}x${height}px: checkbox/radio labels are below 44px touch targets (${JSON.stringify(metrics.choiceControls)})`);
+        }
+        if (width <= 430 && metrics.undersizedButtons?.length) {
+          failures.push(`${route} @ ${width}x${height}px: visible buttons are below 44px touch targets (${JSON.stringify(metrics.undersizedButtons)})`);
+        }
+        if (route === "/" && width <= 720 && metrics.homeMusicDock?.overlapsHeroActions) {
+          failures.push(`${route} @ ${width}x${height}px: the collapsed music dock overlaps the primary hero actions (${JSON.stringify(metrics.homeMusicDock)})`);
+        }
+        if (route === "/" && width <= 720 && metrics.homeMusicDock && metrics.homeMusicDock.position !== "static") {
+          failures.push(`${route} @ ${width}x${height}px: the collapsed music dock should stay in document flow below the home content (${JSON.stringify(metrics.homeMusicDock)})`);
+        }
+        if (width <= 720 && metrics.musicDock?.collapsed && metrics.musicDock.position !== "static") {
+          failures.push(`${route} @ ${width}x${height}px: the collapsed music control must not float over route content (${JSON.stringify(metrics.musicDock)})`);
+        }
+        if (width <= 720 && metrics.floatingContact && metrics.floatingContact.position !== "static") {
+          failures.push(`${route} @ ${width}x${height}px: the contact menu must stay in document flow on mobile (${JSON.stringify(metrics.floatingContact)})`);
         }
         const failedImageUrls = new Set(failedImageResponses.keys());
         const decodeFailures = (metrics.brokenImages ?? []).filter((image) => !failedImageUrls.has(image.src));
@@ -1017,8 +1308,20 @@ try {
         failures.push(`${route}: uncaught browser errors: ${pageErrors.slice(0, 3).join(" | ")}`);
         summaries.push({ route, pageErrors: pageErrors.slice(0, 3) });
       }
+      const hydrationErrors = consoleErrors.filter((message) => /hydration mismatch|hydrated but some attributes|does not match the server/i.test(message));
+      if (hydrationErrors.length) {
+        failures.push(`${route}: React hydration mismatch after extension-free browser startup (${hydrationErrors.slice(0, 2).join(" | ")})`);
+      }
       if (consoleErrors.length) {
-        summaries.push({ route, consoleErrors: consoleErrors.slice(0, 5) });
+        summaries.push({ route, consoleErrors: consoleErrors.slice(0, 5), consoleDiagnostics: consoleDiagnostics.slice(0, 8) });
+      }
+      if (notFoundResponses.length) {
+        const responses = notFoundResponses.slice(0, 20);
+        summaries.push({ route, notFoundResponses: responses });
+        const appNotFound = responses.filter((response) => response.sameOrigin);
+        if (appNotFound.length) {
+          failures.push(`${route}: same-origin resources returned HTTP 404 (${JSON.stringify(appNotFound.slice(0, 8))})`);
+        }
       }
       if (failedRequests.length) {
         failures.push(`${route}: failed same-origin requests: ${JSON.stringify(failedRequests.slice(0, 5))}`);

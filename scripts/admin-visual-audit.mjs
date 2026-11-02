@@ -6,13 +6,16 @@
  * accessible names on every control, touch-target sizes, and whether the fixed
  * chrome (topbar / sticky save bar / mobile nav) overlaps content.
  */
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { chromium } from "playwright";
 import { installAdminApiStubs } from "./admin-fixtures.mjs";
 
 const BASE = process.env.QA_BASE_URL || "http://127.0.0.1:8080";
 const KEY = process.env.HIRMAND_ADMIN_KEY || "";
 const OUT = process.env.QA_SCREENSHOT_DIR || "screenshots/admin";
+const touchInputMode = process.env.QA_TOUCH === "1";
+const deviceScaleFactor = Math.max(1, Number(process.env.QA_DEVICE_SCALE_FACTOR || 1));
 
 const ALL_VIEWS = [
   { id: "dashboard", label: "dashboard" },
@@ -113,6 +116,10 @@ function parseZooms() {
         height: Math.round(windowHeight / factor),
       };
     });
+}
+
+async function activate(locator, options = {}) {
+  return touchInputMode ? locator.tap(options) : locator.click(options);
 }
 
 const ALIASES = {
@@ -500,24 +507,33 @@ async function clickByLabel(page, selector, viewId) {
   if (viewId === "form") {
     const button = page.locator(navRoot + " .admin-nav-btn-create");
     if (!(await button.isVisible().catch(() => false))) return false;
-    await button.click();
+    await activate(button);
     await page.waitForTimeout(700);
     return true;
   }
   const button = page.locator(navRoot + ' [data-admin-view="' + viewId + '"]');
   if (!(await button.isVisible().catch(() => false))) return false;
-  await button.click();
+  await activate(button);
   await page.waitForTimeout(700);
   return true;
 }
 
 const report = { base: BASE, at: new Date().toISOString(), views: [], overlays: [] };
 
-const browser = await chromium.launch({
-  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+const launchOptions = {
+  headless: true,
+  ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim()
+    ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.trim() }
     : {}),
-});
+  args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-extensions"],
+};
+let browser;
+try {
+  browser = await chromium.launch(launchOptions);
+} catch (error) {
+  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim()) throw error;
+  browser = await chromium.launch({ ...launchOptions, channel: "chrome" });
+}
 mkdirSync(OUT, { recursive: true });
 
 /**
@@ -556,7 +572,8 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     locale: "fa-IR",
-    hasTouch: viewport.width <= 1024,
+    deviceScaleFactor,
+    hasTouch: touchInputMode || viewport.width <= 1024,
     isMobile: viewport.width <= 640,
   });
   const page = await context.newPage();
@@ -566,7 +583,7 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
   await page.waitForTimeout(500);
   if (await page.locator('input[type="password"]').count()) {
     await page.locator('input[type="password"]').fill(KEY);
-    await page.locator('button[type="submit"]').click();
+    await activate(page.locator('button[type="submit"]'));
     await page.waitForTimeout(2500);
   }
 
@@ -577,7 +594,7 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
       if (await trigger.isVisible().catch(() => false)) {
         const expanded = await trigger.getAttribute("aria-expanded").catch(() => null);
         if (expanded !== "true") {
-          await trigger.click();
+          await activate(trigger);
           await page.waitForTimeout(300);
         }
       }
@@ -589,7 +606,7 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
       await auditOpenOverlay(page, viewport, "datepicker", async () => {
         const trigger = page.locator(".persian-date-picker-trigger").first();
         if (!(await trigger.isVisible().catch(() => false))) return false;
-        await trigger.click();
+        await activate(trigger);
         return true;
       });
     }
@@ -614,7 +631,7 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
   const drawerTrigger = page.locator(".admin-drawer-trigger");
   if (await drawerTrigger.isVisible().catch(() => false)) {
     await auditOpenOverlay(page, viewport, "drawer", async () => {
-      await drawerTrigger.click({ timeout: 5_000 });
+      await activate(drawerTrigger, { timeout: 5_000 });
       return true;
     }).catch((error) => {
       report.overlays.push({
@@ -711,8 +728,15 @@ for (const entry of report.views) {
 
 console.log(`\n=== admin audit: ${report.views.length} view/viewport pairs ===`);
 if (problems.length === 0) console.log("no findings");
-else console.log(problems.join("\n"));
+else if (process.env.QA_QUIET !== "1") console.log(problems.join("\n"));
 console.log(`\n${problems.length} finding(s)\n`);
+
+if (process.env.QA_REPORT_PATH?.trim()) {
+  const reportPath = resolve(process.env.QA_REPORT_PATH.trim());
+  mkdirSync(dirname(reportPath), { recursive: true });
+  writeFileSync(reportPath, JSON.stringify({ ...report, problemCount: problems.length, problems }, null, 2));
+  console.log(`admin audit report saved: ${reportPath}`);
+}
 
 if (process.env.QA_FULL === "1") console.log(JSON.stringify(report, null, 2));
 const blockingPatterns = [

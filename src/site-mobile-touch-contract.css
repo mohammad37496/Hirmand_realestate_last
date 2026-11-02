@@ -1,0 +1,175 @@
+/* Shared mobile input and touch-target contract for public site surfaces. */
+@media (max-width: 430px) {
+  html body :is(.page, .footer, .header-redesign, .quick-actions, .finance-tool-page, .valuation-page, .owner-submit-page, .admin-login)
+  :is(button, [role="button"]) {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  /* Pressed-state scale transforms can shrink a 44px control to 43px on
+     touch devices. Keep the main public forms above the target while active. */
+  html body :is(.valuation-page, .customer-property-submit-page, .request-property-page)
+  :is(button, [role="button"]) {
+    min-height: 46px !important;
+  }
+
+  html body :is(.valuation-page, .customer-property-submit-page, .request-property-page)
+  :is(button, [role="button"]):active {
+    transform: none !important;
+  }
+
+  html body .header-redesign .menu-toggle {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    flex: 0 0 44px !important;
+  }
+
+  html body :is(.page, .footer, .finance-tool-page, .valuation-page, .owner-submit-page, .admin-login)
+  :is(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+    min-height: 44px !important;
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+  }
+
+  html body :is(.page, .footer, .finance-tool-page, .valuation-page, .owner-submit-page) input[type="range"] {
+    min-height: 44px !important;
+    height: 44px !important;
+    max-width: 100% !important;
+    touch-action: pan-x;
+  }
+
+  html body :is(.page, .footer, .finance-tool-page, .valuation-page, .owner-submit-page) label:has(input[type="checkbox"]),
+  html body :is(.page, .footer, .finance-tool-page, .valuation-page, .owner-submit-page) label:has(input[type="radio"]) {
+    min-height: 44px !important;
+  }
+
+  html body .finance-tool-page .commission-tabs .commission-tab {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    height: auto !important;
+    padding-block: 9px !important;
+  }
+
+  html body .finance-tool-page :is(.commission-fields, .commission-box, .rahn-converter, .finance-tool-content-body) :is(input:not([type="hidden"]), select, textarea) {
+    min-height: 44px !important;
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html body .finance-tool-page :is(.commission-tabs button, .copy-result, .preset-chip, .tools-switch-btn, .rahn-converter button) {
+    min-height: 44px !important;
+    height: auto !important;
+  }
+
+  html body .customer-property-submit-page .customer-property-check {
+    min-height: 44px !important;
+    padding-block: 10px !important;
+  }
+
+  html body .customer-property-submit-page .customer-property-chip {
+    min-height: 44px !important;
+    padding-block: 10px !important;
+  }
+
+  html body .customer-property-submit-page .customer-property-upload-zone[role="button"] {
+    min-height: 44px !important;
+  }
+
+  html body .admin-login .admin-login-switch button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    height: auto !important;
+    padding-block: 9px !important;
+  }
+
+  html body .valuation-page .valuation-form-grid :is(input, select, textarea) {
+    font-size: 16px !important;
+    min-height: 44px !important;
+    line-height: 1.45 !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  :is(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+    min-height: 44px !important;
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 input[type="range"] {
+    min-height: 44px !important;
+    height: 44px !important;
+    max-width: 100% !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 label:has(input[type="checkbox"]),
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 label:has(input[type="radio"]) {
+    min-height: 44px !important;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Keep collapsed music and the contact menu in normal flow so they never
+     cover editable fields, galleries or property cards. Reserve room for the
+     fixed quick-action dock at the end of the document so the controls remain
+     reachable when the visitor scrolls to the bottom. */
+  html body #hirmand-site-music-player.is-collapsed {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: fit-content !important;
+    max-width: calc(100vw - 24px) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 16px 12px calc(86px + env(safe-area-inset-bottom)) auto !important;
+    z-index: auto !important;
+  }
+
+  html body .action-menu.floating-call-menu,
+  html body:has(.pf-page) .action-menu.floating-call-menu,
+  html:has(.pf-page) body:has(.pf-page) .action-menu.floating-call-menu {
+    position: static !important;
+    inset: auto !important;
+    width: fit-content !important;
+    max-width: calc(100vw - 24px) !important;
+    margin: 14px auto calc(86px + env(safe-area-inset-bottom)) !important;
+    z-index: auto !important;
+  }
+}
+
+@media (max-width: 760px) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-breadcrumb {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    overscroll-behavior-inline: contain;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-breadcrumb > :is(a, svg) {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2 .hd-breadcrumb > span[aria-current="page"] {
+    display: block !important;
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    max-width: min(48vw, 220px) !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+  }
+}
