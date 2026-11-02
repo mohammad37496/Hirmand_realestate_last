@@ -5,7 +5,8 @@ export const ADMIN_DASHBOARD_PROPERTY_STATS_SQL = `
     count(*) filter (where status = 'draft')::int as draft,
     count(*) filter (where status = 'archived')::int as archived,
     count(*) filter (
-      where featured = true
+      where status = 'published'
+        and featured = true
         and (featured_until is null or featured_until >= current_timestamp)
     )::int as featured,
     count(*) filter (where coalesce(jsonb_array_length(images), 0) = 0)::int as without_images,

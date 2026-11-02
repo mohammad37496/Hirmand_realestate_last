@@ -23,6 +23,11 @@ import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import {
+  BULK_SET_PROPERTY_FEATURED_SQL,
+  BULK_UPDATE_PROPERTY_STATUS_SQL,
+  resolveFeaturedStateForPropertyStatus,
+} from "@/lib/admin-property-status-featured";
+import {
   PROPERTY_CABINET_OPTIONS,
   isAllowedPropertyFloorValue,
   PROPERTY_COOLING_OPTIONS,
@@ -1193,18 +1198,7 @@ export const bulkUpdatePropertyStatus = createServerFn({ method: "POST" })
     }
 
     const rows = await sql.query<Record<string, unknown>>(
-      `update properties
-       set status = $1,
-           publish_at = case when $1 = 'draft' then publish_at else null end,
-           unpublish_at = case when $1 = 'published' then unpublish_at else null end,
-           published_at = case
-             when $1 = 'published' then coalesce(published_at, current_timestamp)
-             else null
-           end,
-           updated_at = current_timestamp
-       where id = any($2::text[])
-         and deleted_at is null
-       returning id, title, status, featured, price, deposit, rent, contact_name, contact_phone, owner_name, owner_phone, owner_info`,
+      BULK_UPDATE_PROPERTY_STATUS_SQL,
       [data.status, data.ids],
     );
 
@@ -1280,18 +1274,15 @@ export const bulkSetPropertyFeatured = createServerFn({ method: "POST" })
     );
 
     const rows = await sql.query<Record<string, unknown>>(
-      `update properties
-       set featured = $1,
-           featured_until = null,
-           updated_at = current_timestamp
-       where id = any($2::text[])
-       returning id, title, status, featured, price, deposit, rent, contact_name, contact_phone`,
+      BULK_SET_PROPERTY_FEATURED_SQL,
       [data.featured, data.ids],
     );
 
     if (rows.length) {
+      const updatedIds = new Set(rows.map((row) => String(row.id)));
+      const changedBeforeRows = beforeRows.filter((row) => updatedIds.has(String(row.id)));
       const beforePayload = JSON.stringify(
-        beforeRows.map((row) => ({
+        changedBeforeRows.map((row) => ({
           id: String(row.id),
           before_state: {
             title: row.title == null ? null : String(row.title),
@@ -1686,9 +1677,14 @@ export const saveProperty = createServerFn({ method: "POST" })
 
     const existingSlug = typeof existing?.slug === "string" ? existing.slug.trim() : "";
     const slug = existingSlug || `${slugify(data.title)}-${id.slice(0, 8)}`;
-    const featuredUntil = data.featured && data.featuredUntil
+    const featuredState = resolveFeaturedStateForPropertyStatus(
+      saveStatus,
+      data.featured,
+      data.featuredUntil,
+    );
+    const featuredUntil = featuredState.featuredUntil
       ? (() => {
-          const parsed = new Date(data.featuredUntil!);
+          const parsed = new Date(featuredState.featuredUntil!);
           if (!Number.isFinite(parsed.getTime())) {
             throw new Error("تاریخ پایان ویژه نامعتبر است.");
           }
@@ -1872,7 +1868,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         id,
         slug,
         saveStatus,
-        data.featured,
+        featuredState.featured,
         data.title,
         data.transactionType,
         data.propertyType,

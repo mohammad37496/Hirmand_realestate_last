@@ -71,7 +71,7 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
       "count(*) filter (where status='published' and (coalesce(jsonb_array_length(images),0)=0 or " +
       "coalesce(length(trim(description)),0) < 120 or coalesce(trim(neighborhood),'')='' or coalesce(trim(contact_name),'')=''))::int as incomplete, " +
       "count(*) filter (where status='published' and updated_at < current_timestamp - interval '30 days')::int as stale, " +
-      "count(*) filter (where featured=true and featured_until is not null and featured_until < current_timestamp)::int as expired_featured " +
+      "count(*) filter (where status='published' and deleted_at is null and featured=true and featured_until is not null and featured_until < current_timestamp)::int as expired_featured " +
       "from properties"
     ),
     sql.query<Record<string, unknown>>(
@@ -94,7 +94,7 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
     ),
     sql.query<Record<string, unknown>>(
       "select id, slug, title, featured_until from properties " +
-      "where featured=true and featured_until is not null and featured_until < current_timestamp " +
+      "where status='published' and deleted_at is null and featured=true and featured_until is not null and featured_until < current_timestamp " +
       "order by featured_until asc limit 12"
     ),
     sql.query<Record<string, unknown>>(

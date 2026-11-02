@@ -7,6 +7,11 @@ import {
   CREATE_PROPERTY_RENEWAL_TASK_SQL,
   EXTEND_PROPERTY_EXPIRY_SQL,
 } from "./admin-property-expiry-sql.ts";
+import {
+  BULK_SET_PROPERTY_FEATURED_SQL,
+  BULK_UPDATE_PROPERTY_STATUS_SQL,
+  resolveFeaturedStateForPropertyStatus,
+} from "./admin-property-status-featured.ts";
 
 const route = readFileSync(
   new URL("../../server/routes/api/admin-property-expiry.post.ts", import.meta.url),
@@ -239,4 +244,143 @@ test("failed extension audit rolls back the expiry change", async () => {
   } finally {
     await db.close();
   }
+});
+
+test("archiving through the save path always clears featured state", () => {
+  assert.deepEqual(
+    resolveFeaturedStateForPropertyStatus("archived", true, "2026-12-01T00:00:00.000Z"),
+    { featured: false, featuredUntil: null },
+  );
+  assert.deepEqual(resolveFeaturedStateForPropertyStatus("archived", false, null), {
+    featured: false,
+    featuredUntil: null,
+  });
+});
+
+test("draft and published saves preserve an explicitly requested featured state", () => {
+  const until = "2026-12-01T00:00:00.000Z";
+  assert.deepEqual(resolveFeaturedStateForPropertyStatus("draft", true, until), {
+    featured: true,
+    featuredUntil: until,
+  });
+  assert.deepEqual(resolveFeaturedStateForPropertyStatus("published", true, until), {
+    featured: true,
+    featuredUntil: until,
+  });
+  assert.deepEqual(resolveFeaturedStateForPropertyStatus("published", false, until), {
+    featured: false,
+    featuredUntil: null,
+  });
+});
+
+test("bulk archiving clears featured flags without changing other statuses", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table properties (
+        id text primary key, title text not null, status text not null,
+        publish_at timestamptz, unpublish_at timestamptz, published_at timestamptz,
+        featured boolean not null default false, featured_until timestamptz,
+        deleted_at timestamptz, updated_at timestamptz not null default current_timestamp,
+        price numeric, deposit numeric, rent numeric, contact_name text, contact_phone text,
+        owner_name text, owner_phone text, owner_info text
+      );
+      insert into properties (id,title,status,featured,featured_until,published_at) values
+        ('archive-me','Archive me','published',true,'2026-12-01T00:00:00Z',current_timestamp),
+        ('draft-me','Draft me','published',true,'2026-12-01T00:00:00Z',current_timestamp),
+        ('trashed','Already trashed','archived',true,'2026-12-01T00:00:00Z',current_timestamp);
+      update properties set deleted_at=current_timestamp where id='trashed';
+    `);
+    const archived = await db.query<{ id: string }>(BULK_UPDATE_PROPERTY_STATUS_SQL, ["archived", ["archive-me", "trashed"]]);
+    assert.deepEqual(archived.rows.map((row) => row.id), ["archive-me"]);
+    const rows = await db.query<{ id: string; status: string; featured: boolean; has_featured_until: boolean }>(
+      "select id,status,featured,featured_until is not null as has_featured_until from properties order by id",
+    );
+    assert.deepEqual(rows.rows, [
+      { id: "archive-me", status: "archived", featured: false, has_featured_until: false },
+      { id: "draft-me", status: "published", featured: true, has_featured_until: true },
+      { id: "trashed", status: "archived", featured: true, has_featured_until: true },
+    ]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("bulk feature action cannot re-feature archived, draft, or trashed properties", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table properties (
+        id text primary key, title text not null, status text not null,
+        featured boolean not null default false, featured_until timestamptz,
+        deleted_at timestamptz, updated_at timestamptz not null default current_timestamp,
+        price numeric, deposit numeric, rent numeric, contact_name text, contact_phone text
+      );
+      insert into properties (id,title,status,featured,featured_until,deleted_at) values
+        ('published','Published','published',false,null,null),
+        ('draft','Draft','draft',false,null,null),
+        ('archived','Archived','archived',false,null,null),
+        ('trashed','Trashed','archived',false,null,current_timestamp);
+    `);
+    const featured = await db.query<{ id: string }>(BULK_SET_PROPERTY_FEATURED_SQL, [true, ["published", "draft", "archived", "trashed"]]);
+    assert.deepEqual(featured.rows.map((row) => row.id), ["published"]);
+    const rows = await db.query<{ id: string; featured: boolean }>("select id,featured from properties order by id");
+    assert.deepEqual(rows.rows, [
+      { id: "archived", featured: false },
+      { id: "draft", featured: false },
+      { id: "published", featured: true },
+      { id: "trashed", featured: false },
+    ]);
+
+    const cleared = await db.query<{ id: string }>(BULK_SET_PROPERTY_FEATURED_SQL, [false, ["archived", "trashed"]]);
+    assert.deepEqual(cleared.rows.map((row) => row.id).sort(), ["archived", "trashed"]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("the migration clears legacy featured flags from archived and trashed properties only", async () => {
+  const db = new PGlite();
+  try {
+    const featuredMigration = readFileSync(
+      new URL("../../migrations/0112_clear_archived_property_featured_flags.sql", import.meta.url),
+      "utf8",
+    );
+    await db.exec(`
+      create table properties (
+        id text primary key, status text not null, deleted_at timestamptz,
+        featured boolean not null default false, featured_until timestamptz
+      );
+      insert into properties (id,status,deleted_at,featured,featured_until) values
+        ('archived','archived',null,true,'2026-12-01T00:00:00Z'),
+        ('trashed','archived','2026-10-01T00:00:00Z',true,'2026-12-01T00:00:00Z'),
+        ('published','published',null,true,'2026-12-01T00:00:00Z'),
+        ('draft','draft',null,true,'2026-12-01T00:00:00Z');
+    `);
+    await db.exec(featuredMigration);
+    const rows = await db.query<{ id: string; featured: boolean; has_featured_until: boolean }>(
+      "select id,featured,featured_until is not null as has_featured_until from properties order by id",
+    );
+    assert.deepEqual(rows.rows, [
+      { id: "archived", featured: false, has_featured_until: false },
+      { id: "draft", featured: true, has_featured_until: true },
+      { id: "published", featured: true, has_featured_until: true },
+      { id: "trashed", featured: false, has_featured_until: false },
+    ]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("property save, bulk status, and featured dashboard readers share the archive invariant", () => {
+  const properties = readFileSync(new URL("./properties.ts", import.meta.url), "utf8");
+  const actionCenter = readFileSync(new URL("../../server/routes/api/admin-action-center.post.ts", import.meta.url), "utf8");
+  const productivity = readFileSync(new URL("../../server/routes/api/admin-productivity.post.ts", import.meta.url), "utf8");
+  assert.match(properties, /resolveFeaturedStateForPropertyStatus\(\s*saveStatus,\s*data\.featured,\s*data\.featuredUntil,?\s*\)/);
+  assert.match(properties, /featuredState\.featured,/);
+  assert.match(properties, /BULK_UPDATE_PROPERTY_STATUS_SQL/);
+  assert.match(properties, /BULK_SET_PROPERTY_FEATURED_SQL/);
+  assert.match(properties, /changedBeforeRows = beforeRows\.filter/);
+  assert.match(actionCenter, /where status='published' and deleted_at is null and featured=true and featured_until is not null/);
+  assert.match(productivity, /status='published' and deleted_at is null and featured=true and featured_until is not null/);
 });

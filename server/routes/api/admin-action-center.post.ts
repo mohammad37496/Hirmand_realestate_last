@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
       "and updated_at < current_timestamp - interval '30 days' order by updated_at asc limit 8",
     ),
     sql.query<Record<string, unknown>>(
-      "select id,title,slug,featured_until from properties where featured=true and featured_until is not null " +
+      "select id,title,slug,featured_until from properties where status='published' and deleted_at is null and featured=true and featured_until is not null " +
       "and featured_until < current_timestamp order by featured_until asc limit 6",
     ),
   ]);
