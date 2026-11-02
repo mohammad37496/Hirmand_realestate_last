@@ -249,8 +249,8 @@ test("CRM relationship writers lock and reject merged lead IDs instead of creati
   ]);
   assert.match(deals, /lockLeadReferencesForMutation\(tx, \[leadId\]\)/);
   assert.match(finance, /lockLeadReferencesForMutation\(tx, \[leadId\]\)/);
-  assert.match(productivity, /lockLeadReferencesForMutation\(tx, \[entityId\]\)/);
-  assert.match(productivity, /lockLeadReferencesForMutation\(tx, leadReferences\)/);
+  assert.match(productivity, /lockTaskLeadReferences\(tx, \[entityId\], entityId\)/);
+  assert.match(productivity, /lockTaskLeadReferences\(tx, leadReferences, associationChanged && entityType === "lead" \? entityId : null\)/);
   assert.match(leadsAdmin, /lockLeadReferencesForMutation\(tx, \[String\(row\.id\)\]\)/);
   assert.match(leads, /lockLeadReferencesForMutation\(tx, \[input\.leadId\]\)/);
   assert.match(matcher, /SAVE_MATCH_RESULTS_WITH_ACTIVITY_SQL/);

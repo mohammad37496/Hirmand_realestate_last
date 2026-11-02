@@ -2,19 +2,25 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
-import { LOCK_ACTIVE_PROPERTY_FOR_TASK_SQL, lockActivePropertyForTask } from "./admin-productivity-task-association.ts";
+import {
+  LOCK_ACTIVE_PROPERTY_FOR_TASK_SQL,
+  LOCK_TASK_LEAD_REFERENCES_SQL,
+  lockActivePropertyForTask,
+  lockTaskLeadReferences,
+} from "./admin-productivity-task-association.ts";
 
 test("tasks link only to existing active leads or non-archived properties", async () => {
   const db = new PGlite();
   try {
     await db.exec(`
-      create table leads (id text primary key, name text not null, phone text not null, status text not null, created_at timestamptz default current_timestamp);
+      create table leads (id text primary key, name text not null, phone text not null, status text not null, merged_into_lead_id text, created_at timestamptz default current_timestamp);
       create table properties (id text primary key, slug text, title text, neighborhood text, status text not null, deleted_at timestamptz);
       create table admin_tasks (id text primary key, title text not null, entity_type text not null, entity_id text);
-      insert into leads(id,name,phone,status) values
-        ('active-1','مشتری فعال','09120000000','follow_up'),
-        ('closed-1','مشتری بسته','09121111111','closed'),
-        ('spam-1','هرزنامه','09122222222','spam');
+      insert into leads(id,name,phone,status,merged_into_lead_id) values
+        ('active-1','مشتری فعال','09120000000','follow_up',null),
+        ('closed-1','مشتری بسته','09121111111','closed',null),
+        ('spam-1','هرزنامه','09122222222','spam',null),
+        ('merged-1','لید ادغام‌شده','09123333333','closed','active-1');
       insert into properties(id,title,neighborhood,status,deleted_at) values
         ('property-1','آپارتمان نمونه','مرداویج','published',null),
         ('property-deleted','فایل حذف‌شده','مرداویج','published',current_timestamp),
@@ -24,6 +30,11 @@ test("tasks link only to existing active leads or non-archived properties", asyn
       query: async <T = Record<string, unknown>>(statement: string, params?: unknown[]) =>
         (await db.query<T>(statement, params)).rows,
     };
+    assert.deepEqual(await lockTaskLeadReferences(taskSql, ["active-1"], "active-1"), { kind: "locked" });
+    assert.deepEqual(await lockTaskLeadReferences(taskSql, ["closed-1"], "closed-1"), { kind: "inactive", status: "closed" });
+    assert.deepEqual(await lockTaskLeadReferences(taskSql, ["spam-1"], "spam-1"), { kind: "inactive", status: "spam" });
+    assert.deepEqual(await lockTaskLeadReferences(taskSql, ["missing-lead"], "missing-lead"), { kind: "missing" });
+    assert.deepEqual(await lockTaskLeadReferences(taskSql, ["merged-1"], "merged-1"), { kind: "merged", canonicalId: "active-1" });
     const valid = await db.query("select id from leads where id=$1 limit 1", ["active-1"]);
     const missing = await db.query("select id from leads where id=$1 limit 1", ["not-found"]);
     assert.equal(valid.rows.length, 1);
@@ -81,17 +92,24 @@ test("productivity API validates lead associations and task mutations fail on in
   assert.match(route, /action === "list_leads"/);
   assert.match(route, /action === "list_properties"/);
   assert.match(route, /select id,slug,title,neighborhood,status from properties where deleted_at is null and status <> 'archived'/);
-  assert.match(route, /lockLeadReferencesForMutation\(tx, \[entityId\]\)/);
-  assert.match(route, /lockLeadReferencesForMutation\(tx, leadReferences\)/);
+  assert.match(route, /lockTaskLeadReferences\(tx, \[entityId\], entityId\)/);
+  assert.match(route, /lockTaskLeadReferences\(tx, leadReferences, associationChanged && entityType === "lead" \? entityId : null\)/);
+  assert.match(route, /status not in \('closed','spam'\)/);
+  assert.match(route, /lock\.kind === "inactive"/);
   const createTransaction = route.indexOf('if (action === "create_task")');
   const createLock = route.indexOf("lockActivePropertyForTask(tx, entityId)", createTransaction);
   const createInsert = route.indexOf("insert into admin_tasks", createLock);
   assert.ok(createLock > createTransaction && createInsert > createLock, "create must lock and recheck the property inside its transaction before inserting");
+  const createLeadLock = route.indexOf("lockTaskLeadReferences(tx, [entityId], entityId)", createTransaction);
+  assert.ok(createLeadLock > createTransaction && createInsert > createLeadLock, "create must lock and recheck the target lead inside its transaction before inserting");
   const updateTransaction = route.indexOf('if (action === "update_task")');
   const updateLock = route.indexOf("lockActivePropertyForTask(tx, entityId)", updateTransaction);
   const updateWrite = route.indexOf("update admin_tasks set", updateLock);
   assert.ok(updateLock > updateTransaction && updateWrite > updateLock, "update must lock and recheck the property inside its transaction before writing");
+  const updateLeadLock = route.indexOf("lockTaskLeadReferences(tx, leadReferences", updateTransaction);
+  assert.ok(updateLeadLock > updateTransaction && updateWrite > updateLeadLock, "update must lock lead references and recheck newly attached leads inside its transaction");
   assert.match(LOCK_ACTIVE_PROPERTY_FOR_TASK_SQL, /deleted_at is null and status <> 'archived'[\s\S]*for update/i);
+  assert.match(LOCK_TASK_LEAD_REFERENCES_SQL, /status,merged_into_lead_id[\s\S]*order by id[\s\S]*for update/i);
   assert.match(route, /merged_into_lead_id is null/);
   assert.match(route, /withSqlTransaction\(async \(tx\)/);
   assert.match(route, /body\.status !== undefined && !TASK_STATUSES\.includes/);
