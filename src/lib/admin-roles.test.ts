@@ -16,3 +16,12 @@ test("sales commission permissions do not imply partner administration", () => {
   assert.equal(hasAdminPermission("sales", "commission.manage"), true);
   assert.equal(hasAdminPermission("sales", "partners.manage"), false);
 });
+
+test("data-health integrity scans are limited to owner and manager roles", () => {
+  assert.equal(hasAdminPermission("owner", "settings.manage"), true);
+  assert.equal(hasAdminPermission("manager", "settings.manage"), true);
+  assert.equal(hasAdminPermission("sales", "settings.manage"), false);
+  assert.equal(hasAdminPermission("content", "settings.manage"), false);
+  assert.equal(hasAdminPermission("staff", "settings.manage"), false);
+  assert.equal(hasAdminPermission("viewer", "settings.manage"), false);
+});

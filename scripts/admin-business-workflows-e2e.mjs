@@ -99,6 +99,18 @@ async function consultantTargetsResponse(page) {
   });
 }
 
+async function dataHealthResponse(page) {
+  return page.evaluate(async () => {
+    const response = await fetch("/api/admin-data-health", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "scan" }),
+    });
+    return { status: response.status, bodyText: await response.text() };
+  });
+}
+
 try {
   client = await pool.connect();
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
@@ -130,6 +142,10 @@ try {
   const salesTargetsResponse = await consultantTargetsResponse(salesPage);
   if (salesTargetsResponse.status !== 200) {
     throw new Error("Sales role must be able to read consultant targets; received HTTP " + salesTargetsResponse.status);
+  }
+  const salesDataHealthResponse = await dataHealthResponse(salesPage);
+  if (salesDataHealthResponse.status !== 403) {
+    throw new Error("Sales role must receive HTTP 403 for data-health scan; received HTTP " + salesDataHealthResponse.status);
   }
 
   salesTestAgencyName = "QA Partner Permission " + randomUUID();
@@ -180,6 +196,10 @@ try {
   if (managerTargetsResponse.status !== 200) {
     throw new Error("Manager role must be able to read consultant targets; received HTTP " + managerTargetsResponse.status);
   }
+  const managerDataHealthResponse = await dataHealthResponse(managerPage);
+  if (managerDataHealthResponse.status !== 200) {
+    throw new Error("Manager role must be able to run data-health scan; received HTTP " + managerDataHealthResponse.status);
+  }
 
   for (const role of ["content", "viewer"]) {
     const restrictedPage = await loginAsTemporaryRole(role);
@@ -190,8 +210,16 @@ try {
     if (/commissionTarget|leadTarget|consultantTarget|"commissions"/.test(targetsResponse.bodyText)) {
       throw new Error(role + " role received consultant target data in a denied response.");
     }
+    const dataHealth = await dataHealthResponse(restrictedPage);
+    if (dataHealth.status !== 403) {
+      throw new Error(role + " role must receive HTTP 403 for data-health scan; received HTTP " + dataHealth.status);
+    }
+    if (/orphan_lead|unknown_consultant|entityId|"findings"/.test(dataHealth.bodyText)) {
+      throw new Error(role + " role received CRM integrity data in a denied response.");
+    }
   }
   console.log("ok   consultant targets are readable by sales/manager and denied to content/viewer over direct API requests");
+  console.log("ok   data-health scans are restricted to owner/manager over direct API requests");
 
   await salesContext.close();
   salesContext = null;
@@ -205,6 +233,10 @@ try {
   const ownerTargetsResponse = await consultantTargetsResponse(page);
   if (ownerTargetsResponse.status !== 200) {
     throw new Error("Owner role must be able to read consultant targets; received HTTP " + ownerTargetsResponse.status);
+  }
+  const ownerDataHealthResponse = await dataHealthResponse(page);
+  if (ownerDataHealthResponse.status !== 200) {
+    throw new Error("Owner role must be able to run data-health scan; received HTTP " + ownerDataHealthResponse.status);
   }
 
   await page.locator(".admin-sidebar .admin-sidebar-nav")
@@ -352,6 +384,7 @@ try {
     ok: true,
     scenarios: [
       { name: "consultant targets role enforcement", ok: true },
+      { name: "data-health role enforcement", ok: true },
       { name: "create draft", ok: true },
       { name: "admin search", ok: true },
       { name: "edit listing", ok: true },
