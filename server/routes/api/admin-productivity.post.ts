@@ -5,6 +5,7 @@ import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { loadAdminProductivityTableCounts } from "@/lib/admin-productivity-table-counts";
 import { lockLeadReferencesForMutation } from "@/lib/admin-lead-dedupe.server";
+import { lockActivePropertyForTask } from "@/lib/admin-productivity-task-association";
 
 type TaskStatus = "open" | "done" | "cancelled";
 type Priority = "low" | "normal" | "high" | "urgent";
@@ -230,6 +231,7 @@ export default defineEventHandler(async (event) => {
         if (lock.kind === "missing") throw createError({ statusCode: 404, statusMessage: "لید مرتبط با وظیفه پیدا نشد." });
         if (lock.kind === "merged") throw createError({ statusCode: 409, statusMessage: `این لید ادغام شده است؛ وظیفه را به لید اصلی ${lock.canonicalId} متصل کنید.` });
       }
+      if (entityType === "property" && entityId && !await lockActivePropertyForTask(tx, entityId)) return [];
       return tx.query(
         "insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) " +
         "select $1,$2,$3,$4,$5,$6,$7,$8,$9 where ($8 <> 'lead' or exists(select 1 from leads where id=$9 and merged_into_lead_id is null)) and ($8 <> 'property' or exists(select 1 from properties where id=$9 and deleted_at is null and status <> 'archived')) returning *",
@@ -264,6 +266,7 @@ export default defineEventHandler(async (event) => {
       const lock = await lockLeadReferencesForMutation(tx, leadReferences);
       if (lock.kind === "missing") throw createError({ statusCode: 404, statusMessage: "لید مرتبط با وظیفه پیدا نشد." });
       if (lock.kind === "merged") throw createError({ statusCode: 409, statusMessage: `این لید ادغام شده است؛ وظیفه را به لید اصلی ${lock.canonicalId} متصل کنید.` });
+      if (entityType === "property" && entityId && !await lockActivePropertyForTask(tx, entityId)) return [];
       const current = (await tx.query<Record<string, unknown>>("select entity_type,entity_id from admin_tasks where id=$1 for update", [id]))[0];
       if (!current || String(current.entity_type ?? "") !== String(existing.entity_type ?? "") || String(current.entity_id ?? "") !== String(existing.entity_id ?? "")) {
         return [];

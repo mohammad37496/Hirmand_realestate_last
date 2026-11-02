@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
+import { LOCK_ACTIVE_PROPERTY_FOR_TASK_SQL, lockActivePropertyForTask } from "./admin-productivity-task-association.ts";
 
 test("tasks link only to existing active leads or non-archived properties", async () => {
   const db = new PGlite();
@@ -19,6 +20,10 @@ test("tasks link only to existing active leads or non-archived properties", asyn
         ('property-deleted','فایل حذف‌شده','مرداویج','published',current_timestamp),
         ('property-archived','فایل بایگانی','مرداویج','archived',null);
     `);
+    const taskSql = {
+      query: async <T = Record<string, unknown>>(statement: string, params?: unknown[]) =>
+        (await db.query<T>(statement, params)).rows,
+    };
     const valid = await db.query("select id from leads where id=$1 limit 1", ["active-1"]);
     const missing = await db.query("select id from leads where id=$1 limit 1", ["not-found"]);
     assert.equal(valid.rows.length, 1);
@@ -47,6 +52,10 @@ test("tasks link only to existing active leads or non-archived properties", asyn
     );
     assert.equal(propertyInsert.rows.length, 1);
     assert.equal(deletedPropertyInsert.rows.length, 0);
+    assert.equal(await lockActivePropertyForTask(taskSql, "property-1"), true);
+    assert.equal(await lockActivePropertyForTask(taskSql, "property-deleted"), false);
+    await db.query("update properties set status='archived' where id='property-1'");
+    assert.equal(await lockActivePropertyForTask(taskSql, "property-1"), false);
     const linked = await db.query<{ entity_id: string }>("select entity_id from admin_tasks where id='task-1'");
     assert.equal(linked.rows[0]?.entity_id, "active-1");
     await db.query("delete from leads where id='active-1'");
@@ -74,6 +83,15 @@ test("productivity API validates lead associations and task mutations fail on in
   assert.match(route, /select id,slug,title,neighborhood,status from properties where deleted_at is null and status <> 'archived'/);
   assert.match(route, /lockLeadReferencesForMutation\(tx, \[entityId\]\)/);
   assert.match(route, /lockLeadReferencesForMutation\(tx, leadReferences\)/);
+  const createTransaction = route.indexOf('if (action === "create_task")');
+  const createLock = route.indexOf("lockActivePropertyForTask(tx, entityId)", createTransaction);
+  const createInsert = route.indexOf("insert into admin_tasks", createLock);
+  assert.ok(createLock > createTransaction && createInsert > createLock, "create must lock and recheck the property inside its transaction before inserting");
+  const updateTransaction = route.indexOf('if (action === "update_task")');
+  const updateLock = route.indexOf("lockActivePropertyForTask(tx, entityId)", updateTransaction);
+  const updateWrite = route.indexOf("update admin_tasks set", updateLock);
+  assert.ok(updateLock > updateTransaction && updateWrite > updateLock, "update must lock and recheck the property inside its transaction before writing");
+  assert.match(LOCK_ACTIVE_PROPERTY_FOR_TASK_SQL, /deleted_at is null and status <> 'archived'[\s\S]*for update/i);
   assert.match(route, /merged_into_lead_id is null/);
   assert.match(route, /withSqlTransaction\(async \(tx\)/);
   assert.match(route, /body\.status !== undefined && !TASK_STATUSES\.includes/);
