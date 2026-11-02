@@ -369,14 +369,16 @@ export function InquiryForm({ draft }: { draft: InquiryDraft }) {
         }),
       });
       const result = (await response.json().catch(() => null)) as
-        | { success?: boolean; statusMessage?: string; message?: string; trackingToken?: string }
+        | { success?: boolean; duplicate?: boolean; statusMessage?: string; message?: string; trackingToken?: string }
         | null;
       if (!response.ok || !result?.success) {
         throw new Error(result?.statusMessage || result?.message || "ثبت درخواست انجام نشد.");
       }
       if (result?.trackingToken) setTrackingToken(result.trackingToken);
       trackAnalyticsEvent("inquiry_submit");
-      toast.success("درخواست شما با موفقیت برای تیم هیرمند ثبت شد.");
+      toast.success(result.duplicate
+        ? "درخواست مشابه اخیر قبلاً دریافت شده است؛ کد رهگیری قبلی برای حفظ امنیت دوباره نمایش داده نمی‌شود."
+        : "درخواست شما با موفقیت برای تیم هیرمند ثبت شد.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "ثبت درخواست انجام نشد.");
       return;
