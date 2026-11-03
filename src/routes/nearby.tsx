@@ -109,8 +109,8 @@ function NearbyPage() {
               <span>شعاع جستجو: <strong>{radius.toLocaleString("fa-IR")} کیلومتر</strong></span>
               <input type="range" min="1" max="15" step="1" value={radius} onChange={(event) => setRadius(Number(event.target.value))} />
             </label>
-            {status === "ready" ? <span className="nearby-status"><Navigation size={15} /> موقعیت فعال شد</span> : null}
-            {status === "error" ? <span className="nearby-status is-error"><RefreshCcw size={15} /> دسترسی موقعیت در دسترس نیست</span> : null}
+            {status === "ready" ? <span className="nearby-status" role="status" aria-live="polite" aria-atomic="true"><Navigation size={15} /> موقعیت فعال شد</span> : null}
+            {status === "error" ? <span className="nearby-status is-error" role="status" aria-live="polite" aria-atomic="true"><RefreshCcw size={15} /> دسترسی موقعیت در دسترس نیست</span> : null}
           </div>
         </section>
 

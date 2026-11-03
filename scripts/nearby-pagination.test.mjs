@@ -24,3 +24,10 @@ test("nearby search loads one page first and exposes incremental pagination", ()
   assert.match(nearby, /item\.distance <= radius/);
   assert.match(nearby, /\.sort\(\(a, b\) => \(a\.distance \?\? Infinity\) - \(b\.distance \?\? Infinity\)\)/);
 });
+
+test("nearby geolocation success and error states are announced politely", () => {
+  assert.match(nearby, /status === "ready" \? <span className="nearby-status" role="status" aria-live="polite" aria-atomic="true">/);
+  assert.match(nearby, /status === "error" \? <span className="nearby-status is-error" role="status" aria-live="polite" aria-atomic="true">/);
+  assert.match(nearby, /موقعیت فعال شد/);
+  assert.match(nearby, /دسترسی موقعیت در دسترس نیست/);
+});
