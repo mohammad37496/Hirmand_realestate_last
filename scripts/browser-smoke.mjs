@@ -308,12 +308,26 @@ try {
       };
     });
   };
+  const waitForHydratedPropertyLink = async (index = 0) => {
+    await propertyPage.waitForFunction(
+      (targetIndex) => {
+        const link = document.querySelectorAll('[data-property-link="true"]')[targetIndex];
+        if (!link) return false;
+        const reactPropsKey = Object.keys(link).find((key) => key.startsWith("__reactProps$"));
+        return Boolean(reactPropsKey && typeof link[reactPropsKey]?.onClick === "function");
+      },
+      index,
+      { timeout: timeoutMs },
+    );
+  };
   try {
     const propertiesUrl = new URL("/properties", url).toString();
     await propertyPage.goto(propertiesUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
-    await propertyPage.waitForTimeout(500);
     const cards = propertyPage.locator('[data-property-link="true"]');
     if (await cards.count()) {
+      // SSR cards can appear before React attaches TanStack Link's click
+      // handler. Wait for the hydrated handler instead of racing a fixed delay.
+      await waitForHydratedPropertyLink(0);
       const link = cards.first();
       const href = await link.getAttribute("href").catch(() => null);
       propertyNavigationCheck.href = href;
@@ -332,8 +346,11 @@ try {
           !expectedPropertySlug || canonicalSlug === expectedPropertySlug;
 
         await link.click();
-        await propertyPage.waitForLoadState("domcontentloaded").catch(() => undefined);
-        await propertyPage.waitForTimeout(500);
+        await propertyPage.waitForFunction(
+          () => window.location.pathname.startsWith("/properties/") && window.location.pathname !== "/properties/",
+          null,
+          { timeout: timeoutMs },
+        );
         propertyNavigationCheck.status = await propertyPage.evaluate(() => window.location.pathname);
         const textValue = await propertyPage.locator("body").innerText().catch(() => "");
         const normalizedText = normalizeBodyText(textValue);
@@ -365,12 +382,15 @@ try {
         if (propertyNavigationCheck.ok && (await cards.count()) > 1) {
           propertyNavigationCheck.secondNavigationTested = true;
           await propertyPage.goto(propertiesUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
-          await propertyPage.waitForTimeout(400);
+          await waitForHydratedPropertyLink(1);
           const secondCard = cards.nth(1);
           const secondHref = await secondCard.getAttribute("href").catch(() => null);
           await secondCard.click();
-          await propertyPage.waitForLoadState("domcontentloaded").catch(() => undefined);
-          await propertyPage.waitForTimeout(500);
+          await propertyPage.waitForFunction(
+            () => window.location.pathname.startsWith("/properties/") && window.location.pathname !== "/properties/",
+            null,
+            { timeout: timeoutMs },
+          );
           const secondState = await readDetailState();
           const secondCounter = await propertyPage.evaluate(() =>
             document.querySelector(".property-gallery-counter")?.textContent?.trim() ?? "",
