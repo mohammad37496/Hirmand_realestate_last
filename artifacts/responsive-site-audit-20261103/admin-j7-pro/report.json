@@ -1,0 +1,1131 @@
+{
+  "base": "http://127.0.0.1:8085",
+  "at": "2026-11-02T23:39:20.808Z",
+  "execution": {
+    "keyProvided": true,
+    "apiMode": "shaped-fixtures",
+    "databaseMode": "pglite",
+    "touchInputMode": true,
+    "deviceScaleFactor": 3,
+    "viewports": [
+      {
+        "id": "w360",
+        "width": 360,
+        "height": 640
+      }
+    ]
+  },
+  "authentication": {
+    "attempts": [
+      {
+        "viewport": "w360",
+        "keyProvided": true,
+        "loginAccepted": true
+      }
+    ]
+  },
+  "stubbedApiRoutes": [
+    "**/api/admin-action-center",
+    "**/api/admin-agenda",
+    "**/api/admin-backup**",
+    "**/api/admin-campaign-performance",
+    "**/api/admin-consultant-performance**",
+    "**/api/admin-consultant-targets",
+    "**/api/admin-customer-chat**",
+    "**/api/admin-customer-property-submissions",
+    "**/api/admin-dashboard",
+    "**/api/admin-data-health",
+    "**/api/admin-deals",
+    "**/api/admin-finance",
+    "**/api/admin-finance-insights",
+    "**/api/admin-kpi-snapshot**",
+    "**/api/admin-lead-assignment",
+    "**/api/admin-lead-dedupe",
+    "**/api/admin-lead-segments",
+    "**/api/admin-management-report**",
+    "**/api/admin-match",
+    "**/api/admin-message-templates",
+    "**/api/admin-neighborhood-demand",
+    "**/api/admin-operations",
+    "**/api/admin-owners",
+    "**/api/admin-productivity",
+    "**/api/admin-property-expiry",
+    "**/api/admin-property-lifecycle",
+    "**/api/admin-property-price-history",
+    "**/api/admin-sales-control-center",
+    "**/api/admin-sales-funnel**",
+    "**/api/admin-visit-feedback",
+    "**/api/admin/partners",
+    "**/api/admin/properties-export",
+    "**/api/leads-admin",
+    "**/api/music**",
+    "**/api/music-admin",
+    "**/api/property-reports"
+  ],
+  "views": [
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "dashboard",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "managementReport",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "productivity",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "integrity",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "deals",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "expiry",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "commission",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "consultantPerformance",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "consultantTargets",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "list",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "leads",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "messages",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "matching",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "divar",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "consultants",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "partners",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "owners",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "attendance",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "finance",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "music",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "watermark",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "backup",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "mediaHealth",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "schedule",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "trash",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "audit",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "settings",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "security",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "seoRedirects",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "contentStudio",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "areaContent",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "form",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": false,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          },
+          "stickyLeft": 0,
+          "stickyRight": 0,
+          "orphanedStickyBar": false
+        }
+      }
+    }
+  ],
+  "overlays": [
+    {
+      "viewport": "w360",
+      "width": 360,
+      "kind": "datepicker",
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "kind": "drawer",
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": false,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          },
+          "stickyLeft": 0,
+          "stickyRight": 0,
+          "orphanedStickyBar": false
+        }
+      }
+    }
+  ],
+  "runtimeErrors": [],
+  "unshapedFallbacks": [],
+  "problemCount": 0,
+  "problems": []
+}
