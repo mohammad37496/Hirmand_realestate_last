@@ -89,7 +89,8 @@ try {
   });
 
   await page.goto(new URL("/", baseUrl).toString(), { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".music-player:not(.music-player-empty)", { timeout: 30_000 });
+  await page.waitForSelector(".music-player:not(.music-player-empty)", { state: "attached", timeout: 30_000 });
+  await page.locator(".music-player-launcher").click();
   await page.locator(".music-play").click();
   await page.waitForFunction(
     () => window.__musicPlayAttempts?.length >= 2 && document.querySelector(".music-play")?.getAttribute("aria-label") === "توقف",
@@ -173,7 +174,6 @@ try {
   assert.equal(singleTrackEndResult.attempts, attemptsBeforeSingleTrackEnd);
   assert.equal(singleTrackEndResult.playLabel, "پخش");
 
-  await page.locator(".music-cover").click();
   await page.locator('button[title="تکرار"]').click();
   await page.locator(".music-play").click();
   await page.waitForFunction(
@@ -262,7 +262,8 @@ try {
     };
   });
   await racePage.goto(new URL("/", baseUrl).toString(), { waitUntil: "domcontentloaded" });
-  await racePage.waitForSelector(".music-player:not(.music-player-empty)", { timeout: 30_000 });
+  await racePage.waitForSelector(".music-player:not(.music-player-empty)", { state: "attached", timeout: 30_000 });
+  await racePage.locator(".music-player-launcher").click();
   await racePage.locator(".music-play").click();
   await racePage.waitForFunction(() => typeof window.__resolveTrackA === "function");
   await racePage.locator('.music-transport button[aria-label="آهنگ بعدی"]').click();
@@ -359,7 +360,7 @@ try {
       };
     });
     await responsivePage.goto(new URL("/", baseUrl).toString(), { waitUntil: "domcontentloaded" });
-    await responsivePage.waitForSelector(".music-player:not(.music-player-empty)", { timeout: 30_000 });
+    await responsivePage.waitForSelector(".music-player:not(.music-player-empty)", { state: "attached", timeout: 30_000 });
     const compactDesktopPlayer = await responsivePage.locator(".music-player").evaluate((player) => {
       const bounds = player.getBoundingClientRect();
       return {
@@ -371,8 +372,27 @@ try {
         titleColor: getComputedStyle(player.querySelector(".music-meta strong")).color,
       };
     });
-    await responsivePage.locator(".music-cover").evaluate((button) => button.click());
-    await responsivePage.locator('.music-compact-actions button[aria-label="فهرست موسیقی"]').evaluate((button) => button.click());
+    if (viewport.width <= 720) {
+      const launcher = await responsivePage.locator(".music-player-launcher").evaluate((button) => {
+        const bounds = button.getBoundingClientRect();
+        return {
+          display: getComputedStyle(button).display,
+          x: Math.round(bounds.x),
+          width: Math.round(bounds.width),
+          height: Math.round(bounds.height),
+          playerDisplay: getComputedStyle(document.querySelector(".music-player")).display,
+        };
+      });
+      assert.equal(launcher.display, "grid", `mobile should start with its small music launcher: ${JSON.stringify(launcher)}`);
+      assert.ok(launcher.x <= 16 && launcher.width === 48 && launcher.height === 48,
+        `mobile launcher should be a 48px icon at the lower left: ${JSON.stringify(launcher)}`);
+      assert.equal(launcher.playerDisplay, "none", `mobile player should start collapsed: ${JSON.stringify(launcher)}`);
+      await responsivePage.locator(".music-player-launcher").click();
+      await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+    } else {
+      await responsivePage.locator(".music-cover").evaluate((button) => button.click());
+      await responsivePage.locator('.music-compact-actions button[aria-label="فهرست موسیقی"]').evaluate((button) => button.click());
+    }
     const layout = await responsivePage.evaluate(() => {
       const player = document.querySelector(".music-player");
       const playlist = document.querySelector(".music-playlist");
@@ -413,11 +433,11 @@ try {
     assert.ok(layout.player.y >= 0, `music dock must stay below the viewport top: ${JSON.stringify(layout)}`);
     assert.ok(layout.player.bottom <= viewport.height, `music dock must stay inside the viewport: ${JSON.stringify(layout)}`);
     if (!viewport.touch && viewport.width >= 721 && viewport.height > 420) {
-      const rightGap = viewport.width - compactDesktopPlayer.x - compactDesktopPlayer.width;
+      const leftGap = compactDesktopPlayer.x;
       assert.ok(compactDesktopPlayer.width <= 390,
         `fine-pointer desktop player should remain a compact floating card: ${JSON.stringify(compactDesktopPlayer)}`);
-      assert.ok(rightGap >= 12 && rightGap <= 36,
-        `fine-pointer desktop player should stay anchored near the lower-right corner: ${JSON.stringify({ compactDesktopPlayer, rightGap })}`);
+      assert.ok(leftGap >= 12 && leftGap <= 24,
+        `fine-pointer desktop player should stay anchored near the lower-left corner: ${JSON.stringify({ compactDesktopPlayer, leftGap })}`);
       assert.ok(compactDesktopPlayer.height <= 72,
         `fine-pointer desktop player should keep a slim collapsed height: ${JSON.stringify(compactDesktopPlayer)}`);
       assert.ok(compactDesktopPlayer.metaWidth >= 84,
@@ -465,10 +485,46 @@ try {
     }, scrollableDock);
     assert.ok(lastTrack.top >= lastTrack.scrollTop && lastTrack.bottom <= lastTrack.scrollBottom,
       `the last playlist item must remain reachable by scrolling its container: ${JSON.stringify({ viewport, lastTrack, layout })}`);
+    if (viewport.width <= 720) {
+      await responsivePage.locator(".music-player").evaluate((player) => { player.scrollTop = 0; });
+      assert.ok(layout.buttons.some((button) => button.label === "آهنگ قبلی"));
+      assert.ok(layout.buttons.some((button) => button.label === "توقف" || button.label === "پخش"));
+      assert.ok(layout.buttons.some((button) => button.label === "آهنگ بعدی"));
+      assert.ok(layout.buttons.some((button) => button.label === "بی‌صدا کردن" || button.label === "روشن کردن صدا"));
+      assert.ok(layout.buttons.some((button) => button.label.includes("تصادفی")));
+      assert.ok(layout.progress.height >= 44, `mobile seek control must be easy to use: ${JSON.stringify(layout.progress)}`);
+      assert.ok(layout.playlist.y > layout.progress.y, `mobile transport and sound controls must precede the playlist: ${JSON.stringify(layout)}`);
+      await responsivePage.locator('.music-compact-actions button[aria-label="مخفی کردن پخش‌کننده"]').evaluate((button) => button.click());
+      await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none");
+      assert.equal(await responsivePage.locator(".music-player-launcher").evaluate((button) => getComputedStyle(button).display), "grid");
+    }
     assert.deepEqual(responsivePageErrors, [], `responsive player should not cause browser errors: ${responsivePageErrors.join(" | ")}`);
     responsiveResults.push({ viewport, player: layout.player, minButton: Math.min(...layout.buttons.map((button) => Math.min(button.width, button.height))), progressHeight: layout.progress.height });
     await responsivePage.close();
   }
+
+  const routeConsistencyPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await routeConsistencyPage.route("**/api/music", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ tracks: [{ title: "Site-wide track", src: "/music/site-wide.mp3" }] }),
+    }),
+  );
+  const routePositions = [];
+  for (const routePath of ["/", "/properties", "/areas", "/tools"]) {
+    await routeConsistencyPage.goto(new URL(routePath, baseUrl).toString(), { waitUntil: "domcontentloaded" });
+    await routeConsistencyPage.waitForSelector(".music-player:not(.music-player-empty)", { timeout: 30_000 });
+    const position = await routeConsistencyPage.locator(".music-player").evaluate((player) => {
+      const bounds = player.getBoundingClientRect();
+      return { x: Math.round(bounds.x), width: Math.round(bounds.width), bottom: Math.round(bounds.bottom) };
+    });
+    assert.deepEqual(position, { x: 18, width: 390, bottom: 782 },
+      `the desktop music dock must keep the same position and size on ${routePath}: ${JSON.stringify(position)}`);
+    routePositions.push({ route: routePath, ...position });
+  }
+  await routeConsistencyPage.close();
 
   // Resizing an already-open touch player must switch between the bounded
   // landscape scroll dock and the wider tablet playlist popover cleanly.
@@ -514,7 +570,7 @@ try {
     };
   });
   await resizePage.goto(new URL("/", baseUrl).toString(), { waitUntil: "domcontentloaded" });
-  await resizePage.waitForSelector(".music-player:not(.music-player-empty)", { timeout: 30_000 });
+  await resizePage.waitForSelector(".music-player:not(.music-player-empty)", { state: "attached", timeout: 30_000 });
   await resizePage.locator(".music-cover").click();
   await resizePage.locator('.music-compact-actions button[aria-label="فهرست موسیقی"]').click();
   await resizePage.locator(".music-track").last().click();
@@ -525,6 +581,7 @@ try {
   await resizePage.waitForFunction(() => document.querySelector(".music-meta strong")?.textContent === "آهنگ تغییر اندازه 18");
   await resizePage.locator('.music-compact-actions button[aria-label="فهرست موسیقی"]').click();
   await resizePage.setViewportSize({ width: 568, height: 320 });
+  await resizePage.locator(".music-player-launcher").click();
   const landscapeResize = await resizePage.evaluate(() => {
     const player = document.querySelector(".music-player");
     const playlist = document.querySelector(".music-playlist");
@@ -598,6 +655,7 @@ try {
       "a late play() resolution from a previous track cannot restart a paused track",
       "playlist selection and next/previous controls update the active track",
       "touch and desktop targets, seek controls, and playlist scrolling fit nine phone, landscape, tablet, and desktop viewports",
+      "the desktop dock keeps identical geometry on the home, property, area, and tools routes",
       "resizing an open touch player between landscape and tablet keeps its dock and playlist visible",
     ],
     fallbackResult,
@@ -607,6 +665,7 @@ try {
     repeatResult,
     stalePlayResult,
     responsiveResults,
+    routePositions,
     landscapeResize,
     tabletResize,
     resizedTabletLastTrack,

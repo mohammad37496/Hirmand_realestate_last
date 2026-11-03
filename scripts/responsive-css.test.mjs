@@ -163,7 +163,7 @@ testRunner.test("responsive guardrails load after the older global styles", () =
     index: match.index,
   }));
   assert.ok(linkPositions.length > 0, "root route should link the shared CSS files");
-  assert.equal(linkPositions.at(-1)?.name, "responsiveHardeningCss", "responsive guardrails must load last");
+  assert.equal(linkPositions.at(-1)?.name, "musicPlayerLayoutCss", "the final music-player layout overrides must load after responsive guardrails");
   assert.match(rootRoute, /<html lang="fa" dir="rtl"/);
 });
 
