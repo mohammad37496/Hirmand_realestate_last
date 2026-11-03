@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { execFileSync, spawn } from "node:child_process";
-import { chmodSync, copyFileSync, createReadStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { chmodSync, copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -58,53 +58,31 @@ function verify(buffer, expected) {
 }
 
 /**
- * Stream an XZ-compressed tar archive into tar itself. Liara's minimal Node
- * image does not include an xz executable, so `tar -xJf` cannot unpack the
- * pinned BtbN release there. The WASM decoder keeps this independent of host
- * packages and avoids buffering the much larger uncompressed tar file.
+ * Stream-decompress an XZ archive to a temporary tar file before extracting
+ * the one required member. Liara's minimal Node image does not include an xz
+ * executable, so `tar -xJf` cannot unpack the pinned BtbN release there. The
+ * intermediate file also lets tar finish reading its input independently of
+ * the decoder stream while avoiding buffering the uncompressed archive.
  */
 export async function extractFfmpegArchive(archivePath, extractDir, archiveRoot) {
-  const child = spawn(
-    "tar",
-    ["-xf", "-", "--strip-components=2", "-C", extractDir, `${archiveRoot}/bin/ffmpeg`],
-    { stdio: ["pipe", "ignore", "pipe"] },
-  );
-  const stderr = [];
-  child.stderr.on("data", (chunk) => stderr.push(Buffer.from(chunk)));
-
-  const childExit = new Promise((resolveExit, rejectExit) => {
-    child.once("error", rejectExit);
-    child.once("close", (code, signal) => {
-      if (code === 0) {
-        resolveExit();
-        return;
-      }
-      const detail = Buffer.concat(stderr).toString("utf8").trim();
-      rejectExit(new Error(`tar extraction failed (${code ?? signal}): ${detail || "no stderr output"}`));
-    });
-  });
-
-  let timedOut = false;
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    child.kill();
-  }, 240_000);
-
+  const tarPath = join(extractDir, "ffmpeg-release.tar");
+  mkdirSync(extractDir, { recursive: true });
   try {
     const compressed = Readable.toWeb(createReadStream(archivePath));
     const decompressed = new XzReadableStream(compressed);
-    await pipeline(Readable.fromWeb(decompressed), child.stdin);
-    await childExit;
+    await pipeline(Readable.fromWeb(decompressed), createWriteStream(tarPath));
+    execFileSync(
+      "tar",
+      ["-xf", tarPath, "--strip-components=2", "-C", extractDir, `${archiveRoot}/bin/ffmpeg`],
+      { timeout: 240_000, stdio: ["ignore", "pipe", "pipe"] },
+    );
   } catch (error) {
-    child.kill();
-    await childExit.catch(() => undefined);
-    if (timedOut) throw new Error("Timed out while extracting the pinned FFmpeg archive.", { cause: error });
     throw new Error(
       `Could not extract the pinned FFmpeg archive: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error },
     );
   } finally {
-    clearTimeout(timeout);
+    rmSync(tarPath, { force: true });
   }
 }
 
