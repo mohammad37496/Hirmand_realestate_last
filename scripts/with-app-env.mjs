@@ -87,6 +87,15 @@ export function projectRoot() {
   return dirname(dirname(fileURLToPath(import.meta.url)));
 }
 
+/** Resolve package CLI shims through Node so Windows does not spawn a .cmd file directly. */
+export function resolveCommand(command, args, root = projectRoot()) {
+  if (command !== "vite") return { command, args };
+  return {
+    command: process.execPath,
+    args: [join(root, "node_modules", "vite", "bin", "vite.js"), ...args],
+  };
+}
+
 /**
  * Whether `moduleUrl` is the script node was asked to run.
  *
@@ -111,7 +120,8 @@ function main(argv) {
     process.exit(2);
   }
   const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
-  const child = spawn(command, args, { stdio: "inherit", env });
+  const invocation = resolveCommand(command, args);
+  const child = spawn(invocation.command, invocation.args, { stdio: "inherit", env });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     process.on(signal, () => child.kill(signal));
