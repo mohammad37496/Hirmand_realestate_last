@@ -263,19 +263,22 @@ try {
   await racePage.close();
 
   const responsiveViewports = [
-    { width: 320, height: 640 },
-    { width: 390, height: 844 },
-    { width: 568, height: 320 },
-    { width: 640, height: 360 },
-    { width: 768, height: 900 },
-    { width: 1024, height: 768 },
+    { width: 320, height: 640, touch: true },
+    { width: 390, height: 844, touch: true },
+    { width: 568, height: 320, touch: true },
+    { width: 640, height: 360, touch: true },
+    { width: 768, height: 900, touch: true },
+    { width: 1024, height: 768, touch: true },
+    { width: 1280, height: 400, touch: false },
+    { width: 1280, height: 800, touch: false },
+    { width: 1920, height: 1080, touch: false },
   ];
   const responsiveResults = [];
   for (const viewport of responsiveViewports) {
     const responsivePage = await browser.newPage({
-      viewport,
+      viewport: { width: viewport.width, height: viewport.height },
       isMobile: viewport.width <= 720,
-      hasTouch: true,
+      hasTouch: viewport.touch,
     });
     const responsivePageErrors = [];
     responsivePage.on("pageerror", (error) => responsivePageErrors.push(error.message));
@@ -335,6 +338,7 @@ try {
     const layout = await responsivePage.evaluate(() => {
       const player = document.querySelector(".music-player");
       const playlist = document.querySelector(".music-playlist");
+      const playlistList = document.querySelector(".music-playlist-list");
       const progress = document.querySelector(".music-progress");
       const rect = (element) => {
         const bounds = element.getBoundingClientRect();
@@ -354,10 +358,12 @@ try {
         viewport: { width: innerWidth, height: innerHeight },
         player: rect(player),
         playlist: rect(playlist),
+        playlistList: rect(playlistList),
         playlistPosition: getComputedStyle(playlist).position,
         playerOverflowY: getComputedStyle(player).overflowY,
         playerScrollHeight: player.scrollHeight,
         playerClientHeight: player.clientHeight,
+        playlistListOverflowY: getComputedStyle(playlistList).overflowY,
         progress: rect(progress),
         buttons: visibleButtons.map((button) => ({
           label: button.getAttribute("aria-label") || button.textContent.trim(),
@@ -368,27 +374,44 @@ try {
     });
     assert.ok(layout.player.y >= 0, `music dock must stay below the viewport top: ${JSON.stringify(layout)}`);
     assert.ok(layout.player.bottom <= viewport.height, `music dock must stay inside the viewport: ${JSON.stringify(layout)}`);
-    assert.equal(layout.playlistPosition, "static", `touch playlist must join the scrollable dock: ${JSON.stringify(layout)}`);
-    assert.ok(["auto", "scroll"].includes(layout.playerOverflowY));
-    assert.ok(layout.playerScrollHeight >= layout.playerClientHeight);
-    assert.ok(layout.progress.height >= 44, `seek control needs a 44px hit area: ${JSON.stringify(layout)}`);
+    const scrollableDock = viewport.touch || viewport.height <= 420;
+    assert.equal(layout.playlistPosition, scrollableDock ? "static" : "absolute",
+      `playlist positioning must match the available screen: ${JSON.stringify(layout)}`);
+    if (scrollableDock) {
+      assert.ok(["auto", "scroll"].includes(layout.playerOverflowY));
+      assert.ok(layout.playerScrollHeight >= layout.playerClientHeight);
+    } else {
+      assert.ok(layout.playlist.y >= 0 && layout.playlist.bottom <= viewport.height,
+        `desktop playlist popover must stay visible: ${JSON.stringify(layout)}`);
+    }
+    const minimumTarget = viewport.touch ? 44 : 36;
+    const minimumSeek = scrollableDock ? 44 : 18;
+    assert.ok(layout.progress.height >= minimumSeek, `seek control hit area is too small: ${JSON.stringify(layout)}`);
     for (const button of layout.buttons) {
-      assert.ok(button.width >= 44 && button.height >= 44, `touch target is too small: ${JSON.stringify(button)} in ${JSON.stringify(viewport)}`);
+      assert.ok(button.width >= minimumTarget && button.height >= minimumTarget,
+        `player target is too small: ${JSON.stringify(button)} in ${JSON.stringify(viewport)}`);
     }
     assert.equal(layout.horizontalOverflow, false, `music player must not create horizontal page overflow: ${JSON.stringify(layout)}`);
-    await responsivePage.locator(".music-player").evaluate((player) => { player.scrollTop = player.scrollHeight; });
-    const lastTrack = await responsivePage.locator(".music-track").last().evaluate((track) => {
+    if (scrollableDock) {
+      await responsivePage.locator(".music-player").evaluate((player) => { player.scrollTop = player.scrollHeight; });
+    } else {
+      await responsivePage.locator(".music-playlist-list").evaluate((list) => { list.scrollTop = list.scrollHeight; });
+    }
+    const lastTrack = await responsivePage.locator(".music-track").last().evaluate((track, useDock) => {
       const bounds = track.getBoundingClientRect();
       const playerBounds = track.closest(".music-player").getBoundingClientRect();
+      const scrollBounds = track.closest(useDock ? ".music-player" : ".music-playlist-list").getBoundingClientRect();
       return {
         top: Math.round(bounds.top),
         bottom: Math.round(bounds.bottom),
         playerTop: Math.round(playerBounds.top),
         playerBottom: Math.round(playerBounds.bottom),
+        scrollTop: Math.round(scrollBounds.top),
+        scrollBottom: Math.round(scrollBounds.bottom),
       };
-    });
-    assert.ok(lastTrack.top >= lastTrack.playerTop && lastTrack.bottom <= lastTrack.playerBottom,
-      `the playlist must remain reachable by scrolling the dock: ${JSON.stringify({ viewport, lastTrack, layout })}`);
+    }, scrollableDock);
+    assert.ok(lastTrack.top >= lastTrack.scrollTop && lastTrack.bottom <= lastTrack.scrollBottom,
+      `the last playlist item must remain reachable by scrolling its container: ${JSON.stringify({ viewport, lastTrack, layout })}`);
     assert.deepEqual(responsivePageErrors, [], `responsive player should not cause browser errors: ${responsivePageErrors.join(" | ")}`);
     responsiveResults.push({ viewport, player: layout.player, minButton: Math.min(...layout.buttons.map((button) => Math.min(button.width, button.height))), progressHeight: layout.progress.height });
     await responsivePage.close();
@@ -402,7 +425,7 @@ try {
       "manual pause prevents later media errors from restarting playback",
       "a one-track playlist stops at the end when repeat is disabled",
       "a late play() resolution from a previous track cannot restart a paused track",
-      "touch targets, seek control, and the scrollable playlist fit six phone, landscape, and tablet viewports",
+      "touch and desktop targets, seek controls, and playlist scrolling fit nine phone, landscape, tablet, and desktop viewports",
     ],
     fallbackResult,
     midPlaybackFallback,
