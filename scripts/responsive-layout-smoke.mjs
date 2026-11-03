@@ -108,6 +108,9 @@ try {
             await uploadZone.press(key);
             const chooser = await chooserPromise;
             if (!chooser.isMultiple()) failures.push(`${route}: ${key} opened a single-file picker instead of the multiple-media picker`);
+            // Close the native picker before checking the next keyboard key.
+            // Chromium ignores a second programmatic click while the first picker is open.
+            await chooser.setFiles([]);
           }
         } else {
           failures.push(`${route}: media upload zone was not visible for keyboard interaction`);
