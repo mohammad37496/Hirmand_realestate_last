@@ -11,6 +11,7 @@ import {
   parseAppEnv,
   projectRoot,
   readAppEnv,
+  resolveCommand,
 } from "./with-app-env.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -83,6 +84,14 @@ test("the wrapped command runs with the app env applied", async () => {
   assert.equal(stdout, "");
 });
 
+test("Vite is launched through Node so npm.cmd works on Windows", async () => {
+  const invocation = resolveCommand("vite", ["--version"]);
+  assert.equal(invocation.command, process.execPath);
+  assert.match(invocation.args[0], /node_modules[\\/]vite[\\/]bin[\\/]vite\.js$/);
+  const { stdout } = await execFileAsync(process.execPath, [WRAPPER, "vite", "--version"]);
+  assert.match(stdout, /vite\/\d/);
+});
+
 test("the wrapped command sees an explicit override, not the file value", async () => {
   const { stdout } = await execFileAsync(
     process.execPath,
@@ -113,11 +122,16 @@ test("a signal-killed command is never reported as success", async () => {
   );
 });
 
-test("the CLI still runs when invoked through a symlinked path", async () => {
+test("the CLI still runs when invoked through a symlinked path", async (t) => {
   // node realpaths import.meta.url but not process.argv[1], so a raw comparison
   // turns the wrapper into a no-op that exits 0 without starting anything.
   const link = join(mkdtempSync(join(tmpdir(), "app-env-link-")), "scripts");
-  symlinkSync(join(projectRoot(), "scripts"), link);
+  try {
+    symlinkSync(join(projectRoot(), "scripts"), link);
+  } catch (error) {
+    if (error?.code === "EPERM") return t.skip("the current Windows environment does not permit creating directory symlinks");
+    throw error;
+  }
   const { stdout } = await execFileAsync(process.execPath, [
     join(link, "with-app-env.mjs"),
     process.execPath,

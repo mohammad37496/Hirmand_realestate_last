@@ -4,6 +4,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { listOpenHouseAdminData } from "@/lib/property-open-house-admin-list";
 
 const phoneSchema=z.string().trim().regex(/^09\d{9}$/,"شماره موبایل معتبر نیست.");
 const publicSchema=z.discriminatedUnion("action",[
@@ -32,10 +33,11 @@ export default defineEventHandler(async(event)=>{
     if(!await verifyAdminSessionToken(token)) throw createError({statusCode:401,statusMessage:"نشست مدیریت معتبر نیست."});
     assertSameOrigin(event);
     const claims = await getAdminSessionClaims(token);
-    const permission = action === "admin_list" ? "lead.manage" : "property.manage";
-    if (!hasAdminPermission(normalizeAdminRole(claims?.role), permission)) {
+    const role = normalizeAdminRole(claims?.role);
+    if (!hasAdminPermission(role, "property.manage")) {
       throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت بازدید گروهی برای این حساب فعال نیست." });
     }
+    const canViewRsvps = hasAdminPermission(role, "lead.manage");
     const parsed=adminSchema.safeParse(body);
     if(!parsed.success) throw createError({statusCode:422,statusMessage:"اطلاعات اوپن‌هاوس معتبر نیست."});
 
@@ -58,10 +60,9 @@ export default defineEventHandler(async(event)=>{
       return {success:true};
     }
 
-    const property=await sql.query<{id:string}>("select id from properties where id=$1 limit 1",[parsed.data.propertyId]);
-    if(!property[0]) throw createError({statusCode:404,statusMessage:"فایل موردنظر پیدا نشد."});
-    const events=await sql.query<Record<string,unknown>>("select oh.id,oh.starts_at,oh.ends_at,oh.capacity,oh.note,oh.status,oh.created_at,coalesce(sum(case when r.status <> 'cancelled' then r.party_size else 0 end),0)::int as booked_seats from property_open_houses oh left join property_open_house_rsvps r on r.open_house_id=oh.id where oh.property_id=$1 group by oh.id order by oh.starts_at asc limit 12",[parsed.data.propertyId]);
-    const rsvps=await sql.query<Record<string,unknown>>("select r.id,r.open_house_id,r.name,r.phone,r.party_size,r.note,r.status,r.created_at from property_open_house_rsvps r join property_open_houses oh on oh.id=r.open_house_id where oh.property_id=$1 and r.status <> 'cancelled' order by oh.starts_at asc,r.created_at asc limit 200",[parsed.data.propertyId]);
+    const adminList = await listOpenHouseAdminData(sql, parsed.data.propertyId, canViewRsvps);
+    if(!adminList) throw createError({statusCode:404,statusMessage:"فایل موردنظر پیدا نشد."});
+    const { events, rsvps } = adminList;
     return {events:events.map(row=>({id:String(row.id),startsAt:iso(row.starts_at),endsAt:iso(row.ends_at),capacity:Number(row.capacity)||0,bookedSeats:Number(row.booked_seats)||0,remainingSeats:Math.max(0,(Number(row.capacity)||0)-(Number(row.booked_seats)||0)),note:String(row.note??""),status:String(row.status??"scheduled")})),rsvps:rsvps.map(row=>({id:String(row.id),eventId:String(row.open_house_id),name:String(row.name??""),phone:String(row.phone??""),partySize:Number(row.party_size)||1,note:String(row.note??""),status:String(row.status??"requested"),createdAt:iso(row.created_at)}))};
   }
 

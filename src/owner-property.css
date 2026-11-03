@@ -22,7 +22,7 @@
 .customer-property-chip-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
 .customer-property-chip{border:1px solid rgba(56,60,66,.12);background:#fafafa;color:#5f6468;padding:7px 10px;border-radius:999px;font-size:.67rem;cursor:pointer;transition:.18s}
 .customer-property-chip.is-active{background:#f4ead5;border-color:rgba(152,113,55,.35);color:#77561e}
-.customer-property-upload-zone{min-height:190px;display:grid;place-items:center;align-content:center;gap:7px;padding:25px;text-align:center;border:1px dashed rgba(152,113,55,.35);border-radius:20px;background:linear-gradient(145deg,#fcfaf5,#f4f6f6);color:#6c5b39;cursor:pointer}
+.customer-property-upload-zone{width:100%;min-height:190px;display:grid;place-items:center;align-content:center;gap:7px;padding:25px;text-align:center;border:1px dashed rgba(152,113,55,.35);border-radius:20px;background:linear-gradient(145deg,#fcfaf5,#f4f6f6);color:#6c5b39;font:inherit;appearance:none;cursor:pointer}
 .customer-property-upload-zone.is-busy{cursor:wait}
 .customer-property-upload-zone strong{color:#29343d;font-size:.92rem}
 .customer-property-upload-zone small{max-width:620px;color:#77726b;font-size:.68rem;line-height:1.8}

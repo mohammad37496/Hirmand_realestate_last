@@ -4,6 +4,7 @@ import test from "node:test";
 
 const matchingCss = fs.readFileSync(new URL("../src/admin-matching.css", import.meta.url), "utf8");
 const opsCss = fs.readFileSync(new URL("../src/admin-ops.css", import.meta.url), "utf8");
+const mobileClarityCss = fs.readFileSync(new URL("../src/admin-mobile-clarity.css", import.meta.url), "utf8");
 
 function luminance(hex) {
   const channels = hex.match(/[\da-f]{2}/gi).map((part) => Number.parseInt(part, 16) / 255);
@@ -14,6 +15,19 @@ function luminance(hex) {
 function contrastRatio(foreground, background) {
   const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
   return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
+function ruleBody(css, selector) {
+  const selectorIndex = css.indexOf(selector);
+  const openingBrace = css.indexOf("{", selectorIndex);
+  const closingBrace = css.indexOf("}", openingBrace);
+  assert.ok(selectorIndex >= 0 && openingBrace > selectorIndex && closingBrace > openingBrace, `Expected CSS rule for ${selector}`);
+  return css.slice(openingBrace + 1, closingBrace);
+}
+
+function backgroundColors(rule) {
+  const declaration = rule.match(/background:\s*([^;]+);?/i)?.[1] ?? "";
+  return [...declaration.matchAll(/#[\da-f]{6}/gi)].map(([color]) => color.toLowerCase());
 }
 
 test("admin matching secondary labels meet WCAG AA on light cards", () => {
@@ -34,4 +48,32 @@ test("admin matching phone link has a full 44px touch target", () => {
 test("admin owner card secondary labels meet WCAG AA contrast", () => {
   assert.match(opsCss, /\.admin-owner-title small\{color:#59636e/);
   assert.match(opsCss, /\.admin-owner-stats small\{color:#59636e/);
+});
+
+test("mobile admin create-action label meets WCAG AA in every drawer state", () => {
+  const navRule = ruleBody(mobileClarityCss, ".admin-app .admin-drawer .admin-sidebar-nav");
+  const navButtonRule = ruleBody(mobileClarityCss, ".admin-app .admin-drawer .admin-nav-btn");
+  const activeRule = ruleBody(mobileClarityCss, ".admin-app .admin-drawer .admin-nav-btn.is-active");
+  const hoverRule = ruleBody(mobileClarityCss, ".admin-app .admin-drawer .admin-nav-btn:hover");
+  const labelRule = ruleBody(mobileClarityCss, ".admin-app .admin-drawer .admin-nav-btn-create .admin-nav-btn-label");
+  const foreground = labelRule.match(/color:\s*(#[\da-f]{6})\s*!important/i)?.[1]?.toLowerCase();
+
+  assert.equal(navButtonRule.match(/background:\s*([^;]+)!important/i)?.[1]?.trim(), "transparent");
+  assert.match(mobileClarityCss, /\.admin-app \.admin-drawer \.admin-nav-btn:hover,\s*\.admin-app \.admin-drawer \.admin-nav-btn:focus-visible/);
+  assert.ok(foreground, "create-action label must declare an explicit foreground color");
+
+  const states = [
+    ["default", backgroundColors(navRule)],
+    ["active", backgroundColors(activeRule)],
+    ["hover", backgroundColors(hoverRule)],
+    ["focus-visible", backgroundColors(hoverRule)],
+  ];
+
+  for (const [state, backgrounds] of states) {
+    assert.ok(backgrounds.length > 0, `${state} state must expose its actual light background color(s)`);
+    for (const background of backgrounds) {
+      const ratio = contrastRatio(foreground, background);
+      assert.ok(ratio >= 4.5, `${foreground} on ${background} in ${state} state has ${ratio.toFixed(2)}:1 contrast; expected at least 4.5:1`);
+    }
+  }
 });
