@@ -40,6 +40,7 @@
     "test:admin-overlay-focus": "node --test scripts/admin-overlay-focus.test.mjs",
     "test:admin-deal-enum": "node --experimental-strip-types --test src/lib/admin-deal-input.test.ts",
     "test:property-gallery-landscape-browser": "node scripts/property-gallery-landscape-browser.test.mjs",
+    "test:public-watermark-nitro": "node scripts/public-watermark-nitro-smoke.mjs",
     "test:public-search-browser": "node scripts/public-search-browser-harness.test.mjs",
     "test:admin-overlay-focus-browser": "node scripts/admin-overlay-focus-browser-harness.test.mjs",
     "lint": "eslint .",

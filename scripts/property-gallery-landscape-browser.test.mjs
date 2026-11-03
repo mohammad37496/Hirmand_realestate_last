@@ -98,6 +98,8 @@ try {
     await delay(500);
   }
   assert.ok(ready, `local property-detail route did not become ready.\n${serverLog}`);
+  const devWatermarkProbe = await fetch(new URL("/api/public-watermark", baseUrl), { signal: AbortSignal.timeout(5_000) });
+  assert.equal(devWatermarkProbe.status, 404, `Vite dev does not mount Nitro server routes; the browser fixture must cover this endpoint (got ${devWatermarkProbe.status}: ${(await devWatermarkProbe.text()).slice(0, 240)})`);
 
   const launchOptions = { headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] };
   try {
