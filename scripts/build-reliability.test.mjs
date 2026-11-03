@@ -25,10 +25,10 @@ test("npm build does not repeat fallback image downloads", () => {
 });
 
 
-const propertyStore = await readFile(
+const propertyStore = (await readFile(
   new URL("../src/lib/properties.ts", import.meta.url),
   "utf8",
-);
+)).replace(/\r\n/g, "\n");
 const packageManifest = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8",
