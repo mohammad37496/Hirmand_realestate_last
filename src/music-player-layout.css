@@ -93,6 +93,9 @@
     gap: 8px !important;
     min-height: 0 !important;
     padding: 0 !important;
+    /* Keep the transport grid rows in the flex layout. A long playlist can
+       otherwise shrink this item to zero and overlap seek and volume controls. */
+    flex-shrink: 0 !important;
   }
 
   .music-player.is-mobile-open .music-cover {
@@ -156,6 +159,11 @@
     order: 1 !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  .music-player.is-mobile-open .music-progress-row,
+  .music-player.is-mobile-open .music-player-panel {
+    flex-shrink: 0 !important;
   }
 
   .music-player.is-mobile-open .music-progress-row > span {
