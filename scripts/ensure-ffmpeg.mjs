@@ -2,10 +2,15 @@
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
+import xzDecompress from "xz-decompress";
+
+const { XzReadableStream } = xzDecompress;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -49,6 +54,35 @@ function verify(buffer, expected) {
   const actual = createHash("sha256").update(buffer).digest("hex");
   if (actual !== expected) {
     throw new Error(`FFmpeg checksum mismatch: expected ${expected}, got ${actual}`);
+  }
+}
+
+/**
+ * Stream-decompress an XZ archive to a temporary tar file before extracting
+ * the one required member. Liara's minimal Node image does not include an xz
+ * executable, so `tar -xJf` cannot unpack the pinned BtbN release there. The
+ * intermediate file also lets tar finish reading its input independently of
+ * the decoder stream while avoiding buffering the uncompressed archive.
+ */
+export async function extractFfmpegArchive(archivePath, extractDir, archiveRoot) {
+  const tarPath = join(extractDir, "ffmpeg-release.tar");
+  mkdirSync(extractDir, { recursive: true });
+  try {
+    const compressed = Readable.toWeb(createReadStream(archivePath));
+    const decompressed = new XzReadableStream(compressed);
+    await pipeline(Readable.fromWeb(decompressed), createWriteStream(tarPath));
+    execFileSync(
+      "tar",
+      ["-xf", tarPath, "--strip-components=2", "-C", extractDir, `${archiveRoot}/bin/ffmpeg`],
+      { timeout: 240_000, stdio: ["ignore", "pipe", "pipe"] },
+    );
+  } catch (error) {
+    throw new Error(
+      `Could not extract the pinned FFmpeg archive: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  } finally {
+    rmSync(tarPath, { force: true });
   }
 }
 
@@ -253,15 +287,8 @@ export async function ensureFfmpegBinary() {
     // binary; the archive itself is also removed in the finally block.
     archive = Buffer.alloc(0);
     mkdirSync(extractDir, { recursive: true });
-    try {
-      execFileSync(
-        "tar",
-        ["-xJf", archivePath, "--wildcards", "--strip-components=2", "-C", extractDir, "*/bin/ffmpeg"],
-        { timeout: 240_000, stdio: ["ignore", "pipe", "pipe"] },
-      );
-    } catch {
-      throw new Error("Could not extract the pinned FFmpeg archive. Ensure tar supports xz archives.");
-    }
+    const archiveRoot = asset.name.replace(/\.tar\.xz$/, "");
+    await extractFfmpegArchive(archivePath, extractDir, archiveRoot);
 
     const extractedBinary = join(extractDir, "ffmpeg");
     if (!existsSync(extractedBinary)) {
