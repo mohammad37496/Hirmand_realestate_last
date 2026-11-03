@@ -459,6 +459,19 @@ try {
       return {
         viewport: { width: innerWidth, height: innerHeight },
         player: rect(player),
+        header: rect(document.querySelector(".site-nav") || document.querySelector("header")),
+        visibleControlHitTargets: visibleButtons.filter((button) => {
+          if (button.closest(".music-playlist")) return false;
+          const bounds = button.getBoundingClientRect();
+          const playerBounds = player.getBoundingClientRect();
+          const centerX = bounds.x + bounds.width / 2;
+          const centerY = bounds.y + bounds.height / 2;
+          return centerX >= playerBounds.left && centerX <= playerBounds.right && centerY >= playerBounds.top && centerY <= playerBounds.bottom;
+        }).map((button) => {
+          const bounds = button.getBoundingClientRect();
+          const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+          return { label: button.getAttribute("aria-label") || button.title, receivesPointer: hit === button || button.contains(hit) };
+        }),
         main: rect(player.querySelector('.music-player-main')),
         transport: rect(player.querySelector('.music-play')),
         panel: rect(player.querySelector('.music-player-panel')),
@@ -485,6 +498,22 @@ try {
     });
     assert.ok(layout.player.y >= 0, `music dock must stay below the viewport top: ${JSON.stringify(layout)}`);
     assert.ok(layout.player.bottom <= viewport.height, `music dock must stay inside the viewport: ${JSON.stringify(layout)}`);
+    if (viewport.width <= 720 && viewport.height <= 420) {
+      assert.ok(layout.player.y >= layout.header.bottom + 8,
+        `short-landscape music sheet must clear the sticky header: ${JSON.stringify(layout)}`);
+      assert.ok(layout.visibleControlHitTargets.every((target) => target.receivesPointer),
+        `every visible short-landscape player control must receive pointer input: ${JSON.stringify(layout.visibleControlHitTargets)}`);
+      await responsivePage.locator(".music-player").evaluate((player) => { player.scrollTop = 130; });
+      const lowerControlHitTargets = await responsivePage.locator(".music-player").evaluate((player) => [
+        ...player.querySelectorAll(".music-secondary-controls > button, .music-volume button, .music-volume input"),
+      ].map((control) => {
+        const bounds = control.getBoundingClientRect();
+        const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        return { label: control.getAttribute("aria-label") || control.title, receivesPointer: hit === control || control.contains(hit) };
+      }));
+      assert.ok(lowerControlHitTargets.length >= 4 && lowerControlHitTargets.every((target) => target.receivesPointer),
+        `scrolling the short-landscape sheet must reveal reachable shuffle, repeat and volume controls: ${JSON.stringify(lowerControlHitTargets)}`);
+    }
     if (!viewport.touch && viewport.width >= 721 && viewport.height > 420) {
       const leftGap = compactDesktopPlayer.x;
       assert.ok(compactDesktopPlayer.width <= 390,
