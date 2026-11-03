@@ -21,5 +21,8 @@ test("admin deal create, status and document mutations validate enums before SQL
   assert.match(document, /adminDealDocumentUpdateSchema\.safeParse\(\{documentStatus:body\.documentStatus\}\)/);
   assert.match(document, /const status=parsed\.data\.documentStatus/);
   assert.ok(document.indexOf("adminDealDocumentUpdateSchema.safeParse") < document.indexOf("insert into admin_deal_documents"));
-  assert.doesNotMatch(route, /validType\(|validStatus\(/);
+  assert.match(route, /type:validType\(r\.deal_type\),status:validStatus\(r\.status\)/, "legacy persisted rows should still be normalized for display");
+  assert.doesNotMatch(create, /validType\(|validStatus\(/, "create mutations must use parsed enum values");
+  assert.doesNotMatch(status, /validStatus\(/, "status mutations must reject invalid values instead of defaulting");
+  assert.doesNotMatch(document, /\["pending","received","verified","rejected"\]\.includes/);
 });

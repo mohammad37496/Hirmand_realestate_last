@@ -19,7 +19,11 @@ async function requireDealsPermission(event:H3Event){
 }
 const clean=(v:unknown,max=300)=>typeof v==="string"?v.trim().slice(0,max):"";
 function money(v:unknown){const raw=clean(v,40).replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[٬،,\s]/g,"");return raw&&/^\d{1,20}(?:\.\d+)?$/.test(raw)?raw:null;}
-function invalidDealEnum(message:string){throw createError({statusCode:400,statusMessage:message});}
+// Legacy database rows are normalized for display only. Incoming mutations use
+// the strict schemas below and never silently turn an invalid value into a default.
+const validStatus=(v:unknown):DealStatus=>["prospect","negotiation","agreement","contracted","completed","cancelled"].includes(String(v))?String(v) as DealStatus:"prospect";
+const validType=(v:unknown):DealType=>["sale","rent","mortgage","buy"].includes(String(v))?String(v) as DealType:"sale";
+function invalidDealEnum(message:string):never{throw createError({statusCode:400,statusMessage:message});}
 
 export default defineEventHandler(async event=>{
   setResponseHeader(event,"cache-control","no-store"); const claims=await requireDealsPermission(event);
