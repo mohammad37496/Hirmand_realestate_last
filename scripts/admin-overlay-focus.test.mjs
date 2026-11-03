@@ -5,6 +5,8 @@ import test from "node:test";
 const utils = fs.readFileSync(new URL("../src/components/hirmand/admin-ui-utils.tsx", import.meta.url), "utf8");
 const admin = fs.readFileSync(new URL("../src/components/hirmand/_admin_impl.tsx", import.meta.url), "utf8");
 const palette = fs.readFileSync(new URL("../src/components/hirmand/admin-command-palette.tsx", import.meta.url), "utf8");
+const adminUi = fs.readFileSync(new URL("../src/components/hirmand/admin-ui.tsx", import.meta.url), "utf8");
+const browserAudit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
 const packageJson = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
 test("shared overlay hook traps forward and reverse Tab at modal boundaries", () => {
@@ -34,6 +36,15 @@ test("mobile admin drawer focuses its close button and contains focus within its
   assert.doesNotMatch(admin, /initialFocusRef: drawerTriggerRef/);
 });
 
+test("confirmation dialogs use the shared focus trap and scroll lock", () => {
+  assert.match(utils, /const dialogRef = useRef<HTMLDivElement>\(null\)/);
+  assert.match(utils, /useOverlayDismiss\(\{ open: Boolean\(request\), onClose: closeRequest, containerRef: dialogRef \}\)/);
+  assert.match(utils, /<AdminConfirmDialog request=\{request\} onSettle=\{settle\} dialogRef=\{dialogRef\} \/>/);
+  assert.match(adminUi, /dialogRef:\s*React\.RefObject<HTMLDivElement \| null>/);
+  assert.match(adminUi, /ref=\{dialogRef\}/);
+  assert.doesNotMatch(adminUi, /document\.addEventListener\("keydown", onKeyDown\)/);
+});
+
 test("command palette uses shared modal focus handling and restores the invoking element", () => {
   assert.match(palette, /useOverlayDismiss\(\{ open, onClose: closePalette, initialFocusRef: inputRef, containerRef: dialogRef \}\)/);
   assert.match(palette, /const openerRef = useRef<HTMLButtonElement>\(null\)/);
@@ -47,4 +58,15 @@ test("command palette uses shared modal focus handling and restores the invoking
 test("overlay focus regression test is part of the normal npm test suite", () => {
   assert.match(packageJson.scripts.test, /scripts\/admin-overlay-focus\.test\.mjs/);
   assert.equal(packageJson.scripts["test:admin-overlay-focus"], "node --test scripts/admin-overlay-focus.test.mjs");
+});
+
+test("admin browser audit exercises Tab and Shift+Tab wrapping in the drawer and command palette", () => {
+  assert.match(browserAudit, /async function auditCommandPalette\(/);
+  assert.match(browserAudit, /command palette did not focus its search input when opened/);
+  assert.match(browserAudit, /Shift\+Tab from the command palette input did not wrap/);
+  assert.match(browserAudit, /Tab from the last command palette control did not wrap/);
+  assert.match(browserAudit, /closing the command palette did not restore focus to its trigger/);
+  assert.match(browserAudit, /Shift\+Tab from the first drawer control did not wrap to the last control/);
+  assert.match(browserAudit, /Tab from the last drawer control did not wrap to the first control/);
+  assert.match(browserAudit, /for \(const issue of entry\.issues\.focus \?\? \[\]\)/);
 });
