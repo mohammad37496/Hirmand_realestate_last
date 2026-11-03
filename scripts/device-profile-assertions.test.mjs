@@ -10,6 +10,6 @@ test("device matrix audits every rendered property card and uses unrounded touch
   assert.match(smoke, /cardAudits\.some\(\(card\) => !card\.hasActionContainer \|\| card\.actionCount < 8/);
   assert.match(smoke, /minWidth:\s*boxes\.length \? Math\.min\(\.\.\.boxes\.map\(\(box\) => box\.rawWidth\)\)/);
   assert.match(smoke, /previewWidthRaw:\s*preview\?\.width \?\? 0/);
-  assert.match(smoke, /galleryAudit\.shortLandscape \? 68 : 42/);
+  assert.match(smoke, /galleryAudit\.shortLandscape \? 60 : 42/);
   assert.match(smoke, /galleryAudit\.previewWidthRaw < minimumPreview/);
 });

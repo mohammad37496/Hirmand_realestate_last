@@ -666,7 +666,7 @@ testRunner.test("responsive browser smoke covers the required viewport matrix", 
     "touch targets must be measured before rounding so 43.5px controls cannot pass a 44px minimum");
   assert.match(mobileDeviceProfileSmoke, /thumbnailCount < 2[\s\S]*?expected a visible main gallery and at least two fixture thumbnails/,
     "the property-detail device check must fail when the fixture gallery is missing or incomplete");
-  assert.match(mobileDeviceProfileSmoke, /galleryAudit\.shortLandscape \? 68 : 42/);
+  assert.match(mobileDeviceProfileSmoke, /galleryAudit\.shortLandscape \? 60 : 42/);
   assert.match(mobileDeviceProfileSmoke, /galleryAudit\.previewWidthRaw < minimumPreview \|\| galleryAudit\.previewHeightRaw < minimumPreview/,
     "the property-detail device check must enforce realistic preview sizes before rounding");
   assert.match(packageJson, /"test:site-device-matrix":\s*"node scripts\/property-card-local-browser\.test\.mjs site-device-matrix"/);

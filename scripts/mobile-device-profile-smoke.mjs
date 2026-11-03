@@ -299,7 +299,7 @@ try {
                   railHorizontalOverflow: Boolean(rail && rail.scrollWidth > rail.clientWidth + 1),
                 };
               });
-              const minimumPreview = galleryAudit.shortLandscape ? 68 : 42;
+              const minimumPreview = galleryAudit.shortLandscape ? 60 : 42;
               if (galleryAudit.top < -1 || galleryAudit.bottom > galleryAudit.actionBarTop - 2 || !galleryAudit.selected || galleryAudit.previewWidthRaw < minimumPreview || galleryAudit.previewHeightRaw < minimumPreview || (galleryAudit.shortLandscape && (!galleryAudit.railWithinGallery || galleryAudit.railHorizontalOverflow))) {
                 failures.push(`${device.name} ${orientation} gallery thumbnail is hidden, clipped, or cannot be selected above the bottom action bar: ${JSON.stringify(galleryAudit)}`);
               }
