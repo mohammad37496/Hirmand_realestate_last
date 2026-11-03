@@ -3,17 +3,13 @@ import { useMemo, useState } from "react";
 import { LocateFixed, MapPin, Navigation, RefreshCcw } from "lucide-react";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
-import { listPublishedPropertyCards, type PropertyCardData } from "@/lib/properties";
+import { listPublishedPropertyCards } from "@/lib/properties";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 
 export const Route = createFileRoute("/nearby")({
   loader: async () => {
-    const batches = await Promise.all(
-      [0, 48, 96, 144].map((offset) => listPublishedPropertyCards({ data: { hasLocationOnly: true, sort: "newest", offset } })),
-    );
-    const byId = new Map<string, PropertyCardData>();
-    for (const batch of batches) for (const property of batch) byId.set(property.id, property);
-    return { properties: [...byId.values()] };
+    const properties = await listPublishedPropertyCards({ data: { hasLocationOnly: true, sort: "newest", offset: 0 } });
+    return { properties, hasMore: properties.length === 48, nextOffset: properties.length };
   },
   head: () => {
     const title = "فایل‌های نزدیک من | املاک هیرمند";
@@ -42,10 +38,37 @@ function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {
 }
 
 function NearbyPage() {
-  const { properties } = Route.useLoaderData();
+  const initialData = Route.useLoaderData();
+  const [properties, setProperties] = useState(initialData.properties);
+  const [nextOffset, setNextOffset] = useState(initialData.nextOffset);
+  const [hasMore, setHasMore] = useState(initialData.hasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [radius, setRadius] = useState(5);
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    setLoadMoreError(false);
+    try {
+      const rows = await listPublishedPropertyCards({
+        data: { hasLocationOnly: true, sort: "newest", offset: nextOffset },
+      });
+      setProperties((current) => {
+        const byId = new Map(current.map((property) => [property.id, property]));
+        for (const property of rows) byId.set(property.id, property);
+        return [...byId.values()];
+      });
+      setNextOffset((current) => current + 48);
+      setHasMore(rows.length === 48);
+    } catch {
+      setLoadMoreError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   function locate() {
     if (!navigator.geolocation) {
@@ -86,8 +109,8 @@ function NearbyPage() {
               <span>شعاع جستجو: <strong>{radius.toLocaleString("fa-IR")} کیلومتر</strong></span>
               <input type="range" min="1" max="15" step="1" value={radius} onChange={(event) => setRadius(Number(event.target.value))} />
             </label>
-            {status === "ready" ? <span className="nearby-status"><Navigation size={15} /> موقعیت فعال شد</span> : null}
-            {status === "error" ? <span className="nearby-status is-error"><RefreshCcw size={15} /> دسترسی موقعیت در دسترس نیست</span> : null}
+            {status === "ready" ? <span className="nearby-status" role="status" aria-live="polite" aria-atomic="true"><Navigation size={15} /> موقعیت فعال شد</span> : null}
+            {status === "error" ? <span className="nearby-status is-error" role="status" aria-live="polite" aria-atomic="true"><RefreshCcw size={15} /> دسترسی موقعیت در دسترس نیست</span> : null}
           </div>
         </section>
 
@@ -95,7 +118,7 @@ function NearbyPage() {
           <div className="smart-search-result-head">
             <div>
               <span className="kicker">فایل‌های دارای موقعیت</span>
-              <h2>{location ? nearby.length.toLocaleString("fa-IR") + " فایل در شعاع انتخابی" : nearby.length.toLocaleString("fa-IR") + " فایل آماده بررسی"}</h2>
+              <h2>{location ? `${nearby.length.toLocaleString("fa-IR")} فایل در شعاع انتخابی از ${properties.length.toLocaleString("fa-IR")} فایل بارگذاری‌شده` : `${properties.length.toLocaleString("fa-IR")} فایل دارای موقعیت بارگذاری شده`}</h2>
             </div>
           </div>
           {nearby.length ? (
@@ -108,8 +131,20 @@ function NearbyPage() {
               ))}
             </div>
           ) : (
-            <section className="property-empty"><LocateFixed size={28} /><strong>در این شعاع فایل دارای موقعیت پیدا نشد.</strong><p>شعاع را بیشتر کنید یا موقعیت را دوباره دریافت کنید.</p></section>
+            <section className="property-empty">
+              <LocateFixed size={28} />
+              <strong>{location ? "در این شعاع فایل دارای موقعیت پیدا نشد." : "فایل دارای مختصات برای نمایش پیدا نشد."}</strong>
+              <p>{location ? "شعاع را بیشتر کنید یا موقعیت را دوباره دریافت کنید." : "بعداً دوباره بررسی کنید؛ فایل‌های دارای مختصات اینجا نمایش داده می‌شوند."}</p>
+            </section>
           )}
+          {hasMore ? (
+            <div className="nearby-load-more">
+              {loadMoreError ? <p role="alert">بارگذاری فایل‌های بیشتر انجام نشد. دوباره تلاش کنید.</p> : null}
+              <button type="button" className="btn-ghost" onClick={() => void loadMore()} disabled={loadingMore} aria-busy={loadingMore}>
+                {loadingMore ? "در حال بارگذاری…" : loadMoreError ? "تلاش دوباره برای بارگذاری" : "بارگذاری فایل‌های بیشتر"}
+              </button>
+            </div>
+          ) : null}
         </section>
       </main>
     </SiteChrome>

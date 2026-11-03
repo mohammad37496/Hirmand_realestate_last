@@ -23,47 +23,19 @@ import type { ConfirmRequest } from "@/components/hirmand/admin-ui-utils";
 export function AdminConfirmDialog({
   request,
   onSettle,
+  dialogRef,
 }: {
   request: ConfirmRequest;
   onSettle: (ok: boolean) => void;
+  dialogRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const titleId = useId();
   const descriptionId = useId();
   const confirmRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     confirmRef.current?.focus();
   }, []);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onSettle(false);
-        return;
-      }
-      if (event.key !== "Tab") return;
-
-      // Keep focus inside the dialog: a modal the keyboard can walk out of is
-      // worse than no modal at all.
-      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-      if (!focusable || !focusable.length) return;
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onSettle]);
 
   return (
     <div
