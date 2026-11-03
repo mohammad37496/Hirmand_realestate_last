@@ -195,7 +195,7 @@
 .admin-matching-detail-grid small{
   display:block;
   margin-bottom:3px;
-  color:#6d7a84;
+  color:#59636e;
   font-size:.66rem;
 }
 
@@ -217,6 +217,7 @@
 
 .admin-matching-request-grid a{
   min-width:0;
+  min-height:44px;
   overflow-wrap:anywhere;
   word-break:normal;
 }
@@ -251,7 +252,7 @@
 
 .admin-matching-request-section em,
 .admin-matching-full-section em{
-  color:#7a8790;
+  color:#59636e;
   font-size:.73rem;
   font-style:normal;
 }
@@ -342,7 +343,7 @@
 }
 
 .admin-matching-mode small{
-  color:#6a7780;
+  color:#59636e;
   font-size:.67rem;
   line-height:1.8;
 }
@@ -490,7 +491,7 @@
 
 .admin-matching-card-prices small{
   display:block;
-  color:#78858e;
+  color:#59636e;
   font-size:.61rem;
 }
 

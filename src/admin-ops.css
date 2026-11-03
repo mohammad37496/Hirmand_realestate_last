@@ -59,14 +59,14 @@
 }
 .admin-owner-title{display:flex;flex-direction:column;gap:3px;min-width:0}
 .admin-owner-title strong{color:#1e2f3c;font-size:.85rem}
-.admin-owner-title small{color:#6f7c85;font-size:.66rem}
+.admin-owner-title small{color:#59636e;font-size:.66rem}
 .admin-owner-phone{display:inline-flex;align-items:center;gap:5px;color:#7a5414;font-size:.7rem;direction:ltr}
 .admin-owner-stats{
   display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0;
 }
 .admin-owner-stats>div{padding:8px;border:1px solid #ece4d7;border-radius:10px;background:#fbfaf7}
 .admin-owner-stats small,.admin-owner-stats strong{display:block}
-.admin-owner-stats small{color:#75828b;font-size:.6rem}
+.admin-owner-stats small{color:#59636e;font-size:.6rem}
 .admin-owner-stats strong{margin-top:2px;color:#273846;font-size:.71rem}
 .admin-owner-files{display:flex;flex-direction:column;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid #e8e0d5}
 .admin-owner-file{
@@ -129,7 +129,7 @@
   content:"";position:absolute;right:auto;left:3px;top:14px;width:2px;height:calc(100% - 13px);background:#e9dfcf;
 }
 .admin-matching-timeline strong{display:block;color:#2a3a46;font-size:.72rem}
-.admin-matching-timeline small{display:block;color:#7b8790;margin-top:2px;font-size:.62rem}
+.admin-matching-timeline small{display:block;color:#59636e;margin-top:2px;font-size:.62rem}
 .admin-matching-timeline p{margin:4px 0 0;color:#697780;font-size:.67rem;line-height:1.7}
 
 @media(max-width:900px){
