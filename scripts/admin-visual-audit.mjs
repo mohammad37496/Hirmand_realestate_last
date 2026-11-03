@@ -625,6 +625,28 @@ async function auditOpenOverlay(page, viewport, kind, open) {
   if (!opened) return;
   await page.waitForTimeout(400);
   const { issues, geometry } = await page.evaluate(AUDIT);
+  const focusIssues = [];
+  if (kind === "drawer") {
+    const container = page.locator(".admin-drawer");
+    const focusable = container.locator('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    const count = await focusable.count();
+    if (count < 2) {
+      focusIssues.push(`drawer exposes only ${count} focusable control(s)`);
+    } else {
+      const first = focusable.first();
+      const last = focusable.last();
+      await first.focus();
+      await page.keyboard.press("Shift+Tab");
+      if (!(await last.evaluate((element) => element === document.activeElement))) {
+        focusIssues.push("Shift+Tab from the first drawer control did not wrap to the last control");
+      }
+      await page.keyboard.press("Tab");
+      if (!(await first.evaluate((element) => element === document.activeElement))) {
+        focusIssues.push("Tab from the last drawer control did not wrap to the first control");
+      }
+    }
+  }
+  issues.focus = focusIssues;
   report.overlays.push({ viewport: viewport.id, width: viewport.width, kind, issues, geometry });
   if (process.env.QA_SCREENSHOTS !== "0") {
     await page.screenshot({ path: `${OUT}/overlay-${viewport.id}-${kind}.png` });
@@ -643,6 +665,42 @@ async function auditOpenOverlay(page, viewport, kind, open) {
       issues: { escapes: [`${kind} ignored Escape`] },
     });
   }
+}
+
+async function auditCommandPalette(page, viewport) {
+  const trigger = page.locator('button[title="جستجوی سریع"]');
+  if (!(await trigger.isVisible().catch(() => false))) return;
+  const focusIssues = [];
+  await activate(trigger);
+  const dialog = page.getByRole("dialog", { name: "جستجوی سریع پنل مدیریت" });
+  await dialog.waitFor({ state: "visible" });
+  const { geometry } = await page.evaluate(AUDIT);
+  const input = dialog.locator("input").first();
+  if (!(await input.evaluate((element) => element === document.activeElement))) {
+    focusIssues.push("command palette did not focus its search input when opened");
+  }
+  const focusable = dialog.locator('input:not([disabled]), button:not([disabled]), a[href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+  const count = await focusable.count();
+  if (count < 2) {
+    focusIssues.push(`command palette exposes only ${count} focusable control(s)`);
+  } else {
+    const last = focusable.last();
+    await page.keyboard.press("Shift+Tab");
+    if (!(await last.evaluate((element) => element === document.activeElement))) {
+      focusIssues.push("Shift+Tab from the command palette input did not wrap to its last control");
+    }
+    await page.keyboard.press("Tab");
+    if (!(await input.evaluate((element) => element === document.activeElement))) {
+      focusIssues.push("Tab from the last command palette control did not wrap to its input");
+    }
+  }
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+  if (await dialog.count()) focusIssues.push("command palette ignored Escape");
+  if (!(await trigger.evaluate((element) => element === document.activeElement))) {
+    focusIssues.push("closing the command palette did not restore focus to its trigger");
+  }
+  report.overlays.push({ viewport: viewport.id, width: viewport.width, kind: "command-palette", issues: { focus: focusIssues }, geometry });
 }
 
 for (const viewport of viewports) {
@@ -717,6 +775,8 @@ for (const viewport of viewports) {
     }
   }
 
+  await auditCommandPalette(page, viewport);
+
   // Drawer state, measured open: the panel only exists at this width.
   await page.keyboard.press("Escape");
   await page.waitForTimeout(250);
@@ -749,6 +809,7 @@ const problems = [];
 for (const entry of report.overlays) {
   const tag = `${entry.viewport}(${entry.width})/overlay:${entry.kind}`;
   if (entry.issues.escapes) problems.push(`${tag}: ${entry.issues.escapes.join(", ")}`);
+  for (const issue of entry.issues.focus ?? []) problems.push(`${tag}: keyboard focus ${issue}`);
   if (entry.geometry.horizontalScroll) {
     problems.push(`${tag}: horizontal scroll ${entry.geometry.scrollWidth}px > ${entry.geometry.innerWidth}px`);
   }
