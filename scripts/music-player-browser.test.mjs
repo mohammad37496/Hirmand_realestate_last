@@ -32,6 +32,22 @@ try {
   );
   await page.addInitScript(() => {
     const mediaState = new WeakMap();
+    const sourceState = new WeakMap();
+    Object.defineProperty(HTMLMediaElement.prototype, "src", {
+      configurable: true,
+      get() {
+        return sourceState.get(this) || "";
+      },
+      set(value) {
+        sourceState.set(this, new URL(String(value), window.location.href).toString());
+      },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, "currentSrc", {
+      configurable: true,
+      get() {
+        return sourceState.get(this) || "";
+      },
+    });
     Object.defineProperty(HTMLMediaElement.prototype, "paused", {
       configurable: true,
       get() {
@@ -93,8 +109,33 @@ try {
     fallbackResult.attempts.some((source) => source.endsWith("/music/good-stream.mp3")),
     `the valid stream must be the source that starts playback: ${JSON.stringify(fallbackResult)}`,
   );
+
+  // A source can fail after play() already resolved. Playback intent must
+  // survive that success so the next candidate is still attempted.
+  await page.locator("audio").dispatchEvent("error");
+  await page.waitForFunction(
+    () => document.querySelector("audio")?.src.endsWith("/api/music/file/fallback-race-track"),
+    null,
+    { timeout: 10_000 },
+  );
+  const midPlaybackFallback = await page.locator("audio").evaluate((audio) => ({
+    source: audio.src,
+    attempts: window.__musicPlayAttempts,
+  }));
+  assert.ok(
+    midPlaybackFallback.attempts.some((source) => source.endsWith("/api/music/file/fallback-race-track")),
+    `a later source failure must continue through the fallback list: ${JSON.stringify(midPlaybackFallback)}`,
+  );
   assert.deepEqual(pageErrors, [], `the player should not cause uncaught browser errors: ${pageErrors.join(" | ")}`);
-  console.log(JSON.stringify({ ok: true, checks: ["media error and play rejection advance fallback only once"], fallbackResult }, null, 2));
+  console.log(JSON.stringify({
+    ok: true,
+    checks: [
+      "media error and play rejection advance fallback only once",
+      "playback intent survives successful play so later source failures still fall back",
+    ],
+    fallbackResult,
+    midPlaybackFallback,
+  }, null, 2));
 } finally {
   await browser.close();
 }

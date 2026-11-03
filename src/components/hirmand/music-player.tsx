@@ -92,7 +92,7 @@ function sourceCandidatesFor(track: MusicTrack): string[] {
 export function MusicPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const resumeAfterLoadRef = useRef(false);
-  const playRequestedRef = useRef(false);
+  const playbackIntentRef = useRef(false);
   const sourceCandidatesRef = useRef<string[]>([]);
   const sourceIndexRef = useRef(0);
   // The browser can emit `error` and reject play() for the same failed URL.
@@ -235,15 +235,15 @@ export function MusicPlayer() {
     }
 
     const attemptPlay = () => {
+      const attemptedSource = audio.src;
       audio
         .play()
         .then(() => {
-          playRequestedRef.current = false;
           setIsPlaying(true);
         })
         .catch(async (error) => {
           // onError may already be waiting for the next source.
-          if (fallbackSwitchingRef.current) return;
+          if (fallbackSwitchingRef.current || audio.src !== attemptedSource) return;
 
           if (switchToFallbackSource()) {
             void waitForMediaReady(audio)
@@ -251,7 +251,6 @@ export function MusicPlayer() {
               .then(
                 () => {
                   fallbackSwitchingRef.current = false;
-                  playRequestedRef.current = false;
                   setIsPlaying(true);
                   setAutoplayBlocked(false);
                   setLoadError(false);
@@ -259,7 +258,7 @@ export function MusicPlayer() {
                 },
                 (fallbackError) => {
                   fallbackSwitchingRef.current = false;
-                  playRequestedRef.current = false;
+                  playbackIntentRef.current = false;
                   setIsPlaying(false);
                   setIsBuffering(false);
                   if (isAutoplayBlocked(fallbackError)) setAutoplayBlocked(true);
@@ -269,7 +268,7 @@ export function MusicPlayer() {
             return;
           }
 
-          playRequestedRef.current = false;
+          playbackIntentRef.current = false;
           setIsPlaying(false);
           if (isAutoplayBlocked(error)) setAutoplayBlocked(true);
           else setLoadError(true);
@@ -306,38 +305,37 @@ export function MusicPlayer() {
     if (!audio || !currentTrack) return;
 
     if (!audio.paused) {
-      playRequestedRef.current = false;
+      playbackIntentRef.current = false;
       audio.pause();
       setIsPlaying(false);
       return;
     }
 
-    playRequestedRef.current = true;
+    playbackIntentRef.current = true;
     setIsBuffering(true);
+    const attemptedSource = audio.src;
 
     try {
       await audio.play();
-      playRequestedRef.current = false;
       setIsPlaying(true);
       setAutoplayBlocked(false);
       setLoadError(false);
     } catch (error) {
       // The matching media error event may already own this fallback.
-      if (fallbackSwitchingRef.current) return;
+      if (fallbackSwitchingRef.current || audio.src !== attemptedSource) return;
 
       if (switchToFallbackSource()) {
         try {
           await waitForMediaReady(audio);
           await audio.play();
           fallbackSwitchingRef.current = false;
-          playRequestedRef.current = false;
           setIsPlaying(true);
           setAutoplayBlocked(false);
           setLoadError(false);
           return;
         } catch (fallbackError) {
           fallbackSwitchingRef.current = false;
-          playRequestedRef.current = false;
+          playbackIntentRef.current = false;
           setIsPlaying(false);
           if (isAutoplayBlocked(fallbackError)) setAutoplayBlocked(true);
           else setLoadError(true);
@@ -345,7 +343,7 @@ export function MusicPlayer() {
         }
       }
 
-      playRequestedRef.current = false;
+      playbackIntentRef.current = false;
       setIsPlaying(false);
       if (isAutoplayBlocked(error)) setAutoplayBlocked(true);
       else setLoadError(true);
@@ -365,7 +363,7 @@ export function MusicPlayer() {
     }
 
     resumeAfterLoadRef.current = shouldPlay;
-    playRequestedRef.current = shouldPlay;
+    playbackIntentRef.current = shouldPlay;
     setIndex(safeIndex);
   }
 
@@ -493,14 +491,13 @@ export function MusicPlayer() {
         onEnded={handleEnded}
         onError={() => {
           if (fallbackSwitchingRef.current) return;
-          if (playRequestedRef.current && switchToFallbackSource()) {
+          if (playbackIntentRef.current && switchToFallbackSource()) {
             const fallback = audioRef.current;
             if (fallback) {
               void waitForMediaReady(fallback)
                 .then(() => fallback.play())
                 .then(() => {
                   fallbackSwitchingRef.current = false;
-                  playRequestedRef.current = false;
                   setIsPlaying(true);
                   setAutoplayBlocked(false);
                   setLoadError(false);
@@ -508,7 +505,7 @@ export function MusicPlayer() {
                 })
                 .catch((error) => {
                   fallbackSwitchingRef.current = false;
-                  playRequestedRef.current = false;
+                  playbackIntentRef.current = false;
                   setIsPlaying(false);
                   setIsBuffering(false);
                   if (isAutoplayBlocked(error)) setAutoplayBlocked(true);
