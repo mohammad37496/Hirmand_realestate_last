@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import { extractFfmpegArchive } from "./ensure-ffmpeg.mjs";
 
 const ffmpegDownloader = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
@@ -22,10 +25,10 @@ test("npm build does not repeat fallback image downloads", () => {
 });
 
 
-const propertyStore = await readFile(
+const propertyStore = (await readFile(
   new URL("../src/lib/properties.ts", import.meta.url),
   "utf8",
-);
+)).replace(/\r\n/g, "\n");
 const packageManifest = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8",
@@ -255,4 +258,23 @@ test("FFmpeg release URL uses the same repository as its pinned release assets",
   assert.doesNotMatch(ffmpegProvisioner, /\|\| "https:\/\/github\.com\/eugeneware\/ffmpeg-static\/releases\/download"/);
   assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-42-gd7643a0fe3-linux64-gpl-9\.0\.tar\.xz/);
   assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
+});
+
+test("FFmpeg XZ archive extraction does not depend on host tar XZ support", async () => {
+  const fixture = Buffer.from(
+    "/Td6WFoAAATm1rRGAgAhARYAAAB0L+Wj4Cf/AHddADkZSdrpOaPtMnZApgrcMXHNVwb4wZoseqRlVlE+dTw86dpadDuBBpFq1Go1mB17+IiIi3xaD9ow1hS/VkEmYkMN1HOMD2MLvMf+f/gFR/qymiajCNa6gRQE87Yj5KxHcNiUYo8m51j9UUBL5g09iY4W8+/sM4wAAABiBvbkC1MGOAABkwGAUAAACwEi5LHEZ/sCAAAAAARZWg==",
+    "base64",
+  );
+  const temporaryRoot = await mkdtemp(join(tmpdir(), "hirmand-ffmpeg-xz-"));
+  const archivePath = join(temporaryRoot, "fixture.tar.xz");
+  const extractDir = join(temporaryRoot, "extract");
+
+  try {
+    await mkdir(extractDir, { recursive: true });
+    await writeFile(archivePath, fixture);
+    await extractFfmpegArchive(archivePath, extractDir, "release");
+    assert.equal(await readFile(join(extractDir, "ffmpeg"), "utf8"), "fixture-ffmpeg-binary");
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
 });

@@ -130,6 +130,7 @@ jobs:
 
           npx playwright install --with-deps chromium
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
+          node scripts/music-player-browser.test.mjs http://127.0.0.1:8081
           # End-to-end proof of the admin upload path: begin → chunks → complete,
           # then fetch the stored media from the public endpoint, plus the
           # watermark-on/watermark-off A/B. The `iw`-in-drawtext regression this

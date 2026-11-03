@@ -4,7 +4,7 @@ import {
   adminDealCreateEnumsSchema,
   adminDealDocumentUpdateSchema,
   adminDealStatusUpdateSchema,
-} from "./admin-deal-input";
+} from "./admin-deal-input.ts";
 
 describe("admin deal enum validation", () => {
   it("keeps defaults only when optional create values are omitted", () => {
