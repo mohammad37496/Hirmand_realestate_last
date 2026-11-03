@@ -15,4 +15,5 @@ test("property media upload can be opened with Enter and Space", () => {
   assert.match(zone, /inputRef\.current\?\.click\(\)/);
   assert.match(zone, /aria-disabled=\{uploading\}/);
   assert.match(responsiveSmoke, /route === "\/submit-property"[\s\S]*?for \(const key of \["Enter", "Space"\]\)[\s\S]*?waitForEvent\("filechooser"/);
+  assert.match(responsiveSmoke, /if \(!chooser\.isMultiple\(\)\)[\s\S]*?await chooser\.setFiles\(\[\]\)/);
 });
