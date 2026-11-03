@@ -126,15 +126,36 @@ try {
     midPlaybackFallback.attempts.some((source) => source.endsWith("/api/music/file/fallback-race-track")),
     `a later source failure must continue through the fallback list: ${JSON.stringify(midPlaybackFallback)}`,
   );
+
+  // Explicit pause clears playback intent; a later media error must not
+  // unexpectedly start another source in the background.
+  await page.locator(".music-play").click();
+  await page.waitForFunction(
+    () => document.querySelector(".music-play")?.getAttribute("aria-label") === "پخش",
+    null,
+    { timeout: 5_000 },
+  );
+  const attemptsBeforePausedError = await page.evaluate(() => window.__musicPlayAttempts.length);
+  await page.locator("audio").dispatchEvent("error");
+  await page.waitForTimeout(50);
+  const pausedErrorResult = await page.locator("audio").evaluate((audio) => ({
+    source: audio.src,
+    attempts: window.__musicPlayAttempts,
+    playLabel: document.querySelector(".music-play")?.getAttribute("aria-label"),
+  }));
+  assert.equal(pausedErrorResult.attempts.length, attemptsBeforePausedError);
+  assert.equal(pausedErrorResult.playLabel, "پخش");
   assert.deepEqual(pageErrors, [], `the player should not cause uncaught browser errors: ${pageErrors.join(" | ")}`);
   console.log(JSON.stringify({
     ok: true,
     checks: [
       "media error and play rejection advance fallback only once",
       "playback intent survives successful play so later source failures still fall back",
+      "manual pause prevents later media errors from restarting playback",
     ],
     fallbackResult,
     midPlaybackFallback,
+    pausedErrorResult,
   }, null, 2));
 } finally {
   await browser.close();
