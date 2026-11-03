@@ -342,6 +342,12 @@ svg {
   }
 }
 
+/* Keep the empty player shell hidden after all responsive display overrides. */
+.music-player.music-player-empty {
+  display: none !important;
+  pointer-events: none !important;
+}
+
 
 /* Portal the neighborhood picker above the fixed header and filter drawer. */
 @media (max-width: 979px) {
