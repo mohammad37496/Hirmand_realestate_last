@@ -66,6 +66,18 @@
     opacity: 1 !important;
   }
 
+  .admin-app .admin-drawer .admin-nav-btn-create {
+    color: #7a5414 !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn-create .admin-nav-btn-label {
+    color: #43515c !important;
+  }
+
+  .admin-app .admin-drawer .admin-nav-btn-meta {
+    color: #7a5414 !important;
+  }
+
   .admin-app .admin-drawer .admin-sidebar-foot {
     background: #fff !important;
     border-top-color: var(--line, #e2dacb) !important;
