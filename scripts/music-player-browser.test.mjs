@@ -390,6 +390,8 @@ try {
       assert.ok(launcher.x <= 16 && launcher.width === 48 && launcher.height === 48,
         `mobile launcher should be a 48px icon at the lower left: ${JSON.stringify(launcher)}`);
       assert.equal(launcher.playerDisplay, "none", `mobile player should start collapsed: ${JSON.stringify(launcher)}`);
+      assert.equal(await responsivePage.locator(".music-player-launcher").getAttribute("aria-expanded"), "false");
+      assert.equal(await responsivePage.locator(".music-player-launcher").getAttribute("aria-controls"), "hirmand-music-player-panel");
       const mobileLauncher = responsivePage.locator(".music-player-launcher");
       await mobileLauncher.click();
       await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
@@ -411,10 +413,22 @@ try {
       assert.equal(openLauncher.height, 48);
       assert.ok(openLauncher.y >= openLauncher.playerBottom,
         `the open-panel launcher must sit below the sheet without covering its playlist: ${JSON.stringify(openLauncher)}`);
+      await responsivePage.locator(".music-play").focus();
+      assert.equal(await responsivePage.evaluate(() => document.activeElement === document.querySelector(".music-play")), true);
+      assert.equal(await mobileLauncher.getAttribute("aria-label"), "بستن پخش‌کننده موسیقی");
+      await responsivePage.keyboard.press("Escape");
+      await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      assert.equal(await mobileLauncher.getAttribute("aria-expanded"), "false");
+      assert.equal(await responsivePage.evaluate(() => document.activeElement === document.querySelector(".music-player-launcher")), true,
+        "Escape must return focus to the launcher instead of stranding focus in the hidden sheet");
+      assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none");
+      await mobileLauncher.click();
+      await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
       await mobileLauncher.click();
       await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
-      assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none",
-        "clicking the visible mobile launcher again must close the sheet");
+      assert.equal(await mobileLauncher.getAttribute("aria-expanded"), "false");
+      assert.equal(await responsivePage.evaluate(() => document.activeElement === document.querySelector(".music-player-launcher")), true,
+        "click-to-close must retain focus on the visible launcher");
       await mobileLauncher.click();
       await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
     } else {
@@ -541,8 +555,12 @@ try {
       assert.ok(layout.buttons.some((button) => button.label.includes("تصادفی")));
       assert.ok(layout.progress.height >= 44, `mobile seek control must be easy to use: ${JSON.stringify(layout.progress)}`);
       assert.ok(layout.playlist.y > layout.progress.y, `mobile transport and sound controls must precede the playlist: ${JSON.stringify(layout)}`);
+      const mobileLauncher = responsivePage.locator(".music-player-launcher");
       await responsivePage.locator('.music-compact-actions button[aria-label="مخفی کردن پخش‌کننده"]').evaluate((button) => button.click());
       await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      assert.equal(await mobileLauncher.getAttribute("aria-expanded"), "false");
+      assert.equal(await responsivePage.evaluate(() => document.activeElement === document.querySelector(".music-player-launcher")), true,
+        "the close control must restore focus to the visible launcher");
       assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none");
       assert.equal(await responsivePage.locator(".music-player-launcher").evaluate((button) => getComputedStyle(button).display), "grid");
     }

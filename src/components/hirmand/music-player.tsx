@@ -91,6 +91,7 @@ function sourceCandidatesFor(track: MusicTrack): string[] {
 
 export function MusicPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const launcherRef = useRef<HTMLButtonElement | null>(null);
   const resumeAfterLoadRef = useRef(false);
   const playbackIntentRef = useRef(false);
   const playbackRequestRef = useRef(0);
@@ -140,10 +141,25 @@ export function MusicPlayer() {
   const closePlayer = useCallback(() => {
     if (window.matchMedia("(max-width: 720px)").matches) {
       setIsMobileOpen(false);
+      window.requestAnimationFrame(() => launcherRef.current?.focus());
       return;
     }
     setIsHidden(true);
   }, []);
+
+  useEffect(() => {
+    if (!isMobileOpen || !window.matchMedia("(max-width: 720px)").matches) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setIsMobileOpen(false);
+      window.requestAnimationFrame(() => launcherRef.current?.focus());
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMobileOpen]);
 
   useEffect(() => {
     if (index !== safeIndex) setIndex(safeIndex);
@@ -643,16 +659,20 @@ export function MusicPlayer() {
 
       <button
         type="button"
+        ref={launcherRef}
         className={`music-player-launcher${isHidden ? " is-visible" : ""}${isMobileOpen ? " is-mobile-open" : ""}`}
         onClick={openPlayer}
-        aria-label="نمایش پخش‌کننده موسیقی"
-        title="نمایش پخش‌کننده"
+        aria-expanded={isMobileOpen}
+        aria-controls="hirmand-music-player-panel"
+        aria-label={isMobileOpen ? "بستن پخش‌کننده موسیقی" : "نمایش پخش‌کننده موسیقی"}
+        title={isMobileOpen ? "بستن پخش‌کننده" : "نمایش پخش‌کننده"}
       >
         {isPlaying ? <Pause size={18} /> : <Music2 size={18} />}
         <span>{currentTrack.title}</span>
       </button>
 
       <section
+        id="hirmand-music-player-panel"
         className={`music-player${isExpanded ? " is-expanded" : ""}${isPlaying ? " is-playing" : ""}${isHidden ? " is-hidden" : ""}${isMobileOpen ? " is-mobile-open" : ""}`}
         aria-label="پخش‌کننده موسیقی هیرمند"
       >
