@@ -54,6 +54,10 @@ test("functional QA fails on empty views, API errors, console errors and failed 
 test("visual QA fails on structural blockers while retaining accessibility findings as warnings", () => {
   assert.ok(visualQa.includes("const navigated = await clickByLabel"));
   assert.ok(visualQa.includes("runtimeErrors: []"));
+  assert.ok(visualQa.includes("visible error ${item.text}"));
+  assert.ok(visualQa.includes("[role=\"alert\"], [data-sonner-toast][data-type=\"error\"]"));
+  assert.ok(visualQa.includes("/visible error/"));
+  assert.ok(visualQa.includes("adminFloatingControlsInFlow"));
   assert.ok(visualQa.includes('page.on("pageerror"'));
   assert.ok(visualQa.includes("runtime error"));
   assert.ok(visualQa.includes("if (!entry.navigated) problems.push"));
@@ -103,6 +107,7 @@ test("every initially loaded admin panel endpoint has an explicit shaped fixture
   const paths = [
     "**/api/admin-action-center", "**/api/admin-agenda", "**/api/admin-backup**",
     "**/api/admin-consultant-performance**", "**/api/admin-consultant-targets",
+    "**/api/admin-productivity", "**/api/admin-visit-feedback", "**/api/admin-neighborhood-demand", "**/api/admin-property-lifecycle",
     "**/api/admin-customer-chat**", "**/api/admin-customer-property-submissions",
     "**/api/admin-data-health", "**/api/admin-deals", "**/api/admin-finance",
     "**/api/admin-finance-insights", "**/api/admin-lead-dedupe", "**/api/admin-match",
@@ -110,6 +115,39 @@ test("every initially loaded admin panel endpoint has an explicit shaped fixture
     "**/api/property-reports",
   ];
   for (const path of paths) assert.ok(fixtures.includes(`"${path}"`), `missing shaped fixture ${path}`);
+});
+
+test("productivity and visit-feedback fixtures satisfy the rendered response contracts", async () => {
+  const { stubAdminApi } = await import("./admin-fixtures.mjs");
+  const productivity = stubAdminApi["**/api/admin-productivity"];
+  const request = (action) => ({
+    request: () => ({ postDataJSON: () => ({ action }) }),
+    fulfill: async ({ body }) => JSON.parse(body),
+  });
+
+  const feedback = await stubAdminApi["**/api/admin-visit-feedback"]({ fulfill: async ({ body }) => JSON.parse(body) });
+  assert.equal(feedback.available, true);
+  assert.equal(typeof feedback.total, "number");
+  assert.ok(Array.isArray(feedback.recent));
+
+  const summary = await productivity(request("summary"));
+  assert.equal(summary.available, true);
+  assert.ok(summary.tasks && summary.propertyHealth && summary.system);
+  for (const [action, field] of [["list_tasks", "tasks"], ["list_leads", "leads"], ["list_properties", "properties"]]) {
+    const payload = await productivity(request(action));
+    assert.equal(payload.available, true, `${action} must be available`);
+    assert.ok(Array.isArray(payload[field]), `${action} must return ${field}`);
+  }
+  const created = await productivity({ ...request("create_task"), request: () => ({ postDataJSON: () => ({ action: "create_task", title: "QA task" }) }) });
+  assert.equal(created.task.title, "QA task");
+  assert.ok(created.task.id);
+
+  const neighborhood = await stubAdminApi["**/api/admin-neighborhood-demand"]({ fulfill: async ({ body }) => JSON.parse(body) });
+  assert.equal(neighborhood.available, true);
+  assert.ok(Array.isArray(neighborhood.items));
+  const lifecycle = await stubAdminApi["**/api/admin-property-lifecycle"](request("list"));
+  assert.equal(lifecycle.available, true);
+  assert.ok(Array.isArray(lifecycle.items));
 });
 
 test("admin interactive search, date, and editor controls expose explicit accessible names", () => {

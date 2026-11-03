@@ -214,7 +214,7 @@ const AUDIT = () => {
     return acc ? blend(acc, body) : body;
   };
 
-  const issues = { contrast: [], unnamed: [], smallTargets: [], overlaps: [] };
+  const issues = { contrast: [], unnamed: [], smallTargets: [], overlaps: [], errors: [] };
   const geometry = {
     horizontalScroll: false,
     scrollWidth: 0,
@@ -269,6 +269,20 @@ const AUDIT = () => {
       });
     }
   }
+
+  // A dashboard that silently falls back to an API error banner or toast is
+  // not a successful visual audit. Capture visible errors so fixture gaps are
+  // not mistaken for a clean empty-state render.
+  const visibleErrors = Array.from(document.querySelectorAll('[role="alert"], [data-sonner-toast][data-type="error"]'))
+    .filter((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) !== 0 && rect.width > 0 && rect.height > 0;
+    });
+  issues.errors = visibleErrors.map((element) => ({
+    selector: `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 70)}`,
+    text: (element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120),
+  })).filter((item) => item.text);
 
   // --- accessible names ---------------------------------------------------
   /**
@@ -495,11 +509,24 @@ const AUDIT = () => {
   const stickyBar = document.querySelector(".admin-sticky-bar");
   const drawerTrigger = document.querySelector(".admin-drawer-trigger");
   const mobileNav = document.querySelector(".admin-mobile-nav");
+  const adminMusicPlayer = document.querySelector("#hirmand-site-music-player");
+  const adminContactMenu = document.querySelector(".action-menu.floating-call-menu");
+  const adminFloatingPositions = [adminMusicPlayer, adminContactMenu]
+    .filter(Boolean)
+    .filter((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+    })
+    .map((element) => getComputedStyle(element).position);
   geometry.chrome = {
     sidebar: isVisible(sidebar),
     sidebarWidth: isVisible(sidebar) ? Math.round(sidebar.getBoundingClientRect().width) : 0,
     drawerTrigger: isVisible(drawerTrigger),
     mobileNav: isVisible(mobileNav),
+    adminFloatingControlsInFlow: !document.querySelector(".admin-app") || adminFloatingPositions.every((position) => position !== "fixed"),
+    adminMusicPlayerPosition: adminMusicPlayer ? getComputedStyle(adminMusicPlayer).position : null,
+    adminContactMenuPosition: adminContactMenu ? getComputedStyle(adminContactMenu).position : null,
   };
   // Brand fingerprint: the audit must not quietly retheme the panel, so the
   // three colours that define the Hirmand identity are recorded on every run.
@@ -744,6 +771,9 @@ for (const entry of report.overlays) {
   for (const item of entry.issues.overlaps ?? []) {
     problems.push(`${tag}: ${item.a} overlaps ${item.b} by ${item.overlapX}x${item.overlapY}px`);
   }
+  for (const item of entry.issues.errors ?? []) {
+    problems.push(`${tag}: visible error ${item.text} (${item.selector})`);
+  }
 }
 for (const entry of report.views) {
   const { issues, geometry } = entry;
@@ -758,6 +788,9 @@ for (const entry of report.views) {
     problems.push(
       `${tag}: sticky bar indented ${geometry.chrome.stickyLeft}px with no sidebar`,
     );
+  }
+  if (geometry.chrome.adminFloatingControlsInFlow === false) {
+    problems.push(`${tag}: shared floating controls remain fixed over admin content`);
   }
   if (geometry.offViewport.length) {
     problems.push(
@@ -789,6 +822,9 @@ for (const entry of report.views) {
   for (const item of issues.overlaps) {
     problems.push(`${tag}: ${item.a} overlaps ${item.b} by ${item.overlapX}x${item.overlapY}px`);
   }
+  for (const item of issues.errors ?? []) {
+    problems.push(`${tag}: visible error ${item.text} (${item.selector})`);
+  }
 }
 for (const entry of report.runtimeErrors) {
   problems.push(`${entry.viewport}/${entry.view}: runtime error ${entry.message}`);
@@ -818,6 +854,7 @@ const blockingPatterns = [
   /outside the viewport/,
   /orphaned sticky bar/,
   /overlaps/,
+  /visible error/,
   /runtime error/,
   /unshaped fallback/,
   /could not open the drawer/,

@@ -65,7 +65,7 @@ const CENTER_CSS = [
 ".admin-productivity-list{display:grid;gap:10px}.admin-productivity-task{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:11px;align-items:start;padding:13px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--card)}",
 ".admin-productivity-task.is-overdue{border-color:rgb(163 49 39 / 30%);background:var(--danger-bg)}.admin-productivity-task-main{min-width:0;display:grid;gap:4px}",
 ".admin-productivity-task-main strong{color:var(--navy-900);font-size:.82rem}.admin-productivity-task-main p{margin:0;color:var(--muted);font-size:.72rem;line-height:1.7}",
-".admin-productivity-task-meta{display:flex;flex-wrap:wrap;gap:6px;color:var(--subtle);font-size:.66rem}.admin-productivity-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:var(--card-2)}",
+".admin-productivity-task-meta{display:flex;flex-wrap:wrap;gap:6px;color:var(--subtle);font-size:.66rem}.admin-productivity-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border:1px solid var(--line);border-radius:999px;background:var(--card-2)}.admin-productivity-chip:is(button,a){min-height:44px;padding:8px 10px}",
 ".admin-productivity-chip[data-priority='urgent'],.admin-productivity-chip[data-priority='high']{border-color:rgb(163 49 39 / 28%);color:var(--danger)}.admin-productivity-chip[data-priority='normal']{color:var(--brass-700)}",
 ".admin-productivity-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.admin-productivity-form{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(180px,.7fr) minmax(160px,.6fr) minmax(160px,.6fr) minmax(200px,.8fr) auto;gap:8px;align-items:end}",
 ".admin-productivity-calendar{display:grid;gap:8px}.admin-productivity-day{display:grid;gap:6px;padding:10px 11px;background:var(--card-2);border:1px solid var(--line);border-radius:var(--r-md)}",
@@ -75,7 +75,7 @@ const CENTER_CSS = [
 ".admin-productivity-health-row strong{color:var(--navy-900);font-size:.73rem}.admin-productivity-health-row span{color:var(--muted);font-size:.72rem}.admin-productivity-health-row[data-tone='danger']{background:var(--danger-bg);border-color:rgb(163 49 39 / 22%)}",
 ".admin-productivity-duplicates{display:grid;gap:9px}.admin-productivity-duplicate{display:grid;gap:6px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}",
 ".admin-productivity-duplicate strong{color:var(--navy-900);font-size:.75rem}.admin-productivity-duplicate small{color:var(--subtle);font-size:.67rem;line-height:1.6}",
-".admin-productivity-file-links{display:flex;flex-wrap:wrap;gap:5px}.admin-productivity-file-links a{display:inline-flex;gap:4px;align-items:center;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--navy-900);font-size:.66rem;text-decoration:none}",
+".admin-productivity-file-links{display:flex;flex-wrap:wrap;gap:5px}.admin-productivity-file-links a{display:inline-flex;gap:4px;align-items:center;min-height:44px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card-2);color:var(--navy-900);font-size:.66rem;text-decoration:none}",
 ".admin-productivity-activity{display:grid;gap:8px}.admin-productivity-activity-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px 10px;border-bottom:1px solid var(--line)}",
 ".admin-productivity-activity-item:last-child{border-bottom:0}.admin-productivity-activity-dot{width:8px;height:8px;border-radius:50%;background:var(--brass-500);box-shadow:0 0 0 4px var(--brass-100)}",
 ".admin-productivity-activity-item strong{display:block;color:var(--navy-900);font-size:.7rem}.admin-productivity-activity-item small{display:block;margin-top:2px;color:var(--subtle);font-size:.63rem}.admin-productivity-activity-item time{color:var(--subtle);font-size:.61rem;white-space:nowrap}",
@@ -214,7 +214,7 @@ export function AdminProductivityCenter({ onOpenLead }: { onOpenLead?: (leadId: 
         <div className="admin-panel-head">
           <div><span className="kicker">مرکز مدیریت</span><h2>کارهای امروز، هشدارها و سلامت سیستم</h2></div>
           <div className="admin-productivity-toolbar">
-            <label className="admin-search"><SearchX size={15}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جستجوی وظیفه…" /></label>
+          <label className="admin-search"><SearchX size={15}/><input aria-label="جستجوی وظیفه‌های مرکز بهره‌وری" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جستجوی وظیفه…" /></label>
             <button className="btn-ghost" type="button" onClick={() => void loadAll()} disabled={loading}><RefreshCw size={15} className={loading ? "admin-spin" : undefined}/>به‌روزرسانی</button>
           </div>
         </div>

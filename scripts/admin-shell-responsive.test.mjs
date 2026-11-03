@@ -12,6 +12,7 @@ const opsCss = fs.readFileSync(new URL("../src/admin-ops.css", import.meta.url),
 const mobileClarity = fs.readFileSync(new URL("../src/admin-mobile-clarity.css", import.meta.url), "utf8");
 const inboxCss = fs.readFileSync(new URL("../src/admin-customer-inbox.css", import.meta.url), "utf8");
 const mediaCss = fs.readFileSync(new URL("../src/components/hirmand/admin-media-field.css", import.meta.url), "utf8");
+const siteMobileTouchContractCss = fs.readFileSync(new URL("../src/site-mobile-touch-contract.css", import.meta.url), "utf8");
 const listingAssistant = fs.readFileSync(new URL("../src/components/hirmand/admin-listing-assistant.tsx", import.meta.url), "utf8");
 const finalLayer = css.slice(css.lastIndexOf("Final mobile readability pass"));
 
@@ -99,6 +100,17 @@ test("admin light surfaces override legacy low-contrast dark-shell labels", () =
 test("admin productivity task fields never collapse beside fixed-width controls on tablets", () => {
   assert.match(productivity, /@media \(max-width:1100px\)[\s\S]*?\.admin-productivity-form\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}/);
   assert.match(productivity, /@media \(max-width:700px\)[\s\S]*?\.admin-productivity-form\{grid-template-columns:1fr\}/);
+  assert.match(productivity, /aria-label="جستجوی وظیفه‌های مرکز بهره‌وری"/);
+  assert.match(productivity, /\.admin-productivity-chip:is\(button,a\)\{min-height:44px/);
+  assert.match(productivity, /\.admin-productivity-file-links a\{[^}]*min-height:44px/);
+});
+
+test("shared floating music and contact controls stay in document flow on admin routes", () => {
+  assert.match(siteMobileTouchContractCss, /html body:has\(\.admin-app\) #hirmand-site-music-player\s*\{[^}]*position:\s*static !important;[^}]*inset:\s*auto !important;/s);
+  assert.match(siteMobileTouchContractCss, /html body:has\(\.admin-app\) \.action-menu\.floating-call-menu\s*\{[^}]*position:\s*static !important;[^}]*inset:\s*auto !important;/s);
+  const audit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
+  assert.match(audit, /adminFloatingControlsInFlow/);
+  assert.match(audit, /shared floating controls remain fixed over admin content/);
 });
 
 test("admin neighborhood preview action keeps a full touch-sized hit area", () => {

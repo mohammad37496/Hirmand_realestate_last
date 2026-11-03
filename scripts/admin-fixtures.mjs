@@ -330,6 +330,7 @@ export const stubAdminApi = {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
+        available: true,
         total: 36,
         average: 4.2,
         interested: 19,
@@ -403,8 +404,56 @@ export const stubAdminApi = {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ tasks }),
+        body: JSON.stringify({ available: true, tasks }),
       });
+    }
+    if (body.action === "list_leads") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          available: true,
+          leads: buildLeads(3).map(({ id, name, phone, status }) => ({ id, name, phone, status })),
+        }),
+      });
+    }
+    if (body.action === "list_properties") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          available: true,
+          properties: [
+            { id: "p-1", slug: "sample-one", title: "آپارتمان نمونه در چهارباغ", neighborhood: "چهارباغ", status: "published" },
+            { id: "p-2", slug: "sample-two", title: "ویلای نمونه در سپاهان‌شهر", neighborhood: "سپاهان‌شهر", status: "published" },
+          ],
+        }),
+      });
+    }
+    if (body.action === "create_task" || body.action === "update_task") {
+      const now = new Date().toISOString();
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          task: {
+            id: String(body.id || "qa-created-task"),
+            title: String(body.title || "وظیفه نمونه"),
+            description: String(body.description || ""),
+            status: String(body.status || "open"),
+            priority: String(body.priority || "normal"),
+            dueAt: body.dueAt == null ? null : String(body.dueAt),
+            assignee: String(body.assignee || ""),
+            entityType: String(body.entityType || ""),
+            entityId: body.entityId == null ? null : String(body.entityId),
+            createdAt: now,
+            updatedAt: now,
+          },
+        }),
+      });
+    }
+    if (body.action === "delete_task") {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
     }
     if (body.action !== "summary") {
       return route.fulfill({
@@ -417,6 +466,7 @@ export const stubAdminApi = {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
+        available: true,
         tasks: { open: 2, overdue: 1, today: 1, next7: 2 },
         propertyHealth: {
           total: 128,
@@ -479,6 +529,7 @@ export const stubAdminApi = {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
+        available: true,
         items: [
           {
             neighborhood: "چهارباغ",
@@ -553,9 +604,7 @@ export const stubAdminApi = {
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(
-        body.action === "createTasks" ? { items, createdTasks: 2 } : { items },
-      ),
+      body: JSON.stringify(body.action === "createTasks" ? { available: true, items, createdTasks: 2 } : { available: true, items }),
     });
   },
 
