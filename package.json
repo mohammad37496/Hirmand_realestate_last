@@ -44,6 +44,7 @@
     "test:site-j7-pro": "node scripts/property-card-local-browser.test.mjs site-j7-pro",
     "test:site-j7-pro-landscape": "node scripts/property-card-local-browser.test.mjs site-j7-pro-landscape",
     "test:site-device-matrix": "node scripts/property-card-local-browser.test.mjs site-device-matrix",
+    "test:public-search-browser": "node scripts/property-card-local-browser.test.mjs public-search",
     "test:admin-responsive": "node scripts/property-card-local-browser.test.mjs site-admin-responsive",
     "test:music-player-browser": "node scripts/music-player-browser.test.mjs",
     "lint": "eslint .",
