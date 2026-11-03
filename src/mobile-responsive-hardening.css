@@ -1267,8 +1267,8 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 0;
-  min-height: 31px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 4px 6px;
   border: 1px solid #e7ddc5;
   border-radius: 8px;
@@ -1309,7 +1309,8 @@ svg {
   background: linear-gradient(180deg, rgb(255 253 248 / 2%), rgb(241 234 224 / 5%));
 }
 .pf-page .pf-map-marker {
-  min-height: 31px;
+  min-width: 44px;
+  min-height: 44px;
   max-width: 158px;
   padding: 5px 10px;
   border: 1px solid #fff;

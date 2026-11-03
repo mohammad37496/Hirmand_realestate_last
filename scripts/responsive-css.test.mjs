@@ -164,6 +164,12 @@ testRunner.test("property view and map controls keep accessible names and 44px m
   const viewRule = responsiveCss.match(/\.pf-page \.pf-views button\s*\{[^}]*\}/is)?.[0] ?? "";
   assert.match(viewRule, /min-width:\s*44px/i);
   assert.match(viewRule, /min-height:\s*44px/i);
+  const mapItemActionRule = responsiveCss.match(/\.pf-page \.pf-map-item-open\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.match(mapItemActionRule, /min-width:\s*44px/i);
+  assert.match(mapItemActionRule, /min-height:\s*44px/i);
+  const baseMarkerRule = responsiveCss.match(/\.pf-page \.pf-map-marker\s*\{([^}]*)\}/is)?.[1] ?? "";
+  assert.match(baseMarkerRule, /min-width:\s*44px/i);
+  assert.match(baseMarkerRule, /min-height:\s*44px/i);
   const markerRules = [...responsiveCss.matchAll(/\.pf-page \.pf-map-marker\s*\{([^}]*)\}/gis)];
   const markerRule = markerRules.at(-1)?.[1] ?? "";
   assert.match(markerRule, /min-width:\s*44px/i);
