@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Search, Sparkles, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
@@ -31,12 +31,16 @@ const EXAMPLES = [
   "ویلا با ۳ خواب و پارکینگ",
   "اجاره آپارتمان دو خوابه تا ۲۰ میلیون در اصفهان",
 ];
+const SMART_SEARCH_PAGE_SIZE = 48;
 
 function SmartSearchPage() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<SmartSearchResult | null>(null);
   const [properties, setProperties] = useState<PropertyCardData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const searchRequestId = useRef(0);
 
   async function runSearch(nextQuery = query) {
     const text = nextQuery.trim();
@@ -44,16 +48,41 @@ function SmartSearchPage() {
       toast.info("عبارت جستجو را وارد کنید.");
       return;
     }
+    const requestId = ++searchRequestId.current;
     setLoading(true);
+    setLoadingMore(false);
+    setHasMore(false);
     try {
       const parsed = parseSmartPropertySearch(text);
-      const rows = await listPublishedPropertyCards({ data: parsed.filters });
+      const rows = await listPublishedPropertyCards({ data: { ...parsed.filters, offset: 0 } });
+      if (requestId !== searchRequestId.current) return;
       setResult(parsed);
       setProperties(rows);
+      setHasMore(rows.length === SMART_SEARCH_PAGE_SIZE);
     } catch {
-      toast.error("جستجو انجام نشد؛ دوباره تلاش کنید.");
+      if (requestId === searchRequestId.current) toast.error("جستجو انجام نشد؛ دوباره تلاش کنید.");
     } finally {
-      setLoading(false);
+      if (requestId === searchRequestId.current) setLoading(false);
+    }
+  }
+
+  async function loadMore() {
+    if (!result || loading || loadingMore || !hasMore) return;
+    const requestId = searchRequestId.current;
+    const offset = properties.length;
+    setLoadingMore(true);
+    try {
+      const rows = await listPublishedPropertyCards({ data: { ...result.filters, offset } });
+      if (requestId !== searchRequestId.current) return;
+      setProperties((current) => {
+        const known = new Set(current.map((property) => property.id));
+        return [...current, ...rows.filter((property) => !known.has(property.id))];
+      });
+      setHasMore(rows.length === SMART_SEARCH_PAGE_SIZE);
+    } catch {
+      if (requestId === searchRequestId.current) toast.error("دریافت فایل‌های بیشتر انجام نشد؛ دوباره تلاش کنید.");
+    } finally {
+      if (requestId === searchRequestId.current) setLoadingMore(false);
     }
   }
 
@@ -86,7 +115,7 @@ function SmartSearchPage() {
             <div className="smart-search-result-head">
               <div>
                 <span className="kicker">فیلترهای تشخیص‌داده‌شده</span>
-                <h2>{properties.length.toLocaleString("fa-IR")} فایل پیدا شد</h2>
+                <h2>{properties.length.toLocaleString("fa-IR")} فایل نمایش داده شده</h2>
               </div>
               <Link to="/properties" className="btn-ghost"><SlidersHorizontal size={16} /> فیلترهای کامل</Link>
             </div>
@@ -101,6 +130,7 @@ function SmartSearchPage() {
                 <Link to="/properties" className="btn-gold">رفتن به فهرست فایل‌ها</Link>
               </section>
             )}
+            {hasMore ? <div className="smart-search-load-more"><button type="button" className="btn-ghost" onClick={() => void loadMore()} disabled={loadingMore || loading}>{loadingMore ? "در حال دریافت فایل‌ها…" : "نمایش فایل‌های بیشتر"}</button></div> : null}
           </section>
         ) : null}
       </main>
