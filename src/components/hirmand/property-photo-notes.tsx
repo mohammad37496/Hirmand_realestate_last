@@ -7,12 +7,23 @@ import "@/property-photo-notes.css";
 type Notes = Record<string, { note: string; flag: boolean }>;
 const KEY = "hirmand-property-photo-notes-v1:";
 function safeRead(id: string): Notes { try { const p = JSON.parse(localStorage.getItem(KEY + id) || "{}"); return p && typeof p === "object" ? p : {}; } catch { return {}; } }
+const EMPTY_NOTES: Notes = {};
 export function PropertyPhotoNotes({ property }: { property: Property }) {
   const images = (property.images || []).filter((src) => !isVideoUrl(src));
-  const [notes, setNotes] = useState<Notes>(() => safeRead(property.id));
+  // Empty initial state on the server AND first client render; saved notes
+  // load right after hydration so the SSR markup stays deterministic.
+  const [notes, setNotes] = useState<Notes>(EMPTY_NOTES);
+  const [savedNotesLoaded, setSavedNotesLoaded] = useState(false);
   const [active, setActive] = useState(0);
   const currentData = notes[String(active)] || { note: "", flag: false };
-  useEffect(() => { try { localStorage.setItem(KEY + property.id, JSON.stringify(notes)); } catch { /* Storage may be blocked; the in-memory notes still work. */ } }, [notes, property.id]);
+  useEffect(() => {
+    if (!savedNotesLoaded) {
+      setNotes(safeRead(property.id));
+      setSavedNotesLoaded(true);
+      return;
+    }
+    try { localStorage.setItem(KEY + property.id, JSON.stringify(notes)); } catch { /* Storage may be blocked; the in-memory notes still work. */ }
+  }, [notes, property.id, savedNotesLoaded]);
   const flagged = useMemo(() => Object.values(notes).filter(x => x && x.flag).length, [notes]);
   if (!images.length) return null;
   const patch = (p: Partial<Notes[string]>) => setNotes(c => ({ ...c, [String(active)]: { ...currentData, ...p } }));

@@ -728,13 +728,36 @@ export function PropertyDetailView({
 
   const copyPageUrl = async () => {
     const url = window.location.href;
+    const shareData = {
+      title: property.title,
+      text: "فایل «" + property.title + "» در هیرمند",
+      url,
+    };
     try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      window.prompt("پیوند فایل را کپی کنید:", url);
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1800);
+        toast.success("لینک فایل کپی شد.");
+      } else {
+        window.prompt("پیوند فایل را کپی کنید:", url);
+        return;
+      }
+      trackAnalyticsEvent("property_share", property.slug);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1800);
+        toast.success("لینک فایل کپی شد.");
+        trackAnalyticsEvent("property_share", property.slug);
+      } catch {
+        window.prompt("پیوند فایل را کپی کنید:", url);
+      }
     }
   };
 
