@@ -6,7 +6,7 @@
  * accessible names on every control, touch-target sizes, and whether the fixed
  * chrome (topbar / sticky save bar / mobile nav) overlaps content.
  */
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium } from "playwright";
 import { installAdminApiStubs } from "./admin-fixtures.mjs";
 
@@ -474,7 +474,12 @@ async function clickByLabel(page, selector, viewId) {
 
 const report = { base: BASE, at: new Date().toISOString(), views: [], overlays: [] };
 
-const browser = await chromium.launch();
+let browser;
+try {
+  browser = await chromium.launch();
+} catch {
+  browser = await chromium.launch({ channel: "chrome" });
+}
 mkdirSync(OUT, { recursive: true });
 
 /**
@@ -507,6 +512,62 @@ async function auditOpenOverlay(page, viewport, kind, open) {
       issues: { escapes: [`${kind} ignored Escape`] },
     });
   }
+}
+
+async function auditKeyboardFocusTrap(page, viewport, kind, containerSelector, initialSelector, trigger) {
+  const container = page.locator(containerSelector).first();
+  const issues = [];
+  if (!(await container.isVisible().catch(() => false))) return;
+  const focusable = container.locator('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+  const count = await focusable.count();
+  if (!count) {
+    issues.push(`${kind} has no keyboard-focusable controls`);
+  } else {
+    if (!(await page.locator(initialSelector).evaluate((element) => element === document.activeElement).catch(() => false))) {
+      issues.push(kind === "command palette" ? "command palette did not focus its search input when opened" : `${kind} did not move focus to its initial control when opened`);
+    }
+    const first = focusable.first();
+    const last = focusable.last();
+    await first.focus();
+    await page.keyboard.press("Shift+Tab");
+    if (!(await last.evaluate((element) => element === document.activeElement).catch(() => false))) {
+      issues.push(kind === "command palette"
+        ? "Shift+Tab from the command palette input did not wrap to the last control"
+        : "Shift+Tab from the first drawer control did not wrap to the last control");
+    }
+    await last.focus();
+    await page.keyboard.press("Tab");
+    if (!(await first.evaluate((element) => element === document.activeElement).catch(() => false))) {
+      issues.push(kind === "command palette"
+        ? "Tab from the last command palette control did not wrap to the first control"
+        : "Tab from the last drawer control did not wrap to the first control");
+    }
+  }
+  await page.keyboard.press("Escape");
+  if (!(await trigger.evaluate((element) => element === document.activeElement).catch(() => false))) {
+    issues.push(kind === "command palette"
+      ? "closing the command palette did not restore focus to its trigger"
+      : "closing the drawer did not restore focus to its trigger");
+  }
+  report.overlays.push({ viewport: viewport.id, width: viewport.width, kind, issues: { focus: issues } });
+}
+
+async function auditCommandPalette(page, viewport) {
+  const trigger = page.locator('button[title="جستجوی سریع"]').first();
+  if (!(await trigger.isVisible().catch(() => false))) return;
+  await trigger.click();
+  const dialog = page.locator('[role="dialog"][aria-label="جستجوی سریع پنل مدیریت"]');
+  await dialog.waitFor({ state: "visible" });
+  await auditKeyboardFocusTrap(page, viewport, "command palette", '[role="dialog"][aria-label="جستجوی سریع پنل مدیریت"]', "#admin-command-palette-input", trigger);
+}
+
+async function auditDrawerFocus(page, viewport) {
+  const trigger = page.locator(".admin-drawer-trigger").first();
+  if (!(await trigger.isVisible().catch(() => false))) return;
+  await trigger.click();
+  const drawer = page.locator(".admin-drawer").first();
+  await drawer.waitFor({ state: "visible" });
+  await auditKeyboardFocusTrap(page, viewport, "drawer", ".admin-drawer", ".admin-drawer .admin-icon-btn", trigger);
 }
 
 for (const viewport of [...parseViewports(), ...parseZooms()]) {
@@ -575,7 +636,14 @@ for (const viewport of [...parseViewports(), ...parseZooms()]) {
         issues: { escapes: [`could not open the drawer: ${String(error).slice(0, 120)}`] },
       });
     });
+    await auditDrawerFocus(page, viewport).catch((error) => {
+      report.overlays.push({ viewport: viewport.id, width: viewport.width, kind: "drawer", issues: { focus: [`drawer focus audit failed: ${String(error).slice(0, 120)}`] } });
+    });
   }
+
+  await auditCommandPalette(page, viewport).catch((error) => {
+    report.overlays.push({ viewport: viewport.id, width: viewport.width, kind: "command-palette", issues: { focus: [`command palette focus audit failed: ${String(error).slice(0, 120)}`] } });
+  });
 
   await context.close();
 }
@@ -591,17 +659,18 @@ const problems = [];
 for (const entry of report.overlays) {
   const tag = `${entry.viewport}(${entry.width})/overlay:${entry.kind}`;
   if (entry.issues.escapes) problems.push(`${tag}: ${entry.issues.escapes.join(", ")}`);
-  if (entry.geometry.horizontalScroll) {
+  for (const issue of entry.issues.focus ?? []) problems.push(`${tag}: ${issue}`);
+  if (entry.geometry?.horizontalScroll) {
     problems.push(`${tag}: horizontal scroll ${entry.geometry.scrollWidth}px > ${entry.geometry.innerWidth}px`);
   }
-  if (entry.geometry.offViewport?.length) {
+  if (entry.geometry?.offViewport?.length) {
     problems.push(
       `${tag}: ${entry.geometry.offViewport.length} box(es) outside the viewport e.g. ${
         entry.geometry.offViewport[0].selector
       } [${entry.geometry.offViewport[0].left}..${entry.geometry.offViewport[0].right}]`,
     );
   }
-  if (entry.geometry.clipped?.length) {
+  if (entry.geometry?.clipped?.length) {
     problems.push(`${tag}: ${entry.geometry.clipped.length} clipped text node(s)`);
   }
   for (const item of entry.issues.contrast ?? []) {
@@ -663,5 +732,9 @@ console.log(`\n=== admin audit: ${report.views.length} view/viewport pairs ===`)
 if (problems.length === 0) console.log("no findings");
 else console.log(problems.join("\n"));
 console.log(`\n${problems.length} finding(s)\n`);
+
+if (process.env.QA_REPORT_PATH) writeFileSync(process.env.QA_REPORT_PATH, JSON.stringify(report, null, 2));
+const focusProblems = report.overlays.flatMap((entry) => entry.issues.focus ?? []);
+if (process.env.QA_FAIL_ON_FOCUS_FINDINGS === "1" && focusProblems.length) process.exitCode = 1;
 
 if (process.env.QA_FULL === "1") console.log(JSON.stringify(report, null, 2));

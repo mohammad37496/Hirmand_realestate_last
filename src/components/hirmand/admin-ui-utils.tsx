@@ -26,11 +26,14 @@ export function useOverlayDismiss({
   open,
   onClose,
   initialFocusRef,
+  containerRef,
 }: {
   open: boolean;
   onClose: () => void;
   /** Element that should receive focus when the overlay opens. */
   initialFocusRef?: React.RefObject<HTMLElement | null>;
+  /** Optional modal root whose tabbable descendants must contain keyboard focus. */
+  containerRef?: React.RefObject<HTMLElement | null>;
 }) {
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
@@ -53,6 +56,38 @@ export function useOverlayDismiss({
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
+        return;
+      }
+
+      if (event.key !== "Tab" || !containerRef?.current) return;
+      const container = containerRef.current;
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]',
+        ),
+      ).filter(
+        (element) =>
+          !element.matches(":disabled") &&
+          !element.closest('[inert], [aria-hidden="true"]') &&
+          getComputedStyle(element).visibility !== "hidden" &&
+          element.getClientRects().length > 0,
+      );
+
+      if (!focusable.length) {
+        event.preventDefault();
+        container.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || active === container || !container.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !container.contains(active))) {
+        event.preventDefault();
+        first.focus();
       }
     }
     document.addEventListener("keydown", onKeyDown);
@@ -68,7 +103,7 @@ export function useOverlayDismiss({
       // top of the document when an overlay closes.
       restoreFocusRef.current?.focus?.();
     };
-  }, [open, onClose, initialFocusRef]);
+  }, [open, onClose, initialFocusRef, containerRef]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -127,6 +162,7 @@ export type ConfirmRequest = ConfirmOptions & { resolve: (ok: boolean) => void }
  */
 export function useConfirmDialog() {
   const [request, setRequest] = useState<ConfirmRequest | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const confirm = useCallback((options: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
@@ -142,10 +178,10 @@ export function useConfirmDialog() {
   }, []);
 
   const closeRequest = useCallback(() => settle(false), [settle]);
-  useOverlayDismiss({ open: Boolean(request), onClose: closeRequest });
+  useOverlayDismiss({ open: Boolean(request), onClose: closeRequest, containerRef: dialogRef });
 
   const dialog = request ? (
-    <AdminConfirmDialog request={request} onSettle={settle} />
+    <AdminConfirmDialog request={request} onSettle={settle} dialogRef={dialogRef} />
   ) : null;
 
   return { confirm, dialog };
