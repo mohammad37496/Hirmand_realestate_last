@@ -5,6 +5,7 @@ import test from "node:test";
 const utils = fs.readFileSync(new URL("../src/components/hirmand/admin-ui-utils.tsx", import.meta.url), "utf8");
 const admin = fs.readFileSync(new URL("../src/components/hirmand/_admin_impl.tsx", import.meta.url), "utf8");
 const palette = fs.readFileSync(new URL("../src/components/hirmand/admin-command-palette.tsx", import.meta.url), "utf8");
+const adminUi = fs.readFileSync(new URL("../src/components/hirmand/admin-ui.tsx", import.meta.url), "utf8");
 const browserAudit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
 const packageJson = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
@@ -33,6 +34,15 @@ test("mobile admin drawer focuses its close button and contains focus within its
   assert.match(admin, /className="admin-drawer"\s+ref=\{drawerRef\}/);
   assert.match(admin, /className="admin-icon-btn"\s+ref=\{drawerCloseRef\}/);
   assert.doesNotMatch(admin, /initialFocusRef: drawerTriggerRef/);
+});
+
+test("confirmation dialogs use the shared focus trap and scroll lock", () => {
+  assert.match(utils, /const dialogRef = useRef<HTMLDivElement>\(null\)/);
+  assert.match(utils, /useOverlayDismiss\(\{ open: Boolean\(request\), onClose: closeRequest, containerRef: dialogRef \}\)/);
+  assert.match(utils, /<AdminConfirmDialog request=\{request\} onSettle=\{settle\} dialogRef=\{dialogRef\} \/>/);
+  assert.match(adminUi, /dialogRef:\s*React\.RefObject<HTMLDivElement \| null>/);
+  assert.match(adminUi, /ref=\{dialogRef\}/);
+  assert.doesNotMatch(adminUi, /document\.addEventListener\("keydown", onKeyDown\)/);
 });
 
 test("command palette uses shared modal focus handling and restores the invoking element", () => {

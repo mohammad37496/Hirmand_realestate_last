@@ -162,6 +162,7 @@ export type ConfirmRequest = ConfirmOptions & { resolve: (ok: boolean) => void }
  */
 export function useConfirmDialog() {
   const [request, setRequest] = useState<ConfirmRequest | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const confirm = useCallback((options: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
@@ -177,10 +178,10 @@ export function useConfirmDialog() {
   }, []);
 
   const closeRequest = useCallback(() => settle(false), [settle]);
-  useOverlayDismiss({ open: Boolean(request), onClose: closeRequest });
+  useOverlayDismiss({ open: Boolean(request), onClose: closeRequest, containerRef: dialogRef });
 
   const dialog = request ? (
-    <AdminConfirmDialog request={request} onSettle={settle} />
+    <AdminConfirmDialog request={request} onSettle={settle} dialogRef={dialogRef} />
   ) : null;
 
   return { confirm, dialog };
