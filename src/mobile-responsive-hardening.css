@@ -342,7 +342,6 @@ svg {
   }
 }
 
-
 /* Portal the neighborhood picker above the fixed header and filter drawer. */
 @media (max-width: 979px) {
   .pf-neighborhood-dialog-backdrop {
@@ -1845,4 +1844,10 @@ svg {
   .music-secondary-controls > button {
     min-height: 40px !important;
   }
+}
+
+/* Keep the empty player shell hidden after every responsive player override. */
+.music-player.music-player-empty {
+  display: none !important;
+  pointer-events: none !important;
 }

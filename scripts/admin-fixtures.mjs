@@ -20,7 +20,10 @@ export async function servesNitroApi(base) {
       method: "GET",
       headers: { accept: "application/json" },
     });
-    return response.status < 500;
+    // A Vite dev server answers unknown Nitro routes with 404. Treating every
+    // sub-500 response as an available API silently skips all fixtures and
+    // makes the admin browser audit run against empty, missing endpoints.
+    return response.status >= 200 && response.status < 500 && response.status !== 404;
   } catch {
     return false;
   }
@@ -227,6 +230,24 @@ export const stubAdminApi = {
             createdAt: new Date().toISOString(),
           },
         ],
+      }),
+    }),
+
+  "**/api/admin-sales-funnel*": async (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        days: 30,
+        statuses: [
+          { key: "new", label: "جدید", count: 8 },
+          { key: "contacted", label: "تماس گرفته‌شده", count: 5 },
+          { key: "visited", label: "بازدید", count: 3 },
+          { key: "contract", label: "قرارداد", count: 1 },
+        ],
+        sources: [{ source: "سایت", count: 8 }],
+        aging: [{ key: "less_24h", count: 4 }, { key: "1_3d", count: 2 }],
+        conversions: { total: 8, contacted: 5, visited: 3, contract: 1, contactedRate: 63, visitRate: 38, contractRate: 13 },
       }),
     }),
 

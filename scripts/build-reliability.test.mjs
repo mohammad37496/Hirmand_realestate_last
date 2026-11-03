@@ -56,8 +56,9 @@ test("property save SQL assigns every INSERT placeholder and types floor_label",
   const valuesStart = propertyStore.indexOf(") values (", queryStart);
   assert.notEqual(valuesStart, -1, "property INSERT should include a VALUES block");
 
-  const valuesEnd = propertyStore.indexOf(")\n      on conflict (id) do update set", valuesStart);
-  assert.notEqual(valuesEnd, -1, "property INSERT should be followed by its upsert clause");
+  const upsertClause = /\)\r?\n\s+on conflict \(id\) do update set/.exec(propertyStore.slice(valuesStart));
+  assert.ok(upsertClause, "property INSERT should be followed by its upsert clause");
+  const valuesEnd = valuesStart + upsertClause.index;
 
   const valuesSql = propertyStore.slice(valuesStart, valuesEnd);
   const placeholders = [...valuesSql.matchAll(/\$(\d+)/g)].map((match) => Number(match[1]));
