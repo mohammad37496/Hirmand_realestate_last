@@ -1679,3 +1679,170 @@ svg {
     animation-duration: .01ms !important;
   }
 }
+
+/* Keep the music dock usable on touch screens and short landscape displays. */
+@media (pointer: coarse), (max-height: 420px) {
+  .music-player {
+    max-height: min(620px, 74dvh, calc(100dvh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom))) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .music-playlist {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 8px 0 0 !important;
+  }
+
+  .music-playlist-list {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .music-player:not(.is-expanded) .music-progress-row {
+    position: static !important;
+    inset: auto !important;
+    opacity: 1 !important;
+    padding: 0 !important;
+    margin-top: 2px !important;
+  }
+
+  .music-player:not(.is-expanded) .music-progress-row > span {
+    display: none !important;
+  }
+
+  .music-player .music-cover {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+  }
+
+  .music-transport button,
+  .music-compact-actions button,
+  .music-volume button {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .music-player .music-play {
+    width: 48px !important;
+    height: 48px !important;
+  }
+
+  .music-player .music-rail,
+  .music-player .music-progress,
+  .music-volume,
+  .music-volume input {
+    min-height: 44px !important;
+    height: 44px !important;
+  }
+
+  .music-secondary-controls > button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .music-player-launcher {
+    min-height: 48px !important;
+  }
+
+  .music-track {
+    min-height: 48px !important;
+  }
+}
+
+@media (pointer: coarse) and (min-width: 721px) {
+  .music-player {
+    width: min(520px, calc(100vw - 28px)) !important;
+    max-width: 520px !important;
+  }
+
+  .music-player-main {
+    min-height: 48px !important;
+    gap: 8px !important;
+  }
+
+  .music-meta {
+    min-width: 76px !important;
+    flex: 1 1 100px !important;
+  }
+
+  .music-transport,
+  .music-compact-actions {
+    gap: 4px !important;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 720px) {
+  .music-player {
+    left: 8px !important;
+    right: 8px !important;
+    inset-inline-start: 8px !important;
+    inset-inline-end: 8px !important;
+    bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+    max-height: min(620px, 74dvh, calc(100dvh - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom))) !important;
+  }
+
+  .music-player-main {
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "cover meta actions"
+      "transport transport transport" !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 0 !important;
+  }
+
+  .music-player-main > .music-cover { grid-area: cover; }
+  .music-player-main > .music-meta {
+    grid-area: meta;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+  .music-player-main > .music-transport {
+    grid-area: transport;
+    justify-content: center !important;
+  }
+  .music-player-main > .music-compact-actions {
+    grid-area: actions;
+    gap: 2px !important;
+  }
+}
+
+@media (pointer: fine) and (min-width: 721px) {
+  .music-player {
+    width: min(420px, calc(100vw - 28px)) !important;
+    max-width: 420px !important;
+  }
+
+  .music-player .music-cover {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+  }
+
+  .music-transport button,
+  .music-compact-actions button,
+  .music-volume button {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+
+  .music-player .music-play {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .music-secondary-controls > button {
+    min-height: 40px !important;
+  }
+}

@@ -261,6 +261,161 @@ try {
   assert.equal(stalePlayResult.playLabel, "پخش");
   assert.deepEqual(racePageErrors, [], `the async playback race should not cause browser errors: ${racePageErrors.join(" | ")}`);
   await racePage.close();
+
+  const responsiveViewports = [
+    { width: 320, height: 640, touch: true },
+    { width: 390, height: 844, touch: true },
+    { width: 568, height: 320, touch: true },
+    { width: 640, height: 360, touch: true },
+    { width: 768, height: 900, touch: true },
+    { width: 1024, height: 768, touch: true },
+    { width: 1280, height: 400, touch: false },
+    { width: 1280, height: 800, touch: false },
+    { width: 1920, height: 1080, touch: false },
+  ];
+  const responsiveResults = [];
+  for (const viewport of responsiveViewports) {
+    const responsivePage = await browser.newPage({
+      viewport: { width: viewport.width, height: viewport.height },
+      isMobile: viewport.width <= 720,
+      hasTouch: viewport.touch,
+    });
+    const responsivePageErrors = [];
+    responsivePage.on("pageerror", (error) => responsivePageErrors.push(error.message));
+    await responsivePage.route("**/api/music", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          tracks: Array.from({ length: 18 }, (_, index) => ({
+            id: `responsive-track-${index}`,
+            title: `آهنگ آزمایشی ${index + 1}`,
+            artist: "هیرمند",
+            src: `/music/responsive-${index}.mp3`,
+          })),
+        }),
+      }),
+    );
+    await responsivePage.addInitScript(() => {
+      const mediaState = new WeakMap();
+      const sourceState = new WeakMap();
+      Object.defineProperty(HTMLMediaElement.prototype, "src", {
+        configurable: true,
+        get() { return sourceState.get(this) || ""; },
+        set(value) { sourceState.set(this, new URL(String(value), location.href).toString()); },
+      });
+      Object.defineProperty(HTMLMediaElement.prototype, "paused", {
+        configurable: true,
+        get() { return mediaState.get(this)?.paused ?? true; },
+      });
+      Object.defineProperty(HTMLMediaElement.prototype, "duration", {
+        configurable: true,
+        get() { return 180; },
+      });
+      HTMLMediaElement.prototype.load = function load() {
+        const source = this.src;
+        setTimeout(() => {
+          if (this.src !== source) return;
+          this.dispatchEvent(new Event("loadedmetadata"));
+          this.dispatchEvent(new Event("canplay"));
+        }, 0);
+      };
+      HTMLMediaElement.prototype.play = function play() {
+        mediaState.set(this, { paused: false });
+        this.dispatchEvent(new Event("play"));
+        this.dispatchEvent(new Event("playing"));
+        return Promise.resolve();
+      };
+      HTMLMediaElement.prototype.pause = function pause() {
+        mediaState.set(this, { paused: true });
+        this.dispatchEvent(new Event("pause"));
+      };
+    });
+    await responsivePage.goto(new URL("/", baseUrl).toString(), { waitUntil: "domcontentloaded" });
+    await responsivePage.waitForSelector(".music-player:not(.music-player-empty)", { timeout: 30_000 });
+    await responsivePage.locator(".music-cover").evaluate((button) => button.click());
+    await responsivePage.locator('.music-compact-actions button[aria-label="فهرست موسیقی"]').evaluate((button) => button.click());
+    const layout = await responsivePage.evaluate(() => {
+      const player = document.querySelector(".music-player");
+      const playlist = document.querySelector(".music-playlist");
+      const playlistList = document.querySelector(".music-playlist-list");
+      const progress = document.querySelector(".music-progress");
+      const rect = (element) => {
+        const bounds = element.getBoundingClientRect();
+        return {
+          x: Math.round(bounds.x),
+          y: Math.round(bounds.y),
+          width: Math.round(bounds.width),
+          height: Math.round(bounds.height),
+          bottom: Math.round(bounds.bottom),
+        };
+      };
+      const visibleButtons = [...player.querySelectorAll("button")].filter((button) => {
+        const style = getComputedStyle(button);
+        return style.display !== "none" && style.visibility !== "hidden";
+      });
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        player: rect(player),
+        playlist: rect(playlist),
+        playlistList: rect(playlistList),
+        playlistPosition: getComputedStyle(playlist).position,
+        playerOverflowY: getComputedStyle(player).overflowY,
+        playerScrollHeight: player.scrollHeight,
+        playerClientHeight: player.clientHeight,
+        playlistListOverflowY: getComputedStyle(playlistList).overflowY,
+        progress: rect(progress),
+        buttons: visibleButtons.map((button) => ({
+          label: button.getAttribute("aria-label") || button.textContent.trim(),
+          ...rect(button),
+        })),
+        horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+    assert.ok(layout.player.y >= 0, `music dock must stay below the viewport top: ${JSON.stringify(layout)}`);
+    assert.ok(layout.player.bottom <= viewport.height, `music dock must stay inside the viewport: ${JSON.stringify(layout)}`);
+    const scrollableDock = viewport.touch || viewport.height <= 420;
+    assert.equal(layout.playlistPosition, scrollableDock ? "static" : "absolute",
+      `playlist positioning must match the available screen: ${JSON.stringify(layout)}`);
+    if (scrollableDock) {
+      assert.ok(["auto", "scroll"].includes(layout.playerOverflowY));
+      assert.ok(layout.playerScrollHeight >= layout.playerClientHeight);
+    } else {
+      assert.ok(layout.playlist.y >= 0 && layout.playlist.bottom <= viewport.height,
+        `desktop playlist popover must stay visible: ${JSON.stringify(layout)}`);
+    }
+    const minimumTarget = viewport.touch ? 44 : 36;
+    const minimumSeek = scrollableDock ? 44 : 18;
+    assert.ok(layout.progress.height >= minimumSeek, `seek control hit area is too small: ${JSON.stringify(layout)}`);
+    for (const button of layout.buttons) {
+      assert.ok(button.width >= minimumTarget && button.height >= minimumTarget,
+        `player target is too small: ${JSON.stringify(button)} in ${JSON.stringify(viewport)}`);
+    }
+    assert.equal(layout.horizontalOverflow, false, `music player must not create horizontal page overflow: ${JSON.stringify(layout)}`);
+    if (scrollableDock) {
+      await responsivePage.locator(".music-player").evaluate((player) => { player.scrollTop = player.scrollHeight; });
+    } else {
+      await responsivePage.locator(".music-playlist-list").evaluate((list) => { list.scrollTop = list.scrollHeight; });
+    }
+    const lastTrack = await responsivePage.locator(".music-track").last().evaluate((track, useDock) => {
+      const bounds = track.getBoundingClientRect();
+      const playerBounds = track.closest(".music-player").getBoundingClientRect();
+      const scrollBounds = track.closest(useDock ? ".music-player" : ".music-playlist-list").getBoundingClientRect();
+      return {
+        top: Math.round(bounds.top),
+        bottom: Math.round(bounds.bottom),
+        playerTop: Math.round(playerBounds.top),
+        playerBottom: Math.round(playerBounds.bottom),
+        scrollTop: Math.round(scrollBounds.top),
+        scrollBottom: Math.round(scrollBounds.bottom),
+      };
+    }, scrollableDock);
+    assert.ok(lastTrack.top >= lastTrack.scrollTop && lastTrack.bottom <= lastTrack.scrollBottom,
+      `the last playlist item must remain reachable by scrolling its container: ${JSON.stringify({ viewport, lastTrack, layout })}`);
+    assert.deepEqual(responsivePageErrors, [], `responsive player should not cause browser errors: ${responsivePageErrors.join(" | ")}`);
+    responsiveResults.push({ viewport, player: layout.player, minButton: Math.min(...layout.buttons.map((button) => Math.min(button.width, button.height))), progressHeight: layout.progress.height });
+    await responsivePage.close();
+  }
   assert.deepEqual(pageErrors, [], `the player should not cause uncaught browser errors: ${pageErrors.join(" | ")}`);
   console.log(JSON.stringify({
     ok: true,
@@ -270,12 +425,14 @@ try {
       "manual pause prevents later media errors from restarting playback",
       "a one-track playlist stops at the end when repeat is disabled",
       "a late play() resolution from a previous track cannot restart a paused track",
+      "touch and desktop targets, seek controls, and playlist scrolling fit nine phone, landscape, tablet, and desktop viewports",
     ],
     fallbackResult,
     midPlaybackFallback,
     pausedErrorResult,
     singleTrackEndResult,
     stalePlayResult,
+    responsiveResults,
   }, null, 2));
 } finally {
   await browser.close();
