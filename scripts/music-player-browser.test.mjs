@@ -173,6 +173,33 @@ try {
   assert.equal(singleTrackEndResult.attempts, attemptsBeforeSingleTrackEnd);
   assert.equal(singleTrackEndResult.playLabel, "پخش");
 
+  await page.locator(".music-cover").click();
+  await page.locator('button[title="تکرار"]').click();
+  await page.locator(".music-play").click();
+  await page.waitForFunction(
+    () => document.querySelector(".music-play")?.getAttribute("aria-label") === "توقف",
+    null,
+    { timeout: 5_000 },
+  );
+  const attemptsBeforeRepeat = await page.evaluate(() => window.__musicPlayAttempts.length);
+  await page.locator("audio").dispatchEvent("ended");
+  await page.waitForFunction(
+    (previousAttempts) => window.__musicPlayAttempts.length === previousAttempts + 1,
+    attemptsBeforeRepeat,
+    { timeout: 5_000 },
+  );
+  const repeatResult = await page.locator("audio").evaluate((audio) => ({
+    paused: audio.paused,
+    attempts: window.__musicPlayAttempts.length,
+    playLabel: document.querySelector(".music-play")?.getAttribute("aria-label"),
+    repeatEnabled: document.querySelector('button[title="تکرار"]')?.getAttribute("aria-pressed"),
+  }));
+  assert.equal(repeatResult.paused, false);
+  assert.equal(repeatResult.attempts, attemptsBeforeRepeat + 1);
+  assert.equal(repeatResult.playLabel, "توقف");
+  assert.equal(repeatResult.repeatEnabled, "true");
+  await page.locator(".music-play").click();
+
   // A play() promise from an old track must not update the controls after the
   // visitor has switched tracks and paused the new one.
   const racePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -416,6 +443,123 @@ try {
     responsiveResults.push({ viewport, player: layout.player, minButton: Math.min(...layout.buttons.map((button) => Math.min(button.width, button.height))), progressHeight: layout.progress.height });
     await responsivePage.close();
   }
+
+  // Resizing an already-open touch player must switch between the bounded
+  // landscape scroll dock and the wider tablet playlist popover cleanly.
+  const resizePage = await browser.newPage({
+    viewport: { width: 1024, height: 768 },
+    hasTouch: true,
+  });
+  await resizePage.route("**/api/music", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        tracks: Array.from({ length: 18 }, (_, index) => ({
+          id: `resize-track-${index}`,
+          title: `آهنگ تغییر اندازه ${index + 1}`,
+          src: `/music/resize-${index}.mp3`,
+        })),
+      }),
+    }),
+  );
+  await resizePage.addInitScript(() => {
+    const mediaState = new WeakMap();
+    Object.defineProperty(HTMLMediaElement.prototype, "paused", {
+      configurable: true,
+      get() { return mediaState.get(this)?.paused ?? true; },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, "duration", {
+      configurable: true,
+      get() { return 180; },
+    });
+    HTMLMediaElement.prototype.load = function load() {
+      setTimeout(() => this.dispatchEvent(new Event("canplay")), 0);
+    };
+    HTMLMediaElement.prototype.play = function play() {
+      mediaState.set(this, { paused: false });
+      this.dispatchEvent(new Event("play"));
+      this.dispatchEvent(new Event("playing"));
+      return Promise.resolve();
+    };
+    HTMLMediaElement.prototype.pause = function pause() {
+      mediaState.set(this, { paused: true });
+      this.dispatchEvent(new Event("pause"));
+    };
+  });
+  await resizePage.goto(new URL("/", baseUrl).toString(), { waitUntil: "domcontentloaded" });
+  await resizePage.waitForSelector(".music-player:not(.music-player-empty)", { timeout: 30_000 });
+  await resizePage.locator(".music-cover").click();
+  await resizePage.locator('.music-compact-actions button[aria-label="فهرست موسیقی"]').click();
+  await resizePage.locator(".music-track").last().click();
+  await resizePage.waitForFunction(() => document.querySelector(".music-meta strong")?.textContent === "آهنگ تغییر اندازه 18");
+  await resizePage.locator('.music-transport button[aria-label="آهنگ بعدی"]').click();
+  await resizePage.waitForFunction(() => document.querySelector(".music-meta strong")?.textContent === "آهنگ تغییر اندازه 1");
+  await resizePage.locator('.music-transport button[aria-label="آهنگ قبلی"]').click();
+  await resizePage.waitForFunction(() => document.querySelector(".music-meta strong")?.textContent === "آهنگ تغییر اندازه 18");
+  await resizePage.locator('.music-compact-actions button[aria-label="فهرست موسیقی"]').click();
+  await resizePage.setViewportSize({ width: 568, height: 320 });
+  const landscapeResize = await resizePage.evaluate(() => {
+    const player = document.querySelector(".music-player");
+    const playlist = document.querySelector(".music-playlist");
+    const bounds = player.getBoundingClientRect();
+    return {
+      playerTop: Math.round(bounds.top),
+      playerBottom: Math.round(bounds.bottom),
+      playerScrollHeight: player.scrollHeight,
+      playerClientHeight: player.clientHeight,
+      playlistPosition: getComputedStyle(playlist).position,
+      overflowY: getComputedStyle(player).overflowY,
+      horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  assert.ok(landscapeResize.playerTop >= 0 && landscapeResize.playerBottom <= 320,
+    `resized landscape dock must remain visible: ${JSON.stringify(landscapeResize)}`);
+  assert.equal(landscapeResize.playlistPosition, "static");
+  assert.ok(["auto", "scroll"].includes(landscapeResize.overflowY));
+  assert.equal(landscapeResize.horizontalOverflow, false);
+
+  await resizePage.setViewportSize({ width: 1024, height: 768 });
+  const tabletResize = await resizePage.evaluate(() => {
+    const player = document.querySelector(".music-player");
+    const playlist = document.querySelector(".music-playlist");
+    const playerBounds = player.getBoundingClientRect();
+    const playlistBounds = playlist.getBoundingClientRect();
+    return {
+      playerTop: Math.round(playerBounds.top),
+      playerBottom: Math.round(playerBounds.bottom),
+      playlistTop: Math.round(playlistBounds.top),
+      playlistBottom: Math.round(playlistBounds.bottom),
+      playlistPosition: getComputedStyle(playlist).position,
+      overflowY: getComputedStyle(player).overflowY,
+      playerScrollHeight: player.scrollHeight,
+      playerClientHeight: player.clientHeight,
+      horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  assert.ok(tabletResize.playerTop >= 0 && tabletResize.playerBottom <= 768,
+    `resized tablet dock must remain visible: ${JSON.stringify(tabletResize)}`);
+  assert.equal(tabletResize.playlistPosition, "static");
+  assert.ok(["auto", "scroll"].includes(tabletResize.overflowY));
+  assert.ok(tabletResize.playerScrollHeight > tabletResize.playerClientHeight,
+    `resized touch tablet playlist must remain in its scrollable dock: ${JSON.stringify(tabletResize)}`);
+  await resizePage.locator(".music-player").evaluate((player) => { player.scrollTop = player.scrollHeight; });
+  const resizedTabletLastTrack = await resizePage.locator(".music-track").last().evaluate((track) => {
+    const bounds = track.getBoundingClientRect();
+    const playerBounds = track.closest(".music-player").getBoundingClientRect();
+    return {
+      top: Math.round(bounds.top),
+      bottom: Math.round(bounds.bottom),
+      playerTop: Math.round(playerBounds.top),
+      playerBottom: Math.round(playerBounds.bottom),
+    };
+  });
+  assert.ok(resizedTabletLastTrack.top >= resizedTabletLastTrack.playerTop &&
+    resizedTabletLastTrack.bottom <= resizedTabletLastTrack.playerBottom,
+  `resized touch tablet last playlist item must remain reachable: ${JSON.stringify({ tabletResize, resizedTabletLastTrack })}`);
+  assert.equal(tabletResize.horizontalOverflow, false);
+  await resizePage.close();
+
   assert.deepEqual(pageErrors, [], `the player should not cause uncaught browser errors: ${pageErrors.join(" | ")}`);
   console.log(JSON.stringify({
     ok: true,
@@ -424,15 +568,22 @@ try {
       "playback intent survives successful play so later source failures still fall back",
       "manual pause prevents later media errors from restarting playback",
       "a one-track playlist stops at the end when repeat is disabled",
+      "a one-track playlist restarts when repeat is enabled",
       "a late play() resolution from a previous track cannot restart a paused track",
+      "playlist selection and next/previous controls update the active track",
       "touch and desktop targets, seek controls, and playlist scrolling fit nine phone, landscape, tablet, and desktop viewports",
+      "resizing an open touch player between landscape and tablet keeps its dock and playlist visible",
     ],
     fallbackResult,
     midPlaybackFallback,
     pausedErrorResult,
     singleTrackEndResult,
+    repeatResult,
     stalePlayResult,
     responsiveResults,
+    landscapeResize,
+    tabletResize,
+    resizedTabletLastTrack,
   }, null, 2));
 } finally {
   await browser.close();
