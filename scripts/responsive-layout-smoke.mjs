@@ -222,6 +222,23 @@ try {
       }
       // Give the client enough time to hydrate before interacting with React controls.
       await page.waitForTimeout(500);
+      if (route === "/submit-property") {
+        const uploadZone = page.locator(".customer-property-upload-zone");
+        if (await uploadZone.isVisible().catch(() => false)) {
+          for (const key of ["Enter", "Space"]) {
+            try {
+              await uploadZone.focus();
+              const chooser = page.waitForEvent("filechooser", { timeout: 3_000 });
+              await page.keyboard.press(key);
+              await chooser;
+            } catch (error) {
+              failures.push(`${route}: upload button did not open the file chooser with ${key}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+        } else {
+          failures.push(`${route}: media upload control was not visible for keyboard interaction`);
+        }
+      }
       // Vite can return a one-off 504 while it optimizes a lazily imported
       // dependency. Retry only that generated dependency after the optimizer
       // has completed; retain all application/API failures as hard errors.

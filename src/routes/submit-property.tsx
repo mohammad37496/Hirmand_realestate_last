@@ -468,7 +468,19 @@ function SubmitPropertyPage() {
 
         <section className="customer-property-section">
           <div className="customer-property-section-head"><span>۶</span><div><h2>عکس و فیلم</h2><p>حداقل یک عکس لازم است؛ یک ویدئوی کوتاه هم می‌توانید اضافه کنید.</p></div></div>
-          <div className={"customer-property-upload-zone"+(uploading?" is-busy":"")} onClick={()=>!uploading&&inputRef.current?.click()} role="button" tabIndex={0}>
+          <div
+            className={"customer-property-upload-zone"+(uploading?" is-busy":"")}
+            onClick={()=>!uploading&&inputRef.current?.click()}
+            onKeyDown={(event)=>{
+              if (uploading || (event.key !== "Enter" && event.key !== " ")) return;
+              event.preventDefault();
+              inputRef.current?.click();
+            }}
+            role="button"
+            tabIndex={0}
+            aria-disabled={uploading}
+            aria-label="افزودن عکس و ویدئو"
+          >
             <input ref={inputRef} type="file" hidden multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif,video/mp4,video/webm,video/quicktime" onChange={(e)=>e.target.files&&void uploadFiles(e.target.files)}/>
             {uploading ? <><Loader2 size={26} className="customer-property-spin"/><strong>در حال آپلود… {progress.toLocaleString("fa-IR")}٪</strong><small dir="ltr">{uploadLabel}</small><div className="customer-property-progress"><span style={{width:Math.min(100,Math.max(0,progress))+"%"}}/></div></> : <><Upload size={28}/><strong>افزودن عکس و ویدئو</strong><small>حداکثر ۱۲ رسانه · هر فایل حداکثر ۲۵ مگابایت</small></>}
           </div>
