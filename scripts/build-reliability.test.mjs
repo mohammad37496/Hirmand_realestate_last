@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -32,6 +33,9 @@ const packageManifest = await readFile(
 const ffmpegProvisioner = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
   "utf8",
+);
+const bundledWatermarkFont = await readFile(
+  new URL("../public/fonts/Vazirmatn-Regular.ttf", import.meta.url),
 );
 const mediaStore = await readFile(
   new URL("../src/lib/media-store.server.ts", import.meta.url),
@@ -201,7 +205,14 @@ test("property images are permanently watermarked on the server before storage",
   );
   assert.match(ffmpegDownloader, /FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972"/);
   assert.match(ffmpegDownloader, /await ensureWatermarkFont\(\)/);
-  assert.match(ffmpegDownloader, /download\(FONT_URL, 0, "Vazirmatn font"\)/);
+  assert.match(ffmpegDownloader, /const BUNDLED_FONT_PATH = join\(__dirname, "\.\.", "public", "fonts", "Vazirmatn-Regular\.ttf"\)/);
+  assert.match(ffmpegDownloader, /verifyGitBlob\(buffer, FONT_GIT_BLOB_SHA1\)/);
+  const fontGitBlob = createHash("sha1")
+    .update(Buffer.concat([Buffer.from(`blob ${bundledWatermarkFont.length}\0`), bundledWatermarkFont]))
+    .digest("hex");
+  assert.equal(fontGitBlob, "64e4a8189557a17b63fd7a77794207483e592972", "the bundled Persian font must match the pinned upstream Git blob");
+  assert.match(ffmpegDownloader, /const RELEASE_TAG = "autobuild-2026-11-01-12-49"/);
+  assert.match(ffmpegDownloader, /ffmpeg-n9\.0\.2-42-gd7643a0fe3-linux64-gpl-9\.0\.tar\.xz/);
 
   // The video watermark module must use the same robust path resolution.
   assert.match(serverVideoWatermark, /resolveWatermarkFont\(\)/);
@@ -241,6 +252,6 @@ test("object-store offload never deletes the database fallback before saving the
 test("FFmpeg release URL uses the same repository as its pinned release assets", () => {
   assert.match(ffmpegProvisioner, /https:\/\/github\.com\/BtbN\/FFmpeg-Builds\/releases\/download/);
   assert.doesNotMatch(ffmpegProvisioner, /\|\| "https:\/\/github\.com\/eugeneware\/ffmpeg-static\/releases\/download"/);
-  assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-28-g669f5ab083-linux64-gpl-9\.0\.tar\.xz/);
+  assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-42-gd7643a0fe3-linux64-gpl-9\.0\.tar\.xz/);
   assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
 });

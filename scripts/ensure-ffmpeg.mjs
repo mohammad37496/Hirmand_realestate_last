@@ -13,23 +13,24 @@ const __dirname = dirname(__filename);
 // Pin the complete GPL static build rather than ffmpeg-static's Linux asset:
  // drawtext has been absent from that asset, which breaks Persian text watermarks.
  // SHA-256 values are the digests published by the upstream BtbN release.
-const RELEASE_TAG = "autobuild-2026-10-18-13-01";
+const RELEASE_TAG = "autobuild-2026-11-01-12-49";
 const TARGET_DIR = join(process.cwd(), ".runtime", "ffmpeg");
 const TARGET_PATH = join(TARGET_DIR, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
 const FONT_VERSION = "v33.003";
 const FONT_DIR = join(process.cwd(), ".runtime", "fonts");
 const FONT_PATH = join(FONT_DIR, "Vazirmatn-Regular.ttf");
+const BUNDLED_FONT_PATH = join(__dirname, "..", "public", "fonts", "Vazirmatn-Regular.ttf");
 const FONT_URL = `https://raw.githubusercontent.com/rastikerdar/vazirmatn/${FONT_VERSION}/fonts/ttf/Vazirmatn-Regular.ttf`;
 const FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972";
 
 const ASSETS = {
   "linux-x64": {
-    name: "ffmpeg-n9.0.2-28-g669f5ab083-linux64-gpl-9.0.tar.xz",
-    sha256: "d2cc2d5446f14ff32b411e4fee488005b472023fb6554bed0ea80b7110f0b3a6",
+    name: "ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-gpl-9.0.tar.xz",
+    sha256: "11570b7bb1436ff432c91202ae0e7ea4be65359fd06650e18935c1ee9d005bf6",
   },
   "linux-arm64": {
-    name: "ffmpeg-n9.0.2-28-g669f5ab083-linuxarm64-gpl-9.0.tar.xz",
-    sha256: "623cf029917f0740580ca6f57875ced4cef923238247af73220b6098634c256f",
+    name: "ffmpeg-n9.0.2-42-gd7643a0fe3-linuxarm64-gpl-9.0.tar.xz",
+    sha256: "b45eb0c42d311d12f3bddcd7b3a29a3e7fcc2455076d13c79552d45b48d57c08",
   },
 };
 
@@ -129,8 +130,9 @@ async function ensureWatermarkFont() {
   }
 
   if (!existsSync(FONT_PATH)) {
-    console.log(`[font] Downloading verified Vazirmatn ${FONT_VERSION} TrueType font…`);
-    const buffer = await download(FONT_URL, 0, "Vazirmatn font");
+    const buffer = existsSync(BUNDLED_FONT_PATH)
+      ? readFileSync(BUNDLED_FONT_PATH)
+      : await download(FONT_URL, 0, "Vazirmatn font");
     verifyGitBlob(buffer, FONT_GIT_BLOB_SHA1);
     const tempPath = `${FONT_PATH}.tmp-${process.pid}`;
     try {
@@ -139,7 +141,9 @@ async function ensureWatermarkFont() {
     } finally {
       rmSync(tempPath, { force: true });
     }
-    console.log("[font] Ready with checksum-verified Persian TTF font.");
+    console.log(existsSync(BUNDLED_FONT_PATH)
+      ? "[font] Ready with bundled checksum-verified Persian TTF font."
+      : "[font] Ready with downloaded checksum-verified Persian TTF font.");
   }
 
   // Mirror into src/.runtime/fonts so the __dirname-relative path in the
