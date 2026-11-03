@@ -175,6 +175,7 @@ testRunner.test("property view and map controls keep accessible names and 44px m
   assert.match(propertiesDivarCss, /\.pf-map-controls\s*\{\s*top:\s*58px/is);
   assert.match(responsiveCss, /\.pf-page \.pf-map-controls\s*\{\s*top:\s*56px/is);
   assert.match(propertiesDivarCss, /\.pf-map-item-open\s*\{[^}]*min-height:\s*44px/is);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-card-row\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+44px/is);
   assert.match(propertiesDivarCss, /\.pf-map-popup > a\s*\{[^}]*min-height:\s*44px/is);
   assert.match(propertiesDivarCss, /\.pf-map-floating-head a\s*\{\s*min-height:\s*44px/is);
   assert.match(responsiveCss, /\.pf-page \.pf-map-floating-head a\s*\{[^}]*min-height:\s*44px/is);

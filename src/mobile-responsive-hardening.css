@@ -1667,7 +1667,7 @@ svg {
     gap: 6px;
   }
   .pf-page .pf-map-divar-layout .pf-map-item-media { width: 58px; height: 58px; }
-  .pf-page .pf-map-card-row { grid-template-columns: minmax(0, 1fr) 40px; }
+  .pf-page .pf-map-card-row { grid-template-columns: minmax(0, 1fr) 44px; }
   .pf-page .pf-map-item-open { padding-inline: 2px; font-size: .58rem; }
 }
 @media (prefers-reduced-motion: reduce) {
