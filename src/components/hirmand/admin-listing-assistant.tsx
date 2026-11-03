@@ -94,7 +94,7 @@ const ASSISTANT_CSS = `
 .admin-quality-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .admin-quality-heading>div{min-width:0}
 .admin-quality-heading strong{display:block;color:#263b4c;font-size:.78rem;font-weight:850}
-.admin-quality-heading small{display:block;margin-top:3px;color:#7b8790;font-size:.65rem;line-height:1.7}
+.admin-quality-heading small{display:block;margin-top:3px;color:#59636e;font-size:.65rem;line-height:1.7}
 .admin-quality-score{
   display:inline-flex!important;align-items:center;justify-content:center;min-width:54px!important;
   padding:5px 10px;border:1px solid #e6d6b6;border-radius:10px;background:#fffaf0;
@@ -116,7 +116,7 @@ const ASSISTANT_CSS = `
 .admin-quality-status.is-good{background:#edf6f0;color:#2e6b49}
 .admin-quality-status.is-mid{background:#fff5df;color:#8a611e}
 .admin-quality-status.is-low{background:#f7eeee;color:#915248}
-.admin-quality-note{display:block;margin:0!important;max-width:300px;color:#7b8790!important;font-size:.64rem!important;line-height:1.8!important}
+.admin-quality-note{display:block;margin:0!important;max-width:300px;color:#59636e!important;font-size:.64rem!important;line-height:1.8!important}
 .admin-seo-preview{position:relative;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0}
 .admin-seo-preview-top{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:15px;border-bottom:1px solid #ece5da}
 .admin-seo-favicon{
@@ -125,7 +125,7 @@ const ASSISTANT_CSS = `
 }
 .admin-seo-preview-top-copy{min-width:0;flex:1}
 .admin-seo-preview-top small{display:block;margin:0!important;color:#20384a!important;font-size:.76rem!important;font-weight:850}
-.admin-seo-preview-top span{display:block;margin-top:2px;color:#84909a;font-size:.64rem}
+.admin-seo-preview-top span{display:block;margin-top:2px;color:#59636e;font-size:.64rem}
 .admin-seo-preview-label{
   display:inline-flex!important;flex:0 0 auto;align-items:center;padding:4px 7px!important;
   margin:0!important;border:1px solid #e3e7e9;border-radius:8px;color:#65737d!important;

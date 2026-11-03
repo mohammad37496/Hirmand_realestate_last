@@ -173,3 +173,26 @@
     text-overflow: ellipsis !important;
   }
 }
+
+/* The admin workspace has dense forms and charts at desktop widths too. Keep
+   shared floating widgets in document flow on admin routes so they cannot
+   cover task fields, tables or dashboard content. */
+html body:has(.admin-app) #hirmand-site-music-player {
+  position: static !important;
+  inset: auto !important;
+  width: min(350px, calc(100vw - 24px)) !important;
+  max-width: calc(100vw - 24px) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 16px 12px !important;
+  z-index: auto !important;
+}
+
+html body:has(.admin-app) .action-menu.floating-call-menu {
+  position: static !important;
+  inset: auto !important;
+  width: fit-content !important;
+  max-width: calc(100vw - 24px) !important;
+  margin: 14px 12px 16px !important;
+  z-index: auto !important;
+}

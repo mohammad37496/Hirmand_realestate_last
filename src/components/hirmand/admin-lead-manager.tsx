@@ -747,6 +747,7 @@ export function AdminLeadManager({ staffMode = false, focusLeadId, onFocusConsum
                       <label className="field">
                         <span>یادداشت و پیگیری داخلی این درخواست</span>
                         <textarea
+                          aria-label="یادداشت و پیگیری داخلی درخواست"
                           rows={4}
                           value={noteDraft}
                           onChange={(event) => setNoteDraft(event.target.value)}

@@ -31,7 +31,7 @@
 .admin-customer-reply{display:flex;gap:9px;padding:12px;border-top:1px solid rgba(11,26,43,.08)}
 .admin-customer-reply textarea{flex:1;resize:vertical;min-height:74px;border:1px solid rgba(11,26,43,.14);border-radius:13px;padding:10px;background:#fff;color:#1d2a38}
 .admin-customer-reply button{align-self:flex-end;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.admin-customer-inbox-empty{min-height:220px;display:grid;place-items:center;align-content:center;gap:7px;text-align:center;padding:24px;color:#74808b}
+.admin-customer-inbox-empty{min-height:220px;display:grid;place-items:center;align-content:center;gap:7px;text-align:center;padding:24px;color:#59636e}
 .admin-customer-inbox-empty strong{color:#24313f;font-size:.85rem}
 .admin-customer-inbox-empty span{font-size:.72rem}
 @media (max-width:820px){.admin-customer-inbox-head{align-items:flex-start;flex-direction:column}.admin-customer-inbox-layout{grid-template-columns:1fr;min-height:0}.admin-customer-conversation-list{border-left:0;border-bottom:1px solid rgba(11,26,43,.08);max-height:300px}.admin-customer-thread{min-height:500px}.admin-customer-message{max-width:92%}.admin-customer-reply{flex-direction:column}.admin-customer-reply button{align-self:stretch;justify-content:center}}

@@ -2,7 +2,7 @@
   --hirmand-media-navy: #172b49;
   --hirmand-media-gold: #c6a15b;
   --hirmand-media-ink: #263447;
-  --hirmand-media-muted: #718096;
+  --hirmand-media-muted: #59636e;
   --hirmand-media-line: #e1e6ec;
   display: grid;
   gap: 16px;
@@ -68,7 +68,7 @@
   font-variant-numeric: tabular-nums;
 }
 .hirmand-media-count span {
-  color: #8b7651;
+  color: #725115;
   font-size: 0.72rem;
 }
 .hirmand-media-file-input {
@@ -137,7 +137,7 @@
 }
 .hirmand-media-dropzone > small {
   max-width: 100%;
-  color: #7b8798;
+  color: #59636e;
   font-size: 0.73rem;
   line-height: 1.8;
 }
@@ -490,7 +490,7 @@
   border: 1px dashed #d9dfe7;
   border-radius: 15px;
   background: #fafbfd;
-  color: #8290a2;
+  color: #59636e;
   text-align: center;
 }
 .hirmand-media-empty > strong {
@@ -871,7 +871,7 @@
   margin: 0;
   padding-top: 10px;
   border-top: 1px solid #edf0f4;
-  color: #768296;
+  color: #59636e;
   font-size: .72rem;
   line-height: 1.8;
 }

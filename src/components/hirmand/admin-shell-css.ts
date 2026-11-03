@@ -2113,7 +2113,7 @@ export const ADMIN_CSS = `
 .admin-main .admin-form-grid-dense{grid-template-columns:repeat(auto-fit,minmax(min(155px,100%),1fr))}
 .admin-main .admin-form-wrap .field{display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:0;margin:0;color:#273849}
 .admin-main .admin-form-wrap .field>span{display:block;color:#3f4d5b;font-size:.76rem;font-weight:850;line-height:1.8}
-.admin-main .admin-form-wrap .field>small{color:#6e7a86!important;font-size:.7rem!important;line-height:1.85}
+.admin-main .admin-form-wrap .field>small{color:#59636e!important;font-size:.7rem!important;line-height:1.85}
 .admin-main .admin-form-wrap .field input:not([type=checkbox]):not([type=radio]),
 .admin-main .admin-form-wrap .field select,
 .admin-main .admin-form-wrap .field textarea{
@@ -2227,9 +2227,9 @@ export const ADMIN_CSS = `
 }
 @media(max-width:640px){
   .admin-topbar{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;padding:10px 13px}
-  .admin-topbar>div{grid-column:2;grid-row:1}
+  .admin-topbar>div:not(.admin-topbar-actions){grid-column:2;grid-row:1}
   .admin-drawer-trigger{grid-column:1;grid-row:1;width:44px;height:44px;border-radius:13px}
-  .admin-topbar-actions{grid-column:1/-1;width:100%;display:flex;gap:8px;flex-wrap:wrap}
+  .admin-topbar-actions{grid-column:1/-1;grid-row:2;width:100%;display:flex;gap:8px;flex-wrap:wrap}
   .admin-topbar-actions>*{flex:1 1 130px;min-width:0;min-height:44px}
   .admin-content{padding:14px 12px calc(108px + env(safe-area-inset-bottom))}
   .admin-stats-grid,.admin-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
@@ -2279,4 +2279,41 @@ export const ADMIN_CSS = `
   .admin-mobile-nav button,.admin-mobile-site{flex-basis:56px;min-width:56px;padding-inline:1px;font-size:.61rem}
 }
 @media(prefers-reduced-motion:reduce){.admin-app *{scroll-behavior:auto!important}}
+
+/* Contrast corrections for legacy dark-shell accents retained in light cards. */
+.admin-app .admin-nav-intro-kicker,
+.admin-app .admin-nav-section-label,
+.admin-app .admin-sidebar-foot-label{color:rgb(255 255 255 / 78%)!important}
+.admin-main .admin-area-status{color:#f7f5ef!important}
+.admin-main .admin-security-status{color:#344054!important;background:#eef2f6!important}
+.admin-main .admin-security-status.is-active,
+.admin-main .admin-security-current{color:#17663a!important;background:#e8f6ed!important}
+.admin-main .admin-seo-empty{color:#475467!important}
+.admin-main .admin-seo-hero h2{color:#132333!important}
+.admin-main .admin-seo-hero .kicker{color:#7a5414!important}
+.admin-main .admin-ai-assistant{--admin-muted:#59636e}
+.admin-main .admin-assistant-hint,
+.admin-main .admin-quality-note,
+.admin-main .admin-field-help,
+.admin-main .hirmand-watermark-note{color:#59636e!important}
+.admin-main .hirmand-media-eyebrow{color:#825d1c!important}
+.admin-main .admin-notification-count{color:#fff!important}
+.admin-main .admin-form-intro-kicker .admin-form-intro-kicker-sep{color:#59636e!important}
+.admin-main .admin-form-intro p{color:#59636e!important}
+.admin-main .admin-area-content .kicker{color:#d6b66e!important}
+.admin-main .admin-lead-phone{min-height:44px;padding:8px 10px;border:1px solid #ead8bd;border-radius:10px;background:#fffaf2;color:#7a5414!important}
+.admin-main .admin-lead-matches a{min-height:44px;display:inline-flex;align-items:center;padding:8px 10px;line-height:1.45}
+.admin-main .admin-lead-priority-badge.is-warm{color:#7a5414!important}
+.admin-main .admin-area-field-hint{color:rgba(247,245,239,.82)!important}
+.admin-main .admin-seo-favicon{color:#344b5b!important;opacity:1}
+.admin-main small.admin-field-help{color:#59636e!important}
+.admin-main .admin-data-health-summary .is-warning strong{color:#7a5414!important}
+.admin-app .admin-drawer .admin-sidebar-foot-label{color:#59636e!important}
+.admin-main .admin-quality-heading small{color:#59636e!important}
+.admin-main .admin-form-wrap small.admin-field-help,
+.admin-main small.admin-field-help{color:#59636e!important}
+.admin-main .hirmand-media-manager small{color:#59636e!important}
+.admin-main .hirmand-media-manager .hirmand-media-dropzone>span:not(.hirmand-media-drop-icon){color:#475467!important}
+.admin-main .hirmand-media-manager .hirmand-media-empty>span{color:#59636e!important}
+.admin-main .hirmand-media-manager .hirmand-media-footnote{color:#59636e!important}
 `;

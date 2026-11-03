@@ -86,7 +86,7 @@
   padding:13px;border:1px solid #e5ddcf;border-radius:13px;background:#fbfaf7;
 }
 .admin-finance-summary small,.admin-finance-summary strong{display:block}
-.admin-finance-summary small{color:#74818a;font-size:.65rem}
+.admin-finance-summary small{color:#59636e;font-size:.65rem}
 .admin-finance-summary strong{margin-top:4px;color:#263744;font-size:.83rem}
 .admin-finance-summary .positive{border-color:#c8dfd0;background:#f5fbf7}
 .admin-finance-summary .positive strong{color:#27633e}
@@ -108,10 +108,10 @@
 .admin-finance-row>div{min-width:0}
 .admin-finance-row>div strong,.admin-finance-row>div small{display:block}
 .admin-finance-row>div strong{color:#253744;font-size:.75rem}
-.admin-finance-row>div small{margin-top:2px;color:#74818a;font-size:.63rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-finance-row>div small{margin-top:2px;color:#59636e;font-size:.63rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .admin-finance-amount{font-size:.72rem;font-weight:850;white-space:nowrap}
 .admin-finance-amount.income{color:#2f7349}.admin-finance-amount.expense{color:#a74437}
-.admin-finance-row time{color:#77848c;font-size:.62rem;white-space:nowrap}
+.admin-finance-row time{color:#59636e;font-size:.62rem;white-space:nowrap}
 
 .admin-matching-send-all{display:flex;justify-content:flex-start;padding:0 18px 10px}
 .admin-matching-send-all .btn-gold{min-height:42px}

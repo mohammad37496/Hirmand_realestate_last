@@ -53,7 +53,7 @@ export function AdminOwnerManager(){
         <button type="button" className="btn-ghost" onClick={()=>void load()} disabled={loading}>به‌روزرسانی</button>
       </div>
       <label className="admin-search" style={{marginBottom:12}}>
-        <Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی نام یا تلفن مالک..." disabled={available!==true||!!error} />
+        <Search size={16}/><input aria-label="جستجوی نام یا تلفن مالک" value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی نام یا تلفن مالک..." disabled={available!==true||!!error} />
       </label>
       {error?<AdminErrorBanner message={error} onRetry={()=>void load()}/>:available===false?<AdminErrorBanner message="اطلاعات مالکین در دسترس نیست." onRetry={()=>void load()}/>:null}
       {error||available===false?null:loading?<div className="admin-matching-empty">در حال دریافت مالکین…</div>:available!==true?<div className="admin-matching-empty">در حال دریافت مالکین…</div>:
