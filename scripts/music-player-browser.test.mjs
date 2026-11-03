@@ -426,6 +426,8 @@ try {
       await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
       await mobileLauncher.click();
       await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none",
+        "clicking the visible mobile launcher again must close the sheet");
       assert.equal(await mobileLauncher.getAttribute("aria-expanded"), "false");
       assert.equal(await responsivePage.evaluate(() => document.activeElement === document.querySelector(".music-player-launcher")), true,
         "click-to-close must retain focus on the visible launcher");
