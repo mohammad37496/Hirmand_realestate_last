@@ -97,6 +97,14 @@ try {
       if (route === "/submit-property") {
         const uploadZone = page.locator(".customer-property-upload-zone").first();
         if (await uploadZone.isVisible().catch(() => false)) {
+          await page.waitForFunction(() => {
+            const zone = document.querySelector(".customer-property-upload-zone");
+            if (!zone) return false;
+            const reactPropsKey = Object.keys(zone).find((key) => key.startsWith("__reactProps$"));
+            const props = reactPropsKey ? zone[reactPropsKey] : null;
+            const input = zone.querySelector('input[type="file"]');
+            return typeof props?.onKeyDown === "function" && input instanceof HTMLInputElement && input.multiple;
+          }, undefined, { timeout: 10_000 });
           for (const key of ["Enter", "Space"]) {
             await uploadZone.focus();
             const chooserPromise = page.waitForEvent("filechooser", { timeout: 4_000 });
