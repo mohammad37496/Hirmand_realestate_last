@@ -658,12 +658,17 @@ testRunner.test("responsive browser smoke covers the required viewport matrix", 
     "the production before/after baseline must use the same layout-viewport overflow metric as local device QA");
   assert.match(mobileDeviceProfileSmoke, /captureScreenshots = process\.env\.QA_DEVICE_SCREENSHOTS !== "0"[\s\S]*?if \(captureScreenshots\)[\s\S]*?page\.screenshot/,
     "metrics-only device verification must be able to avoid writing hundreds of redundant full-page screenshots");
-  assert.match(mobileDeviceProfileSmoke, /cardAudits\.some\(\(card\) => card\.actionCount < 8 \|\| card\.minWidth < 44 \|\| card\.minHeight < 44\)/,
+  assert.match(mobileDeviceProfileSmoke, /page\.locator\("\.pf-grid > \.pcard"\)\.evaluateAll\(\(cards\)/,
+    "the device matrix must inspect every rendered property card, including cards with missing action containers");
+  assert.match(mobileDeviceProfileSmoke, /cardAudits\.some\(\(card\) => !card\.hasActionContainer \|\| card\.actionCount < 8 \|\| card\.minWidth < 44 \|\| card\.minHeight < 44\)/,
     "every property fixture card must independently expose eight touch-sized actions");
+  assert.match(mobileDeviceProfileSmoke, /rawWidth: rect\.width, rawHeight: rect\.height/,
+    "touch targets must be measured before rounding so 43.5px controls cannot pass a 44px minimum");
   assert.match(mobileDeviceProfileSmoke, /thumbnailCount < 2[\s\S]*?expected a visible main gallery and at least two fixture thumbnails/,
     "the property-detail device check must fail when the fixture gallery is missing or incomplete");
-  assert.match(mobileDeviceProfileSmoke, /galleryAudit\.previewWidth < 40 \|\| galleryAudit\.previewHeight < 40/,
-    "the property-detail device check must detect a clipped or collapsed thumbnail preview");
+  assert.match(mobileDeviceProfileSmoke, /galleryAudit\.shortLandscape \? 68 : 42/);
+  assert.match(mobileDeviceProfileSmoke, /galleryAudit\.previewWidthRaw < minimumPreview \|\| galleryAudit\.previewHeightRaw < minimumPreview/,
+    "the property-detail device check must enforce realistic preview sizes before rounding");
   assert.match(packageJson, /"test:site-device-matrix":\s*"node scripts\/property-card-local-browser\.test\.mjs site-device-matrix"/);
   assert.match(responsiveSmoke, /viewportMatrix\.length/);
   assert.ok(responsiveSmoke.includes("`${routeFileName(route)}-${width}x${height}.png`"));
