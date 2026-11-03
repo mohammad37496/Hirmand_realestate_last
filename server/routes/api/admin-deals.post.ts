@@ -46,6 +46,14 @@ export default defineEventHandler(async event=>{
   if(action==="create"){
     const title=clean(body.title,180), customerName=clean(body.customerName,120);
     if(!title||!customerName)throw createError({statusCode:400,statusMessage:"عنوان معامله و نام مشتری الزامی است."});
+    // Keep the historical defaults for omitted fields, but reject supplied
+    // values outside the persisted enums instead of silently coercing them.
+    const dealTypeValue = body.dealType === undefined ? "sale" : String(body.dealType);
+    if(!["sale","rent","mortgage","buy"].includes(dealTypeValue))throw createError({statusCode:400,statusMessage:"نوع معامله معتبر نیست."});
+    const statusValue = body.status === undefined ? "prospect" : String(body.status);
+    if(!["prospect","negotiation","agreement","contracted","completed","cancelled"].includes(statusValue))throw createError({statusCode:400,statusMessage:"وضعیت معامله معتبر نیست."});
+    const dealType = dealTypeValue as DealType;
+    const status = statusValue as AdminDealStatus;
     const id=crypto.randomUUID();
     const leadId = clean(body.leadId,120) || null;
     await withSqlTransaction(async (tx) => {
@@ -55,7 +63,7 @@ export default defineEventHandler(async event=>{
         if (lock.kind === "merged") throw createError({ statusCode: 409, statusMessage: `این لید ادغام شده است؛ معامله را به لید اصلی ${lock.canonicalId} متصل کنید.` });
       }
       await tx.query("insert into admin_deals(id,lead_id,property_id,title,deal_type,status,customer_name,customer_phone,consultant,amount,commission,contract_number,contract_date,closing_date,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)",
-        [id,leadId,clean(body.propertyId,120)||null,title,validType(body.dealType),validStatus(body.status),customerName,clean(body.customerPhone,40),clean(body.consultant,120),money(body.amount),money(body.commission),clean(body.contractNumber,120),clean(body.contractDate,20)||null,clean(body.closingDate,20)||null,clean(body.notes,2000),clean(claims?.displayName,120)||"مدیریت"]);
+        [id,leadId,clean(body.propertyId,120)||null,title,dealType,status,customerName,clean(body.customerPhone,40),clean(body.consultant,120),money(body.amount),money(body.commission),clean(body.contractNumber,120),clean(body.contractDate,20)||null,clean(body.closingDate,20)||null,clean(body.notes,2000),clean(claims?.displayName,120)||"مدیریت"]);
     });
     return {success:true,id};
   }

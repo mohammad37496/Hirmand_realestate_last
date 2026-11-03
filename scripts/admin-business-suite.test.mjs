@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { runInNewContext } from "node:vm";
 import { PGlite } from "@electric-sql/pglite";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -30,6 +31,67 @@ test("deal APIs fail closed and do not report missing mutations as successful", 
   assert.match(route, /documentStatus\)\)\)throw createError\(\{statusCode:400/);
   assert.match(ui, /AdminErrorBanner message=\{loadError\}/);
   assert.match(ui, /if\(!r\.ok\)throw new Error\(x\?\.statusMessage/);
+});
+
+test("deal creation rejects supplied invalid enums before starting an insert and keeps omitted defaults", async () => {
+  const route = read("server/routes/api/admin-deals.post.ts");
+  const createStart = route.indexOf('if(action==="create")');
+  const transactionStart = route.indexOf("await withSqlTransaction", createStart);
+  const validationStart = route.indexOf("const dealTypeValue =", createStart);
+  const validationEnd = route.indexOf("const dealType =", validationStart);
+  assert.ok(createStart >= 0 && validationStart > createStart);
+  assert.ok(validationEnd > validationStart && transactionStart > validationEnd,
+    "both enum guards must run before the create transaction can insert a row");
+
+  const validationSource = route.slice(validationStart, validationEnd);
+  const createError = (error) => { throw Object.assign(new Error(error.statusMessage), error); };
+  const validateCreateEnums = (body) => runInNewContext(
+    `${validationSource}\n({ dealTypeValue, statusValue })`,
+    { body, createError },
+  );
+
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table admin_deals (
+        id text primary key,
+        deal_type text not null check (deal_type in ('sale','rent','mortgage','buy')),
+        status text not null check (status in ('prospect','negotiation','agreement','contracted','completed','cancelled'))
+      );
+    `);
+
+    for (const invalid of [
+      { dealType: "bogus" },
+      { status: "bogus" },
+      { dealType: null },
+      { status: "" },
+    ]) {
+      assert.throws(() => validateCreateEnums(invalid), (error) => error.statusCode === 400);
+      assert.equal((await db.query("select id from admin_deals")).rows.length, 0,
+        "invalid create input must be rejected before any deal row is inserted");
+    }
+
+    const omitted = validateCreateEnums({});
+    assert.equal(omitted.dealTypeValue, "sale");
+    assert.equal(omitted.statusValue, "prospect");
+    await db.query("insert into admin_deals(id,deal_type,status) values($1,$2,$3)", ["defaulted", omitted.dealTypeValue, omitted.statusValue]);
+
+    const explicit = validateCreateEnums({ dealType: "buy", status: "completed" });
+    assert.equal(explicit.dealTypeValue, "buy");
+    assert.equal(explicit.statusValue, "completed");
+    await db.query("insert into admin_deals(id,deal_type,status) values($1,$2,$3)", ["explicit", explicit.dealTypeValue, explicit.statusValue]);
+    assert.deepEqual(
+      (await db.query("select id,deal_type,status from admin_deals order by id")).rows,
+      [
+        { id: "defaulted", deal_type: "sale", status: "prospect" },
+        { id: "explicit", deal_type: "buy", status: "completed" },
+      ],
+    );
+    assert.match(route.slice(validationEnd, transactionStart), /const dealType = dealTypeValue as DealType;[\s\S]*const status = statusValue as AdminDealStatus;/);
+    assert.match(route.slice(route.indexOf("insert into admin_deals", transactionStart)), /title,dealType,status,customerName/);
+  } finally {
+    await db.close();
+  }
 });
 
 test("commission settlements match real completed deals and protect approved payouts", () => {
