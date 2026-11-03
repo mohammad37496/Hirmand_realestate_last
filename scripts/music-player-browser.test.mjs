@@ -544,7 +544,28 @@ try {
     });
     assert.deepEqual(position, { x: 18, width: 390, bottom: 782 },
       `the desktop music dock must keep the same position and size on ${routePath}: ${JSON.stringify(position)}`);
-    routePositions.push({ route: routePath, ...position });
+    await routeConsistencyPage.evaluate(() => {
+      document.documentElement.style.scrollBehavior = "auto";
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
+    await routeConsistencyPage.waitForTimeout(100);
+    const footerClearance = await routeConsistencyPage.evaluate(() => {
+      const footer = document.querySelector("footer, .footer");
+      const player = document.querySelector(".music-player");
+      const footerBounds = footer?.getBoundingClientRect();
+      const playerBounds = player?.getBoundingClientRect();
+      return {
+        paddingBottom: Number.parseFloat(getComputedStyle(document.body).paddingBottom) || 0,
+        footerBottom: footerBounds ? Math.round(footerBounds.bottom) : null,
+        playerTop: playerBounds ? Math.round(playerBounds.top) : null,
+        overlaps: Boolean(footerBounds && playerBounds && footerBounds.bottom > playerBounds.top && footerBounds.top < playerBounds.bottom && footerBounds.right > playerBounds.left && footerBounds.left < playerBounds.right),
+      };
+    });
+    assert.ok(footerClearance.paddingBottom >= 138,
+      `desktop page must reserve the dock height, bottom gap, and clearance: ${JSON.stringify(footerClearance)}`);
+    assert.equal(footerClearance.overlaps, false,
+      `the fixed desktop dock must not cover the footer on ${routePath}: ${JSON.stringify(footerClearance)}`);
+    routePositions.push({ route: routePath, ...position, footerClearance });
   }
   await routeConsistencyPage.close();
 

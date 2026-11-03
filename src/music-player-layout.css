@@ -1,5 +1,13 @@
 /* One shared music dock position on every public route. */
 @media (min-width: 721px) {
+  /* Reserve trailing scroll space so the fixed dock never covers the footer. */
+  body:has(.music-player:not(.music-player-empty)) {
+    padding-bottom: 138px !important;
+  }
+
+  body:has(.music-player.is-hidden) {
+    padding-bottom: 0 !important;
+  }
   .music-player {
     position: fixed !important;
     left: 18px !important;
