@@ -1817,8 +1817,50 @@ svg {
 
 @media (pointer: fine) and (min-width: 721px) {
   .music-player {
-    width: min(420px, calc(100vw - 28px)) !important;
-    max-width: 420px !important;
+    inset: auto 16px 16px auto !important;
+    width: min(390px, calc(100vw - 32px)) !important;
+    max-width: 390px !important;
+    min-height: 58px !important;
+    padding: 6px 9px 9px !important;
+    border: 1px solid rgb(226 196 140 / 22%) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 34px rgb(8 19 32 / 24%) !important;
+    background-color: #0b1a2b !important;
+    background-image:
+      radial-gradient(circle at 12% 0%, rgb(192 138 42 / 18%), transparent 34%),
+      linear-gradient(135deg, rgb(8 19 32 / 99%), rgb(18 41 63 / 99%)) !important;
+    color: #f7edda !important;
+  }
+
+  .music-player .music-meta strong {
+    color: #f7edda !important;
+    font-size: 0.76rem !important;
+  }
+
+  .music-player .music-meta {
+    min-width: 84px !important;
+    max-width: none !important;
+    flex: 1 1 96px !important;
+  }
+
+  .music-player .music-meta > span,
+  .music-player .music-meta small {
+    color: rgb(247 237 218 / 76%) !important;
+  }
+
+  .music-player .music-transport button,
+  .music-player .music-compact-actions button {
+    color: rgb(247 237 218 / 88%) !important;
+  }
+
+  .music-player .music-play {
+    color: #172033 !important;
+    background: linear-gradient(135deg, #f0d39d, #c08a2a) !important;
+  }
+
+  .music-player button:focus-visible {
+    outline: 2px solid #f0d39d !important;
+    outline-offset: 2px;
   }
 
   .music-player .music-cover {

@@ -360,6 +360,17 @@ try {
     });
     await responsivePage.goto(new URL("/", baseUrl).toString(), { waitUntil: "domcontentloaded" });
     await responsivePage.waitForSelector(".music-player:not(.music-player-empty)", { timeout: 30_000 });
+    const compactDesktopPlayer = await responsivePage.locator(".music-player").evaluate((player) => {
+      const bounds = player.getBoundingClientRect();
+      return {
+        x: Math.round(bounds.x),
+        width: Math.round(bounds.width),
+        height: Math.round(bounds.height),
+        metaWidth: Math.round(player.querySelector(".music-meta").getBoundingClientRect().width),
+        backgroundColor: getComputedStyle(player).backgroundColor,
+        titleColor: getComputedStyle(player.querySelector(".music-meta strong")).color,
+      };
+    });
     await responsivePage.locator(".music-cover").evaluate((button) => button.click());
     await responsivePage.locator('.music-compact-actions button[aria-label="فهرست موسیقی"]').evaluate((button) => button.click());
     const layout = await responsivePage.evaluate(() => {
@@ -401,6 +412,21 @@ try {
     });
     assert.ok(layout.player.y >= 0, `music dock must stay below the viewport top: ${JSON.stringify(layout)}`);
     assert.ok(layout.player.bottom <= viewport.height, `music dock must stay inside the viewport: ${JSON.stringify(layout)}`);
+    if (!viewport.touch && viewport.width >= 721 && viewport.height > 420) {
+      const rightGap = viewport.width - compactDesktopPlayer.x - compactDesktopPlayer.width;
+      assert.ok(compactDesktopPlayer.width <= 390,
+        `fine-pointer desktop player should remain a compact floating card: ${JSON.stringify(compactDesktopPlayer)}`);
+      assert.ok(rightGap >= 12 && rightGap <= 36,
+        `fine-pointer desktop player should stay anchored near the lower-right corner: ${JSON.stringify({ compactDesktopPlayer, rightGap })}`);
+      assert.ok(compactDesktopPlayer.height <= 72,
+        `fine-pointer desktop player should keep a slim collapsed height: ${JSON.stringify(compactDesktopPlayer)}`);
+      assert.ok(compactDesktopPlayer.metaWidth >= 84,
+        `fine-pointer desktop player should leave enough room for the track title and artist: ${JSON.stringify(compactDesktopPlayer)}`);
+      assert.equal(compactDesktopPlayer.backgroundColor, "rgb(11, 26, 43)",
+        `fine-pointer desktop player should keep its dark navy surface: ${JSON.stringify(compactDesktopPlayer)}`);
+      assert.equal(compactDesktopPlayer.titleColor, "rgb(247, 237, 218)",
+        `fine-pointer desktop player title should stay readable on navy: ${JSON.stringify(compactDesktopPlayer)}`);
+    }
     const scrollableDock = viewport.touch || viewport.height <= 420;
     assert.equal(layout.playlistPosition, scrollableDock ? "static" : "absolute",
       `playlist positioning must match the available screen: ${JSON.stringify(layout)}`);
