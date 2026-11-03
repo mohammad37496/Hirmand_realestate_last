@@ -141,7 +141,7 @@ export function MusicPlayer() {
   const closePlayer = useCallback(() => {
     if (window.matchMedia("(max-width: 720px)").matches) {
       setIsMobileOpen(false);
-      window.requestAnimationFrame(() => launcherRef.current?.focus());
+      launcherRef.current?.focus();
       return;
     }
     setIsHidden(true);
@@ -154,7 +154,7 @@ export function MusicPlayer() {
       if (event.key !== "Escape") return;
       event.preventDefault();
       setIsMobileOpen(false);
-      window.requestAnimationFrame(() => launcherRef.current?.focus());
+      launcherRef.current?.focus();
     }
 
     window.addEventListener("keydown", onKeyDown);
