@@ -1,0 +1,229 @@
+/* One shared music dock position on every public route. */
+@media (min-width: 721px) {
+  .music-player {
+    position: fixed !important;
+    left: 18px !important;
+    right: auto !important;
+    inset-inline-start: auto !important;
+    inset-inline-end: 18px !important;
+    bottom: 18px !important;
+    width: min(390px, calc(100vw - 36px)) !important;
+    max-width: 390px !important;
+    min-height: 58px !important;
+    padding: 8px 10px 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .music-player-launcher {
+    display: none !important;
+  }
+
+  .music-player.is-hidden {
+    display: none !important;
+  }
+}
+
+/* Phones start with a small launcher. The full player opens as a scrollable
+   bottom sheet with transport, seek, shuffle and volume controls before the
+   track list. */
+@media (max-width: 720px) {
+  .music-player-launcher {
+    position: fixed !important;
+    left: 12px !important;
+    right: auto !important;
+    inset-inline-start: auto !important;
+    inset-inline-end: 12px !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    z-index: 92 !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    padding: 0 !important;
+    border: 1px solid rgb(226 196 140 / 35%) !important;
+    border-radius: 50% !important;
+    background: linear-gradient(145deg, #17324b, #0b1a2b) !important;
+    color: #f7edda !important;
+    box-shadow: 0 8px 24px rgb(8 19 32 / 32%) !important;
+  }
+
+  .music-player-launcher span {
+    display: none !important;
+  }
+
+  .music-player-launcher.is-mobile-open {
+    display: none !important;
+  }
+
+  .music-player {
+    display: none !important;
+    position: fixed !important;
+    left: 8px !important;
+    right: 8px !important;
+    inset-inline-start: 8px !important;
+    inset-inline-end: 8px !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: min(74dvh, calc(100dvh - 108px - env(safe-area-inset-top) - env(safe-area-inset-bottom))) !important;
+    padding: 10px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    border: 1px solid rgb(226 196 140 / 28%) !important;
+    border-radius: 16px !important;
+  }
+
+  .music-player.is-mobile-open:not(.is-hidden) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  .music-player.is-mobile-open .music-player-main {
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "cover meta actions"
+      "transport transport transport" !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+
+  .music-player.is-mobile-open .music-cover {
+    grid-area: cover !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+  }
+
+  .music-player.is-mobile-open .music-meta {
+    grid-area: meta !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .music-player.is-mobile-open .music-transport {
+    grid-area: transport !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin: 0 !important;
+  }
+
+  .music-player.is-mobile-open .music-transport button,
+  .music-player.is-mobile-open .music-compact-actions button,
+  .music-player.is-mobile-open .music-secondary-controls > button,
+  .music-player.is-mobile-open .music-volume button {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .music-player.is-mobile-open .music-play {
+    width: 48px !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+  }
+
+  .music-player.is-mobile-open .music-compact-actions {
+    grid-area: actions !important;
+    gap: 2px !important;
+    margin: 0 !important;
+  }
+
+  .music-player.is-mobile-open .music-compact-actions .music-live-badge,
+  .music-player.is-mobile-open .music-compact-actions button:nth-of-type(2) {
+    display: none !important;
+  }
+
+  .music-player.is-mobile-open .music-progress-row {
+    position: static !important;
+    inset: auto !important;
+    display: grid !important;
+    grid-template-columns: 34px minmax(0, 1fr) 34px !important;
+    align-items: center !important;
+    gap: 6px !important;
+    order: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .music-player.is-mobile-open .music-progress-row > span {
+    display: block !important;
+    font-size: 10px !important;
+  }
+
+  .music-player.is-mobile-open .music-rail,
+  .music-player.is-mobile-open .music-progress {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .music-player.is-mobile-open .music-player-panel {
+    display: block !important;
+    order: 2 !important;
+    margin: 0 !important;
+    padding: 8px 0 0 !important;
+  }
+
+  .music-player.is-mobile-open .music-secondary-controls {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  .music-player.is-mobile-open .music-secondary-controls > button {
+    gap: 5px !important;
+    padding-inline: 9px !important;
+  }
+
+  .music-player.is-mobile-open .music-volume {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    min-width: 130px !important;
+    flex: 1 1 130px !important;
+  }
+
+  .music-player.is-mobile-open .music-volume input {
+    width: 100% !important;
+    min-width: 70px !important;
+    min-height: 44px !important;
+  }
+
+  .music-player.is-mobile-open .music-playlist {
+    position: static !important;
+    inset: auto !important;
+    order: 3 !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 7px !important;
+  }
+
+  .music-player.is-mobile-open .music-playlist-list {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  body:has(.music-player:not(.music-player-empty)) {
+    padding-bottom: 0 !important;
+  }
+
+  body:has(.music-player.is-mobile-open) {
+    padding-bottom: 138px !important;
+  }
+}

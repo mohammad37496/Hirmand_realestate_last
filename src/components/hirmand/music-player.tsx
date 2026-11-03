@@ -114,12 +114,30 @@ export function MusicPlayer() {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
   const tracks = Array.isArray(manifest.tracks) ? manifest.tracks : [];
   const safeIndex = tracks.length ? Math.min(Math.max(index, 0), tracks.length - 1) : 0;
   const currentTrack = tracks[safeIndex] ?? null;
+
+  const openPlayer = useCallback(() => {
+    setIsHidden(false);
+    if (window.matchMedia("(max-width: 720px)").matches) {
+      setIsMobileOpen(true);
+      setIsExpanded(true);
+      setIsListOpen(true);
+    }
+  }, []);
+
+  const closePlayer = useCallback(() => {
+    if (window.matchMedia("(max-width: 720px)").matches) {
+      setIsMobileOpen(false);
+      return;
+    }
+    setIsHidden(true);
+  }, []);
 
   useEffect(() => {
     if (index !== safeIndex) setIndex(safeIndex);
@@ -320,7 +338,15 @@ export function MusicPlayer() {
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ index, volume, muted: isMuted, shuffle, repeat, expanded: isExpanded, hidden: isHidden }),
+        JSON.stringify({
+          index,
+          volume,
+          muted: isMuted,
+          shuffle,
+          repeat,
+          expanded: window.matchMedia("(min-width: 721px)").matches ? isExpanded : false,
+          hidden: isHidden,
+        }),
       );
     } catch {
       // Storage can be unavailable in private browsing contexts.
@@ -611,8 +637,8 @@ export function MusicPlayer() {
 
       <button
         type="button"
-        className={isHidden ? "music-player-launcher is-visible" : "music-player-launcher"}
-        onClick={() => setIsHidden(false)}
+        className={`music-player-launcher${isHidden ? " is-visible" : ""}${isMobileOpen ? " is-mobile-open" : ""}`}
+        onClick={openPlayer}
         aria-label="نمایش پخش‌کننده موسیقی"
         title="نمایش پخش‌کننده"
       >
@@ -621,7 +647,7 @@ export function MusicPlayer() {
       </button>
 
       <section
-        className={`music-player${isExpanded ? " is-expanded" : ""}${isPlaying ? " is-playing" : ""}${isHidden ? " is-hidden" : ""}`}
+        className={`music-player${isExpanded ? " is-expanded" : ""}${isPlaying ? " is-playing" : ""}${isHidden ? " is-hidden" : ""}${isMobileOpen ? " is-mobile-open" : ""}`}
         aria-label="پخش‌کننده موسیقی هیرمند"
       >
         <div className="music-player-main">
@@ -699,7 +725,7 @@ export function MusicPlayer() {
             </button>
             <button
               type="button"
-              onClick={() => setIsHidden(true)}
+              onClick={closePlayer}
               aria-label="مخفی کردن پخش‌کننده"
               title="مخفی کردن"
             >
