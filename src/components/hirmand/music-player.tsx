@@ -93,6 +93,7 @@ export function MusicPlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const resumeAfterLoadRef = useRef(false);
   const playbackIntentRef = useRef(false);
+  const playbackRequestRef = useRef(0);
   const sourceCandidatesRef = useRef<string[]>([]);
   const sourceIndexRef = useRef(0);
   // The browser can emit `error` and reject play() for the same failed URL.
@@ -210,6 +211,7 @@ export function MusicPlayer() {
     if (!audio || !currentTrack) return;
 
     if (!currentTrack) return;
+    const requestId = playbackRequestRef.current;
     const candidates = sourceCandidatesFor(currentTrack);
     sourceCandidatesRef.current = candidates;
     sourceIndexRef.current = 0;
@@ -239,32 +241,57 @@ export function MusicPlayer() {
       audio
         .play()
         .then(() => {
+          if (
+            requestId !== playbackRequestRef.current ||
+            audio.src !== attemptedSource ||
+            audio.paused
+          ) return;
           setIsPlaying(true);
         })
         .catch(async (error) => {
           // onError may already be waiting for the next source.
-          if (fallbackSwitchingRef.current || audio.src !== attemptedSource) return;
+          if (
+            requestId !== playbackRequestRef.current ||
+            !playbackIntentRef.current ||
+            fallbackSwitchingRef.current ||
+            audio.src !== attemptedSource
+          ) return;
 
           if (switchToFallbackSource()) {
-            void waitForMediaReady(audio)
-              .then(() => audio.play())
-              .then(
-                () => {
-                  fallbackSwitchingRef.current = false;
-                  setIsPlaying(true);
-                  setAutoplayBlocked(false);
-                  setLoadError(false);
-                  setIsBuffering(false);
-                },
-                (fallbackError) => {
-                  fallbackSwitchingRef.current = false;
-                  playbackIntentRef.current = false;
-                  setIsPlaying(false);
-                  setIsBuffering(false);
-                  if (isAutoplayBlocked(fallbackError)) setAutoplayBlocked(true);
-                  else setLoadError(true);
-                },
-              );
+            const fallbackSource = audio.src;
+            void (async () => {
+              try {
+                await waitForMediaReady(audio);
+                if (
+                  requestId !== playbackRequestRef.current ||
+                  !playbackIntentRef.current ||
+                  audio.src !== fallbackSource
+                ) return;
+                await audio.play();
+                if (
+                  requestId !== playbackRequestRef.current ||
+                  !playbackIntentRef.current ||
+                  audio.src !== fallbackSource ||
+                  audio.paused
+                ) return;
+                fallbackSwitchingRef.current = false;
+                setIsPlaying(true);
+                setAutoplayBlocked(false);
+                setLoadError(false);
+                setIsBuffering(false);
+              } catch (fallbackError) {
+                if (
+                  requestId !== playbackRequestRef.current ||
+                  audio.src !== fallbackSource
+                ) return;
+                fallbackSwitchingRef.current = false;
+                playbackIntentRef.current = false;
+                setIsPlaying(false);
+                setIsBuffering(false);
+                if (isAutoplayBlocked(fallbackError)) setAutoplayBlocked(true);
+                else setLoadError(true);
+              }
+            })();
             return;
           }
 
@@ -305,35 +332,65 @@ export function MusicPlayer() {
     if (!audio || !currentTrack) return;
 
     if (!audio.paused) {
+      playbackRequestRef.current += 1;
       playbackIntentRef.current = false;
+      fallbackSwitchingRef.current = false;
       audio.pause();
       setIsPlaying(false);
+      setIsBuffering(false);
       return;
     }
 
+    const requestId = ++playbackRequestRef.current;
     playbackIntentRef.current = true;
     setIsBuffering(true);
     const attemptedSource = audio.src;
 
     try {
       await audio.play();
+      if (
+        requestId !== playbackRequestRef.current ||
+        audio.src !== attemptedSource ||
+        audio.paused
+      ) return;
       setIsPlaying(true);
       setAutoplayBlocked(false);
       setLoadError(false);
     } catch (error) {
       // The matching media error event may already own this fallback.
-      if (fallbackSwitchingRef.current || audio.src !== attemptedSource) return;
+      if (
+        requestId !== playbackRequestRef.current ||
+        !playbackIntentRef.current ||
+        fallbackSwitchingRef.current ||
+        audio.src !== attemptedSource
+      ) return;
 
       if (switchToFallbackSource()) {
+        const fallbackSource = audio.src;
         try {
           await waitForMediaReady(audio);
+          if (
+            requestId !== playbackRequestRef.current ||
+            !playbackIntentRef.current ||
+            audio.src !== fallbackSource
+          ) return;
           await audio.play();
+          if (
+            requestId !== playbackRequestRef.current ||
+            !playbackIntentRef.current ||
+            audio.src !== fallbackSource ||
+            audio.paused
+          ) return;
           fallbackSwitchingRef.current = false;
           setIsPlaying(true);
           setAutoplayBlocked(false);
           setLoadError(false);
           return;
         } catch (fallbackError) {
+          if (
+            requestId !== playbackRequestRef.current ||
+            audio.src !== fallbackSource
+          ) return;
           fallbackSwitchingRef.current = false;
           playbackIntentRef.current = false;
           setIsPlaying(false);
@@ -348,7 +405,9 @@ export function MusicPlayer() {
       if (isAutoplayBlocked(error)) setAutoplayBlocked(true);
       else setLoadError(true);
     } finally {
-      if (!fallbackSwitchingRef.current) setIsBuffering(false);
+      if (requestId === playbackRequestRef.current && !fallbackSwitchingRef.current) {
+        setIsBuffering(false);
+      }
     }
   }
 
@@ -362,6 +421,7 @@ export function MusicPlayer() {
       return;
     }
 
+    playbackRequestRef.current += 1;
     resumeAfterLoadRef.current = shouldPlay;
     playbackIntentRef.current = shouldPlay;
     setIndex(safeIndex);
@@ -494,23 +554,41 @@ export function MusicPlayer() {
           if (playbackIntentRef.current && switchToFallbackSource()) {
             const fallback = audioRef.current;
             if (fallback) {
-              void waitForMediaReady(fallback)
-                .then(() => fallback.play())
-                .then(() => {
+              const requestId = playbackRequestRef.current;
+              const fallbackSource = fallback.src;
+              void (async () => {
+                try {
+                  await waitForMediaReady(fallback);
+                  if (
+                    requestId !== playbackRequestRef.current ||
+                    !playbackIntentRef.current ||
+                    fallback.src !== fallbackSource
+                  ) return;
+                  await fallback.play();
+                  if (
+                    requestId !== playbackRequestRef.current ||
+                    !playbackIntentRef.current ||
+                    fallback.src !== fallbackSource ||
+                    fallback.paused
+                  ) return;
                   fallbackSwitchingRef.current = false;
                   setIsPlaying(true);
                   setAutoplayBlocked(false);
                   setLoadError(false);
                   setIsBuffering(false);
-                })
-                .catch((error) => {
+                } catch (error) {
+                  if (
+                    requestId !== playbackRequestRef.current ||
+                    fallback.src !== fallbackSource
+                  ) return;
                   fallbackSwitchingRef.current = false;
                   playbackIntentRef.current = false;
                   setIsPlaying(false);
                   setIsBuffering(false);
                   if (isAutoplayBlocked(error)) setAutoplayBlocked(true);
                   else setLoadError(true);
-                });
+                }
+              })();
             } else {
               fallbackSwitchingRef.current = false;
             }
