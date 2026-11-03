@@ -390,7 +390,32 @@ try {
       assert.ok(launcher.x <= 16 && launcher.width === 48 && launcher.height === 48,
         `mobile launcher should be a 48px icon at the lower left: ${JSON.stringify(launcher)}`);
       assert.equal(launcher.playerDisplay, "none", `mobile player should start collapsed: ${JSON.stringify(launcher)}`);
-      await responsivePage.locator(".music-player-launcher").click();
+      const mobileLauncher = responsivePage.locator(".music-player-launcher");
+      await mobileLauncher.click();
+      await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      const openLauncher = await mobileLauncher.evaluate((button) => {
+        const bounds = button.getBoundingClientRect();
+        const playerBounds = document.querySelector(".music-player").getBoundingClientRect();
+        return {
+          display: getComputedStyle(button).display,
+          x: Math.round(bounds.x),
+          y: Math.round(bounds.y),
+          width: Math.round(bounds.width),
+          height: Math.round(bounds.height),
+          playerBottom: Math.round(playerBounds.bottom),
+        };
+      });
+      assert.equal(openLauncher.display, "grid",
+        `the launcher must remain available to close the open mobile panel: ${JSON.stringify(openLauncher)}`);
+      assert.equal(openLauncher.width, 48);
+      assert.equal(openLauncher.height, 48);
+      assert.ok(openLauncher.y >= openLauncher.playerBottom,
+        `the open-panel launcher must sit below the sheet without covering its playlist: ${JSON.stringify(openLauncher)}`);
+      await mobileLauncher.click();
+      await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none",
+        "clicking the visible mobile launcher again must close the sheet");
+      await mobileLauncher.click();
       await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
     } else {
       await responsivePage.locator(".music-cover").evaluate((button) => button.click());
