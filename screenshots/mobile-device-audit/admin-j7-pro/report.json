@@ -1,0 +1,1230 @@
+{
+  "base": "http://127.0.0.1:4723",
+  "at": "2026-11-03T08:58:39.269Z",
+  "execution": {
+    "keyProvided": true,
+    "apiMode": "real-routes",
+    "databaseMode": "pglite",
+    "touchInputMode": true,
+    "deviceScaleFactor": 3,
+    "viewports": [
+      {
+        "id": "w360",
+        "width": 360,
+        "height": 640
+      }
+    ]
+  },
+  "authentication": {
+    "attempts": [
+      {
+        "viewport": "w360",
+        "keyProvided": true,
+        "loginAccepted": true
+      }
+    ]
+  },
+  "stubbedApiRoutes": [],
+  "views": [
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "dashboard",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "managementReport",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "productivity",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "integrity",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "deals",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "expiry",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "commission",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "consultantPerformance",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "consultantTargets",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "list",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "leads",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "messages",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "matching",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "divar",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "consultants",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "partners",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "owners",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "attendance",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "finance",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "music",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "watermark",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "backup",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "mediaHealth",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "schedule",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "trash",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "audit",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": null,
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "settings",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "security",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "seoRedirects",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "contentStudio",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "areaContent",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "view": "form",
+      "navigated": true,
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": false,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          },
+          "stickyLeft": 0,
+          "stickyRight": 0,
+          "orphanedStickyBar": false
+        }
+      }
+    }
+  ],
+  "overlays": [
+    {
+      "viewport": "w360",
+      "width": 360,
+      "kind": "datepicker",
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": true,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          }
+        }
+      }
+    },
+    {
+      "viewport": "w360",
+      "width": 360,
+      "kind": "drawer",
+      "issues": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": [],
+        "overlaps": [],
+        "errors": []
+      },
+      "geometry": {
+        "horizontalScroll": false,
+        "scrollWidth": 360,
+        "innerWidth": 360,
+        "offViewport": [],
+        "clipped": [],
+        "chrome": {
+          "sidebar": false,
+          "sidebarWidth": 0,
+          "drawerTrigger": true,
+          "mobileNav": false,
+          "adminFloatingControlsInFlow": true,
+          "adminMusicPlayerPosition": "static",
+          "adminContactMenuPosition": null,
+          "brand": {
+            "sidebar": null,
+            "surface": "rgb(247, 244, 238)",
+            "accent": "rgb(16, 24, 40)",
+            "font": "Vazirmatn"
+          },
+          "stickyLeft": 0,
+          "stickyRight": 0,
+          "orphanedStickyBar": false
+        }
+      }
+    }
+  ],
+  "runtimeErrors": [],
+  "unshapedFallbacks": [],
+  "problemCount": 0,
+  "problems": []
+}

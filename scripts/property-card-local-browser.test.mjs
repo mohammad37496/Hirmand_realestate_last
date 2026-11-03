@@ -27,10 +27,11 @@ async function findFreePort() {
 const port = await findFreePort();
 const baseUrl = `http://127.0.0.1:${port}`;
 const visualMode = process.argv[2] === "visual";
-const j7ProMode = process.argv[2] === "j7-pro" || process.argv[2] === "site-j7-pro";
+const j7ProMode = ["j7-pro", "site-j7-pro", "site-j7-pro-landscape"].includes(process.argv[2]);
+const deviceMatrixMode = process.argv[2] === "site-device-matrix";
 const adminOnlyMode = process.argv[2] === "site-admin-responsive";
-const fullSiteMode = process.argv[2] === "site-responsive" || process.argv[2] === "site-j7-pro" || adminOnlyMode;
-const responsiveMode = !adminOnlyMode && (process.argv[2] === "responsive" || j7ProMode || fullSiteMode);
+const fullSiteMode = process.argv[2] === "site-responsive" || process.argv[2] === "site-j7-pro" || process.argv[2] === "site-j7-pro-landscape" || deviceMatrixMode || adminOnlyMode;
+const responsiveMode = !adminOnlyMode && !deviceMatrixMode && (process.argv[2] === "responsive" || j7ProMode || fullSiteMode);
 const nitroMode = fullSiteMode;
 const adminAuditMode = adminOnlyMode || process.env.RESPONSIVE_SMOKE_ADMIN_AUDIT === "1";
 let server;
@@ -139,9 +140,11 @@ try {
   startServer();
   await waitForServer();
   if (!adminOnlyMode) {
-    const testScript = responsiveMode
-      ? "responsive-layout-smoke.mjs"
-      : visualMode ? "desktop-property-card-visual-qa.mjs" : "property-card-actions-browser.test.mjs";
+    const testScript = deviceMatrixMode
+      ? "mobile-device-profile-smoke.mjs"
+      : responsiveMode
+        ? "responsive-layout-smoke.mjs"
+        : visualMode ? "desktop-property-card-visual-qa.mjs" : "property-card-actions-browser.test.mjs";
     const childArgs = [join(root, "scripts", testScript), ...(responsiveMode ? [baseUrl] : [])];
     const child = spawn(process.execPath, childArgs, {
       cwd: root,
@@ -150,10 +153,16 @@ try {
         PROPERTY_CARD_BROWSER_BASE_URL: baseUrl,
         PROPERTY_CARD_VISUAL_BASE_URL: `${baseUrl}/properties`,
         PROPERTY_CARD_VISUAL_SCREENSHOT_DIR: process.env.PROPERTY_CARD_VISUAL_SCREENSHOT_DIR || join(dbDir, "screenshots"),
+        PGLITE_DATA_DIR: dbDir,
+        ...(deviceMatrixMode ? {
+          QA_BASE_URL: baseUrl,
+          QA_DEVICE_SCREENSHOT_DIR: process.env.QA_DEVICE_SCREENSHOT_DIR || join(root, "screenshots", "mobile-device-audit", "device-profiles"),
+          QA_DEVICE_REPORT_PATH: process.env.QA_DEVICE_REPORT_PATH || join(root, "screenshots", "mobile-device-audit", "device-profiles", "report.json"),
+        } : {}),
         BROWSER_SMOKE_PROPERTY_ID: "pcard-fixture-001",
         BROWSER_SMOKE_PROPERTY_SLUG: "qa-apartment-long-title",
         ...(responsiveMode ? {
-          ...(j7ProMode ? { RESPONSIVE_SMOKE_J7_PRO: "1" } : {}),
+          ...(process.argv[2] === "site-j7-pro-landscape" ? { RESPONSIVE_SMOKE_J7_PRO_LANDSCAPE: "1" } : j7ProMode ? { RESPONSIVE_SMOKE_J7_PRO: "1" } : {}),
           ...(fullSiteMode ? { RESPONSIVE_SMOKE_FULL_ROUTES: "1" } : { RESPONSIVE_SMOKE_ONLY_PROPERTIES: "1" }),
           RESPONSIVE_SCREENSHOT_DIR: process.env.RESPONSIVE_SCREENSHOT_DIR || join(dbDir, "responsive-screenshots"),
         } : {}),
@@ -175,6 +184,7 @@ try {
       cwd: root,
       env: {
         ...process.env,
+        PGLITE_DATA_DIR: dbDir,
         QA_BASE_URL: baseUrl,
         QA_VIEWPORTS: process.env.RESPONSIVE_ADMIN_VIEWPORTS || "360x640",
         QA_DEVICE_SCALE_FACTOR: process.env.RESPONSIVE_ADMIN_DPR || "3",
@@ -191,7 +201,7 @@ try {
     assert.equal(adminAudit.status, 0, `Admin responsive visual audit failed with exit code ${adminAudit.status ?? "unknown"}.`);
   }
 
-  console.log(`[property-card-local-browser] PASS (${adminOnlyMode ? "admin responsive visual audit" : j7ProMode ? "Galaxy J7 Pro device smoke" : fullSiteMode ? "full-site responsive smoke" : responsiveMode ? "responsive smoke" : visualMode ? "visual QA" : "action QA"}): real local app + isolated migrated PGlite database + 3 controlled published fixtures`);
+  console.log(`[property-card-local-browser] PASS (${adminOnlyMode ? "admin responsive visual audit" : deviceMatrixMode ? "27-device portrait/landscape profile matrix" : process.argv[2] === "site-j7-pro-landscape" ? "Galaxy J7 Pro landscape device smoke" : j7ProMode ? "Galaxy J7 Pro portrait device smoke" : fullSiteMode ? "full-site responsive smoke" : responsiveMode ? "responsive smoke" : visualMode ? "visual QA" : "action QA"}): real local app + isolated migrated PGlite database + 3 controlled published fixtures`);
 } catch (error) {
   console.error("[property-card-local-browser] FAIL");
   console.error(error instanceof Error ? error.stack ?? error.message : String(error));

@@ -4,18 +4,28 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl = process.argv[2] ?? process.env.RESPONSIVE_SMOKE_BASE_URL ?? "http://127.0.0.1:8081";
-const j7ProMode = process.env.RESPONSIVE_SMOKE_J7_PRO === "1";
+const j7ProPortraitMode = process.env.RESPONSIVE_SMOKE_J7_PRO === "1";
+const j7ProLandscapeMode = process.env.RESPONSIVE_SMOKE_J7_PRO_LANDSCAPE === "1";
+const j7ProMode = j7ProPortraitMode || j7ProLandscapeMode;
+const j7ProViewport = j7ProLandscapeMode ? { width: 640, height: 360 } : { width: 360, height: 640 };
+const j7ProUserAgent = "Mozilla/5.0 (Linux; Android 9; SM-J730F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36";
 const touchInputMode = j7ProMode || process.env.RESPONSIVE_SMOKE_TOUCH === "1";
-const viewportMatrix = j7ProMode ? [{ width: 360, height: 640 }] : [
+const viewportMatrix = j7ProMode ? [j7ProViewport] : [
   { width: 320, height: 568 },
+  { width: 344, height: 640 },
   { width: 360, height: 640 },
   { width: 375, height: 667 },
+  { width: 384, height: 854 },
   { width: 390, height: 844 },
+  { width: 393, height: 852 },
   { width: 412, height: 652 },
   { width: 412, height: 732 },
   { width: 414, height: 896 },
   { width: 430, height: 932 },
+  { width: 480, height: 900 },
+  { width: 600, height: 960 },
   { width: 768, height: 1024 }, // tablet portrait
+  { width: 820, height: 1180 }, // tablet portrait
   { width: 1024, height: 768 }, // tablet landscape
   { width: 1280, height: 900 },
   { width: 1366, height: 900 },
@@ -64,7 +74,10 @@ const routes = [
   `/v/${encodeURIComponent(propertySlug)}/${encodeURIComponent(propertyId)}`,
 ];
 const fullRoutesMode = process.env.RESPONSIVE_SMOKE_FULL_ROUTES === "1";
-const selectedRoutes = !fullRoutesMode && (j7ProMode || process.env.RESPONSIVE_SMOKE_ONLY_PROPERTIES === "1") ? ["/", "/properties"] : routes;
+const responsiveRouteSet = !fullRoutesMode && (j7ProMode || process.env.RESPONSIVE_SMOKE_ONLY_PROPERTIES === "1") ? ["/", "/properties"] : routes;
+const routeFilter = process.env.RESPONSIVE_SMOKE_ROUTE_FILTER?.trim();
+const selectedRoutes = responsiveRouteSet.filter((route) => !routeFilter || route === routeFilter);
+if (!selectedRoutes.length) throw new Error(`RESPONSIVE_SMOKE_ROUTE_FILTER did not match a selected route: ${routeFilter}`);
 
 const screenshotRoutes = new Set([
   "/",
@@ -77,7 +90,7 @@ const screenshotRoutes = new Set([
   "/tools/rahn-rent",
   "/admin",
 ]);
-const screenshotWidths = new Set([320, 360, 375, 390, 412, 430, 768, 1024, 1280, 1366, 1440, 1920]);
+const screenshotWidths = new Set([320, 344, 360, 375, 384, 390, 393, 412, 414, 430, 480, 600, 640, 768, 820, 1024, 1280, 1366, 1440, 1920]);
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -114,10 +127,12 @@ async function activate(locator, options = {}) {
 try {
   for (const route of selectedRoutes) {
     const page = await browser.newPage({
-      viewport: j7ProMode ? { width: 360, height: 640 } : { width: 320, height: 900 },
+      viewport: j7ProMode ? j7ProViewport : { width: 320, height: 900 },
+      ...(j7ProMode ? { screen: j7ProViewport } : {}),
       deviceScaleFactor: j7ProMode ? 3 : 1,
       isMobile: j7ProMode,
       hasTouch: j7ProMode || process.env.RESPONSIVE_SMOKE_TOUCH === "1",
+      ...(j7ProMode ? { userAgent: j7ProUserAgent } : {}),
     });
     page.setDefaultTimeout(12_000);
     const pageErrors = [];
@@ -195,7 +210,7 @@ try {
       // the listing at a real phone viewport so the smoke test observes the
       // same first-render state as a mobile visitor (not desktop state resized
       // after hydration).
-      if (route === "/properties") await page.setViewportSize({ width: 320, height: 568 });
+      if (route === "/properties") await page.setViewportSize(j7ProMode ? j7ProViewport : { width: 320, height: 568 });
       const response = await page.goto(new URL(route, baseUrl).toString(), {
         waitUntil: "domcontentloaded",
         timeout: 30_000,
@@ -249,20 +264,21 @@ try {
           hasMap: Boolean(document.querySelector(".pf-map-divar-layout")),
         }));
         if (mobileMarketplace.rootWidth < mobileMarketplace.viewportWidth - 1) {
-          failures.push(`/properties @ 320px: page root is ${mobileMarketplace.rootWidth}px wide for a ${mobileMarketplace.viewportWidth}px viewport`);
+          failures.push(`/properties @ ${mobileMarketplace.viewportWidth}px: page root is ${mobileMarketplace.rootWidth}px wide for a ${mobileMarketplace.viewportWidth}px viewport`);
         }
-        if (mobileMarketplace.activeViewIndex !== 0 || mobileMarketplace.hasMap) {
-          failures.push(`/properties @ 320px: initial mobile view should prioritize listings instead of opening the map workspace (${JSON.stringify(mobileMarketplace)})`);
+        const expectedInitialViewIndex = mobileMarketplace.viewportWidth <= 620 ? 0 : 1;
+        if (mobileMarketplace.activeViewIndex !== expectedInitialViewIndex || mobileMarketplace.hasMap) {
+          failures.push(`/properties @ ${mobileMarketplace.viewportWidth}px: initial mobile view should show listings without opening the map workspace (${JSON.stringify({ ...mobileMarketplace, expectedInitialViewIndex })})`);
         }
         const viewButtons = page.locator(".pf-views button");
         await activate(viewButtons.nth(2));
         const mapWorkspace = page.locator(".pf-map-divar-layout");
         if (!(await mapWorkspace.waitFor({ state: "attached", timeout: 5_000 }).then(() => true).catch(() => false))) {
-          failures.push("/properties @ 320px: selecting map view did not open the map/list workspace");
+          failures.push(`/properties @ ${mobileMarketplace.viewportWidth}px: selecting map view did not open the map/list workspace`);
         }
         await activate(viewButtons.nth(0));
         if (await mapWorkspace.waitFor({ state: "detached", timeout: 5_000 }).then(() => false).catch(() => true)) {
-          failures.push("/properties @ 320px: returning to listings did not close the map workspace");
+          failures.push(`/properties @ ${mobileMarketplace.viewportWidth}px: returning to listings did not close the map workspace`);
         }
         await page.locator(".pf-grid > .pcard").first().waitFor({ state: "visible", timeout: 10_000 }).catch(() => undefined);
         const mobileCards = await page.locator(".pf-grid > .pcard").evaluateAll((cards) => cards.map((card) => {
@@ -502,7 +518,7 @@ try {
       }
 
       if (route.startsWith("/properties/")) {
-        await page.setViewportSize(j7ProMode ? { width: 360, height: 640 } : { width: 320, height: 900 });
+        await page.setViewportSize(j7ProMode ? j7ProViewport : { width: 320, height: 900 });
         const thumbs = page.locator(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs > .hd-gallery-thumb");
         await thumbs.first().waitFor({ state: "visible", timeout: 8_000 }).catch(() => undefined);
         const galleryHydrated = await page.waitForFunction(() => {
@@ -551,9 +567,20 @@ try {
           if (!settledSecondCounter || settledSecondCounter === firstCounter) {
             failures.push(`${route}: selecting a thumbnail did not update the current-image counter`);
           }
+          const thumbnailVisibility = await thumbs.nth(1).evaluate((button) => {
+            const rect = button.getBoundingClientRect();
+            const mobileActions = document.querySelector(".hd-mobile-actions");
+            const overlayTop = mobileActions?.getBoundingClientRect().top ?? window.innerHeight;
+            return {
+              top: Math.round(rect.top),
+              bottom: Math.round(rect.bottom),
+              overlayTop: Math.round(overlayTop),
+              viewportHeight: window.innerHeight,
+            };
+          });
           const scrollAfterSelection = await page.evaluate(() => window.scrollY);
-          if (Math.abs(scrollAfterSelection - scrollBeforeSelection) > 2) {
-            failures.push(`${route}: selecting a thumbnail unexpectedly moved the page scroll position (${scrollBeforeSelection} → ${scrollAfterSelection})`);
+          if (scrollAfterSelection < scrollBeforeSelection - 2 || thumbnailVisibility.top < -1 || thumbnailVisibility.bottom > thumbnailVisibility.overlayTop - 2) {
+            failures.push(`${route}: selected gallery thumbnail is not fully visible above the mobile action bar (${JSON.stringify({ scrollBeforeSelection, scrollAfterSelection, thumbnailVisibility })})`);
           }
           const nextButton = page.locator('.hd-gallery-controls button[aria-label="تصویر بعدی"]').first();
           await activate(nextButton);
@@ -843,6 +870,8 @@ try {
             const mediaRect = media?.getBoundingClientRect();
             const mediaStyle = media ? getComputedStyle(media) : null;
             const rail = document.querySelector(".property-detail-page.hd-property-detail-v2 .hd-gallery-thumbs, .property-detail-page:not(.hd-property-detail-v2) .property-gallery-rail");
+            const galleryRoot = galleryMain.closest(".property-gallery.hd-gallery");
+            const galleryRootRect = galleryRoot?.getBoundingClientRect();
             const firstThumb = rail?.querySelector(".hd-gallery-thumb, .property-gallery-thumb");
             const thumbRect = firstThumb?.getBoundingClientRect();
             const railStyle = rail ? getComputedStyle(rail) : null;
@@ -870,6 +899,31 @@ try {
               return { width: Math.round(rect.width), height: Math.round(rect.height) };
             });
             propertyGallery = {
+              gallery: galleryRootRect ? {
+                left: Math.round(galleryRootRect.left), right: Math.round(galleryRootRect.right),
+                top: Math.round(galleryRootRect.top), bottom: Math.round(galleryRootRect.bottom),
+                width: Math.round(galleryRootRect.width), height: Math.round(galleryRootRect.height),
+              } : null,
+              mediaQueries: {
+                screen: { width: window.screen.width, height: window.screen.height },
+                orientationLandscape: matchMedia("(orientation: landscape)").matches,
+                shortLandscape: matchMedia("(orientation: landscape) and (max-height: 420px)").matches,
+                coarsePointer: matchMedia("(pointer: coarse)").matches,
+                shortLandscapeCoarse: matchMedia("(orientation: landscape) and (max-height: 420px) and (pointer: coarse)").matches,
+                galleryColumns: getComputedStyle(galleryMain.closest(".property-gallery.hd-gallery") ?? galleryMain).gridTemplateColumns,
+                galleryRows: getComputedStyle(galleryMain.closest(".property-gallery.hd-gallery") ?? galleryMain).gridTemplateRows,
+                galleryAreas: getComputedStyle(galleryMain.closest(".property-gallery.hd-gallery") ?? galleryMain).gridTemplateAreas,
+                mainLayout: (() => {
+                  const style = getComputedStyle(galleryMain);
+                  return { position: style.position, gridArea: style.gridArea, height: style.height, minHeight: style.minHeight, maxHeight: style.maxHeight };
+                })(),
+                railLayout: (() => {
+                  const rail = galleryMain.closest(".property-gallery.hd-gallery")?.querySelector(".property-gallery-thumbs.hd-gallery-thumbs");
+                  if (!rail) return null;
+                  const style = getComputedStyle(rail);
+                  return { position: style.position, gridArea: style.gridArea, width: style.width, minWidth: style.minWidth, maxWidth: style.maxWidth, height: style.height, minHeight: style.minHeight, maxHeight: style.maxHeight, padding: style.padding, scrollWidth: rail.scrollWidth, clientWidth: rail.clientWidth };
+                })(),
+              },
               main: {
                 width: Math.round(mainRect.width),
                 height: Math.round(mainRect.height),
@@ -1058,17 +1112,30 @@ try {
           const thumbs = rail.thumbRects;
           if (thumbs.length > 1) {
             if (rail.display !== "flex" || rail.flexDirection !== "column") {
-              failures.push(`${route} @ ${width}x${height}px: floating thumbnail rail is not a vertical flex list (display=${rail.display}, direction=${rail.flexDirection})`);
-            }
-            if (rail.position !== "absolute") {
-              failures.push(`${route} @ ${width}x${height}px: mobile thumbnail rail should overlay the image instead of adding document height (position=${rail.position})`);
+              failures.push(`${route} @ ${width}x${height}px: thumbnail rail is not a vertical flex list (display=${rail.display}, direction=${rail.flexDirection})`);
             }
             const image = metrics.propertyGallery.main;
-            if (rail.bounds && (
-              rail.bounds.left < image.left - 1 || rail.bounds.right > image.right + 1 ||
-              rail.bounds.top < image.top - 1 || rail.bounds.bottom > image.bottom + 1
-            )) {
-              failures.push(`${route} @ ${width}x${height}px: floating thumbnail rail escapes the main image: ${JSON.stringify(rail.bounds)} vs ${JSON.stringify(image)}`);
+            if (metrics.propertyGallery.mediaQueries.shortLandscapeCoarse) {
+              const gallery = metrics.propertyGallery.gallery;
+              if (rail.position !== "relative") {
+                failures.push(`${route} @ ${width}x${height}px: short-landscape thumbnail rail must occupy its gallery grid column (position=${rail.position})`);
+              }
+              if (!gallery || !rail.bounds || rail.bounds.left < gallery.left - 1 || rail.bounds.right > gallery.right + 1 || rail.bounds.top < gallery.top - 1 || rail.bounds.bottom > gallery.bottom + 1) {
+                failures.push(`${route} @ ${width}x${height}px: short-landscape thumbnail rail escapes its gallery grid: ${JSON.stringify({ rail: rail.bounds, gallery })}`);
+              }
+              if (rail.bounds && image && rail.bounds.left < image.right - 1 && rail.bounds.right > image.left + 1 && rail.bounds.top < image.bottom - 1 && rail.bounds.bottom > image.top + 1) {
+                failures.push(`${route} @ ${width}x${height}px: short-landscape thumbnail rail overlaps the main image: ${JSON.stringify({ rail: rail.bounds, image })}`);
+              }
+            } else {
+              if (rail.position !== "absolute") {
+                failures.push(`${route} @ ${width}x${height}px: portrait thumbnail rail should overlay the image instead of adding document height (position=${rail.position})`);
+              }
+              if (rail.bounds && image && (
+                rail.bounds.left < image.left - 1 || rail.bounds.right > image.right + 1 ||
+                rail.bounds.top < image.top - 1 || rail.bounds.bottom > image.bottom + 1
+              )) {
+                failures.push(`${route} @ ${width}x${height}px: portrait thumbnail rail escapes the main image: ${JSON.stringify(rail.bounds)} vs ${JSON.stringify(image)}`);
+              }
             }
             if (rail.display === "grid" && rail.gridAutoFlow === "column") {
               failures.push(`${route} @ ${width}x${height}px: mobile thumbnail grid fills columns horizontally`);
@@ -1351,6 +1418,16 @@ fs.writeFileSync(path.join(outputDir, "report.json"), JSON.stringify({
   generatedAt: new Date().toISOString(),
   baseUrl,
   routes: selectedRoutes,
+  deviceEmulation: {
+    profile: j7ProMode ? "Samsung Galaxy J7 Pro" : "responsive viewport matrix",
+    browserEngine: "Chromium",
+    orientation: j7ProMode ? (j7ProLandscapeMode ? "landscape" : "portrait") : "mixed",
+    viewport: j7ProMode ? j7ProViewport : null,
+    deviceScaleFactor: j7ProMode ? 3 : 1,
+    isMobile: j7ProMode,
+    hasTouch: touchInputMode,
+    userAgent: j7ProMode ? j7ProUserAgent : "Chromium default desktop user agent",
+  },
   viewportMatrix,
   checks: selectedRoutes.length * viewportMatrix.length,
   status: failures.length ? "failed" : "passed",

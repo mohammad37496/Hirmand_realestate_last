@@ -1,0 +1,2307 @@
+{
+  "generatedAt": "2026-11-03T08:56:34.521Z",
+  "baseUrl": "http://127.0.0.1:4150",
+  "routes": [
+    "/",
+    "/properties",
+    "/properties?minArea=-1",
+    "/properties?q=عبارت-آزمایشی-بدون-نتیجه-۷۸۹۱۲۳",
+    "/areas",
+    "/areas/شهرک-ولیعصر",
+    "/guides",
+    "/valuation",
+    "/tools",
+    "/tools/commission",
+    "/tools/deposit",
+    "/tools/loan",
+    "/tools/rahn-rent",
+    "/budget-match",
+    "/smart-search",
+    "/consultants",
+    "/card",
+    "/nearby",
+    "/submit-property",
+    "/request-property",
+    "/file-code",
+    "/favorites",
+    "/compare",
+    "/my-hirmand",
+    "/notifications",
+    "/tracking",
+    "/request-tracking",
+    "/staff-agreement",
+    "/staff",
+    "/areas/درچه",
+    "/consultants/responsive-smoke-consultant",
+    "/admin-mobile-management/responsive-smoke-employee",
+    "/admin",
+    "/admin-mobile-management",
+    "/properties/qa-apartment-long-title",
+    "/file/pcard-fixture-001",
+    "/v/qa-apartment-long-title/pcard-fixture-001"
+  ],
+  "deviceEmulation": {
+    "profile": "Samsung Galaxy J7 Pro",
+    "browserEngine": "Chromium",
+    "orientation": "portrait",
+    "viewport": {
+      "width": 360,
+      "height": 640
+    },
+    "deviceScaleFactor": 3,
+    "isMobile": true,
+    "hasTouch": true,
+    "userAgent": "Mozilla/5.0 (Linux; Android 9; SM-J730F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
+  },
+  "viewportMatrix": [
+    {
+      "width": 360,
+      "height": 640
+    }
+  ],
+  "checks": 37,
+  "status": "passed",
+  "failureCount": 0,
+  "failures": [],
+  "summaries": [
+    {
+      "route": "/",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 8278,
+        "bottom": 8330,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/persian-date-picker-Chw94eNX.css"
+          ]
+        }
+      },
+      "homeMusicDock": {
+        "position": "static",
+        "overlapsHeroActions": false
+      },
+      "filterSidebar": null,
+      "title": "املاک هیرمند | خرید، فروش، رهن و اجاره ملک در اصفهان"
+    },
+    {
+      "route": "/properties",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 110,
+        "right": 250,
+        "top": 3160,
+        "bottom": 3204,
+        "width": 139,
+        "height": 44,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": {
+        "visible": true,
+        "optionsFound": false,
+        "optionCount": 0,
+        "optionColumns": 0,
+        "minLabelWidth": null
+      },
+      "title": "فایل‌های ملکی اصفهان | خرید، فروش، رهن و اجاره | هیرمند"
+    },
+    {
+      "route": "/properties?minArea=-1",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 110,
+        "right": 250,
+        "top": 3458,
+        "bottom": 3502,
+        "width": 139,
+        "height": 44,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": {
+        "visible": true,
+        "optionsFound": false,
+        "optionCount": 0,
+        "optionColumns": 0,
+        "minLabelWidth": null
+      },
+      "title": "فایل‌های ملکی اصفهان | خرید، فروش، رهن و اجاره | هیرمند"
+    },
+    {
+      "route": "/properties?q=عبارت-آزمایشی-بدون-نتیجه-۷۸۹۱۲۳",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 110,
+        "right": 250,
+        "top": 3407,
+        "bottom": 3451,
+        "width": 139,
+        "height": 44,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": {
+        "visible": true,
+        "optionsFound": false,
+        "optionCount": 0,
+        "optionColumns": 0,
+        "minLabelWidth": null
+      },
+      "title": "فایل‌های ملکی اصفهان | خرید، فروش، رهن و اجاره | هیرمند"
+    },
+    {
+      "route": "/areas",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 7115,
+        "bottom": 7167,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/areas-directory-DEoIXHIt.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "راهنمای محله‌های اصفهان | جست‌وجوی مناطق | هیرمند"
+    },
+    {
+      "route": "/areas/شهرک-ولیعصر",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 6098,
+        "bottom": 6150,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/area-detail-BigQGZjv.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "املاک شهرک ولی‌عصر اصفهان | خرید، فروش و اجاره | هیرمند"
+    },
+    {
+      "route": "/guides",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 3740,
+        "bottom": 3792,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "راهنمای خرید، فروش و اجاره ملک | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/valuation",
+      "formInteractions": {
+        "validation": "متراژ را بین ۳۰ تا ۲٬۰۰۰ متر وارد کنید."
+      }
+    },
+    {
+      "route": "/valuation",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "ارزیابی اولیه قیمت ملک | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/tools",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 4110,
+        "bottom": 4162,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "ابزارهای مالی املاک هیرمند | محاسبه‌گرهای رهن، کمیسیون، سود و وام"
+    },
+    {
+      "route": "/tools/commission",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": {
+            "tag": "INPUT",
+            "fontSize": "16px",
+            "minHeight": "44px",
+            "height": "44px",
+            "transform": "none",
+            "rectHeight": 44
+          },
+          "tab": {
+            "tag": "BUTTON",
+            "fontSize": "11.2px",
+            "minHeight": "44px",
+            "height": "44px",
+            "transform": "none",
+            "rectHeight": 44
+          },
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "محاسبه‌گر کمیسیون ملک | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/tools/deposit",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": {
+            "tag": "INPUT",
+            "fontSize": "16px",
+            "minHeight": "44px",
+            "height": "44px",
+            "transform": "none",
+            "rectHeight": 44
+          },
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "محاسبه‌گر سود سپرده | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/tools/loan",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": {
+            "tag": "INPUT",
+            "fontSize": "16px",
+            "minHeight": "44px",
+            "height": "44px",
+            "transform": "none",
+            "rectHeight": 44
+          },
+          "tab": {
+            "tag": "BUTTON",
+            "fontSize": "11.2px",
+            "minHeight": "44px",
+            "height": "44px",
+            "transform": "none",
+            "rectHeight": 44
+          },
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "محاسبه‌گر اقساط وام | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/tools/rahn-rent",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "محاسبه‌گر رهن به اجاره | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/budget-match",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 5083,
+        "bottom": 5135,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "بودجه‌یاب املاک هیرمند | پیدا کردن فایل متناسب با بودجه"
+    },
+    {
+      "route": "/smart-search",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 2630,
+        "bottom": 2682,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "جستجوی هوشمند ملک | املاک هیرمند"
+    },
+    {
+      "route": "/consultants",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 3184,
+        "bottom": 3236,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "مشاورین املاک هیرمند | تیم فروش و مشاوره ملک در اصفهان"
+    },
+    {
+      "route": "/card",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "کارت ویزیت دیجیتال | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/nearby",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 2729,
+        "bottom": 2781,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "فایل‌های نزدیک من | املاک هیرمند"
+    },
+    {
+      "route": "/submit-property",
+      "formInteractions": {
+        "validation": "نام مالک را وارد کنید.",
+        "submissionBlocked": true
+      }
+    },
+    {
+      "route": "/submit-property",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "ثبت کامل ملک توسط مالک | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/request-property",
+      "formInteractions": {
+        "validation": "نام را وارد کنید.",
+        "success": true,
+        "trackingTokenPresent": true
+      }
+    },
+    {
+      "route": "/request-property",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 3306,
+        "bottom": 3358,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/persian-date-picker-Chw94eNX.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "درخواست ملک | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/file-code",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "یافتن فایل با کد | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/favorites",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 5495,
+        "bottom": 5547,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/favorites-C1pE8UpQ.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "فایل‌های ذخیره‌شده | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/compare",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 2467,
+        "bottom": 2519,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "مقایسه فایل‌ها | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/my-hirmand",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 3507,
+        "bottom": 3559,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/property-feature-enhancements-BiU0MLa7.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "پرونده‌های من | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/notifications",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 2815,
+        "bottom": 2867,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "مرکز اعلان‌ها | املاک هیرمند"
+    },
+    {
+      "route": "/tracking",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 3376,
+        "bottom": 3428,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "ثبت قرارداد و کد رهگیری | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/request-tracking",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 3015,
+        "bottom": 3067,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/request-tracking-XMKHGAdt.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "املاک هیرمند | خرید، فروش، رهن و اجاره ملک در اصفهان"
+    },
+    {
+      "route": "/staff-agreement",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 17726,
+        "bottom": 17778,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "Employee Mobile Device Use Agreement | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/staff",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/property-feature-enhancements-BiU0MLa7.css",
+            "http://127.0.0.1:4150/assets/persian-date-picker-Chw94eNX.css",
+            "http://127.0.0.1:4150/assets/admin-properties-page-CHRZhIQs.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "پنل کارکنان | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/areas/درچه",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 6023,
+        "bottom": 6075,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/area-detail-BigQGZjv.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "املاک درچه اصفهان | خرید، فروش و اجاره | هیرمند"
+    },
+    {
+      "route": "/consultants/responsive-smoke-consultant",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 122,
+        "right": 238,
+        "top": 2174,
+        "bottom": 2226,
+        "width": 115,
+        "height": 52,
+        "position": "static"
+      },
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/properties-hirmand-signature-B7j4fIlU.css",
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "مشاور پیدا نشد | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/admin-mobile-management/responsive-smoke-employee",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/admin-mobile-management-BvwpFk97.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "مدیریت تلفن همراه — responsive-smoke-employee | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/admin",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/property-feature-enhancements-BiU0MLa7.css",
+            "http://127.0.0.1:4150/assets/persian-date-picker-Chw94eNX.css",
+            "http://127.0.0.1:4150/assets/admin-properties-page-CHRZhIQs.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "مدیریت فایل‌ها | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/admin-mobile-management",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": null,
+      "propertyGallery": null,
+      "breadcrumb": null,
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/mobile-responsive-hardening-D4q4bHvr.css",
+            "http://127.0.0.1:4150/assets/properties-mobile-reference-BjkYWVru.css",
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/admin-mobile-management-BvwpFk97.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "مدیریت تلفن همراه | گروه مشاورین املاک هیرمند"
+    },
+    {
+      "route": "/properties/qa-apartment-long-title",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0,
+        "position": "static"
+      },
+      "propertyGallery": {
+        "main": {
+          "width": 318,
+          "height": 252,
+          "left": 21,
+          "right": 339,
+          "top": 147,
+          "bottom": 399
+        },
+        "stage": {
+          "width": 316,
+          "height": 250,
+          "left": 22,
+          "right": 338,
+          "ratio": 1.264
+        },
+        "media": {
+          "width": 316,
+          "height": 250,
+          "objectFit": "contain",
+          "visible": true
+        },
+        "thumb": {
+          "width": 52,
+          "height": 48
+        },
+        "rail": {
+          "position": "absolute",
+          "bounds": {
+            "left": 274,
+            "right": 336,
+            "top": 152,
+            "bottom": 328,
+            "width": 62,
+            "height": 176
+          },
+          "display": "flex",
+          "flexDirection": "column",
+          "gridAutoFlow": "row",
+          "overflowX": "hidden",
+          "overflowY": "auto",
+          "scrollWidth": 60,
+          "clientWidth": 60,
+          "scrollHeight": 326,
+          "clientHeight": 174,
+          "thumbRects": [
+            {
+              "left": 279,
+              "right": 331,
+              "top": 153,
+              "bottom": 201,
+              "width": 52,
+              "height": 48
+            },
+            {
+              "left": 279,
+              "right": 331,
+              "top": 207,
+              "bottom": 255,
+              "width": 52,
+              "height": 48
+            },
+            {
+              "left": 279,
+              "right": 331,
+              "top": 261,
+              "bottom": 309,
+              "width": 52,
+              "height": 48
+            },
+            {
+              "left": 279,
+              "right": 331,
+              "top": 315,
+              "bottom": 363,
+              "width": 52,
+              "height": 48
+            }
+          ]
+        },
+        "openButton": {
+          "width": 104,
+          "height": 44,
+          "left": 30,
+          "right": 134,
+          "top": 156,
+          "bottom": 200
+        },
+        "navButtons": [
+          {
+            "width": 44,
+            "height": 44,
+            "left": 286,
+            "right": 330,
+            "top": 344,
+            "bottom": 388
+          },
+          {
+            "width": 44,
+            "height": 44,
+            "left": 82,
+            "right": 126,
+            "top": 344,
+            "bottom": 388
+          }
+        ],
+        "videoControls": []
+      },
+      "breadcrumb": {
+        "height": 40,
+        "overlap": false,
+        "titleOverlap": false,
+        "items": [
+          {
+            "tag": "a",
+            "text": "خانه",
+            "left": 312,
+            "right": 333,
+            "top": 96,
+            "bottom": 116,
+            "width": 21,
+            "height": 20,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "svg",
+            "text": "",
+            "left": 289,
+            "right": 304,
+            "top": 99,
+            "bottom": 114,
+            "width": 15,
+            "height": 15,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "a",
+            "text": "فایل‌های ملکی",
+            "left": 213,
+            "right": 281,
+            "top": 96,
+            "bottom": 116,
+            "width": 68,
+            "height": 20,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "svg",
+            "text": "",
+            "left": 190,
+            "right": 205,
+            "top": 99,
+            "bottom": 114,
+            "width": 15,
+            "height": 15,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "span",
+            "text": "آپارتمان دوخوابه نوساز با نورگیری عا",
+            "left": 27,
+            "right": 182,
+            "top": 96,
+            "bottom": 116,
+            "width": 155,
+            "height": 20,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          }
+        ]
+      },
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/property-feature-enhancements-BiU0MLa7.css",
+            "http://127.0.0.1:4150/assets/persian-date-picker-Chw94eNX.css",
+            "http://127.0.0.1:4150/assets/properties-CTLT1Yia.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "آپارتمان دوخوابه نوساز با نورگیری عالی و دسترسی مناسب در محلهٔ آزمایشی هیرمند | خرید آپارتمان در محلهٔ آزمایشی | هیرمند"
+    },
+    {
+      "route": "/file/pcard-fixture-001",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0,
+        "position": "static"
+      },
+      "propertyGallery": {
+        "main": {
+          "width": 318,
+          "height": 252,
+          "left": 21,
+          "right": 339,
+          "top": 147,
+          "bottom": 399
+        },
+        "stage": {
+          "width": 316,
+          "height": 250,
+          "left": 22,
+          "right": 338,
+          "ratio": 1.264
+        },
+        "media": {
+          "width": 316,
+          "height": 250,
+          "objectFit": "contain",
+          "visible": true
+        },
+        "thumb": {
+          "width": 52,
+          "height": 48
+        },
+        "rail": {
+          "position": "absolute",
+          "bounds": {
+            "left": 274,
+            "right": 336,
+            "top": 152,
+            "bottom": 328,
+            "width": 62,
+            "height": 176
+          },
+          "display": "flex",
+          "flexDirection": "column",
+          "gridAutoFlow": "row",
+          "overflowX": "hidden",
+          "overflowY": "auto",
+          "scrollWidth": 60,
+          "clientWidth": 60,
+          "scrollHeight": 326,
+          "clientHeight": 174,
+          "thumbRects": [
+            {
+              "left": 279,
+              "right": 331,
+              "top": 153,
+              "bottom": 201,
+              "width": 52,
+              "height": 48
+            },
+            {
+              "left": 279,
+              "right": 331,
+              "top": 207,
+              "bottom": 255,
+              "width": 52,
+              "height": 48
+            },
+            {
+              "left": 279,
+              "right": 331,
+              "top": 261,
+              "bottom": 309,
+              "width": 52,
+              "height": 48
+            },
+            {
+              "left": 279,
+              "right": 331,
+              "top": 315,
+              "bottom": 363,
+              "width": 52,
+              "height": 48
+            }
+          ]
+        },
+        "openButton": {
+          "width": 104,
+          "height": 44,
+          "left": 30,
+          "right": 134,
+          "top": 156,
+          "bottom": 200
+        },
+        "navButtons": [
+          {
+            "width": 44,
+            "height": 44,
+            "left": 286,
+            "right": 330,
+            "top": 344,
+            "bottom": 388
+          },
+          {
+            "width": 44,
+            "height": 44,
+            "left": 82,
+            "right": 126,
+            "top": 344,
+            "bottom": 388
+          }
+        ],
+        "videoControls": []
+      },
+      "breadcrumb": {
+        "height": 40,
+        "overlap": false,
+        "titleOverlap": false,
+        "items": [
+          {
+            "tag": "a",
+            "text": "خانه",
+            "left": 312,
+            "right": 333,
+            "top": 96,
+            "bottom": 116,
+            "width": 21,
+            "height": 20,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "svg",
+            "text": "",
+            "left": 289,
+            "right": 304,
+            "top": 99,
+            "bottom": 114,
+            "width": 15,
+            "height": 15,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "a",
+            "text": "فایل‌های ملکی",
+            "left": 213,
+            "right": 281,
+            "top": 96,
+            "bottom": 116,
+            "width": 68,
+            "height": 20,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "svg",
+            "text": "",
+            "left": 190,
+            "right": 205,
+            "top": 99,
+            "bottom": 114,
+            "width": 15,
+            "height": 15,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "span",
+            "text": "آپارتمان دوخوابه نوساز با نورگیری عا",
+            "left": 27,
+            "right": 182,
+            "top": 96,
+            "bottom": 116,
+            "width": 155,
+            "height": 20,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          }
+        ]
+      },
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/property-feature-enhancements-BiU0MLa7.css",
+            "http://127.0.0.1:4150/assets/persian-date-picker-Chw94eNX.css",
+            "http://127.0.0.1:4150/assets/properties-CTLT1Yia.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "آپارتمان دوخوابه نوساز با نورگیری عالی و دسترسی مناسب در محلهٔ آزمایشی هیرمند | خرید آپارتمان در محلهٔ آزمایشی | هیرمند"
+    },
+    {
+      "route": "/v/qa-apartment-long-title/pcard-fixture-001",
+      "viewport": 360,
+      "viewportHeight": 640,
+      "rootWidth": 360,
+      "overflow": 0,
+      "pointerCoarse": true,
+      "offenders": [],
+      "brokenImages": [],
+      "brokenWords": [],
+      "smallTargets": [],
+      "primaryTargets": [],
+      "undersizedInputText": [],
+      "musicDock": null,
+      "floatingContact": {
+        "left": 0,
+        "right": 0,
+        "top": 0,
+        "bottom": 0,
+        "width": 0,
+        "height": 0,
+        "position": "static"
+      },
+      "propertyGallery": {
+        "main": {
+          "width": 318,
+          "height": 252,
+          "left": 21,
+          "right": 339,
+          "top": 147,
+          "bottom": 399
+        },
+        "stage": {
+          "width": 316,
+          "height": 250,
+          "left": 22,
+          "right": 338,
+          "ratio": 1.264
+        },
+        "media": {
+          "width": 316,
+          "height": 250,
+          "objectFit": "contain",
+          "visible": true
+        },
+        "thumb": {
+          "width": 52,
+          "height": 48
+        },
+        "rail": {
+          "position": "absolute",
+          "bounds": {
+            "left": 274,
+            "right": 336,
+            "top": 152,
+            "bottom": 328,
+            "width": 62,
+            "height": 176
+          },
+          "display": "flex",
+          "flexDirection": "column",
+          "gridAutoFlow": "row",
+          "overflowX": "hidden",
+          "overflowY": "auto",
+          "scrollWidth": 60,
+          "clientWidth": 60,
+          "scrollHeight": 326,
+          "clientHeight": 174,
+          "thumbRects": [
+            {
+              "left": 279,
+              "right": 331,
+              "top": 153,
+              "bottom": 201,
+              "width": 52,
+              "height": 48
+            },
+            {
+              "left": 279,
+              "right": 331,
+              "top": 207,
+              "bottom": 255,
+              "width": 52,
+              "height": 48
+            },
+            {
+              "left": 279,
+              "right": 331,
+              "top": 261,
+              "bottom": 309,
+              "width": 52,
+              "height": 48
+            },
+            {
+              "left": 279,
+              "right": 331,
+              "top": 315,
+              "bottom": 363,
+              "width": 52,
+              "height": 48
+            }
+          ]
+        },
+        "openButton": {
+          "width": 104,
+          "height": 44,
+          "left": 30,
+          "right": 134,
+          "top": 156,
+          "bottom": 200
+        },
+        "navButtons": [
+          {
+            "width": 44,
+            "height": 44,
+            "left": 286,
+            "right": 330,
+            "top": 344,
+            "bottom": 388
+          },
+          {
+            "width": 44,
+            "height": 44,
+            "left": 82,
+            "right": 126,
+            "top": 344,
+            "bottom": 388
+          }
+        ],
+        "videoControls": []
+      },
+      "breadcrumb": {
+        "height": 40,
+        "overlap": false,
+        "titleOverlap": false,
+        "items": [
+          {
+            "tag": "a",
+            "text": "خانه",
+            "left": 312,
+            "right": 333,
+            "top": 96,
+            "bottom": 116,
+            "width": 21,
+            "height": 20,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "svg",
+            "text": "",
+            "left": 289,
+            "right": 304,
+            "top": 99,
+            "bottom": 114,
+            "width": 15,
+            "height": 15,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "a",
+            "text": "فایل‌های ملکی",
+            "left": 213,
+            "right": 281,
+            "top": 96,
+            "bottom": 116,
+            "width": 68,
+            "height": 20,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "svg",
+            "text": "",
+            "left": 190,
+            "right": 205,
+            "top": 99,
+            "bottom": 114,
+            "width": 15,
+            "height": 15,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          },
+          {
+            "tag": "span",
+            "text": "آپارتمان دوخوابه نوساز با نورگیری عا",
+            "left": 27,
+            "right": 182,
+            "top": 96,
+            "bottom": 116,
+            "width": 155,
+            "height": 20,
+            "fontSize": "12px",
+            "whiteSpace": "nowrap"
+          }
+        ]
+      },
+      "formControls": [],
+      "choiceControls": [],
+      "undersizedButtons": [],
+      "touchContractDiagnostics": {
+        "stylesheetLoaded": true,
+        "finance": {
+          "input": null,
+          "tab": null,
+          "stylesheets": [
+            "http://127.0.0.1:4150/assets/music-player-UKDJogNa.css",
+            "http://127.0.0.1:4150/assets/site-mobile-touch-contract-PCwdb1BI.css",
+            "http://127.0.0.1:4150/assets/index-CIsYJosu.css",
+            "http://127.0.0.1:4150/assets/property-feature-enhancements-BiU0MLa7.css",
+            "http://127.0.0.1:4150/assets/persian-date-picker-Chw94eNX.css",
+            "http://127.0.0.1:4150/assets/properties-CTLT1Yia.css"
+          ]
+        }
+      },
+      "homeMusicDock": null,
+      "filterSidebar": null,
+      "title": "آپارتمان دوخوابه نوساز با نورگیری عالی و دسترسی مناسب در محلهٔ آزمایشی هیرمند | خرید آپارتمان در محلهٔ آزمایشی | هیرمند"
+    }
+  ]
+}

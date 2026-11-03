@@ -2315,3 +2315,155 @@
     overflow-wrap: anywhere !important;
   }
 }
+
+/* Short landscape phones and compact tablets need a shallow gallery row so the
+   fixed contact rail cannot cover the second thumbnail or the image controls. */
+@media (orientation: landscape) and (max-height: 420px) and (pointer: coarse) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 72px !important;
+    grid-template-rows: 170px !important;
+    grid-template-areas: "main thumbs" !important;
+    align-items: start !important;
+    gap: 8px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: 180px !important;
+    overflow: hidden !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-main.hd-gallery-main {
+    grid-area: main !important;
+    width: 100% !important;
+    height: 170px !important;
+    min-height: 0 !important;
+    max-height: 170px !important;
+    aspect-ratio: auto !important;
+    overflow: hidden !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-main.hd-gallery-main > .hd-gallery-stage {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    aspect-ratio: auto !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-thumbs.hd-gallery-thumbs {
+    position: relative !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    grid-area: thumbs !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 72px !important;
+    min-width: 72px !important;
+    max-width: 72px !important;
+    box-sizing: border-box !important;
+    height: 170px !important;
+    max-height: 170px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-thumbs.hd-gallery-thumbs > .hd-gallery-thumb {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    grid-template-areas: "preview" !important;
+    gap: 0 !important;
+    flex: 0 0 72px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 72px !important;
+    min-height: 72px !important;
+    aspect-ratio: 1 / 1 !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-thumbs.hd-gallery-thumbs > .hd-gallery-thumbs-heading,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-thumbs.hd-gallery-thumbs > .hd-gallery-thumb > .hd-gallery-thumb-info,
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-thumbs.hd-gallery-thumbs > .hd-gallery-thumb > .hd-gallery-thumb-status {
+    display: none !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-thumbs.hd-gallery-thumbs > .hd-gallery-thumb > .hd-gallery-thumb-preview {
+    grid-area: preview !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+  }
+}
+
+/* Very short landscape phones (360 CSS px tall) have a taller fixed action
+   dock relative to the viewport. Reduce the gallery row further so scrolling
+   the second thumbnail into view still leaves a clear gap above that dock. */
+@media (orientation: landscape) and (max-height: 380px) and (pointer: coarse) {
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery {
+    grid-template-rows: 140px !important;
+    max-height: 150px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-main.hd-gallery-main {
+    height: 140px !important;
+    max-height: 140px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-thumbs.hd-gallery-thumbs {
+    height: 140px !important;
+    max-height: 140px !important;
+  }
+
+  html body:has(main#top.property-detail-page.hd-property-detail-v2)
+  main#top.property-detail-page.hd-property-detail-v2
+  div.property-gallery-wrap.hd-gallery-wrap > div.property-gallery.hd-gallery
+  > div.property-gallery-thumbs.hd-gallery-thumbs > .hd-gallery-thumb {
+    scroll-margin-block-end: 20px !important;
+  }
+}

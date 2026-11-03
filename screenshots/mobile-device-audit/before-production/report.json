@@ -1,0 +1,412 @@
+{
+  "generatedAt": "2026-11-03T09:07:12.089Z",
+  "baseUrl": "https://hirmandrealestate.ir",
+  "source": "live production before the pending responsive-audit changes are merged",
+  "browserEngine": "Chromium",
+  "profiles": [
+    {
+      "id": "galaxy-j7-pro",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "deviceScaleFactor": 3,
+      "isMobile": true,
+      "hasTouch": true,
+      "userAgent": "Mozilla/5.0 (Linux; Android 9; SM-J730F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
+    },
+    {
+      "id": "iphone-13",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 3,
+      "isMobile": true,
+      "hasTouch": true,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "id": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "isMobile": false,
+      "hasTouch": false,
+      "userAgent": "Chromium default desktop user agent"
+    }
+  ],
+  "routes": [
+    {
+      "id": "home",
+      "path": "/"
+    },
+    {
+      "id": "properties",
+      "path": "/properties"
+    },
+    {
+      "id": "property-detail",
+      "path": "/properties/%D8%A2%D9%BE%D8%A7%D8%B1%D8%AA%D9%85%D8%A7%D9%86-%D8%B5%D9%81%D8%B1-%D8%B2%DB%8C%D8%B1%D9%82%DB%8C%D9%85%D8%AA-%D9%85%D9%86%D8%B7%D9%82%D9%87-%D8%B4%D9%87%D8%B1%DA%A9-%D9%85%D9%88%D9%84%D9%88%DB%8C-%D8%B1%D9%88%D8%A8%D8%B1%D9%88%D8%B3%DB%8C%D9%85%D8%B1%D8%BA-a6fd8bb8"
+    },
+    {
+      "id": "budget-match",
+      "path": "/budget-match"
+    },
+    {
+      "id": "submit-property",
+      "path": "/submit-property"
+    }
+  ],
+  "checks": 15,
+  "failureCount": 0,
+  "results": [
+    {
+      "profile": "galaxy-j7-pro",
+      "route": "/",
+      "status": 200,
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (Linux; Android 9; SM-J730F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+      "geometry": {
+        "viewportWidth": 360,
+        "viewportHeight": 640,
+        "documentWidth": 360,
+        "documentHeight": 8105,
+        "horizontalOverflow": false,
+        "clientWidth": 360
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/home-360x640.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "galaxy-j7-pro",
+      "route": "/properties",
+      "status": 200,
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (Linux; Android 9; SM-J730F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+      "geometry": {
+        "viewportWidth": 360,
+        "viewportHeight": 640,
+        "documentWidth": 360,
+        "documentHeight": 4071,
+        "horizontalOverflow": false,
+        "clientWidth": 360
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/properties-360x640.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "galaxy-j7-pro",
+      "route": "/properties/%D8%A2%D9%BE%D8%A7%D8%B1%D8%AA%D9%85%D8%A7%D9%86-%D8%B5%D9%81%D8%B1-%D8%B2%DB%8C%D8%B1%D9%82%DB%8C%D9%85%D8%AA-%D9%85%D9%86%D8%B7%D9%82%D9%87-%D8%B4%D9%87%D8%B1%DA%A9-%D9%85%D9%88%D9%84%D9%88%DB%8C-%D8%B1%D9%88%D8%A8%D8%B1%D9%88%D8%B3%DB%8C%D9%85%D8%B1%D8%BA-a6fd8bb8",
+      "status": 200,
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (Linux; Android 9; SM-J730F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+      "geometry": {
+        "viewportWidth": 360,
+        "viewportHeight": 640,
+        "documentWidth": 360,
+        "documentHeight": 10331,
+        "horizontalOverflow": false,
+        "clientWidth": 360
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/property-detail-360x640.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "galaxy-j7-pro",
+      "route": "/budget-match",
+      "status": 200,
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (Linux; Android 9; SM-J730F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+      "geometry": {
+        "viewportWidth": 360,
+        "viewportHeight": 640,
+        "documentWidth": 360,
+        "documentHeight": 5367,
+        "horizontalOverflow": false,
+        "clientWidth": 360
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/budget-match-360x640.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "galaxy-j7-pro",
+      "route": "/submit-property",
+      "status": 200,
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (Linux; Android 9; SM-J730F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+      "geometry": {
+        "viewportWidth": 360,
+        "viewportHeight": 640,
+        "documentWidth": 360,
+        "documentHeight": 4974,
+        "horizontalOverflow": false,
+        "clientWidth": 360
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/submit-property-360x640.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "iphone-13",
+      "route": "/",
+      "status": 200,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      "geometry": {
+        "viewportWidth": 390,
+        "viewportHeight": 844,
+        "documentWidth": 390,
+        "documentHeight": 8583,
+        "horizontalOverflow": false,
+        "clientWidth": 390
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/home-390x844.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "iphone-13",
+      "route": "/properties",
+      "status": 200,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      "geometry": {
+        "viewportWidth": 390,
+        "viewportHeight": 844,
+        "documentWidth": 390,
+        "documentHeight": 3918,
+        "horizontalOverflow": false,
+        "clientWidth": 390
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/properties-390x844.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "iphone-13",
+      "route": "/properties/%D8%A2%D9%BE%D8%A7%D8%B1%D8%AA%D9%85%D8%A7%D9%86-%D8%B5%D9%81%D8%B1-%D8%B2%DB%8C%D8%B1%D9%82%DB%8C%D9%85%D8%AA-%D9%85%D9%86%D8%B7%D9%82%D9%87-%D8%B4%D9%87%D8%B1%DA%A9-%D9%85%D9%88%D9%84%D9%88%DB%8C-%D8%B1%D9%88%D8%A8%D8%B1%D9%88%D8%B3%DB%8C%D9%85%D8%B1%D8%BA-a6fd8bb8",
+      "status": 200,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      "geometry": {
+        "viewportWidth": 390,
+        "viewportHeight": 844,
+        "documentWidth": 390,
+        "documentHeight": 10058,
+        "horizontalOverflow": false,
+        "clientWidth": 390
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/property-detail-390x844.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "iphone-13",
+      "route": "/budget-match",
+      "status": 200,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      "geometry": {
+        "viewportWidth": 390,
+        "viewportHeight": 844,
+        "documentWidth": 390,
+        "documentHeight": 5227,
+        "horizontalOverflow": false,
+        "clientWidth": 390
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/budget-match-390x844.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "iphone-13",
+      "route": "/submit-property",
+      "status": 200,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "deviceScaleFactor": 3,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      "geometry": {
+        "viewportWidth": 390,
+        "viewportHeight": 844,
+        "documentWidth": 390,
+        "documentHeight": 4893,
+        "horizontalOverflow": false,
+        "clientWidth": 390
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/submit-property-390x844.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "desktop",
+      "route": "/",
+      "status": 200,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "userAgent": "Chromium default desktop user agent",
+      "geometry": {
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "documentWidth": 1425,
+        "documentHeight": 4492,
+        "horizontalOverflow": false,
+        "clientWidth": 1440
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/home-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "desktop",
+      "route": "/properties",
+      "status": 200,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "userAgent": "Chromium default desktop user agent",
+      "geometry": {
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "documentWidth": 1425,
+        "documentHeight": 2033,
+        "horizontalOverflow": false,
+        "clientWidth": 1440
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/properties-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "desktop",
+      "route": "/properties/%D8%A2%D9%BE%D8%A7%D8%B1%D8%AA%D9%85%D8%A7%D9%86-%D8%B5%D9%81%D8%B1-%D8%B2%DB%8C%D8%B1%D9%82%DB%8C%D9%85%D8%AA-%D9%85%D9%86%D8%B7%D9%82%D9%87-%D8%B4%D9%87%D8%B1%DA%A9-%D9%85%D9%88%D9%84%D9%88%DB%8C-%D8%B1%D9%88%D8%A8%D8%B1%D9%88%D8%B3%DB%8C%D9%85%D8%B1%D8%BA-a6fd8bb8",
+      "status": 200,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "userAgent": "Chromium default desktop user agent",
+      "geometry": {
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "documentWidth": 1425,
+        "documentHeight": 6960,
+        "horizontalOverflow": false,
+        "clientWidth": 1440
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/property-detail-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "desktop",
+      "route": "/budget-match",
+      "status": 200,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "userAgent": "Chromium default desktop user agent",
+      "geometry": {
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "documentWidth": 1425,
+        "documentHeight": 2541,
+        "horizontalOverflow": false,
+        "clientWidth": 1440
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/budget-match-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    },
+    {
+      "profile": "desktop",
+      "route": "/submit-property",
+      "status": 200,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "deviceScaleFactor": 1,
+      "userAgent": "Chromium default desktop user agent",
+      "geometry": {
+        "viewportWidth": 1440,
+        "viewportHeight": 900,
+        "documentWidth": 1425,
+        "documentHeight": 3327,
+        "horizontalOverflow": false,
+        "clientWidth": 1440
+      },
+      "screenshot": "screenshots/mobile-device-audit/before-production/submit-property-1440x900.png",
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedImages": []
+    }
+  ]
+}

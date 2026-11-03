@@ -23,6 +23,9 @@ const propertyScenarioToolsCss = fs.readFileSync(new URL("../src/property-scenar
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const responsiveSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
+const propertyCardLocalBrowser = fs.readFileSync(new URL("./property-card-local-browser.test.mjs", import.meta.url), "utf8");
+const mobileDeviceProfileSmoke = fs.readFileSync(new URL("./mobile-device-profile-smoke.mjs", import.meta.url), "utf8");
+const captureMobileAuditBaseline = fs.readFileSync(new URL("./capture-mobile-audit-baseline.mjs", import.meta.url), "utf8");
 const desktopCardVisualQa = fs.readFileSync(new URL("./desktop-property-card-visual-qa.mjs", import.meta.url), "utf8");
 const propertySearchBrowserSmoke = fs.readFileSync(new URL("./property-search-browser-smoke.mjs", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
@@ -32,13 +35,13 @@ const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.c
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
+const budgetMatcherCss = fs.readFileSync(new URL("../src/budget-matcher-redesign.css", import.meta.url), "utf8");
+const propertyGalleryMobileCss = fs.readFileSync(new URL("../src/property-gallery-mobile.css", import.meta.url), "utf8");
 const musicPlayerCss = fs.readFileSync(new URL("../src/music-player.css", import.meta.url), "utf8");
 const siteMobileTouchContractCss = fs.readFileSync(new URL("../src/site-mobile-touch-contract.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
-const propertiesHirmandSignatureCss = fs.readFileSync(new URL("../src/properties-hirmand-signature.css", import.meta.url), "utf8");
 const propertiesMobileReferenceCss = fs.readFileSync(new URL("../src/properties-mobile-reference.css", import.meta.url), "utf8");
 const propertyDetailV2Css = fs.readFileSync(new URL("../src/property-detail-page.css", import.meta.url), "utf8");
-const propertyGalleryMobileCss = fs.readFileSync(new URL("../src/property-gallery-mobile.css", import.meta.url), "utf8");
 const propertyDetailLuxuryCss = fs.readFileSync(new URL("../src/property-detail-page-luxury.css", import.meta.url), "utf8");
 const propertyExperienceRedesignCss = fs.readFileSync(new URL("../src/property-experience-redesign.css", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
@@ -82,6 +85,30 @@ testRunner.test("property marketplace mobile refinement stays scoped and below t
     "the browser matrix must reject mobile filter input text below 16px");
   assert.match(responsiveSmoke, /RESPONSIVE_SMOKE_J7_PRO[\s\S]*?width: 360, height: 640[\s\S]*?deviceScaleFactor: j7ProMode \? 3 : 1[\s\S]*?isMobile: j7ProMode[\s\S]*?hasTouch: j7ProMode/,
     "a dedicated J7 Pro profile must exercise 360x640, DPR 3 and mobile touch emulation");
+  assert.match(responsiveSmoke, /RESPONSIVE_SMOKE_J7_PRO_LANDSCAPE[\s\S]*?width: 640, height: 360/,
+    "the dedicated J7 Pro profile must also cover landscape at 640x360");
+});
+
+testRunner.test("budget matcher tablet hero keeps its brand copy wide enough to read", () => {
+  assert.match(budgetMatcherCss, /@media \(min-width:\s*761px\) and \(max-width:\s*980px\)[\s\S]*?\.budget-matcher \.budget-matcher-hero-mark\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+  assert.match(budgetMatcherCss, /\.budget-matcher \.budget-matcher-mark-copy > span,[\s\S]*?\.budget-matcher \.budget-matcher-mark-copy small\s*\{[^}]*max-width:\s*none !important;[^}]*text-align:\s*center !important;/s);
+});
+
+testRunner.test("property gallery stays above fixed actions on short landscape touch screens", () => {
+  assert.match(propertyGalleryMobileCss, /@media \(orientation:\s*landscape\) and \(max-height:\s*420px\) and \(pointer:\s*coarse\)[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\) 72px !important;[\s\S]*?height:\s*170px !important;/s);
+  assert.match(propertyGalleryMobileCss, /grid-template-columns:\s*minmax\(0,\s*1fr\) !important;[\s\S]*?grid-template-areas:\s*"preview" !important;[\s\S]*?\.hd-gallery-thumb-info,[\s\S]*?\.hd-gallery-thumb-status\s*\{\s*display:\s*none !important;/s,
+    "72px landscape thumbnails must use a single preview column and hide the wider desktop metadata columns");
+  assert.match(propertyGalleryMobileCss, /\.property-gallery-thumbs\.hd-gallery-thumbs\s*\{[^}]*position:\s*relative !important;[^}]*inset:\s*auto !important;[^}]*width:\s*72px !important;[^}]*padding:\s*0 !important;/s,
+    "the landscape thumbnail rail must return to the gallery grid instead of retaining the portrait absolute position");
+  assert.match(propertyGalleryMobileCss, /\.hd-gallery-thumb\s*\{[^}]*width:\s*100% !important;[^}]*min-width:\s*0 !important;[^}]*max-width:\s*100% !important;/s,
+    "landscape thumbnail cards must fit the rail content width without horizontal overflow");
+  assert.match(propertyGalleryMobileCss, /\.hd-gallery-thumb-preview\s*\{[^}]*width:\s*100% !important;[^}]*height:\s*100% !important;/s,
+    "the landscape thumbnail image must fill the compact touch target instead of retaining its 90px desktop width");
+  assert.match(propertyGalleryMobileCss, /@media \(orientation:\s*landscape\) and \(max-height:\s*380px\) and \(pointer:\s*coarse\)[\s\S]*?grid-template-rows:\s*140px !important;[\s\S]*?\.property-gallery-main\.hd-gallery-main[\s\S]*?height:\s*140px !important;[\s\S]*?\.property-gallery-thumbs\.hd-gallery-thumbs[\s\S]*?height:\s*140px !important;/s,
+    "360px-tall landscape phones must keep the thumbnail rail above the fixed contact dock");
+  assert.match(propertyGalleryMobileCss, /@media \(orientation:\s*landscape\) and \(max-height:\s*380px\) and \(pointer:\s*coarse\)[\s\S]*?\.hd-gallery-thumb\s*\{\s*scroll-margin-block-end:\s*20px !important;/s,
+    "scrolling a thumbnail into view must leave clearance before the fixed action dock on 360px-tall landscape phones");
+  assert.match(propertyGalleryMobileCss, /\.property-gallery-thumbs\.hd-gallery-thumbs > \.hd-gallery-thumb\s*\{[^}]*min-height:\s*72px !important;/s);
 });
 
 testRunner.test("property marketplace mobile cards keep full-width image ratios and touch actions", () => {
@@ -132,8 +159,8 @@ testRunner.test("property marketplace mobile controls retain working search, fil
     "the existing list-mode card styling must remain available on larger screens");
   assert.match(responsiveSmoke, /mobileMarketplace\.rootWidth\s*<\s*mobileMarketplace\.viewportWidth\s*-\s*1/,
     "the browser smoke must detect a root width that leaves a blank strip beside the mobile viewport");
-  assert.match(responsiveSmoke, /mobileMarketplace\.activeViewIndex\s*!==\s*0\s*\|\|\s*mobileMarketplace\.hasMap/,
-    "the browser smoke must verify that the initial mobile state shows listings rather than the map");
+  assert.match(responsiveSmoke, /mobileMarketplace\.activeViewIndex\s*!==\s*expectedInitialViewIndex\s*\|\|\s*mobileMarketplace\.hasMap/,
+    "the browser smoke must verify the correct list/grid default at phone and landscape-tablet widths");
   assert.match(responsiveSmoke, /activate\(viewButtons\.nth\(2\)\)[\s\S]*?activate\(viewButtons\.nth\(0\)\)/,
     "the browser smoke must exercise map-to-list mode switching with the active pointer input");
   assert.match(responsiveSmoke, /buttons\.length === 3 && buttons\[0\]\?\.getAttribute\("aria-pressed"\) === "true"/,
@@ -442,8 +469,8 @@ testRunner.test("property detail uses one consistent icon treatment for specific
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
-  assert.match(browserSmoke, /const viewportMatrix = j7ProMode \? \[\{ width: 360, height: 640 \}\] : \[/, "browser smoke must support a J7 Pro profile alongside the full width and height matrix");
-  for (const scenario of ["width: 320, height: 568", "width: 360, height: 640", "width: 375, height: 667", "width: 390, height: 844", "width: 412, height: 652", "width: 412, height: 732", "width: 430, height: 932", "width: 768, height: 1024", "width: 1024, height: 768", "width: 1280, height: 900", "width: 1440, height: 900", "width: 1920, height: 1080"]) {
+  assert.match(browserSmoke, /const viewportMatrix = j7ProMode \? \[j7ProViewport\] : \[/, "browser smoke must support dedicated J7 Pro profiles alongside the full width and height matrix");
+  for (const scenario of ["width: 320, height: 568", "width: 344, height: 640", "width: 360, height: 640", "width: 375, height: 667", "width: 384, height: 854", "width: 390, height: 844", "width: 393, height: 852", "width: 412, height: 652", "width: 412, height: 732", "width: 430, height: 932", "width: 480, height: 900", "width: 600, height: 960", "width: 768, height: 1024", "width: 820, height: 1180", "width: 1024, height: 768", "width: 1280, height: 900", "width: 1440, height: 900", "width: 1920, height: 1080"]) {
     assert.ok(browserSmoke.includes(scenario), `responsive matrix should include ${scenario}`);
   }
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
@@ -484,7 +511,7 @@ testRunner.test("rebuilt mobile property gallery keeps media uncropped and thumb
     "listing photos and videos must remain fully visible above legacy site-wide responsive rules");
   assert.match(propertyGalleryMobileCss, /\.hd-gallery-thumbs\s*\{[^}]*flex-direction:\s*column\s*!important/is,
     "the mobile gallery thumbnails should form a vertical list");
-  assert.match(propertyGalleryMobileCss, /\.property-gallery-wrap\.hd-gallery-wrap\s*>\s*\.property-gallery\.hd-gallery\s*>\s*\.property-gallery-thumbs\.hd-gallery-thumbs\s*\{[^}]*position:\s*absolute\s*!important/s,
+  assert.match(propertyGalleryMobileCss, /(?:div)?\.property-gallery-wrap\.hd-gallery-wrap\s*>\s*(?:div)?\.property-gallery\.hd-gallery\s*>\s*(?:div)?\.property-gallery-thumbs\.hd-gallery-thumbs\s*\{[^}]*position:\s*absolute\s*!important/s,
     "mobile thumbnails should float over the full-size image instead of adding page height");
   assert.match(propertyGalleryMobileCss, /\.property-gallery-thumbs\.hd-gallery-thumbs\s*\{[^}]*overflow-y:\s*auto\s*!important/s,
     "the compact thumbnail rail should scroll vertically to reach all property media");
@@ -599,9 +626,9 @@ testRunner.test("responsive browser smoke covers the required viewport matrix", 
   const pairs = [...matrix.matchAll(/width: (\d+), height: (\d+)/g)]
     .map((match) => [Number(match[1]), Number(match[2])]);
   const required = [
-    [320, 568], [360, 640], [375, 667], [390, 844],
+    [320, 568], [344, 640], [360, 640], [375, 667], [384, 854], [390, 844], [393, 852],
     [412, 652], [412, 732], [414, 896], [430, 932],
-    [768, 1024], [1024, 768],
+    [480, 900], [600, 960], [768, 1024], [820, 1180], [1024, 768],
     [1280, 900], [1440, 900], [1920, 1080],
   ];
   for (const [width, height] of required) {
@@ -611,6 +638,33 @@ testRunner.test("responsive browser smoke covers the required viewport matrix", 
     );
   }
   assert.match(responsiveSmoke, /await page\.setViewportSize\(\{ width, height \}\)/);
+  assert.match(responsiveSmoke, /const j7ProViewport = j7ProLandscapeMode \? \{ width: 640, height: 360 \} : \{ width: 360, height: 640 \}/);
+  assert.match(responsiveSmoke, /viewport: j7ProMode \? j7ProViewport : \{ width: 320, height: 900 \}[\s\S]*?screen: j7ProViewport/,
+    "dedicated J7 Pro emulation must set both screen and viewport so landscape media queries use the intended orientation");
+  assert.match(responsiveSmoke, /SM-J730F/);
+  assert.match(responsiveSmoke, /deviceEmulation:\s*\{[\s\S]*?browserEngine:\s*"Chromium"[\s\S]*?deviceScaleFactor:\s*j7ProMode \? 3 : 1/s);
+  assert.match(responsiveSmoke, /expectedInitialViewIndex = mobileMarketplace\.viewportWidth <= 620 \? 0 : 1/);
+  assert.match(responsiveSmoke, /thumbnailVisibility\.bottom > thumbnailVisibility\.overlayTop - 2/);
+  assert.match(packageJson, /"test:site-j7-pro-landscape":\s*"node scripts\/property-card-local-browser\.test\.mjs site-j7-pro-landscape"/);
+  const deviceCount = [...mobileDeviceProfileSmoke.matchAll(/\{ id: "[^"]+", name: "[^"]+", os:/g)].length;
+  assert.equal(deviceCount, 27, "the profile matrix must include all 27 requested handset models");
+  assert.match(mobileDeviceProfileSmoke, /for \(const orientation of selectedOrientations\)/);
+  assert.match(mobileDeviceProfileSmoke, /for \(const route of selectedRoutes\)/);
+  assert.match(mobileDeviceProfileSmoke, /deviceScaleFactor:\s*device\.dpr/);
+  assert.match(mobileDeviceProfileSmoke, /hasTouch:\s*true/);
+  assert.match(mobileDeviceProfileSmoke, /horizontalOverflow:\s*document\.documentElement\.scrollWidth\s*>\s*window\.innerWidth\s*\+\s*1/,
+    "the device matrix must compare document width to the layout viewport, not clientWidth which excludes RTL vertical scrollbars");
+  assert.match(captureMobileAuditBaseline, /horizontalOverflow:\s*document\.documentElement\.scrollWidth\s*>\s*window\.innerWidth\s*\+\s*1/,
+    "the production before/after baseline must use the same layout-viewport overflow metric as local device QA");
+  assert.match(mobileDeviceProfileSmoke, /captureScreenshots = process\.env\.QA_DEVICE_SCREENSHOTS !== "0"[\s\S]*?if \(captureScreenshots\)[\s\S]*?page\.screenshot/,
+    "metrics-only device verification must be able to avoid writing hundreds of redundant full-page screenshots");
+  assert.match(mobileDeviceProfileSmoke, /cardAudits\.some\(\(card\) => card\.actionCount < 8 \|\| card\.minWidth < 44 \|\| card\.minHeight < 44\)/,
+    "every property fixture card must independently expose eight touch-sized actions");
+  assert.match(mobileDeviceProfileSmoke, /thumbnailCount < 2[\s\S]*?expected a visible main gallery and at least two fixture thumbnails/,
+    "the property-detail device check must fail when the fixture gallery is missing or incomplete");
+  assert.match(mobileDeviceProfileSmoke, /galleryAudit\.previewWidth < 40 \|\| galleryAudit\.previewHeight < 40/,
+    "the property-detail device check must detect a clipped or collapsed thumbnail preview");
+  assert.match(packageJson, /"test:site-device-matrix":\s*"node scripts\/property-card-local-browser\.test\.mjs site-device-matrix"/);
   assert.match(responsiveSmoke, /viewportMatrix\.length/);
   assert.ok(responsiveSmoke.includes("`${routeFileName(route)}-${width}x${height}.png`"));
   assert.match(responsiveSmoke, /const fullRoutesMode = process\.env\.RESPONSIVE_SMOKE_FULL_ROUTES === "1"/,
@@ -989,7 +1043,7 @@ testRunner.test("mobile map result cards use the Hirmand navy-and-gold signature
 testRunner.test("responsive browser matrix covers the requested mobile, tablet, laptop and desktop widths", () => {
   const matrixStart = responsiveSmoke.indexOf("const viewportMatrix = j7ProMode ?");
   const matrix = responsiveSmoke.slice(matrixStart, responsiveSmoke.indexOf("const propertyId", matrixStart));
-  for (const width of [320, 360, 375, 390, 430, 768, 1024, 1280, 1366, 1440, 1920]) {
+  for (const width of [320, 344, 360, 375, 384, 390, 393, 412, 430, 480, 600, 768, 820, 1024, 1280, 1440]) {
     assert.ok(matrix.includes(`width: ${width},`), `missing responsive viewport width: ${width}px`);
   }
 });
@@ -1108,4 +1162,6 @@ testRunner.test("admin visual audit runs while the production Nitro server is al
   assert.ok(browserStep.indexOf("node scripts/admin-mutation-smoke.mjs") < browserStep.indexOf("npm run qa:admin-a11y"));
   assert.ok(browserStep.includes('QA_VIEWPORTS: "320x568,360x800,390x844,412x915,768x1024,1024x768,1440x900,1920x1080"'));
   assert.ok(adminAudit.includes('const OUT = process.env.QA_SCREENSHOT_DIR || "screenshots/admin";'));
+  assert.match(propertyCardLocalBrowser, /PGLITE_DATA_DIR:\s*dbDir/,
+    "admin visual audit must report the same isolated PGlite database used by the local Nitro server");
 });
