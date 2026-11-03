@@ -462,22 +462,16 @@ function SubmitPropertyPage() {
 
         <section className="customer-property-section">
           <div className="customer-property-section-head"><span>۶</span><div><h2>عکس و فیلم</h2><p>حداقل یک عکس لازم است؛ یک ویدئوی کوتاه هم می‌توانید اضافه کنید.</p></div></div>
-          <div
+          <input ref={inputRef} type="file" hidden multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif,video/mp4,video/webm,video/quicktime" onChange={(e)=>e.target.files&&void uploadFiles(e.target.files)}/>
+          <button
+            type="button"
             className={"customer-property-upload-zone"+(uploading?" is-busy":"")}
-            onClick={()=>!uploading&&inputRef.current?.click()}
-            onKeyDown={(event)=>{
-              if (uploading || (event.key !== "Enter" && event.key !== " ")) return;
-              event.preventDefault();
-              inputRef.current?.click();
-            }}
-            role="button"
-            tabIndex={0}
-            aria-disabled={uploading}
+            onClick={()=>inputRef.current?.click()}
+            disabled={uploading}
             aria-label="افزودن عکس و ویدئو"
           >
-            <input ref={inputRef} type="file" hidden multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif,video/mp4,video/webm,video/quicktime" onChange={(e)=>e.target.files&&void uploadFiles(e.target.files)}/>
             {uploading ? <><Loader2 size={26} className="customer-property-spin"/><strong>در حال آپلود… {progress.toLocaleString("fa-IR")}٪</strong><small dir="ltr">{uploadLabel}</small><div className="customer-property-progress"><span style={{width:Math.min(100,Math.max(0,progress))+"%"}}/></div></> : <><Upload size={28}/><strong>افزودن عکس و ویدئو</strong><small>حداکثر ۱۲ رسانه · هر فایل حداکثر ۲۵ مگابایت</small></>}
-          </div>
+          </button>
           {media.length ? <div className="customer-property-media-grid">{media.map((src,index)=><div className="customer-property-media" key={src}><button type="button" onClick={(e)=>{e.stopPropagation();setMedia((current)=>current.filter((item)=>item!==src));}} aria-label="حذف رسانه"><X size={15}/></button>{isVideoUrl(src)?<><video src={src} controls muted preload="metadata"/><span><Film size={13}/> ویدئو</span></>:<><img src={src} alt={"تصویر ملک "+(index+1)}/><span><ImagePlus size={13}/> {index===0?"کاور":"تصویر "+(index+1).toLocaleString("fa-IR")}</span></>}</div>)}</div> : null}
         </section>
 

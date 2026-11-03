@@ -100,15 +100,12 @@ try {
           await page.waitForFunction(() => {
             const zone = document.querySelector(".customer-property-upload-zone");
             if (!zone) return false;
-            const reactPropsKey = Object.keys(zone).find((key) => key.startsWith("__reactProps$"));
-            const props = reactPropsKey ? zone[reactPropsKey] : null;
-            const input = zone.querySelector('input[type="file"]');
-            return typeof props?.onKeyDown === "function" && input instanceof HTMLInputElement && input.multiple;
+            const input = zone.closest("form")?.querySelector('input[type="file"]');
+            return zone instanceof HTMLButtonElement && zone.type === "button" && !zone.disabled && input instanceof HTMLInputElement && input.multiple;
           }, undefined, { timeout: 10_000 });
           for (const key of ["Enter", "Space"]) {
-            await uploadZone.focus();
             const chooserPromise = page.waitForEvent("filechooser", { timeout: 4_000 });
-            await page.keyboard.press(key);
+            await uploadZone.press(key);
             const chooser = await chooserPromise;
             if (!chooser.isMultiple()) failures.push(`${route}: ${key} opened a single-file picker instead of the multiple-media picker`);
           }
