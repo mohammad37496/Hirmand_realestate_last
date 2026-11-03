@@ -569,9 +569,24 @@ try {
     });
     assert.deepEqual(position, { x: 18, width: 390, bottom: 782 },
       `the desktop music dock must keep the same position and size on ${routePath}: ${JSON.stringify(position)}`);
-    await routeConsistencyPage.evaluate(() => {
-      document.documentElement.style.scrollBehavior = "auto";
-      window.scrollTo(0, document.documentElement.scrollHeight);
+    await routeConsistencyPage.evaluate(async () => {
+      const root = document.documentElement;
+      const scroller = document.scrollingElement || root;
+      root.style.scrollBehavior = "auto";
+      // Images and hydrated route sections can extend the document after the
+      // first scroll. Reposition at the end until the document height settles.
+      let previousHeight = -1;
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        scroller.scrollTop = scroller.scrollHeight;
+        window.scrollTo(0, scroller.scrollHeight);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const currentHeight = scroller.scrollHeight;
+        const atBottom = scroller.scrollTop + window.innerHeight >= currentHeight - 1;
+        if (atBottom && currentHeight === previousHeight) break;
+        previousHeight = currentHeight;
+      }
+      scroller.scrollTop = scroller.scrollHeight;
+      window.scrollTo(0, scroller.scrollHeight);
     });
     await routeConsistencyPage.waitForTimeout(100);
     const footerClearance = await routeConsistencyPage.evaluate(() => {
@@ -581,11 +596,17 @@ try {
       const playerBounds = player?.getBoundingClientRect();
       return {
         paddingBottom: Number.parseFloat(getComputedStyle(document.body).paddingBottom) || 0,
+        scrollY: Math.round(window.scrollY),
+        scrollTop: Math.round((document.scrollingElement || document.documentElement).scrollTop),
+        viewportHeight: window.innerHeight,
+        documentHeight: document.documentElement.scrollHeight,
+        atBottom: window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1,
         footerBottom: footerBounds ? Math.round(footerBounds.bottom) : null,
         playerTop: playerBounds ? Math.round(playerBounds.top) : null,
         overlaps: Boolean(footerBounds && playerBounds && footerBounds.bottom > playerBounds.top && footerBounds.top < playerBounds.bottom && footerBounds.right > playerBounds.left && footerBounds.left < playerBounds.right),
       };
     });
+    assert.ok(footerClearance.atBottom, `desktop footer clearance must be measured at the true scroll end: ${JSON.stringify(footerClearance)}`);
     assert.ok(footerClearance.paddingBottom >= 138,
       `desktop page must reserve the dock height, bottom gap, and clearance: ${JSON.stringify(footerClearance)}`);
     assert.equal(footerClearance.overlaps, false,
