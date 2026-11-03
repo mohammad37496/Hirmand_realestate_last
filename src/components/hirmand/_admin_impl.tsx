@@ -571,6 +571,8 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
   const [busyRowId, setBusyRowId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerTriggerRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
   const [draftRestored, setDraftRestored] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -582,7 +584,8 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
   useOverlayDismiss({
     open: drawerOpen,
     onClose: closeDrawer,
-    initialFocusRef: drawerTriggerRef,
+    initialFocusRef: drawerCloseRef,
+    containerRef: drawerRef,
   });
 
   const navItems = useMemo(
@@ -2019,6 +2022,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
           />
           <div
             className="admin-drawer"
+            ref={drawerRef}
             role="dialog"
             aria-modal="true"
             aria-label="ناوبری مدیریت"
@@ -2027,6 +2031,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
               <button
                 type="button"
                 className="admin-icon-btn"
+                ref={drawerCloseRef}
                 style={{ marginInlineStart: "auto" }}
                 onClick={closeDrawer}
                 aria-label="بستن منو"
