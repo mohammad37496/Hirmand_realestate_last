@@ -4,3 +4,4 @@ import "./compare-table-contract.test.mjs";
 import "./smart-search-pagination.test.mjs";
 import "./nearby-pagination.test.mjs";
 import "./device-profile-assertions.test.mjs";
+import "./property-detail-share-browser.test.mjs";

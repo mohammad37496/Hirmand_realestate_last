@@ -727,6 +727,7 @@ export function PropertyDetailView({
   };
 
   const copyPageUrl = async () => {
+    if (!property) return;
     const url = window.location.href;
     const shareData = {
       title: property.title,

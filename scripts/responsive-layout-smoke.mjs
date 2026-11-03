@@ -134,6 +134,24 @@ try {
       hasTouch: j7ProMode || process.env.RESPONSIVE_SMOKE_TOUCH === "1",
       ...(j7ProMode ? { userAgent: j7ProUserAgent } : {}),
     });
+    if (route === `/properties/${encodeURIComponent(propertySlug)}` && touchInputMode) {
+      await page.addInitScript(() => {
+        window.__qaShareCalls = [];
+        window.__qaClipboardWrites = [];
+        window.__qaShareMode = "fallback";
+        Object.defineProperty(navigator, "share", {
+          configurable: true,
+          value: async (data) => {
+            window.__qaShareCalls.push(data);
+            if (window.__qaShareMode === "fallback") throw new DOMException("No native share sheet", "NotAllowedError");
+          },
+        });
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: { writeText: async (value) => window.__qaClipboardWrites.push(value) },
+        });
+      });
+    }
     page.setDefaultTimeout(12_000);
     const pageErrors = [];
     const consoleErrors = [];
@@ -237,6 +255,29 @@ try {
           }
         } else {
           failures.push(`${route}: media upload control was not visible for keyboard interaction`);
+        }
+      }
+      if (route === `/properties/${encodeURIComponent(propertySlug)}` && touchInputMode) {
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        const shareButton = page.locator('.hd-mobile-actions button[aria-label="کپی پیوند فایل"]');
+        try {
+          await shareButton.waitFor({ state: "visible", timeout: 5_000 });
+          const pageUrl = page.url();
+          await activate(shareButton);
+          await page.waitForFunction(() => window.__qaShareCalls?.length === 1 && window.__qaClipboardWrites?.length === 1);
+          const fallback = await page.evaluate(() => ({ share: window.__qaShareCalls[0], copied: window.__qaClipboardWrites[0] }));
+          if (fallback.share?.url !== fallback.copied || fallback.copied !== pageUrl) {
+            failures.push(`${route}: native-share rejection did not fall back to copying the exact property URL`);
+          }
+          await page.evaluate(() => { window.__qaShareMode = "success"; });
+          await activate(shareButton);
+          await page.waitForFunction(() => window.__qaShareCalls?.length === 2);
+          const success = await page.evaluate(() => ({ share: window.__qaShareCalls[1], copies: window.__qaClipboardWrites.length }));
+          if (success.share?.url !== pageUrl || success.copies !== 1) {
+            failures.push(`${route}: successful native share unexpectedly copied or used a different URL`);
+          }
+        } catch (error) {
+          failures.push(`${route}: property share did not complete native and clipboard fallback paths: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
       // Vite can return a one-off 504 while it optimizes a lazily imported
