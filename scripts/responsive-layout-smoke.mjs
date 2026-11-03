@@ -100,8 +100,10 @@ try {
           await page.waitForFunction(() => {
             const zone = document.querySelector(".customer-property-upload-zone");
             if (!zone) return false;
+            const reactPropsKey = Object.keys(zone).find((key) => key.startsWith("__reactProps$"));
+            const props = reactPropsKey ? zone[reactPropsKey] : null;
             const input = zone.closest("form")?.querySelector('input[type="file"]');
-            return zone instanceof HTMLButtonElement && zone.type === "button" && !zone.disabled && input instanceof HTMLInputElement && input.multiple;
+            return zone instanceof HTMLButtonElement && zone.type === "button" && !zone.disabled && typeof props?.onClick === "function" && input instanceof HTMLInputElement && input.multiple;
           }, undefined, { timeout: 10_000 });
           for (const key of ["Enter", "Space"]) {
             const chooserPromise = page.waitForEvent("filechooser", { timeout: 4_000 });

@@ -13,6 +13,7 @@ test("property media upload can be opened with Enter and Space", () => {
   assert.match(zone, /inputRef\.current\?\.click\(\)/);
   assert.match(submission, /<input ref=\{inputRef\} type="file" hidden multiple[\s\S]*?<button\s+type="button"[\s\S]*?customer-property-upload-zone/);
   assert.match(responsiveSmoke, /zone\.closest\("form"\)\?\.querySelector\('input\[type="file"\]'\)/);
+  assert.match(responsiveSmoke, /typeof props\?\.onClick === "function"/);
   assert.match(responsiveSmoke, /route === "\/submit-property"[\s\S]*?for \(const key of \["Enter", "Space"\]\)[\s\S]*?waitForEvent\("filechooser"[\s\S]*?uploadZone\.press\(key\)/);
   assert.match(responsiveSmoke, /if \(!chooser\.isMultiple\(\)\)[\s\S]*?await chooser\.setFiles\(\[\]\)/);
 });
