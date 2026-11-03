@@ -296,9 +296,11 @@ try {
     { width: 568, height: 320, touch: true },
     { width: 640, height: 360, touch: true },
     { width: 768, height: 900, touch: true },
+    { width: 768, height: 1024, touch: true },
     { width: 1024, height: 768, touch: true },
     { width: 1280, height: 400, touch: false },
     { width: 1280, height: 800, touch: false },
+    { width: 1440, height: 900, touch: false },
     { width: 1920, height: 1080, touch: false },
   ];
   const responsiveResults = [];
