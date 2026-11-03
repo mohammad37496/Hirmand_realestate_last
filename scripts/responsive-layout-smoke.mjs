@@ -231,6 +231,7 @@ try {
           }
 
           const smallTargets = [];
+          const mapTouchTargets = [];
           if (viewport <= 414) {
             for (const element of document.querySelectorAll("button,[role='button'],a.btn-gold,a.btn-outline,a.btn-ghost,.property-action,.pf-filter-btn,.pf-close,.menu-toggle")) {
               const style = getComputedStyle(element);
@@ -247,6 +248,22 @@ try {
                 });
               }
             }
+            for (const element of document.querySelectorAll(
+              ".pf-views button, .pf-map-controls button, .pf-map-marker, .pf-map-popup-close, .pf-map-popup > a, .pf-map-floating-head a, .pf-map-item-open",
+            )) {
+              const style = getComputedStyle(element);
+              if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+              const rect = element.getBoundingClientRect();
+              if (rect.width < 1 || rect.height < 1) continue;
+              mapTouchTargets.push({
+                element: element.tagName.toLowerCase() + (typeof element.className === "string" && element.className.trim()
+                  ? "." + element.className.trim().split(/\s+/).slice(0, 2).join(".")
+                  : ""),
+                width: Math.round(rect.width),
+                height: Math.round(rect.height),
+                accessibleName: (element.getAttribute("aria-label") || element.innerText || element.getAttribute("title") || "").trim(),
+              });
+            }
           }
 
           return {
@@ -256,6 +273,7 @@ try {
             offenders: offenders.slice(0, 8),
             brokenWords: brokenWords.slice(0, 8),
             smallTargets: smallTargets.slice(0, 8),
+            mapTouchTargets,
             title: document.title,
           };
         });
@@ -266,6 +284,16 @@ try {
         }
         if (metrics.brokenWords.length) {
           failures.push(`${route} @ ${width}px: text appears split letter-by-letter; elements=${JSON.stringify(metrics.brokenWords)}`);
+        }
+        if (route.split("?")[0] === "/properties" && width <= 414) {
+          const undersizedMapTargets = metrics.mapTouchTargets.filter((target) => target.width < 44 || target.height < 44);
+          const unlabeledMapTargets = metrics.mapTouchTargets.filter((target) => !target.accessibleName);
+          if (undersizedMapTargets.length) {
+            failures.push(`${route} @ ${width}px: map touch targets must be at least 44×44px; elements=${JSON.stringify(undersizedMapTargets)}`);
+          }
+          if (unlabeledMapTargets.length) {
+            failures.push(`${route} @ ${width}px: map controls need accessible names; elements=${JSON.stringify(unlabeledMapTargets)}`);
+          }
         }
 
         if ((screenshotRoutes.has(route) || route.startsWith("/properties/") || route.startsWith("/file/")) && screenshotWidths.has(width)) {

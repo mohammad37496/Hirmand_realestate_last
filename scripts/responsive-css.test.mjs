@@ -23,6 +23,7 @@ const propertyScenarioToolsCss = fs.readFileSync(new URL("../src/property-scenar
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
+const propertiesMap = fs.readFileSync(new URL("../src/components/hirmand/properties-map.tsx", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
 const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.css", import.meta.url), "utf8");
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
@@ -154,6 +155,33 @@ testRunner.test("compact property-detail actions keep touch-friendly hit areas o
   assert.match(documentPackCss, /\.property-document-reset\s*\{[^}]*min-height:\s*40px/s);
   assert.match(questionLogCss, /\.property-question-top button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px/s);
   assert.match(renovationTrackerCss, /\.property-renovation-row button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px/s);
+});
+
+testRunner.test("property view and map controls keep accessible names and 44px mobile targets", () => {
+  assert.match(propertiesRoute, /aria-label="نمایش فهرستی فایل‌ها" aria-pressed=\{viewMode === "list"\}/);
+  assert.match(propertiesRoute, /aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed=\{viewMode === "grid"\}/);
+  assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
+  const viewRule = responsiveCss.match(/\.pf-page \.pf-views button\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.match(viewRule, /min-width:\s*44px/i);
+  assert.match(viewRule, /min-height:\s*44px/i);
+  const markerRules = [...responsiveCss.matchAll(/\.pf-page \.pf-map-marker\s*\{([^}]*)\}/gis)];
+  const markerRule = markerRules.at(-1)?.[1] ?? "";
+  assert.match(markerRule, /min-width:\s*44px/i);
+  assert.match(markerRule, /min-height:\s*44px/i);
+  const popupCloseRule = propertiesDivarCss.match(/\.pf-map-popup-close\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.match(popupCloseRule, /width:\s*44px/i);
+  assert.match(popupCloseRule, /height:\s*44px/i);
+  assert.match(propertiesDivarCss, /\.pf-map-controls button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px/is);
+  assert.match(propertiesDivarCss, /\.pf-map-controls\s*\{\s*top:\s*58px/is);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-controls\s*\{\s*top:\s*56px/is);
+  assert.match(propertiesDivarCss, /\.pf-map-item-open\s*\{[^}]*min-height:\s*44px/is);
+  assert.match(propertiesDivarCss, /\.pf-map-popup > a\s*\{[^}]*min-height:\s*44px/is);
+  assert.match(propertiesDivarCss, /\.pf-map-floating-head a\s*\{\s*min-height:\s*44px/is);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-floating-head a\s*\{[^}]*min-height:\s*44px/is);
+  assert.match(propertiesMap, /aria-label="بستن اطلاعات فایل"/);
+  assert.match(browserSmoke, /\.pf-views button, \.pf-map-controls button, \.pf-map-marker, \.pf-map-popup-close, \.pf-map-popup > a/);
+  assert.match(browserSmoke, /target\.width < 44 \|\| target\.height < 44/);
+  assert.match(browserSmoke, /!target\.accessibleName/);
 });
 
 testRunner.test("responsive guardrails load after the older global styles", () => {
