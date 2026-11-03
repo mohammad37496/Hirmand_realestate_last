@@ -400,6 +400,15 @@ test("browser-smoke wires the guard and verdict helpers", () => {
   );
 });
 
+test("property navigation waits for the detail render before sampling expected title text", () => {
+  const src = readFileSync(join(TEMPLATE_ROOT, "scripts/browser-smoke.mjs"), "utf8");
+  const clickIndex = src.indexOf("await link.click()");
+  const detailIndex = src.indexOf("const clickedDetail = await readDetailState()", clickIndex);
+  const bodyTextIndex = src.indexOf('propertyPage.locator("body").innerText()', clickIndex);
+  assert.ok(clickIndex >= 0 && detailIndex > clickIndex && bodyTextIndex > detailIndex,
+    "body text must be sampled only after the routed property detail has rendered");
+});
+
 test("browser-smoke file I/O only touches guarded paths", () => {
   const src = readFileSync(join(TEMPLATE_ROOT, "scripts/browser-smoke.mjs"), "utf8");
   assert.doesNotMatch(src, /(?:writeFileSync|readFileSync|statSync|realpathSync)\(\s*["'`]/);
