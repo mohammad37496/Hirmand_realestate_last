@@ -94,6 +94,21 @@ try {
       // Give the client enough time to hydrate before interacting with React controls.
       await page.waitForTimeout(500);
 
+      if (route === "/submit-property") {
+        const uploadZone = page.locator(".customer-property-upload-zone").first();
+        if (await uploadZone.isVisible().catch(() => false)) {
+          for (const key of ["Enter", "Space"]) {
+            await uploadZone.focus();
+            const chooserPromise = page.waitForEvent("filechooser", { timeout: 4_000 });
+            await page.keyboard.press(key);
+            const chooser = await chooserPromise;
+            if (!chooser.isMultiple()) failures.push(`${route}: ${key} opened a single-file picker instead of the multiple-media picker`);
+          }
+        } else {
+          failures.push(`${route}: media upload zone was not visible for keyboard interaction`);
+        }
+      }
+
       // Exercise the mobile filter drawer and neighborhood picker at 320px.
       if (route === "/properties") {
         const filterButton = page.locator(".pf-filter-btn").first();

@@ -56,7 +56,8 @@ test("command palette uses shared modal focus handling and restores the invoking
 });
 
 test("overlay focus regression test is part of the normal npm test suite", () => {
-  assert.match(packageJson.scripts.test, /scripts\/admin-overlay-focus\.test\.mjs/);
+  assert.match(packageJson.scripts.test, /npm run test:site-regressions/);
+  assert.match(packageJson.scripts["test:site-regressions"], /scripts\/admin-overlay-focus\.test\.mjs/);
   assert.equal(packageJson.scripts["test:admin-overlay-focus"], "node --test scripts/admin-overlay-focus.test.mjs");
 });
 

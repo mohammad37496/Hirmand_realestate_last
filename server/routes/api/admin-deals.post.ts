@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { adminDealCreateEnumsSchema, adminDealDocumentUpdateSchema, adminDealStatusUpdateSchema } from "@/lib/admin-deal-input";
 
 type DealStatus = "prospect"|"negotiation"|"agreement"|"contracted"|"completed"|"cancelled";
 type DealType = "sale"|"rent"|"mortgage"|"buy";
@@ -18,8 +19,7 @@ async function requireDealsPermission(event:H3Event){
 }
 const clean=(v:unknown,max=300)=>typeof v==="string"?v.trim().slice(0,max):"";
 function money(v:unknown){const raw=clean(v,40).replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[٬،,\s]/g,"");return raw&&/^\d{1,20}(?:\.\d+)?$/.test(raw)?raw:null;}
-const validStatus=(v:unknown):DealStatus=>["prospect","negotiation","agreement","contracted","completed","cancelled"].includes(String(v))?String(v) as DealStatus:"prospect";
-const validType=(v:unknown):DealType=>["sale","rent","mortgage","buy"].includes(String(v))?String(v) as DealType:"sale";
+function invalidDealEnum(message:string){throw createError({statusCode:400,statusMessage:message});}
 
 export default defineEventHandler(async event=>{
   setResponseHeader(event,"cache-control","no-store"); const claims=await requireDealsPermission(event);
@@ -42,18 +42,29 @@ export default defineEventHandler(async event=>{
   if(action==="create"){
     const title=clean(body.title,180), customerName=clean(body.customerName,120);
     if(!title||!customerName)throw createError({statusCode:400,statusMessage:"عنوان معامله و نام مشتری الزامی است."});
+    const enums=adminDealCreateEnumsSchema.safeParse({dealType:body.dealType,status:body.status});
+    if(!enums.success){
+      const field=enums.error.issues[0]?.path[0];
+      invalidDealEnum(field==="dealType"?"نوع معامله معتبر نیست.":"وضعیت معامله معتبر نیست.");
+    }
     const id=crypto.randomUUID();
     await sql.query("insert into admin_deals(id,lead_id,property_id,title,deal_type,status,customer_name,customer_phone,consultant,amount,commission,contract_number,contract_date,closing_date,notes,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)",
-      [id,clean(body.leadId,120)||null,clean(body.propertyId,120)||null,title,validType(body.dealType),validStatus(body.status),customerName,clean(body.customerPhone,40),clean(body.consultant,120),money(body.amount),money(body.commission),clean(body.contractNumber,120),clean(body.contractDate,20)||null,clean(body.closingDate,20)||null,clean(body.notes,2000),clean(claims?.displayName,120)||"مدیریت"]);
+      [id,clean(body.leadId,120)||null,clean(body.propertyId,120)||null,title,enums.data.dealType,enums.data.status,customerName,clean(body.customerPhone,40),clean(body.consultant,120),money(body.amount),money(body.commission),clean(body.contractNumber,120),clean(body.contractDate,20)||null,clean(body.closingDate,20)||null,clean(body.notes,2000),clean(claims?.displayName,120)||"مدیریت"]);
     return {success:true,id};
   }
   const id=clean(body.id,120); if(!id)throw createError({statusCode:400,statusMessage:"شناسه معامله مشخص نیست."});
-  if(action==="status"){await sql.query("update admin_deals set status=$2,updated_at=current_timestamp where id=$1",[id,validStatus(body.status)]);return {success:true};}
+  if(action==="status"){
+    const parsed=adminDealStatusUpdateSchema.safeParse({status:body.status});
+    if(!parsed.success)invalidDealEnum("وضعیت معامله معتبر نیست.");
+    await sql.query("update admin_deals set status=$2,updated_at=current_timestamp where id=$1",[id,parsed.data.status]);return {success:true};
+  }
   if(action==="delete"){await sql.query("delete from admin_deal_documents where deal_id=$1",[id]);await sql.query("delete from admin_deals where id=$1",[id]);return {success:true};}
   if(action==="seed_documents"){for(const documentType of DEFAULT_DOCUMENTS)await sql.query("insert into admin_deal_documents(id,deal_id,document_type) values($1,$2,$3) on conflict(deal_id,document_type) do nothing",[crypto.randomUUID(),id,documentType]);return {success:true};}
   if(action==="document"){
     const documentType=clean(body.documentType,160); if(!documentType)throw createError({statusCode:400,statusMessage:"نوع مدرک مشخص نیست."});
-    const status=["pending","received","verified","rejected"].includes(String(body.documentStatus))?String(body.documentStatus) as DocStatus:"pending";
+    const parsed=adminDealDocumentUpdateSchema.safeParse({documentStatus:body.documentStatus});
+    if(!parsed.success)invalidDealEnum("وضعیت مدرک معتبر نیست.");
+    const status=parsed.data.documentStatus;
     await sql.query("insert into admin_deal_documents(id,deal_id,document_type,status,file_url,note,received_at,verified_at) values($1,$2,$3,$4,$5,$6,case when $4 in ('received','verified') then current_timestamp else null end,case when $4='verified' then current_timestamp else null end) on conflict(deal_id,document_type) do update set status=excluded.status,file_url=excluded.file_url,note=excluded.note,received_at=excluded.received_at,verified_at=excluded.verified_at,updated_at=current_timestamp",[crypto.randomUUID(),id,documentType,status,clean(body.fileUrl,1000),clean(body.note,1200)]);
     return {success:true};
   }

@@ -95,11 +95,19 @@ test("the build side defaults to auth on when app-env is absent", () => {
   assert.equal(buildAuthEnabled(projectRoot(), { VITE_AUTH_ENABLED: "true" }), true);
 });
 
-test("the CLI reports rather than silently passing when run via a symlink", async () => {
+test("the CLI reports rather than silently passing when run via a symlink", async (t) => {
   // A check whose exit code is the whole signal must never no-op to 0 because
   // process.argv[1] came in through a symlinked path.
   const link = join(mkdtempSync(join(tmpdir(), "auth-invariant-link-")), "scripts");
-  symlinkSync(join(projectRoot(), "scripts"), link);
+  try {
+    symlinkSync(join(projectRoot(), "scripts"), link);
+  } catch (error) {
+    if (error && typeof error === "object" && ["EPERM", "EACCES", "ENOTSUP"].includes(error.code)) {
+      t.skip(`the current Windows environment does not permit creating directory symlinks (${error.code})`);
+      return;
+    }
+    throw error;
+  }
   const error = await promisify(execFile)(process.execPath, [
     join(link, "check-auth-invariant.mjs"),
     "--dev-url",
