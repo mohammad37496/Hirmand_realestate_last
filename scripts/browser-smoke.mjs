@@ -352,12 +352,15 @@ try {
           { timeout: timeoutMs },
         );
         propertyNavigationCheck.status = await propertyPage.evaluate(() => window.location.pathname);
+        // The router can update the URL before the detail view replaces the
+        // listing DOM. Wait for the real detail heading before sampling body
+        // text, otherwise this check races the render it is meant to verify.
+        const clickedDetail = await readDetailState();
         const textValue = await propertyPage.locator("body").innerText().catch(() => "");
         const normalizedText = normalizeBodyText(textValue);
         propertyNavigationCheck.bodyTextLen = normalizedText.length;
         propertyNavigationCheck.bodyContainsExpectedTitle =
           !expectedPropertyTitle || normalizedText.includes(normalizeBodyText(expectedPropertyTitle));
-        const clickedDetail = await readDetailState();
         propertyNavigationCheck.detailRendered = clickedDetail.rendered;
         propertyNavigationCheck.detailHeading = clickedDetail.heading || null;
         const initialGallery = await propertyPage.evaluate(() => ({
