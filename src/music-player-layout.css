@@ -63,7 +63,9 @@
   }
 
   .music-player-launcher.is-mobile-open {
-    display: none !important;
+    display: grid !important;
+    bottom: max(12px, env(safe-area-inset-bottom)) !important;
+    z-index: 93 !important;
   }
 
   .music-player {

@@ -390,7 +390,32 @@ try {
       assert.ok(launcher.x <= 16 && launcher.width === 48 && launcher.height === 48,
         `mobile launcher should be a 48px icon at the lower left: ${JSON.stringify(launcher)}`);
       assert.equal(launcher.playerDisplay, "none", `mobile player should start collapsed: ${JSON.stringify(launcher)}`);
-      await responsivePage.locator(".music-player-launcher").click();
+      const mobileLauncher = responsivePage.locator(".music-player-launcher");
+      await mobileLauncher.click();
+      await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      const openLauncher = await mobileLauncher.evaluate((button) => {
+        const bounds = button.getBoundingClientRect();
+        const playerBounds = document.querySelector(".music-player").getBoundingClientRect();
+        return {
+          display: getComputedStyle(button).display,
+          x: Math.round(bounds.x),
+          y: Math.round(bounds.y),
+          width: Math.round(bounds.width),
+          height: Math.round(bounds.height),
+          playerBottom: Math.round(playerBounds.bottom),
+        };
+      });
+      assert.equal(openLauncher.display, "grid",
+        `the launcher must remain available to close the open mobile panel: ${JSON.stringify(openLauncher)}`);
+      assert.equal(openLauncher.width, 48);
+      assert.equal(openLauncher.height, 48);
+      assert.ok(openLauncher.y >= openLauncher.playerBottom,
+        `the open-panel launcher must sit below the sheet without covering its playlist: ${JSON.stringify(openLauncher)}`);
+      await mobileLauncher.click();
+      await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none",
+        "clicking the visible mobile launcher again must close the sheet");
+      await mobileLauncher.click();
       await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
     } else {
       await responsivePage.locator(".music-cover").evaluate((button) => button.click());
@@ -544,9 +569,24 @@ try {
     });
     assert.deepEqual(position, { x: 18, width: 390, bottom: 782 },
       `the desktop music dock must keep the same position and size on ${routePath}: ${JSON.stringify(position)}`);
-    await routeConsistencyPage.evaluate(() => {
-      document.documentElement.style.scrollBehavior = "auto";
-      window.scrollTo(0, document.documentElement.scrollHeight);
+    await routeConsistencyPage.evaluate(async () => {
+      const root = document.documentElement;
+      const scroller = document.scrollingElement || root;
+      root.style.scrollBehavior = "auto";
+      // Images and hydrated route sections can extend the document after the
+      // first scroll. Reposition at the end until the document height settles.
+      let previousHeight = -1;
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        scroller.scrollTop = scroller.scrollHeight;
+        window.scrollTo(0, scroller.scrollHeight);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const currentHeight = scroller.scrollHeight;
+        const atBottom = scroller.scrollTop + window.innerHeight >= currentHeight - 1;
+        if (atBottom && currentHeight === previousHeight) break;
+        previousHeight = currentHeight;
+      }
+      scroller.scrollTop = scroller.scrollHeight;
+      window.scrollTo(0, scroller.scrollHeight);
     });
     await routeConsistencyPage.waitForTimeout(100);
     const footerClearance = await routeConsistencyPage.evaluate(() => {
@@ -556,11 +596,17 @@ try {
       const playerBounds = player?.getBoundingClientRect();
       return {
         paddingBottom: Number.parseFloat(getComputedStyle(document.body).paddingBottom) || 0,
+        scrollY: Math.round(window.scrollY),
+        scrollTop: Math.round((document.scrollingElement || document.documentElement).scrollTop),
+        viewportHeight: window.innerHeight,
+        documentHeight: document.documentElement.scrollHeight,
+        atBottom: window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1,
         footerBottom: footerBounds ? Math.round(footerBounds.bottom) : null,
         playerTop: playerBounds ? Math.round(playerBounds.top) : null,
         overlaps: Boolean(footerBounds && playerBounds && footerBounds.bottom > playerBounds.top && footerBounds.top < playerBounds.bottom && footerBounds.right > playerBounds.left && footerBounds.left < playerBounds.right),
       };
     });
+    assert.ok(footerClearance.atBottom, `desktop footer clearance must be measured at the true scroll end: ${JSON.stringify(footerClearance)}`);
     assert.ok(footerClearance.paddingBottom >= 138,
       `desktop page must reserve the dock height, bottom gap, and clearance: ${JSON.stringify(footerClearance)}`);
     assert.equal(footerClearance.overlaps, false,

@@ -123,13 +123,19 @@ export function MusicPlayer() {
   const currentTrack = tracks[safeIndex] ?? null;
 
   const openPlayer = useCallback(() => {
-    setIsHidden(false);
     if (window.matchMedia("(max-width: 720px)").matches) {
+      if (isMobileOpen) {
+        setIsMobileOpen(false);
+        return;
+      }
+      setIsHidden(false);
       setIsMobileOpen(true);
       setIsExpanded(true);
       setIsListOpen(true);
+      return;
     }
-  }, []);
+    setIsHidden(false);
+  }, [isMobileOpen]);
 
   const closePlayer = useCallback(() => {
     if (window.matchMedia("(max-width: 720px)").matches) {
