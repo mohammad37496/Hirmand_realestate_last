@@ -131,7 +131,11 @@ function NearbyPage() {
               ))}
             </div>
           ) : (
-            <section className="property-empty"><LocateFixed size={28} /><strong>در این شعاع فایل دارای موقعیت پیدا نشد.</strong><p>شعاع را بیشتر کنید یا موقعیت را دوباره دریافت کنید.</p></section>
+            <section className="property-empty">
+              <LocateFixed size={28} />
+              <strong>{location ? "در این شعاع فایل دارای موقعیت پیدا نشد." : "فایل دارای مختصات برای نمایش پیدا نشد."}</strong>
+              <p>{location ? "شعاع را بیشتر کنید یا موقعیت را دوباره دریافت کنید." : "بعداً دوباره بررسی کنید؛ فایل‌های دارای مختصات اینجا نمایش داده می‌شوند."}</p>
+            </section>
           )}
           {hasMore ? (
             <div className="nearby-load-more">

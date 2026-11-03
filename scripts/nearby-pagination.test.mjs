@@ -31,3 +31,8 @@ test("nearby geolocation success and error states are announced politely", () =>
   assert.match(nearby, /موقعیت فعال شد/);
   assert.match(nearby, /دسترسی موقعیت در دسترس نیست/);
 });
+
+test("nearby empty state distinguishes missing location data from an empty selected radius", () => {
+  assert.match(nearby, /location \? "در این شعاع فایل دارای موقعیت پیدا نشد\." : "فایل دارای مختصات برای نمایش پیدا نشد\."/);
+  assert.match(nearby, /location \? "شعاع را بیشتر کنید یا موقعیت را دوباره دریافت کنید\." : "بعداً دوباره بررسی کنید؛ فایل‌های دارای مختصات اینجا نمایش داده می‌شوند\."/);
+});
