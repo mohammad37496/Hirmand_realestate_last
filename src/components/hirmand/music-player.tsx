@@ -451,6 +451,15 @@ export function MusicPlayer() {
       void audioRef.current.play().catch(() => undefined);
       return;
     }
+    if (tracks.length === 1) {
+      playbackRequestRef.current += 1;
+      playbackIntentRef.current = false;
+      resumeAfterLoadRef.current = false;
+      fallbackSwitchingRef.current = false;
+      setIsPlaying(false);
+      setIsBuffering(false);
+      return;
+    }
     nextTrack();
   }
 

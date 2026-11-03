@@ -146,6 +146,33 @@ try {
   assert.equal(pausedErrorResult.attempts.length, attemptsBeforePausedError);
   assert.equal(pausedErrorResult.playLabel, "پخش");
 
+  // A one-track playlist must stop at the end unless repeat is enabled.
+  await page.locator(".music-play").click();
+  await page.waitForFunction(
+    () => document.querySelector(".music-play")?.getAttribute("aria-label") === "توقف",
+    null,
+    { timeout: 5_000 },
+  );
+  const attemptsBeforeSingleTrackEnd = await page.evaluate(() => window.__musicPlayAttempts.length);
+  await page.locator("audio").evaluate((audio) => {
+    audio.pause();
+    audio.dispatchEvent(new Event("ended"));
+  });
+  await page.waitForFunction(
+    () => document.querySelector(".music-play")?.getAttribute("aria-label") === "پخش",
+    null,
+    { timeout: 5_000 },
+  );
+  await page.waitForTimeout(50);
+  const singleTrackEndResult = await page.locator("audio").evaluate((audio) => ({
+    paused: audio.paused,
+    attempts: window.__musicPlayAttempts.length,
+    playLabel: document.querySelector(".music-play")?.getAttribute("aria-label"),
+  }));
+  assert.equal(singleTrackEndResult.paused, true);
+  assert.equal(singleTrackEndResult.attempts, attemptsBeforeSingleTrackEnd);
+  assert.equal(singleTrackEndResult.playLabel, "پخش");
+
   // A play() promise from an old track must not update the controls after the
   // visitor has switched tracks and paused the new one.
   const racePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -241,11 +268,13 @@ try {
       "media error and play rejection advance fallback only once",
       "playback intent survives successful play so later source failures still fall back",
       "manual pause prevents later media errors from restarting playback",
+      "a one-track playlist stops at the end when repeat is disabled",
       "a late play() resolution from a previous track cannot restart a paused track",
     ],
     fallbackResult,
     midPlaybackFallback,
     pausedErrorResult,
+    singleTrackEndResult,
     stalePlayResult,
   }, null, 2));
 } finally {
