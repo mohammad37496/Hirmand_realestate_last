@@ -241,16 +241,18 @@ try {
               : [],
           }));
           if (route.id === "properties") {
-            const cardAudits = await page.locator(".pcard-actions").evaluateAll((containers) => containers.map((container) => {
-              const actions = [...container.querySelectorAll(".property-action")];
+            const cardAudits = await page.locator(".pf-grid > .pcard").evaluateAll((cards) => cards.map((card) => {
+              const container = card.querySelector(".pcard-actions");
+              const actions = container ? [...container.querySelectorAll(".property-action")] : [];
               const boxes = actions.map((node) => {
                 const rect = node.getBoundingClientRect();
-                return { width: Math.round(rect.width), height: Math.round(rect.height), label: node.getAttribute("aria-label") || node.textContent?.trim() || "" };
+                return { width: Math.round(rect.width), height: Math.round(rect.height), rawWidth: rect.width, rawHeight: rect.height, label: node.getAttribute("aria-label") || node.textContent?.trim() || "" };
               });
               return {
+                hasActionContainer: Boolean(container),
                 actionCount: boxes.length,
-                minWidth: boxes.length ? Math.min(...boxes.map((box) => box.width)) : null,
-                minHeight: boxes.length ? Math.min(...boxes.map((box) => box.height)) : null,
+                minWidth: boxes.length ? Math.min(...boxes.map((box) => box.rawWidth)) : null,
+                minHeight: boxes.length ? Math.min(...boxes.map((box) => box.rawHeight)) : null,
                 actions: boxes,
               };
             }));
@@ -258,7 +260,7 @@ try {
               cards: cardAudits.length,
               perCard: cardAudits,
             };
-            if (cardAudit.cards < 3 || cardAudits.some((card) => card.actionCount < 8 || card.minWidth < 44 || card.minHeight < 44)) {
+            if (cardAudit.cards < 3 || cardAudits.some((card) => !card.hasActionContainer || card.actionCount < 8 || card.minWidth < 44 || card.minHeight < 44)) {
               failures.push(`${device.name} ${orientation} /properties: each of the three fixture cards must expose eight 44px actions; got ${JSON.stringify(cardAudit)}`);
             }
           }
@@ -290,12 +292,15 @@ try {
                   selected: button.getAttribute("aria-pressed") === "true" && button.classList.contains("is-active"),
                   previewWidth: Math.round(preview?.width ?? 0),
                   previewHeight: Math.round(preview?.height ?? 0),
+                  previewWidthRaw: preview?.width ?? 0,
+                  previewHeightRaw: preview?.height ?? 0,
                   shortLandscape,
                   railWithinGallery: Boolean(galleryRect && railRect && railRect.left >= galleryRect.left - 1 && railRect.right <= galleryRect.right + 1 && railRect.top >= galleryRect.top - 1 && railRect.bottom <= galleryRect.bottom + 1),
                   railHorizontalOverflow: Boolean(rail && rail.scrollWidth > rail.clientWidth + 1),
                 };
               });
-              if (galleryAudit.top < -1 || galleryAudit.bottom > galleryAudit.actionBarTop - 2 || !galleryAudit.selected || galleryAudit.previewWidth < 40 || galleryAudit.previewHeight < 40 || (galleryAudit.shortLandscape && (!galleryAudit.railWithinGallery || galleryAudit.railHorizontalOverflow))) {
+              const minimumPreview = galleryAudit.shortLandscape ? 68 : 42;
+              if (galleryAudit.top < -1 || galleryAudit.bottom > galleryAudit.actionBarTop - 2 || !galleryAudit.selected || galleryAudit.previewWidthRaw < minimumPreview || galleryAudit.previewHeightRaw < minimumPreview || (galleryAudit.shortLandscape && (!galleryAudit.railWithinGallery || galleryAudit.railHorizontalOverflow))) {
                 failures.push(`${device.name} ${orientation} gallery thumbnail is hidden, clipped, or cannot be selected above the bottom action bar: ${JSON.stringify(galleryAudit)}`);
               }
             }
