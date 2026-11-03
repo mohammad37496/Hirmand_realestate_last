@@ -4,6 +4,7 @@ import test from "node:test";
 
 const matchingCss = fs.readFileSync(new URL("../src/admin-matching.css", import.meta.url), "utf8");
 const opsCss = fs.readFileSync(new URL("../src/admin-ops.css", import.meta.url), "utf8");
+const mobileClarityCss = fs.readFileSync(new URL("../src/admin-mobile-clarity.css", import.meta.url), "utf8");
 
 function luminance(hex) {
   const channels = hex.match(/[\da-f]{2}/gi).map((part) => Number.parseInt(part, 16) / 255);
@@ -34,4 +35,8 @@ test("admin matching phone link has a full 44px touch target", () => {
 test("admin owner card secondary labels meet WCAG AA contrast", () => {
   assert.match(opsCss, /\.admin-owner-title small\{color:#59636e/);
   assert.match(opsCss, /\.admin-owner-stats small\{color:#59636e/);
+});
+
+test("mobile admin create action keeps a light label on its dark accent surface", () => {
+  assert.match(mobileClarityCss, /\.admin-nav-btn-create \.admin-nav-btn-label\s*\{\s*color:\s*#ffe9b9\s*!important;/);
 });
