@@ -490,8 +490,22 @@ async function shareCurrentProperty(property: Pick<Property, "id" | "slug" | "ti
       return;
     }
     trackAnalyticsEvent("property_share", property.slug);
-  } catch {
-    // Native sharing may be cancelled by the visitor.
+  } catch (error) {
+    // Desktop Chromium exposes navigator.share but has no share sheet, so it
+    // rejects instead of being absent — keep the click useful by copying the
+    // link, and stay silent when the visitor cancelled the native sheet.
+    if (error instanceof DOMException && error.name === "AbortError") return;
+    if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("لینک فایل کپی شد.");
+        trackAnalyticsEvent("property_share", property.slug);
+      } catch {
+        toast.info(url);
+      }
+      return;
+    }
+    toast.info(url);
   }
 }
 

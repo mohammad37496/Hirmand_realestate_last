@@ -28,7 +28,6 @@ function defaultQuestions(property: Property): string[] {
 }
 
 function readItems(property: Property): QuestionItem[] {
-  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(KEY_PREFIX + property.id);
     const parsed = raw ? JSON.parse(raw) : null;
@@ -43,15 +42,26 @@ function readItems(property: Property): QuestionItem[] {
 }
 
 export function PropertyQuestionLog({ property }: { property: Property }) {
-  const [items, setItems] = useState<QuestionItem[]>(() => readItems(property));
+  // Initial state must be empty on the server AND the first client render:
+  // `readItems` seeds from localStorage, so starting with it would make the
+  // hydration attempt describe markup the server never rendered (React then
+  // throws the hydration error visible in console QA). Saved items load right
+  // after hydration instead; the SSR markup stays deterministic.
+  const [items, setItems] = useState<QuestionItem[]>([]);
+  const [savedItemsLoaded, setSavedItemsLoaded] = useState(false);
 
   useEffect(() => {
+    if (!savedItemsLoaded) {
+      setItems(readItems(property));
+      setSavedItemsLoaded(true);
+      return;
+    }
     try {
       localStorage.setItem(KEY_PREFIX + property.id, JSON.stringify(items));
     } catch {
       // Keep working in memory when browser storage is unavailable.
     }
-  }, [items, property.id]);
+  }, [items, property.id, savedItemsLoaded]);
 
   const answered = useMemo(() => items.filter((item) => item.answer.trim()).length, [items]);
 

@@ -33,15 +33,23 @@ function readItems(id: string): Item[] {
 }
 
 export function PropertyRenovationTracker({ property }: { property: Property }) {
-  const [items, setItems] = useState<Item[]>(() => readItems(property.id));
+  // Empty initial state on the server AND first client render; saved items
+  // load right after hydration so the SSR markup stays deterministic.
+  const [items, setItems] = useState<Item[]>([]);
+  const [savedItemsLoaded, setSavedItemsLoaded] = useState(false);
 
   useEffect(() => {
+    if (!savedItemsLoaded) {
+      setItems(readItems(property.id));
+      setSavedItemsLoaded(true);
+      return;
+    }
     try {
       localStorage.setItem(KEY_PREFIX + property.id, JSON.stringify(items));
     } catch {
       // Optional browser persistence.
     }
-  }, [items, property.id]);
+  }, [items, property.id, savedItemsLoaded]);
 
   const totals = useMemo(() => ({
     estimate: items.reduce((sum, item) => sum + item.estimate, 0),

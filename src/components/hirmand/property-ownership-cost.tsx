@@ -16,11 +16,13 @@ type Costs = {
   loan: number;
 };
 
+const EMPTY_COSTS: Costs = { charge: 0, maintenance: 0, insurance: 0, tax: 0, utilities: 0, management: 0, loan: 0 };
+
 function read(id: string): Costs {
   try {
     const raw = localStorage.getItem(KEY_PREFIX + id);
     const parsed = raw ? JSON.parse(raw) : null;
-    if (!parsed || typeof parsed !== "object") return { charge: 0, maintenance: 0, insurance: 0, tax: 0, utilities: 0, management: 0, loan: 0 };
+    if (!parsed || typeof parsed !== "object") return EMPTY_COSTS;
     return {
       charge: Math.max(0, Number(parsed.charge) || 0),
       maintenance: Math.max(0, Number(parsed.maintenance) || 0),
@@ -40,11 +42,19 @@ function money(value: number) {
 }
 
 export function PropertyOwnershipCost({ property }: { property: Property }) {
-  const [costs, setCosts] = useState<Costs>(() => read(property.id));
+  // Empty initial state on the server AND first client render; saved inputs
+  // load right after hydration so the SSR markup stays deterministic.
+  const [costs, setCosts] = useState<Costs>(EMPTY_COSTS);
+  const [savedCostsLoaded, setSavedCostsLoaded] = useState(false);
 
   useEffect(() => {
+    if (!savedCostsLoaded) {
+      setCosts(read(property.id));
+      setSavedCostsLoaded(true);
+      return;
+    }
     try { localStorage.setItem(KEY_PREFIX + property.id, JSON.stringify(costs)); } catch { /* optional */ }
-  }, [costs, property.id]);
+  }, [costs, property.id, savedCostsLoaded]);
 
   const monthly = useMemo(() => Object.values(costs).reduce((sum, value) => sum + value, 0), [costs]);
   const annual = monthly * 12;

@@ -37,19 +37,27 @@ function formatOffer(value: number) {
 
 export function PropertyNegotiationLog({ property }: { property: Property }) {
   const asking = amount(property.price);
-  const [entries, setEntries] = useState<Entry[]>(() => read(property.id));
+  // Empty initial state on the server AND first client render; saved entries
+  // load right after hydration so the SSR markup stays deterministic.
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [savedEntriesLoaded, setSavedEntriesLoaded] = useState(false);
   const [offer, setOffer] = useState("");
   const [status, setStatus] = useState<(typeof STATUS)[number]>("پیشنهاد اولیه");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState("");
 
   useEffect(() => {
+    if (!savedEntriesLoaded) {
+      setEntries(read(property.id));
+      setSavedEntriesLoaded(true);
+      return;
+    }
     try {
       localStorage.setItem(KEY_PREFIX + property.id, JSON.stringify(entries));
     } catch {
       // Keep the log usable in memory when storage is unavailable.
     }
-  }, [entries, property.id]);
+  }, [entries, property.id, savedEntriesLoaded]);
 
   const latest = entries[entries.length - 1];
   const bestOffer = useMemo(() => entries.filter((item) => item.offer > 0).reduce((best, item) => Math.max(best, item.offer), 0), [entries]);
