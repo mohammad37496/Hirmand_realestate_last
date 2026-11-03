@@ -51,6 +51,15 @@ test("admin icon actions have 44px targets on phones and coarse-pointer devices"
   );
 });
 
+test("mobile drawer create action uses accessible text on its dark surface", () => {
+  const labelRule = mobileClarity.match(/\.admin-app \.admin-drawer \.admin-nav-btn-create \.admin-nav-btn-label\s*\{([^}]+)\}/)?.[1] ?? "";
+  const metaRule = mobileClarity.match(/\.admin-app \.admin-drawer \.admin-nav-btn-meta\s*\{([^}]+)\}/)?.[1] ?? "";
+  assert.match(labelRule, /color:\s*#ffe9b9\s*!important/);
+  assert.match(metaRule, /color:\s*#7a5414\s*!important/);
+  assert.ok(contrastRatio("ffe9b9", "0a1726") >= 4.5, "create label must meet WCAG AA against the dark drawer");
+  assert.ok(contrastRatio("7a5414", "f3e7ce") >= 4.5, "create meta chip must meet WCAG AA against its light chip surface");
+});
+
 
 test("admin visual audit emulates touch input through tablet widths", () => {
   const audit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
@@ -182,7 +191,8 @@ test("admin owner card secondary labels meet readable contrast", () => {
 test("mobile admin drawer uses light labels on its navy navigation surface", () => {
   assert.match(mobileClarity, /\.admin-app \.admin-drawer \.admin-sidebar-nav\s*\{\s*background: linear-gradient\(180deg, #081320 0%, #0b1a2b 100%\) !important/);
   assert.match(mobileClarity, /\.admin-app \.admin-drawer \.admin-nav-btn\s*\{\s*color: #e4e8ed !important/);
-  assert.match(mobileClarity, /\.admin-nav-btn-create \.admin-nav-btn-label,[\s\S]*?\.admin-nav-btn-meta\s*\{\s*color: #7a5414 !important/);
+  assert.match(mobileClarity, /\.admin-nav-btn-create \.admin-nav-btn-label\s*\{\s*color: #ffe9b9 !important/);
+  assert.match(mobileClarity, /\.admin-app \.admin-drawer \.admin-nav-btn-meta\s*\{\s*color: #7a5414 !important/);
   assert.match(mobileClarity, /\.admin-app \.admin-drawer \.admin-sidebar-foot-label\s*\{\s*color: #59636e !important/);
 });
 

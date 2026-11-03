@@ -69,7 +69,10 @@
     color: #7a5414 !important;
   }
 
-  .admin-app .admin-drawer .admin-nav-btn-create .admin-nav-btn-label,
+  .admin-app .admin-drawer .admin-nav-btn-create .admin-nav-btn-label {
+    color: #ffe9b9 !important;
+  }
+
   .admin-app .admin-drawer .admin-nav-btn-meta {
     color: #7a5414 !important;
   }
