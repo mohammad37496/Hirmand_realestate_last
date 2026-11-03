@@ -296,9 +296,11 @@ try {
     { width: 568, height: 320, touch: true },
     { width: 640, height: 360, touch: true },
     { width: 768, height: 900, touch: true },
+    { width: 768, height: 1024, touch: true },
     { width: 1024, height: 768, touch: true },
     { width: 1280, height: 400, touch: false },
     { width: 1280, height: 800, touch: false },
+    { width: 1440, height: 900, touch: false },
     { width: 1920, height: 1080, touch: false },
   ];
   const responsiveResults = [];
@@ -373,6 +375,7 @@ try {
       };
     });
     if (viewport.width <= 720) {
+
       const launcher = await responsivePage.locator(".music-player-launcher").evaluate((button) => {
         const bounds = button.getBoundingClientRect();
         return {
@@ -415,6 +418,15 @@ try {
       return {
         viewport: { width: innerWidth, height: innerHeight },
         player: rect(player),
+        main: rect(player.querySelector('.music-player-main')),
+        transport: rect(player.querySelector('.music-play')),
+        panel: rect(player.querySelector('.music-player-panel')),
+        playHitTarget: (() => {
+          const play = player.querySelector('.music-play');
+          const bounds = play.getBoundingClientRect();
+          const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+          return hit === play || play.contains(hit);
+        })(),
         playlist: rect(playlist),
         playlistList: rect(playlistList),
         playlistPosition: getComputedStyle(playlist).position,
@@ -486,6 +498,16 @@ try {
     assert.ok(lastTrack.top >= lastTrack.scrollTop && lastTrack.bottom <= lastTrack.scrollBottom,
       `the last playlist item must remain reachable by scrolling its container: ${JSON.stringify({ viewport, lastTrack, layout })}`);
     if (viewport.width <= 720) {
+      assert.ok(layout.main.height >= 88,
+        `mobile transport rows must retain their layout height with a long playlist: ${JSON.stringify(layout)}`);
+      assert.ok(layout.main.bottom <= layout.progress.y,
+        `transport controls must not overlap the seek row: ${JSON.stringify(layout)}`);
+      assert.ok(layout.progress.bottom <= layout.panel.y,
+        `seek row must precede volume and secondary controls: ${JSON.stringify(layout)}`);
+      assert.ok(layout.panel.bottom <= layout.playlist.y,
+        `volume and secondary controls must precede the playlist: ${JSON.stringify(layout)}`);
+      assert.equal(layout.playHitTarget, true,
+        `the play button must receive pointer input rather than an overlapping slider: ${JSON.stringify(layout)}`);
       await responsivePage.locator(".music-player").evaluate((player) => { player.scrollTop = 0; });
       assert.ok(layout.buttons.some((button) => button.label === "آهنگ قبلی"));
       assert.ok(layout.buttons.some((button) => button.label === "توقف" || button.label === "پخش"));
