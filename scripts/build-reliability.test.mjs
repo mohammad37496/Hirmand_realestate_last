@@ -23,7 +23,7 @@ test("FFmpeg download has a finite timeout and an actionable timeout error", () 
 test("production prebuild avoids remote fallback image downloads", () => {
   const scripts = JSON.parse(packageManifest).scripts;
   assert.equal(scripts.prebuild, "node scripts/ensure-ffmpeg.mjs");
-  assert.match(scripts["assets:fallback:refresh"], /generate-fallback-assets\\.mjs/);
+  assert.match(scripts["assets:fallback:refresh"], /generate-fallback-assets\.mjs/);
   assert.match(deployEnv, /npm_lifecycle_event !== "build"/);
 });
 
