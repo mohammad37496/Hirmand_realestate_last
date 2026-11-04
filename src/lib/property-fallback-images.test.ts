@@ -8,10 +8,14 @@ import {
 
 test("property fallbacks use curated professional photography with a local photo emergency fallback", () => {
   const primary = getPropertyFallbackImage("apartment", "property-123");
-  assert.match(primary, /^\/images\/fallback\/apartment-\d{2}\.jpg$/);
+  assert.equal(primary, "/images/type-apartment.jpg");
   assert.equal(getPropertyFallbackImage("apartment", "property-123"), primary);
   assert.equal(getPropertyFallbackLegacyImage("apartment", "property-123"), "/images/type-apartment.jpg");
-  assert.equal(getPropertyFallbackLegacyImage("villa", "property-456"), "/images/type-villa.jpg");
+  assert.equal(getPropertyFallbackImage("villa", "property-456"), "/images/type-villa.jpg");
+  assert.equal(getPropertyFallbackImage("office", "property-789"), "/images/type-office.jpg");
+  assert.equal(getPropertyFallbackImage("heritage", "property-321"), "/images/type-heritage.jpg");
+  assert.equal(getPropertyFallbackImage("land", "property-654"), "/images/fallback/land-01.jpg");
+  assert.equal(getPropertyFallbackImage("commercial", "property-987"), "/images/fallback/commercial-01.jpg");
 });
 
 test("local category and curated fallback photography are classified as UI placeholders", () => {
