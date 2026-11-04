@@ -616,7 +616,7 @@ try {
       const bounds = player.getBoundingClientRect();
       return { x: Math.round(bounds.x), width: Math.round(bounds.width), bottom: Math.round(bounds.bottom) };
     });
-    assert.deepEqual(position, { x: 14, width: 320, bottom: 786 },
+    assert.deepEqual(position, { x: 14, width: 300, bottom: 786 },
       `the desktop music dock must keep the same position and size on ${routePath}: ${JSON.stringify(position)}`);
     await routeConsistencyPage.evaluate(async () => {
       const root = document.documentElement;
