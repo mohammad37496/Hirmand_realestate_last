@@ -242,6 +242,8 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(propertiesRoute, /setViewModeManuallySelected\(true\)/);
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
   assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
+  assert.match(browserSmoke, /verifyActionToggle/);
+  assert.match(browserSmoke, /detailsHref\.startsWith\("\/properties\/"\)/);
 });
 
 

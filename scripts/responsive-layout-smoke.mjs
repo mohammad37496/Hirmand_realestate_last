@@ -188,6 +188,34 @@ try {
           if (!geometry.imageOnRight) failures.push("/properties @ 320px: property image is not on the right of the details");
           if (!geometry.actions.some((label) => label.includes("ذخیره")) || !geometry.actions.some((label) => label.includes("مقایسه"))) failures.push("/properties @ 320px: favorite or compare action is missing");
           if (!geometry.actionsFit) failures.push("/properties @ 320px: property actions overflow the card width");
+          const detailsHref = await firstCard.locator(".pcard-link").getAttribute("href");
+          if (!detailsHref || (!detailsHref.startsWith("/properties/") && !detailsHref.startsWith("/file/"))) failures.push("/properties @ 320px: property details link is missing or invalid");
+
+          const verifyActionToggle = async (selector, label) => {
+            const control = firstCard.locator(selector).first();
+            if (!(await control.isVisible().catch(() => false))) {
+              failures.push("/properties @ 320px: " + label + " action is not visible");
+              return;
+            }
+            const before = (await control.getAttribute("aria-pressed")) === "true";
+            await control.click();
+            await page.waitForFunction(({ query, pressed }) => {
+              return document.querySelector(query)?.getAttribute("aria-pressed") === String(pressed);
+            }, { query: selector, pressed: !before });
+            await firstCard.locator(selector).first().click();
+            await page.waitForFunction(({ query, pressed }) => {
+              return document.querySelector(query)?.getAttribute("aria-pressed") === String(pressed);
+            }, { query: selector, pressed: before });
+          };
+
+          await verifyActionToggle(
+            '.pcard-actions .property-action[aria-label="ذخیره فایل"], .pcard-actions .property-action[aria-label="حذف از ذخیره‌ها"]',
+            "favorite",
+          );
+          await verifyActionToggle(
+            '.pcard-actions .property-action[aria-label="افزودن به مقایسه"], .pcard-actions .property-action[aria-label="حذف از مقایسه"]',
+            "compare",
+          );
         } else {
           failures.push("/properties @ 320px: no published property card was available for layout verification");
         }
