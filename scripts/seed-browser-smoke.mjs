@@ -65,7 +65,7 @@ try {
           title,
           "این رکورد فقط برای Browser Smoke است و برای تست کامل مسیر کارت، جزئیات، گالری، مشخصات و refresh استفاده می‌شود.",
           JSON.stringify(["تست ناوبری", "آسانسور", "پارکینگ"]),
-          JSON.stringify(["/images/type-apartment.jpg", "/images/type-villa.jpg"]),
+          JSON.stringify(["/images/isfahan-hero.jpg?qa-gallery=1", "/images/isfahan-hero.jpg?qa-gallery=2"]),
         ],
       );
       console.log("[browser-smoke] fixture ready", { id, slug });
