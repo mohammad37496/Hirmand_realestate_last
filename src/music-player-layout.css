@@ -31,6 +31,62 @@
   }
 }
 
+/* Keep the desktop dock compact while preserving usable pointer targets. */
+@media (min-width: 721px) and (pointer: fine) {
+  .music-player {
+    width: min(364px, calc(100vw - 36px)) !important;
+    max-width: 364px !important;
+    min-height: 48px !important;
+    padding: 5px 8px 10px !important;
+    border-radius: 14px !important;
+  }
+
+  .music-player .music-player-main {
+    min-height: 40px !important;
+    gap: 2px !important;
+    padding-bottom: 1px !important;
+  }
+
+  .music-player .music-meta {
+    min-width: 76px !important;
+  }
+
+  .music-player .music-cover {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+  }
+
+  .music-player .music-transport {
+    gap: 2px !important;
+  }
+
+  .music-player .music-transport button,
+  .music-player .music-compact-actions button {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+  }
+
+  .music-player .music-transport .music-play {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+  }
+
+  .music-player .music-compact-actions {
+    gap: 2px !important;
+  }
+
+  .music-player:not(.is-expanded) .music-progress-row {
+    inset-inline: 10px !important;
+    bottom: 1px !important;
+  }
+}
+
 /* Phones start with a small launcher. The full player opens as a scrollable
    bottom sheet with transport, seek, shuffle and volume controls before the
    track list. */
