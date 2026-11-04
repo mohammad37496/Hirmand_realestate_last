@@ -120,7 +120,7 @@ try {
       }
 
       // Exercise the mobile filter drawer and neighborhood picker at 320px.
-      if (route === "/properties") {
+      if (route === "/properties") { // mobile property view buttons preserve filters and URL parameters
         const filterButton = page.locator(".pf-filter-btn").first();
         if (await filterButton.isVisible().catch(() => false)) {
           await filterButton.waitFor({ state: "visible" });
@@ -161,6 +161,70 @@ try {
           const closeFilters = page.locator(".pf-close").first();
           if (await closeFilters.isVisible().catch(() => false)) await closeFilters.click();
         }
+      }
+
+
+      if (route === "/properties") {
+        const listButton = page.locator('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]').first();
+        if (await listButton.getAttribute("aria-pressed") !== "true") {
+          failures.push("/properties @ 320px: mobile did not start in list view");
+        }
+
+        const firstCard = page.locator(".pf-grid .pcard-mobile-list").first();
+        if (await firstCard.isVisible().catch(() => false)) {
+          const geometry = await firstCard.evaluate((card) => {
+            const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
+            const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
+            return {
+              imageOnRight: Boolean(media && body && media.left >= body.right - 2),
+              actionCount: card.querySelectorAll(".pcard-actions .property-action").length,
+            };
+          });
+          if (!geometry.imageOnRight) failures.push("/properties @ 320px: property image is not on the right of the details");
+          if (geometry.actionCount < 1) failures.push("/properties @ 320px: property actions are missing");
+        } else {
+          failures.push("/properties @ 320px: no published property card was available for layout verification");
+        }
+
+        await page.goto(new URL("/properties?q=آپارتمان&transaction=rent&sort=price_asc&minArea=80&maxArea=150", baseUrl).toString(), {
+          waitUntil: "domcontentloaded",
+          timeout: 30_000,
+        });
+        await page.waitForTimeout(700);
+        const retainedKeys = ["q", "transaction", "sort", "minArea", "maxArea"];
+        const expectedParams = await page.evaluate((keys) => Object.fromEntries(
+          keys.map((key) => [key, new URLSearchParams(window.location.search).get(key)]),
+        ), retainedKeys);
+
+        for (const width of [320, 1024]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.waitForTimeout(120);
+          for (const label of ["نمایش شبکه‌ای فایل‌ها", "نمایش فهرستی فایل‌ها", "نمایش فایل‌ها روی نقشه", "نمایش فهرستی فایل‌ها"]) {
+            const selector = '.pf-views button[aria-label="' + label + '"]';
+            const button = page.locator(selector).first();
+            if (!(await button.isVisible().catch(() => false))) {
+              failures.push("/properties @ " + width + "px: view control " + label + " is not visible");
+              continue;
+            }
+            await button.click();
+            await page.waitForFunction((query) => document.querySelector(query)?.getAttribute("aria-pressed") === "true", selector);
+            const actualParams = await page.evaluate((keys) => Object.fromEntries(
+              keys.map((key) => [key, new URLSearchParams(window.location.search).get(key)]),
+            ), retainedKeys);
+            for (const key of retainedKeys) {
+              if (actualParams[key] !== expectedParams[key]) {
+                failures.push("/properties @ " + width + "px: switching to " + label + " changed URL parameter " + key);
+              }
+            }
+          }
+        }
+
+        const desktopPage = await browser.newPage({ viewport: { width: 1024, height: 900 } });
+        await desktopPage.goto(new URL("/properties", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+        await desktopPage.waitForTimeout(700);
+        const desktopMapDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]').getAttribute("aria-pressed").catch(() => null);
+        if (desktopMapDefault !== "true") failures.push("/properties @ 1024px: desktop map-first default changed unexpectedly");
+        await desktopPage.close();
       }
 
       for (const width of viewportWidths) {
