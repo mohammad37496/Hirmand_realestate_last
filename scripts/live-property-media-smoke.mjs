@@ -104,7 +104,11 @@ try {
     const href = await card.getAttribute("href");
     if (!href) continue;
     const detailUrl = new URL(href, sameOriginPath("/properties"));
-    if (detailUrl.origin !== base.origin || !detailUrl.pathname.startsWith("/properties/")) continue;
+    if (
+      !["hirmandrealestate.ir", "www.hirmandrealestate.ir"].includes(detailUrl.hostname.toLowerCase()) ||
+      detailUrl.protocol !== "https:" ||
+      !detailUrl.pathname.startsWith("/properties/")
+    ) continue;
 
     const detailResponse = await page.goto(detailUrl.toString(), {
       waitUntil: "domcontentloaded",
