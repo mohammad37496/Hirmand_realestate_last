@@ -27,6 +27,12 @@ jobs:
 
       - name: Install Liara CLI
         run: npm i -g @liara/cli@9
+      - name: Stamp deployment revision
+        env:
+          DEPLOYMENT_SHA: ${{ github.sha }}
+          DEPLOYMENT_BRANCH: ${{ github.ref_name }}
+          DEPLOYMENT_RUN_ID: ${{ github.run_id }}
+        run: node scripts/write-deployment-info.mjs
 
       - name: Deploy
         env:
@@ -57,6 +63,13 @@ jobs:
             --no-app-logs \
             --message="Deploy ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}" \
             --debug
+
+      - name: Verify live Liara release matches this commit
+        timeout-minutes: 5
+        env:
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
+          LIARA_PUBLIC_URL: https://hirmandrealestate.ir
+        run: node scripts/verify-live-deployment.mjs
 
       # Opt-in collection prevents routine deployments from copying general
       # application logs to GitHub. A commit containing [diagnose-upload] enables

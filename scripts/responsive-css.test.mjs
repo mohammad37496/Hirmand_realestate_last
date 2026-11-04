@@ -28,6 +28,8 @@ const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/prop
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
 const commissionCalculator = fs.readFileSync(new URL("../src/components/hirmand/commission-calculator.tsx", import.meta.url), "utf8");
+const deployWorkflow = fs.readFileSync(new URL("../.github/workflows/deploy-liara.yml", import.meta.url), "utf8");
+const liveDeploymentSmoke = fs.readFileSync(new URL("./verify-live-deployment.mjs", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
 const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.css", import.meta.url), "utf8");
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
@@ -254,4 +256,14 @@ testRunner.test("commission estimate uses the 1405 VAT rate and explains local t
   assert.match(commissionCalculator, /مالیات = ۱۰٪ از کمیسیون پایه/);
   assert.match(commissionCalculator, /مالیات ۱۰٪ اضافه/);
   assert.match(commissionCalculator, /ضریب[\s\S]*?ارزش معاملاتی و سقف مصوب هر شهرستان/);
+});
+
+
+testRunner.test("Liara deployment verifies the exact main commit and published mobile assets", () => {
+  assert.match(deployWorkflow, /Stamp deployment revision[\s\S]*?write-deployment-info\.mjs/);
+  assert.match(deployWorkflow, /Verify live Liara release matches this commit[\s\S]*?verify-live-deployment\.mjs/);
+  assert.match(liveDeploymentSmoke, /EXPECTED_DEPLOYMENT_SHA/);
+  assert.match(liveDeploymentSmoke, /deployment\.json/);
+  assert.match(liveDeploymentSmoke, /pcard-mobile-list/);
+  assert.match(liveDeploymentSmoke, /نمایش فهرستی فایل‌ها/);
 });
