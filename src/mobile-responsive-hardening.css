@@ -1893,3 +1893,18 @@ svg {
   display: none !important;
   pointer-events: none !important;
 }
+
+
+/* Keep every shared property-card collection in one readable mobile column. */
+@media (max-width:720px) {
+  .area-profile-listings, .compare-grid, .budget-result-grid {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    min-width:0;
+  }
+  .area-profile-listings > *, .compare-grid > *, .budget-result-grid > *,
+  .favorites-property-frame, .nearby-card-wrap {
+    min-width:0;
+    max-width:100%;
+  }
+}

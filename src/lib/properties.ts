@@ -137,8 +137,10 @@ export type PropertyCardData = Pick<
   | "neighborhood"
   | "areaM2"
   | "bedrooms"
+  | "builtYear"
   | "parking"
   | "elevator"
+  | "storage"
   | "price"
   | "deposit"
   | "rent"
@@ -444,7 +446,7 @@ const LIST_COLUMNS = `
 
 const CARD_COLUMNS = `
   id, slug, status, availability_status, featured, featured_until, title, transaction_type, property_type,
-  neighborhood, area_m2, bedrooms, parking, elevator, price, deposit, rent,
+  neighborhood, area_m2, bedrooms, built_year, parking, elevator, storage, price, deposit, rent,
   nullif(images->>0, '') as image,
   price_drop_percent,
   latitude, longitude, published_at
@@ -467,8 +469,10 @@ function mapPropertyCard(row: Record<string, unknown>): PropertyCardData {
     neighborhood: String(row.neighborhood),
     areaM2: numberOrNull(row.area_m2),
     bedrooms: numberOrNull(row.bedrooms),
+    builtYear: numberOrNull(row.built_year),
     parking: Boolean(row.parking),
     elevator: Boolean(row.elevator),
+    storage: Boolean(row.storage),
     price: row.price == null ? null : String(row.price),
     deposit: row.deposit == null ? null : String(row.deposit),
     rent: row.rent == null ? null : String(row.rent),

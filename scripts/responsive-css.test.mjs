@@ -24,6 +24,12 @@ const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url),
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
+const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
+const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
+const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
+const commissionCalculator = fs.readFileSync(new URL("../src/components/hirmand/commission-calculator.tsx", import.meta.url), "utf8");
+const deployWorkflow = fs.readFileSync(new URL("../.github/workflows/deploy-liara.yml", import.meta.url), "utf8");
+const liveDeploymentSmoke = fs.readFileSync(new URL("./verify-live-deployment.mjs", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
 const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.css", import.meta.url), "utf8");
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
@@ -208,9 +214,63 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertiesRoute, /aria-label="نمایش فهرستی فایل‌ها" aria-pressed=\{viewMode === "list"\}/);
   assert.match(propertiesRoute, /aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed=\{viewMode === "grid"\}/);
   assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
-  const mobileListRule = propertyCardCss.match(/@media \(max-width: 720px\) \{[\s\S]*?\.property-grid\.is-list-view \{[\s\S]*?\n\}/)?.[0] ?? "";
-  assert.ok(mobileListRule, "the shared property card stylesheet should define a mobile list layout");
-  assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-link \{[\s\S]*?grid-template-columns: 108px minmax\(0, 1fr\)/);
-  assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-actions \{[\s\S]*?grid-row: 2/);
-  assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-specs \{[\s\S]*?background: transparent/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(96px,28vw,116px\) minmax\(0,1fr\)/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions[\s\S]*?grid-row:2/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-specs[\s\S]*?background:transparent/);
+});
+
+
+testRunner.test("all shared property cards use the readable RTL mobile list layout", () => {
+  assert.match(propertyShowcase, /<article className="pcard pcard-mobile-list">/);
+  assert.match(propertyShowcase, /property\.storage[\s\S]*?انباری/);
+  assert.match(propertyLibrary, /export type PropertyCardData = Pick<[\s\S]*?\| "storage"/);
+  assert.match(propertyLibrary, /bedrooms, built_year, parking, elevator, storage, price, deposit, rent/);
+  assert.match(propertyLibrary, /storage: Boolean\(row\.storage\)/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(96px,28vw,116px\) minmax\(0,1fr\)/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions \.property-actions-compact[\s\S]*?flex-wrap:wrap/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions \.property-action[\s\S]*?width:44px; height:44px; min-height:44px/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-title[\s\S]*?font-size:\.88rem/);
+  assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list/);
+  assert.match(responsiveCss, /\.area-profile-listings, \.compare-grid, \.budget-result-grid[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
+});
+
+testRunner.test("responsive defaults adapt until a visitor manually selects a view", () => {
+  const responsiveEffect = propertiesRoute.match(/\/\/ Apply responsive defaults until[\s\S]*?\}, \[viewModeManuallySelected\]\);/)?.[0] ?? "";
+  assert.ok(responsiveEffect, "responsive list and map defaults should be applied");
+  assert.match(responsiveEffect, /if \(!viewModeManuallySelected\) setViewMode\(media\.matches \? "list" : "split"\)/);
+  assert.match(responsiveEffect, /media\.addEventListener\("change", applyResponsiveDefault\)/);
+  assert.match(propertiesRoute, /setViewModeManuallySelected\(true\)/);
+  assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
+  assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
+  assert.match(browserSmoke, /verifyActionToggle/);
+  assert.match(browserSmoke, /detailsHref\.startsWith\("\/properties\/"\)/);
+});
+
+
+testRunner.test("property cards show construction year only when real data exists", () => {
+  assert.match(propertyLibrary, /export type PropertyCardData = Pick<[\s\S]*?\| "builtYear"/);
+  assert.match(propertyLibrary, /bedrooms, built_year, parking, elevator, storage, price/);
+  assert.match(propertyLibrary, /builtYear: numberOrNull\(row\.built_year\)/);
+  assert.match(propertyShowcase, /property\.builtYear != null && property\.builtYear > 0[\s\S]*?ساخت/);
+});
+
+testRunner.test("commission estimate uses the 1405 VAT rate and explains local tariff limits", () => {
+  assert.match(commissionLibrary, /export const VAT = 0\.10/);
+  assert.match(commissionLibrary, /مالیات ارزش افزوده \(۱۰٪\)/);
+  assert.match(commissionCalculator, /مالیات = ۱۰٪ از کمیسیون پایه/);
+  assert.match(commissionCalculator, /مالیات ارزش افزوده \(۱۰٪\)/);
+  assert.doesNotMatch(commissionCalculator, /مالیات ارزش افزوده \(۹٪\)/);
+  assert.match(commissionCalculator, /مالیات ۱۰٪ اضافه/);
+  assert.match(commissionCalculator, /ضریب[\s\S]*?ارزش معاملاتی و سقف مصوب هر شهرستان/);
+});
+
+
+testRunner.test("Liara deployment verifies the exact main commit and published mobile assets", () => {
+  assert.match(deployWorkflow, /Stamp deployment revision[\s\S]*?write-deployment-info\.mjs/);
+  assert.match(deployWorkflow, /Verify live Liara release matches this commit[\s\S]*?verify-live-deployment\.mjs/);
+  assert.match(deployWorkflow, /- name: Deploy\s+timeout-minutes: 40/);
+  assert.match(liveDeploymentSmoke, /EXPECTED_DEPLOYMENT_SHA/);
+  assert.match(liveDeploymentSmoke, /deployment\.json/);
+  assert.match(liveDeploymentSmoke, /pcard-mobile-list/);
+  assert.match(liveDeploymentSmoke, /نمایش فهرستی فایل‌ها/);
 });

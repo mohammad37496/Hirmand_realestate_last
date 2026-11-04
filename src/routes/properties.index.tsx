@@ -429,6 +429,7 @@ function PropertiesIndexPage() {
   const [savedSearchId, setSavedSearchId] = useState("");
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
+  const [viewModeManuallySelected, setViewModeManuallySelected] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [desktopFilterViewport, setDesktopFilterViewport] = useState(false);
   const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
@@ -463,18 +464,17 @@ function PropertiesIndexPage() {
     return () => media.removeEventListener("change", updateViewport);
   }, []);
 
-  // Start phone visitors with the compact property list, while keeping the
-  // map-first workspace as the desktop default. The view controls remain
-  // available so visitors can switch modes at any time.
+  // Apply responsive defaults until the visitor explicitly chooses a view.
+  // A manual choice then survives every later viewport change.
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
-    const preferListOnMobile = () => {
-      if (media.matches) setViewMode("list");
+    const applyResponsiveDefault = () => {
+      if (!viewModeManuallySelected) setViewMode(media.matches ? "list" : "split");
     };
-    preferListOnMobile();
-    media.addEventListener("change", preferListOnMobile);
-    return () => media.removeEventListener("change", preferListOnMobile);
-  }, []);
+    applyResponsiveDefault();
+    media.addEventListener("change", applyResponsiveDefault);
+    return () => media.removeEventListener("change", applyResponsiveDefault);
+  }, [viewModeManuallySelected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1830,13 +1830,13 @@ function PropertiesIndexPage() {
                   </select>
                 </label>
                 <div className="pf-views" role="group" aria-label="نحوه نمایش فایل‌ها">
-                  <button type="button" className={viewMode === "list" ? "is-active" : ""} onClick={() => setViewMode("list")} aria-label="نمایش فهرستی فایل‌ها" aria-pressed={viewMode === "list"}>
+                  <button type="button" className={viewMode === "list" ? "is-active" : ""} onClick={() => { setViewMode("list"); setViewModeManuallySelected(true); }} aria-label="نمایش فهرستی فایل‌ها" aria-pressed={viewMode === "list"}>
                     <List size={15} /> <span>لیستی</span>
                   </button>
-                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} onClick={() => setViewMode("grid")} aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed={viewMode === "grid"}>
+                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} onClick={() => { setViewMode("grid"); setViewModeManuallySelected(true); }} aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed={viewMode === "grid"}>
                     <LayoutGrid size={15} /> <span>شبکه‌ای</span>
                   </button>
-                  <button type="button" className={viewMode === "split" ? "is-active" : ""} onClick={() => setViewMode("split")} aria-label="نمایش فایل‌ها روی نقشه" aria-pressed={viewMode === "split"}>
+                  <button type="button" className={viewMode === "split" ? "is-active" : ""} onClick={() => { setViewMode("split"); setViewModeManuallySelected(true); }} aria-label="نمایش فایل‌ها روی نقشه" aria-pressed={viewMode === "split"}>
                     <MapPinned size={15} /> <span>نقشه</span>
                   </button>
                 </div>
@@ -2000,7 +2000,7 @@ function PropertiesIndexPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className={`property-grid pf-grid${viewMode === "list" ? " is-list-view" : ""}`}>
+                  <div className={`property-grid pf-grid${viewMode === "list" ? " is-list-view" : ""}${viewMode === "grid" ? " is-grid-view" : ""}`}>
                     {properties.map((property) => <PropertyCard key={property.id} property={property} />)}
                   </div>
                 )}
