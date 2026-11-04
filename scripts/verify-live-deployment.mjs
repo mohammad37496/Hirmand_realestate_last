@@ -17,6 +17,7 @@ async function fetchText(url) {
 }
 
 async function inspectPublishedAssets(pageHtml, pageUrl) {
+  const pageOrigin = new URL(pageUrl).origin;
   const pending = [];
   const seen = new Set();
   const scripts = [];
@@ -24,7 +25,7 @@ async function inspectPublishedAssets(pageHtml, pageUrl) {
   const addAsset = (reference, parentUrl) => {
     try {
       const url = new URL(reference, parentUrl);
-      if (url.origin !== new URL(baseUrl).origin) return;
+      if (url.origin !== pageOrigin) return;
       if (!/\.(?:js|css)$/.test(url.pathname) || seen.has(url.href)) return;
       seen.add(url.href);
       pending.push(url.href);
