@@ -256,6 +256,8 @@ testRunner.test("commission estimate uses the 1405 VAT rate and explains local t
   assert.match(commissionLibrary, /export const VAT = 0\.10/);
   assert.match(commissionLibrary, /مالیات ارزش افزوده \(۱۰٪\)/);
   assert.match(commissionCalculator, /مالیات = ۱۰٪ از کمیسیون پایه/);
+  assert.match(commissionCalculator, /مالیات ارزش افزوده \(۱۰٪\)/);
+  assert.doesNotMatch(commissionCalculator, /مالیات ارزش افزوده \(۹٪\)/);
   assert.match(commissionCalculator, /مالیات ۱۰٪ اضافه/);
   assert.match(commissionCalculator, /ضریب[\s\S]*?ارزش معاملاتی و سقف مصوب هر شهرستان/);
 });

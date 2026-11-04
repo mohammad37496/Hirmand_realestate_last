@@ -118,7 +118,7 @@ export function CommissionCalculator() {
                 <strong>{formatToman(result.base)} تومان</strong>
               </li>
               <li>
-                <span>مالیات ارزش افزوده (۹٪)</span>
+                <span>مالیات ارزش افزوده (۱۰٪)</span>
                 <strong>{formatToman(result.vat)} تومان</strong>
               </li>
               <li className="is-total">
