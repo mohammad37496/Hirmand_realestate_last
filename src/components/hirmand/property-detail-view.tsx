@@ -713,7 +713,7 @@ function ResilientImage({
   if (failed) {
     // A legacy photo is only a recovery path for a placeholder asset. Never
     // replace a failed stored property photo with unrelated stock imagery.
-    if ((!src.trim() || isPropertyFallbackImage(src)) && fallbackLegacyImage) {
+    if ((!src.trim() || isPropertyFallbackImage(src)) && fallbackLegacyImage && fallbackLegacyImage !== src) {
       return (
         <img
           src={fallbackLegacyImage}
