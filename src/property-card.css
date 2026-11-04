@@ -646,3 +646,165 @@
 
 .pcard-badge-availability{border:1px solid rgba(34,76,48,.12);background:rgba(255,255,255,.92);color:#244b31}
 .pcard-badge-availability-ok{background:rgba(234,247,237,.94);color:#2f6b42}
+
+
+/* Phone list view: photo on the right, readable property details on the left. */
+@media (max-width: 720px) {
+  .property-grid.is-list-view {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .property-grid.is-list-view .pcard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    border-radius: 14px;
+  }
+
+  .property-grid.is-list-view .pcard-link {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: minmax(0, 1fr) 108px;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .property-grid.is-list-view .pcard-media {
+    grid-column: 2;
+    grid-row: 1;
+    height: 100%;
+    min-height: 154px;
+  }
+
+  .property-grid.is-list-view .pcard-media picture,
+  .property-grid.is-list-view .pcard-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 154px;
+  }
+
+  .property-grid.is-list-view .pcard-media img {
+    object-fit: cover;
+  }
+
+  .property-grid.is-list-view .pcard-badges {
+    top: 7px;
+    right: 7px;
+    display: grid;
+    justify-items: start;
+    gap: 4px;
+  }
+
+  .property-grid.is-list-view .pcard-badge {
+    min-height: 21px;
+    padding: 3px 6px;
+    font-size: 0.58rem;
+  }
+
+  .property-grid.is-list-view .pcard-body {
+    grid-column: 1;
+    grid-row: 1;
+    gap: 7px;
+    padding: 10px 11px;
+    text-align: right;
+  }
+
+  .property-grid.is-list-view .pcard-topline {
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .property-grid.is-list-view .pcard-meta {
+    gap: 3px 5px;
+    font-size: 0.62rem;
+  }
+
+  .property-grid.is-list-view .pcard-meta span + span::before {
+    margin-inline-end: 5px;
+  }
+
+  .property-grid.is-list-view .pcard-code {
+    font-size: 0.58rem;
+  }
+
+  .property-grid.is-list-view .pcard-title {
+    min-height: 0;
+    font-size: 0.8rem;
+    line-height: 1.65;
+  }
+
+  .property-grid.is-list-view .pcard-price-row {
+    gap: 1px;
+  }
+
+  .property-grid.is-list-view .pcard-price {
+    font-size: 0.96rem;
+    line-height: 1.55;
+  }
+
+  .property-grid.is-list-view .pcard-price-line {
+    flex-wrap: wrap;
+    gap: 3px 5px;
+  }
+
+  .property-grid.is-list-view .pcard-price-value {
+    font-size: 0.78rem;
+  }
+
+  .property-grid.is-list-view .pcard-unit-price {
+    font-size: 0.6rem;
+  }
+
+  .property-grid.is-list-view .pcard-specs {
+    gap: 4px;
+    margin-top: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .property-grid.is-list-view .pcard-specs span {
+    min-height: 24px;
+    padding: 3px 5px;
+    border-radius: 6px;
+    font-size: 0.59rem;
+  }
+
+  .property-grid.is-list-view .pcard-footer {
+    flex-wrap: wrap;
+    gap: 4px 7px;
+    padding-top: 0;
+    font-size: 0.62rem;
+  }
+
+  .property-grid.is-list-view .pcard-actions {
+    position: static;
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    justify-content: flex-start;
+    padding: 6px 10px;
+    border-top: 1px solid var(--line);
+    background: var(--card);
+  }
+
+  .property-grid.is-list-view .pcard-actions .property-actions,
+  .property-grid.is-list-view .pcard-actions .property-actions-compact {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .property-grid.is-list-view .pcard-actions .property-action {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    border-color: var(--line-2);
+    background: var(--card);
+    color: var(--muted);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

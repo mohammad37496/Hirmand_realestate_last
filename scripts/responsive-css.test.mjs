@@ -23,6 +23,7 @@ const propertyScenarioToolsCss = fs.readFileSync(new URL("../src/property-scenar
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
+const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
 const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.css", import.meta.url), "utf8");
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
@@ -199,4 +200,17 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   ]) {
     assert.ok(browserSmoke.includes(route), `responsive test should cover ${route}`);
   }
+});
+
+
+testRunner.test("mobile property directory starts in an accessible horizontal list view", () => {
+  assert.match(propertiesRoute, /matchMedia\("\(max-width: 720px\)"\)[\s\S]*?setViewMode\("list"\)/);
+  assert.match(propertiesRoute, /aria-label="نمایش فهرستی فایل‌ها" aria-pressed=\{viewMode === "list"\}/);
+  assert.match(propertiesRoute, /aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed=\{viewMode === "grid"\}/);
+  assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
+  const mobileListRule = propertyCardCss.match(/@media \(max-width: 720px\) \{[\s\S]*?\.property-grid\.is-list-view \{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.ok(mobileListRule, "the shared property card stylesheet should define a mobile list layout");
+  assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-link \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 108px/);
+  assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-actions \{[\s\S]*?grid-row: 2/);
+  assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-specs \{[\s\S]*?background: transparent/);
 });
