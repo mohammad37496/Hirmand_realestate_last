@@ -321,6 +321,7 @@ try {
     gallerySlideCount: 0,
     noWatermarkInNormalView: false,
     watermarkVisibleInLightbox: false,
+    secondLightboxImageLoaded: false,
     watermarkAnchoredBottomRight: false,
     noWatermarkWhenDisabled: false,
     noWatermarkOnLightboxThumbnails: false,
@@ -456,6 +457,14 @@ try {
               (await propertyPage.locator(".property-lightbox-media-wrap .property-media-watermark").count()) === 1;
             propertyNavigationCheck.noWatermarkOnLightboxThumbnails =
               (await propertyPage.locator(".property-lightbox-thumb .property-media-watermark").count()) === 0;
+            await propertyPage.getByRole("button", { name: "تصویر بعدی" }).click();
+            await propertyPage.waitForFunction(() => {
+              const image = document.querySelector(".property-lightbox-media-button img");
+              return image instanceof HTMLImageElement &&
+                image.complete && image.naturalWidth > 0 &&
+                new URL(image.currentSrc || image.src).searchParams.get("qa-gallery") === "2";
+            }, null, { timeout: timeoutMs });
+            propertyNavigationCheck.secondLightboxImageLoaded = true;
             propertyNavigationCheck.watermarkAnchoredBottomRight = await propertyPage.evaluate(() => {
               const watermark = document.querySelector(".property-lightbox-media-wrap .property-media-watermark");
               const wrap = document.querySelector(".property-lightbox-media-wrap");
@@ -487,6 +496,7 @@ try {
             propertyNavigationCheck.gallerySlideCount >= 2 &&
             propertyNavigationCheck.noWatermarkInNormalView &&
             propertyNavigationCheck.watermarkVisibleInLightbox &&
+            propertyNavigationCheck.secondLightboxImageLoaded &&
             propertyNavigationCheck.watermarkAnchoredBottomRight &&
             propertyNavigationCheck.noWatermarkOnLightboxThumbnails &&
             propertyNavigationCheck.noWatermarkWhenDisabled;
