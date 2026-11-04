@@ -27,7 +27,7 @@ const DEFAULTS = {
 function mapRow(row: Record<string, unknown> | undefined) {
   if (!row) return DEFAULTS;
   return {
-    enabled: row.enabled !== false,
+    enabled: row.enabled === true,
     showLogo: row.show_logo !== false,
     showText: row.show_text !== false,
     text: typeof row.text === "string" && row.text.trim() ? row.text.trim() : DEFAULTS.text,
