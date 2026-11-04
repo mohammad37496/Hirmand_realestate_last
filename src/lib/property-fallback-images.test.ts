@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isPropertyFallbackImage } from "./property-fallback-images.ts";
+import {
+  getPropertyFallbackImage,
+  getPropertyFallbackLegacyImage,
+  isPropertyFallbackImage,
+} from "./property-fallback-images.ts";
+
+test("property fallbacks use curated professional photography with a local photo emergency fallback", () => {
+  const primary = getPropertyFallbackImage("apartment", "property-123");
+  assert.match(primary, /^\/images\/fallback\/apartment-\d{2}\.jpg$/);
+  assert.equal(getPropertyFallbackImage("apartment", "property-123"), primary);
+  assert.equal(getPropertyFallbackLegacyImage("apartment", "property-123"), "/images/type-apartment.jpg");
+  assert.equal(getPropertyFallbackLegacyImage("villa", "property-456"), "/images/type-villa.jpg");
+});
 
 test("local category and curated fallback photography are classified as UI placeholders", () => {
   assert.equal(isPropertyFallbackImage("/images/type-apartment.jpg"), true);

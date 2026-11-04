@@ -1,7 +1,7 @@
 -- Persisted Hirmand property-media watermark configuration.
 create table if not exists property_media_watermark_settings (
   id smallint primary key default 1 check (id = 1),
-  enabled boolean not null default true,
+  enabled boolean not null default false,
   show_logo boolean not null default true,
   show_text boolean not null default true,
   text text not null default 'املاک هیرمند',

@@ -18,8 +18,6 @@ import { formatToman } from "@/lib/money";
 import type { Property, PropertyCardData, PropertyType, PropertyTransaction } from "@/lib/properties";
 import { isFeaturedActive, listPublishedPropertyCards } from "@/lib/properties";
 import { PropertyActions } from "./property-actions";
-import { PropertyMediaWatermark } from "@/components/hirmand/property-media-watermark";
-import { isPermanentlyWatermarkedMediaUrl } from "@/lib/property-watermark";
 import { Reveal } from "./reveal";
 
 const PROPERTY_TYPE_LABEL: Record<PropertyType, string> = {
@@ -135,9 +133,6 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
         aria-label={`مشاهده جزئیات کامل فایل ${property.title}`}
       >
         <div className="pcard-media">
-          {!isPermanentlyWatermarkedMediaUrl(image) ? (
-            <PropertyMediaWatermark subtle={isPropertyFallbackImage(image) || image.startsWith("/images/fallback/")} />
-          ) : null}
           <PropertyImage
             src={image}
             alt={property.title}

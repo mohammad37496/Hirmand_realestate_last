@@ -6,6 +6,19 @@ export const MAX_PROPERTY_MEDIA = 20;
 
 const DIVAR_MEDIA_DOMAINS = ["divar.ir", "divar.com", "divarcdn.com"] as const;
 
+/** Liara buckets may be private; their public-looking object URLs still need a
+ * signed same-origin read when the bucket policy does not allow anonymous GETs. */
+export function isLiaraStorageHost(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    return url.protocol === "https:" &&
+      (host === "liara.space" || host.endsWith(".liara.space") || host === "liara.ir" || host.endsWith(".liara.ir"));
+  } catch {
+    return false;
+  }
+}
+
 export type RasterImageMime =
   | "image/jpeg"
   | "image/png"
@@ -139,6 +152,7 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
   if (!value) return fallback ? [fallback] : [];
 
   const isDivarRemote = isDivarRemoteHost(value);
+  const isLiaraRemote = isLiaraStorageHost(value);
 
   if (isDivarRemote) {
     // Imported classifieds media should never make the visitor's browser call
@@ -152,6 +166,10 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
         ].filter(Boolean),
       ),
     );
+  }
+
+  if (isLiaraRemote) {
+    return Array.from(new Set([`/api/media-proxy?url=${encodeURIComponent(value)}`, fallback].filter(Boolean)));
   }
 
   return Array.from(new Set([value, fallback].filter(Boolean)));

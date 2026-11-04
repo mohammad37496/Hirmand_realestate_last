@@ -16,8 +16,6 @@ import { toast } from "sonner";
 import { MAX_PROPERTY_MEDIA, isVideoUrl } from "@/lib/media";
 import type { PropertyType } from "@/lib/properties";
 import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
-import { isPermanentlyWatermarkedMediaUrl } from "@/lib/property-watermark";
-import { PropertyMediaWatermark } from "@/components/hirmand/property-media-watermark";
 import { faBytes } from "@/components/hirmand/admin-ui-utils";
 
 type Props = {
@@ -235,16 +233,15 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
   }
 
   async function uploadOne(file: File): Promise<{ url: string; savedBytes: number; warning?: string }> {
-    // Browser-side optimization is only a preparation step. The API applies
-    // permanent watermarking after validating the real file bytes, so direct
-    // requests cannot bypass the operator's watermark settings.
+    // Browser-side optimization is only a preparation step. The API keeps
+    // avoids permanently watermarking property photos and marks videos when enabled.
     let optimized: { file: File; savedBytes: number };
     try {
       optimized = await optimizeImage(file);
     } catch {
       // Browser decoder support varies (notably AVIF and some phone photos).
       // Optimization is optional: send the original bytes to the server, where
-      // signature validation and permanent watermark processing are authoritative.
+      // signature validation and video watermark processing are authoritative.
       optimized = { file, savedBytes: 0 };
     }
     const result = await uploadInChunks({
@@ -257,8 +254,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
     });
     const url = typeof result.response.url === "string" ? result.response.url : "";
     if (!url) throw new Error("نشانی فایل آپلودشده دریافت نشد.");
-    // The server reports when the bytes were stored but permanent watermarking
-    // could not run. The file is live, so this is a warning, never a failure.
+    // The server reports when a video was stored without its permanent mark.
     const warning =
       typeof result.response.watermarkWarning === "string"
         ? result.response.watermarkWarning
@@ -521,7 +517,6 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
                   onDragEnd={() => setDragIndex(null)}
                 >
                   <MediaThumb src={src} fallback={fallback} />
-                  {!video || !isPermanentlyWatermarkedMediaUrl(src) ? <PropertyMediaWatermark /> : null}
                   <label className="admin-media-pick">
                     <input
                       type="checkbox"

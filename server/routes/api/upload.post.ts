@@ -4,7 +4,6 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { getPropertyWatermarkSettingsServer } from "@/lib/property-watermark.server";
-import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
 import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
 
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -52,11 +51,8 @@ export default defineEventHandler(async (event) => {
   }
   assertSameOrigin(event);
 
-  // Per-request diagnostic. When permanent watermarking cannot run (missing
-  // FFmpeg/font/logo, or an FFmpeg filter error) the upload must still succeed,
-  // but the operator is told that the original bytes were stored instead. It is
-  // deliberately not a silent fallback: the reason is logged server-side and the
-  // fact is returned to the admin panel.
+  // Per-request diagnostic for video watermarking. Property photos are never
+  // permanently watermarked; their configurable mark is shown in the lightbox.
   let watermarkWarning: string | null = null;
 
   try {
@@ -83,14 +79,10 @@ export default defineEventHandler(async (event) => {
         }
 
         try {
-          if (contentType.startsWith("image/")) {
-            return applyPropertyImageWatermarkServer({
-              data,
-              contentType,
-              pathname,
-              settings,
-            });
-          }
+          // Property photos are not permanently watermarked. The configurable brand
+          // mark is a presentation overlay shown only while the photo is open
+          // in the public lightbox. Videos retain their existing baked-in mark.
+          if (contentType.startsWith("image/")) return null;
 
           return applyPropertyVideoWatermark({
             data,
@@ -99,7 +91,7 @@ export default defineEventHandler(async (event) => {
             settings,
           });
         } catch (error) {
-          // If watermarking fails because ffmpeg, the font, the logo or a filter
+          // If video watermarking fails because ffmpeg, the font, the logo or a filter
           // is unavailable, store the original file instead of failing the upload
           // with HTTP 500. The failure is logged at error level (not buried in a
           // warning) and reported to the caller so the operator knows the media
