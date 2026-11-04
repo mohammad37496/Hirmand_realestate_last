@@ -233,11 +233,12 @@ testRunner.test("all shared property cards use the readable RTL mobile list layo
   assert.match(responsiveCss, /\.area-profile-listings, \.compare-grid, \.budget-result-grid[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
 });
 
-testRunner.test("mobile default view does not overwrite a later visitor-selected mode on resize", () => {
-  const mobileEffect = propertiesRoute.match(/\/\/ Choose the compact list once[\s\S]*?\}, \[\]\);/)?.[0] ?? "";
-  assert.ok(mobileEffect, "the initial mobile preference effect should exist");
-  assert.match(mobileEffect, /matchMedia\("\(max-width: 720px\)"\)[\s\S]*?setViewMode\("list"\)/);
-  assert.doesNotMatch(mobileEffect, /addEventListener|removeEventListener/);
+testRunner.test("responsive defaults adapt until a visitor manually selects a view", () => {
+  const responsiveEffect = propertiesRoute.match(/\/\/ Apply responsive defaults until[\s\S]*?\}, \[viewModeManuallySelected\]\);/)?.[0] ?? "";
+  assert.ok(responsiveEffect, "responsive list and map defaults should be applied");
+  assert.match(responsiveEffect, /if \(!viewModeManuallySelected\) setViewMode\(media\.matches \? "list" : "split"\)/);
+  assert.match(responsiveEffect, /media\.addEventListener\("change", applyResponsiveDefault\)/);
+  assert.match(propertiesRoute, /setViewModeManuallySelected\(true\)/);
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
   assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
 });

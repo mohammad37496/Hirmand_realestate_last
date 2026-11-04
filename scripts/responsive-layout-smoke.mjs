@@ -224,6 +224,16 @@ try {
         await desktopPage.waitForTimeout(700);
         const desktopMapDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]').getAttribute("aria-pressed").catch(() => null);
         if (desktopMapDefault !== "true") failures.push("/properties @ 1024px: desktop map-first default changed unexpectedly");
+        await desktopPage.setViewportSize({ width: 320, height: 900 });
+        await desktopPage.waitForTimeout(150);
+        const resizedMobileDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]').getAttribute("aria-pressed").catch(() => null);
+        if (resizedMobileDefault !== "true") failures.push("/properties: entering mobile without a manual choice did not switch to list view");
+        const desktopGridButton = desktopPage.locator('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]').first();
+        await desktopGridButton.click();
+        await desktopPage.setViewportSize({ width: 1024, height: 900 });
+        await desktopPage.setViewportSize({ width: 320, height: 900 });
+        const retainedGridChoice = await desktopGridButton.getAttribute("aria-pressed").catch(() => null);
+        if (retainedGridChoice !== "true") failures.push("/properties: a manually selected grid view was overwritten by viewport changes");
         await desktopPage.close();
       }
 

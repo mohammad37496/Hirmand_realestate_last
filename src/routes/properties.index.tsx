@@ -429,6 +429,7 @@ function PropertiesIndexPage() {
   const [savedSearchId, setSavedSearchId] = useState("");
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
+  const [viewModeManuallySelected, setViewModeManuallySelected] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [desktopFilterViewport, setDesktopFilterViewport] = useState(false);
   const [neighborhoodPickerOpen, setNeighborhoodPickerOpen] = useState(false);
@@ -463,11 +464,17 @@ function PropertiesIndexPage() {
     return () => media.removeEventListener("change", updateViewport);
   }, []);
 
-  // Choose the compact list once on initial mobile entry. Later viewport
-  // changes must preserve the visitor's explicit list/grid/map selection.
+  // Apply responsive defaults until the visitor explicitly chooses a view.
+  // A manual choice then survives every later viewport change.
   useEffect(() => {
-    if (window.matchMedia("(max-width: 720px)").matches) setViewMode("list");
-  }, []);
+    const media = window.matchMedia("(max-width: 720px)");
+    const applyResponsiveDefault = () => {
+      if (!viewModeManuallySelected) setViewMode(media.matches ? "list" : "split");
+    };
+    applyResponsiveDefault();
+    media.addEventListener("change", applyResponsiveDefault);
+    return () => media.removeEventListener("change", applyResponsiveDefault);
+  }, [viewModeManuallySelected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1823,13 +1830,13 @@ function PropertiesIndexPage() {
                   </select>
                 </label>
                 <div className="pf-views" role="group" aria-label="نحوه نمایش فایل‌ها">
-                  <button type="button" className={viewMode === "list" ? "is-active" : ""} onClick={() => setViewMode("list")} aria-label="نمایش فهرستی فایل‌ها" aria-pressed={viewMode === "list"}>
+                  <button type="button" className={viewMode === "list" ? "is-active" : ""} onClick={() => { setViewMode("list"); setViewModeManuallySelected(true); }} aria-label="نمایش فهرستی فایل‌ها" aria-pressed={viewMode === "list"}>
                     <List size={15} /> <span>لیستی</span>
                   </button>
-                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} onClick={() => setViewMode("grid")} aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed={viewMode === "grid"}>
+                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} onClick={() => { setViewMode("grid"); setViewModeManuallySelected(true); }} aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed={viewMode === "grid"}>
                     <LayoutGrid size={15} /> <span>شبکه‌ای</span>
                   </button>
-                  <button type="button" className={viewMode === "split" ? "is-active" : ""} onClick={() => setViewMode("split")} aria-label="نمایش فایل‌ها روی نقشه" aria-pressed={viewMode === "split"}>
+                  <button type="button" className={viewMode === "split" ? "is-active" : ""} onClick={() => { setViewMode("split"); setViewModeManuallySelected(true); }} aria-label="نمایش فایل‌ها روی نقشه" aria-pressed={viewMode === "split"}>
                     <MapPinned size={15} /> <span>نقشه</span>
                   </button>
                 </div>
