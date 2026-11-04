@@ -52,3 +52,16 @@ test("legacy .liara.site property URLs resolve to the configured bucket key", ()
     }
   }
 });
+
+
+test("legacy stored Liara proxy paths are normalized to the current same-origin route", () => {
+  const target = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/legacy.webp";
+  assert.deepEqual(
+    mediaSourceCandidates("/api/liara-media?url=" + encodeURIComponent(target), "/images/type-apartment.jpg"),
+    ["/api/media-proxy?url=" + encodeURIComponent(target)],
+  );
+  assert.deepEqual(
+    mediaSourceCandidates("/api/liara-media?url=" + encodeURIComponent("https://evil.example/photo.webp"), "/images/type-apartment.jpg"),
+    ["/api/liara-media?url=" + encodeURIComponent("https://evil.example/photo.webp")],
+  );
+});
