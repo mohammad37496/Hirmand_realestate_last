@@ -264,6 +264,37 @@ try {
     await apiPage.close();
   }
 
+  // Auth is enabled on the deployed app. Probe the session endpoint explicitly
+  // even when a preview build has auth disabled, so a missing production route
+  // cannot hide behind an otherwise-green /favorites page smoke.
+  const authApiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  let authRouteCheck;
+  try {
+    const response = await authApiPage.request.get(
+      new URL("/api/auth/get-session", url).toString(),
+      { timeout: timeoutMs },
+    );
+    let payload;
+    let validJson = false;
+    try {
+      payload = await response.json();
+      validJson = true;
+    } catch {
+      // A non-JSON response (notably the SPA HTML 404) is a failed auth route.
+    }
+    authRouteCheck = {
+      status: response.status(),
+      contentType: response.headers()["content-type"] ?? "",
+      validJson,
+      hasSessionShape: payload === null || Boolean(payload && typeof payload === "object"),
+      ok: response.status() === 200 && validJson && (payload === null || Boolean(payload && typeof payload === "object")),
+    };
+  } catch (error) {
+    authRouteCheck = { status: 0, contentType: "", validJson: false, hasSessionShape: false, ok: false, error: String(error?.message || error) };
+  } finally {
+    await authApiPage.close();
+  }
+
   // When published listings exist, exercise a real card-to-detail navigation.
   // This is the regression test for the recurring "clicking a file does nothing" bug.
   const requirePropertySmoke = process.env.REQUIRE_PROPERTY_SMOKE === "1";
@@ -500,6 +531,9 @@ try {
   if (!musicApiCheck.ok) {
     viewports["desktop-1280"].pageErrors.push(`music API smoke failed: [${musicApiCheck.status}]`);
   }
+  if (!authRouteCheck.ok) {
+    viewports["desktop-1280"].pageErrors.push(`auth API smoke failed: [${authRouteCheck.status}]`);
+  }
   if (!propertyNavigationCheck.ok) {
     viewports["desktop-1280"].pageErrors.push(
       propertyNavigationCheck.attempted
@@ -521,7 +555,7 @@ try {
       buildAuthEnabled: buildAuthEnabled(),
     }),
   );
-  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, musicApiCheck, brandWarnings, authWarnings, verdictFile: outJson };
+  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
   if (baselineRequested) {
     const { divergesFromBaseline, reasons } = compareAgainstBaseline(verdict);
     verdict.divergesFromBaseline = divergesFromBaseline;
