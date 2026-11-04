@@ -674,7 +674,7 @@
   .pcard-mobile-list .pcard-location { max-width:100%; }
   .pcard-mobile-list .pcard-actions { position:static; grid-column:1; grid-row:2; display:flex; justify-content:flex-start; padding:6px 10px; border-top:1px solid var(--line); background:var(--card); }
   .pcard-mobile-list .pcard-actions .property-actions,
-  .pcard-mobile-list .pcard-actions .property-actions-compact { flex-direction:row; gap:6px; }
+  .pcard-mobile-list .pcard-actions .property-actions-compact { width:100%; max-width:100%; min-width:0; flex-direction:row; flex-wrap:wrap; gap:6px; }
   .pcard-mobile-list .pcard-actions .property-action { width:44px; height:44px; min-height:44px; border-color:var(--line-2); background:var(--card); color:var(--muted); backdrop-filter:none; -webkit-backdrop-filter:none; }
 
   /* Explicit grid selection remains a full photo-first card on phones. */
@@ -691,7 +691,9 @@
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs { gap:6px; padding:9px 10px; border-top:1px solid rgba(11,26,43,.09); border-bottom:1px solid rgba(11,26,43,.09); border-radius:10px; background:#f1eae0; }
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs span { min-height:29px; padding:5px 8px; font-size:.68rem; }
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-footer { margin-top:auto; padding-top:2px; }
-  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions { position:absolute; top:10px; left:10px; grid-column:auto; grid-row:auto; padding:0; border:0; background:transparent; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions { position:absolute; top:10px; left:10px; width:calc(100% - 20px); max-width:calc(100% - 20px); grid-column:auto; grid-row:auto; padding:0; border:0; background:transparent; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions .property-actions,
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions .property-actions-compact { width:100%; max-width:100%; flex-direction:row; flex-wrap:wrap; gap:6px; }
 }
 @media (max-width:360px) {
   .pcard-mobile-list .pcard-body { padding:9px; gap:6px; }

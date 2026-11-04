@@ -177,11 +177,17 @@ try {
             const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
             return {
               imageOnRight: Boolean(media && body && media.left >= body.right - 2),
-              actionCount: card.querySelectorAll(".pcard-actions .property-action").length,
+              actions: Array.from(card.querySelectorAll(".pcard-actions .property-action")).map((button) => button.getAttribute("aria-label") || ""),
+              actionsFit: Array.from(card.querySelectorAll(".pcard-actions .property-action")).every((button) => {
+                const buttonRect = button.getBoundingClientRect();
+                const cardRect = card.getBoundingClientRect();
+                return buttonRect.left >= cardRect.left - 1 && buttonRect.right <= cardRect.right + 1;
+              }),
             };
           });
           if (!geometry.imageOnRight) failures.push("/properties @ 320px: property image is not on the right of the details");
-          if (geometry.actionCount < 1) failures.push("/properties @ 320px: property actions are missing");
+          if (!geometry.actions.some((label) => label.includes("ذخیره")) || !geometry.actions.some((label) => label.includes("مقایسه"))) failures.push("/properties @ 320px: favorite or compare action is missing");
+          if (!geometry.actionsFit) failures.push("/properties @ 320px: property actions overflow the card width");
         } else {
           failures.push("/properties @ 320px: no published property card was available for layout verification");
         }
