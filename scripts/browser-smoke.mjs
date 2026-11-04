@@ -317,8 +317,27 @@ try {
     secondNavigationOk: true,
     secondDetailHeading: null,
     secondGalleryCounter: null,
+    galleryImagesLoaded: false,
+    noWatermarkInNormalView: false,
+    watermarkVisibleInLightbox: false,
+    watermarkAnchoredBottomRight: false,
+    noWatermarkWhenDisabled: false,
+    noWatermarkOnLightboxThumbnails: false,
   };
   const propertyPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  let watermarkEnabledForSmoke = true;
+  await propertyPage.route("**/api/public-watermark", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      enabled: watermarkEnabledForSmoke,
+      showLogo: true,
+      showText: true,
+      text: "املاک هیرمند",
+      opacity: 0.82,
+      size: 1,
+    }),
+  }));
   /**
    * The file page is the only place `PropertyDetailView` mounts, and the
    * listing never renders that class — so this is what separates "the file
@@ -409,6 +428,70 @@ try {
         if (!initialGallery.thumbCount && propertyNavigationCheck.ok === false) {
           propertyNavigationCheck.error = "property detail gallery rendered without thumbnails";
         }
+
+        // Exercise the actual detail gallery and lightbox with two committed raster
+        // photos. The public settings endpoint is controlled here so both enabled
+        // and disabled states are deterministic and independent of production data.
+        if (propertyNavigationCheck.ok) {
+          try {
+            await propertyPage.waitForFunction(() => {
+              const image = document.querySelector(".property-gallery-main img");
+              return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
+            }, null, { timeout: timeoutMs });
+            propertyNavigationCheck.galleryImagesLoaded = await propertyPage.evaluate(() => {
+              const image = document.querySelector(".property-gallery-main img");
+              return image instanceof HTMLImageElement && image.naturalWidth > 0 &&
+                !/watermarked/i.test(image.currentSrc || image.src);
+            });
+            propertyNavigationCheck.noWatermarkInNormalView =
+              (await propertyPage.locator(".property-media-watermark").count()) === 0;
+
+            await propertyPage.getByRole("button", { name: "باز کردن گالری تصاویر در اندازه بزرگ" }).click();
+            await propertyPage.waitForSelector(".property-lightbox", { timeout: timeoutMs });
+            await propertyPage.waitForSelector(".property-lightbox-media-wrap .property-media-watermark", { timeout: timeoutMs });
+            propertyNavigationCheck.watermarkVisibleInLightbox =
+              (await propertyPage.locator(".property-lightbox-media-wrap .property-media-watermark").count()) === 1;
+            propertyNavigationCheck.noWatermarkOnLightboxThumbnails =
+              (await propertyPage.locator(".property-lightbox-thumb .property-media-watermark").count()) === 0;
+            propertyNavigationCheck.watermarkAnchoredBottomRight = await propertyPage.evaluate(() => {
+              const watermark = document.querySelector(".property-lightbox-media-wrap .property-media-watermark");
+              const wrap = document.querySelector(".property-lightbox-media-wrap");
+              if (!watermark || !wrap) return false;
+              const mark = watermark.getBoundingClientRect();
+              const frame = wrap.getBoundingClientRect();
+              const rightGap = frame.right - mark.right;
+              const bottomGap = frame.bottom - mark.bottom;
+              return rightGap >= -1 && rightGap < 40 && bottomGap >= -1 && bottomGap < 40;
+            });
+            await propertyPage.getByRole("button", { name: "بستن نمایش تصاویر" }).click();
+            await propertyPage.waitForSelector(".property-lightbox", { state: "detached", timeout: timeoutMs });
+
+            watermarkEnabledForSmoke = false;
+            await propertyPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
+            await readDetailState();
+            await propertyPage.getByRole("button", { name: "باز کردن گالری تصاویر در اندازه بزرگ" }).click();
+            await propertyPage.waitForSelector(".property-lightbox", { timeout: timeoutMs });
+            await propertyPage.waitForTimeout(500);
+            propertyNavigationCheck.noWatermarkWhenDisabled =
+              (await propertyPage.locator(".property-lightbox-media-wrap .property-media-watermark").count()) === 0;
+            await propertyPage.getByRole("button", { name: "بستن نمایش تصاویر" }).click();
+            await propertyPage.waitForSelector(".property-lightbox", { state: "detached", timeout: timeoutMs });
+          } catch (error) {
+            propertyNavigationCheck.error = "gallery/lightbox watermark check failed: " + String(error?.message || error);
+          }
+          const galleryWatermarkContractPassed =
+            propertyNavigationCheck.galleryImagesLoaded &&
+            propertyNavigationCheck.noWatermarkInNormalView &&
+            propertyNavigationCheck.watermarkVisibleInLightbox &&
+            propertyNavigationCheck.watermarkAnchoredBottomRight &&
+            propertyNavigationCheck.noWatermarkOnLightboxThumbnails &&
+            propertyNavigationCheck.noWatermarkWhenDisabled;
+          if (!galleryWatermarkContractPassed) {
+            propertyNavigationCheck.ok = false;
+            propertyNavigationCheck.error ??= "gallery/lightbox watermark contract did not pass";
+          }
+        }
+
         if (!propertyNavigationCheck.ok && !propertyNavigationCheck.detailRendered) {
           propertyNavigationCheck.error = `detail view never mounted for ${propertyNavigationCheck.status}`;
         }
