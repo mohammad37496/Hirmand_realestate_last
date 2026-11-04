@@ -82,7 +82,7 @@ function PropertyImage({
     usingLocalFallback && /\.(avif|webp)$/i.test(fallback);
 
   if (failed) {
-    if (usingLocalFallback && !legacyMode) {
+    if (usingLocalFallback && !legacyMode && fallbackLegacy !== fallback) {
       return <img src={fallbackLegacy} alt={alt} loading="lazy" decoding="async" />;
     }
     return <span className="property-image-fallback" role="img" aria-label={alt}>تصویر این فایل بارگذاری نشد</span>;
