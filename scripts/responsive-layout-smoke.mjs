@@ -232,6 +232,7 @@ try {
         await desktopGridButton.click();
         await desktopPage.setViewportSize({ width: 1024, height: 900 });
         await desktopPage.setViewportSize({ width: 320, height: 900 });
+        await desktopPage.waitForTimeout(150);
         const retainedGridChoice = await desktopGridButton.getAttribute("aria-pressed").catch(() => null);
         if (retainedGridChoice !== "true") failures.push("/properties: a manually selected grid view was overwritten by viewport changes");
         await desktopPage.close();
