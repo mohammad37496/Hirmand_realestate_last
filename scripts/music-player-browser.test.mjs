@@ -516,11 +516,11 @@ try {
     }
     if (!viewport.touch && viewport.width >= 721 && viewport.height > 420) {
       const leftGap = compactDesktopPlayer.x;
-      assert.ok(compactDesktopPlayer.width <= 364,
+      assert.ok(compactDesktopPlayer.width <= 320,
         `fine-pointer desktop player should remain a compact floating card: ${JSON.stringify(compactDesktopPlayer)}`);
-      assert.ok(leftGap >= 12 && leftGap <= 24,
+      assert.ok(leftGap >= 10 && leftGap <= 20,
         `fine-pointer desktop player should stay anchored near the lower-left corner: ${JSON.stringify({ compactDesktopPlayer, leftGap })}`);
-      assert.ok(compactDesktopPlayer.height <= 68,
+      assert.ok(compactDesktopPlayer.height <= 60,
         `fine-pointer desktop player should keep a slim collapsed height: ${JSON.stringify(compactDesktopPlayer)}`);
       assert.ok(compactDesktopPlayer.metaWidth >= 76,
         `fine-pointer desktop player should leave enough room for the track title and artist: ${JSON.stringify(compactDesktopPlayer)}`);
@@ -616,7 +616,7 @@ try {
       const bounds = player.getBoundingClientRect();
       return { x: Math.round(bounds.x), width: Math.round(bounds.width), bottom: Math.round(bounds.bottom) };
     });
-    assert.deepEqual(position, { x: 18, width: 364, bottom: 782 },
+    assert.deepEqual(position, { x: 14, width: 320, bottom: 786 },
       `the desktop music dock must keep the same position and size on ${routePath}: ${JSON.stringify(position)}`);
     await routeConsistencyPage.evaluate(async () => {
       const root = document.documentElement;
@@ -656,7 +656,7 @@ try {
       };
     });
     assert.ok(footerClearance.atBottom, `desktop footer clearance must be measured at the true scroll end: ${JSON.stringify(footerClearance)}`);
-    assert.ok(footerClearance.paddingBottom >= 138,
+    assert.ok(footerClearance.paddingBottom >= 144,
       `desktop page must reserve the dock height, bottom gap, and clearance: ${JSON.stringify(footerClearance)}`);
     assert.equal(footerClearance.overlaps, false,
       `the fixed desktop dock must not cover the footer on ${routePath}: ${JSON.stringify(footerClearance)}`);
