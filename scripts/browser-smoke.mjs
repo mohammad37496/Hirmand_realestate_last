@@ -318,6 +318,7 @@ try {
     secondDetailHeading: null,
     secondGalleryCounter: null,
     galleryImagesLoaded: false,
+    gallerySlideCount: 0,
     noWatermarkInNormalView: false,
     watermarkVisibleInLightbox: false,
     watermarkAnchoredBottomRight: false,
@@ -443,6 +444,8 @@ try {
               return image instanceof HTMLImageElement && image.naturalWidth > 0 &&
                 !/watermarked/i.test(image.currentSrc || image.src);
             });
+            propertyNavigationCheck.gallerySlideCount =
+              await propertyPage.locator(".property-gallery-rail .property-gallery-thumb").count();
             propertyNavigationCheck.noWatermarkInNormalView =
               (await propertyPage.locator(".property-media-watermark").count()) === 0;
 
@@ -481,6 +484,7 @@ try {
           }
           const galleryWatermarkContractPassed =
             propertyNavigationCheck.galleryImagesLoaded &&
+            propertyNavigationCheck.gallerySlideCount >= 2 &&
             propertyNavigationCheck.noWatermarkInNormalView &&
             propertyNavigationCheck.watermarkVisibleInLightbox &&
             propertyNavigationCheck.watermarkAnchoredBottomRight &&
