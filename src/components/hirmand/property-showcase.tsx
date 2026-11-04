@@ -75,11 +75,18 @@ function PropertyImage({
   const candidates = mediaSourceCandidates(src, fallback);
   const [attempt, setAttempt] = useState(0);
   const [legacyMode, setLegacyMode] = useState(false);
+  const [failed, setFailed] = useState(false);
   const current = candidates[Math.min(attempt, candidates.length - 1)] ?? fallback;
-  const usingLocalFallback =
-    current === fallback && fallback.startsWith("/images/fallback/");
+  const usingLocalFallback = current === fallback && isPropertyFallbackImage(fallback);
   const usingLocalRasterFallback =
     usingLocalFallback && /\.(avif|webp)$/i.test(fallback);
+
+  if (failed) {
+    if (usingLocalFallback && !legacyMode) {
+      return <img src={fallbackLegacy} alt={alt} loading="lazy" decoding="async" />;
+    }
+    return <span className="property-image-fallback" role="img" aria-label={alt}>تصویر این فایل بارگذاری نشد</span>;
+  }
 
   return (
     <picture>
@@ -98,7 +105,11 @@ function PropertyImage({
             setLegacyMode(true);
             return;
           }
-          setAttempt((value) => Math.min(value + 1, candidates.length - 1));
+          if (attempt < candidates.length - 1) {
+            setAttempt((value) => Math.min(value + 1, candidates.length - 1));
+          } else {
+            setFailed(true);
+          }
         }}
       />
     </picture>
