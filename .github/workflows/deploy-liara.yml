@@ -35,6 +35,7 @@ jobs:
         run: node scripts/write-deployment-info.mjs
 
       - name: Deploy
+        timeout-minutes: 40
         env:
           LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
           LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}

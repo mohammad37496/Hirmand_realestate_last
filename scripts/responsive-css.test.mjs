@@ -268,6 +268,7 @@ testRunner.test("commission estimate uses the 1405 VAT rate and explains local t
 testRunner.test("Liara deployment verifies the exact main commit and published mobile assets", () => {
   assert.match(deployWorkflow, /Stamp deployment revision[\s\S]*?write-deployment-info\.mjs/);
   assert.match(deployWorkflow, /Verify live Liara release matches this commit[\s\S]*?verify-live-deployment\.mjs/);
+  assert.match(deployWorkflow, /- name: Deploy\s+timeout-minutes: 40/);
   assert.match(liveDeploymentSmoke, /EXPECTED_DEPLOYMENT_SHA/);
   assert.match(liveDeploymentSmoke, /deployment\.json/);
   assert.match(liveDeploymentSmoke, /pcard-mobile-list/);
