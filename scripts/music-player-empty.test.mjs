@@ -14,8 +14,9 @@ test("empty music player is hidden by a stylesheet loaded after responsive overr
   assert.equal([...responsiveCss.matchAll(/\.music-player(?:\.music-player-empty)?/g)].at(-1)?.[0], ".music-player.music-player-empty", "the empty-player override must be the final player selector");
 });
 
-test("desktop music player uses one fixed lower-left size", () => {
-  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)[\s\S]*?\.music-player\s*\{[^}]*left:\s*18px\s*!important;[^}]*bottom:\s*18px\s*!important;[^}]*width:\s*min\(390px,\s*calc\(100vw - 36px\)\)\s*!important;/);
+test("desktop music player uses one compact fixed lower-left size", () => {
+  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)[\s\S]*?\.music-player\s*\{[^}]*left:\s*14px\s*!important;[^}]*bottom:\s*14px\s*!important;[^}]*width:\s*min\(320px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*320px\s*!important;/);
+  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)\s*and\s*\(pointer:\s*fine\)[\s\S]*?\.music-player\s*\{[^}]*width:\s*min\(320px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*320px\s*!important;[^}]*min-height:\s*48px\s*!important;/);
 });
 
 test("mobile music launcher is small and opens the full control sheet", () => {
