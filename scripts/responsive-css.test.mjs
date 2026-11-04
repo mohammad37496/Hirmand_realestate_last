@@ -210,7 +210,7 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
   const mobileListRule = propertyCardCss.match(/@media \(max-width: 720px\) \{[\s\S]*?\.property-grid\.is-list-view \{[\s\S]*?\n\}/)?.[0] ?? "";
   assert.ok(mobileListRule, "the shared property card stylesheet should define a mobile list layout");
-  assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-link \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 108px/);
+  assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-link \{[\s\S]*?grid-template-columns: 108px minmax\(0, 1fr\)/);
   assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-actions \{[\s\S]*?grid-row: 2/);
   assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-specs \{[\s\S]*?background: transparent/);
 });
