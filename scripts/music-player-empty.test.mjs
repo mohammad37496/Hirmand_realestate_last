@@ -6,6 +6,7 @@ const root = new URL("../src/", import.meta.url);
 const responsiveCss = fs.readFileSync(new URL("mobile-responsive-hardening.css", root), "utf8");
 const musicLayoutCss = fs.readFileSync(new URL("music-player-layout.css", root), "utf8");
 const rootRoute = fs.readFileSync(new URL("routes/__root.tsx", root), "utf8");
+const musicPlayer = fs.readFileSync(new URL("components/hirmand/music-player.tsx", root), "utf8");
 
 test("empty music player is hidden by a stylesheet loaded after responsive overrides", () => {
   assert.match(rootRoute, /href:\s*responsiveHardeningCss\s*\}/);
@@ -16,7 +17,12 @@ test("empty music player is hidden by a stylesheet loaded after responsive overr
 
 test("desktop music player uses one compact fixed lower-left size", () => {
   assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)[\s\S]*?\.music-player\s*\{[^}]*left:\s*14px\s*!important;[^}]*bottom:\s*14px\s*!important;[^}]*width:\s*min\(320px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*320px\s*!important;/);
-  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)\s*and\s*\(pointer:\s*fine\)[\s\S]*?\.music-player\s*\{[^}]*width:\s*min\(320px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*320px\s*!important;[^}]*min-height:\s*48px\s*!important;/);
+  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)\s*and\s*\(pointer:\s*fine\)[\s\S]*?\.music-player\s*\{[^}]*width:\s*min\(300px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*300px\s*!important;[^}]*min-height:\s*46px\s*!important;/);
+});
+
+test("playlist is controlled by one icon-only button", () => {
+  assert.equal([...musicPlayer.matchAll(/<ListMusic\b/g)].length, 1);
+  assert.doesNotMatch(musicPlayer, /<span>فهرست پخش<\/span>/);
 });
 
 test("mobile music launcher is small and opens the full control sheet", () => {

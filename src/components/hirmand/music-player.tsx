@@ -830,16 +830,6 @@ export function MusicPlayer() {
                   aria-label="بلندی صدا"
                 />
               </label>
-              <button
-                type="button"
-                className={isListOpen ? "is-active" : ""}
-                onClick={() => setIsListOpen((value) => !value)}
-                aria-pressed={isListOpen}
-                title="فهرست آهنگ‌ها"
-              >
-                <ListMusic size={16} />
-                <span>فهرست پخش</span>
-              </button>
             </div>
           </div>
         ) : null}
