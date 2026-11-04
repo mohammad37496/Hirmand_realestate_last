@@ -52,7 +52,6 @@ const browser = await chromium.launch({
 });
 
 const tested = [];
-const failures = [];
 try {
   const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
   page.setDefaultTimeout(timeoutMs);
