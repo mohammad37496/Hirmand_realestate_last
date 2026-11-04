@@ -463,6 +463,19 @@ function PropertiesIndexPage() {
     return () => media.removeEventListener("change", updateViewport);
   }, []);
 
+  // Start phone visitors with the compact property list, while keeping the
+  // map-first workspace as the desktop default. The view controls remain
+  // available so visitors can switch modes at any time.
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 720px)");
+    const preferListOnMobile = () => {
+      if (media.matches) setViewMode("list");
+    };
+    preferListOnMobile();
+    media.addEventListener("change", preferListOnMobile);
+    return () => media.removeEventListener("change", preferListOnMobile);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void listNeighborhoodNames()
@@ -1817,13 +1830,13 @@ function PropertiesIndexPage() {
                   </select>
                 </label>
                 <div className="pf-views" role="group" aria-label="نحوه نمایش فایل‌ها">
-                  <button type="button" className={viewMode === "list" ? "is-active" : ""} onClick={() => setViewMode("list")}>
+                  <button type="button" className={viewMode === "list" ? "is-active" : ""} onClick={() => setViewMode("list")} aria-label="نمایش فهرستی فایل‌ها" aria-pressed={viewMode === "list"}>
                     <List size={15} /> <span>لیستی</span>
                   </button>
-                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} onClick={() => setViewMode("grid")}>
+                  <button type="button" className={viewMode === "grid" ? "is-active" : ""} onClick={() => setViewMode("grid")} aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed={viewMode === "grid"}>
                     <LayoutGrid size={15} /> <span>شبکه‌ای</span>
                   </button>
-                  <button type="button" className={viewMode === "split" ? "is-active" : ""} onClick={() => setViewMode("split")}>
+                  <button type="button" className={viewMode === "split" ? "is-active" : ""} onClick={() => setViewMode("split")} aria-label="نمایش فایل‌ها روی نقشه" aria-pressed={viewMode === "split"}>
                     <MapPinned size={15} /> <span>نقشه</span>
                   </button>
                 </div>

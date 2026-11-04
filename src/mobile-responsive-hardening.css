@@ -1622,7 +1622,7 @@ svg {
   .pf-page .pf-head-actions { width: 100%; justify-content: space-between; }
   .pf-page .pf-sort { flex: 1 1 auto; }
   .pf-page .pf-sort .pf-select { min-width: 0; width: 100%; }
-  .pf-page .pf-views button { padding-inline: 7px; }
+  .pf-page .pf-views button { min-width: 44px; min-height: 44px; padding-inline: 7px; }
   .pf-page .pf-views button span { display: none; }
   .pf-page .pf-tools { gap: 5px; }
   .pf-page .pf-tools > a,
