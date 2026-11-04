@@ -48,14 +48,14 @@
   }
 
   .music-player .music-meta {
-    min-width: 48px !important;
+    min-width: 76px !important;
   }
 
   .music-player .music-cover {
-    width: 30px !important;
-    min-width: 30px !important;
-    height: 30px !important;
-    min-height: 30px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
   }
 
   .music-player .music-transport {
@@ -64,17 +64,17 @@
 
   .music-player .music-transport button,
   .music-player .music-compact-actions button {
-    width: 28px !important;
-    min-width: 28px !important;
-    height: 28px !important;
-    min-height: 28px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
   }
 
   .music-player .music-transport .music-play {
-    width: 32px !important;
-    min-width: 32px !important;
-    height: 32px !important;
-    min-height: 32px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
   }
 
   .music-player .music-compact-actions {
