@@ -20,14 +20,6 @@ test("FFmpeg download has a finite timeout and an actionable timeout error", () 
   assert.match(ffmpegDownloader, /\$\{label\} download timed out after/);
 });
 
-test("production prebuild avoids remote fallback image downloads", () => {
-  const scripts = JSON.parse(packageManifest).scripts;
-  assert.equal(scripts.prebuild, "node scripts/ensure-ffmpeg.mjs");
-  assert.match(scripts["assets:fallback:refresh"], /generate-fallback-assets\.mjs/);
-  assert.match(deployEnv, /npm_lifecycle_event !== "build"/);
-});
-
-
 const propertyStore = (await readFile(
   new URL("../src/lib/properties.ts", import.meta.url),
   "utf8",
@@ -36,6 +28,13 @@ const packageManifest = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8",
 );
+
+test("production prebuild avoids remote fallback image downloads", () => {
+  const scripts = JSON.parse(packageManifest).scripts;
+  assert.equal(scripts.prebuild, "node scripts/ensure-ffmpeg.mjs");
+  assert.match(scripts["assets:fallback:refresh"], /generate-fallback-assets\.mjs/);
+  assert.match(deployEnv, /npm_lifecycle_event !== "build"/);
+});
 const ffmpegProvisioner = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
   "utf8",
