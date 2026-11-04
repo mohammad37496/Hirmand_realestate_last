@@ -2185,3 +2185,168 @@ export const ADMIN_CSS = `
 .admin-panel-head > .admin-filter-row{width:100%;isolation:isolate}
 .admin-panel-head > .admin-filter-row select{position:relative;z-index:1;min-width:0;max-width:100%;box-sizing:border-box}
 `;
+
+
+/* Property file list/grid visual stabilization — 2026-11-04.
+   Keep selectors scoped to the property list so admin modules remain untouched. */
+.admin-main .admin-property-list{
+  min-width:0;
+  gap:0;
+  background:#fff;
+  border-radius:0 0 18px 18px;
+}
+.admin-main .admin-property-list > .admin-property-card{
+  min-width:0;
+  box-sizing:border-box;
+  grid-template-columns:28px 88px minmax(0,1fr) auto;
+  gap:14px;
+  padding:15px 18px;
+  border-bottom:1px solid #e7ebf0;
+  background:#fff;
+  align-items:center;
+}
+.admin-main .admin-property-list > .admin-property-card:last-child{border-bottom:0}
+.admin-main .admin-property-list > .admin-property-card:hover{background:#f8fafc}
+.admin-main .admin-property-list .admin-property-thumb{
+  width:88px;height:68px;aspect-ratio:4/3;
+  border-radius:12px;background:#f1eae0;
+  border:1px solid #e6e0d7;overflow:hidden;
+}
+.admin-main .admin-property-list .admin-property-thumb img{
+  display:block;width:100%;height:100%;object-fit:cover;
+}
+.admin-main .admin-property-list .admin-property-meta{min-width:0;overflow:hidden}
+.admin-main .admin-property-list .admin-property-meta h3{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:.94rem;line-height:1.7;color:#172033;
+}
+.admin-main .admin-property-list .admin-property-meta p{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  line-height:1.75;color:#667085;
+}
+.admin-main .admin-property-list .admin-property-tags{gap:6px;min-width:0}
+.admin-main .admin-property-list .admin-property-tags span{
+  max-width:100%;line-height:1.5;white-space:nowrap;
+}
+.admin-main .admin-property-list .admin-property-actions{
+  min-width:0;gap:6px;align-items:center;flex-wrap:wrap;
+}
+.admin-main .admin-property-list .admin-icon-btn{
+  width:38px;height:38px;flex:0 0 38px;border-radius:11px;
+  background:#fff;color:#344054;border-color:#d8e0e8;
+}
+.admin-main .admin-property-list .admin-icon-btn:hover{
+  color:#8a5b16;border-color:#c79b50;background:#fffaf0;
+}
+.admin-main .admin-property-list .admin-property-select{min-width:24px}
+.admin-main .admin-property-list .admin-row-checkbox{width:18px;height:18px}
+
+/* Support whichever view-mode attribute/class the existing page emits. */
+.admin-main .admin-property-list.is-grid,
+.admin-main .admin-property-list[data-view="grid"],
+.admin-main .admin-property-list.admin-property-grid,
+.admin-main .admin-property-grid .admin-property-list{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:stretch;
+  gap:16px;
+  padding:16px;
+  background:#f6f8fb;
+}
+.admin-main .admin-property-list.is-grid > .admin-property-card,
+.admin-main .admin-property-list[data-view="grid"] > .admin-property-card,
+.admin-main .admin-property-list.admin-property-grid > .admin-property-card,
+.admin-main .admin-property-grid .admin-property-list > .admin-property-card{
+  display:flex;flex-direction:column;align-items:stretch;
+  min-width:0;gap:12px;padding:14px;
+  border:1px solid #e1e7ee;border-radius:16px;
+  background:#fff;box-shadow:0 5px 18px rgb(16 24 40 / .045);
+}
+.admin-main .admin-property-list.is-grid > .admin-property-card:hover,
+.admin-main .admin-property-list[data-view="grid"] > .admin-property-card:hover,
+.admin-main .admin-property-list.admin-property-grid > .admin-property-card:hover,
+.admin-main .admin-property-grid .admin-property-list > .admin-property-card:hover{
+  border-color:#d5b779;box-shadow:0 10px 24px rgb(16 24 40 / .09);transform:translateY(-1px);
+}
+.admin-main .admin-property-list.is-grid .admin-property-thumb,
+.admin-main .admin-property-list[data-view="grid"] .admin-property-thumb,
+.admin-main .admin-property-list.admin-property-grid .admin-property-thumb,
+.admin-main .admin-property-grid .admin-property-list .admin-property-thumb{
+  width:100%;height:auto;aspect-ratio:16/10;border-radius:12px;
+}
+.admin-main .admin-property-list.is-grid .admin-property-meta,
+.admin-main .admin-property-list[data-view="grid"] .admin-property-meta,
+.admin-main .admin-property-list.admin-property-grid .admin-property-meta,
+.admin-main .admin-property-grid .admin-property-list .admin-property-meta{width:100%}
+.admin-main .admin-property-list.is-grid .admin-property-meta h3,
+.admin-main .admin-property-list[data-view="grid"] .admin-property-meta h3,
+.admin-main .admin-property-list.admin-property-grid .admin-property-meta h3,
+.admin-main .admin-property-grid .admin-property-list .admin-property-meta h3{
+  white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  overflow:hidden;min-height:3.2em;
+}
+.admin-main .admin-property-list.is-grid .admin-property-meta p,
+.admin-main .admin-property-list[data-view="grid"] .admin-property-meta p,
+.admin-main .admin-property-list.admin-property-grid .admin-property-meta p,
+.admin-main .admin-property-grid .admin-property-list .admin-property-meta p{white-space:normal}
+.admin-main .admin-property-list.is-grid .admin-property-actions,
+.admin-main .admin-property-list[data-view="grid"] .admin-property-actions,
+.admin-main .admin-property-list.admin-property-grid .admin-property-actions,
+.admin-main .admin-property-grid .admin-property-list .admin-property-actions{
+  display:flex;justify-content:flex-start;flex-wrap:wrap;padding-top:10px;
+  margin-top:auto;border-top:1px solid #edf0f4;
+}
+.admin-main .admin-property-list.is-grid .admin-property-select,
+.admin-main .admin-property-list[data-view="grid"] .admin-property-select,
+.admin-main .admin-property-list.admin-property-grid .admin-property-select,
+.admin-main .admin-property-grid .admin-property-list .admin-property-select{
+  align-self:flex-start;
+}
+.admin-main .admin-panel-head{min-width:0}
+.admin-main .admin-panel-head > *{min-width:0}
+.admin-main .admin-list-toolbar{min-width:0;max-width:100%}
+.admin-main .admin-filter-row{min-width:0}
+.admin-main .admin-filter-row > *{min-width:0;max-width:100%}
+.admin-main .admin-results-meta{line-height:1.8;overflow-wrap:anywhere}
+
+@media (max-width:1100px){
+  .admin-main .admin-property-list.is-grid,
+  .admin-main .admin-property-list[data-view="grid"],
+  .admin-main .admin-property-list.admin-property-grid,
+  .admin-main .admin-property-grid .admin-property-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:12px}
+  .admin-main .admin-property-list > .admin-property-card{grid-template-columns:24px 76px minmax(0,1fr);gap:11px}
+  .admin-main .admin-property-list > .admin-property-card .admin-property-actions{grid-column:2/-1;justify-content:flex-start}
+}
+@media (max-width:640px){
+  .admin-main .admin-property-list > .admin-property-card{grid-template-columns:22px 60px minmax(0,1fr);gap:9px;padding:12px 10px}
+  .admin-main .admin-property-list .admin-property-thumb{width:60px;height:52px}
+  .admin-main .admin-property-list .admin-property-meta h3{font-size:.84rem;line-height:1.65}
+  .admin-main .admin-property-list .admin-property-meta p{font-size:.73rem}
+  .admin-main .admin-property-list > .admin-property-card .admin-property-actions{grid-column:1/-1;padding-top:8px}
+  .admin-main .admin-property-list .admin-icon-btn{width:38px;height:38px;flex-basis:38px}
+  .admin-main .admin-property-list.is-grid,
+  .admin-main .admin-property-list[data-view="grid"],
+  .admin-main .admin-property-list.admin-property-grid,
+  .admin-main .admin-property-grid .admin-property-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:9px}
+  .admin-main .admin-property-list.is-grid > .admin-property-card,
+  .admin-main .admin-property-list[data-view="grid"] > .admin-property-card,
+  .admin-main .admin-property-list.admin-property-grid > .admin-property-card,
+  .admin-main .admin-property-grid .admin-property-list > .admin-property-card{padding:9px;gap:8px;border-radius:13px}
+  .admin-main .admin-property-list.is-grid .admin-property-actions,
+  .admin-main .admin-property-list[data-view="grid"] .admin-property-actions,
+  .admin-main .admin-property-list.admin-property-grid .admin-property-actions,
+  .admin-main .admin-property-grid .admin-property-list .admin-property-actions{gap:5px}
+  .admin-main .admin-property-list.is-grid .admin-icon-btn,
+  .admin-main .admin-property-list[data-view="grid"] .admin-icon-btn,
+  .admin-main .admin-property-list.admin-property-grid .admin-icon-btn,
+  .admin-main .admin-property-grid .admin-property-list .admin-icon-btn{width:34px;height:34px;flex-basis:34px}
+}
+@media (max-width:360px){
+  .admin-main .admin-property-list.is-grid,
+  .admin-main .admin-property-list[data-view="grid"],
+  .admin-main .admin-property-list.admin-property-grid,
+  .admin-main .admin-property-grid .admin-property-list{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  .admin-main .admin-property-list .admin-property-card{transition:none}
+}
