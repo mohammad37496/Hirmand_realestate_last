@@ -390,6 +390,8 @@ try {
       assert.ok(launcher.x <= 16 && launcher.width === 48 && launcher.height === 48,
         `mobile launcher should be a 48px icon at the lower left: ${JSON.stringify(launcher)}`);
       assert.equal(launcher.playerDisplay, "none", `mobile player should start collapsed: ${JSON.stringify(launcher)}`);
+      assert.equal(await responsivePage.locator(".music-player-launcher").getAttribute("aria-expanded"), "false");
+      assert.equal(await responsivePage.locator(".music-player-launcher").getAttribute("aria-controls"), "hirmand-music-player-panel");
       const mobileLauncher = responsivePage.locator(".music-player-launcher");
       await mobileLauncher.click();
       await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
@@ -411,10 +413,24 @@ try {
       assert.equal(openLauncher.height, 48);
       assert.ok(openLauncher.y >= openLauncher.playerBottom,
         `the open-panel launcher must sit below the sheet without covering its playlist: ${JSON.stringify(openLauncher)}`);
+      await responsivePage.locator(".music-play").focus();
+      assert.equal(await responsivePage.evaluate(() => document.activeElement === document.querySelector(".music-play")), true);
+      assert.equal(await mobileLauncher.getAttribute("aria-label"), "بستن پخش‌کننده موسیقی");
+      await responsivePage.keyboard.press("Escape");
+      await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      assert.equal(await mobileLauncher.getAttribute("aria-expanded"), "false");
+      assert.equal(await responsivePage.evaluate(() => document.activeElement === document.querySelector(".music-player-launcher")), true,
+        "Escape must return focus to the launcher instead of stranding focus in the hidden sheet");
+      assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none");
+      await mobileLauncher.click();
+      await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
       await mobileLauncher.click();
       await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
       assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none",
         "clicking the visible mobile launcher again must close the sheet");
+      assert.equal(await mobileLauncher.getAttribute("aria-expanded"), "false");
+      assert.equal(await responsivePage.evaluate(() => document.activeElement === document.querySelector(".music-player-launcher")), true,
+        "click-to-close must retain focus on the visible launcher");
       await mobileLauncher.click();
       await responsivePage.waitForFunction(() => document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
     } else {
@@ -443,6 +459,19 @@ try {
       return {
         viewport: { width: innerWidth, height: innerHeight },
         player: rect(player),
+        header: rect(document.querySelector(".site-nav") || document.querySelector("header")),
+        visibleControlHitTargets: visibleButtons.filter((button) => {
+          if (button.closest(".music-playlist")) return false;
+          const bounds = button.getBoundingClientRect();
+          const playerBounds = player.getBoundingClientRect();
+          const centerX = bounds.x + bounds.width / 2;
+          const centerY = bounds.y + bounds.height / 2;
+          return centerX >= playerBounds.left && centerX <= playerBounds.right && centerY >= playerBounds.top && centerY <= playerBounds.bottom;
+        }).map((button) => {
+          const bounds = button.getBoundingClientRect();
+          const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+          return { label: button.getAttribute("aria-label") || button.title, receivesPointer: hit === button || button.contains(hit) };
+        }),
         main: rect(player.querySelector('.music-player-main')),
         transport: rect(player.querySelector('.music-play')),
         panel: rect(player.querySelector('.music-player-panel')),
@@ -469,6 +498,22 @@ try {
     });
     assert.ok(layout.player.y >= 0, `music dock must stay below the viewport top: ${JSON.stringify(layout)}`);
     assert.ok(layout.player.bottom <= viewport.height, `music dock must stay inside the viewport: ${JSON.stringify(layout)}`);
+    if (viewport.width <= 720 && viewport.height <= 420) {
+      assert.ok(layout.player.y >= layout.header.bottom + 8,
+        `short-landscape music sheet must clear the sticky header: ${JSON.stringify(layout)}`);
+      assert.ok(layout.visibleControlHitTargets.every((target) => target.receivesPointer),
+        `every visible short-landscape player control must receive pointer input: ${JSON.stringify(layout.visibleControlHitTargets)}`);
+      await responsivePage.locator(".music-player").evaluate((player) => { player.scrollTop = 130; });
+      const lowerControlHitTargets = await responsivePage.locator(".music-player").evaluate((player) => [
+        ...player.querySelectorAll(".music-secondary-controls > button, .music-volume button, .music-volume input"),
+      ].map((control) => {
+        const bounds = control.getBoundingClientRect();
+        const hit = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+        return { label: control.getAttribute("aria-label") || control.title, receivesPointer: hit === control || control.contains(hit) };
+      }));
+      assert.ok(lowerControlHitTargets.length >= 4 && lowerControlHitTargets.every((target) => target.receivesPointer),
+        `scrolling the short-landscape sheet must reveal reachable shuffle, repeat and volume controls: ${JSON.stringify(lowerControlHitTargets)}`);
+    }
     if (!viewport.touch && viewport.width >= 721 && viewport.height > 420) {
       const leftGap = compactDesktopPlayer.x;
       assert.ok(compactDesktopPlayer.width <= 390,
@@ -541,8 +586,12 @@ try {
       assert.ok(layout.buttons.some((button) => button.label.includes("تصادفی")));
       assert.ok(layout.progress.height >= 44, `mobile seek control must be easy to use: ${JSON.stringify(layout.progress)}`);
       assert.ok(layout.playlist.y > layout.progress.y, `mobile transport and sound controls must precede the playlist: ${JSON.stringify(layout)}`);
+      const mobileLauncher = responsivePage.locator(".music-player-launcher");
       await responsivePage.locator('.music-compact-actions button[aria-label="مخفی کردن پخش‌کننده"]').evaluate((button) => button.click());
       await responsivePage.waitForFunction(() => !document.querySelector(".music-player")?.classList.contains("is-mobile-open"));
+      assert.equal(await mobileLauncher.getAttribute("aria-expanded"), "false");
+      assert.equal(await responsivePage.evaluate(() => document.activeElement === document.querySelector(".music-player-launcher")), true,
+        "the close control must restore focus to the visible launcher");
       assert.equal(await responsivePage.locator(".music-player").evaluate((player) => getComputedStyle(player).display), "none");
       assert.equal(await responsivePage.locator(".music-player-launcher").evaluate((button) => getComputedStyle(button).display), "grid");
     }
