@@ -89,9 +89,15 @@ try {
     const cardSource = await cardImage.evaluate((image) => image.currentSrc || image.src || image.getAttribute("src") || "");
     if (isFallbackSource(cardSource)) continue;
 
-    const cardImageLoaded = await cardImage.evaluate((image) =>
-      image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
-    );
+    const cardImageLoaded = await cardImage.evaluate(async (image) => {
+      if (!(image instanceof HTMLImageElement)) return false;
+      try {
+        await image.decode();
+      } catch {
+        // The explicit naturalWidth check below reports decode/network failures.
+      }
+      return image.complete && image.naturalWidth > 0;
+    });
     if (!cardImageLoaded) {
       throw new Error("A real property image in the listing failed to load.");
     }
@@ -114,9 +120,15 @@ try {
     if (isFallbackSource(detailSource)) continue;
 
     await mainImage.waitFor({ state: "visible" });
-    const detailImageLoaded = await mainImage.evaluate((image) =>
-      image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
-    );
+    const detailImageLoaded = await mainImage.evaluate(async (image) => {
+      if (!(image instanceof HTMLImageElement)) return false;
+      try {
+        await image.decode();
+      } catch {
+        // The explicit naturalWidth check below reports decode/network failures.
+      }
+      return image.complete && image.naturalWidth > 0;
+    });
     if (!detailImageLoaded) {
       throw new Error("A real property image in the detail gallery failed to load.");
     }
