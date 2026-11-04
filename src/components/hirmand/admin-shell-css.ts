@@ -2176,4 +2176,12 @@ export const ADMIN_CSS = `
   .admin-main .admin-form-intro h2{font-size:1.08rem}
   .admin-main .admin-form-intro-meta>span{font-size:.65rem}
 }
+
+/* Keep property-file filters above adjacent list/action layers. */
+.admin-panel > .admin-panel-head{position:relative;z-index:3;overflow:visible}
+.admin-panel-head > .admin-list-toolbar,
+.admin-panel-head > .admin-filter-row,
+.admin-panel-head > .admin-filter-chips{position:relative;z-index:4;min-width:0;box-sizing:border-box}
+.admin-panel-head > .admin-filter-row{width:100%;isolation:isolate}
+.admin-panel-head > .admin-filter-row select{position:relative;z-index:1;min-width:0;max-width:100%;box-sizing:border-box}
 `;
