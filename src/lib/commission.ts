@@ -1,6 +1,6 @@
 import { formatToman } from "@/lib/money";
 
-export const VAT = 0.09;
+export const VAT = 0.10;
 export const BUY_TOTAL_RATE = 0.005;
 export const RENT_RATE = 0.25;
 export const DEPOSIT_TO_RENT = 30_000;
@@ -62,7 +62,7 @@ export function resultSummary(result: CommissionResult): string {
       "محاسبه کمیسیون خرید و فروش — گروه مشاورین املاک هیرمند",
       `مبلغ معامله: ${formatToman(result.amount)} تومان`,
       `کمیسیون پایه (۰٫۵٪): ${formatToman(result.base)} تومان`,
-      `مالیات ارزش افزوده (۹٪): ${formatToman(result.vat)} تومان`,
+      `مالیات ارزش افزوده (۱۰٪): ${formatToman(result.vat)} تومان`,
       `جمع کل کمیسیون بنگاه: ${formatToman(result.total)} تومان`,
       `سهم هر طرف: ${formatToman(result.each)} تومان`,
     ].join("\n");
@@ -74,7 +74,7 @@ export function resultSummary(result: CommissionResult): string {
     `معادل اجارهٔ رهن: ${formatToman(result.rentFromDeposit)} تومان`,
     `اجاره ماهانه معادل: ${formatToman(result.monthlyEq)} تومان`,
     `کمیسیون پایه (۲۵٪): ${formatToman(result.base)} تومان`,
-    `مالیات ارزش افزوده (۹٪): ${formatToman(result.vat)} تومان`,
+    `مالیات ارزش افزوده (۱۰٪): ${formatToman(result.vat)} تومان`,
     `جمع کل کمیسیون بنگاه: ${formatToman(result.total)} تومان`,
     `سهم هر طرف: ${formatToman(result.each)} تومان`,
   ].join("\n");

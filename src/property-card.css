@@ -684,6 +684,9 @@
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-media picture,
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-media img { height:200px; min-height:0; }
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-body { display:flex; grid-column:auto; grid-row:auto; gap:9px; padding:14px 15px 16px; overflow:visible; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-code { font-size:.6875rem; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-price-value { font-size:1.0625rem; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-unit-price { font-size:.75rem; }
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-title { display:block; min-height:calc(1rem * 1.7 * 2); font-size:1rem; overflow:visible; }
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs { gap:6px; padding:9px 10px; border-top:1px solid rgba(11,26,43,.09); border-bottom:1px solid rgba(11,26,43,.09); border-radius:10px; background:#f1eae0; }
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs span { min-height:29px; padding:5px 8px; font-size:.68rem; }

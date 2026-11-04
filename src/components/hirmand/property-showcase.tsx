@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import {
   BedDouble,
   Building2,
+  CalendarDays,
   CarFront,
   ChevronLeft,
   MapPinned,
@@ -218,6 +219,11 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
             {property.bedrooms != null ? (
               <span className="pcard-spec">
                 <BedDouble size={14} aria-hidden="true" /> {property.bedrooms === 0 ? "بدون خواب" : property.bedrooms.toLocaleString("fa-IR") + " خواب"}
+              </span>
+            ) : null}
+            {property.builtYear != null && property.builtYear > 0 ? (
+              <span className="pcard-spec">
+                <CalendarDays size={14} aria-hidden="true" /> ساخت {property.builtYear.toLocaleString("fa-IR")}
               </span>
             ) : null}
             {property.parking ? (

@@ -26,6 +26,8 @@ const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
+const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
+const commissionCalculator = fs.readFileSync(new URL("../src/components/hirmand/commission-calculator.tsx", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
 const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.css", import.meta.url), "utf8");
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
@@ -236,4 +238,20 @@ testRunner.test("mobile default view does not overwrite a later visitor-selected
   assert.doesNotMatch(mobileEffect, /addEventListener|removeEventListener/);
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
   assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
+});
+
+
+testRunner.test("property cards show construction year only when real data exists", () => {
+  assert.match(propertyLibrary, /export type PropertyCardData = Pick<[\s\S]*?\| "builtYear"/);
+  assert.match(propertyLibrary, /bedrooms, built_year, parking, elevator, storage, price/);
+  assert.match(propertyLibrary, /builtYear: numberOrNull\(row\.built_year\)/);
+  assert.match(propertyShowcase, /property\.builtYear != null && property\.builtYear > 0[\s\S]*?ساخت/);
+});
+
+testRunner.test("commission estimate uses the 1405 VAT rate and explains local tariff limits", () => {
+  assert.match(commissionLibrary, /export const VAT = 0\.10/);
+  assert.match(commissionLibrary, /مالیات ارزش افزوده \(۱۰٪\)/);
+  assert.match(commissionCalculator, /مالیات = ۱۰٪ از کمیسیون پایه/);
+  assert.match(commissionCalculator, /مالیات ۱۰٪ اضافه/);
+  assert.match(commissionCalculator, /ضریب[\s\S]*?ارزش معاملاتی و سقف مصوب هر شهرستان/);
 });
