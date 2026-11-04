@@ -7,6 +7,7 @@ import {
   CarFront,
   ChevronLeft,
   MapPinned,
+  Package,
   Ruler,
   Search,
 } from "lucide-react";
@@ -134,7 +135,7 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
             : "موجود";
 
   return (
-    <article className="pcard">
+    <article className="pcard pcard-mobile-list">
       <Link
         to="/properties/$slug"
         params={{ slug: property.slug.trim() || property.id }}
@@ -214,9 +215,9 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
                 <Ruler size={14} aria-hidden="true" /> {property.areaM2.toLocaleString("fa-IR")} متر
               </span>
             ) : null}
-            {property.bedrooms ? (
+            {property.bedrooms != null ? (
               <span className="pcard-spec">
-                <BedDouble size={14} aria-hidden="true" /> {property.bedrooms.toLocaleString("fa-IR")} خواب
+                <BedDouble size={14} aria-hidden="true" /> {property.bedrooms === 0 ? "بدون خواب" : property.bedrooms.toLocaleString("fa-IR") + " خواب"}
               </span>
             ) : null}
             {property.parking ? (
@@ -227,6 +228,11 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
             {property.elevator ? (
               <span className="pcard-spec">
                 <Building2 size={14} aria-hidden="true" /> آسانسور
+              </span>
+            ) : null}
+            {property.storage ? (
+              <span className="pcard-spec">
+                <Package size={14} aria-hidden="true" /> انباری
               </span>
             ) : null}
           </div>

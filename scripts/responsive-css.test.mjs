@@ -24,6 +24,8 @@ const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url),
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
+const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
+const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
 const documentPackCss = fs.readFileSync(new URL("../src/property-document-pack.css", import.meta.url), "utf8");
 const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css", import.meta.url), "utf8");
@@ -213,4 +215,27 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-link \{[\s\S]*?grid-template-columns: 108px minmax\(0, 1fr\)/);
   assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-actions \{[\s\S]*?grid-row: 2/);
   assert.match(propertyCardCss, /\.property-grid\.is-list-view \.pcard-specs \{[\s\S]*?background: transparent/);
+});
+
+
+testRunner.test("all shared property cards use the readable RTL mobile list layout", () => {
+  assert.match(propertyShowcase, /<article className="pcard pcard-mobile-list">/);
+  assert.match(propertyShowcase, /property\.storage[\s\S]*?انباری/);
+  assert.match(propertyLibrary, /export type PropertyCardData = Pick<[\s\S]*?\| "storage"/);
+  assert.match(propertyLibrary, /bedrooms, parking, elevator, storage, price, deposit, rent/);
+  assert.match(propertyLibrary, /storage: Boolean\(row\.storage\)/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(96px,28vw,116px\) minmax\(0,1fr\)/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions \.property-action[\s\S]*?width:44px; height:44px; min-height:44px/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-title[\s\S]*?font-size:\.88rem/);
+  assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list/);
+  assert.match(responsiveCss, /\.area-profile-listings, \.compare-grid, \.budget-result-grid[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
+});
+
+testRunner.test("mobile default view does not overwrite a later visitor-selected mode on resize", () => {
+  const mobileEffect = propertiesRoute.match(/\/\/ Choose the compact list once[\s\S]*?\}, \[\]\);/)?.[0] ?? "";
+  assert.ok(mobileEffect, "the initial mobile preference effect should exist");
+  assert.match(mobileEffect, /matchMedia\("\(max-width: 720px\)"\)[\s\S]*?setViewMode\("list"\)/);
+  assert.doesNotMatch(mobileEffect, /addEventListener|removeEventListener/);
+  assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
+  assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
 });

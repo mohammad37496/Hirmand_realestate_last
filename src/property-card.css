@@ -648,163 +648,52 @@
 .pcard-badge-availability-ok{background:rgba(234,247,237,.94);color:#2f6b42}
 
 
-/* Phone list view: photo on the right, readable property details on the left. */
+/* Shared mobile property cards: image at RTL start, details and actions alongside. */
 @media (max-width: 720px) {
-  .property-grid.is-list-view {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-  }
+  .pcard-mobile-list { display:grid; grid-template-columns:minmax(0,1fr); min-height:0; overflow:hidden; border-radius:14px; }
+  .pcard-mobile-list .pcard-link { display:grid; grid-column:1; grid-row:1; grid-template-columns:clamp(96px,28vw,116px) minmax(0,1fr); align-items:stretch; min-width:0; }
+  .pcard-mobile-list .pcard-media { grid-column:1; grid-row:1; height:100%; min-height:164px; overflow:hidden; }
+  .pcard-mobile-list .pcard-media picture,
+  .pcard-mobile-list .pcard-media img { display:block; width:100%; height:100%; min-height:164px; }
+  .pcard-mobile-list .pcard-media img { object-fit:cover; }
+  .pcard-mobile-list .pcard-badges { top:7px; right:7px; display:grid; justify-items:start; gap:4px; max-width:calc(100% - 14px); }
+  .pcard-mobile-list .pcard-badge { min-height:23px; max-width:100%; padding:4px 6px; font-size:.66rem; line-height:1.4; }
+  .pcard-mobile-list .pcard-body { grid-column:2; grid-row:1; min-width:0; gap:7px; padding:10px 11px; overflow:hidden; text-align:right; }
+  .pcard-mobile-list .pcard-topline { align-items:flex-start; flex-wrap:wrap; gap:4px 6px; min-width:0; }
+  .pcard-mobile-list .pcard-meta { flex-wrap:wrap; gap:3px 6px; font-size:.72rem; line-height:1.55; }
+  .pcard-mobile-list .pcard-code { font-size:.68rem; line-height:1.55; white-space:nowrap; }
+  .pcard-mobile-list .pcard-title { min-height:0; font-size:.88rem; line-height:1.65; overflow-wrap:break-word; word-break:normal; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+  .pcard-mobile-list .pcard-price-row { min-width:0; gap:2px; }
+  .pcard-mobile-list .pcard-price { font-size:1rem; line-height:1.55; overflow-wrap:break-word; word-break:normal; }
+  .pcard-mobile-list .pcard-price-line { flex-wrap:wrap; gap:3px 5px; }
+  .pcard-mobile-list .pcard-price-value { font-size:.82rem; line-height:1.5; }
+  .pcard-mobile-list .pcard-unit-price { font-size:.7rem; line-height:1.5; }
+  .pcard-mobile-list .pcard-specs { gap:4px; margin-top:0; padding:0; border:0; border-radius:0; background:transparent; }
+  .pcard-mobile-list .pcard-specs span { min-height:27px; padding:4px 6px; border-radius:7px; font-size:.68rem; line-height:1.45; }
+  .pcard-mobile-list .pcard-footer { flex-wrap:wrap; gap:5px 8px; padding-top:0; font-size:.7rem; line-height:1.6; }
+  .pcard-mobile-list .pcard-location { max-width:100%; }
+  .pcard-mobile-list .pcard-actions { position:static; grid-column:1; grid-row:2; display:flex; justify-content:flex-start; padding:6px 10px; border-top:1px solid var(--line); background:var(--card); }
+  .pcard-mobile-list .pcard-actions .property-actions,
+  .pcard-mobile-list .pcard-actions .property-actions-compact { flex-direction:row; gap:6px; }
+  .pcard-mobile-list .pcard-actions .property-action { width:44px; height:44px; min-height:44px; border-color:var(--line-2); background:var(--card); color:var(--muted); backdrop-filter:none; -webkit-backdrop-filter:none; }
 
-  .property-grid.is-list-view .pcard {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    min-height: 0;
-    border-radius: 14px;
-  }
-
-  .property-grid.is-list-view .pcard-link {
-    display: grid;
-    grid-column: 1;
-    grid-row: 1;
-    grid-template-columns: 108px minmax(0, 1fr);
-    align-items: stretch;
-    min-width: 0;
-  }
-
-  .property-grid.is-list-view .pcard-media {
-    grid-column: 1;
-    grid-row: 1;
-    height: 100%;
-    min-height: 154px;
-  }
-
-  .property-grid.is-list-view .pcard-media picture,
-  .property-grid.is-list-view .pcard-media img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    min-height: 154px;
-  }
-
-  .property-grid.is-list-view .pcard-media img {
-    object-fit: cover;
-  }
-
-  .property-grid.is-list-view .pcard-badges {
-    top: 7px;
-    right: 7px;
-    display: grid;
-    justify-items: start;
-    gap: 4px;
-  }
-
-  .property-grid.is-list-view .pcard-badge {
-    min-height: 21px;
-    padding: 3px 6px;
-    font-size: 0.58rem;
-  }
-
-  .property-grid.is-list-view .pcard-body {
-    grid-column: 2;
-    grid-row: 1;
-    gap: 7px;
-    padding: 10px 11px;
-    text-align: right;
-  }
-
-  .property-grid.is-list-view .pcard-topline {
-    align-items: flex-start;
-    gap: 5px;
-  }
-
-  .property-grid.is-list-view .pcard-meta {
-    gap: 3px 5px;
-    font-size: 0.62rem;
-  }
-
-  .property-grid.is-list-view .pcard-meta span + span::before {
-    margin-inline-end: 5px;
-  }
-
-  .property-grid.is-list-view .pcard-code {
-    font-size: 0.58rem;
-  }
-
-  .property-grid.is-list-view .pcard-title {
-    min-height: 0;
-    font-size: 0.8rem;
-    line-height: 1.65;
-  }
-
-  .property-grid.is-list-view .pcard-price-row {
-    gap: 1px;
-  }
-
-  .property-grid.is-list-view .pcard-price {
-    font-size: 0.96rem;
-    line-height: 1.55;
-  }
-
-  .property-grid.is-list-view .pcard-price-line {
-    flex-wrap: wrap;
-    gap: 3px 5px;
-  }
-
-  .property-grid.is-list-view .pcard-price-value {
-    font-size: 0.78rem;
-  }
-
-  .property-grid.is-list-view .pcard-unit-price {
-    font-size: 0.6rem;
-  }
-
-  .property-grid.is-list-view .pcard-specs {
-    gap: 4px;
-    margin-top: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-  }
-
-  .property-grid.is-list-view .pcard-specs span {
-    min-height: 24px;
-    padding: 3px 5px;
-    border-radius: 6px;
-    font-size: 0.59rem;
-  }
-
-  .property-grid.is-list-view .pcard-footer {
-    flex-wrap: wrap;
-    gap: 4px 7px;
-    padding-top: 0;
-    font-size: 0.62rem;
-  }
-
-  .property-grid.is-list-view .pcard-actions {
-    position: static;
-    grid-column: 1;
-    grid-row: 2;
-    display: flex;
-    justify-content: flex-start;
-    padding: 6px 10px;
-    border-top: 1px solid var(--line);
-    background: var(--card);
-  }
-
-  .property-grid.is-list-view .pcard-actions .property-actions,
-  .property-grid.is-list-view .pcard-actions .property-actions-compact {
-    flex-direction: row;
-    gap: 6px;
-  }
-
-  .property-grid.is-list-view .pcard-actions .property-action {
-    width: 44px;
-    height: 44px;
-    min-height: 44px;
-    border-color: var(--line-2);
-    background: var(--card);
-    color: var(--muted);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
+  /* Explicit grid selection remains a full photo-first card on phones. */
+  .pf-grid.is-grid-view .pcard-mobile-list { display:block; overflow:visible; border-radius:18px; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-link { display:block; grid-column:auto; grid-row:auto; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-media { height:auto; min-height:0; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-media picture,
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-media img { height:200px; min-height:0; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-body { display:flex; grid-column:auto; grid-row:auto; gap:9px; padding:14px 15px 16px; overflow:visible; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-title { display:block; min-height:calc(1rem * 1.7 * 2); font-size:1rem; overflow:visible; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs { gap:6px; padding:9px 10px; border-top:1px solid rgba(11,26,43,.09); border-bottom:1px solid rgba(11,26,43,.09); border-radius:10px; background:#f1eae0; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs span { min-height:29px; padding:5px 8px; font-size:.68rem; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-footer { margin-top:auto; padding-top:2px; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions { position:absolute; top:10px; left:10px; grid-column:auto; grid-row:auto; padding:0; border:0; background:transparent; }
+}
+@media (max-width:360px) {
+  .pcard-mobile-list .pcard-body { padding:9px; gap:6px; }
+  .pcard-mobile-list .pcard-meta { font-size:.68rem; }
+  .pcard-mobile-list .pcard-code { font-size:.66rem; }
+  .pcard-mobile-list .pcard-title { font-size:.84rem; }
+  .pcard-mobile-list .pcard-specs span { font-size:.66rem; padding-inline:5px; }
 }

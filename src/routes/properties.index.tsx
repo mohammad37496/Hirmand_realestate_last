@@ -463,17 +463,10 @@ function PropertiesIndexPage() {
     return () => media.removeEventListener("change", updateViewport);
   }, []);
 
-  // Start phone visitors with the compact property list, while keeping the
-  // map-first workspace as the desktop default. The view controls remain
-  // available so visitors can switch modes at any time.
+  // Choose the compact list once on initial mobile entry. Later viewport
+  // changes must preserve the visitor's explicit list/grid/map selection.
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 720px)");
-    const preferListOnMobile = () => {
-      if (media.matches) setViewMode("list");
-    };
-    preferListOnMobile();
-    media.addEventListener("change", preferListOnMobile);
-    return () => media.removeEventListener("change", preferListOnMobile);
+    if (window.matchMedia("(max-width: 720px)").matches) setViewMode("list");
   }, []);
 
   useEffect(() => {
@@ -2000,7 +1993,7 @@ function PropertiesIndexPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className={`property-grid pf-grid${viewMode === "list" ? " is-list-view" : ""}`}>
+                  <div className={`property-grid pf-grid${viewMode === "list" ? " is-list-view" : ""}${viewMode === "grid" ? " is-grid-view" : ""}`}>
                     {properties.map((property) => <PropertyCard key={property.id} property={property} />)}
                   </div>
                 )}
