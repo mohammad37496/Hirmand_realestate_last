@@ -245,8 +245,8 @@ test("media start-rate quota is independent for each upload pathway", () => {
 });
 
 test("production prebuild provisions the checksum-verified FFmpeg binary used for watermarking", () => {
-  assert.match(packageManifest, /"prebuild": "node scripts\\/ensure-ffmpeg\\.mjs"/);
-  assert.match(ffmpegProvisioner, /await ensureWatermarkFont\\(\\)/);
+  assert.ok(packageManifest.includes('"prebuild": "node scripts/ensure-ffmpeg.mjs"'));
+  assert.ok(ffmpegProvisioner.includes("ensureWatermarkFont()"));
 });
 
 test("object-store offload never deletes the database fallback before saving the Liara URL", () => {
