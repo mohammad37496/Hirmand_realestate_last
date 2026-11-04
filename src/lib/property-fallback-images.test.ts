@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   getPropertyFallbackImage,
@@ -34,4 +35,21 @@ test("real media URLs are preserved even when their filenames resemble placehold
 test("query strings do not change placeholder classification", () => {
   assert.equal(isPropertyFallbackImage("https://hirmandrealestate.ir/images/fallback/villa-01.jpg?v=3"), true);
   assert.equal(isPropertyFallbackImage(""), false);
+});
+
+
+test("every configured photographic fallback exists as a tracked raster asset", async () => {
+  const paths = [
+    "../../public/images/type-apartment.jpg",
+    "../../public/images/type-villa.jpg",
+    "../../public/images/type-office.jpg",
+    "../../public/images/type-heritage.jpg",
+    "../../public/images/fallback/land-01.jpg",
+    "../../public/images/fallback/commercial-01.jpg",
+  ];
+  for (const path of paths) {
+    const bytes = await readFile(new URL(path, import.meta.url));
+    assert.ok(bytes.length > 10_000, path + " should be a real photographic asset");
+    assert.deepEqual([...bytes.subarray(0, 3)], [0xff, 0xd8, 0xff], path + " should be JPEG");
+  }
 });
