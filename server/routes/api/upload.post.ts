@@ -51,8 +51,8 @@ export default defineEventHandler(async (event) => {
   }
   assertSameOrigin(event);
 
-  // Per-request diagnostic for video watermarking. Property photos are stored
-  // unchanged and receive their configurable mark only in the public lightbox.
+  // Per-request diagnostic for video watermarking. Property photos are never
+  // permanently watermarked; their configurable mark is shown in the lightbox.
   let watermarkWarning: string | null = null;
 
   try {
@@ -79,7 +79,7 @@ export default defineEventHandler(async (event) => {
         }
 
         try {
-          // Property photos keep their original pixels. The configurable brand
+          // Property photos are not permanently watermarked. The configurable brand
           // mark is a presentation overlay shown only while the photo is open
           // in the public lightbox. Videos retain their existing baked-in mark.
           if (contentType.startsWith("image/")) return null;

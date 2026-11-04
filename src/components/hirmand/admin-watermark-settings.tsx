@@ -65,7 +65,7 @@ export function AdminWatermarkSettings() {
         <div>
           <span className="kicker">برندینگ رسانه</span>
           <h1>واترمارک تصاویر و فیلم‌ها</h1>
-          <p>واترمارک تصاویر فقط هنگام باز شدن تصویر در اندازه بزرگ، در گوشه پایین سمت راست نمایش داده می‌شود. عکس اصلی بدون تغییر ذخیره می‌شود؛ واترمارک ویدئوها هنگام آپلود داخل فایل قرار می‌گیرد.</p>
+          <p>واترمارک تصاویر فقط هنگام باز شدن تصویر در اندازه بزرگ، در گوشه پایین سمت راست نمایش داده می‌شود. فایل عکس بدون واترمارک ذخیره می‌شود؛ واترمارک ویدئوها هنگام آپلود داخل فایل قرار می‌گیرد.</p>
         </div>
         <div className="admin-watermark-hero-icon" aria-hidden="true"><ShieldCheck size={34} /></div>
       </section>
@@ -122,7 +122,7 @@ export function AdminWatermarkSettings() {
             <img src="/images/fallback/interior-01.webp" alt="پیش‌نمایش واترمارک" />
             <PropertyMediaWatermarkPreview settings={settings} />
           </div>
-          <div className="admin-watermark-preview-note"><SlidersHorizontal size={15} /><span>عکس‌های ملک با فعال بودن این گزینه فقط در نمایش بزرگ واترمارک می‌گیرند و فایل اصلی دست‌نخورده می‌ماند. واترمارک ویدئوها هنگام آپلود داخل خود فایل ذخیره می‌شود.</span></div>
+          <div className="admin-watermark-preview-note"><SlidersHorizontal size={15} /><span>عکس‌های ملک با فعال بودن این گزینه فقط در نمایش بزرگ واترمارک می‌گیرند و فایل عکس بدون واترمارک ذخیره می‌شود. واترمارک ویدئوها هنگام آپلود داخل خود فایل ذخیره می‌شود.</span></div>
         </div>
       </section>
     </main>

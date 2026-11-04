@@ -17,7 +17,7 @@ test("public property watermark is mounted only in the image lightbox", async ()
   assert.doesNotMatch(adminMedia, /PropertyMediaWatermark/);
 });
 
-test("new property image uploads preserve the original photo bytes", async () => {
+test("new property image uploads skip permanent watermark processing", async () => {
   const upload = await read("server/routes/api/upload.post.ts");
   assert.match(upload, /if \(contentType\.startsWith\("image\/"\)\) return null/);
   assert.doesNotMatch(upload, /applyPropertyImageWatermarkServer/);

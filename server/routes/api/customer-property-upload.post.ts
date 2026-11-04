@@ -37,7 +37,7 @@ export default defineEventHandler((event) => {
     },
     unsupportedTypeMessage: "نوع فایل رسانه‌ای مجاز نیست.",
     sizeLimitMessage: (limitMb) => `حجم هر فایل بیش از ${limitMb} مگابایت است.`,
-    // Submitted property photos keep their original pixels; the public gallery
+    // Submitted property photos are not permanently watermarked; the public gallery
     // applies the configurable mark only in the enlarged image lightbox.
     transform: async ({ data, contentType, pathname }) => {
       if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) return null;

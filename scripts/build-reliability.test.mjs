@@ -170,7 +170,7 @@ test("upload client reuses the same ID for bounded finalization recovery", () =>
   assert.match(mediaClient, /attempt < maxCompletionAttempts/);
 });
 
-test("property photos remain unchanged and receive a configurable lightbox overlay", () => {
+test("property photos are not permanently watermarked and receive a configurable lightbox overlay", () => {
   assert.match(uploadRoute, /if \(contentType\.startsWith\("image\/"\)\) return null/);
   assert.doesNotMatch(uploadRoute, /applyPropertyImageWatermarkServer/);
   assert.match(uploadRoute, /applyPropertyVideoWatermark/);
@@ -231,7 +231,7 @@ test("property photos remain unchanged and receive a configurable lightbox overl
   assert.match(serverVideoWatermark, /libx264/);
 });
 
-test("pending public property submissions preserve photos and retain video watermarking", () => {
+test("pending public property submissions do not permanently watermark photos and retain video watermarking", () => {
   assert.match(customerUploadRoute, /getPropertyWatermarkSettingsServer/);
   assert.match(customerUploadRoute, /if \(contentType\.startsWith\("image\/"\)\) return null/);
   assert.doesNotMatch(customerUploadRoute, /applyPropertyImageWatermarkServer/);

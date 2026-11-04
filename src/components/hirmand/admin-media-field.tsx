@@ -234,7 +234,7 @@ export function AdminMediaField({ value, onChange, propertyType, propertyId }: P
 
   async function uploadOne(file: File): Promise<{ url: string; savedBytes: number; warning?: string }> {
     // Browser-side optimization is only a preparation step. The API keeps
-    // original photo pixels and applies the configured permanent mark to videos.
+    // avoids permanently watermarking property photos and marks videos when enabled.
     let optimized: { file: File; savedBytes: number };
     try {
       optimized = await optimizeImage(file);
