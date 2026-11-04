@@ -149,11 +149,10 @@ test("public media candidates keep Divar images same-origin through the proxy", 
   ]);
 });
 
-test("Divar media candidates can fall back to an explicit local placeholder", () => {
+test("Divar media candidates do not hide a failed real image behind a placeholder", () => {
   const source = "https://img.divarcdn.com/sample/one.jpg";
   assert.deepEqual(mediaSourceCandidates(source, "/images/property-placeholder.webp"), [
     "/api/media-proxy?url=" + encodeURIComponent(source),
-    "/images/property-placeholder.webp",
   ]);
 });
 

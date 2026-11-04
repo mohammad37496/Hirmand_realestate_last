@@ -30,7 +30,7 @@ export async function getPropertyWatermarkSettings(): Promise<PropertyWatermarkS
   })
     .then((response) => (response.ok ? response.json() : DEFAULT_PROPERTY_WATERMARK))
     .then((value) => ({
-      enabled: value?.enabled !== false,
+      enabled: value?.enabled === true,
       showLogo: value?.showLogo !== false,
       showText: value?.showText !== false,
       text: typeof value?.text === "string" && value.text.trim() ? value.text.trim() : DEFAULT_PROPERTY_WATERMARK.text,

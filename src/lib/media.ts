@@ -13,7 +13,7 @@ export function isLiaraStorageHost(value: string): boolean {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
     return url.protocol === "https:" &&
-      (host === "liara.space" || host.endsWith(".liara.space") || host === "liara.ir" || host.endsWith(".liara.ir"));
+      ["liara.space", "liara.site", "liara.ir"].some((domain) => host === domain || host.endsWith("." + domain));
   } catch {
     return false;
   }
@@ -145,11 +145,26 @@ export function isAllowedDivarImageUrl(value: string): boolean {
  *
  * Classifieds CDNs reject hotlink requests from a visitor's browser, so we try
  * the original URL, then our own proxy (same origin, no third party involved),
- * then public image proxies, and finally the local placeholder.
+ * The placeholder is used only when no source URL was stored; failed real-media requests stay visible as failures.
  */
 export function mediaSourceCandidates(src: string, fallback = ""): string[] {
   const value = src.trim();
   if (!value) return fallback ? [fallback] : [];
+
+  // Normalize proxy URLs persisted by older releases before the public route
+  // was renamed. Validate the embedded target with the same host allowlist.
+  if (value.startsWith("/api/liara-media") || value.startsWith("/api/media-proxy")) {
+    try {
+      const legacyUrl = new URL(value, "https://hirmand.invalid");
+      const storedTarget = legacyUrl.searchParams.get("url")?.trim() ?? "";
+      if (isLiaraStorageHost(storedTarget) || isDivarRemoteHost(storedTarget)) {
+        return ["/api/media-proxy?url=" + encodeURIComponent(storedTarget)];
+      }
+    } catch {
+      // Keep the invalid source visible as a failed media URL.
+    }
+    return [value];
+  }
 
   const isDivarRemote = isDivarRemoteHost(value);
   const isLiaraRemote = isLiaraStorageHost(value);
@@ -158,19 +173,12 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
     // Imported classifieds media should never make the visitor's browser call
     // Divar or a foreign image proxy directly. The same-origin route fetches
     // the image server-side and keeps the browser request on Hirmand's domain.
-    return Array.from(
-      new Set(
-        [
-          `/api/media-proxy?url=${encodeURIComponent(value)}`,
-          fallback,
-        ].filter(Boolean),
-      ),
-    );
+    return [`/api/media-proxy?url=${encodeURIComponent(value)}`];
   }
 
   if (isLiaraRemote) {
-    return Array.from(new Set([`/api/media-proxy?url=${encodeURIComponent(value)}`, fallback].filter(Boolean)));
+    return [`/api/media-proxy?url=${encodeURIComponent(value)}`];
   }
 
-  return Array.from(new Set([value, fallback].filter(Boolean)));
+  return [value];
 }

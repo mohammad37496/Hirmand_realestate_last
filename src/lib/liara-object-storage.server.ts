@@ -280,14 +280,32 @@ export function liaraObjectKeyFromUrl(
   try {
     const target = new URL(value);
     const endpoint = new URL(config.endpoint.toString());
-    if (target.origin !== endpoint.origin) return null;
+    const isLiaraHost = (host: string) =>
+      ["liara.space", "liara.site", "liara.ir"].some(
+        (domain) => host === domain || host.endsWith("." + domain),
+      );
+    // Existing property rows may retain Liara's previous public hostname
+    // (.site) while the configured S3 endpoint uses .space. Accept only official
+    // HTTPS Liara hosts and the configured bucket path; fetch from the configured
+    // endpoint with server-side credentials, never from the legacy hostname.
+    if (
+      target.protocol !== "https:" ||
+      endpoint.protocol !== "https:" ||
+      !isLiaraHost(target.hostname.toLowerCase()) ||
+      !isLiaraHost(endpoint.hostname.toLowerCase())
+    ) return null;
 
     const prefix = endpoint.pathname.replace(/\/+$/, "");
-    const expectedPrefix =
-      prefix + "/" + encodeURIComponent(config.bucket) + "/";
-    if (!target.pathname.startsWith(expectedPrefix)) return null;
+    const expectedPrefix = prefix + "/" + encodeURIComponent(config.bucket) + "/";
+    const legacyBucketPrefix = "/" + encodeURIComponent(config.bucket) + "/";
+    const acceptedPrefix = target.pathname.startsWith(expectedPrefix)
+      ? expectedPrefix
+      : target.pathname.startsWith(legacyBucketPrefix)
+        ? legacyBucketPrefix
+        : "";
+    if (!acceptedPrefix) return null;
 
-    const raw = target.pathname.slice(expectedPrefix.length);
+    const raw = target.pathname.slice(acceptedPrefix.length);
     if (!raw) return null;
     return raw
       .split("/")

@@ -9,12 +9,18 @@ test("public property watermark is mounted only in the image lightbox", async ()
   const detail = await read("src/components/hirmand/property-detail-view.tsx");
   const showcase = await read("src/components/hirmand/property-showcase.tsx");
   const adminMedia = await read("src/components/hirmand/admin-media-field.tsx");
+  const watermarkSettings = await read("src/lib/property-watermark.ts");
+  const publicWatermark = await read("server/routes/api/public-watermark.get.ts");
+  const adminWatermark = await read("server/routes/api/admin-watermark.post.ts");
   assert.equal((detail.match(/<PropertyMediaWatermark\s*\/>/g) ?? []).length, 1);
   assert.match(detail, /isVideoUrl\(current\)\s*\?/);
   assert.match(detail, /!isPermanentlyWatermarkedMediaUrl\(current\)/);
   assert.match(detail, /className="property-lightbox-media-wrap"[\s\S]*?<PropertyMediaWatermark\s*\/>/);
   assert.doesNotMatch(showcase, /PropertyMediaWatermark/);
   assert.doesNotMatch(adminMedia, /PropertyMediaWatermark/);
+  assert.match(watermarkSettings, /enabled:\s*value\?\.enabled\s*===\s*true/);
+  assert.match(publicWatermark, /enabled:\s*row\.enabled\s*===\s*true/);
+  assert.match(adminWatermark, /enabled:\s*row\.enabled\s*===\s*true/);
 });
 
 test("new property image uploads skip permanent watermark processing", async () => {

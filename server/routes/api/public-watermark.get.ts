@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     const row = rows[0];
     if (!row) return DEFAULTS;
     return {
-      enabled: row.enabled !== false,
+      enabled: row.enabled === true,
       showLogo: row.show_logo !== false,
       showText: row.show_text !== false,
       text: typeof row.text === "string" && row.text.trim() ? row.text.trim().slice(0, 80) : DEFAULTS.text,
