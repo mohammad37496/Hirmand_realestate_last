@@ -151,6 +151,21 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
   const value = src.trim();
   if (!value) return fallback ? [fallback] : [];
 
+  // Normalize proxy URLs persisted by older releases before the public route
+  // was renamed. Validate the embedded target with the same host allowlist.
+  if (value.startsWith("/api/liara-media") || value.startsWith("/api/media-proxy")) {
+    try {
+      const legacyUrl = new URL(value, "https://hirmand.invalid");
+      const storedTarget = legacyUrl.searchParams.get("url")?.trim() ?? "";
+      if (isLiaraStorageHost(storedTarget) || isDivarRemoteHost(storedTarget)) {
+        return ["/api/media-proxy?url=" + encodeURIComponent(storedTarget)];
+      }
+    } catch {
+      // Keep the invalid source visible as a failed media URL.
+    }
+    return [value];
+  }
+
   const isDivarRemote = isDivarRemoteHost(value);
   const isLiaraRemote = isLiaraStorageHost(value);
 
