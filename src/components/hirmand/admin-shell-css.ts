@@ -2184,7 +2184,6 @@ export const ADMIN_CSS = `
 .admin-panel-head > .admin-filter-chips{position:relative;z-index:4;min-width:0;box-sizing:border-box}
 .admin-panel-head > .admin-filter-row{width:100%;isolation:isolate}
 .admin-panel-head > .admin-filter-row select{position:relative;z-index:1;min-width:0;max-width:100%;box-sizing:border-box}
-`;
 
 
 /* Property file list/grid visual stabilization — 2026-11-04.
@@ -2350,3 +2349,4 @@ export const ADMIN_CSS = `
 @media (prefers-reduced-motion:reduce){
   .admin-main .admin-property-list .admin-property-card{transition:none}
 }
+`;
