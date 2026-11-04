@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, statSync } from "node:fs";
+import { createWriteStream, mkdirSync, readFileSync, renameSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
@@ -141,7 +141,7 @@ async function main() {
       "[fallback-assets] WARNING: " + missingApartmentPhotos.length +
       " apartment photos could not be downloaded in this build environment: " +
       missingApartmentPhotos.map((path) => path.split(/[\\/]/).pop()).join(", ") +
-      ". The app will keep its local SVG emergency fallbacks; check outbound access to images.unsplash.com.",
+      ". The app will keep its checked-in professional category photos; check outbound access to images.unsplash.com.",
     );
   }
 }

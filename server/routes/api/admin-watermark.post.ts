@@ -16,7 +16,7 @@ const schema = z.object({
 });
 
 const DEFAULTS = {
-  enabled: true,
+  enabled: false,
   showLogo: true,
   showText: true,
   text: "املاک هیرمند",

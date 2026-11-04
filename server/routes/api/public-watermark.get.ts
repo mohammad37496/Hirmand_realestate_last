@@ -2,7 +2,7 @@ import { defineEventHandler, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
 
 const DEFAULTS = {
-  enabled: true,
+  enabled: false,
   showLogo: true,
   showText: true,
   text: "املاک هیرمند",

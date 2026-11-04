@@ -238,6 +238,7 @@ export async function putLiaraObject(input: {
 export async function getLiaraObject(input: {
   key: string;
   range?: string;
+  timeoutMs?: number;
 }): Promise<Response | null> {
   const config = readConfig();
   if (!config) return null;
@@ -253,6 +254,7 @@ export async function getLiaraObject(input: {
   if (input.range) {
     (request.headers as Record<string, string>).range = input.range;
   }
+  request.signal = AbortSignal.timeout(input.timeoutMs ?? 30_000);
 
   try {
     return await fetch(url, request);

@@ -170,8 +170,9 @@ test("upload client reuses the same ID for bounded finalization recovery", () =>
   assert.match(mediaClient, /attempt < maxCompletionAttempts/);
 });
 
-test("property images are permanently watermarked on the server before storage", () => {
-  assert.match(uploadRoute, /applyPropertyImageWatermarkServer/);
+test("property photos remain unchanged and receive a configurable lightbox overlay", () => {
+  assert.match(uploadRoute, /if \(contentType\.startsWith\("image\/"\)\) return null/);
+  assert.doesNotMatch(uploadRoute, /applyPropertyImageWatermarkServer/);
   assert.match(uploadRoute, /applyPropertyVideoWatermark/);
   assert.match(serverImageWatermark, /contentMatchesDeclaredType\(output, "image\/webp"\)/);
   assert.match(serverImageWatermark, /واترمارک دائمی برای GIF متحرک پشتیبانی نمی‌شود/);
@@ -230,9 +231,10 @@ test("property images are permanently watermarked on the server before storage",
   assert.match(serverVideoWatermark, /libx264/);
 });
 
-test("pending public property submissions cannot bypass permanent media watermark settings", () => {
+test("pending public property submissions preserve photos and retain video watermarking", () => {
   assert.match(customerUploadRoute, /getPropertyWatermarkSettingsServer/);
-  assert.match(customerUploadRoute, /applyPropertyImageWatermarkServer/);
+  assert.match(customerUploadRoute, /if \(contentType\.startsWith\("image\/"\)\) return null/);
+  assert.doesNotMatch(customerUploadRoute, /applyPropertyImageWatermarkServer/);
   assert.match(customerUploadRoute, /applyPropertyVideoWatermark/);
 });
 

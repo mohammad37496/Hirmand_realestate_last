@@ -1,8 +1,9 @@
 import { createError, defineEventHandler, getQuery } from "h3";
-import { detectRasterImageType, isDivarRemoteHost } from "@/lib/media";
+import { detectRasterImageType, isDivarRemoteHost, isLiaraStorageHost } from "@/lib/media";
+import { getLiaraObject, liaraObjectKeyFromUrl } from "@/lib/liara-object-storage.server";
 
 /**
- * Same-origin image proxy for classifieds CDNs that block hotlinking.
+ * Same-origin image proxy for classifieds CDNs and private Liara objects.
  *
  * Divar's image CDN answers server-to-server requests but frequently refuses a
  * browser request coming from another origin, which is why imported listings can
@@ -14,7 +15,7 @@ const MAX_BYTES = 12 * 1024 * 1024;
 const TIMEOUT_MS = 12_000;
 
 function isAllowedTarget(target: URL): boolean {
-  return target.protocol === "https:" && isDivarRemoteHost(target.toString());
+  return target.protocol === "https:" && (isDivarRemoteHost(target.toString()) || isLiaraStorageHost(target.toString()));
 }
 
 async function readBoundedImage(response: Response): Promise<Uint8Array> {
@@ -74,6 +75,29 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       statusMessage: "پروکسی تصویر فقط برای منابع مجاز فعال است.",
+    });
+  }
+
+  const liaraKey = liaraObjectKeyFromUrl(target.toString());
+  if (isLiaraStorageHost(target.toString())) {
+    if (!liaraKey) {
+      throw createError({ statusCode: 502, statusMessage: "نشانی تصویر با فضای ذخیره‌سازی تنظیم‌شده هیرمند تطبیق ندارد." });
+    }
+    const response = await getLiaraObject({ key: liaraKey, timeoutMs: TIMEOUT_MS });
+    if (!response?.ok) {
+      throw createError({ statusCode: response?.status === 404 ? 404 : 502, statusMessage: "دریافت تصویر از فضای ذخیره‌سازی هیرمند ممکن نشد." });
+    }
+    const bytes = await readBoundedImage(response);
+    const contentType = detectRasterImageType(bytes);
+    if (!contentType) throw createError({ statusCode: 502, statusMessage: "محتوای ذخیره‌شده تصویر معتبر نیست." });
+    return new Response(bytes.buffer as ArrayBuffer, {
+      status: 200,
+      headers: {
+        "content-type": contentType,
+        "cache-control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800",
+        "x-content-type-options": "nosniff",
+        "content-security-policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
+      },
     });
   }
 

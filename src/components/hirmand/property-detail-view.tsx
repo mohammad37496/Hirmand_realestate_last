@@ -155,7 +155,7 @@ import { formatToman } from "@/lib/money";
 import { formatPersianDate } from "@/lib/persian-date";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { isVideoUrl, mediaSourceCandidates } from "@/lib/media";
-import { isPermanentlyWatermarkedMediaUrl, isPermanentlyWatermarkedVideoUrl } from "@/lib/property-watermark";
+import { isPermanentlyWatermarkedMediaUrl } from "@/lib/property-watermark";
 import { getPropertyFallbackImage, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { areaSlug } from "@/lib/areas";
 import { SITE } from "@/lib/site";
@@ -940,9 +940,6 @@ function Gallery({
     <div className="property-gallery-wrap" role="region" aria-label={"گالری تصاویر " + title}>
       <div className="property-gallery">
         <div className="property-gallery-main">
-          {!isVideoUrl(current) || !isPermanentlyWatermarkedMediaUrl(current) ? (
-            <PropertyMediaWatermark subtle={isPropertyFallbackImage(current) || current.startsWith("/images/fallback/")} />
-          ) : null}
           {isVideoUrl(current) ? (
             <VideoPlayer src={current} title={title} className="is-gallery" />
           ) : (
@@ -1073,28 +1070,30 @@ function Gallery({
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
               >
-                {!isVideoUrl(current) || !isPermanentlyWatermarkedVideoUrl(current) ? <PropertyMediaWatermark /> : null}
                 {isVideoUrl(current) ? (
                   <VideoPlayer src={current} title={title} autoPlay className="is-lightbox" />
                 ) : (
-                  <button
-                    type="button"
-                    className={"property-lightbox-media-button" + (zoomScale > 1.05 ? " is-zoomed" : "")}
-                    onDoubleClick={(event) => {
-                      event.stopPropagation();
-                      toggleZoom();
-                    }}
-                    onClick={(event) => event.stopPropagation()}
-                    aria-label={zoomScale > 1.05 ? "بازگرداندن اندازه تصویر" : "بزرگ‌نمایی تصویر"}
-                  >
-                    <ResilientImage
-                      src={current}
-                      fallback={fallback}
-                      fallbackLegacy={fallbackLegacy}
-                      alt={title + " - تصویر " + (active + 1).toLocaleString("fa-IR")}
-                      loading="eager"
-                    />
-                  </button>
+                  <div className="property-lightbox-media-wrap">
+                    <button
+                      type="button"
+                      className={"property-lightbox-media-button" + (zoomScale > 1.05 ? " is-zoomed" : "")}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        toggleZoom();
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                      aria-label={zoomScale > 1.05 ? "بازگرداندن اندازه تصویر" : "بزرگ‌نمایی تصویر"}
+                    >
+                      <ResilientImage
+                        src={current}
+                        fallback={fallback}
+                        fallbackLegacy={fallbackLegacy}
+                        alt={title + " - تصویر " + (active + 1).toLocaleString("fa-IR")}
+                        loading="eager"
+                      />
+                    </button>
+                    {!isPermanentlyWatermarkedMediaUrl(current) ? <PropertyMediaWatermark /> : null}
+                  </div>
                 )}
                 <div className="property-lightbox-count" aria-live="polite">
                   تصویر {(active + 1).toLocaleString("fa-IR")} از {images.length.toLocaleString("fa-IR")}

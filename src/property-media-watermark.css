@@ -1,4 +1,5 @@
 .property-gallery{position:relative}
+.property-lightbox-media-wrap{position:relative;display:grid;place-items:center;width:min(88vw,1120px);max-height:73vh}
 .property-media-watermark{
   position:absolute;
   z-index:30;
@@ -44,43 +45,4 @@
   .property-media-watermark{right:8px;bottom:8px;gap:5px;padding:5px 7px}
   .property-media-watermark-logo{width:27px;height:24px}
   .property-media-watermark span{font-size:.61rem}
-}
-
-
-/* Gallery fallback images use the brand mark only as a quiet ownership cue.
-   The watermark must never compete with the property photograph. */
-.property-media-watermark.is-gallery-subtle{
-  padding:3px 5px;
-  gap:4px;
-  border-color:rgba(255,255,255,.10);
-  border-radius:6px;
-  background:rgba(8,19,32,.18);
-  box-shadow:none;
-  backdrop-filter:blur(2px);
-  -webkit-backdrop-filter:blur(2px);
-}
-.property-media-watermark.is-gallery-subtle .property-media-watermark-logo{
-  width:22px;
-  height:20px;
-  filter:none;
-}
-.property-media-watermark.is-gallery-subtle span{
-  font-size:.54rem;
-  font-weight:650;
-  text-shadow:0 1px 3px rgba(0,0,0,.16);
-}
-
-@media(max-width:620px){
-  .property-media-watermark.is-gallery-subtle{
-    right:7px;
-    bottom:7px;
-    padding:2px 4px;
-  }
-  .property-media-watermark.is-gallery-subtle .property-media-watermark-logo{
-    width:18px;
-    height:17px;
-  }
-  .property-media-watermark.is-gallery-subtle span{
-    font-size:.49rem;
-  }
 }

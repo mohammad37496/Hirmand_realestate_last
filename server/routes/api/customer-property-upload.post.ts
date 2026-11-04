@@ -1,7 +1,6 @@
 import { defineEventHandler } from "h3";
 import { handleChunkedUpload } from "@/lib/chunked-upload.server";
 import { getPropertyWatermarkSettingsServer } from "@/lib/property-watermark.server";
-import { applyPropertyImageWatermarkServer } from "@/lib/property-image-watermark.server";
 import { applyPropertyVideoWatermark } from "@/lib/property-video-watermark.server";
 
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -38,8 +37,8 @@ export default defineEventHandler((event) => {
     },
     unsupportedTypeMessage: "نوع فایل رسانه‌ای مجاز نیست.",
     sizeLimitMessage: (limitMb) => `حجم هر فایل بیش از ${limitMb} مگابایت است.`,
-    // Pending public submissions also use the permanent watermark pipeline so
-    // approving a submission cannot expose a raw upload that bypassed the admin API.
+    // Submitted property photos keep their original pixels; the public gallery
+    // applies the configurable mark only in the enlarged image lightbox.
     transform: async ({ data, contentType, pathname }) => {
       if (!contentType.startsWith("image/") && !contentType.startsWith("video/")) return null;
 
@@ -52,9 +51,7 @@ export default defineEventHandler((event) => {
       }
 
       try {
-        if (contentType.startsWith("image/")) {
-          return await applyPropertyImageWatermarkServer({ data, contentType, pathname, settings });
-        }
+        if (contentType.startsWith("image/")) return null;
 
         return await applyPropertyVideoWatermark({ data, contentType, pathname, settings });
       } catch (error) {

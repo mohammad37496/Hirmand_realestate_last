@@ -8,7 +8,7 @@ export type PropertyWatermarkSettings = {
 };
 
 export const DEFAULT_PROPERTY_WATERMARK: PropertyWatermarkSettings = {
-  enabled: true,
+  enabled: false,
   showLogo: true,
   showText: true,
   text: "املاک هیرمند",

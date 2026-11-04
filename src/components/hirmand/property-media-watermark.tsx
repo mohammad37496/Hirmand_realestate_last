@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { DEFAULT_PROPERTY_WATERMARK, getPropertyWatermarkSettings, watermarkIsVisible, type PropertyWatermarkSettings } from "@/lib/property-watermark";
 import "@/property-media-watermark.css";
 
-export function PropertyMediaWatermark({ subtle = false }: { subtle?: boolean }) {
+export function PropertyMediaWatermark() {
   const [settings, setSettings] = useState<PropertyWatermarkSettings>(DEFAULT_PROPERTY_WATERMARK);
 
   useEffect(() => {
@@ -19,10 +19,10 @@ export function PropertyMediaWatermark({ subtle = false }: { subtle?: boolean })
 
   return (
     <div
-      className={"property-media-watermark" + (subtle ? " is-gallery-subtle" : "")}
+      className="property-media-watermark"
       style={{
-        opacity: subtle ? Math.min(settings.opacity, 0.16) : settings.opacity,
-        transform: "scale(" + (subtle ? Math.min(settings.size, 0.82) : settings.size) + ")",
+        opacity: settings.opacity,
+        transform: "scale(" + settings.size + ")",
         transformOrigin: "100% 100%",
       }}
       aria-hidden="true"
