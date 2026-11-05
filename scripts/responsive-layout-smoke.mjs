@@ -468,6 +468,7 @@ try {
 
         // Opening a real property and returning must retain every active URL filter.
         const retainedDetailLink = page.locator(".pf-grid .pcard-mobile-list .pcard-link").first();
+        await retainedDetailLink.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
         if (await retainedDetailLink.isVisible().catch(() => false)) {
           await retainedDetailLink.click();
           await page.waitForURL((url) => url.pathname.startsWith("/properties/") || url.pathname.startsWith("/file/"), { timeout: 15_000 });
