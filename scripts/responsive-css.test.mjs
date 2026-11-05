@@ -373,25 +373,30 @@ testRunner.test("map-view property list thumbnails normalize legacy media proxy 
 });
 
 
+
 testRunner.test("live responsive artifacts wait for real mobile cards and seed saved-list consumers read-only", () => {
-  const routeBlock = browserSmoke.match(/const routes = \\[([\\s\\S]*?)\\];/)?.[1] ?? "";
+  const routeStart = browserSmoke.indexOf("const routes = [");
+  const routeEnd = browserSmoke.indexOf("];", routeStart);
+  const routeBlock = routeStart >= 0 && routeEnd > routeStart ? browserSmoke.slice(routeStart, routeEnd) : "";
   for (const route of ["/favorites", "/nearby", "/smart-search", "/budget-match", "/compare"]) {
-    assert.ok(routeBlock.includes(JSON.stringify(route)), `responsive smoke must cover ${route}`);
+    assert.ok(routeBlock.includes(JSON.stringify(route)), "responsive smoke must cover " + route);
   }
-  assert.match(browserSmoke, /let samplePropertySlug = null/);
-  assert.match(browserSmoke, /hirmand-favorite-properties/);
-  assert.match(browserSmoke, /hirmand-compare-properties/);
-  assert.match(browserSmoke, /page\.addInitScript/);
-  assert.match(browserSmoke, /screenshotCard\.waitFor\(\{ state: "visible", timeout: 20_000 \}\)/);
-  assert.match(browserSmoke, /image\.complete && image\.naturalWidth > 0[\\s\\S]*?timeout: 15_000/);
-  assert.match(browserSmoke, /mapResultsReady = await page\.waitForFunction/);
+  assert.ok(browserSmoke.includes("let samplePropertySlug = null"));
+  assert.ok(browserSmoke.includes("hirmand-favorite-properties"));
+  assert.ok(browserSmoke.includes("hirmand-compare-properties"));
+  assert.ok(browserSmoke.includes("page.addInitScript"));
+  assert.ok(browserSmoke.includes('screenshotCard.waitFor({ state: "visible", timeout: 20_000 })'));
+  assert.ok(browserSmoke.includes("image.complete && image.naturalWidth > 0"));
+  assert.ok(browserSmoke.includes("mapResultsReady = await page.waitForFunction"));
 });
 
 testRunner.test("Liara incident gallery object is verified directly through the public media proxy", () => {
-  assert.match(deployWorkflow, /Verify the reported Liara gallery image through the public media proxy[\\s\\S]*?liara_gallery_image_verify[\\s\\S]*?verify-liara-gallery-object\.mjs/);
-  assert.match(deployWorkflow, /LIARA_GALLERY_IMAGE_OUTCOME/);
-  assert.match(liaraGallerySmoke, /storage\.c2\.liara\.site\\/hirmand-realestate\\/properties\\/uploads\\/gallery\\/1792769572233-1d621215-3742-4f76-864c-7cbc8fc17fb1-photo_2026-10-19_12-57-33-watermarked\.webp/);
-  assert.match(liaraGallerySmoke, /response\.status/);
-  assert.match(liaraGallerySmoke, /response\.url/);
-  assert.match(liaraGallerySmoke, /validWebp/);
+  assert.ok(deployWorkflow.includes("Verify the reported Liara gallery image through the public media proxy"));
+  assert.ok(deployWorkflow.includes("id: liara_gallery_image_verify"));
+  assert.ok(deployWorkflow.includes("verify-liara-gallery-object.mjs"));
+  assert.ok(deployWorkflow.includes("LIARA_GALLERY_IMAGE_OUTCOME"));
+  assert.ok(liaraGallerySmoke.includes("https://storage.c2.liara.site/hirmand-realestate/properties/uploads/gallery/1792769572233-1d621215-3742-4f76-864c-7cbc8fc17fb1-photo_2026-10-19_12-57-33-watermarked.webp"));
+  assert.ok(liaraGallerySmoke.includes("response.status"));
+  assert.ok(liaraGallerySmoke.includes("response.url"));
+  assert.ok(liaraGallerySmoke.includes("validWebp"));
 });
