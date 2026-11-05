@@ -177,6 +177,10 @@ testRunner.test("responsive guardrails load after the older global styles", () =
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
   assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 430, 768, 1024, 1440\]/);
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
+  assert.match(browserSmoke, /page\.on\("console"/, "browser smoke must capture console errors");
+  assert.match(browserSmoke, /page\.on\("requestfailed"/, "browser smoke must capture failed network requests");
+  assert.match(browserSmoke, /criticalNetworkFailures/, "same-origin script, style, font and server failures must fail verification");
+  assert.match(browserSmoke, /first property image did not load successfully/, "the first real listing image must load");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
   assert.match(browserSmoke, /"\/budget-match"/, "responsive screenshots should include the tablet budget hero");
