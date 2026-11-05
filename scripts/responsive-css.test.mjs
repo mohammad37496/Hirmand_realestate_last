@@ -254,8 +254,8 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(propertyCardCss, /\.pf-filter-overview > button[^}]*min-height:\s*44px/, "mobile clear-filter action must meet the 44px touch target");
   assert.match(propertyFiltersRedesignCss, /body:has\(\.pf-sidebar\.is-open\) \.quick-actions\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/s,
     "the fixed quick-action bar must not intercept taps while the mobile filter drawer is open");
-  assert.match(propertyFiltersRedesignCss, /\.pf-search button\[aria-label="پاک کردن جست‌وجو"\]\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s,
-    "the mobile search-clear action must meet the 44px touch target");
+  assert.match(responsiveCss, /\.pf-page \.pf-search button\[aria-label="پاک کردن جست‌وجو"\]\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s,
+    "the final responsive CSS layer must keep the mobile search-clear action at 44px");
   assert.match(browserSmoke, /Object\.entries\(expected\)\.every\(\(\[key, value\]\) => actual\.get\(key\) === value\)/, "browser back must preserve every active filter parameter");
   assert.match(browserSmoke, /transactionGroup[\s\S]*?minArea[\s\S]*?minPrice[\s\S]*?neighborhoodSearch[\s\S]*?sortControl[\s\S]*?loadMore/, "browser smoke should exercise real property filters, sorting and pagination");
   assert.match(browserSmoke, /detailsHref\.startsWith\("\/properties\/"\)/);
