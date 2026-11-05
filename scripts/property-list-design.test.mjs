@@ -33,6 +33,17 @@ test("mobile shared RTL list cards and explicit photo grid mode remain intact", 
   assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list\s*\{[^}]*display:block/);
 });
 
+test("phone list cards keep a readable image, key facts and a single swipeable action row", () => {
+  const mobileList = marketplaceCss.slice(marketplaceCss.lastIndexOf("Mobile list cards:"));
+  assert.match(mobileList, /grid-template-columns:\s*clamp\(116px,\s*34vw,\s*140px\)\s+minmax\(0,\s*1fr\)/);
+  assert.match(mobileList, /pcard-specs span:nth-child\(n \+ 4\)\s*\{\s*display:\s*none/);
+  assert.match(mobileList, /display:\s*flex\s*!important/);
+  assert.match(mobileList, /flex-wrap:\s*nowrap\s*!important/);
+  assert.match(mobileList, /overflow-x:\s*auto\s*!important/);
+  assert.match(mobileList, /grid-template-columns:\s*none\s*!important/);
+  assert.match(mobileList, /flex:\s*0 0 44px\s*!important/);
+});
+
 test("list card focus and reduced-motion behavior remain accessible", () => {
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard:hover,[\s\S]*?\.pcard:focus-within/);
   assert.match(marketplaceCss, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pf-page \.pf-grid\.is-list-view > \.pcard,[\s\S]*?transition:\s*none/);
