@@ -292,6 +292,8 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
     "default listing screenshots must bypass stale back-forward-cache state");
   assert.match(browserSmoke, /!new URLSearchParams\(window\.location\.search\)\.has\("sort"\)/,
     "the screenshot route must normalize back to the unfiltered default URL");
+  assert.match(browserSmoke, /retainedDetailLink\.waitFor\(\{ state: "visible", timeout: 15_000 \}\)/,
+    "browser-back restoration must wait for the card to return after switching views");
   assert.match(browserSmoke, /verifyActionToggle/);
   assert.match(browserSmoke, /targetOrigin = new URL\(frame\.url\(\)\)\.origin/,
     "browser network checks must follow the final page origin after redirects");
