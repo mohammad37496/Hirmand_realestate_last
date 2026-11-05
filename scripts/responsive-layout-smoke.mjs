@@ -386,7 +386,7 @@ try {
           await page.goBack({ waitUntil: "domcontentloaded" });
           await page.waitForFunction((expected) => {
             const actual = new URLSearchParams(window.location.search);
-            return window.location.pathname.replace(/\\/+$/, "") === "/properties" &&
+            return window.location.pathname.replace(/\/+$/, "") === "/properties" &&
               Object.entries(expected).every(([key, value]) => actual.get(key) === value);
           }, expectedParams, { timeout: 15_000 });
         } else {
