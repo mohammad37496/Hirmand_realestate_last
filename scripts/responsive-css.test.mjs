@@ -248,6 +248,9 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(propertiesRoute, /setViewModeManuallySelected\(true\)/);
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
   assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
+  assert.match(browserSmoke, /route === "\/properties" && screenshotRoutes\.has\(route\)/,
+    "responsive artifacts must capture the default property listing after interaction checks");
+
   assert.match(browserSmoke, /verifyActionToggle/);
   assert.match(browserSmoke, /targetOrigin = new URL\(frame\.url\(\)\)\.origin/,
     "browser network checks must follow the final page origin after redirects");
