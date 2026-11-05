@@ -539,12 +539,27 @@ try {
           if ((await defaultView.getAttribute("aria-pressed").catch(() => null)) !== "true") {
             failures.push("/properties @ " + width + "px: default view was not restored before responsive screenshot capture");
           }
-          const openFilterDrawer = page.locator(".pf-sidebar.is-open").first();
-          if (await openFilterDrawer.isVisible().catch(() => false)) {
-            failures.push("/properties @ " + width + "px: filter drawer remained open on the default listing screenshot");
-            const closeDrawer = openFilterDrawer.locator(".pf-close").first();
-            if (await closeDrawer.isVisible().catch(() => false)) await closeDrawer.click();
-            await page.waitForFunction(() => !document.querySelector(".pf-sidebar.is-open"), null, { timeout: 5_000 }).catch(() => {});
+          const filterDrawerState = await page.locator(".pf-sidebar").first().evaluate((drawer) => {
+            const style = getComputedStyle(drawer);
+            return {
+              isOpen: drawer.classList.contains("is-open"),
+              opacity: style.opacity,
+              pointerEvents: style.pointerEvents,
+              position: style.position,
+            };
+          }).catch(() => null);
+          if (width <= 979 && filterDrawerState && (
+            filterDrawerState.isOpen ||
+            filterDrawerState.opacity !== "0" ||
+            filterDrawerState.pointerEvents !== "none" ||
+            filterDrawerState.position !== "fixed"
+          )) {
+            failures.push("/properties @ " + width + "px: filter drawer was not hidden on the default listing; state=" + JSON.stringify(filterDrawerState));
+            if (filterDrawerState.isOpen) {
+              const closeDrawer = page.locator(".pf-sidebar.is-open .pf-close").first();
+              if (await closeDrawer.isVisible().catch(() => false)) await closeDrawer.click();
+              await page.waitForFunction(() => !document.querySelector(".pf-sidebar.is-open"), null, { timeout: 5_000 }).catch(() => {});
+            }
           }
         }
         await page.evaluate(() => new Promise((resolve) =>
