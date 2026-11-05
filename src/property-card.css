@@ -702,3 +702,12 @@
   .pcard-mobile-list .pcard-title { font-size:.84rem; }
   .pcard-mobile-list .pcard-specs span { font-size:.66rem; padding-inline:5px; }
 }
+
+
+/* Keep the active-filter clear action comfortably tappable on phones. */
+@media (max-width: 720px) {
+  .pf-filter-overview > button {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+}
