@@ -544,6 +544,13 @@ const smallTargetWarnings = summaries.filter((entry) => entry.smallTargets?.leng
 console.log(`[responsive-smoke] ${routes.length} routes × ${viewportWidths.length} widths = ${routes.length * viewportWidths.length} responsive checks`);
 console.log(`[responsive-smoke] target widths: ${viewportWidths.join(", ")}`);
 console.log(`[responsive-smoke] screenshots directory: ${outputDir}`);
+const browserDiagnosticWarnings = summaries.filter((entry) => entry.consoleErrors?.length || entry.networkWarnings?.length);
+if (browserDiagnosticWarnings.length) {
+  console.warn(`[responsive-smoke] browser console/network warnings in ${browserDiagnosticWarnings.length} route(s):`);
+  for (const warning of browserDiagnosticWarnings.slice(0, 30)) {
+    console.warn(`  ${warning.route}: ${JSON.stringify({ consoleErrors: warning.consoleErrors, networkWarnings: warning.networkWarnings })}`);
+  }
+}
 if (smallTargetWarnings.length) {
   console.warn(`[responsive-smoke] small interactive targets found in ${smallTargetWarnings.length} route/width checks (examples follow):`);
   for (const warning of smallTargetWarnings.slice(0, 20)) {
