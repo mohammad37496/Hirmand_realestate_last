@@ -362,3 +362,11 @@ testRunner.test("Liara deployment verifies the exact main commit and published m
   assert.match(liveDeploymentSmoke, /pcard-mobile-list/);
   assert.match(liveDeploymentSmoke, /نمایش فهرستی فایل‌ها/);
 });
+
+
+testRunner.test("map-view property list thumbnails normalize legacy media proxy URLs", () => {
+  assert.match(propertiesRoute, /import \{ mediaSourceCandidates \} from "@\/lib\/media"/,
+    "the map-side property list must use the shared trusted media URL normalizer");
+  assert.match(propertiesRoute, /mediaSourceCandidates\(property\.image\)\[0\]/,
+    "map-side thumbnails must not request the removed legacy /api/liara-media route");
+});
