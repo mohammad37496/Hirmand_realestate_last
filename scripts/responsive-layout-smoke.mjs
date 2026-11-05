@@ -179,6 +179,72 @@ try {
           }
           const closeFilters = page.locator(".pf-close").first();
           if (await closeFilters.isVisible().catch(() => false)) await closeFilters.click();
+
+          // Exercise actual filter state, not just the drawer's open/close behavior.
+          await filterButton.click();
+          const activeDrawer = page.locator(".pf-sidebar.is-open[role=dialog]").first();
+          await activeDrawer.waitFor({ state: "visible", timeout: 3_000 });
+
+          const transactionGroup = activeDrawer.locator(".pf-filter-primary .pf-group").filter({ hasText: "نوع معامله" }).first();
+          const sellChip = transactionGroup.getByRole("button", { name: "فروش", exact: true });
+          if (await sellChip.isVisible().catch(() => false)) {
+            await sellChip.click();
+            await page.waitForFunction(() => new URLSearchParams(location.search).get("transaction") === "sell");
+          } else {
+            failures.push("/properties @ 320px: sale transaction filter is unavailable");
+          }
+
+          const areaGroup = activeDrawer.locator(".pf-compact-ranges .pf-group").nth(0);
+          await areaGroup.locator("input").nth(0).fill("80");
+          await areaGroup.locator("input").nth(1).fill("160");
+          const priceGroup = activeDrawer.locator(".pf-compact-ranges .pf-group").nth(1);
+          await priceGroup.locator("input").nth(0).fill("1000000000");
+          await priceGroup.locator("input").nth(1).fill("5000000000");
+          await page.waitForFunction(() => {
+            const params = new URLSearchParams(location.search);
+            return params.get("minArea") === "80" &&
+              params.get("maxArea") === "160" &&
+              params.get("minPrice") === "1000000000" &&
+              params.get("maxPrice") === "5000000000";
+          });
+
+          const openNeighborhoodPicker = activeDrawer.locator(".pf-neighborhood-trigger").first();
+          await openNeighborhoodPicker.click();
+          const neighborhoodDialog = page.locator(".pf-neighborhood-dialog[role=dialog]").first();
+          await neighborhoodDialog.waitFor({ state: "visible", timeout: 8_000 });
+          const neighborhoodSearch = neighborhoodDialog.getByLabel("جست‌وجوی محله‌ها");
+          await neighborhoodSearch.fill("آبشار");
+          const neighborhoodOption = neighborhoodDialog.locator(".pf-neighborhood-dialog-results button").first();
+          await neighborhoodOption.waitFor({ state: "visible", timeout: 5_000 });
+          const selectedNeighborhood = (await neighborhoodOption.innerText()).trim();
+          await neighborhoodOption.click();
+          await page.waitForFunction((name) => new URLSearchParams(location.search).get("neighborhood") === name, selectedNeighborhood);
+
+          await page.getByLabel("جست‌وجوی فایل").fill("آپارتمان");
+          await page.waitForFunction(() => new URLSearchParams(location.search).get("q") === "آپارتمان");
+          await page.getByLabel("جست‌وجوی فایل").fill("");
+          await page.waitForFunction(() => !new URLSearchParams(location.search).has("q"));
+
+          const sortControl = page.getByLabel("مرتب‌سازی نتایج");
+          await sortControl.selectOption("price_asc");
+          await page.waitForFunction(() => new URLSearchParams(location.search).get("sort") === "price_asc");
+
+          await activeDrawer.locator(".pf-reset").click();
+          await page.waitForFunction(() => {
+            const params = new URLSearchParams(location.search);
+            return !["transaction", "minArea", "maxArea", "minPrice", "maxPrice", "neighborhood", "q", "sort"].some((key) => params.has(key));
+          });
+          const closeAfterFilterTest = page.locator(".pf-close").first();
+          if (await closeAfterFilterTest.isVisible().catch(() => false)) await closeAfterFilterTest.click();
+
+          const loadMore = page.locator(".pf-more button").first();
+          if (await loadMore.isVisible().catch(() => false)) {
+            const beforeCount = await page.locator(".pf-grid .pcard-mobile-list").count();
+            await loadMore.click();
+            await page.waitForFunction((before) => {
+              return document.querySelectorAll(".pf-grid .pcard-mobile-list").length > before;
+            }, beforeCount, { timeout: 15_000 });
+          }
         }
       }
 
