@@ -24,6 +24,7 @@ const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url),
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
+const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
@@ -223,6 +224,12 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[^}]*direction:rtl/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions[\s\S]*?grid-row:2/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-specs[\s\S]*?background:transparent/);
+  const marketplaceMobileListRule = propertiesMarketplaceCss.match(/\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(marketplaceMobileListRule, "the later marketplace stylesheet must preserve the mobile horizontal list card");
+  assert.match(marketplaceMobileListRule, /display:\s*grid/i);
+  assert.match(marketplaceMobileListRule, /direction:\s*rtl/i);
+  assert.doesNotMatch(propertiesMarketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-link\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column/is,
+    "the marketplace mobile cascade must not restore the photo-first layout in list mode");
 });
 
 
@@ -254,6 +261,8 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
     "view-mode checks must wait for a matching property result after URL filters are restored");
   assert.match(browserSmoke, /\/properties\?sort=price_asc/,
     "view-mode browser checks must use a populated deterministic property result");
+  assert.ok(browserSmoke.indexOf("const filteredResultCard") < browserSmoke.indexOf("const firstCard"),
+    "favorite, compare and detail interactions must run only after the deterministic published result is visible");
   assert.match(browserSmoke, /firstCard\.waitFor\(\{ state: "visible", timeout: 15_000 \}\)/,
     "browser smoke must wait for the real property result before checking card actions");
 
