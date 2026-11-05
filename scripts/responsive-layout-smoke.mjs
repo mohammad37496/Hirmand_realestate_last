@@ -93,7 +93,7 @@ try {
       } catch {
         return;
       }
-      const failure = request.failure()?.errorText ?? "request failed";
+      const failure = request.failure() ?? "request failed";
       const detail = request.method() + " " + request.url() + " — " + failure;
       networkWarnings.push(detail);
       if (["script", "stylesheet", "font"].includes(request.resourceType())) {
