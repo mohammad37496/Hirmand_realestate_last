@@ -989,3 +989,281 @@
     transition: none;
   }
 }
+
+/* -------------------------------------------------------------------------
+   Professional desktop list cards
+   RTL track order: property image (right) · details (centre) · actions (left).
+   The compact mobile list remains owned by property-card.css below 721px.
+   ------------------------------------------------------------------------- */
+@media (min-width: 721px) {
+  .pf-page .pf-grid.is-list-view {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard {
+    display: grid;
+    grid-template-columns: minmax(230px, 28%) minmax(0, 1fr) 108px;
+    grid-template-rows: minmax(224px, auto);
+    align-items: stretch;
+    min-height: 224px;
+    overflow: hidden;
+    border: 1px solid #e1e6e9;
+    border-radius: 19px;
+    background: #fff;
+    box-shadow: 0 5px 18px rgb(11 26 43 / 4%);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard:hover,
+  .pf-page .pf-grid.is-list-view > .pcard:focus-within {
+    transform: translateY(-2px);
+    border-color: #d4bd8b;
+    box-shadow: 0 12px 28px rgb(11 26 43 / 9%);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-link {
+    display: grid;
+    grid-column: 1 / 3;
+    grid-row: 1;
+    grid-template-columns: minmax(230px, 28%) minmax(0, 1fr);
+    align-items: stretch;
+    min-width: 0;
+    direction: rtl;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 224px;
+    aspect-ratio: auto;
+    background: #f1eee7;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media picture,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 224px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media img {
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-body {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    gap: 11px;
+    padding: 19px 22px 17px;
+    text-align: right;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-topline {
+    align-items: center;
+    gap: 8px 12px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-meta {
+    gap: 5px 10px;
+    color: #687785;
+    font-size: .75rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-code {
+    padding: 4px 9px;
+    border: 1px solid #e8e2d5;
+    border-radius: 7px;
+    background: #faf8f3;
+    color: #75664d;
+    font-size: .7rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-title {
+    min-height: 0;
+    color: #172b3f;
+    font-size: 1.12rem;
+    line-height: 1.75;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price-row {
+    gap: 3px;
+    padding: 9px 12px;
+    border: 1px solid #e8eee9;
+    border-radius: 11px;
+    background: linear-gradient(110deg, #fbfdfb, #f4f8f4);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price-value {
+    color: #194c39;
+    font-size: 1.12rem;
+    font-weight: 900;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-unit-price {
+    color: #718078;
+    font-size: .72rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-specs {
+    gap: 6px;
+    margin-top: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-specs span {
+    min-height: 31px;
+    padding: 5px 9px;
+    border: 1px solid #e8ebed;
+    border-radius: 8px;
+    background: #fbfcfc;
+    color: #526273;
+    box-shadow: none;
+    font-size: .72rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-footer {
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid #edf0f2;
+    color: #687785;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions {
+    position: static;
+    z-index: 1;
+    grid-column: 3;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 14px 10px;
+    border-top: 0;
+    border-inline-start: 1px solid #edf0f2;
+    background: #faf9f6;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions-compact {
+    display: grid;
+    grid-template-columns: repeat(2, 44px);
+    justify-content: center;
+    gap: 8px;
+    width: auto;
+    max-width: 100%;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    border: 1px solid #e1e5e7;
+    border-radius: 9px;
+    background: #fff;
+    color: #596a79;
+    box-shadow: 0 2px 5px rgb(11 26 43 / 4%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action:hover {
+    border-color: #d2b77a;
+    background: #fff9ec;
+    color: #805b1e;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action.is-active {
+    border-color: #d5b66e;
+    background: #f5e8c9;
+    color: #6e4d16;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 980px) {
+  .pf-page .pf-grid.is-list-view > .pcard {
+    grid-template-columns: minmax(180px, 27%) minmax(0, 1fr) 104px;
+    grid-template-rows: minmax(210px, auto);
+    min-height: 210px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-link {
+    grid-template-columns: minmax(180px, 27%) minmax(0, 1fr);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media picture,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media img {
+    min-height: 210px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-body {
+    gap: 8px;
+    padding: 14px 15px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-title { font-size: 1rem; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price-value { font-size: 1rem; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-specs span { min-height: 28px; padding: 4px 7px; font-size: .67rem; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions { padding-inline: 4px; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions-compact { grid-template-columns: repeat(2, 44px); gap: 8px; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action { width: 44px; height: 44px; min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-page .pf-grid.is-list-view > .pcard,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action {
+    transition: none;
+  }
+}
+
+/* Keep the shared mobile card layout through the 641–720px breakpoint gap. */
+@media (min-width: 641px) and (max-width: 720px) {
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(164px, auto) auto;
+    min-height: 0;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: clamp(96px, 28vw, 116px) minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-media {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 164px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-body {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    padding: 10px 11px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions {
+    position: static;
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    padding: 6px 10px;
+    border-top: 1px solid #edf0f2;
+  }
+}
