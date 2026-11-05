@@ -101,8 +101,9 @@ try {
       } catch {
         return;
       }
-      const failure = request.failure() ?? "request failed";
-      const detail = request.method() + " " + request.url() + " — " + failure;
+      const failure = request.failure();
+      const failureText = failure?.errorText ?? "request failed";
+      const detail = request.method() + " " + request.url() + " — " + failureText;
       networkWarnings.push(detail);
       if (["script", "stylesheet", "font"].includes(request.resourceType())) {
         criticalNetworkFailures.push(detail);
@@ -357,8 +358,20 @@ try {
           const firstCardImage = firstCard.locator(".pcard-media img").first();
           await firstCardImage.scrollIntoViewIfNeeded().catch(() => {});
           await firstCardImage.waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
-          const imageLoaded = await firstCardImage.evaluate((image) => image.complete && image.naturalWidth > 0).catch(() => false);
-          if (!imageLoaded) failures.push("/properties @ 320px: first property image did not load successfully");
+          const imageLoaded = await page.waitForFunction((selector) => {
+            const image = document.querySelector(selector);
+            return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
+          }, ".pf-grid .pcard-mobile-list .pcard-media img", { timeout: 10_000 })
+            .then(() => true).catch(() => false);
+          if (!imageLoaded) {
+            const imageState = await firstCardImage.evaluate((image) => ({
+              src: image.getAttribute("src"),
+              currentSrc: image.currentSrc,
+              complete: image.complete,
+              naturalWidth: image.naturalWidth,
+            })).catch(() => null);
+            failures.push("/properties @ 320px: first property image did not load successfully; state=" + JSON.stringify(imageState));
+          }
 
           const geometry = await firstCard.evaluate((card) => {
             const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
@@ -474,16 +487,34 @@ try {
         const desktopMapDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]').getAttribute("aria-pressed").catch(() => null);
         if (desktopMapDefault !== "true") failures.push("/properties @ 1024px: desktop map-first default changed unexpectedly");
         await desktopPage.setViewportSize({ width: 320, height: 900 });
-        await desktopPage.waitForTimeout(150);
-        const resizedMobileDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]').getAttribute("aria-pressed").catch(() => null);
-        if (resizedMobileDefault !== "true") failures.push("/properties: entering mobile without a manual choice did not switch to list view");
+        const resizedMobileDefaultReady = await desktopPage.waitForFunction(() => {
+          const listButton = document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]');
+          return window.matchMedia("(max-width: 720px)").matches &&
+            listButton?.getAttribute("aria-pressed") === "true";
+        }, null, { timeout: 5_000 }).then(() => true).catch(() => false);
+        if (!resizedMobileDefaultReady) {
+          const state = await desktopPage.evaluate(() => ({
+            viewport: window.innerWidth,
+            mediaMatches: window.matchMedia("(max-width: 720px)").matches,
+            listPressed: document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]')?.getAttribute("aria-pressed"),
+            mapPressed: document.querySelector('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]')?.getAttribute("aria-pressed"),
+            gridPressed: document.querySelector('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed"),
+            listClass: document.querySelector(".pf-grid")?.className,
+          }));
+          failures.push("/properties: entering mobile without a manual choice did not switch to list view; state=" + JSON.stringify(state));
+        }
         const desktopGridButton = desktopPage.locator('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]').first();
         await desktopGridButton.click();
+        await desktopPage.waitForFunction(() => document.querySelector('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+          null, { timeout: 5_000 });
         await desktopPage.setViewportSize({ width: 1024, height: 900 });
         await desktopPage.setViewportSize({ width: 320, height: 900 });
-        await desktopPage.waitForTimeout(150);
-        const retainedGridChoice = await desktopGridButton.getAttribute("aria-pressed").catch(() => null);
-        if (retainedGridChoice !== "true") failures.push("/properties: a manually selected grid view was overwritten by viewport changes");
+        const retainedGridChoiceReady = await desktopPage.waitForFunction(() => {
+          const gridButton = document.querySelector('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]');
+          return window.matchMedia("(max-width: 720px)").matches &&
+            gridButton?.getAttribute("aria-pressed") === "true";
+        }, null, { timeout: 5_000 }).then(() => true).catch(() => false);
+        if (!retainedGridChoiceReady) failures.push("/properties: a manually selected grid view was overwritten by viewport changes");
         await desktopPage.close();
       }
 
