@@ -379,7 +379,6 @@ try {
         }
 
         // Opening a real property and returning must retain every active URL filter.
-        const retainedListingUrl = new URL(page.url());
         const retainedDetailLink = page.locator(".pf-grid .pcard-mobile-list .pcard-link").first();
         if (await retainedDetailLink.isVisible().catch(() => false)) {
           await retainedDetailLink.click();
