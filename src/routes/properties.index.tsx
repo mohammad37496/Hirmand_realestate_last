@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { mediaSourceCandidates } from "@/lib/media";
 import {
   countPublishedProperties,
   listPublishedPropertyCards,
@@ -1959,7 +1960,7 @@ function PropertiesIndexPage() {
                             aria-pressed={selectedPropertyId === property.id}
                           >
                             <span className="pf-map-item-media">
-                              {property.image ? <img src={property.image} alt="" loading="lazy" /> : <MapIcon size={20} />}
+                              {property.image ? <img src={mediaSourceCandidates(property.image)[0] ?? property.image} alt="" loading="lazy" /> : <MapIcon size={20} />}
                             </span>
                             <span className="pf-map-item-copy">
                               <strong>{property.title}</strong>
