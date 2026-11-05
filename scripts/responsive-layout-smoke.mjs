@@ -483,6 +483,9 @@ try {
           const defaultView = page.locator('.pf-views button[aria-label="' + defaultViewLabel + '"]').first();
           await page.waitForFunction((selector) => document.querySelector(selector)?.getAttribute("aria-pressed") === "true",
             '.pf-views button[aria-label="' + defaultViewLabel + '"]', { timeout: 8_000 }).catch(() => {});
+          if ((await defaultView.getAttribute("aria-pressed").catch(() => null)) !== "true") {
+            failures.push("/properties @ " + width + "px: default view was not restored before responsive screenshot capture");
+          }
         }
         await page.evaluate(() => new Promise((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(resolve)),
