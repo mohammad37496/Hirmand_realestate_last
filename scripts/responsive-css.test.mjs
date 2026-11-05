@@ -182,6 +182,8 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   assert.match(browserSmoke, /page\.on\("console"/, "browser smoke must capture console errors");
   assert.match(browserSmoke, /page\.on\("requestfailed"/, "browser smoke must capture failed network requests");
   assert.match(browserSmoke, /criticalNetworkFailures/, "same-origin script, style, font and server failures must fail verification");
+  assert.match(browserSmoke, /response\.status\(\) === 404 && request\.resourceType\(\) === "image"/,
+    "same-origin broken images must fail responsive verification instead of being warning-only");
   assert.match(browserSmoke, /first property image did not load successfully/, "the first real listing image must load");
   assert.match(browserSmoke, /image\.complete && image\.naturalWidth > 0[\s\S]*?timeout: 10_000/,
     "browser smoke must wait for lazy-loaded property images to finish loading before asserting");

@@ -151,19 +151,33 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
   const value = src.trim();
   if (!value) return fallback ? [fallback] : [];
 
-  // Normalize proxy URLs persisted by older releases before the public route
-  // was renamed. Validate the embedded target with the same host allowlist.
-  if (value.startsWith("/api/liara-media") || value.startsWith("/api/media-proxy")) {
-    try {
-      const legacyUrl = new URL(value, "https://hirmand.invalid");
+  // Older property rows can contain either a relative proxy path or the
+  // absolute canonical site URL saved by a previous release. Normalize only
+  // this site's HTTPS origin; never rewrite a proxy URL hosted by an arbitrary
+  // third party.
+  try {
+    const relativeOrigin = "https://hirmand.invalid";
+    const isRelativePath = value.startsWith("/");
+    const legacyUrl = new URL(value, relativeOrigin);
+    const isTrustedAbsoluteOrigin =
+      legacyUrl.protocol === "https:" &&
+      (legacyUrl.origin === "https://hirmandrealestate.ir" ||
+        legacyUrl.origin === "https://www.hirmandrealestate.ir");
+    const isTrustedRelativeOrigin =
+      isRelativePath && legacyUrl.origin === relativeOrigin;
+    const isLegacyProxyPath =
+      legacyUrl.pathname === "/api/liara-media" ||
+      legacyUrl.pathname === "/api/media-proxy";
+
+    if ((isTrustedRelativeOrigin || isTrustedAbsoluteOrigin) && isLegacyProxyPath) {
       const storedTarget = legacyUrl.searchParams.get("url")?.trim() ?? "";
       if (isLiaraStorageHost(storedTarget) || isDivarRemoteHost(storedTarget)) {
         return ["/api/media-proxy?url=" + encodeURIComponent(storedTarget)];
       }
-    } catch {
-      // Keep the invalid source visible as a failed media URL.
+      return [value];
     }
-    return [value];
+  } catch {
+    // Keep malformed and unsupported source URLs visible as failed media.
   }
 
   const isDivarRemote = isDivarRemoteHost(value);

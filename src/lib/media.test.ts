@@ -56,12 +56,33 @@ test("legacy .liara.site property URLs resolve to the configured bucket key", ()
 
 test("legacy stored Liara proxy paths are normalized to the current same-origin route", () => {
   const target = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/legacy.webp";
+  const expected = ["/api/media-proxy?url=" + encodeURIComponent(target)];
   assert.deepEqual(
     mediaSourceCandidates("/api/liara-media?url=" + encodeURIComponent(target), "/images/type-apartment.jpg"),
-    ["/api/media-proxy?url=" + encodeURIComponent(target)],
+    expected,
   );
   assert.deepEqual(
-    mediaSourceCandidates("/api/liara-media?url=" + encodeURIComponent("https://evil.example/photo.webp"), "/images/type-apartment.jpg"),
-    ["/api/liara-media?url=" + encodeURIComponent("https://evil.example/photo.webp")],
+    mediaSourceCandidates("/api/media-proxy?url=" + encodeURIComponent(target), "/images/type-apartment.jpg"),
+    expected,
+  );
+  for (const origin of ["https://hirmandrealestate.ir", "https://www.hirmandrealestate.ir"]) {
+    assert.deepEqual(
+      mediaSourceCandidates(origin + "/api/liara-media?url=" + encodeURIComponent(target), "/images/type-apartment.jpg"),
+      expected,
+    );
+    assert.deepEqual(
+      mediaSourceCandidates(origin + "/api/media-proxy?url=" + encodeURIComponent(target), "/images/type-apartment.jpg"),
+      expected,
+    );
+  }
+  const hostile = "https://evil.example/api/liara-media?url=" + encodeURIComponent(target);
+  assert.deepEqual(
+    mediaSourceCandidates(hostile, "/images/type-apartment.jpg"),
+    [hostile],
+  );
+  const invalidTarget = "/api/liara-media?url=" + encodeURIComponent("https://evil.example/photo.webp");
+  assert.deepEqual(
+    mediaSourceCandidates(invalidTarget, "/images/type-apartment.jpg"),
+    [invalidTarget],
   );
 });
