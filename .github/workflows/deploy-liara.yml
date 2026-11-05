@@ -65,6 +65,13 @@ jobs:
             --message="Deploy ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}" \
             --debug
 
+      - name: Verify live Liara release matches this commit
+        timeout-minutes: 5
+        env:
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
+          LIARA_PUBLIC_URL: https://hirmandrealestate.ir
+        run: node scripts/verify-live-deployment.mjs
+
       - name: Install live browser smoke dependencies
         timeout-minutes: 12
         run: |
@@ -76,13 +83,6 @@ jobs:
         env:
           RESPONSIVE_SCREENSHOT_DIR: ${{ runner.temp }}/hirmand-live-responsive
         run: node scripts/responsive-layout-smoke.mjs https://hirmandrealestate.ir
-
-      - name: Verify live Liara release matches this commit
-        timeout-minutes: 5
-        env:
-          EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
-          LIARA_PUBLIC_URL: https://hirmandrealestate.ir
-        run: node scripts/verify-live-deployment.mjs
 
       # Opt-in collection prevents routine deployments from copying general
       # application logs to GitHub. A commit containing [diagnose-upload] enables
