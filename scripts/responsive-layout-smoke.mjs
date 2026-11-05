@@ -523,10 +523,14 @@ try {
         if (route === "/properties" && screenshotRoutes.has(route)) {
           // Capture the real default listing at each width; the interaction
           // checks above intentionally finish on a filtered URL with no matches.
-          await page.goto(new URL("/properties", baseUrl).toString(), {
+          // Use the explicit default sort to force a fresh document instead of
+          // restoring the earlier filtered page from the browser back-forward cache.
+          await page.goto(new URL("/properties?sort=newest", baseUrl).toString(), {
             waitUntil: "domcontentloaded",
             timeout: 30_000,
           });
+          await page.waitForFunction(() => !new URLSearchParams(window.location.search).has("sort"),
+            null, { timeout: 5_000 }).catch(() => {});
           await page.waitForTimeout(500);
           const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه";
           const defaultView = page.locator('.pf-views button[aria-label="' + defaultViewLabel + '"]').first();
