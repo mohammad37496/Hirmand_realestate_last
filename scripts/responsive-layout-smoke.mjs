@@ -138,7 +138,7 @@ try {
 
       // Every route that renders shared property cards must preserve the RTL
       // mobile invariant: image on the right, property details on the left.
-      const sharedMobileCard = page.locator(".pcard-mobile-list").first();
+      const sharedMobileCard = page.locator(route === "/properties" ? ".pf-grid .pcard-mobile-list" : ".pcard-mobile-list").first();
       if (route === "/" || route === "/properties") {
         await sharedMobileCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
         if (!(await sharedMobileCard.isVisible().catch(() => false))) {
@@ -341,6 +341,16 @@ try {
           failures.push("/properties @ 320px: mobile did not start in list view");
         }
 
+        // Keep the filtered view populated by the deterministic fixture so
+        // the view-mode checks exercise real cards, not an intentionally empty result.
+        await page.goto(new URL("/properties?sort=price_asc", baseUrl).toString(), {
+          waitUntil: "domcontentloaded",
+          timeout: 30_000,
+        });
+        const filteredResultCard = page.locator(".pf-grid .pcard-mobile-list").first();
+        const filteredResultReady = await filteredResultCard.waitFor({ state: "visible", timeout: 15_000 })
+          .then(() => true).catch(() => false);
+        if (!filteredResultReady) failures.push("/properties: the sorted query did not return a published property card");
         const firstCard = page.locator(".pf-grid .pcard-mobile-list").first();
         await firstCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
         if (await firstCard.isVisible().catch(() => false)) {
@@ -397,17 +407,6 @@ try {
         } else {
           failures.push("/properties @ 320px: no published property card was available for layout verification");
         }
-
-        // Keep the filtered view populated by the deterministic fixture so
-        // the view-mode checks exercise real cards, not an intentionally empty result.
-        await page.goto(new URL("/properties?sort=price_asc", baseUrl).toString(), {
-          waitUntil: "domcontentloaded",
-          timeout: 30_000,
-        });
-        const filteredResultCard = page.locator(".pf-grid .pcard-mobile-list").first();
-        const filteredResultReady = await filteredResultCard.waitFor({ state: "visible", timeout: 15_000 })
-          .then(() => true).catch(() => false);
-        if (!filteredResultReady) failures.push("/properties: the sorted query did not return a published property card");
         await page.waitForFunction(() => document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
           null, { timeout: 8_000 }).catch(() => {});
         const retainedKeys = ["q", "transaction", "sort", "minArea", "maxArea"];
