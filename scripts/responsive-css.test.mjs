@@ -215,6 +215,7 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertiesRoute, /aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed=\{viewMode === "grid"\}/);
   assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(96px,28vw,116px\) minmax\(0,1fr\)/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[^}]*direction:rtl/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions[\s\S]*?grid-row:2/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-specs[\s\S]*?background:transparent/);
 });
