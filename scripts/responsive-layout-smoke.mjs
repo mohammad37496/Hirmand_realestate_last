@@ -293,6 +293,7 @@ try {
         const firstCard = page.locator(".pf-grid .pcard-mobile-list").first();
         if (await firstCard.isVisible().catch(() => false)) {
           const firstCardImage = firstCard.locator(".pcard-media img").first();
+          await firstCardImage.scrollIntoViewIfNeeded().catch(() => {});
           await firstCardImage.waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
           const imageLoaded = await firstCardImage.evaluate((image) => image.complete && image.naturalWidth > 0).catch(() => false);
           if (!imageLoaded) failures.push("/properties @ 320px: first property image did not load successfully");
