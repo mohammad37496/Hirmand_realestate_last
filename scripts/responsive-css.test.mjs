@@ -248,6 +248,11 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(propertiesRoute, /setViewModeManuallySelected\(true\)/);
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
   assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
+  assert.match(browserSmoke, /q=تست&transaction=sell&sort=price_asc&minArea=80&maxArea=150/,
+    "view-mode browser checks must use a populated deterministic property result");
+  assert.match(browserSmoke, /firstCard\.waitFor\(\{ state: "visible", timeout: 15_000 \}\)/,
+    "browser smoke must wait for the real property result before checking card actions");
+
   assert.match(browserSmoke, /route === "\/properties" && screenshotRoutes\.has\(route\)/,
     "responsive artifacts must capture the default property listing after interaction checks");
 
