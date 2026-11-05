@@ -279,6 +279,8 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(browserSmoke, /route === "\/properties" && screenshotRoutes\.has\(route\)/,
     "responsive artifacts must capture the default property listing after interaction checks");
 
+  assert.match(browserSmoke, /filter drawer remained open on the default listing screenshot/,
+    "the default listing artifact must not be obscured by the mobile filter drawer");
   assert.match(browserSmoke, /verifyActionToggle/);
   assert.match(browserSmoke, /targetOrigin = new URL\(frame\.url\(\)\)\.origin/,
     "browser network checks must follow the final page origin after redirects");
