@@ -249,6 +249,10 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
   assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
   assert.match(browserSmoke, /verifyActionToggle/);
+  assert.match(browserSmoke, /first shared property-card image did not load or fall back successfully/,
+    "browser smoke must verify shared-card image loading on every property-list surface");
+  assert.match(browserSmoke, /interactive map canvas/, "browser smoke must verify the map view renders its real map canvas");
+
   assert.match(browserSmoke, /page\.goBack\(\{ waitUntil: "domcontentloaded" \}\)/, "browser back must restore the real listing route");
   assert.match(browserSmoke, /\.pf-sidebar\.is-open\[role=dialog\] \.pf-reset/, "reset filters must target the open mobile drawer");
   assert.match(responsiveCss, /\.pf-page \.pf-filter-overview > button\s*\{[^}]*min-height:\s*44px;/s,
