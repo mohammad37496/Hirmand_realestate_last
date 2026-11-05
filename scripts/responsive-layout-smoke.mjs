@@ -82,7 +82,15 @@ try {
     const consoleErrors = [];
     const networkWarnings = [];
     const criticalNetworkFailures = [];
-    const targetOrigin = new URL(baseUrl).origin;
+    let targetOrigin = new URL(baseUrl).origin;
+    page.on("framenavigated", (frame) => {
+      if (frame !== page.mainFrame()) return;
+      try {
+        targetOrigin = new URL(frame.url()).origin;
+      } catch {
+        // Keep the configured origin until the main frame has a valid URL.
+      }
+    });
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
