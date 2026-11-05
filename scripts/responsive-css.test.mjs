@@ -281,6 +281,10 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
 
   assert.match(browserSmoke, /filter drawer remained open on the default listing screenshot/,
     "the default listing artifact must not be obscured by the mobile filter drawer");
+  assert.match(browserSmoke, /\/properties\?sort=newest/,
+    "default listing screenshots must bypass stale back-forward-cache state");
+  assert.match(browserSmoke, /!new URLSearchParams\(window\.location\.search\)\.has\("sort"\)/,
+    "the screenshot route must normalize back to the unfiltered default URL");
   assert.match(browserSmoke, /verifyActionToggle/);
   assert.match(browserSmoke, /targetOrigin = new URL\(frame\.url\(\)\)\.origin/,
     "browser network checks must follow the final page origin after redirects");
