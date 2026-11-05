@@ -249,6 +249,8 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
   assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
   assert.match(browserSmoke, /verifyActionToggle/);
+  assert.match(browserSmoke, /page\.goBack\(\{ waitUntil: "domcontentloaded" \}\)/, "browser back must restore the real listing route");
+  assert.match(browserSmoke, /Object\.entries\(expected\)\.every\(\(\[key, value\]\) => actual\.get\(key\) === value\)/, "browser back must preserve every active filter parameter");
   assert.match(browserSmoke, /transactionGroup[\s\S]*?minArea[\s\S]*?minPrice[\s\S]*?neighborhoodSearch[\s\S]*?sortControl[\s\S]*?loadMore/, "browser smoke should exercise real property filters, sorting and pagination");
   assert.match(browserSmoke, /detailsHref\.startsWith\("\/properties\/"\)/);
 });
