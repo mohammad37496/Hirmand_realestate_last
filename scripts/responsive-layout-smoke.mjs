@@ -256,6 +256,18 @@ try {
 
           await page.getByLabel("جست‌وجوی فایل").fill("آپارتمان");
           await page.waitForFunction(() => new URLSearchParams(location.search).get("q") === "آپارتمان");
+          const searchClear = page.locator('.pf-search button[aria-label="پاک کردن جست‌وجو"]').first();
+          if (await searchClear.isVisible().catch(() => false)) {
+            const searchClearSize = await searchClear.evaluate((element) => {
+              const rect = element.getBoundingClientRect();
+              return { width: Math.round(rect.width), height: Math.round(rect.height) };
+            });
+            if (searchClearSize.width < 44 || searchClearSize.height < 44) {
+              failures.push("/properties @ 320px: search clear action must be at least 44×44px; actual=" + JSON.stringify(searchClearSize));
+            }
+          } else {
+            failures.push("/properties @ 320px: search clear action did not appear for a non-empty query");
+          }
           await page.getByLabel("جست‌وجوی فایل").fill("");
           await page.waitForFunction(() => !new URLSearchParams(location.search).has("q"));
 
@@ -267,6 +279,18 @@ try {
           if (!(await resetButton.isVisible().catch(() => false))) {
             await filterButton.click();
             await page.locator(".pf-sidebar.is-open[role=dialog]").waitFor({ state: "visible", timeout: 5_000 });
+          }
+          const overviewClear = page.locator(".pf-sidebar.is-open[role=dialog] .pf-filter-overview > button").first();
+          if (await overviewClear.isVisible().catch(() => false)) {
+            const overviewClearSize = await overviewClear.evaluate((element) => {
+              const rect = element.getBoundingClientRect();
+              return { width: Math.round(rect.width), height: Math.round(rect.height) };
+            });
+            if (overviewClearSize.width < 44 || overviewClearSize.height < 44) {
+              failures.push("/properties @ 320px: active-filter clear action must be at least 44×44px; actual=" + JSON.stringify(overviewClearSize));
+            }
+          } else {
+            failures.push("/properties @ 320px: active-filter clear action was not visible in the open drawer");
           }
           await page.locator(".pf-sidebar.is-open[role=dialog] .pf-reset").first().click();
           await page.waitForFunction(() => {
