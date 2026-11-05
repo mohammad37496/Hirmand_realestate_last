@@ -182,15 +182,15 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   assert.match(browserSmoke, /page\.on\("requestfailed"/, "browser smoke must capture failed network requests");
   assert.match(browserSmoke, /criticalNetworkFailures/, "same-origin script, style, font and server failures must fail verification");
   assert.match(browserSmoke, /first property image did not load successfully/, "the first real listing image must load");
-  assert.match(browserSmoke, /image\\.complete && image\\.naturalWidth > 0[\\s\\S]*?timeout: 10_000/,
+  assert.match(browserSmoke, /image\.complete && image\.naturalWidth > 0[\s\S]*?timeout: 10_000/,
     "browser smoke must wait for lazy-loaded property images to finish loading before asserting");
-  assert.match(browserSmoke, /resizedMobileDefaultReady = await desktopPage\\.waitForFunction/,
+  assert.match(browserSmoke, /resizedMobileDefaultReady = await desktopPage\.waitForFunction/,
     "responsive default verification must wait for the matchMedia-driven view update");
-  assert.match(browserSmoke, /retainedGridChoiceReady = await desktopPage\\.waitForFunction/,
+  assert.match(browserSmoke, /retainedGridChoiceReady = await desktopPage\.waitForFunction/,
     "manual view selections must be verified after viewport changes without fixed sleeps");
-  assert.doesNotMatch(browserSmoke, /desktopPage\\.waitForTimeout\\(150\\)/,
+  assert.doesNotMatch(browserSmoke, /desktopPage\.waitForTimeout\(150\)/,
     "responsive view checks must wait on actual state instead of a timing assumption");
-  assert.match(browserSmoke, /request\\.failure\\(\\)[\\s\\S]*?failure\\?\\.errorText/,
+  assert.match(browserSmoke, /request\.failure\(\)[\s\S]*?failure\?\.errorText/,
     "network diagnostics must print the actual Playwright request failure text");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
   assert.match(browserSmoke, /if \(viewport <= 430\)/, "430px must remain in the touch-target phone matrix");
