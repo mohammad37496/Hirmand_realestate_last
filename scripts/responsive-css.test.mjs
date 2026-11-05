@@ -286,7 +286,7 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
     "the mobile filter drawer must remain fixed rather than falling back into the listing flow");
   assert.match(browserSmoke, /filterDrawerState\.opacity !== "0"[\s\S]*?filterDrawerState\.position !== "fixed"/,
     "responsive screenshots must verify the real closed-drawer computed styles");
-  assert.match(browserSmoke, /filter drawer remained open on the default listing screenshot/,
+  assert.match(browserSmoke, /filter drawer was not hidden on the default listing/,
     "the default listing artifact must not be obscured by the mobile filter drawer");
   assert.match(browserSmoke, /\/properties\?sort=newest/,
     "default listing screenshots must bypass stale back-forward-cache state");
