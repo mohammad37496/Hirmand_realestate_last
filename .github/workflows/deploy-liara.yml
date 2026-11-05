@@ -20,7 +20,7 @@ jobs:
   deploy:
     if: ${{ !contains(github.event.head_commit.message, 'trigger neighborhood catalog sync') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 70
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -64,6 +64,18 @@ jobs:
             --no-app-logs \
             --message="Deploy ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}" \
             --debug
+
+      - name: Install live browser smoke dependencies
+        timeout-minutes: 12
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Verify live property experience in a real browser
+        timeout-minutes: 20
+        env:
+          RESPONSIVE_SCREENSHOT_DIR: ${{ runner.temp }}/hirmand-live-responsive
+        run: node scripts/responsive-layout-smoke.mjs https://hirmandrealestate.ir
 
       - name: Verify live Liara release matches this commit
         timeout-minutes: 5
