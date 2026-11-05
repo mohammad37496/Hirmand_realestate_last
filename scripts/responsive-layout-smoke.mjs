@@ -139,6 +139,12 @@ try {
       // Every route that renders shared property cards must preserve the RTL
       // mobile invariant: image on the right, property details on the left.
       const sharedMobileCard = page.locator(".pcard-mobile-list").first();
+      if (process.env.REQUIRE_PROPERTY_SMOKE === "1" && (route === "/" || route === "/properties")) {
+        await sharedMobileCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+        if (!(await sharedMobileCard.isVisible().catch(() => false))) {
+          failures.push(route + " @ 320px: published property cards did not render before layout verification");
+        }
+      }
       if (await sharedMobileCard.isVisible().catch(() => false)) {
         const cardLayout = await sharedMobileCard.evaluate((card) => {
           const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
@@ -398,7 +404,10 @@ try {
           waitUntil: "domcontentloaded",
           timeout: 30_000,
         });
-        await page.locator(".pf-grid .pcard-mobile-list").first().waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+        const filteredResultCard = page.locator(".pf-grid .pcard-mobile-list").first();
+        const filteredResultReady = await filteredResultCard.waitFor({ state: "visible", timeout: 15_000 })
+          .then(() => true).catch(() => false);
+        if (!filteredResultReady) failures.push("/properties: the deterministic filtered query did not return its matching published fixture");
         await page.waitForFunction(() => document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
           null, { timeout: 8_000 }).catch(() => {});
         const retainedKeys = ["q", "transaction", "sort", "minArea", "maxArea"];
