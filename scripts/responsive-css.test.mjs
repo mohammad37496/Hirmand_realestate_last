@@ -280,11 +280,11 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(browserSmoke, /route === "\/properties" && screenshotRoutes\.has\(route\)/,
     "responsive artifacts must capture the default property listing after interaction checks");
 
-  assert.doesNotMatch(propertiesProCss, /\.pf-sidebar\\s*\\{[^}]*opacity:\\s*1\\s*!important/is,
+  assert.doesNotMatch(propertiesProCss, /\.pf-sidebar\s*\{[^}]*opacity:\s*1\s*!important/is,
     "the mobile filter sheet must not force the closed drawer to opacity 1");
-  assert.match(propertiesMarketplaceCss, /@media\\s*\\(max-width:\\s*980px\\)[\\s\\S]*?\\.pf-page \\.pf-sidebar\\s*\\{\\s*position:\\s*fixed/i,
+  assert.match(propertiesMarketplaceCss, /@media\s*\(max-width:\s*980px\)[\s\S]*?\.pf-page \.pf-sidebar\s*\{\s*position:\s*fixed/i,
     "the mobile filter drawer must remain fixed rather than falling back into the listing flow");
-  assert.match(browserSmoke, /filterDrawerState\\.opacity !== "0"[\\s\\S]*?filterDrawerState\\.position !== "fixed"/,
+  assert.match(browserSmoke, /filterDrawerState\.opacity !== "0"[\s\S]*?filterDrawerState\.position !== "fixed"/,
     "responsive screenshots must verify the real closed-drawer computed styles");
   assert.match(browserSmoke, /filter drawer remained open on the default listing screenshot/,
     "the default listing artifact must not be obscured by the mobile filter drawer");
