@@ -41,6 +41,7 @@ test("phone list cards keep a readable image, key facts and a single swipeable a
   assert.match(mobileList, /flex-wrap:\s*nowrap\s*!important/);
   assert.match(mobileList, /overflow-x:\s*auto\s*!important/);
   assert.match(mobileList, /grid-template-columns:\s*none\s*!important/);
+  assert.match(mobileList, /inset:\s*auto\s*!important/);
   assert.match(mobileList, /flex:\s*0 0 44px\s*!important/);
 });
 

@@ -1351,6 +1351,7 @@
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     grid-template-columns: none !important;
+    inset: auto !important;
   }
 
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions .property-actions::-webkit-scrollbar,
