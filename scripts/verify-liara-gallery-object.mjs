@@ -26,7 +26,7 @@ const result = {
 console.log("[liara-gallery-verify] " + JSON.stringify(result, null, 2));
 if (!response.ok || !contentType.toLowerCase().startsWith("image/") || !validWebp) {
   if (!validWebp) {
-    result.responsePreview = Buffer.from(bytes.subarray(0, 400)).toString("utf8").replace(/\\s+/g, " ").slice(0, 400);
+    result.responsePreview = Buffer.from(bytes.subarray(0, 400)).toString("utf8").replace(/\s+/g, " ").slice(0, 400);
   }
   console.error("[liara-gallery-verify] FAILED " + JSON.stringify(result, null, 2));
   process.exitCode = 1;
