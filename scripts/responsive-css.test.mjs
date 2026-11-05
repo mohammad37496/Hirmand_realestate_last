@@ -182,6 +182,7 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
   assert.match(browserSmoke, /criticalNetworkFailures/, "same-origin script, style, font and server failures must fail verification");
   assert.match(browserSmoke, /first property image did not load successfully/, "the first real listing image must load");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
+  assert.match(browserSmoke, /if \(viewport <= 430\)/, "430px must remain in the touch-target phone matrix");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
   assert.match(browserSmoke, /"\/budget-match"/, "responsive screenshots should include the tablet budget hero");
   assert.match(browserSmoke, /await page\.waitForTimeout\(500\)/, "React filter drawer checks must allow hydration before clicking");
