@@ -4,7 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl = process.argv[2] ?? process.env.RESPONSIVE_SMOKE_BASE_URL ?? "http://127.0.0.1:8081";
-const viewportWidths = [320, 360, 375, 390, 414, 768, 1024, 1440];
+const viewportWidths = [320, 360, 375, 390, 430, 768, 1024, 1440];
 const propertyId = process.env.BROWSER_SMOKE_PROPERTY_ID || "browser-smoke-property-001";
 const propertySlug = process.env.BROWSER_SMOKE_PROPERTY_SLUG || "آپارتمان-تست-ناوبری-۱۴۰۵-browser-smoke";
 const routes = [
@@ -56,7 +56,7 @@ const screenshotRoutes = new Set([
   "/tools/rahn-rent",
   "/admin",
 ]);
-const screenshotWidths = new Set([320, 390, 768, 1024]);
+const screenshotWidths = new Set([320, 360, 375, 390, 430, 768, 1024]);
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -93,6 +93,25 @@ try {
       }
       // Give the client enough time to hydrate before interacting with React controls.
       await page.waitForTimeout(500);
+
+      // Every route that renders shared property cards must preserve the RTL
+      // mobile invariant: image on the right, property details on the left.
+      const sharedMobileCard = page.locator(".pcard-mobile-list").first();
+      if (await sharedMobileCard.isVisible().catch(() => false)) {
+        const cardLayout = await sharedMobileCard.evaluate((card) => {
+          const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
+          const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
+          return {
+            imageOnRight: Boolean(media && body &&
+              media.left + media.width / 2 > body.left + body.width / 2),
+            hasImage: Boolean(media && media.width > 0 && media.height > 0),
+            hasDetails: Boolean(body && body.width > 0 && body.height > 0),
+          };
+        });
+        if (!cardLayout.hasImage || !cardLayout.hasDetails || !cardLayout.imageOnRight) {
+          failures.push(route + " @ 320px: shared property card must show its image on the right and details on the left");
+        }
+      }
 
       if (route === "/submit-property") {
         const uploadZone = page.locator(".customer-property-upload-zone").first();
