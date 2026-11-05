@@ -843,6 +843,7 @@
   .pf-page .pf-stats { width: 100%; max-width: none; }
   .pf-page .pf-layout { grid-template-columns: minmax(0, 1fr); gap: 13px; margin-top: 14px; }
   .pf-page .pf-sidebar {
+    position: fixed;
     top: auto;
     z-index: 130;
     border-radius: 18px;
