@@ -535,6 +535,13 @@ try {
           if ((await defaultView.getAttribute("aria-pressed").catch(() => null)) !== "true") {
             failures.push("/properties @ " + width + "px: default view was not restored before responsive screenshot capture");
           }
+          const openFilterDrawer = page.locator(".pf-sidebar.is-open").first();
+          if (await openFilterDrawer.isVisible().catch(() => false)) {
+            failures.push("/properties @ " + width + "px: filter drawer remained open on the default listing screenshot");
+            const closeDrawer = openFilterDrawer.locator(".pf-close").first();
+            if (await closeDrawer.isVisible().catch(() => false)) await closeDrawer.click();
+            await page.waitForFunction(() => !document.querySelector(".pf-sidebar.is-open"), null, { timeout: 5_000 }).catch(() => {});
+          }
         }
         await page.evaluate(() => new Promise((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(resolve)),
