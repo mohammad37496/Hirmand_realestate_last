@@ -116,7 +116,9 @@ try {
       } catch {
         return;
       }
+      const isBrokenImage = response.status() === 404 && request.resourceType() === "image";
       if (response.status() >= 500 ||
+          isBrokenImage ||
           (response.status() >= 400 && ["script", "stylesheet", "font"].includes(request.resourceType()))) {
         criticalNetworkFailures.push(response.status() + " " + request.resourceType() + " " + response.url());
       } else if (response.status() >= 400) {
