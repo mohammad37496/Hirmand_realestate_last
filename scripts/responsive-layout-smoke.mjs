@@ -336,6 +336,7 @@ try {
         }
 
         const firstCard = page.locator(".pf-grid .pcard-mobile-list").first();
+        await firstCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
         if (await firstCard.isVisible().catch(() => false)) {
           const firstCardImage = firstCard.locator(".pcard-media img").first();
           await firstCardImage.scrollIntoViewIfNeeded().catch(() => {});
@@ -391,11 +392,15 @@ try {
           failures.push("/properties @ 320px: no published property card was available for layout verification");
         }
 
-        await page.goto(new URL("/properties?q=آپارتمان&transaction=rent&sort=price_asc&minArea=80&maxArea=150", baseUrl).toString(), {
+        // Keep the filtered view populated by the deterministic fixture so
+        // the view-mode checks exercise real cards, not an intentionally empty result.
+        await page.goto(new URL("/properties?q=تست&transaction=sell&sort=price_asc&minArea=80&maxArea=150", baseUrl).toString(), {
           waitUntil: "domcontentloaded",
           timeout: 30_000,
         });
-        await page.waitForTimeout(700);
+        await page.locator(".pf-grid .pcard-mobile-list").first().waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+        await page.waitForFunction(() => document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+          null, { timeout: 8_000 }).catch(() => {});
         const retainedKeys = ["q", "transaction", "sort", "minArea", "maxArea"];
         const expectedParams = await page.evaluate((keys) => Object.fromEntries(
           keys.map((key) => [key, new URLSearchParams(window.location.search).get(key)]),
@@ -412,7 +417,12 @@ try {
               continue;
             }
             await button.click();
-            await page.waitForFunction((query) => document.querySelector(query)?.getAttribute("aria-pressed") === "true", selector);
+            const viewChanged = await page.waitForFunction(
+              (query) => document.querySelector(query)?.getAttribute("aria-pressed") === "true",
+              selector,
+              { timeout: 5_000 },
+            ).then(() => true).catch(() => false);
+            if (!viewChanged) failures.push("/properties @ " + width + "px: view button did not activate " + label);
             if (label === "نمایش فایل‌ها روی نقشه") {
               const mapCanvas = page.locator(".pf-map-panel .pf-map-canvas").first();
               if (!(await mapCanvas.isVisible().catch(() => false))) {
