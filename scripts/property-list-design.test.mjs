@@ -37,9 +37,11 @@ test("phone list cards keep a readable image, key facts and a single swipeable a
   const mobileList = marketplaceCss.slice(marketplaceCss.lastIndexOf("Mobile list cards:"));
   assert.match(mobileList, /grid-template-columns:\s*clamp\(116px,\s*34vw,\s*140px\)\s+minmax\(0,\s*1fr\)/);
   assert.match(mobileList, /pcard-specs span:nth-child\(n \+ 4\)\s*\{\s*display:\s*none/);
-  assert.match(mobileList, /flex-wrap:\s*nowrap/);
-  assert.match(mobileList, /overflow-x:\s*auto/);
-  assert.match(mobileList, /flex:\s*0 0 44px/);
+  assert.match(mobileList, /display:\s*flex\s*!important/);
+  assert.match(mobileList, /flex-wrap:\s*nowrap\s*!important/);
+  assert.match(mobileList, /overflow-x:\s*auto\s*!important/);
+  assert.match(mobileList, /grid-template-columns:\s*none\s*!important/);
+  assert.match(mobileList, /flex:\s*0 0 44px\s*!important/);
 });
 
 test("list card focus and reduced-motion behavior remain accessible", () => {
