@@ -79,7 +79,41 @@ try {
     });
     page.setDefaultTimeout(12_000);
     const pageErrors = [];
+    const consoleErrors = [];
+    const networkWarnings = [];
+    const criticalNetworkFailures = [];
+    const targetOrigin = new URL(baseUrl).origin;
     page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("requestfailed", (request) => {
+      try {
+        if (new URL(request.url()).origin !== targetOrigin) return;
+      } catch {
+        return;
+      }
+      const failure = request.failure()?.errorText ?? "request failed";
+      const detail = request.method() + " " + request.url() + " — " + failure;
+      networkWarnings.push(detail);
+      if (["script", "stylesheet", "font"].includes(request.resourceType())) {
+        criticalNetworkFailures.push(detail);
+      }
+    });
+    page.on("response", (response) => {
+      const request = response.request();
+      try {
+        if (new URL(response.url()).origin !== targetOrigin) return;
+      } catch {
+        return;
+      }
+      if (response.status() >= 500 ||
+          (response.status() >= 400 && ["script", "stylesheet", "font"].includes(request.resourceType()))) {
+        criticalNetworkFailures.push(response.status() + " " + request.resourceType() + " " + response.url());
+      } else if (response.status() >= 400) {
+        networkWarnings.push(response.status() + " " + request.resourceType() + " " + response.url());
+      }
+    });
 
     try {
       const response = await page.goto(new URL(route, baseUrl).toString(), {
@@ -258,6 +292,11 @@ try {
 
         const firstCard = page.locator(".pf-grid .pcard-mobile-list").first();
         if (await firstCard.isVisible().catch(() => false)) {
+          const firstCardImage = firstCard.locator(".pcard-media img").first();
+          await firstCardImage.waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+          const imageLoaded = await firstCardImage.evaluate((image) => image.complete && image.naturalWidth > 0).catch(() => false);
+          if (!imageLoaded) failures.push("/properties @ 320px: first property image did not load successfully");
+
           const geometry = await firstCard.evaluate((card) => {
             const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
             const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
@@ -479,7 +518,17 @@ try {
       }
 
       if (pageErrors.length) {
-        summaries.push({ route, pageErrors: pageErrors.slice(0, 3) });
+        failures.push(route + ": uncaught browser errors=" + JSON.stringify(pageErrors.slice(0, 5)));
+      }
+      if (criticalNetworkFailures.length) {
+        failures.push(route + ": critical same-origin network failures=" + JSON.stringify(criticalNetworkFailures.slice(0, 8)));
+      }
+      if (consoleErrors.length || networkWarnings.length) {
+        summaries.push({
+          route,
+          consoleErrors: consoleErrors.slice(0, 5),
+          networkWarnings: networkWarnings.slice(0, 8),
+        });
       }
     } catch (error) {
       failures.push(`${route}: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
