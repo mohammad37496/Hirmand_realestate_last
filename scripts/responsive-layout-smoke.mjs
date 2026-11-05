@@ -145,6 +145,14 @@ try {
         if (!cardLayout.hasImage || !cardLayout.hasDetails || !cardLayout.imageOnRight) {
           failures.push(route + " @ 320px: shared property card must show its image on the right and details on the left");
         }
+        const sharedCardImage = sharedMobileCard.locator(".pcard-media img").first();
+        await sharedCardImage.scrollIntoViewIfNeeded().catch(() => {});
+        await page.waitForFunction(() => {
+          const image = document.querySelector(".pcard-mobile-list .pcard-media img");
+          return image instanceof HTMLImageElement && image.complete;
+        }, null, { timeout: 10_000 }).catch(() => {});
+        const sharedImageLoaded = await sharedCardImage.evaluate((image) => image.complete && image.naturalWidth > 0).catch(() => false);
+        if (!sharedImageLoaded) failures.push(route + " @ 320px: first shared property-card image did not load or fall back successfully");
       }
 
       if (route === "/submit-property") {
@@ -397,6 +405,17 @@ try {
             }
             await button.click();
             await page.waitForFunction((query) => document.querySelector(query)?.getAttribute("aria-pressed") === "true", selector);
+            if (label === "نمایش فایل‌ها روی نقشه") {
+              const mapCanvas = page.locator(".pf-map-panel .pf-map-canvas").first();
+              if (!(await mapCanvas.isVisible().catch(() => false))) {
+                failures.push("/properties @ " + width + "px: selecting map view did not render the interactive map canvas");
+              } else {
+                const zoomControl = mapCanvas.getByRole("button", { name: "بزرگ‌نمایی نقشه" }).first();
+                if (!(await zoomControl.isVisible().catch(() => false))) {
+                  failures.push("/properties @ " + width + "px: interactive map controls are missing");
+                }
+              }
+            }
             const actualParams = await page.evaluate((keys) => Object.fromEntries(
               keys.map((key) => [key, new URLSearchParams(window.location.search).get(key)]),
             ), retainedKeys);
