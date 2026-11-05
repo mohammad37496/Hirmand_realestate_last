@@ -281,6 +281,7 @@ testRunner.test("Liara deployment verifies the exact main commit and published m
   assert.match(deployWorkflow, /Enforce live release and browser verification[\s\S]*?LIVE_RELEASE_OUTCOME[\s\S]*?LIVE_BROWSER_OUTCOME/);
   assert.match(deployWorkflow, /Install live browser smoke dependencies[\s\S]*?playwright install --with-deps chromium/);
   assert.match(deployWorkflow, /Verify live property experience in a real browser[\s\S]*?responsive-layout-smoke\.mjs https:\/\/hirmandrealestate\.ir/);
+  assert.match(deployWorkflow, /Upload live responsive screenshots[\s\S]*?actions\/upload-artifact@v4[\s\S]*?hirmand-live-responsive/);
   const liveRevisionIndex = deployWorkflow.indexOf("Verify live Liara release matches this commit");
   const liveBrowserInstallIndex = deployWorkflow.indexOf("Install live browser smoke dependencies");
   const liveBrowserSmokeIndex = deployWorkflow.indexOf("Verify live property experience in a real browser");
