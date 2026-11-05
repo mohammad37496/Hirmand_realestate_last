@@ -237,6 +237,7 @@ try {
           const closeAfterFilterTest = page.locator(".pf-close").first();
           if (await closeAfterFilterTest.isVisible().catch(() => false)) await closeAfterFilterTest.click();
 
+          await page.locator(".pf-count em").waitFor({ state: "hidden", timeout: 20_000 }).catch(() => {});
           const loadMore = page.locator(".pf-more button").first();
           if (await loadMore.isVisible().catch(() => false)) {
             const beforeCount = await page.locator(".pf-grid .pcard-mobile-list").count();
