@@ -274,6 +274,8 @@ testRunner.test("commission estimate uses the 1405 VAT rate and explains local t
 testRunner.test("Liara deployment verifies the exact main commit and published mobile assets", () => {
   assert.match(deployWorkflow, /Stamp deployment revision[\s\S]*?write-deployment-info\.mjs/);
   assert.match(deployWorkflow, /Verify live Liara release matches this commit[\s\S]*?verify-live-deployment\.mjs/);
+  assert.match(deployWorkflow, /id: live_release_verify\s+continue-on-error: true/);
+  assert.match(deployWorkflow, /Enforce live release and browser verification[\s\S]*?LIVE_RELEASE_OUTCOME[\s\S]*?LIVE_BROWSER_OUTCOME/);
   assert.match(deployWorkflow, /Install live browser smoke dependencies[\s\S]*?playwright install --with-deps chromium/);
   assert.match(deployWorkflow, /Verify live property experience in a real browser[\s\S]*?responsive-layout-smoke\.mjs https:\/\/hirmandrealestate\.ir/);
   const liveRevisionIndex = deployWorkflow.indexOf("Verify live Liara release matches this commit");
