@@ -378,6 +378,22 @@ try {
           }
         }
 
+        // Opening a real property and returning must retain every active URL filter.
+        const retainedListingUrl = new URL(page.url());
+        const retainedDetailLink = page.locator(".pf-grid .pcard-mobile-list .pcard-link").first();
+        if (await retainedDetailLink.isVisible().catch(() => false)) {
+          await retainedDetailLink.click();
+          await page.waitForURL((url) => url.pathname.startsWith("/properties/") || url.pathname.startsWith("/file/"), { timeout: 15_000 });
+          await page.goBack({ waitUntil: "domcontentloaded" });
+          await page.waitForFunction((expected) => {
+            const actual = new URLSearchParams(window.location.search);
+            return window.location.pathname.replace(/\\/+$/, "") === "/properties" &&
+              Object.entries(expected).every(([key, value]) => actual.get(key) === value);
+          }, expectedParams, { timeout: 15_000 });
+        } else {
+          failures.push("/properties: no real property link was available to verify browser-back filter restoration");
+        }
+
         const desktopPage = await browser.newPage({ viewport: { width: 1024, height: 900 } });
         await desktopPage.goto(new URL("/properties", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
         await desktopPage.waitForTimeout(700);
