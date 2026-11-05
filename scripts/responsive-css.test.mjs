@@ -25,6 +25,7 @@ const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.met
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
+const propertiesProCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
@@ -279,6 +280,12 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(browserSmoke, /route === "\/properties" && screenshotRoutes\.has\(route\)/,
     "responsive artifacts must capture the default property listing after interaction checks");
 
+  assert.doesNotMatch(propertiesProCss, /\.pf-sidebar\\s*\\{[^}]*opacity:\\s*1\\s*!important/is,
+    "the mobile filter sheet must not force the closed drawer to opacity 1");
+  assert.match(propertiesMarketplaceCss, /@media\\s*\\(max-width:\\s*980px\\)[\\s\\S]*?\\.pf-page \\.pf-sidebar\\s*\\{\\s*position:\\s*fixed/i,
+    "the mobile filter drawer must remain fixed rather than falling back into the listing flow");
+  assert.match(browserSmoke, /filterDrawerState\\.opacity !== "0"[\\s\\S]*?filterDrawerState\\.position !== "fixed"/,
+    "responsive screenshots must verify the real closed-drawer computed styles");
   assert.match(browserSmoke, /filter drawer remained open on the default listing screenshot/,
     "the default listing artifact must not be obscured by the mobile filter drawer");
   assert.match(browserSmoke, /\/properties\?sort=newest/,
