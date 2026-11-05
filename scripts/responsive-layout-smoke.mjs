@@ -263,7 +263,12 @@ try {
           await sortControl.selectOption("price_asc");
           await page.waitForFunction(() => new URLSearchParams(location.search).get("sort") === "price_asc");
 
-          await activeDrawer.locator(".pf-reset").click();
+          const resetButton = page.locator(".pf-sidebar.is-open[role=dialog] .pf-reset").first();
+          if (!(await resetButton.isVisible().catch(() => false))) {
+            await filterButton.click();
+            await page.locator(".pf-sidebar.is-open[role=dialog]").waitFor({ state: "visible", timeout: 5_000 });
+          }
+          await page.locator(".pf-sidebar.is-open[role=dialog] .pf-reset").first().click();
           await page.waitForFunction(() => {
             const params = new URLSearchParams(location.search);
             return !["transaction", "minArea", "maxArea", "minPrice", "maxPrice", "neighborhood", "q", "sort"].some((key) => params.has(key));
