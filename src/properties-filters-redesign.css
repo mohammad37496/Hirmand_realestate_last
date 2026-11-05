@@ -746,17 +746,6 @@
   }
 }
 
-/* Search clear remains a comfortable touch target on narrow phones. */
-.pf-search button[aria-label="پاک کردن جست‌وجو"] {
-  display: grid;
-  place-items: center;
-  flex: 0 0 44px;
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  min-height: 44px;
-}
-
 @media (max-width: 979px) {
   .pf-layout { grid-template-columns: minmax(0, 1fr); }
   .pf-sidebar {
