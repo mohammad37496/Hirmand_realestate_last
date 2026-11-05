@@ -467,7 +467,7 @@ try {
           }
 
           const smallTargets = [];
-          if (viewport <= 414) {
+          if (viewport <= 430) {
             for (const element of document.querySelectorAll("button,[role='button'],a.btn-gold,a.btn-outline,a.btn-ghost,.property-action,.pf-filter-btn,.pf-close,.menu-toggle")) {
               const style = getComputedStyle(element);
               if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
