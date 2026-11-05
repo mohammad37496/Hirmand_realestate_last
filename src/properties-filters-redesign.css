@@ -738,6 +738,25 @@
   }
 }
 
+/* Keep the modal filter drawer clear of the fixed quick-action bar. */
+@media (max-width: 979px) {
+  body:has(.pf-sidebar.is-open) .quick-actions {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Search clear remains a comfortable touch target on narrow phones. */
+.pf-search button[aria-label="پاک کردن جست‌وجو"] {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+}
+
 @media (max-width: 979px) {
   .pf-layout { grid-template-columns: minmax(0, 1fr); }
   .pf-sidebar {
