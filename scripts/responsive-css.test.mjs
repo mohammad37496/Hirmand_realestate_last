@@ -38,6 +38,7 @@ const questionLogCss = fs.readFileSync(new URL("../src/property-question-log.css
 const renovationTrackerCss = fs.readFileSync(new URL("../src/property-renovation-tracker.css", import.meta.url), "utf8");
 const responsiveCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const browserSmoke = fs.readFileSync(new URL("./responsive-layout-smoke.mjs", import.meta.url), "utf8");
+const liaraGallerySmoke = fs.readFileSync(new URL("./verify-liara-gallery-object.mjs", import.meta.url), "utf8");
 const verifyWorkflow = fs.readFileSync(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
 
 testRunner.test("shared mobile styles do not hide root-level horizontal overflow", () => {
@@ -369,4 +370,28 @@ testRunner.test("map-view property list thumbnails normalize legacy media proxy 
     "the map-side property list must use the shared trusted media URL normalizer");
   assert.match(propertiesRoute, /mediaSourceCandidates\(property\.image\)\[0\]/,
     "map-side thumbnails must not request the removed legacy /api/liara-media route");
+});
+
+
+testRunner.test("live responsive artifacts wait for real mobile cards and seed saved-list consumers read-only", () => {
+  const routeBlock = browserSmoke.match(/const routes = \\[([\\s\\S]*?)\\];/)?.[1] ?? "";
+  for (const route of ["/favorites", "/nearby", "/smart-search", "/budget-match", "/compare"]) {
+    assert.ok(routeBlock.includes(JSON.stringify(route)), `responsive smoke must cover ${route}`);
+  }
+  assert.match(browserSmoke, /let samplePropertySlug = null/);
+  assert.match(browserSmoke, /hirmand-favorite-properties/);
+  assert.match(browserSmoke, /hirmand-compare-properties/);
+  assert.match(browserSmoke, /page\.addInitScript/);
+  assert.match(browserSmoke, /screenshotCard\.waitFor\(\{ state: "visible", timeout: 20_000 \}\)/);
+  assert.match(browserSmoke, /image\.complete && image\.naturalWidth > 0[\\s\\S]*?timeout: 15_000/);
+  assert.match(browserSmoke, /mapResultsReady = await page\.waitForFunction/);
+});
+
+testRunner.test("Liara incident gallery object is verified directly through the public media proxy", () => {
+  assert.match(deployWorkflow, /Verify the reported Liara gallery image through the public media proxy[\\s\\S]*?liara_gallery_image_verify[\\s\\S]*?verify-liara-gallery-object\.mjs/);
+  assert.match(deployWorkflow, /LIARA_GALLERY_IMAGE_OUTCOME/);
+  assert.match(liaraGallerySmoke, /storage\.c2\.liara\.site\\/hirmand-realestate\\/properties\\/uploads\\/gallery\\/1792769572233-1d621215-3742-4f76-864c-7cbc8fc17fb1-photo_2026-10-19_12-57-33-watermarked\.webp/);
+  assert.match(liaraGallerySmoke, /response\.status/);
+  assert.match(liaraGallerySmoke, /response\.url/);
+  assert.match(liaraGallerySmoke, /validWebp/);
 });
