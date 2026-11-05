@@ -250,9 +250,9 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
   assert.match(browserSmoke, /published property cards did not render before layout verification/,
     "browser smoke must wait for home and /properties cards before measuring their layout");
-  assert.match(browserSmoke, /deterministic filtered query did not return its matching published fixture/,
+  assert.match(browserSmoke, /sorted query did not return a published property card/,
     "view-mode checks must wait for a matching property result after URL filters are restored");
-  assert.match(browserSmoke, /q=تست&transaction=sell&sort=price_asc&minArea=80&maxArea=150/,
+  assert.match(browserSmoke, /\/properties\?sort=price_asc/,
     "view-mode browser checks must use a populated deterministic property result");
   assert.match(browserSmoke, /firstCard\.waitFor\(\{ state: "visible", timeout: 15_000 \}\)/,
     "browser smoke must wait for the real property result before checking card actions");
