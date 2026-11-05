@@ -1922,3 +1922,13 @@ svg {
     min-height: 44px;
   }
 }
+
+/* Keep the active-filter clear control comfortably tappable on phones. */
+@media (max-width: 720px) {
+  .pf-page .pf-filter-overview > button {
+    box-sizing: border-box;
+    height: auto;
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+}
