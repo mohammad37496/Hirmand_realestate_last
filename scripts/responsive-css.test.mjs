@@ -251,11 +251,14 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(browserSmoke, /verifyActionToggle/);
   assert.match(browserSmoke, /page\.goBack\(\{ waitUntil: "domcontentloaded" \}\)/, "browser back must restore the real listing route");
   assert.match(browserSmoke, /\.pf-sidebar\.is-open\[role=dialog\] \.pf-reset/, "reset filters must target the open mobile drawer");
-  assert.match(propertyCardCss, /\.pf-filter-overview > button[^}]*min-height:\s*44px/, "mobile clear-filter action must meet the 44px touch target");
+  assert.match(responsiveCss, /\.pf-page \.pf-filter-overview > button\s*\{[^}]*min-height:\s*44px;/s,
+    "the final responsive CSS layer must enforce the active-filter clear touch target");
   assert.match(propertyFiltersRedesignCss, /body:has\(\.pf-sidebar\.is-open\) \.quick-actions\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/s,
     "the fixed quick-action bar must not intercept taps while the mobile filter drawer is open");
   assert.match(responsiveCss, /\.pf-page \.pf-search button\[aria-label="پاک کردن جست‌وجو"\]\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s,
     "the final responsive CSS layer must keep the mobile search-clear action at 44px");
+  assert.match(browserSmoke, /search clear action must be at least 44×44px/, "browser smoke must verify the search clear target in the DOM");
+  assert.match(browserSmoke, /active-filter clear action must be at least 44×44px/, "browser smoke must verify the active-filter clear target in the DOM");
   assert.match(browserSmoke, /Object\.entries\(expected\)\.every\(\(\[key, value\]\) => actual\.get\(key\) === value\)/, "browser back must preserve every active filter parameter");
   assert.match(browserSmoke, /transactionGroup[\s\S]*?minArea[\s\S]*?minPrice[\s\S]*?neighborhoodSearch[\s\S]*?sortControl[\s\S]*?loadMore/, "browser smoke should exercise real property filters, sorting and pagination");
   assert.match(browserSmoke, /detailsHref\.startsWith\("\/properties\/"\)/);
