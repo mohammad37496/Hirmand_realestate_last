@@ -20,7 +20,7 @@ jobs:
   deploy:
     if: ${{ !contains(github.event.head_commit.message, 'trigger neighborhood catalog sync') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -66,11 +66,52 @@ jobs:
             --debug
 
       - name: Verify live Liara release matches this commit
+        id: live_release_verify
+        continue-on-error: true
         timeout-minutes: 5
         env:
           EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
           LIARA_PUBLIC_URL: https://hirmandrealestate.ir
         run: node scripts/verify-live-deployment.mjs
+
+      - name: Install live browser smoke dependencies
+        timeout-minutes: 12
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Verify live property experience in a real browser
+        id: live_browser_smoke
+        timeout-minutes: 20
+        env:
+          RESPONSIVE_SCREENSHOT_DIR: ${{ runner.temp }}/hirmand-live-responsive
+        run: node scripts/responsive-layout-smoke.mjs https://hirmandrealestate.ir
+
+      - name: Upload live responsive screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hirmand-live-responsive-${{ github.run_id }}
+          path: ${{ runner.temp }}/hirmand-live-responsive
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Enforce live release and browser verification
+        if: always()
+        env:
+          LIVE_RELEASE_OUTCOME: ${{ steps.live_release_verify.outcome }}
+          LIVE_BROWSER_OUTCOME: ${{ steps.live_browser_smoke.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${LIVE_RELEASE_OUTCOME}" != "success" ]]; then
+            echo "::error::Live release SHA/assets verification did not succeed."
+            exit 1
+          fi
+          if [[ "${LIVE_BROWSER_OUTCOME}" != "success" ]]; then
+            echo "::error::Live responsive browser verification did not succeed."
+            exit 1
+          fi
 
       # Opt-in collection prevents routine deployments from copying general
       # application logs to GitHub. A commit containing [diagnose-upload] enables

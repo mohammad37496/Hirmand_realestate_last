@@ -37,6 +37,11 @@ async function inspectPublishedAssets(pageHtml, pageUrl) {
   const htmlAssetPattern = /(?:href|src)=["']([^"']+\.(?:css|js)(?:\?[^"']*)?)["']/g;
   for (const match of pageHtml.matchAll(htmlAssetPattern)) addAsset(match[1], pageUrl);
 
+  // Fetch only assets explicitly linked by the HTML response. Scanning every
+  // JavaScript string for a .js/.css suffix treats bundler chunk identifiers as
+  // URLs relative to the current bundle and can synthesize false paths such as
+  // /assets/assets/routes-*.js. The post-deploy Playwright smoke verifies real
+  // lazy imports, route navigation, and same-origin network requests.
   for (let index = 0; index < pending.length && index < 100; index += 1) {
     const assetUrl = pending[index];
     const asset = await fetchText(assetUrl);
@@ -45,8 +50,6 @@ async function inspectPublishedAssets(pageHtml, pageUrl) {
       continue;
     }
     scripts.push(asset.text);
-    const nestedAssetPattern = /["']([^"'\s]+\.(?:css|js)(?:\?[^"'\s]*)?)["']/g;
-    for (const match of asset.text.matchAll(nestedAssetPattern)) addAsset(match[1], assetUrl);
   }
 
   return {

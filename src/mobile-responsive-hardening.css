@@ -1908,3 +1908,27 @@ svg {
     max-width:100%;
   }
 }
+
+
+/* Keep the search clear action tappable after the marketplace mobile overrides. */
+@media (max-width: 720px) {
+  .pf-page .pf-search button[aria-label="پاک کردن جست‌وجو"] {
+    display: grid;
+    place-items: center;
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Keep the active-filter clear control comfortably tappable on phones. */
+@media (max-width: 720px) {
+  .pf-page .pf-filter-overview > button {
+    box-sizing: border-box;
+    height: auto;
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+}

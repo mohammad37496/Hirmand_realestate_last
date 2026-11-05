@@ -738,6 +738,14 @@
   }
 }
 
+/* Keep the modal filter drawer clear of the fixed quick-action bar. */
+@media (max-width: 979px) {
+  body:has(.pf-sidebar.is-open) .quick-actions {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
 @media (max-width: 979px) {
   .pf-layout { grid-template-columns: minmax(0, 1fr); }
   .pf-sidebar {

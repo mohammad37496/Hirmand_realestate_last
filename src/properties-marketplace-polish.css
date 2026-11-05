@@ -843,6 +843,7 @@
   .pf-page .pf-stats { width: 100%; max-width: none; }
   .pf-page .pf-layout { grid-template-columns: minmax(0, 1fr); gap: 13px; margin-top: 14px; }
   .pf-page .pf-sidebar {
+    position: fixed;
     top: auto;
     z-index: 130;
     border-radius: 18px;
@@ -926,13 +927,41 @@
   .pf-page .pf-tools > button,
   .pf-page .pf-tools > select { min-height: 34px; padding: 5px 8px; font-size: .64rem; }
   .pf-page .pf-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .pf-page .pf-grid.is-list-view > .pcard {
-    display: flex;
-    flex-direction: column;
+  /* Keep the shared horizontal RTL list card on phones. The older
+     photo-first override below used to undo .pcard-mobile-list entirely. */
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(164px, auto) auto;
+    min-width: 0;
   }
-  .pf-page .pf-grid.is-list-view > .pcard > .pcard-link { display: flex; flex-direction: column; }
-  .pf-page .pf-grid.is-list-view > .pcard .pcard-media { width: 100%; min-height: 0; aspect-ratio: 16 / 10; }
-  .pf-page .pf-grid.is-list-view > .pcard .pcard-body { width: 100%; }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
+    display: grid;
+    direction: rtl;
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: clamp(96px, 28vw, 116px) minmax(0, 1fr);
+    min-width: 0;
+    width: 100%;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-media {
+    grid-column: 1;
+    grid-row: 1;
+    width: auto;
+    min-width: 0;
+    min-height: 164px;
+    aspect-ratio: auto;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-body {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    min-width: 0;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions {
+    grid-column: 1;
+    grid-row: 2;
+  }
   .pf-page .pf-map-divar-layout .pf-map-panel { height: 52vh; min-height: 320px; }
   .pf-page .pf-map-divar-layout .pf-map-list { height: 48vh; max-height: 420px; }
   .pf-page .pf-map-divar-layout .pf-map-item { grid-template-columns: 72px minmax(0, 1fr); gap: 9px; padding: 7px; }

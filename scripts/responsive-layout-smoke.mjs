@@ -4,7 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const baseUrl = process.argv[2] ?? process.env.RESPONSIVE_SMOKE_BASE_URL ?? "http://127.0.0.1:8081";
-const viewportWidths = [320, 360, 375, 390, 414, 768, 1024, 1440];
+const viewportWidths = [320, 360, 375, 390, 430, 768, 1024, 1440];
 const propertyId = process.env.BROWSER_SMOKE_PROPERTY_ID || "browser-smoke-property-001";
 const propertySlug = process.env.BROWSER_SMOKE_PROPERTY_SLUG || "آپارتمان-تست-ناوبری-۱۴۰۵-browser-smoke";
 const routes = [
@@ -56,7 +56,7 @@ const screenshotRoutes = new Set([
   "/tools/rahn-rent",
   "/admin",
 ]);
-const screenshotWidths = new Set([320, 390, 768, 1024]);
+const screenshotWidths = new Set([320, 360, 375, 390, 430, 768, 1024]);
 const outputDir = process.env.RESPONSIVE_SCREENSHOT_DIR || "/workspace/screenshots/responsive";
 fs.mkdirSync(outputDir, { recursive: true });
 
@@ -79,7 +79,50 @@ try {
     });
     page.setDefaultTimeout(12_000);
     const pageErrors = [];
+    const consoleErrors = [];
+    const networkWarnings = [];
+    const criticalNetworkFailures = [];
+    let targetOrigin = new URL(baseUrl).origin;
+    page.on("framenavigated", (frame) => {
+      if (frame !== page.mainFrame()) return;
+      try {
+        targetOrigin = new URL(frame.url()).origin;
+      } catch {
+        // Keep the configured origin until the main frame has a valid URL.
+      }
+    });
     page.on("pageerror", (error) => pageErrors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("requestfailed", (request) => {
+      try {
+        if (new URL(request.url()).origin !== targetOrigin) return;
+      } catch {
+        return;
+      }
+      const failure = request.failure();
+      const failureText = failure?.errorText ?? "request failed";
+      const detail = request.method() + " " + request.url() + " — " + failureText;
+      networkWarnings.push(detail);
+      if (["script", "stylesheet", "font"].includes(request.resourceType())) {
+        criticalNetworkFailures.push(detail);
+      }
+    });
+    page.on("response", (response) => {
+      const request = response.request();
+      try {
+        if (new URL(response.url()).origin !== targetOrigin) return;
+      } catch {
+        return;
+      }
+      if (response.status() >= 500 ||
+          (response.status() >= 400 && ["script", "stylesheet", "font"].includes(request.resourceType()))) {
+        criticalNetworkFailures.push(response.status() + " " + request.resourceType() + " " + response.url());
+      } else if (response.status() >= 400) {
+        networkWarnings.push(response.status() + " " + request.resourceType() + " " + response.url());
+      }
+    });
 
     try {
       const response = await page.goto(new URL(route, baseUrl).toString(), {
@@ -93,6 +136,39 @@ try {
       }
       // Give the client enough time to hydrate before interacting with React controls.
       await page.waitForTimeout(500);
+
+      // Every route that renders shared property cards must preserve the RTL
+      // mobile invariant: image on the right, property details on the left.
+      const sharedMobileCard = page.locator(route === "/properties" ? ".pf-grid .pcard-mobile-list" : ".pcard-mobile-list").first();
+      if (route === "/" || route === "/properties") {
+        await sharedMobileCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+        if (!(await sharedMobileCard.isVisible().catch(() => false))) {
+          failures.push(route + " @ 320px: published property cards did not render before layout verification");
+        }
+      }
+      if (await sharedMobileCard.isVisible().catch(() => false)) {
+        const cardLayout = await sharedMobileCard.evaluate((card) => {
+          const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
+          const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
+          return {
+            imageOnRight: Boolean(media && body &&
+              media.left + media.width / 2 > body.left + body.width / 2),
+            hasImage: Boolean(media && media.width > 0 && media.height > 0),
+            hasDetails: Boolean(body && body.width > 0 && body.height > 0),
+          };
+        });
+        if (!cardLayout.hasImage || !cardLayout.hasDetails || !cardLayout.imageOnRight) {
+          failures.push(route + " @ 320px: shared property card must show its image on the right and details on the left");
+        }
+        const sharedCardImage = sharedMobileCard.locator(".pcard-media img").first();
+        await sharedCardImage.scrollIntoViewIfNeeded().catch(() => {});
+        await page.waitForFunction(() => {
+          const image = document.querySelector(".pcard-mobile-list .pcard-media img");
+          return image instanceof HTMLImageElement && image.complete;
+        }, null, { timeout: 10_000 }).catch(() => {});
+        const sharedImageLoaded = await sharedCardImage.evaluate((image) => image.complete && image.naturalWidth > 0).catch(() => false);
+        if (!sharedImageLoaded) failures.push(route + " @ 320px: first shared property-card image did not load or fall back successfully");
+      }
 
       if (route === "/submit-property") {
         const uploadZone = page.locator(".customer-property-upload-zone").first();
@@ -160,6 +236,102 @@ try {
           }
           const closeFilters = page.locator(".pf-close").first();
           if (await closeFilters.isVisible().catch(() => false)) await closeFilters.click();
+
+          // Exercise actual filter state, not just the drawer's open/close behavior.
+          await filterButton.click();
+          const activeDrawer = page.locator(".pf-sidebar.is-open[role=dialog]").first();
+          await activeDrawer.waitFor({ state: "visible", timeout: 3_000 });
+
+          const transactionGroup = activeDrawer.locator(".pf-filter-primary .pf-group").filter({ hasText: "نوع معامله" }).first();
+          const sellChip = transactionGroup.getByRole("button", { name: "فروش", exact: true });
+          if (await sellChip.isVisible().catch(() => false)) {
+            await sellChip.click();
+            await page.waitForFunction(() => new URLSearchParams(location.search).get("transaction") === "sell");
+          } else {
+            failures.push("/properties @ 320px: sale transaction filter is unavailable");
+          }
+
+          const areaGroup = activeDrawer.locator(".pf-compact-ranges .pf-group").nth(0);
+          await areaGroup.locator("input").nth(0).fill("80");
+          await areaGroup.locator("input").nth(1).fill("160");
+          const priceGroup = activeDrawer.locator(".pf-compact-ranges .pf-group").nth(1);
+          await priceGroup.locator("input").nth(0).fill("1000000000");
+          await priceGroup.locator("input").nth(1).fill("5000000000");
+          await page.waitForFunction(() => {
+            const params = new URLSearchParams(location.search);
+            return params.get("minArea") === "80" &&
+              params.get("maxArea") === "160" &&
+              params.get("minPrice") === "1000000000" &&
+              params.get("maxPrice") === "5000000000";
+          });
+
+          const openNeighborhoodPicker = activeDrawer.locator(".pf-neighborhood-trigger").first();
+          await openNeighborhoodPicker.click();
+          const neighborhoodDialog = page.locator(".pf-neighborhood-dialog[role=dialog]").first();
+          await neighborhoodDialog.waitFor({ state: "visible", timeout: 8_000 });
+          const neighborhoodSearch = neighborhoodDialog.getByLabel("جست‌وجوی محله‌ها");
+          await neighborhoodSearch.fill("آبشار");
+          const neighborhoodOption = neighborhoodDialog.locator(".pf-neighborhood-dialog-results button").first();
+          await neighborhoodOption.waitFor({ state: "visible", timeout: 5_000 });
+          const selectedNeighborhood = (await neighborhoodOption.innerText()).trim();
+          await neighborhoodOption.click();
+          await page.waitForFunction((name) => new URLSearchParams(location.search).get("neighborhood") === name, selectedNeighborhood);
+
+          await page.getByLabel("جست‌وجوی فایل").fill("آپارتمان");
+          await page.waitForFunction(() => new URLSearchParams(location.search).get("q") === "آپارتمان");
+          const searchClear = page.locator('.pf-search button[aria-label="پاک کردن جست‌وجو"]').first();
+          if (await searchClear.isVisible().catch(() => false)) {
+            const searchClearSize = await searchClear.evaluate((element) => {
+              const rect = element.getBoundingClientRect();
+              return { width: Math.round(rect.width), height: Math.round(rect.height) };
+            });
+            if (searchClearSize.width < 44 || searchClearSize.height < 44) {
+              failures.push("/properties @ 320px: search clear action must be at least 44×44px; actual=" + JSON.stringify(searchClearSize));
+            }
+          } else {
+            failures.push("/properties @ 320px: search clear action did not appear for a non-empty query");
+          }
+          await page.getByLabel("جست‌وجوی فایل").fill("");
+          await page.waitForFunction(() => !new URLSearchParams(location.search).has("q"));
+
+          const sortControl = page.getByLabel("مرتب‌سازی نتایج");
+          await sortControl.selectOption("price_asc");
+          await page.waitForFunction(() => new URLSearchParams(location.search).get("sort") === "price_asc");
+
+          const resetButton = page.locator(".pf-sidebar.is-open[role=dialog] .pf-reset").first();
+          if (!(await resetButton.isVisible().catch(() => false))) {
+            await filterButton.click();
+            await page.locator(".pf-sidebar.is-open[role=dialog]").waitFor({ state: "visible", timeout: 5_000 });
+          }
+          const overviewClear = page.locator(".pf-sidebar.is-open[role=dialog] .pf-filter-overview > button").first();
+          if (await overviewClear.isVisible().catch(() => false)) {
+            const overviewClearSize = await overviewClear.evaluate((element) => {
+              const rect = element.getBoundingClientRect();
+              return { width: Math.round(rect.width), height: Math.round(rect.height) };
+            });
+            if (overviewClearSize.width < 44 || overviewClearSize.height < 44) {
+              failures.push("/properties @ 320px: active-filter clear action must be at least 44×44px; actual=" + JSON.stringify(overviewClearSize));
+            }
+          } else {
+            failures.push("/properties @ 320px: active-filter clear action was not visible in the open drawer");
+          }
+          await page.locator(".pf-sidebar.is-open[role=dialog] .pf-reset").first().click();
+          await page.waitForFunction(() => {
+            const params = new URLSearchParams(location.search);
+            return !["transaction", "minArea", "maxArea", "minPrice", "maxPrice", "neighborhood", "q", "sort"].some((key) => params.has(key));
+          });
+          const closeAfterFilterTest = page.locator(".pf-close").first();
+          if (await closeAfterFilterTest.isVisible().catch(() => false)) await closeAfterFilterTest.click();
+
+          await page.locator(".pf-count em").waitFor({ state: "hidden", timeout: 20_000 }).catch(() => {});
+          const loadMore = page.locator(".pf-more button").first();
+          if (await loadMore.isVisible().catch(() => false)) {
+            const beforeCount = await page.locator(".pf-grid .pcard-mobile-list").count();
+            await loadMore.click();
+            await page.waitForFunction((before) => {
+              return document.querySelectorAll(".pf-grid .pcard-mobile-list").length > before;
+            }, beforeCount, { timeout: 15_000 });
+          }
         }
       }
 
@@ -170,8 +342,37 @@ try {
           failures.push("/properties @ 320px: mobile did not start in list view");
         }
 
+        // Keep the filtered view populated by the deterministic fixture so
+        // the view-mode checks exercise real cards, not an intentionally empty result.
+        await page.goto(new URL("/properties?sort=price_asc", baseUrl).toString(), {
+          waitUntil: "domcontentloaded",
+          timeout: 30_000,
+        });
+        const filteredResultCard = page.locator(".pf-grid .pcard-mobile-list").first();
+        const filteredResultReady = await filteredResultCard.waitFor({ state: "visible", timeout: 15_000 })
+          .then(() => true).catch(() => false);
+        if (!filteredResultReady) failures.push("/properties: the sorted query did not return a published property card");
         const firstCard = page.locator(".pf-grid .pcard-mobile-list").first();
+        await firstCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
         if (await firstCard.isVisible().catch(() => false)) {
+          const firstCardImage = firstCard.locator(".pcard-media img").first();
+          await firstCardImage.scrollIntoViewIfNeeded().catch(() => {});
+          await firstCardImage.waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+          const imageLoaded = await page.waitForFunction((selector) => {
+            const image = document.querySelector(selector);
+            return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
+          }, ".pf-grid .pcard-mobile-list .pcard-media img", { timeout: 10_000 })
+            .then(() => true).catch(() => false);
+          if (!imageLoaded) {
+            const imageState = await firstCardImage.evaluate((image) => ({
+              src: image.getAttribute("src"),
+              currentSrc: image.currentSrc,
+              complete: image.complete,
+              naturalWidth: image.naturalWidth,
+            })).catch(() => null);
+            failures.push("/properties @ 320px: first property image did not load successfully; state=" + JSON.stringify(imageState));
+          }
+
           const geometry = await firstCard.evaluate((card) => {
             const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
             const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
@@ -219,12 +420,8 @@ try {
         } else {
           failures.push("/properties @ 320px: no published property card was available for layout verification");
         }
-
-        await page.goto(new URL("/properties?q=آپارتمان&transaction=rent&sort=price_asc&minArea=80&maxArea=150", baseUrl).toString(), {
-          waitUntil: "domcontentloaded",
-          timeout: 30_000,
-        });
-        await page.waitForTimeout(700);
+        await page.waitForFunction(() => document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+          null, { timeout: 8_000 }).catch(() => {});
         const retainedKeys = ["q", "transaction", "sort", "minArea", "maxArea"];
         const expectedParams = await page.evaluate((keys) => Object.fromEntries(
           keys.map((key) => [key, new URLSearchParams(window.location.search).get(key)]),
@@ -241,7 +438,23 @@ try {
               continue;
             }
             await button.click();
-            await page.waitForFunction((query) => document.querySelector(query)?.getAttribute("aria-pressed") === "true", selector);
+            const viewChanged = await page.waitForFunction(
+              (query) => document.querySelector(query)?.getAttribute("aria-pressed") === "true",
+              selector,
+              { timeout: 5_000 },
+            ).then(() => true).catch(() => false);
+            if (!viewChanged) failures.push("/properties @ " + width + "px: view button did not activate " + label);
+            if (label === "نمایش فایل‌ها روی نقشه") {
+              const mapCanvas = page.locator(".pf-map-panel .pf-map-canvas").first();
+              if (!(await mapCanvas.isVisible().catch(() => false))) {
+                failures.push("/properties @ " + width + "px: selecting map view did not render the interactive map canvas");
+              } else {
+                const zoomControl = mapCanvas.getByRole("button", { name: "بزرگ‌نمایی نقشه" }).first();
+                if (!(await zoomControl.isVisible().catch(() => false))) {
+                  failures.push("/properties @ " + width + "px: interactive map controls are missing");
+                }
+              }
+            }
             const actualParams = await page.evaluate((keys) => Object.fromEntries(
               keys.map((key) => [key, new URLSearchParams(window.location.search).get(key)]),
             ), retainedKeys);
@@ -253,27 +466,103 @@ try {
           }
         }
 
+        // Opening a real property and returning must retain every active URL filter.
+        const retainedDetailLink = page.locator(".pf-grid .pcard-mobile-list .pcard-link").first();
+        await retainedDetailLink.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
+        if (await retainedDetailLink.isVisible().catch(() => false)) {
+          await retainedDetailLink.click();
+          await page.waitForURL((url) => url.pathname.startsWith("/properties/") || url.pathname.startsWith("/file/"), { timeout: 15_000 });
+          await page.goBack({ waitUntil: "domcontentloaded" });
+          await page.waitForFunction((expected) => {
+            const actual = new URLSearchParams(window.location.search);
+            return window.location.pathname.replace(/\/+$/, "") === "/properties" &&
+              Object.entries(expected).every(([key, value]) => actual.get(key) === value);
+          }, expectedParams, { timeout: 15_000 });
+        } else {
+          failures.push("/properties: no real property link was available to verify browser-back filter restoration");
+        }
+
         const desktopPage = await browser.newPage({ viewport: { width: 1024, height: 900 } });
         await desktopPage.goto(new URL("/properties", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
         await desktopPage.waitForTimeout(700);
         const desktopMapDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]').getAttribute("aria-pressed").catch(() => null);
         if (desktopMapDefault !== "true") failures.push("/properties @ 1024px: desktop map-first default changed unexpectedly");
         await desktopPage.setViewportSize({ width: 320, height: 900 });
-        await desktopPage.waitForTimeout(150);
-        const resizedMobileDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]').getAttribute("aria-pressed").catch(() => null);
-        if (resizedMobileDefault !== "true") failures.push("/properties: entering mobile without a manual choice did not switch to list view");
+        const resizedMobileDefaultReady = await desktopPage.waitForFunction(() => {
+          const listButton = document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]');
+          return window.matchMedia("(max-width: 720px)").matches &&
+            listButton?.getAttribute("aria-pressed") === "true";
+        }, null, { timeout: 5_000 }).then(() => true).catch(() => false);
+        if (!resizedMobileDefaultReady) {
+          const state = await desktopPage.evaluate(() => ({
+            viewport: window.innerWidth,
+            mediaMatches: window.matchMedia("(max-width: 720px)").matches,
+            listPressed: document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]')?.getAttribute("aria-pressed"),
+            mapPressed: document.querySelector('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]')?.getAttribute("aria-pressed"),
+            gridPressed: document.querySelector('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed"),
+            listClass: document.querySelector(".pf-grid")?.className,
+          }));
+          failures.push("/properties: entering mobile without a manual choice did not switch to list view; state=" + JSON.stringify(state));
+        }
         const desktopGridButton = desktopPage.locator('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]').first();
         await desktopGridButton.click();
+        await desktopPage.waitForFunction(() => document.querySelector('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+          null, { timeout: 5_000 });
         await desktopPage.setViewportSize({ width: 1024, height: 900 });
         await desktopPage.setViewportSize({ width: 320, height: 900 });
-        await desktopPage.waitForTimeout(150);
-        const retainedGridChoice = await desktopGridButton.getAttribute("aria-pressed").catch(() => null);
-        if (retainedGridChoice !== "true") failures.push("/properties: a manually selected grid view was overwritten by viewport changes");
+        const retainedGridChoiceReady = await desktopPage.waitForFunction(() => {
+          const gridButton = document.querySelector('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]');
+          return window.matchMedia("(max-width: 720px)").matches &&
+            gridButton?.getAttribute("aria-pressed") === "true";
+        }, null, { timeout: 5_000 }).then(() => true).catch(() => false);
+        if (!retainedGridChoiceReady) failures.push("/properties: a manually selected grid view was overwritten by viewport changes");
         await desktopPage.close();
       }
 
       for (const width of viewportWidths) {
         await page.setViewportSize({ width, height: 900 });
+        if (route === "/properties" && screenshotRoutes.has(route)) {
+          // Capture the real default listing at each width; the interaction
+          // checks above intentionally finish on a filtered URL with no matches.
+          // Use the explicit default sort to force a fresh document instead of
+          // restoring the earlier filtered page from the browser back-forward cache.
+          await page.goto(new URL("/properties?sort=newest", baseUrl).toString(), {
+            waitUntil: "domcontentloaded",
+            timeout: 30_000,
+          });
+          await page.waitForFunction(() => !new URLSearchParams(window.location.search).has("sort"),
+            null, { timeout: 5_000 }).catch(() => {});
+          await page.waitForTimeout(500);
+          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه";
+          const defaultView = page.locator('.pf-views button[aria-label="' + defaultViewLabel + '"]').first();
+          await page.waitForFunction((selector) => document.querySelector(selector)?.getAttribute("aria-pressed") === "true",
+            '.pf-views button[aria-label="' + defaultViewLabel + '"]', { timeout: 8_000 }).catch(() => {});
+          if ((await defaultView.getAttribute("aria-pressed").catch(() => null)) !== "true") {
+            failures.push("/properties @ " + width + "px: default view was not restored before responsive screenshot capture");
+          }
+          const filterDrawerState = await page.locator(".pf-sidebar").first().evaluate((drawer) => {
+            const style = getComputedStyle(drawer);
+            return {
+              isOpen: drawer.classList.contains("is-open"),
+              opacity: style.opacity,
+              pointerEvents: style.pointerEvents,
+              position: style.position,
+            };
+          }).catch(() => null);
+          if (width <= 979 && filterDrawerState && (
+            filterDrawerState.isOpen ||
+            filterDrawerState.opacity !== "0" ||
+            filterDrawerState.pointerEvents !== "none" ||
+            filterDrawerState.position !== "fixed"
+          )) {
+            failures.push("/properties @ " + width + "px: filter drawer was not hidden on the default listing; state=" + JSON.stringify(filterDrawerState));
+            if (filterDrawerState.isOpen) {
+              const closeDrawer = page.locator(".pf-sidebar.is-open .pf-close").first();
+              if (await closeDrawer.isVisible().catch(() => false)) await closeDrawer.click();
+              await page.waitForFunction(() => !document.querySelector(".pf-sidebar.is-open"), null, { timeout: 5_000 }).catch(() => {});
+            }
+          }
+        }
         await page.evaluate(() => new Promise((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(resolve)),
         ));
@@ -342,7 +631,7 @@ try {
           }
 
           const smallTargets = [];
-          if (viewport <= 414) {
+          if (viewport <= 430) {
             for (const element of document.querySelectorAll("button,[role='button'],a.btn-gold,a.btn-outline,a.btn-ghost,.property-action,.pf-filter-btn,.pf-close,.menu-toggle")) {
               const style = getComputedStyle(element);
               if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
@@ -393,7 +682,17 @@ try {
       }
 
       if (pageErrors.length) {
-        summaries.push({ route, pageErrors: pageErrors.slice(0, 3) });
+        failures.push(route + ": uncaught browser errors=" + JSON.stringify(pageErrors.slice(0, 5)));
+      }
+      if (criticalNetworkFailures.length) {
+        failures.push(route + ": critical same-origin network failures=" + JSON.stringify(criticalNetworkFailures.slice(0, 8)));
+      }
+      if (consoleErrors.length || networkWarnings.length) {
+        summaries.push({
+          route,
+          consoleErrors: consoleErrors.slice(0, 5),
+          networkWarnings: networkWarnings.slice(0, 8),
+        });
       }
     } catch (error) {
       failures.push(`${route}: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
@@ -409,6 +708,13 @@ const smallTargetWarnings = summaries.filter((entry) => entry.smallTargets?.leng
 console.log(`[responsive-smoke] ${routes.length} routes × ${viewportWidths.length} widths = ${routes.length * viewportWidths.length} responsive checks`);
 console.log(`[responsive-smoke] target widths: ${viewportWidths.join(", ")}`);
 console.log(`[responsive-smoke] screenshots directory: ${outputDir}`);
+const browserDiagnosticWarnings = summaries.filter((entry) => entry.consoleErrors?.length || entry.networkWarnings?.length);
+if (browserDiagnosticWarnings.length) {
+  console.warn(`[responsive-smoke] browser console/network warnings in ${browserDiagnosticWarnings.length} route(s):`);
+  for (const warning of browserDiagnosticWarnings.slice(0, 30)) {
+    console.warn(`  ${warning.route}: ${JSON.stringify({ consoleErrors: warning.consoleErrors, networkWarnings: warning.networkWarnings })}`);
+  }
+}
 if (smallTargetWarnings.length) {
   console.warn(`[responsive-smoke] small interactive targets found in ${smallTargetWarnings.length} route/width checks (examples follow):`);
   for (const warning of smallTargetWarnings.slice(0, 20)) {

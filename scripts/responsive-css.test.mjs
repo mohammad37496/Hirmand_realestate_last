@@ -24,6 +24,8 @@ const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url),
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
+const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
+const propertiesProCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
@@ -175,9 +177,24 @@ testRunner.test("responsive guardrails load after the older global styles", () =
 });
 
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
-  assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 414, 768, 1024, 1440\]/);
+  assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 430, 768, 1024, 1440\]/);
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
+  assert.match(browserSmoke, /page\.on\("console"/, "browser smoke must capture console errors");
+  assert.match(browserSmoke, /page\.on\("requestfailed"/, "browser smoke must capture failed network requests");
+  assert.match(browserSmoke, /criticalNetworkFailures/, "same-origin script, style, font and server failures must fail verification");
+  assert.match(browserSmoke, /first property image did not load successfully/, "the first real listing image must load");
+  assert.match(browserSmoke, /image\.complete && image\.naturalWidth > 0[\s\S]*?timeout: 10_000/,
+    "browser smoke must wait for lazy-loaded property images to finish loading before asserting");
+  assert.match(browserSmoke, /resizedMobileDefaultReady = await desktopPage\.waitForFunction/,
+    "responsive default verification must wait for the matchMedia-driven view update");
+  assert.match(browserSmoke, /retainedGridChoiceReady = await desktopPage\.waitForFunction/,
+    "manual view selections must be verified after viewport changes without fixed sleeps");
+  assert.doesNotMatch(browserSmoke, /desktopPage\.waitForTimeout\(150\)/,
+    "responsive view checks must wait on actual state instead of a timing assumption");
+  assert.match(browserSmoke, /request\.failure\(\)[\s\S]*?failure\?\.errorText/,
+    "network diagnostics must print the actual Playwright request failure text");
   assert.match(browserSmoke, /smallTargets = \[\]/, "browser smoke must inspect touch target dimensions");
+  assert.match(browserSmoke, /if \(viewport <= 430\)/, "430px must remain in the touch-target phone matrix");
   assert.match(browserSmoke, /page\.screenshot\(/, "browser smoke must capture responsive screenshots");
   assert.match(browserSmoke, /"\/budget-match"/, "responsive screenshots should include the tablet budget hero");
   assert.match(browserSmoke, /await page\.waitForTimeout\(500\)/, "React filter drawer checks must allow hydration before clicking");
@@ -215,8 +232,15 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertiesRoute, /aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed=\{viewMode === "grid"\}/);
   assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(96px,28vw,116px\) minmax\(0,1fr\)/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[^}]*direction:rtl/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions[\s\S]*?grid-row:2/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-specs[\s\S]*?background:transparent/);
+  const marketplaceMobileListRule = propertiesMarketplaceCss.match(/\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(marketplaceMobileListRule, "the later marketplace stylesheet must preserve the mobile horizontal list card");
+  assert.match(marketplaceMobileListRule, /display:\s*grid/i);
+  assert.match(marketplaceMobileListRule, /direction:\s*rtl/i);
+  assert.doesNotMatch(propertiesMarketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-link\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column/is,
+    "the marketplace mobile cascade must not restore the photo-first layout in list mode");
 });
 
 
@@ -242,7 +266,54 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
   assert.match(propertiesRoute, /setViewModeManuallySelected\(true\)/);
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
   assert.match(browserSmoke, /mobile property view buttons preserve filters and URL parameters/);
+  assert.match(browserSmoke, /published property cards did not render before layout verification/,
+    "browser smoke must wait for home and /properties cards before measuring their layout");
+  assert.match(browserSmoke, /sorted query did not return a published property card/,
+    "view-mode checks must wait for a matching property result after URL filters are restored");
+  assert.match(browserSmoke, /\/properties\?sort=price_asc/,
+    "view-mode browser checks must use a populated deterministic property result");
+  assert.ok(browserSmoke.indexOf("const filteredResultCard") < browserSmoke.indexOf("const firstCard"),
+    "favorite, compare and detail interactions must run only after the deterministic published result is visible");
+  assert.match(browserSmoke, /firstCard\.waitFor\(\{ state: "visible", timeout: 15_000 \}\)/,
+    "browser smoke must wait for the real property result before checking card actions");
+
+  assert.match(browserSmoke, /route === "\/properties" && screenshotRoutes\.has\(route\)/,
+    "responsive artifacts must capture the default property listing after interaction checks");
+
+  assert.doesNotMatch(propertiesProCss, /\.pf-sidebar\s*\{[^}]*opacity:\s*1\s*!important/is,
+    "the mobile filter sheet must not force the closed drawer to opacity 1");
+  assert.match(propertiesMarketplaceCss, /@media\s*\(max-width:\s*980px\)[\s\S]*?\.pf-page \.pf-sidebar\s*\{\s*position:\s*fixed/i,
+    "the mobile filter drawer must remain fixed rather than falling back into the listing flow");
+  assert.match(browserSmoke, /filterDrawerState\.opacity !== "0"[\s\S]*?filterDrawerState\.position !== "fixed"/,
+    "responsive screenshots must verify the real closed-drawer computed styles");
+  assert.match(browserSmoke, /filter drawer was not hidden on the default listing/,
+    "the default listing artifact must not be obscured by the mobile filter drawer");
+  assert.match(browserSmoke, /\/properties\?sort=newest/,
+    "default listing screenshots must bypass stale back-forward-cache state");
+  assert.match(browserSmoke, /!new URLSearchParams\(window\.location\.search\)\.has\("sort"\)/,
+    "the screenshot route must normalize back to the unfiltered default URL");
+  assert.match(browserSmoke, /retainedDetailLink\.waitFor\(\{ state: "visible", timeout: 15_000 \}\)/,
+    "browser-back restoration must wait for the card to return after switching views");
   assert.match(browserSmoke, /verifyActionToggle/);
+  assert.match(browserSmoke, /targetOrigin = new URL\(frame\.url\(\)\)\.origin/,
+    "browser network checks must follow the final page origin after redirects");
+
+  assert.match(browserSmoke, /first shared property-card image did not load or fall back successfully/,
+    "browser smoke must verify shared-card image loading on every property-list surface");
+  assert.match(browserSmoke, /interactive map canvas/, "browser smoke must verify the map view renders its real map canvas");
+
+  assert.match(browserSmoke, /page\.goBack\(\{ waitUntil: "domcontentloaded" \}\)/, "browser back must restore the real listing route");
+  assert.match(browserSmoke, /\.pf-sidebar\.is-open\[role=dialog\] \.pf-reset/, "reset filters must target the open mobile drawer");
+  assert.match(responsiveCss, /\.pf-page \.pf-filter-overview > button\s*\{[^}]*min-height:\s*44px;/s,
+    "the final responsive CSS layer must enforce the active-filter clear touch target");
+  assert.match(propertyFiltersRedesignCss, /body:has\(\.pf-sidebar\.is-open\) \.quick-actions\s*\{[^}]*visibility:\s*hidden;[^}]*pointer-events:\s*none;/s,
+    "the fixed quick-action bar must not intercept taps while the mobile filter drawer is open");
+  assert.match(responsiveCss, /\.pf-page \.pf-search button\[aria-label="پاک کردن جست‌وجو"\]\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px;/s,
+    "the final responsive CSS layer must keep the mobile search-clear action at 44px");
+  assert.match(browserSmoke, /search clear action must be at least 44×44px/, "browser smoke must verify the search clear target in the DOM");
+  assert.match(browserSmoke, /active-filter clear action must be at least 44×44px/, "browser smoke must verify the active-filter clear target in the DOM");
+  assert.match(browserSmoke, /Object\.entries\(expected\)\.every\(\(\[key, value\]\) => actual\.get\(key\) === value\)/, "browser back must preserve every active filter parameter");
+  assert.match(browserSmoke, /transactionGroup[\s\S]*?minArea[\s\S]*?minPrice[\s\S]*?neighborhoodSearch[\s\S]*?sortControl[\s\S]*?loadMore/, "browser smoke should exercise real property filters, sorting and pagination");
   assert.match(browserSmoke, /detailsHref\.startsWith\("\/properties\/"\)/);
 });
 
@@ -268,8 +339,23 @@ testRunner.test("commission estimate uses the 1405 VAT rate and explains local t
 testRunner.test("Liara deployment verifies the exact main commit and published mobile assets", () => {
   assert.match(deployWorkflow, /Stamp deployment revision[\s\S]*?write-deployment-info\.mjs/);
   assert.match(deployWorkflow, /Verify live Liara release matches this commit[\s\S]*?verify-live-deployment\.mjs/);
+  assert.match(deployWorkflow, /id: live_release_verify\s+continue-on-error: true/);
+  assert.match(deployWorkflow, /Enforce live release and browser verification[\s\S]*?LIVE_RELEASE_OUTCOME[\s\S]*?LIVE_BROWSER_OUTCOME/);
+  assert.match(deployWorkflow, /Install live browser smoke dependencies[\s\S]*?playwright install --with-deps chromium/);
+  assert.match(deployWorkflow, /Verify live property experience in a real browser[\s\S]*?responsive-layout-smoke\.mjs https:\/\/hirmandrealestate\.ir/);
+  assert.match(deployWorkflow, /Upload live responsive screenshots[\s\S]*?actions\/upload-artifact@v4[\s\S]*?hirmand-live-responsive/);
+  const liveRevisionIndex = deployWorkflow.indexOf("Verify live Liara release matches this commit");
+  const liveBrowserInstallIndex = deployWorkflow.indexOf("Install live browser smoke dependencies");
+  const liveBrowserSmokeIndex = deployWorkflow.indexOf("Verify live property experience in a real browser");
+  assert.ok(liveRevisionIndex >= 0 && liveRevisionIndex < liveBrowserInstallIndex && liveBrowserInstallIndex < liveBrowserSmokeIndex,
+    "live browser checks must run only after the exact Liara revision is verified");
   assert.match(deployWorkflow, /- name: Deploy\s+timeout-minutes: 40/);
   assert.match(liveDeploymentSmoke, /EXPECTED_DEPLOYMENT_SHA/);
+  assert.match(liveDeploymentSmoke, /const pageOrigin = new URL\(pageUrl\)\.origin;/,
+    "live asset checks must use the actual final page origin after redirects");
+  assert.doesNotMatch(liveDeploymentSmoke, /nestedAssetPattern/,
+    "live verification must not invent nested asset URLs from arbitrary JavaScript strings");
+
   assert.match(liveDeploymentSmoke, /deployment\.json/);
   assert.match(liveDeploymentSmoke, /pcard-mobile-list/);
   assert.match(liveDeploymentSmoke, /نمایش فهرستی فایل‌ها/);
