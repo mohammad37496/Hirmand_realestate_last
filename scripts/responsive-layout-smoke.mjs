@@ -471,6 +471,19 @@ try {
 
       for (const width of viewportWidths) {
         await page.setViewportSize({ width, height: 900 });
+        if (route === "/properties" && screenshotRoutes.has(route)) {
+          // Capture the real default listing at each width; the interaction
+          // checks above intentionally finish on a filtered URL with no matches.
+          await page.goto(new URL("/properties", baseUrl).toString(), {
+            waitUntil: "domcontentloaded",
+            timeout: 30_000,
+          });
+          await page.waitForTimeout(500);
+          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه";
+          const defaultView = page.locator('.pf-views button[aria-label="' + defaultViewLabel + '"]').first();
+          await page.waitForFunction((selector) => document.querySelector(selector)?.getAttribute("aria-pressed") === "true",
+            '.pf-views button[aria-label="' + defaultViewLabel + '"]', { timeout: 8_000 }).catch(() => {});
+        }
         await page.evaluate(() => new Promise((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(resolve)),
         ));
