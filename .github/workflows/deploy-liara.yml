@@ -87,6 +87,15 @@ jobs:
           RESPONSIVE_SCREENSHOT_DIR: ${{ runner.temp }}/hirmand-live-responsive
         run: node scripts/responsive-layout-smoke.mjs https://hirmandrealestate.ir
 
+      - name: Upload live responsive screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hirmand-live-responsive-${{ github.run_id }}
+          path: ${{ runner.temp }}/hirmand-live-responsive
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Enforce live release and browser verification
         if: always()
         env:
