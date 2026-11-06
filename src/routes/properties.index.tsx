@@ -465,12 +465,12 @@ function PropertiesIndexPage() {
     return () => media.removeEventListener("change", updateViewport);
   }, []);
 
-  // Apply responsive defaults until the visitor explicitly chooses a view.
-  // A manual choice then survives every later viewport change.
+  // Open listings as a grid on desktop and a compact list on mobile until
+  // the visitor explicitly chooses a view. Manual choices survive resizes.
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
     const applyResponsiveDefault = () => {
-      if (!viewModeManuallySelected) setViewMode(media.matches ? "list" : "split");
+      if (!viewModeManuallySelected) setViewMode(media.matches ? "list" : "grid");
     };
     applyResponsiveDefault();
     media.addEventListener("change", applyResponsiveDefault);
