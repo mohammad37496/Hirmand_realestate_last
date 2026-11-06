@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeftRight,
+  BedDouble,
   BellDot,
   Bookmark,
   Heart,
@@ -12,6 +13,7 @@ import {
   MapPin,
   MapPinned,
   RotateCcw,
+  Ruler,
   Search,
   Share2,
   SlidersHorizontal,
@@ -1961,17 +1963,20 @@ function PropertiesIndexPage() {
                           >
                             <span className="pf-map-item-media">
                               {property.image ? <img src={mediaSourceCandidates(property.image)[0] ?? property.image} alt="" loading="lazy" /> : <MapIcon size={20} />}
+                              <span className="pf-map-item-badge">
+                                {property.featured ? "ویژه" : property.transactionType === "rent" ? "اجاره" : property.transactionType === "mortgage" ? "رهن کامل" : "فروش"}
+                              </span>
                             </span>
                             <span className="pf-map-item-copy">
                               <strong>{property.title}</strong>
-                              <small>
-                                {property.neighborhood || "اصفهان"}
-                                {property.areaM2 ? ` · ${fa(property.areaM2)} متر` : ""}
-                                {property.bedrooms != null ? ` · ${fa(property.bedrooms)} خواب` : ""}
-                              </small>
+                              <small className="pf-map-item-location"><MapPin size={12} /> {property.neighborhood || "اصفهان"}</small>
+                              <span className="pf-map-item-specs">
+                                {property.areaM2 ? <span><Ruler size={12} /> {fa(property.areaM2)} متر</span> : null}
+                                {property.bedrooms != null ? <span><BedDouble size={12} /> {fa(property.bedrooms)} خواب</span> : null}
+                              </span>
                               <em className="pf-map-item-price">{mapPropertyPriceLabel(property)}</em>
                             </span>
-                            {property.latitude != null && property.longitude != null ? <MapPinned size={15} aria-label="موقعیت ثبت شده" /> : null}
+                            {property.latitude != null && property.longitude != null ? <MapPinned className="pf-map-item-pin" size={16} aria-label="موقعیت ثبت شده" /> : null}
                           </button>
                           <Link
                             to="/properties/$slug"
@@ -1981,7 +1986,7 @@ function PropertiesIndexPage() {
                             data-property-id={property.id}
                             aria-label={`مشاهده جزئیات ${property.title}`}
                           >
-                            مشاهده
+                            جزئیات
                           </Link>
                         </div>
                       ))}
