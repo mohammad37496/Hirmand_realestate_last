@@ -1932,3 +1932,54 @@ svg {
     padding: 8px 12px;
   }
 }
+
+/* Coarse-pointer property marketplace controls stay at least 44px at every width. */
+@media (pointer: coarse) {
+  .pf-page .pf-chip,
+  .pf-page .pf-quick .pf-chip,
+  .pf-page .pf-active .pf-chip,
+  .pf-page .pf-views button,
+  .pf-page .pf-tools > a,
+  .pf-page .pf-tools > button,
+  .pf-page .pf-tools > select,
+  .pf-page .pf-sort .pf-select,
+  .pf-page .pf-filter-btn,
+  .pf-page .pf-search input,
+  .pf-page .pf-field input,
+  .pf-page .pf-field select,
+  .pf-page .pf-select,
+  .pf-page .pf-spec-search input,
+  .pf-page .pf-group-toggle,
+  .pf-page .pf-reset,
+  .pf-page .pf-show-results,
+  .pf-page .pf-sidebar .pf-close,
+  .pf-page .pf-switch,
+  .pf-page .pf-spec-option,
+  .pf-page .pf-map-controls button,
+  .pf-page .pf-map-floating-head a,
+  .pf-page .pcard-actions .property-action {
+    min-height: 44px !important;
+  }
+
+  .pf-page .pf-chip,
+  .pf-page .pf-quick .pf-chip,
+  .pf-page .pf-active .pf-chip,
+  .pf-page .pf-views button {
+    min-width: 44px !important;
+  }
+
+  .pf-page .pf-sidebar .pf-close {
+    width: 44px !important;
+    min-width: 44px !important;
+  }
+
+  .pf-page .pf-map-controls button {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .pf-page .pcard-actions .property-action {
+    width: 44px !important;
+    height: 44px !important;
+  }
+}

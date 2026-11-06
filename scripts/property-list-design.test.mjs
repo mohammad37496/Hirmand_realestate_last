@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const marketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
+const responsiveHardeningCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const homePropertyCss = fs.readFileSync(new URL("../src/home-property-layout.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
@@ -68,6 +69,28 @@ test("mobile marketplace filters, view toggles and map controls keep 44px touch 
   assert.match(mobileControls, /\.pf-page \.pf-quick\s*\{[\s\S]*?flex-wrap:\s*nowrap;[\s\S]*?overflow-x:\s*auto/);
   assert.match(mobileControls, /\.pf-page \.pf-map-controls button\s*\{\s*width:\s*44px;\s*height:\s*44px/);
   assert.match(mobileControls, /\.pf-page \.pf-map-floating-head a\s*\{\s*min-height:\s*44px/);
+});
+
+test("coarse-pointer marketplace controls keep 44px touch targets at desktop widths", () => {
+  const coarsePointerControls = responsiveHardeningCss.slice(
+    responsiveHardeningCss.lastIndexOf("/* Coarse-pointer property marketplace controls stay at least 44px at every width. */"),
+  );
+  assert.match(coarsePointerControls, /@media\s*\(pointer:\s*coarse\)\s*\{/);
+  for (const selector of [
+    ".pf-page .pf-chip",
+    ".pf-page .pf-views button",
+    ".pf-page .pf-tools > a",
+    ".pf-page .pf-sort .pf-select",
+    ".pf-page .pf-switch",
+    ".pf-page .pf-spec-option",
+    ".pf-page .pcard-actions .property-action",
+  ]) {
+    assert.ok(coarsePointerControls.includes(selector), `${selector} must retain a 44px coarse-pointer target`);
+  }
+  assert.match(coarsePointerControls, /min-height:\s*44px\s*!important/);
+  assert.match(coarsePointerControls, /min-width:\s*44px\s*!important/);
+  assert.match(coarsePointerControls, /width:\s*44px\s*!important/);
+  assert.match(coarsePointerControls, /height:\s*44px\s*!important/);
 });
 
 test("mobile list cards avoid repeating the photo transaction badge and wrap unit price", () => {
