@@ -155,7 +155,23 @@ export function SmartRecommendations() {
       .slice(0, 6);
   }, [properties]);
 
-  if (loading || !ranked.length) return null;
+  if (loading) return null;
+
+  if (!ranked.length) {
+    return (
+      <section className="section smart-recommendations smart-recommendations-empty" aria-labelledby="smart-recommendations-title">
+        <div className="section-head">
+          <span className="kicker"><Sparkles size={14} /> پیشنهاد هوشمند</span>
+          <h2 id="smart-recommendations-title">ملک مناسب را بر اساس نیازتان پیدا کنید</h2>
+          <p>بودجه، محدوده و مشخصات دلخواهتان را وارد کنید تا جست‌وجو را دقیق‌تر و هدفمندتر ادامه دهید.</p>
+        </div>
+        <div className="smart-recommendations-empty-actions">
+          <Link to="/budget-match" className="btn-gold">شروع بودجه‌یابی هوشمند</Link>
+          <Link to="/smart-search" className="btn-ghost">جست‌وجوی هوشمند فایل‌ها</Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="section smart-recommendations" aria-labelledby="smart-recommendations-title">
