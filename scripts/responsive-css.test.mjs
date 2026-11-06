@@ -233,7 +233,7 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertiesRoute, /aria-label="نمایش فهرستی فایل‌ها" aria-pressed=\{viewMode === "list"\}/);
   assert.match(propertiesRoute, /aria-label="نمایش شبکه‌ای فایل‌ها" aria-pressed=\{viewMode === "grid"\}/);
   assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
-  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(96px,28vw,116px\) minmax\(0,1fr\)/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(120px,40vw,170px\) minmax\(0,1fr\)/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[^}]*direction:rtl/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions[\s\S]*?grid-row:2/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-specs[\s\S]*?background:transparent/);
@@ -252,7 +252,7 @@ testRunner.test("all shared property cards use the readable RTL mobile list layo
   assert.match(propertyLibrary, /export type PropertyCardData = Pick<[\s\S]*?\| "storage"/);
   assert.match(propertyLibrary, /bedrooms, built_year, parking, elevator, storage, price, deposit, rent/);
   assert.match(propertyLibrary, /storage: Boolean\(row\.storage\)/);
-  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(96px,28vw,116px\) minmax\(0,1fr\)/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(120px,40vw,170px\) minmax\(0,1fr\)/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions \.property-actions-compact[\s\S]*?flex-wrap:wrap/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions \.property-action[\s\S]*?width:44px; height:44px; min-height:44px/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-title[\s\S]*?font-size:\.88rem/);

@@ -365,3 +365,93 @@
     transform: none;
   }
 }
+
+/* The homepage showcase uses the same compact RTL list-card rhythm on phones. */
+@media (max-width: 720px) {
+  .site-home .property-showcase .pcard-mobile-list {
+    grid-template-rows: minmax(168px, auto);
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-media,
+  .site-home .property-showcase .pcard-mobile-list .pcard-media picture,
+  .site-home .property-showcase .pcard-mobile-list .pcard-media img {
+    min-height: clamp(168px, 46.4vw, 181px);
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-meta > span:first-child {
+    display: none;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-body {
+    gap: 4px;
+    padding: 8px 8px 56px;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-title {
+    min-height: 0;
+    font-size: .8rem;
+    line-height: 1.45;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-price,
+  .site-home .property-showcase .pcard-mobile-list .pcard-price-value {
+    font-size: .82rem;
+    line-height: 1.4;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-unit-price {
+    display: none;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-specs {
+    flex-wrap: nowrap;
+    gap: 3px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-specs svg {
+    display: none;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-specs span {
+    min-height: 22px;
+    padding: 2px 4px;
+    font-size: .6rem;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-footer {
+    font-size: .62rem;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-actions {
+    position: absolute;
+    inset-inline-end: 0;
+    inset-block-start: auto;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: 0;
+    width: calc(100% - clamp(120px, 40vw, 170px));
+    height: 48px;
+    min-height: 48px;
+    padding: 1px 5px;
+    border-top: 1px solid var(--line);
+    background: var(--card);
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-actions .property-actions,
+  .site-home .property-showcase .pcard-mobile-list .pcard-actions .property-actions-compact {
+    padding: 0 2px;
+  }
+
+  .site-home .property-showcase .pcard-mobile-list .pcard-actions .property-action {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

@@ -651,7 +651,7 @@
 /* Shared mobile property cards: image at RTL start, details and actions alongside. */
 @media (max-width: 720px) {
   .pcard-mobile-list { display:grid; grid-template-columns:minmax(0,1fr); min-height:0; overflow:hidden; border-radius:14px; }
-  .pcard-mobile-list .pcard-link { display:grid; direction:rtl; grid-column:1; grid-row:1; grid-template-columns:clamp(96px,28vw,116px) minmax(0,1fr); align-items:stretch; min-width:0; }
+  .pcard-mobile-list .pcard-link { display:grid; direction:rtl; grid-column:1; grid-row:1; grid-template-columns:clamp(120px,40vw,170px) minmax(0,1fr); align-items:stretch; min-width:0; }
   .pcard-mobile-list .pcard-media { grid-column:1; grid-row:1; height:100%; min-height:164px; overflow:hidden; }
   .pcard-mobile-list .pcard-media picture,
   .pcard-mobile-list .pcard-media img { display:block; width:100%; height:100%; min-height:164px; }
@@ -727,6 +727,64 @@
   .pcard-mobile-list .pcard-code { font-size:.66rem; }
   .pcard-mobile-list .pcard-title { font-size:.84rem; }
   .pcard-mobile-list .pcard-specs span { font-size:.66rem; padding-inline:5px; }
+  .pcard-mobile-list .pcard-details-link { display:none; }
+}
+
+/* The transaction is already visible as a badge on the photo. Avoid repeating
+   it in the narrow details column, and keep the per-metre hint to one line. */
+@media (max-width:720px) {
+  .pcard-mobile-list .pcard-meta > span:first-child { display:none; }
+  .pcard-mobile-list .pcard-media,
+  .pcard-mobile-list .pcard-media picture,
+  .pcard-mobile-list .pcard-media img { min-height:clamp(168px,46.4vw,181px); }
+  .pcard-mobile-list .pcard-body { gap:4px; padding:8px 8px 56px; }
+  .pcard-mobile-list .pcard-title { font-size:.8rem; line-height:1.45; }
+  .pcard-mobile-list .pcard-price,
+  .pcard-mobile-list .pcard-price-value { font-size:.82rem; line-height:1.4; }
+  .pcard-mobile-list .pcard-unit-price { display:none; }
+  .pcard-mobile-list .pcard-specs { flex-wrap:nowrap; gap:3px; }
+  .pcard-mobile-list .pcard-specs svg { display:none; }
+  .pcard-mobile-list .pcard-specs span {
+    min-height:22px;
+    padding:2px 4px;
+    font-size:.6rem;
+    line-height:1.3;
+    white-space:nowrap;
+  }
+  .pcard-mobile-list .pcard-footer { font-size:.62rem; }
+  .pcard-mobile-list .pcard-actions {
+    position:absolute;
+    inset-inline-end:0;
+    inset-block-start:auto;
+    top:auto;
+    left:auto;
+    right:auto;
+    bottom:0;
+    width:calc(100% - clamp(120px,40vw,170px));
+    height:48px;
+    min-height:48px;
+    padding:1px 5px;
+    border-top:1px solid var(--line);
+    background:var(--card);
+  }
+  .pcard-mobile-list .pcard-actions .property-actions,
+  .pcard-mobile-list .pcard-actions .property-actions-compact { padding-block:0; }
+
+  /* Explicit photo-grid mode keeps the fuller detail hierarchy. */
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-meta > span:first-child { display:inline-flex; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-body { gap:9px; padding:14px 15px 16px; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-title { font-size:1rem; line-height:1.7; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-unit-price { display:block; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs { flex-wrap:wrap; gap:6px; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs svg { display:inline-block; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs span {
+    min-height:29px;
+    padding:5px 8px;
+    font-size:.68rem;
+    line-height:1.45;
+    white-space:normal;
+  }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions { min-height:0; padding:0; }
 }
 
 
