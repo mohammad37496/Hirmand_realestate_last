@@ -253,7 +253,7 @@ testRunner.test("all shared property cards use the readable RTL mobile list layo
   assert.match(propertyLibrary, /bedrooms, built_year, parking, elevator, storage, price, deposit, rent/);
   assert.match(propertyLibrary, /storage: Boolean\(row\.storage\)/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(120px,40vw,170px\) minmax\(0,1fr\)/);
-  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions \.property-actions-compact[\s\S]*?flex-wrap:wrap/);
+  assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list \.pcard-actions \.property-actions-compact[\s\S]*?flex-wrap:nowrap/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions \.property-action[\s\S]*?width:44px; height:44px; min-height:44px/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-title[\s\S]*?font-size:\.88rem/);
   assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list/);
