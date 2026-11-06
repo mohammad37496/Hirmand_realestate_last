@@ -57,6 +57,11 @@ test("phone list cards keep a readable image, key facts and a single swipeable a
   const finalPhoneLayout = marketplaceCss.slice(marketplaceCss.lastIndexOf(".pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {"));
   assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*display:\s*flex;[^}]*width:\s*calc\(100% - clamp\(120px,\s*40vw,\s*170px\)\);[^}]*margin-inline-start:\s*clamp\(120px,\s*40vw,\s*170px\)/);
   assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link \.pcard-body\s*\{[^}]*flex:\s*1 1 100%;[^}]*width:\s*100%/);
+  const gridModeStart = marketplaceCss.indexOf("/* Premium photo-first cards");
+  const phoneCardStackingStart = marketplaceCss.lastIndexOf("  .pcard-mobile-list > .pcard-media {", gridModeStart);
+  const phoneCardStacking = marketplaceCss.slice(phoneCardStackingStart, gridModeStart);
+  assert.match(phoneCardStacking, /\.pcard-mobile-list > \.pcard-media\s*\{[^}]*z-index:\s*0/);
+  assert.match(phoneCardStacking, /\.pcard-mobile-list > \.pcard-link\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1/);
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?width:\s*clamp\(120px,\s*40vw,\s*170px\)/);
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-actions \.property-action\s*\{[\s\S]*?flex:\s*0 0 44px !important/);
 });
