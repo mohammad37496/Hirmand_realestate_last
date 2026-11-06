@@ -235,7 +235,8 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(120px,40vw,170px\) minmax\(0,1fr\)/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[^}]*direction:rtl/);
-  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions[\s\S]*?grid-row:2/);
+  assert.match(propertyShowcase, /<div className="pcard-media">[\s\S]*?<div className="pcard-actions"[\s\S]*?<\/div>\s*<\/div>\s*<Link[\s\S]*?className="pcard-link"/);
+  assert.match(propertiesMarketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions[\s\S]*?inset-block-end:\s*0/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-specs[\s\S]*?background:transparent/);
   const marketplaceMobileListRule = propertiesMarketplaceCss.match(/\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*\}/is)?.[0] ?? "";
   assert.ok(marketplaceMobileListRule, "the later marketplace stylesheet must preserve the mobile horizontal list card");

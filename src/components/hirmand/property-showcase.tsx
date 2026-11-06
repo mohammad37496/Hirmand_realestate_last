@@ -137,6 +137,49 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
 
   return (
     <article className="pcard pcard-mobile-list">
+      <div className="pcard-media">
+        <Link
+          to="/properties/$slug"
+          params={{ slug: property.slug.trim() || property.id }}
+          className="pcard-image-link"
+          data-property-link="true"
+          data-property-id={property.id}
+          aria-label={`مشاهده تصویر و جزئیات فایل ${property.title}`}
+        >
+          <PropertyImage
+            src={image}
+            alt={property.title}
+            fallback={getPropertyFallbackImage(property.propertyType, property.id)}
+            fallbackAvif={getPropertyFallbackImageAvif(property.propertyType, property.id)}
+            fallbackLegacy={getPropertyFallbackLegacyImage(property.propertyType, property.id)}
+          />
+          <span className="pcard-arrow" aria-hidden="true">
+            <ChevronLeft size={16} />
+          </span>
+        </Link>
+        <div className="pcard-badges">
+          {isFeaturedActive(property) ? (
+            <span className="pcard-badge pcard-badge-featured">ویژه</span>
+          ) : null}
+          <span className="pcard-badge pcard-badge-transaction">{transaction}</span>
+          <span className={
+            property.availabilityStatus === "available"
+              ? "pcard-badge pcard-badge-availability pcard-badge-availability-ok"
+              : "pcard-badge pcard-badge-availability"
+          }>
+            {availabilityLabel}
+          </span>
+        </div>
+        {property.priceDropPercent && property.priceDropPercent > 0 ? (
+          <span className="pcard-badge pcard-badge-discount">
+            ٪{property.priceDropPercent.toLocaleString("fa-IR")} کاهش
+          </span>
+        ) : null}
+        <div className="pcard-actions" aria-label="عملیات فایل">
+          <PropertyActions property={property} compact />
+        </div>
+      </div>
+
       <Link
         to="/properties/$slug"
         params={{ slug: property.slug.trim() || property.id }}
@@ -145,37 +188,6 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
         data-property-id={property.id}
         aria-label={`مشاهده جزئیات کامل فایل ${property.title}`}
       >
-        <div className="pcard-media">
-          <PropertyImage
-            src={image}
-            alt={property.title}
-            fallback={getPropertyFallbackImage(property.propertyType, property.id)}
-            fallbackAvif={getPropertyFallbackImageAvif(property.propertyType, property.id)}
-            fallbackLegacy={getPropertyFallbackLegacyImage(property.propertyType, property.id)}
-          />
-          <div className="pcard-badges">
-            {isFeaturedActive(property) ? (
-              <span className="pcard-badge pcard-badge-featured">ویژه</span>
-            ) : null}
-            <span className="pcard-badge pcard-badge-transaction">{transaction}</span>
-            <span className={
-              property.availabilityStatus === "available"
-                ? "pcard-badge pcard-badge-availability pcard-badge-availability-ok"
-                : "pcard-badge pcard-badge-availability"
-            }>
-              {availabilityLabel}
-            </span>
-          </div>
-          {property.priceDropPercent && property.priceDropPercent > 0 ? (
-            <span className="pcard-badge pcard-badge-discount">
-              ٪{property.priceDropPercent.toLocaleString("fa-IR")} کاهش
-            </span>
-          ) : null}
-          <span className="pcard-arrow" aria-hidden="true">
-            <ChevronLeft size={16} />
-          </span>
-        </div>
-
         <div className="pcard-body">
           <div className="pcard-topline">
             <div className="pcard-meta">
@@ -253,10 +265,6 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
           </div>
         </div>
       </Link>
-
-      <div className="pcard-actions" aria-label="عملیات فایل">
-        <PropertyActions property={property} compact />
-      </div>
     </article>
   );
 }
