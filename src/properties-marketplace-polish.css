@@ -1614,10 +1614,16 @@
   .pcard-mobile-list > .pcard-media > .pcard-actions .property-action { flex-basis: 44px; width: 44px; height: 44px; min-height: 44px; }
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media { grid-column: 1; grid-row: 1; }
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
+    display: flex;
     grid-column: 1;
     grid-row: 1;
     width: calc(100% - clamp(120px, 40vw, 170px));
     margin-inline-start: clamp(120px, 40vw, 170px);
+  }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link .pcard-body {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
   }
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-image-link { width: clamp(120px, 40vw, 170px); }
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-actions { position: absolute; inset-inline: 0; inset-block-start: auto; inset-block-end: 0; width: clamp(120px, 40vw, 170px); height: 48px; min-height: 48px; padding: 2px 5px; }
