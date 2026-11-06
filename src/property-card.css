@@ -694,10 +694,8 @@
   .pcard-mobile-list .pcard-actions .property-actions-compact::-webkit-scrollbar { display:none; }
   .pcard-mobile-list .pcard-actions .property-action {
     flex:0 0 44px;
-    width:44px;
+    width:44px; height:44px; min-height:44px;
     min-width:44px;
-    height:44px;
-    min-height:44px;
     border-color:var(--line-2);
     background:var(--card);
     color:var(--muted);
