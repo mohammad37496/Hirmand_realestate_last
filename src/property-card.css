@@ -161,11 +161,15 @@
 /* `PropertyActions` keeps its shared .property-actions / .property-action
    classes (the detail page uses them too); the card just re-skins its copy. */
 .pcard-actions {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 3;
-  padding: 0;
+  position: static;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--card-2);
 }
 
 .pcard-actions .property-actions,
@@ -173,9 +177,19 @@
   position: static;
   display: flex;
   gap: 6px;
+  width: 100%;
+  max-width: 100%;
   margin: 0;
-  padding: 0;
+  padding: 1px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
+
+.pcard-actions .property-actions::-webkit-scrollbar,
+.pcard-actions .property-actions-compact::-webkit-scrollbar { display: none; }
 
 .pcard-actions .property-action {
   display: inline-grid;
@@ -185,12 +199,10 @@
   height: 38px;
   min-height: 38px;
   padding: 0;
-  border: 1px solid rgb(255 255 255 / 26%);
+  border: 1px solid var(--line-2);
   border-radius: var(--r-sm);
-  background: rgb(8 19 32 / 62%);
-  color: #fff;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--card);
+  color: var(--muted);
   transition:
     background-color 160ms var(--ease),
     border-color 160ms var(--ease),
@@ -199,8 +211,8 @@
 
 .pcard-actions .property-action:hover {
   border-color: var(--brass-300);
-  background: rgb(8 19 32 / 88%);
-  color: var(--brass-300);
+  background: var(--brass-100);
+  color: var(--brass-800);
 }
 
 .pcard-actions .property-action.is-active {
@@ -567,8 +579,7 @@
   }
 
   .pcard-actions {
-    top: 10px;
-    left: 10px;
+    padding: 7px 10px;
   }
 
   .pcard-actions .property-action {
@@ -717,9 +728,10 @@
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs { gap:6px; padding:9px 10px; border-top:1px solid rgba(11,26,43,.09); border-bottom:1px solid rgba(11,26,43,.09); border-radius:10px; background:#f1eae0; }
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-specs span { min-height:29px; padding:5px 8px; font-size:.68rem; }
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-footer { margin-top:auto; padding-top:2px; }
-  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions { position:absolute; top:10px; left:10px; width:calc(100% - 20px); max-width:calc(100% - 20px); grid-column:auto; grid-row:auto; padding:0; border:0; background:transparent; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions { position:static; grid-column:1; grid-row:2; width:100%; max-width:100%; padding:7px 10px; border-top:1px solid var(--line); background:var(--card-2); }
   .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions .property-actions,
-  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions .property-actions-compact { width:100%; max-width:100%; flex-direction:row; flex-wrap:wrap; gap:6px; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions .property-actions-compact { width:100%; max-width:100%; flex-direction:row; flex-wrap:nowrap; gap:6px; overflow-x:auto; }
+  .pf-grid.is-grid-view .pcard-mobile-list .pcard-actions .property-action { flex:0 0 44px; width:44px; height:44px; min-height:44px; }
 }
 @media (max-width:360px) {
   .pcard-mobile-list .pcard-body { padding:9px; gap:6px; }

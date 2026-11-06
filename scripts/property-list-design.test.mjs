@@ -31,6 +31,10 @@ test("mobile shared RTL list cards and explicit photo grid mode remain intact", 
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link\s*\{[^}]*direction:rtl;[^}]*grid-template-columns:clamp\(96px,28vw,116px\) minmax\(0,1fr\)/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions\s*\{[^}]*grid-row:2/);
   assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list\s*\{[^}]*display:block/);
+  const gridActions = propertyCardCss.match(/\.pf-grid\.is-grid-view \.pcard-mobile-list \.pcard-actions\s*\{[^}]*\}/)?.[0] ?? "";
+  assert.match(gridActions, /position:static/);
+  assert.match(gridActions, /grid-row:2/);
+  assert.doesNotMatch(gridActions, /position:absolute|top:10px/);
 });
 
 test("shared mobile cards keep their actions in one horizontally scrollable row", () => {
