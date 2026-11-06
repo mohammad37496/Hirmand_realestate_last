@@ -376,7 +376,7 @@ try {
           }
 
           const geometry = await firstCard.evaluate((card) => {
-            const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
+            const imageLink = card.querySelector(".pcard-media > .pcard-image-link")?.getBoundingClientRect();
             const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
             const rail = card.querySelector(".pcard-actions .property-actions, .pcard-actions .property-actions-compact");
             const railRect = rail?.getBoundingClientRect();
@@ -384,7 +384,7 @@ try {
             const railStyle = rail ? getComputedStyle(rail) : null;
             const buttons = Array.from(card.querySelectorAll(".pcard-actions .property-action"));
             return {
-              imageOnRight: Boolean(media && body && media.left >= body.right - 2),
+              imageOnRight: Boolean(imageLink && body && imageLink.left >= body.right - 2),
               actions: buttons.map((button) => button.getAttribute("aria-label") || ""),
               actionRailContained: Boolean(railRect &&
                 railRect.left >= cardRect.left - 1 && railRect.right <= cardRect.right + 1),
