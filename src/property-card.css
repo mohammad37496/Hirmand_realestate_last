@@ -674,8 +674,34 @@
   .pcard-mobile-list .pcard-location { max-width:100%; }
   .pcard-mobile-list .pcard-actions { position:static; grid-column:1; grid-row:2; display:flex; justify-content:flex-start; padding:6px 10px; border-top:1px solid var(--line); background:var(--card); }
   .pcard-mobile-list .pcard-actions .property-actions,
-  .pcard-mobile-list .pcard-actions .property-actions-compact { width:100%; max-width:100%; min-width:0; flex-direction:row; flex-wrap:wrap; gap:6px; }
-  .pcard-mobile-list .pcard-actions .property-action { width:44px; height:44px; min-height:44px; border-color:var(--line-2); background:var(--card); color:var(--muted); backdrop-filter:none; -webkit-backdrop-filter:none; }
+  .pcard-mobile-list .pcard-actions .property-actions-compact {
+    display:flex !important;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    flex:1 1 auto;
+    flex-direction:row;
+    flex-wrap:nowrap !important;
+    gap:6px;
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+    padding:1px 2px 4px;
+    overscroll-behavior-inline:contain;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+    inset:auto !important;
+  }
+  .pcard-mobile-list .pcard-actions .property-actions-compact::-webkit-scrollbar { display:none; }
+  .pcard-mobile-list .pcard-actions .property-action {
+    flex:0 0 44px;
+    width:44px; height:44px; min-height:44px;
+    min-width:44px;
+    border-color:var(--line-2);
+    background:var(--card);
+    color:var(--muted);
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
+  }
 
   /* Explicit grid selection remains a full photo-first card on phones. */
   .pf-grid.is-grid-view .pcard-mobile-list { display:block; overflow:visible; border-radius:18px; }

@@ -33,6 +33,12 @@ test("mobile shared RTL list cards and explicit photo grid mode remain intact", 
   assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list\s*\{[^}]*display:block/);
 });
 
+test("shared mobile cards keep their actions in one horizontally scrollable row", () => {
+  const sharedMobileActions = propertyCardCss.slice(propertyCardCss.indexOf("/* Shared mobile property cards:"));
+  assert.match(sharedMobileActions, /\.pcard-mobile-list \.pcard-actions \.property-actions-compact\s*\{[\s\S]*?display:flex !important;[\s\S]*?flex-wrap:nowrap !important;[\s\S]*?overflow-x:auto !important;[\s\S]*?inset:auto !important/);
+  assert.match(sharedMobileActions, /\.pcard-mobile-list \.pcard-actions \.property-action\s*\{[\s\S]*?flex:0 0 44px/);
+});
+
 test("phone list cards keep a readable image, key facts and a single swipeable action row", () => {
   const mobileList = marketplaceCss.slice(marketplaceCss.lastIndexOf("Mobile list cards:"));
   assert.match(mobileList, /grid-template-columns:\s*clamp\(116px,\s*34vw,\s*140px\)\s+minmax\(0,\s*1fr\)/);
