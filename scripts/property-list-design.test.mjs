@@ -8,53 +8,44 @@ const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", impo
 const homePropertyCss = fs.readFileSync(new URL("../src/home-property-layout.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 
-test("desktop property list uses a three-column RTL card with a dedicated action rail", () => {
+test("desktop property list anchors actions to the lower edge of the property image", () => {
   const desktopListStart = marketplaceCss.indexOf("Professional desktop list cards");
   const tabletListStart = marketplaceCss.indexOf("@media (min-width: 721px) and (max-width: 980px)", desktopListStart);
   const desktopList = desktopListStart >= 0 && tabletListStart > desktopListStart
     ? marketplaceCss.slice(desktopListStart, tabletListStart)
     : "";
   assert.ok(desktopList, "the marketplace must define a desktop list layout");
-  assert.match(desktopList, /grid-template-columns:\s*minmax\(230px,\s*28%\)\s+minmax\(0,\s*1fr\)\s+108px/);
-  assert.match(desktopList, /\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-link\s*\{[\s\S]*?grid-column:\s*1\s*\/\s*3/);
-  assert.match(desktopList, /\.pf-page \.pf-grid\.is-list-view > \.pcard \.pcard-actions\s*\{[\s\S]*?grid-column:\s*3;[\s\S]*?grid-row:\s*1/);
-  assert.match(desktopList, /grid-template-columns:\s*repeat\(2,\s*44px\)/);
-  assert.match(desktopList, /border-inline-start:\s*1px solid #edf0f2/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset-block-end:\s*0/);
+  assert.match(marketplaceCss, /\.pcard > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?background:\s*rgb\(8 19 32 \/ 78%\)/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-link\s*\{[\s\S]*?grid-column:\s*2/);
+  assert.match(desktopList, /grid-template-columns:\s*minmax\(230px,\s*28%\)\s+minmax\(0,\s*1fr\)/);
 });
 
-test("tablet list cards retain readable image, details and compact action columns", () => {
-  assert.match(marketplaceCss, /@media \(min-width: 721px\) and \(max-width: 980px\)[\s\S]*?grid-template-columns:\s*minmax\(180px,\s*27%\)\s+minmax\(0,\s*1fr\)\s+104px/);
-  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard \.pcard-body\s*\{[\s\S]*?padding:\s*14px 15px/);
-  assert.match(marketplaceCss, /@media \(min-width: 641px\) and \(max-width: 720px\)[\s\S]*?grid-template-columns:\s*clamp\(96px,\s*28vw,\s*116px\)\s+minmax\(0,\s*1fr\)/);
+test("tablet list cards retain a readable image and details beside the image action overlay", () => {
+  const finalTabletLayout = marketplaceCss.slice(marketplaceCss.lastIndexOf("@media (min-width: 721px) and (max-width: 980px)"));
+  assert.match(finalTabletLayout, /grid-template-columns:\s*minmax\(180px,\s*27%\)\s+minmax\(0,\s*1fr\)/);
+  assert.match(finalTabletLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard \.pcard-body\s*\{\s*padding:\s*14px 15px/);
+  assert.match(marketplaceCss, /@media \(min-width: 721px\)[\s\S]*?\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-media > \.pcard-actions/);
 });
 
 test("mobile shared RTL list cards and explicit photo grid mode remain intact", () => {
   assert.match(propertyShowcase, /<article className="pcard pcard-mobile-list">/);
-  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link\s*\{[^}]*direction:rtl;[^}]*grid-template-columns:clamp\(120px,40vw,170px\) minmax\(0,1fr\)/);
-  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions\s*\{[^}]*grid-row:2/);
+  assert.match(propertyShowcase, /<div className="pcard-media">[\s\S]*?<Link[\s\S]*?className="pcard-image-link"[\s\S]*?<div className="pcard-actions"[\s\S]*?<\/div>\s*<\/div>\s*<Link[\s\S]*?className="pcard-link"/);
+  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link\s*\{[^}]*direction:rtl/);
+  assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?inset-block-end:\s*0/);
   assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list\s*\{[^}]*display:block/);
-  const gridActions = propertyCardCss.match(/\.pf-grid\.is-grid-view \.pcard-mobile-list \.pcard-actions\s*\{[^}]*\}/)?.[0] ?? "";
-  assert.match(gridActions, /position:static/);
-  assert.match(gridActions, /grid-row:2/);
-  assert.doesNotMatch(gridActions, /position:absolute|top:10px/);
+  assert.match(marketplaceCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?inset-block-end:\s*0/);
 });
 
 test("shared mobile cards keep their actions in one horizontally scrollable row", () => {
-  const sharedMobileActions = propertyCardCss.slice(propertyCardCss.indexOf("/* Shared mobile property cards:"));
-  assert.match(sharedMobileActions, /\.pcard-mobile-list \.pcard-actions \.property-actions-compact\s*\{[\s\S]*?display:flex !important;[\s\S]*?flex-wrap:nowrap !important;[\s\S]*?overflow-x:auto !important;[\s\S]*?inset:auto !important/);
-  assert.match(sharedMobileActions, /\.pcard-mobile-list \.pcard-actions \.property-action\s*\{[\s\S]*?flex:0 0 44px/);
+  assert.match(marketplaceCss, /\.pcard > \.pcard-media > \.pcard-actions \.property-actions,[\s\S]*?\.pcard > \.pcard-media > \.pcard-actions \.property-actions-compact\s*\{[\s\S]*?display:\s*flex !important;[\s\S]*?flex-wrap:\s*nowrap !important;[\s\S]*?overflow-x:\s*auto !important/);
+  assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions \.property-action\s*\{[\s\S]*?flex-basis:\s*44px/);
 });
 
 test("phone list cards keep a readable image, key facts and a single swipeable action row", () => {
-  const mobileList = marketplaceCss.slice(marketplaceCss.lastIndexOf("Mobile list cards:"));
-  assert.match(mobileList, /grid-template-columns:\s*clamp\(120px,\s*40vw,\s*170px\)\s+minmax\(0,\s*1fr\)/);
-  assert.match(mobileList, /pcard-specs span:nth-child\(n \+ 4\)\s*\{\s*display:\s*none/);
-  assert.match(mobileList, /display:\s*flex\s*!important/);
-  assert.match(mobileList, /flex-wrap:\s*nowrap\s*!important/);
-  assert.match(mobileList, /overflow-x:\s*auto\s*!important/);
-  assert.match(mobileList, /grid-template-columns:\s*none\s*!important/);
-  assert.match(mobileList, /inset:\s*auto\s*!important/);
-  assert.match(mobileList, /flex:\s*0 0 44px\s*!important/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[\s\S]*?margin-inline-start:\s*clamp\(120px,\s*40vw,\s*170px\)/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?width:\s*clamp\(120px,\s*40vw,\s*170px\)/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-actions \.property-action\s*\{[\s\S]*?flex:\s*0 0 44px !important/);
 });
 
 test("list card focus and reduced-motion behavior remain accessible", () => {
@@ -102,15 +93,15 @@ test("mobile list cards avoid repeating the photo transaction badge and wrap uni
   assert.match(mobileCardPolish, /\.pcard-mobile-list \.pcard-meta > span:first-child\s*\{\s*display:\s*none/);
   assert.match(mobileCardPolish, /\.pcard-mobile-list \.pcard-unit-price\s*\{\s*display:\s*none/);
   assert.match(mobileCardPolish, /\.pcard-mobile-list \.pcard-specs\s*\{\s*flex-wrap:\s*nowrap/);
-  assert.match(mobileCardPolish, /\.pcard-mobile-list \.pcard-actions\s*\{[\s\S]*?position:absolute;[\s\S]*?bottom:0;[\s\S]*?width:calc\(100% - clamp\(120px,40vw,170px\)\);[\s\S]*?height:48px;[\s\S]*?min-height:48px/);
+  assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?height:\s*48px;[\s\S]*?min-height:\s*48px/);
   assert.match(propertyCardCss, /@media \(max-width:360px\)[\s\S]*?\.pcard-mobile-list \.pcard-details-link\s*\{\s*display:none/);
   assert.match(mobileCardPolish, /\.pf-grid\.is-grid-view \.pcard-mobile-list \.pcard-unit-price\s*\{\s*display:\s*block/);
 });
 
-test("homepage shared cards retain the compact RTL list and 44px action rail on phones", () => {
+test("homepage shared cards retain the compact RTL list and 44px image action overlay on phones", () => {
   const homeMobile = homePropertyCss.slice(homePropertyCss.indexOf("/* The homepage showcase uses the same compact RTL list-card rhythm"));
   assert.match(homeMobile, /\.site-home \.property-showcase \.pcard-mobile-list\s*\{\s*grid-template-rows:\s*minmax\(168px, auto\)/);
   assert.match(homeMobile, /\.site-home \.property-showcase \.pcard-mobile-list \.pcard-unit-price\s*\{\s*display:\s*none/);
-  assert.match(homeMobile, /\.site-home \.property-showcase \.pcard-mobile-list \.pcard-actions\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?bottom:\s*0;[\s\S]*?width:\s*calc\(100% - clamp\(120px, 40vw, 170px\)\)/);
-  assert.match(homeMobile, /\.site-home \.property-showcase \.pcard-mobile-list \.pcard-actions \.property-action\s*\{[\s\S]*?width:\s*44px;[\s\S]*?min-height:\s*44px/);
+  assert.match(marketplaceCss, /\.site-home \.property-showcase \.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?bottom:\s*0;[\s\S]*?width:\s*100%/);
+  assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions \.property-action\s*\{[\s\S]*?width:\s*44px;[\s\S]*?min-height:\s*44px/);
 });
