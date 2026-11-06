@@ -54,6 +54,8 @@ test("property photo actions use a floating glass dock with clear button states"
 
 test("phone list cards keep a readable image, key facts and a single swipeable action row", () => {
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[\s\S]*?margin-inline-start:\s*clamp\(120px,\s*40vw,\s*170px\)/);
+  const finalPhoneLayout = marketplaceCss.slice(marketplaceCss.lastIndexOf(".pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {"));
+  assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*width:\s*calc\(100% - clamp\(120px,\s*40vw,\s*170px\)\);[^}]*margin-inline-start:\s*clamp\(120px,\s*40vw,\s*170px\)/);
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?width:\s*clamp\(120px,\s*40vw,\s*170px\)/);
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-actions \.property-action\s*\{[\s\S]*?flex:\s*0 0 44px !important/);
 });
