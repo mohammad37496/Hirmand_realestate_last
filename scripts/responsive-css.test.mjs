@@ -305,6 +305,8 @@ testRunner.test("responsive defaults adapt until a visitor manually selects a vi
     "browser smoke must verify shared-card image loading on every property-list surface");
   assert.match(browserSmoke, /const imageLink = card\.querySelector\("\.pcard-media > \.pcard-image-link"\)/,
     "RTL mobile card geometry must measure the visible image link, not its full-width media wrapper");
+  assert.match(browserSmoke, /document\.elementFromPoint\([\s\S]*?bodyElement\.contains\(bodyHitTarget\)/,
+    "RTL mobile smoke must detect when the photo wrapper paints over the property details");
   assert.match(browserSmoke, /interactive map canvas/, "browser smoke must verify the map view renders its real map canvas");
 
   assert.match(browserSmoke, /page\.goBack\(\{ waitUntil: "domcontentloaded" \}\)/, "browser back must restore the real listing route");

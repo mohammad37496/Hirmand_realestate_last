@@ -380,6 +380,10 @@ try {
             const bodyElement = card.querySelector(".pcard-body");
             const body = bodyElement?.getBoundingClientRect();
             const bodyStyle = bodyElement ? getComputedStyle(bodyElement) : null;
+            const bodyHitTarget = body ? document.elementFromPoint(
+              body.left + body.width / 2,
+              body.top + body.height / 2,
+            ) : null;
             const rail = card.querySelector(".pcard-actions .property-actions, .pcard-actions .property-actions-compact");
             const railRect = rail?.getBoundingClientRect();
             const cardRect = card.getBoundingClientRect();
@@ -389,7 +393,7 @@ try {
               imageOnRight: Boolean(imageLink && body && imageLink.left >= body.right - 2),
               bodyContentVisible: Boolean(bodyElement && body && body.width > 0 && body.height > 0 &&
                 bodyStyle && bodyStyle.visibility !== "hidden" && Number(bodyStyle.opacity) > 0 &&
-                bodyElement.textContent?.trim()),
+                bodyElement.textContent?.trim() && bodyHitTarget && bodyElement.contains(bodyHitTarget)),
               actions: buttons.map((button) => button.getAttribute("aria-label") || ""),
               actionRailContained: Boolean(railRect &&
                 railRect.left >= cardRect.left - 1 && railRect.right <= cardRect.right + 1),
