@@ -16,7 +16,7 @@ test("desktop property list anchors actions to the lower edge of the property im
     : "";
   assert.ok(desktopList, "the marketplace must define a desktop list layout");
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset-block-end:\s*0/);
-  assert.match(marketplaceCss, /\.pcard > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?background:\s*rgb\(8 19 32 \/ 78%\)/);
+  assert.match(marketplaceCss, /\.pcard > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?justify-content:\s*center;[\s\S]*?background:\s*transparent;[\s\S]*?pointer-events:\s*none/);
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-link\s*\{[\s\S]*?grid-column:\s*2/);
   assert.match(desktopList, /grid-template-columns:\s*minmax\(230px,\s*28%\)\s+minmax\(0,\s*1fr\)/);
 });
@@ -42,8 +42,26 @@ test("shared mobile cards keep their actions in one horizontally scrollable row"
   assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions \.property-action\s*\{[\s\S]*?flex-basis:\s*44px/);
 });
 
+test("property photo actions use a floating glass dock with clear button states", () => {
+  const dock = marketplaceCss.slice(marketplaceCss.indexOf("/* Final cascade guard: a compact floating action dock"));
+  assert.match(dock, /\.pcard > \.pcard-media > \.pcard-actions \.property-actions,[\s\S]*?width:\s*fit-content;[\s\S]*?border-radius:\s*15px;[\s\S]*?background:\s*rgb\(255 255 255 \/ 91%\);[\s\S]*?backdrop-filter:\s*blur\(12px\)/);
+  assert.match(dock, /\.pcard > \.pcard-media > \.pcard-actions \.property-action:hover\s*\{[\s\S]*?transform:\s*translateY\(-2px\)/);
+  assert.match(dock, /\.pcard > \.pcard-media > \.pcard-actions \.property-action\.is-active\s*\{/);
+  assert.match(dock, /\.pcard > \.pcard-media > \.pcard-actions \.property-action:focus-visible\s*\{/);
+  assert.match(dock, /@media \(max-width:\s*1024px\)[\s\S]*?\.pcard > \.pcard-media > \.pcard-actions \.property-action\s*\{\s*flex-basis:\s*44px;\s*width:\s*44px;\s*height:\s*44px;\s*min-height:\s*44px/);
+  assert.match(dock, /@media \(prefers-reduced-motion:\s*reduce\)/);
+});
+
 test("phone list cards keep a readable image, key facts and a single swipeable action row", () => {
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[\s\S]*?margin-inline-start:\s*clamp\(120px,\s*40vw,\s*170px\)/);
+  const finalPhoneLayout = marketplaceCss.slice(marketplaceCss.lastIndexOf(".pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {"));
+  assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*display:\s*flex;[^}]*width:\s*calc\(100% - clamp\(120px,\s*40vw,\s*170px\)\);[^}]*margin-inline-start:\s*clamp\(120px,\s*40vw,\s*170px\)/);
+  assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link \.pcard-body\s*\{[^}]*flex:\s*1 1 100%;[^}]*width:\s*100%/);
+  const gridModeStart = marketplaceCss.indexOf("/* Premium photo-first cards");
+  const phoneCardStackingStart = marketplaceCss.lastIndexOf("  .pcard-mobile-list > .pcard-media {", gridModeStart);
+  const phoneCardStacking = marketplaceCss.slice(phoneCardStackingStart, gridModeStart);
+  assert.match(phoneCardStacking, /\.pcard-mobile-list > \.pcard-media\s*\{[^}]*z-index:\s*0/);
+  assert.match(phoneCardStacking, /\.pcard-mobile-list > \.pcard-link\s*\{[^}]*position:\s*relative;[^}]*z-index:\s*1/);
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?width:\s*clamp\(120px,\s*40vw,\s*170px\)/);
   assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-actions \.property-action\s*\{[\s\S]*?flex:\s*0 0 44px !important/);
 });

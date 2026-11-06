@@ -1507,7 +1507,7 @@
   }
 }
 
-/* Final cascade guard: action controls remain anchored to the photo bottom on every card surface. */
+/* Final cascade guard: a compact floating action dock sits at the photo bottom. */
 .pcard > .pcard-media { position: relative; overflow: hidden; }
 .pcard > .pcard-media > .pcard-image-link { display: block; width: 100%; height: 100%; color: inherit; }
 .pcard > .pcard-media > .pcard-image-link picture,
@@ -1521,48 +1521,74 @@
   inset-block-end: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   width: 100%;
   min-width: 0;
-  min-height: 52px;
-  padding: 4px 9px;
+  min-height: 0;
+  padding: 7px 9px;
   overflow: hidden;
-  border-top: 1px solid rgb(255 255 255 / 22%);
+  border: 0;
   border-inline-start: 0;
-  background: rgb(8 19 32 / 78%);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: transparent;
+  pointer-events: none;
 }
 .pcard > .pcard-media > .pcard-actions .property-actions,
 .pcard > .pcard-media > .pcard-actions .property-actions-compact {
   display: flex !important;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   flex-wrap: nowrap !important;
-  gap: 7px;
-  width: 100%;
+  justify-content: flex-start;
+  gap: 5px;
+  width: fit-content;
   max-width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 1px 2px;
+  padding: 4px;
+  border: 1px solid rgb(255 255 255 / 82%);
+  border-radius: 15px;
+  background: rgb(255 255 255 / 91%);
+  box-shadow: 0 5px 18px rgb(5 16 28 / 22%), inset 0 1px 0 rgb(255 255 255 / 92%);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
   overflow-x: auto !important;
   overflow-y: hidden !important;
   overscroll-behavior-inline: contain;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   grid-template-columns: none !important;
+  pointer-events: auto;
+  scroll-snap-type: inline proximity;
 }
 .pcard > .pcard-media > .pcard-actions .property-actions::-webkit-scrollbar,
 .pcard > .pcard-media > .pcard-actions .property-actions-compact::-webkit-scrollbar { display: none; }
 .pcard > .pcard-media > .pcard-actions .property-action {
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
-  border-color: rgb(255 255 255 / 35%);
-  border-radius: 9px;
-  background: rgb(255 255 255 / 95%);
-  color: #23364a;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border: 1px solid rgb(29 48 67 / 10%);
+  border-radius: 11px;
+  background: rgb(247 249 250 / 96%);
+  color: #31465a;
+  box-shadow: 0 1px 2px rgb(8 23 39 / 7%);
+  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  scroll-snap-align: start;
+}
+.pcard > .pcard-media > .pcard-actions .property-action:hover {
+  transform: translateY(-2px);
+  border-color: #d8bd80;
+  background: #fffaf0;
+  color: #79591f;
+  box-shadow: 0 3px 9px rgb(8 23 39 / 12%);
+}
+.pcard > .pcard-media > .pcard-actions .property-action.is-active {
+  border-color: #d8bd80;
+  background: #f5e9cd;
+  color: #76551b;
+}
+.pcard > .pcard-media > .pcard-actions .property-action:focus-visible {
+  outline: 2px solid #a77d32;
+  outline-offset: 2px;
 }
 
 @media (min-width: 721px) {
@@ -1578,7 +1604,8 @@
 
 @media (max-width: 720px) {
   .pcard-mobile-list { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(168px, auto); }
-  .pcard-mobile-list > .pcard-media { grid-column: 1; grid-row: 1; min-height: clamp(168px, 46.4vw, 181px); }
+  .pcard-mobile-list > .pcard-media { position: relative; z-index: 0; grid-column: 1; grid-row: 1; min-height: clamp(168px, 46.4vw, 181px); }
+  .pcard-mobile-list > .pcard-link { position: relative; z-index: 1; }
   .pcard-mobile-list > .pcard-link { display: flex; grid-column: 1; grid-row: 1; min-width: 0; margin-inline-start: clamp(120px, 40vw, 170px); }
   .pcard-mobile-list > .pcard-link .pcard-body { width: 100%; min-width: 0; padding: 8px 8px 56px; }
   .pcard-mobile-list > .pcard-media > .pcard-image-link { position: absolute; inset: 0 0 0 auto; width: clamp(120px, 40vw, 170px); height: 100%; }
@@ -1587,7 +1614,18 @@
   .pcard-mobile-list > .pcard-media > .pcard-actions { min-height: 48px; height: 48px; padding: 2px 5px; }
   .pcard-mobile-list > .pcard-media > .pcard-actions .property-action { flex-basis: 44px; width: 44px; height: 44px; min-height: 44px; }
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media { grid-column: 1; grid-row: 1; }
-  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link { grid-column: 1; grid-row: 1; margin-inline-start: clamp(120px, 40vw, 170px); }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    width: calc(100% - clamp(120px, 40vw, 170px));
+    margin-inline-start: clamp(120px, 40vw, 170px);
+  }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link .pcard-body {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-image-link { width: clamp(120px, 40vw, 170px); }
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-actions { position: absolute; inset-inline: 0; inset-block-start: auto; inset-block-end: 0; width: clamp(120px, 40vw, 170px); height: 48px; min-height: 48px; padding: 2px 5px; }
   .pf-grid.is-grid-view .pcard-mobile-list > .pcard-media { min-height: 200px; }
@@ -1606,6 +1644,12 @@
 
 @media (max-width: 1024px) {
   .pcard > .pcard-media > .pcard-actions .property-action { flex-basis: 44px; width: 44px; height: 44px; min-height: 44px; }
+  .pcard > .pcard-media > .pcard-actions .property-actions,
+  .pcard > .pcard-media > .pcard-actions .property-actions-compact { gap: 4px; padding: 3px; border-radius: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pcard > .pcard-media > .pcard-actions .property-action { transition: none; }
 }
 
 /* Premium photo-first cards for the explicit marketplace grid view. */

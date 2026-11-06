@@ -376,15 +376,24 @@ try {
           }
 
           const geometry = await firstCard.evaluate((card) => {
-            const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
-            const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
+            const imageLink = card.querySelector(".pcard-media > .pcard-image-link")?.getBoundingClientRect();
+            const bodyElement = card.querySelector(".pcard-body");
+            const body = bodyElement?.getBoundingClientRect();
+            const bodyStyle = bodyElement ? getComputedStyle(bodyElement) : null;
+            const bodyHitTarget = body ? document.elementFromPoint(
+              body.left + body.width / 2,
+              body.top + body.height / 2,
+            ) : null;
             const rail = card.querySelector(".pcard-actions .property-actions, .pcard-actions .property-actions-compact");
             const railRect = rail?.getBoundingClientRect();
             const cardRect = card.getBoundingClientRect();
             const railStyle = rail ? getComputedStyle(rail) : null;
             const buttons = Array.from(card.querySelectorAll(".pcard-actions .property-action"));
             return {
-              imageOnRight: Boolean(media && body && media.left >= body.right - 2),
+              imageOnRight: Boolean(imageLink && body && imageLink.left >= body.right - 2),
+              bodyContentVisible: Boolean(bodyElement && body && body.width > 0 && body.height > 0 &&
+                bodyStyle && bodyStyle.visibility !== "hidden" && Number(bodyStyle.opacity) > 0 &&
+                bodyElement.textContent?.trim() && bodyHitTarget && bodyElement.contains(bodyHitTarget)),
               actions: buttons.map((button) => button.getAttribute("aria-label") || ""),
               actionRailContained: Boolean(railRect &&
                 railRect.left >= cardRect.left - 1 && railRect.right <= cardRect.right + 1),
@@ -397,6 +406,7 @@ try {
             };
           });
           if (!geometry.imageOnRight) failures.push("/properties @ 320px: property image is not on the right of the details");
+          if (!geometry.bodyContentVisible) failures.push("/properties @ 320px: property details are covered or not visible beside the image");
           if (!geometry.actions.some((label) => label.includes("ذخیره")) || !geometry.actions.some((label) => label.includes("مقایسه"))) failures.push("/properties @ 320px: favorite or compare action is missing");
           if (!geometry.actionRailContained) failures.push("/properties @ 320px: property action rail exceeds the card bounds");
           if (!geometry.actionRailScrollable) failures.push("/properties @ 320px: compact property actions are not horizontally scrollable");
