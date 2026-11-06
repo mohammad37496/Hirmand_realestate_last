@@ -1675,9 +1675,9 @@
 .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions {
   min-height: 50px;
   padding: 5px 10px;
-  background: linear-gradient(180deg, rgb(8 19 32 / 70%), rgb(8 19 32 / 88%));
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions .property-action {
   border-color: rgb(255 255 255 / 46%);

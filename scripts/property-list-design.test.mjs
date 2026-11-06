@@ -58,7 +58,7 @@ test("explicit grid cards use a premium photo, action and information hierarchy"
   assert.match(gridPolish, /\.pf-page \.pf-grid\.is-grid-view > \.pcard\s*\{[^}]*border-radius:\s*20px/);
   assert.match(gridPolish, /\.pf-page \.pf-grid\.is-grid-view > \.pcard > \.pcard-media\s*\{[^}]*height:\s*clamp\(180px,\s*20vw,\s*250px\);[^}]*min-height:\s*clamp\(180px,\s*20vw,\s*250px\);/);
   assert.match(gridPolish, /\.pf-page \.pf-grid\.is-grid-view > \.pcard > \.pcard-media > \.pcard-image-link img\s*\{\s*object-fit:\s*cover/);
-  assert.match(gridPolish, /\.pf-page \.pf-grid\.is-grid-view > \.pcard > \.pcard-media > \.pcard-actions\s*\{[^}]*backdrop-filter:\s*blur\(10px\)/);
+  assert.match(gridPolish, /\.pf-page \.pf-grid\.is-grid-view > \.pcard > \.pcard-media > \.pcard-actions\s*\{[^}]*background:\s*transparent;[^}]*backdrop-filter:\s*none;[^}]*-webkit-backdrop-filter:\s*none/);
   assert.match(gridPolish, /\.pf-page \.pf-grid\.is-grid-view > \.pcard \.pcard-price-row\s*\{[^}]*background:\s*#f6f8f5/);
   assert.match(gridPolish, /\.pf-page \.pf-grid\.is-grid-view > \.pcard \.pcard-specs\s*\{[^}]*background:\s*#faf8f4/);
   assert.match(gridPolish, /@media \(max-width:\s*720px\)[\s\S]*?\.pf-page \.pf-grid\.is-grid-view > \.pcard > \.pcard-media\s*\{[^}]*height:\s*clamp\(170px,\s*48vw,\s*210px\);[^}]*min-height:\s*clamp\(170px,\s*48vw,\s*210px\);/);
