@@ -135,3 +135,14 @@ test("homepage shared cards retain the compact RTL list and 44px image action ov
   assert.match(marketplaceCss, /\.site-home \.property-showcase \.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?bottom:\s*0;[\s\S]*?width:\s*100%/);
   assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions \.property-action\s*\{[\s\S]*?width:\s*44px;[\s\S]*?min-height:\s*44px/);
 });
+
+test("map-side property cards use the canonical Hirmand navy, brass and paper palette", () => {
+  const mapBrandRules = responsiveHardeningCss.slice(
+    responsiveHardeningCss.lastIndexOf("/* Map-side property cards use the canonical Hirmand Navy / Brass / Paper palette. */"),
+  );
+  assert.ok(mapBrandRules, "the final responsive stylesheet must define the map-card brand treatment");
+  assert.match(mapBrandRules, /\.pf-page \.pf-map-card-row\.is-active\s*\{[^}]*background:\s*var\(--brass-100\) !important;[^}]*box-shadow:\s*inset -3px 0 0 var\(--brass-500\) !important;/);
+  assert.match(mapBrandRules, /\.pf-page \.pf-map-divar-layout \.pf-map-item\.is-active\s*\{[^}]*background:\s*var\(--navy-900\) !important;[^}]*color:\s*#fff !important;/);
+  assert.match(mapBrandRules, /\.pf-page \.pf-map-item-price\s*\{\s*color:\s*var\(--brass-700\) !important;/);
+  assert.match(mapBrandRules, /\.pf-page \.pf-map-item-open\s*\{[^}]*background:\s*var\(--brass-100\) !important;[^}]*color:\s*var\(--brass-800\) !important;/);
+});
