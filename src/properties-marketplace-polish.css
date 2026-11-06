@@ -1629,8 +1629,9 @@
 .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media {
   position: relative;
   flex: 0 0 auto;
-  height: auto;
-  aspect-ratio: 1.55 / 1;
+  height: clamp(180px, 20vw, 250px);
+  min-height: clamp(180px, 20vw, 250px);
+  aspect-ratio: auto;
   overflow: hidden;
   background: #ece8df;
 }
@@ -1774,7 +1775,10 @@
 }
 @media (max-width: 720px) {
   .pf-page .pf-grid.is-grid-view > .pcard { border-radius: 17px; }
-  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media { aspect-ratio: 1.48 / 1; }
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media {
+    height: clamp(170px, 48vw, 210px);
+    min-height: clamp(170px, 48vw, 210px);
+  }
   .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions { min-height: 50px; }
   .pf-page .pf-grid.is-grid-view > .pcard .pcard-body { gap: 9px; padding: 13px 13px 14px; }
   .pf-page .pf-grid.is-grid-view > .pcard .pcard-title { min-height: 0; font-size: .96rem; }
