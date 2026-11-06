@@ -36,7 +36,11 @@ async function openAndExpectFixture(url, label) {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
   const gridButton = page.getByRole("button", { name: "نمایش شبکه‌ای فایل‌ها" });
   await gridButton.waitFor({ state: "visible", timeout: timeoutMs });
-  assert.equal(await gridButton.getAttribute("aria-pressed"), "true", `${label}: desktop should default to grid view`);
+  await page.waitForFunction(
+    () => document.querySelector('button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+    null,
+    { timeout: timeoutMs },
+  );
   await page.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" }).click();
   const itemTitle = page.locator(".pf-map-item-copy strong").filter({ hasText: title }).first();
   await itemTitle.waitFor({ state: "visible", timeout: timeoutMs });
