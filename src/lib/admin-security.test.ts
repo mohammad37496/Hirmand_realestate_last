@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   clearAdminAttempts,
+  clientFingerprint,
   consumeAdminAttempt,
   assertServerFnSameOrigin,
 } from "./admin-rate-limit.server.ts";
@@ -207,6 +208,30 @@ test("throttles are tracked per key, not globally", async () => {
 
   assert.equal((await consumeAdminAttempt(noisy)).allowed, false);
   assert.equal((await consumeAdminAttempt(quiet)).allowed, true);
+});
+
+test("rate-limit identity cannot be bypassed by rotating the caller's User-Agent", async () => {
+  const request = (userAgent: string, ip = "203.0.113.10") => ({
+    req: new Request("https://hirmandrealestate.ir/api/admin/session", {
+      headers: { "x-forwarded-for": ip, "user-agent": userAgent },
+    }),
+    node: { req: { socket: { remoteAddress: "127.0.0.1" } } },
+  }) as unknown as import("h3").H3Event;
+
+  const firstKey = `user-agent-rotation:${clientFingerprint(request("Browser A"))}`;
+  const rotatedKey = `user-agent-rotation:${clientFingerprint(request("curl/9.0"))}`;
+  assert.equal(firstKey, rotatedKey, "same source IP must retain one bucket across User-Agent changes");
+  assert.notEqual(
+    clientFingerprint(request("Browser A", "203.0.113.11")),
+    clientFingerprint(request("Browser A", "203.0.113.10")),
+    "different source IPs retain separate buckets",
+  );
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    assert.equal((await consumeAdminAttempt(firstKey)).allowed, true);
+  }
+  assert.equal((await consumeAdminAttempt(rotatedKey)).allowed, false);
+  await clearAdminAttempts(firstKey);
 });
 
 test("throttling still works on the in-process store (dev, single-process host)", async () => {
