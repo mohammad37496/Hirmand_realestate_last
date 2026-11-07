@@ -65,24 +65,6 @@
   margin-top: 12px;
 }
 
-.site-home .smart-recommendations-empty-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.site-home .smart-recommendations-empty-actions a {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  justify-content: center;
-  padding: 9px 16px;
-  border-radius: 12px;
-  font-size: .82rem;
-  font-weight: 800;
-  text-decoration: none;
-}
-
 @media (max-width: 720px) {
   .site-home .home-guides-grid {
     grid-template-columns: minmax(0, 1fr);
@@ -108,15 +90,13 @@
 .site-home .property-showcase-cta {
   margin-top: 18px;
 }
-.site-home .property-card,
-.site-home .smart-recommendation-card {
+.site-home .property-card {
   min-width: 0;
   overflow: hidden;
   border-radius: 20px;
   transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
 }
-.site-home .property-card:hover,
-.site-home .smart-recommendation-card:hover {
+.site-home .property-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 16px 34px rgb(20 31 45 / 10%);
 }
@@ -189,8 +169,7 @@
   .site-home .property-showcase .section-head {
     margin-bottom: 14px;
   }
-  .site-home .property-card,
-  .site-home .smart-recommendation-card {
+  .site-home .property-card {
     border-radius: 17px;
   }
   .site-home .property-price-block {

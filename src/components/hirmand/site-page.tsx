@@ -39,7 +39,6 @@ import type { PropertyCardData } from "@/lib/properties";
 import { Reveal } from "./reveal";
 import { scrollToId } from "./scroll";
 import { SiteChrome } from "./site-chrome";
-import { SmartRecommendations } from "./smart-recommendations";
 import { DEFAULT_GUIDES } from "@/lib/site-content-static";
 import { useConsultants } from "./consultants-context";
 import type { Consultant } from "@/lib/consultants";
@@ -938,7 +937,6 @@ export function SitePage({
         <TrustStrip />
         <PropertyShowcase initialProperties={initialProperties} />
         <Properties />
-        <SmartRecommendations />
         <GuidesPreview />
         <Inquiry draft={draft} />
         <details className="home-secondary">
