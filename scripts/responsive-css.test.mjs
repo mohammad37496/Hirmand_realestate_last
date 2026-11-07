@@ -27,6 +27,8 @@ const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
 const favoritesPersonalCss = fs.readFileSync(new URL("../src/favorites-personal.css", import.meta.url), "utf8");
+const favoritesRedesignCss = fs.readFileSync(new URL("../src/favorites-redesign.css", import.meta.url), "utf8");
+const favoritesRoute = fs.readFileSync(new URL("../src/routes/favorites.tsx", import.meta.url), "utf8");
 const propertiesMapCardsCss = fs.readFileSync(new URL("../src/properties-map-cards.css", import.meta.url), "utf8");
 const propertiesProCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
 const propertyPhotoNotesCss = fs.readFileSync(new URL("../src/property-photo-notes.css", import.meta.url), "utf8");
@@ -163,6 +165,18 @@ testRunner.test("favorites empty-state text and property video controls remain u
   assert.match(controls, /min-height:44px/i);
   assert.match(controls, /width:44px/i);
   assert.match(controls, /height:44px/i);
+});
+
+testRunner.test("favorites workspace keeps photo-first cards at every breakpoint and defers analysis tools", () => {
+  assert.match(favoritesRoute, /import\s+"@\/favorites-redesign\.css"/);
+  assert.match(favoritesRedesignCss, /\.favorites-page\s*>\s*\.property-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(favoritesRedesignCss, /\.favorites-page\s+\.pcard-media\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10/s);
+  assert.match(favoritesRedesignCss, /\.favorites-page\s+\.pcard-media\s+img\s*\{[^}]*object-fit:\s*cover/s);
+  assert.match(favoritesRedesignCss, /@media\s*\(max-width:\s*1100px\)[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(favoritesRedesignCss, /@media\s*\(max-width:\s*720px\)[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(favoritesRedesignCss, /\.favorites-page\s+\.pcard\.pcard-mobile-list\s+\.pcard-media\s+img\s*\{[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*16\s*\/\s*10/s);
+  assert.ok(favoritesRoute.indexOf("<div className=\"property-grid\">") < favoritesRoute.indexOf("<section className=\"favorites-insights\""),
+    "saved properties must appear before the optional analysis panels");
 });
 
 testRunner.test("responsive smoke exercises a loaded map view and the one-item compare empty state", () => {
