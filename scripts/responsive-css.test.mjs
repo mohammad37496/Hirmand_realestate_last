@@ -3,6 +3,7 @@ import fs from "node:fs";
 import testRunner from "node:test";
 
 const mobileFixes = fs.readFileSync(new URL("../src/mobile-device-fixes.css", import.meta.url), "utf8");
+const homepagePolishCss = fs.readFileSync(new URL("../src/components/hirmand/homepage-polish.css", import.meta.url), "utf8");
 const uiClarityCss = fs.readFileSync(new URL("../src/ui-clarity.css", import.meta.url), "utf8");
 const themeProCss = fs.readFileSync(new URL("../src/theme-pro.css", import.meta.url), "utf8");
 const propertyDetailCss = fs.readFileSync(new URL("../src/property-detail-pro.css", import.meta.url), "utf8");
@@ -61,6 +62,11 @@ testRunner.test("shared mobile styles do not hide root-level horizontal overflow
     "html must expose root-level horizontal overflow for diagnosis");
   assert.doesNotMatch(themeProCss, /body\s*\{[^}]*overflow-x\s*:\s*(?:hidden|clip)/is,
     "body must expose root-level horizontal overflow for diagnosis");
+});
+
+testRunner.test("homepage property categories are completely hidden on mobile", () => {
+  assert.match(homepagePolishCss, /@media\s*\(max-width:\s*720px\)\s*\{\s*\.site-home \.home-property-categories\s*\{\s*display:\s*none;\s*\}\s*\}/,
+    "the entire property-category section must be removed from the mobile homepage layout");
 });
 
 testRunner.test("ordinary Persian text is not subject to global anywhere wrapping", () => {
