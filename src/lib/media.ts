@@ -196,3 +196,27 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
 
   return [value];
 }
+
+/** Build a same-origin preview URL, optionally carrying a rejected-submission owner capability. */
+export function mediaPreviewSource(src: string, trackingToken = ""): string {
+  const candidate = mediaSourceCandidates(src)[0] ?? src;
+  let isCustomerSubmissionMedia = false;
+  if (trackingToken && candidate.startsWith("/api/media-proxy?")) {
+    try {
+      const proxy = new URL(candidate, "https://hirmandrealestate.ir");
+      const targetValue = proxy.searchParams.get("url");
+      if (targetValue) {
+        const target = new URL(targetValue);
+        isCustomerSubmissionMedia =
+          isLiaraStorageHost(target.href) &&
+          target.pathname.includes("/properties/customer-submissions/");
+      }
+    } catch {
+      isCustomerSubmissionMedia = false;
+    }
+  }
+  if (trackingToken && isCustomerSubmissionMedia) {
+    return candidate + "&trackingToken=" + encodeURIComponent(trackingToken);
+  }
+  return candidate;
+}

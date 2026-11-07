@@ -325,3 +325,22 @@ export function liaraObjectKeyFromUrl(
     return null;
   }
 }
+
+/** Restrict the public image proxy to object prefixes intentionally used by the site. */
+export function isAllowedLiaraMediaKey(value: string): boolean {
+  const key = value.trim();
+  if (
+    !key ||
+    key.includes("\\") ||
+    key.split("/").some((segment) => !segment || segment === "." || segment === "..")
+  ) {
+    return false;
+  }
+
+  return [
+    "properties/uploads/",
+    "properties/divar/",
+    "properties/customer-submissions/",
+    "areas/uploads/",
+  ].some((prefix) => key.startsWith(prefix) && key.length > prefix.length);
+}
