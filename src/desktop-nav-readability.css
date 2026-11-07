@@ -135,10 +135,6 @@
     line-height: 1.75;
   }
 
-  .site-nav .nav-tool-item-arrow {
-    color: var(--brass-700) !important;
-  }
-
   .site-nav .nav-actions {
     flex: 0 1 auto;
     min-width: 0;

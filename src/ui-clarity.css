@@ -3381,7 +3381,7 @@ body{
 .nav-tool-item{
   min-height:86px;
   display:grid!important;
-  grid-template-columns:auto minmax(0,1fr) auto;
+  grid-template-columns:auto minmax(0,1fr);
   align-items:center;
   gap:10px;
   padding:11px;
@@ -3426,11 +3426,6 @@ body{
   color:var(--subtle);
   font-size:.67rem;
   line-height:1.65;
-}
-.nav-tool-item-arrow{
-  color:var(--brass-700);
-  font-size:.85rem;
-  font-weight:800;
 }
 .nav-tools-trigger.is-current{
   background:var(--navy-900)!important;
