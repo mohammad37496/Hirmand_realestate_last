@@ -164,6 +164,8 @@ testRunner.test("responsive smoke exercises a loaded map view and the one-item c
   assert.match(browserSmoke, /نمایش فایل‌ها روی نقشه/);
   assert.match(browserSmoke, /pf-map-list-empty/);
   assert.match(browserSmoke, /map-side property list did not reach a loaded or empty state/);
+  assert.match(browserSmoke, /width <= 720 \? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه"/,
+    "responsive screenshots must restore the intended mobile-list or desktop map-and-cards default");
   assert.match(browserSmoke, /minimum-two-files empty state/);
   assert.match(browserSmoke, /outerHTML: element\.outerHTML/);
 });

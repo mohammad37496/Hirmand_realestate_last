@@ -633,7 +633,7 @@ try {
             }, null, { timeout: 20_000 }).then(() => true).catch(() => false);
             if (!mapResultsReady) failures.push("/properties @ " + width + "px: map-side property list did not reach a loaded or empty state");
 
-            // Return to a fresh default grid document before taking the screenshot;
+            // Return to a fresh default map-and-cards document before taking the screenshot;
             // the map viewport writes bounds to the URL while it is active.
             await page.goto(new URL("/properties?sort=newest", baseUrl).toString(), {
               waitUntil: "domcontentloaded",
@@ -642,7 +642,7 @@ try {
             await page.waitForFunction(() => !new URLSearchParams(window.location.search).has("sort"),
               null, { timeout: 5_000 }).catch(() => {});
           }
-          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش شبکه‌ای فایل‌ها";
+          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه";
           const defaultViewSelector = '.pf-views button[aria-label="' + defaultViewLabel + '"]';
           await page.waitForFunction((selector) => document.querySelector(selector)?.getAttribute("aria-pressed") === "true",
             defaultViewSelector, { timeout: 8_000 }).catch(() => {});
