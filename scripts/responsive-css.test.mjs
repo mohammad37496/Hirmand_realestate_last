@@ -29,6 +29,7 @@ const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-mark
 const favoritesPersonalCss = fs.readFileSync(new URL("../src/favorites-personal.css", import.meta.url), "utf8");
 const propertiesMapCardsCss = fs.readFileSync(new URL("../src/properties-map-cards.css", import.meta.url), "utf8");
 const propertiesProCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
+const propertyPhotoNotesCss = fs.readFileSync(new URL("../src/property-photo-notes.css", import.meta.url), "utf8");
 const budgetMatcherCss = fs.readFileSync(new URL("../src/budget-matcher-redesign.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
@@ -470,4 +471,13 @@ testRunner.test("Liara incident gallery object is verified directly through the 
   assert.ok(liaraGallerySmoke.includes("response.status"));
   assert.ok(liaraGallerySmoke.includes("response.url"));
   assert.ok(liaraGallerySmoke.includes("validWebp"));
+});
+
+testRunner.test("photo-note issue flag button has a 44px touch target", () => {
+  const flagButtonRule = propertyPhotoNotesCss.match(/\.property-photo-notes-title button\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(flagButtonRule, "the photo-note flag button rule should exist");
+  assert.match(flagButtonRule, /min-width:\s*44px/i);
+  assert.match(flagButtonRule, /min-height:\s*44px/i);
+  assert.match(flagButtonRule, /box-sizing:\s*border-box/i);
+  assert.match(flagButtonRule, /touch-action:\s*manipulation/i);
 });
