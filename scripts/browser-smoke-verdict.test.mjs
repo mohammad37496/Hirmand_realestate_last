@@ -416,6 +416,22 @@ test("lightbox next-image navigation is scoped to the open lightbox", () => {
     "the gallery and lightbox both have a next-image button, so navigation must target the lightbox");
 });
 
+test("disabled watermark smoke uses a fresh page and waits for the settings response", () => {
+  const src = readFileSync(join(TEMPLATE_ROOT, "scripts/browser-smoke.mjs"), "utf8");
+  const disabledCheckIndex = src.indexOf("const disabledWatermarkPage = await browser.newPage");
+  const disabledCheckEnd = src.indexOf("await disabledWatermarkPage.close()", disabledCheckIndex);
+  const disabledCheck = disabledCheckIndex >= 0 && disabledCheckEnd > disabledCheckIndex
+    ? src.slice(disabledCheckIndex, disabledCheckEnd)
+    : "";
+  assert.ok(disabledCheckIndex >= 0 && disabledCheck.length > 0,
+    "the disabled watermark state should run in an isolated page");
+  assert.match(disabledCheck, /enabled:\s*false/);
+  assert.match(disabledCheck, /waitForResponse\([\s\S]*?\/api\/public-watermark/);
+  assert.match(disabledCheck, /waitForFunction\([\s\S]*?property-lightbox-media-wrap \.property-media-watermark/);
+  assert.doesNotMatch(disabledCheck, /propertyPage\.reload/,
+    "the disabled-state check must not reuse the previously opened and closed portal page");
+});
+
 test("browser-smoke file I/O only touches guarded paths", () => {
   const src = readFileSync(join(TEMPLATE_ROOT, "scripts/browser-smoke.mjs"), "utf8");
   assert.doesNotMatch(src, /(?:writeFileSync|readFileSync|statSync|realpathSync)\(\s*["'`]/);

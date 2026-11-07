@@ -327,7 +327,7 @@ try {
     noWatermarkOnLightboxThumbnails: false,
   };
   const propertyPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  let watermarkEnabledForSmoke = true;
+  const watermarkEnabledForSmoke = true;
   await propertyPage.route("**/api/public-watermark", (route) => route.fulfill({
     status: 200,
     contentType: "application/json",
@@ -482,21 +482,54 @@ try {
             await propertyPage.getByRole("button", { name: "بستن نمایش تصاویر" }).click();
             await propertyPage.waitForSelector(".property-lightbox", { state: "detached", timeout: timeoutMs });
 
-            watermarkEnabledForSmoke = false;
-            await propertyPage.reload({ waitUntil: "domcontentloaded", timeout: timeoutMs });
-            await readDetailState();
-            await propertyPage.waitForFunction(() => {
-              const button = document.querySelector(".property-gallery-open");
-              const reactPropsKey = button && Object.keys(button).find((key) => key.startsWith("__reactProps$"));
-              return Boolean(reactPropsKey && typeof button[reactPropsKey]?.onClick === "function");
-            }, null, { timeout: timeoutMs });
-            await propertyPage.getByRole("button", { name: "باز کردن گالری تصاویر در اندازه بزرگ" }).click();
-            await propertyPage.waitForSelector(".property-lightbox", { timeout: timeoutMs });
-            await propertyPage.waitForTimeout(500);
-            propertyNavigationCheck.noWatermarkWhenDisabled =
-              (await propertyPage.locator(".property-lightbox-media-wrap .property-media-watermark").count()) === 0;
-            await propertyPage.getByRole("button", { name: "بستن نمایش تصاویر" }).click();
-            await propertyPage.waitForSelector(".property-lightbox", { state: "detached", timeout: timeoutMs });
+            // Verify the disabled setting in a fresh page instead of reloading
+            // the page that just mounted/unmounted the portal. This keeps the
+            // second state independent of stale router/portal hydration state.
+            const disabledWatermarkPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+            try {
+              await disabledWatermarkPage.route("**/api/public-watermark", (route) => route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                  enabled: false,
+                  showLogo: true,
+                  showText: true,
+                  text: "املاک هیرمند",
+                  opacity: 0.82,
+                  size: 1,
+                }),
+              }));
+              await disabledWatermarkPage.goto(new URL(propertyNavigationCheck.status, url).toString(), {
+                waitUntil: "domcontentloaded",
+                timeout: timeoutMs,
+              });
+              await disabledWatermarkPage.waitForSelector(".property-detail-page:not(.property-detail-skeleton)", {
+                timeout: timeoutMs,
+              });
+              await disabledWatermarkPage.waitForFunction(() => {
+                const button = document.querySelector(".property-gallery-open");
+                const reactPropsKey = button && Object.keys(button).find((key) => key.startsWith("__reactProps$"));
+                return Boolean(reactPropsKey && typeof button[reactPropsKey]?.onClick === "function");
+              }, null, { timeout: timeoutMs });
+              const disabledSettingsResponse = disabledWatermarkPage.waitForResponse((response) => {
+                try {
+                  return new URL(response.url()).pathname === "/api/public-watermark";
+                } catch {
+                  return false;
+                }
+              }, { timeout: timeoutMs });
+              await disabledWatermarkPage.getByRole("button", { name: "باز کردن گالری تصاویر در اندازه بزرگ" }).click();
+              await disabledWatermarkPage.waitForSelector(".property-lightbox", { timeout: timeoutMs });
+              await disabledSettingsResponse;
+              await disabledWatermarkPage.waitForFunction(() =>
+                document.querySelectorAll(".property-lightbox-media-wrap .property-media-watermark").length === 0,
+              null, { timeout: timeoutMs });
+              propertyNavigationCheck.noWatermarkWhenDisabled = true;
+              await disabledWatermarkPage.getByRole("button", { name: "بستن نمایش تصاویر" }).click();
+              await disabledWatermarkPage.waitForSelector(".property-lightbox", { state: "detached", timeout: timeoutMs });
+            } finally {
+              await disabledWatermarkPage.close();
+            }
           } catch (error) {
             propertyNavigationCheck.error = "gallery/lightbox watermark check failed: " + String(error?.message || error);
           }
