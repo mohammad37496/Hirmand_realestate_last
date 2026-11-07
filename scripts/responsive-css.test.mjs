@@ -25,6 +25,7 @@ const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.met
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
+const propertiesMapCardsCss = fs.readFileSync(new URL("../src/properties-map-cards.css", import.meta.url), "utf8");
 const propertiesProCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
@@ -235,7 +236,8 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(120px,40vw,170px\) minmax\(0,1fr\)/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[^}]*direction:rtl/);
-  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions[\s\S]*?grid-row:2/);
+  assert.match(propertyShowcase, /<div className="pcard-media">[\s\S]*?<div className="pcard-actions"[\s\S]*?<\/div>\s*<\/div>\s*<Link[\s\S]*?className="pcard-link"/);
+  assert.match(propertiesMarketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions[\s\S]*?inset-block-end:\s*0/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-specs[\s\S]*?background:transparent/);
   const marketplaceMobileListRule = propertiesMarketplaceCss.match(/\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*\}/is)?.[0] ?? "";
   assert.ok(marketplaceMobileListRule, "the later marketplace stylesheet must preserve the mobile horizontal list card");
@@ -243,6 +245,25 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(marketplaceMobileListRule, /direction:\s*rtl/i);
   assert.doesNotMatch(propertiesMarketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard > \.pcard-link\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column/is,
     "the marketplace mobile cascade must not restore the photo-first layout in list mode");
+});
+
+testRunner.test("map-side property cards expose polished Hirmand listing details", () => {
+  assert.match(propertiesRoute, /className="pf-map-item-badge"[\s\S]*?property\.transactionType/,
+    "map cards should identify the transaction type or featured listing");
+  assert.match(propertiesRoute, /className="pf-map-item-location"[\s\S]*?property\.neighborhood/,
+    "map cards should show the neighborhood with a location cue");
+  assert.match(propertiesRoute, /className="pf-map-item-specs"[\s\S]*?property\.areaM2[\s\S]*?property\.bedrooms/,
+    "map cards should expose area and bedroom facts as separate compact specs");
+  assert.match(propertiesRoute, /className="pf-map-item-open"[\s\S]*?جزئیات/,
+    "each map card should keep a clear detail action");
+  assert.match(propertiesMapCardsCss, /\.pf-page \.pf-map-divar-layout \.pf-map-card-row\s*\{[^}]*border-radius:\s*15px;[^}]*box-shadow:/s,
+    "map results should read as individual elevated cards");
+  assert.match(propertiesMapCardsCss, /\.pf-page \.pf-map-divar-layout \.pf-map-item\.is-active\s*\{[^}]*background:\s*var\(--navy-900/,
+    "the selected result should use Hirmand navy with contrasting details");
+  assert.match(propertiesMapCardsCss, /\.pf-page \.pf-map-item-open\s*\{[^}]*min-height:\s*44px/s,
+    "the detail action must remain touch accessible");
+  assert.ok(rootRoute.indexOf("responsiveHardeningCss") < rootRoute.indexOf("propertiesMapCardsCss"),
+    "map-card polish must load after the responsive cascade so its dimensions and palette stay in effect");
 });
 
 
@@ -253,7 +274,7 @@ testRunner.test("all shared property cards use the readable RTL mobile list layo
   assert.match(propertyLibrary, /bedrooms, built_year, parking, elevator, storage, price, deposit, rent/);
   assert.match(propertyLibrary, /storage: Boolean\(row\.storage\)/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(120px,40vw,170px\) minmax\(0,1fr\)/);
-  assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions \.property-actions-compact[\s\S]*?flex-wrap:wrap/);
+  assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list \.pcard-actions \.property-actions-compact[\s\S]*?flex-wrap:nowrap/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-actions \.property-action[\s\S]*?width:44px; height:44px; min-height:44px/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-title[\s\S]*?font-size:\.88rem/);
   assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list/);
@@ -302,6 +323,10 @@ testRunner.test("desktop defaults to grid and mobile to list until a visitor man
 
   assert.match(browserSmoke, /first shared property-card image did not load or fall back successfully/,
     "browser smoke must verify shared-card image loading on every property-list surface");
+  assert.match(browserSmoke, /const imageLink = card\.querySelector\("\.pcard-media > \.pcard-image-link"\)/,
+    "RTL mobile card geometry must measure the visible image link, not its full-width media wrapper");
+  assert.match(browserSmoke, /document\.elementFromPoint\([\s\S]*?bodyElement\.contains\(bodyHitTarget\)/,
+    "RTL mobile smoke must detect when the photo wrapper paints over the property details");
   assert.match(browserSmoke, /interactive map canvas/, "browser smoke must verify the map view renders its real map canvas");
 
   assert.match(browserSmoke, /page\.goBack\(\{ waitUntil: "domcontentloaded" \}\)/, "browser back must restore the real listing route");
