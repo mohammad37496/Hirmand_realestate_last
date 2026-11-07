@@ -9,8 +9,12 @@ test("guides page uses the Hirmand visual system and readable Persian typography
   assert.match(page, /guides-hero/);
   assert.match(page, /guides-discovery/);
   assert.match(page, /guides-cta/);
-  assert.match(styles, /--guides-deep:\s*#173d39/);
-  assert.match(styles, /--guides-gold:\s*#c48a3a/);
+  assert.match(styles, /--guides-deep:\s*var\(--navy-900,\s*#0b1a2b\)/);
+  assert.match(styles, /--guides-deepest:\s*var\(--navy-950,\s*#081320\)/);
+  assert.match(styles, /--guides-teal:\s*var\(--brass-700,\s*#8a5e14\)/);
+  assert.match(styles, /--guides-gold:\s*var\(--brass-500,\s*#c08a2a\)/);
+  assert.match(styles, /linear-gradient\(125deg, var\(--navy-950/);
+  assert.doesNotMatch(styles, /#(?:173d39|102e2b|0f766e|194842|205b52|20564e)\b|rgba?\(\s*(?:15,\s*118,\s*110|23,\s*61,\s*57|18,\s*54,\s*48|29,\s*49,\s*42|29,\s*67,\s*56)\b/i);
   assert.match(styles, /font-family:\s*var\(--font,\s*"Vazirmatn"/);
   assert.match(styles, /color:\s*var\(--guides-text\)/);
 });
