@@ -74,6 +74,14 @@ jobs:
           LIARA_PUBLIC_URL: https://hirmandrealestate.ir
         run: node scripts/verify-live-deployment.mjs
 
+      - name: Verify the reported Liara gallery image through the public media proxy
+        id: liara_gallery_image_verify
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          LIARA_PUBLIC_URL: https://hirmandrealestate.ir
+        run: node scripts/verify-liara-gallery-object.mjs
+
       - name: Install live browser smoke dependencies
         timeout-minutes: 12
         run: |
@@ -101,6 +109,7 @@ jobs:
         env:
           LIVE_RELEASE_OUTCOME: ${{ steps.live_release_verify.outcome }}
           LIVE_BROWSER_OUTCOME: ${{ steps.live_browser_smoke.outcome }}
+          LIARA_GALLERY_IMAGE_OUTCOME: ${{ steps.liara_gallery_image_verify.outcome }}
         shell: bash
         run: |
           set -euo pipefail
@@ -110,6 +119,10 @@ jobs:
           fi
           if [[ "${LIVE_BROWSER_OUTCOME}" != "success" ]]; then
             echo "::error::Live responsive browser verification did not succeed."
+            exit 1
+          fi
+          if [[ "${LIARA_GALLERY_IMAGE_OUTCOME}" != "success" ]]; then
+            echo "::error::The reported Liara gallery object did not load as a valid image through the public media proxy."
             exit 1
           fi
 

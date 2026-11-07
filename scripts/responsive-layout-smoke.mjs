@@ -71,6 +71,8 @@ function routeFileName(route) {
   return route.replace(/[?].*$/, "").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "") || "home";
 }
 
+let samplePropertySlug = null;
+
 try {
   for (const route of routes) {
     const page = await browser.newPage({
@@ -127,6 +129,16 @@ try {
     });
 
     try {
+      if (route === "/favorites" || route === "/compare") {
+        if (!samplePropertySlug) {
+          failures.push(route + ": a real published property slug was not discovered for the read-only saved-list smoke");
+        } else {
+          const storageKey = route === "/favorites" ? "hirmand-favorite-properties" : "hirmand-compare-properties";
+          await page.addInitScript(({ key, slug }) => {
+            localStorage.setItem(key, JSON.stringify([slug]));
+          }, { key: storageKey, slug: samplePropertySlug });
+        }
+      }
       const response = await page.goto(new URL(route, baseUrl).toString(), {
         waitUntil: "domcontentloaded",
         timeout: 30_000,
@@ -142,7 +154,7 @@ try {
       // Every route that renders shared property cards must preserve the RTL
       // mobile invariant: image on the right, property details on the left.
       const sharedMobileCard = page.locator(route === "/properties" ? ".pf-grid .pcard-mobile-list" : ".pcard-mobile-list").first();
-      if (route === "/" || route === "/properties") {
+      if (route === "/" || route === "/properties" || route === "/favorites" || route === "/compare") {
         await sharedMobileCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
         if (!(await sharedMobileCard.isVisible().catch(() => false))) {
           failures.push(route + " @ 320px: published property cards did not render before layout verification");
@@ -424,6 +436,11 @@ try {
           }
           const detailsHref = await firstCard.locator(".pcard-link").getAttribute("href");
           if (!detailsHref || (!detailsHref.startsWith("/properties/") && !detailsHref.startsWith("/file/"))) failures.push("/properties @ 320px: property details link is missing or invalid");
+          if (detailsHref) {
+            const detailPath = new URL(detailsHref, baseUrl).pathname;
+            const candidateSlug = decodeURIComponent(detailPath.split("/").filter(Boolean).pop() ?? "");
+            if (candidateSlug && candidateSlug !== "properties") samplePropertySlug = candidateSlug;
+          }
 
           const verifyActionToggle = async (selector, label) => {
             const control = firstCard.locator(selector).first();
@@ -572,6 +589,36 @@ try {
             '.pf-views button[aria-label="' + defaultViewLabel + '"]', { timeout: 8_000 }).catch(() => {});
           if ((await defaultView.getAttribute("aria-pressed").catch(() => null)) !== "true") {
             failures.push("/properties @ " + width + "px: default view was not restored before responsive screenshot capture");
+          }
+          if (width <= 720) {
+            const screenshotCard = page.locator(".pf-grid .pcard-mobile-list").first();
+            const cardReady = await screenshotCard.waitFor({ state: "visible", timeout: 20_000 }).then(() => true).catch(() => false);
+            if (!cardReady) {
+              failures.push("/properties @ " + width + "px: no real property card was ready for the mobile screenshot");
+            } else {
+              const screenshotImage = screenshotCard.locator(".pcard-media img").first();
+              await screenshotImage.scrollIntoViewIfNeeded().catch(() => {});
+              await page.waitForFunction(() => {
+                const image = document.querySelector(".pf-grid .pcard-mobile-list .pcard-media img");
+                return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
+              }, null, { timeout: 15_000 }).catch(() => {});
+              const imageState = await screenshotImage.evaluate((image) => ({
+                loaded: image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+                src: image.getAttribute("src"),
+                currentSrc: image.currentSrc,
+                complete: image.complete,
+                naturalWidth: image.naturalWidth,
+              })).catch(() => null);
+              if (!imageState?.loaded) {
+                failures.push("/properties @ " + width + "px: mobile screenshot card image did not finish loading; state=" + JSON.stringify(imageState));
+              }
+            }
+          } else {
+            const mapResultsReady = await page.waitForFunction(() => {
+              const list = document.querySelector(".pf-map-list");
+              return Boolean(list) && !/در حال جست‌وجو/.test(list.innerText);
+            }, null, { timeout: 20_000 }).then(() => true).catch(() => false);
+            if (!mapResultsReady) failures.push("/properties @ " + width + "px: map-side property list remained in its loading state during screenshot capture");
           }
           const filterDrawerState = await page.locator(".pf-sidebar").first().evaluate((drawer) => {
             const style = getComputedStyle(drawer);
