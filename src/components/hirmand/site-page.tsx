@@ -40,6 +40,7 @@ import { Reveal } from "./reveal";
 import { scrollToId } from "./scroll";
 import { SiteChrome } from "./site-chrome";
 import { SmartRecommendations } from "./smart-recommendations";
+import { DEFAULT_GUIDES } from "@/lib/site-content-static";
 import { useConsultants } from "./consultants-context";
 import type { Consultant } from "@/lib/consultants";
 import {
@@ -302,6 +303,34 @@ function TrustStrip() {
           </div>
         ))}
       </div>
+      <div className="trust-strip-links" aria-label="شفافیت و اطلاعات هیرمند">
+        <Link to="/consultants"><BadgeCheck size={16} />مشاهده مشاوران و راه‌های تماس</Link>
+        <Link to="/guides"><Scale size={16} />راهنمای تصمیم‌گیری و معامله</Link>
+        <Link to="/" hash="contact"><Phone size={16} />نشانی و ارتباط با دفتر</Link>
+      </div>
+    </section>
+  );
+}
+
+function GuidesPreview() {
+  return (
+    <section className="section home-guides-preview" aria-labelledby="home-guides-title">
+      <div className="section-head">
+        <span className="kicker">دانش پیش از معامله</span>
+        <h2 id="home-guides-title">قبل از انتخاب ملک، آگاهانه‌تر تصمیم بگیرید</h2>
+        <p>راهنماهای کوتاه هیرمند برای بررسی فایل، بازدید و مقایسه شرایط معامله.</p>
+      </div>
+      <div className="home-guides-grid">
+        {DEFAULT_GUIDES.slice(0, 3).map((guide) => (
+          <article className="home-guide-card" key={guide.id}>
+            <span>{guide.category}</span>
+            <h3>{guide.title}</h3>
+            <p>{guide.summary}</p>
+            <a href={`/guides?guide=${encodeURIComponent(guide.id)}`}>مطالعه راهنما <span aria-hidden="true">←</span></a>
+          </article>
+        ))}
+      </div>
+      <div className="home-guides-footer"><Link to="/guides">مشاهده همه راهنماها</Link></div>
     </section>
   );
 }
@@ -914,6 +943,8 @@ export function SitePage({
         <TrustStrip />
         <PropertyShowcase initialProperties={initialProperties} />
         <Properties />
+        <SmartRecommendations />
+        <GuidesPreview />
         <Inquiry draft={draft} />
         <details className="home-secondary">
           <summary>
@@ -928,7 +959,6 @@ export function SitePage({
             <Process />
             <Neighborhoods onPick={(name) => goInquiry({ neighborhood: name })} />
             <Team />
-            <SmartRecommendations />
             <Tools />
             <TrackingCta />
             <FAQ items={faqItems} />

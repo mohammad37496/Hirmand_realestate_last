@@ -34,6 +34,7 @@ import propertiesDivarRedesignCss from "../properties-divar-redesign.css?url";
 import propertiesFiltersRedesignCss from "../properties-filters-redesign.css?url";
 import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
 import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css?url";
+import propertiesMapCardsCss from "../properties-map-cards.css?url";
 import musicPlayerLayoutCss from "../music-player-layout.css?url";
 
 export const Route = createRootRoute({
@@ -89,6 +90,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: propertiesFiltersRedesignCss },
       { rel: "stylesheet", href: propertiesMarketplacePolishCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
+      { rel: "stylesheet", href: propertiesMapCardsCss },
       { rel: "stylesheet", href: musicPlayerLayoutCss },
     ],
   }),

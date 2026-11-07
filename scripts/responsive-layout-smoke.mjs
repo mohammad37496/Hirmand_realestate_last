@@ -388,21 +388,52 @@ try {
           }
 
           const geometry = await firstCard.evaluate((card) => {
-            const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
-            const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
+            const imageLink = card.querySelector(".pcard-media > .pcard-image-link")?.getBoundingClientRect();
+            const bodyElement = card.querySelector(".pcard-body");
+            const body = bodyElement?.getBoundingClientRect();
+            const bodyStyle = bodyElement ? getComputedStyle(bodyElement) : null;
+            const bodyHitTarget = body ? document.elementFromPoint(
+              body.left + body.width / 2,
+              body.top + body.height / 2,
+            ) : null;
+            const rail = card.querySelector(".pcard-actions .property-actions, .pcard-actions .property-actions-compact");
+            const railRect = rail?.getBoundingClientRect();
+            const cardRect = card.getBoundingClientRect();
+            const railStyle = rail ? getComputedStyle(rail) : null;
+            const buttons = Array.from(card.querySelectorAll(".pcard-actions .property-action"));
             return {
-              imageOnRight: Boolean(media && body && media.left >= body.right - 2),
-              actions: Array.from(card.querySelectorAll(".pcard-actions .property-action")).map((button) => button.getAttribute("aria-label") || ""),
-              actionsFit: Array.from(card.querySelectorAll(".pcard-actions .property-action")).every((button) => {
+              imageOnRight: Boolean(imageLink && body && imageLink.left >= body.right - 2),
+              bodyContentVisible: Boolean(bodyElement && body && body.width > 0 && body.height > 0 &&
+                bodyStyle && bodyStyle.visibility !== "hidden" && Number(bodyStyle.opacity) > 0 &&
+                bodyElement.textContent?.trim() && bodyHitTarget && bodyElement.contains(bodyHitTarget)),
+              actions: buttons.map((button) => button.getAttribute("aria-label") || ""),
+              actionRailContained: Boolean(railRect &&
+                railRect.left >= cardRect.left - 1 && railRect.right <= cardRect.right + 1),
+              actionRailScrollable: Boolean(rail && railStyle &&
+                ["auto", "scroll"].includes(railStyle.overflowX) && rail.scrollWidth > rail.clientWidth + 1),
+              actionTargetsUsable: buttons.length > 0 && buttons.every((button) => {
                 const buttonRect = button.getBoundingClientRect();
-                const cardRect = card.getBoundingClientRect();
-                return buttonRect.left >= cardRect.left - 1 && buttonRect.right <= cardRect.right + 1;
+                return buttonRect.width >= 44 && buttonRect.height >= 44;
               }),
             };
           });
           if (!geometry.imageOnRight) failures.push("/properties @ 320px: property image is not on the right of the details");
+          if (!geometry.bodyContentVisible) failures.push("/properties @ 320px: property details are covered or not visible beside the image");
           if (!geometry.actions.some((label) => label.includes("ذخیره")) || !geometry.actions.some((label) => label.includes("مقایسه"))) failures.push("/properties @ 320px: favorite or compare action is missing");
-          if (!geometry.actionsFit) failures.push("/properties @ 320px: property actions overflow the card width");
+          if (!geometry.actionRailContained) failures.push("/properties @ 320px: property action rail exceeds the card bounds");
+          if (!geometry.actionRailScrollable) failures.push("/properties @ 320px: compact property actions are not horizontally scrollable");
+          if (!geometry.actionTargetsUsable) failures.push("/properties @ 320px: property action buttons must keep 44px touch targets");
+          for (const edgeAction of [firstCard.locator(".pcard-actions .property-action").first(), firstCard.locator(".pcard-actions .property-action").last()]) {
+            await edgeAction.evaluate((button) => button.scrollIntoView({ block: "nearest", inline: "nearest" }));
+            const edgeActionVisible = await edgeAction.evaluate((button) => {
+              const rail = button.closest(".property-actions, .property-actions-compact");
+              if (!rail) return false;
+              const buttonRect = button.getBoundingClientRect();
+              const railRect = rail.getBoundingClientRect();
+              return buttonRect.left >= railRect.left - 1 && buttonRect.right <= railRect.right + 1;
+            });
+            if (!edgeActionVisible) failures.push("/properties @ 320px: an edge property action cannot be reached by scrolling the action rail");
+          }
           const detailsHref = await firstCard.locator(".pcard-link").getAttribute("href");
           if (!detailsHref || (!detailsHref.startsWith("/properties/") && !detailsHref.startsWith("/file/"))) failures.push("/properties @ 320px: property details link is missing or invalid");
           if (detailsHref) {

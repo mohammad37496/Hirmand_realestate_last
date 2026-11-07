@@ -940,7 +940,7 @@
     direction: rtl;
     grid-column: 1;
     grid-row: 1;
-    grid-template-columns: clamp(96px, 28vw, 116px) minmax(0, 1fr);
+    grid-template-columns: clamp(120px, 40vw, 170px) minmax(0, 1fr);
     min-width: 0;
     width: 100%;
   }
@@ -973,6 +973,7 @@
   .pf-page .pf-map-controls button { width: 33px; height: 33px; border-radius: 9px; }
   .pf-page .pf-empty { padding: 30px 14px; }
 }
+
 @media (max-width: 380px) {
   .pf-page .pf-stats dt { font-size: .56rem; }
   .pf-page .pf-stats dd { font-size: .88rem; }
@@ -981,6 +982,73 @@
   .pf-page .pf-grid { grid-template-columns: minmax(0, 1fr); }
   .pf-page .pf-views button { padding-inline: 6px; }
 }
+
+/* Tablet and phone controls share the 44px minimum touch target. */
+@media (max-width: 1024px) {
+  .pf-page .pf-filter-primary .pf-chip,
+  .pf-page .pf-quick .pf-chip,
+  .pf-page .pf-active .pf-chip,
+  .pf-page .pf-views button,
+  .pf-page .pf-filter-btn,
+  .pf-page .pf-search input,
+  .pf-page .pf-sort .pf-select,
+  .pf-page .pf-group-toggle,
+  .pf-page .pf-reset,
+  .pf-page .pf-show-results,
+  .pf-page .pf-tools > a,
+  .pf-page .pf-tools > button,
+  .pf-page .pf-tools > select,
+  .pf-page .pf-sidebar .pf-close {
+    min-height: 44px !important;
+  }
+
+  .pf-page .pf-sidebar .pf-close { min-width: 44px; width: 44px; }
+  .pf-page .pf-filter-primary .pf-chip,
+  .pf-page .pf-quick .pf-chip,
+  .pf-page .pf-active .pf-chip,
+  .pf-page .pf-views button { min-width: 44px; }
+
+  .pf-page .pf-map-controls button { width: 44px; height: 44px; }
+  .pf-page .pf-map-floating-head a { min-height: 44px; }
+  .pcard-actions .property-action { width: 44px; height: 44px; min-height: 44px; }
+}
+
+/* Mobile marketplace controls: retain the compact visual rhythm without
+   shrinking interactive targets below the 44px touch guideline. */
+@media (max-width: 640px) {
+  .pf-page .pf-chip,
+  .pf-page .pf-quick .pf-chip,
+  .pf-page .pf-active .pf-chip,
+  .pf-page .pf-views button,
+  .pf-page .pf-tools > a,
+  .pf-page .pf-tools > button,
+  .pf-page .pf-tools > select,
+  .pf-page .pf-sidebar .pf-close {
+    min-height: 44px !important;
+  }
+
+  .pf-page .pf-filter-primary .pf-chip,
+  .pf-page .pf-quick .pf-chip,
+  .pf-page .pf-active .pf-chip {
+    min-height: 44px !important;
+  }
+
+  .pf-page .pf-quick {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pf-page .pf-quick::-webkit-scrollbar { display: none; }
+  .pf-page .pf-quick .pf-chip { flex: 0 0 auto; }
+  .pf-page .pf-views button { min-width: 44px; }
+  .pf-page .pf-map-controls button { width: 44px; height: 44px; }
+  .pf-page .pf-map-floating-head a { min-height: 44px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .pf-page .pf-chip,
   .pf-page .pf-filter-btn,
@@ -988,4 +1056,781 @@
   .pf-page .pf-views button {
     transition: none;
   }
+}
+
+/* -------------------------------------------------------------------------
+   Professional desktop list cards
+   RTL track order: property image (right) · details (centre) · actions (left).
+   The compact mobile list remains owned by property-card.css below 721px.
+   ------------------------------------------------------------------------- */
+@media (min-width: 721px) {
+  .pf-page .pf-grid.is-list-view {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard {
+    display: grid;
+    grid-template-columns: minmax(230px, 28%) minmax(0, 1fr) 108px;
+    grid-template-rows: minmax(224px, auto);
+    align-items: stretch;
+    min-height: 224px;
+    overflow: hidden;
+    border: 1px solid #e1e6e9;
+    border-radius: 19px;
+    background: #fff;
+    box-shadow: 0 5px 18px rgb(11 26 43 / 4%);
+    transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard:hover,
+  .pf-page .pf-grid.is-list-view > .pcard:focus-within {
+    transform: translateY(-2px);
+    border-color: #d4bd8b;
+    box-shadow: 0 12px 28px rgb(11 26 43 / 9%);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-link {
+    display: grid;
+    grid-column: 1 / 3;
+    grid-row: 1;
+    grid-template-columns: minmax(230px, 28%) minmax(0, 1fr);
+    align-items: stretch;
+    min-width: 0;
+    direction: rtl;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 224px;
+    aspect-ratio: auto;
+    background: #f1eee7;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media picture,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 224px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media img {
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-body {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    gap: 11px;
+    padding: 19px 22px 17px;
+    text-align: right;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-topline {
+    align-items: center;
+    gap: 8px 12px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-meta {
+    gap: 5px 10px;
+    color: #687785;
+    font-size: .75rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-code {
+    padding: 4px 9px;
+    border: 1px solid #e8e2d5;
+    border-radius: 7px;
+    background: #faf8f3;
+    color: #75664d;
+    font-size: .7rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-title {
+    min-height: 0;
+    color: #172b3f;
+    font-size: 1.12rem;
+    line-height: 1.75;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price-row {
+    gap: 3px;
+    padding: 9px 12px;
+    border: 1px solid #e8eee9;
+    border-radius: 11px;
+    background: linear-gradient(110deg, #fbfdfb, #f4f8f4);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price-value {
+    color: #194c39;
+    font-size: 1.12rem;
+    font-weight: 900;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-unit-price {
+    color: #718078;
+    font-size: .72rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-specs {
+    gap: 6px;
+    margin-top: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-specs span {
+    min-height: 31px;
+    padding: 5px 9px;
+    border: 1px solid #e8ebed;
+    border-radius: 8px;
+    background: #fbfcfc;
+    color: #526273;
+    box-shadow: none;
+    font-size: .72rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-footer {
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid #edf0f2;
+    color: #687785;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions {
+    position: static;
+    z-index: 1;
+    grid-column: 3;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 14px 10px;
+    border-top: 0;
+    border-inline-start: 1px solid #edf0f2;
+    background: #faf9f6;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions-compact {
+    display: grid;
+    grid-template-columns: repeat(2, 44px);
+    justify-content: center;
+    gap: 8px;
+    width: auto;
+    max-width: 100%;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    border: 1px solid #e1e5e7;
+    border-radius: 9px;
+    background: #fff;
+    color: #596a79;
+    box-shadow: 0 2px 5px rgb(11 26 43 / 4%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action:hover {
+    border-color: #d2b77a;
+    background: #fff9ec;
+    color: #805b1e;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action.is-active {
+    border-color: #d5b66e;
+    background: #f5e8c9;
+    color: #6e4d16;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 980px) {
+  .pf-page .pf-grid.is-list-view > .pcard {
+    grid-template-columns: minmax(180px, 27%) minmax(0, 1fr) 104px;
+    grid-template-rows: minmax(210px, auto);
+    min-height: 210px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-link {
+    grid-template-columns: minmax(180px, 27%) minmax(0, 1fr);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media picture,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-media img {
+    min-height: 210px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-body {
+    gap: 8px;
+    padding: 14px 15px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-title { font-size: 1rem; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-price-value { font-size: 1rem; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-specs span { min-height: 28px; padding: 4px 7px; font-size: .67rem; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions { padding-inline: 4px; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-actions-compact { grid-template-columns: repeat(2, 44px); gap: 8px; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action { width: 44px; height: 44px; min-height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-page .pf-grid.is-list-view > .pcard,
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-actions .property-action {
+    transition: none;
+  }
+}
+
+/* Keep the shared mobile card layout through the 641–720px breakpoint gap. */
+@media (min-width: 641px) and (max-width: 720px) {
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(164px, auto) auto;
+    min-height: 0;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
+    display: grid;
+    grid-column: 1;
+    grid-row: 1;
+    grid-template-columns: clamp(96px, 28vw, 116px) minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-media {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 164px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-body {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    padding: 10px 11px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions {
+    position: static;
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    padding: 6px 10px;
+    border-top: 1px solid #edf0f2;
+  }
+}
+
+/* Mobile list cards: keep the same quick-scan hierarchy as the reference
+   marketplace and keep every card action reachable in one compact swipe row. */
+@media (max-width: 640px) {
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list {
+    grid-template-rows: minmax(168px, auto);
+    border-radius: 15px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
+    grid-template-columns: clamp(120px, 40vw, 170px) minmax(0, 1fr);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-media,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-media picture,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-media img {
+    min-height: clamp(168px, 46.4vw, 181px);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-body {
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 9px 10px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-meta {
+    font-size: .68rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-title {
+    font-size: .86rem;
+    line-height: 1.55;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-price-row {
+    padding: 3px 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-price,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-price-value {
+    font-size: .92rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-specs span:nth-child(n + 4) {
+    display: none;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-specs span {
+    min-height: 25px;
+    padding: 3px 5px;
+    font-size: .63rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-footer {
+    gap: 4px 7px;
+    font-size: .66rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions {
+    grid-row: 2;
+    min-width: 0;
+    height: 48px;
+    min-height: 48px;
+    padding: 1px 9px;
+    overflow: hidden;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions .property-actions,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions .property-actions-compact {
+    display: flex !important;
+    flex: 1 1 auto;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start;
+    gap: 7px;
+    min-width: 0;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 1px 2px 4px;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    grid-template-columns: none !important;
+    inset: auto !important;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions .property-actions::-webkit-scrollbar,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions .property-actions-compact::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions .property-action {
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    scroll-snap-align: start;
+  }
+
+  /* Keep the marketplace card body as compact as the shared homepage card. */
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-body {
+    gap: 4px;
+    padding: 8px 8px 56px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-title {
+    font-size: .8rem;
+    line-height: 1.45;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-price,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-price-value {
+    font-size: .82rem;
+    line-height: 1.4;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-price-row {
+    padding: 0;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-unit-price {
+    display: none;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-specs {
+    flex-wrap: nowrap;
+    gap: 3px;
+    margin-top: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-specs svg {
+    display: none;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-specs span {
+    min-height: 22px;
+    padding: 2px 4px;
+    font-size: .6rem;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-footer {
+    font-size: .62rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions .property-actions,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions .property-actions-compact {
+    padding: 0 2px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-actions {
+    position: absolute;
+    inset-inline-end: 0;
+    inset-block-start: auto;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: 0;
+    grid-column: auto;
+    grid-row: auto;
+    width: calc(100% - clamp(120px, 40vw, 170px));
+    padding: 1px 5px;
+    border-top: 1px solid var(--line);
+    background: var(--card);
+  }
+}
+
+/* Final cascade guard: a compact floating action dock sits at the photo bottom. */
+.pcard > .pcard-media { position: relative; overflow: hidden; }
+.pcard > .pcard-media > .pcard-image-link { display: block; width: 100%; height: 100%; color: inherit; }
+.pcard > .pcard-media > .pcard-image-link picture,
+.pcard > .pcard-media > .pcard-image-link img { display: block; width: 100%; height: 100%; }
+.pcard > .pcard-media > .pcard-actions {
+  box-sizing: border-box;
+  position: absolute;
+  z-index: 3;
+  inset-inline: 0;
+  inset-block-start: auto;
+  inset-block-end: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 7px 9px;
+  overflow: hidden;
+  border: 0;
+  border-inline-start: 0;
+  background: transparent;
+  pointer-events: none;
+}
+.pcard > .pcard-media > .pcard-actions .property-actions,
+.pcard > .pcard-media > .pcard-actions .property-actions-compact {
+  display: flex !important;
+  flex: 0 1 auto;
+  flex-wrap: nowrap !important;
+  justify-content: flex-start;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid rgb(255 255 255 / 82%);
+  border-radius: 15px;
+  background: rgb(255 255 255 / 91%);
+  box-shadow: 0 5px 18px rgb(5 16 28 / 22%), inset 0 1px 0 rgb(255 255 255 / 92%);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  grid-template-columns: none !important;
+  pointer-events: auto;
+  scroll-snap-type: inline proximity;
+}
+.pcard > .pcard-media > .pcard-actions .property-actions::-webkit-scrollbar,
+.pcard > .pcard-media > .pcard-actions .property-actions-compact::-webkit-scrollbar { display: none; }
+.pcard > .pcard-media > .pcard-actions .property-action {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  border: 1px solid rgb(29 48 67 / 10%);
+  border-radius: 11px;
+  background: rgb(247 249 250 / 96%);
+  color: #31465a;
+  box-shadow: 0 1px 2px rgb(8 23 39 / 7%);
+  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  scroll-snap-align: start;
+}
+.pcard > .pcard-media > .pcard-actions .property-action:hover {
+  transform: translateY(-2px);
+  border-color: #d8bd80;
+  background: #fffaf0;
+  color: #79591f;
+  box-shadow: 0 3px 9px rgb(8 23 39 / 12%);
+}
+.pcard > .pcard-media > .pcard-actions .property-action.is-active {
+  border-color: #d8bd80;
+  background: #f5e9cd;
+  color: #76551b;
+}
+.pcard > .pcard-media > .pcard-actions .property-action:focus-visible {
+  outline: 2px solid #a77d32;
+  outline-offset: 2px;
+}
+
+@media (min-width: 721px) {
+  .property-grid.is-list-view > .pcard { grid-template-columns: 288px minmax(0, 1fr); }
+  .property-grid.is-list-view > .pcard > .pcard-media { grid-column: 1; grid-row: 1; }
+  .property-grid.is-list-view > .pcard > .pcard-link { display: flex; grid-column: 2; grid-row: 1; min-width: 0; }
+  .property-grid.is-list-view > .pcard .pcard-body { width: 100%; }
+  .pf-page .pf-grid.is-list-view > .pcard { grid-template-columns: minmax(230px, 28%) minmax(0, 1fr); grid-template-rows: minmax(224px, auto); }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-media { grid-column: 1; grid-row: 1; min-height: 224px; }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-link { display: flex; grid-column: 2; grid-row: 1; min-width: 0; }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-media > .pcard-actions { position: absolute; inset-inline: 0; inset-block-start: auto; inset-block-end: 0; grid-column: auto; grid-row: auto; width: 100%; }
+}
+
+@media (max-width: 720px) {
+  .pcard-mobile-list { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(168px, auto); }
+  .pcard-mobile-list > .pcard-media { position: relative; z-index: 0; grid-column: 1; grid-row: 1; min-height: clamp(168px, 46.4vw, 181px); }
+  .pcard-mobile-list > .pcard-link { position: relative; z-index: 1; }
+  .pcard-mobile-list > .pcard-link { display: flex; grid-column: 1; grid-row: 1; min-width: 0; margin-inline-start: clamp(120px, 40vw, 170px); }
+  .pcard-mobile-list > .pcard-link .pcard-body { width: 100%; min-width: 0; padding: 8px 8px 56px; }
+  .pcard-mobile-list > .pcard-media > .pcard-image-link { position: absolute; inset: 0 0 0 auto; width: clamp(120px, 40vw, 170px); height: 100%; }
+  .pcard-mobile-list > .pcard-media > .pcard-image-link img,
+  .pcard-mobile-list > .pcard-media > .pcard-image-link picture { height: 100%; min-height: clamp(168px, 46.4vw, 181px); object-fit: cover; }
+  .pcard-mobile-list > .pcard-media > .pcard-actions { min-height: 48px; height: 48px; padding: 2px 5px; }
+  .pcard-mobile-list > .pcard-media > .pcard-actions .property-action { flex-basis: 44px; width: 44px; height: 44px; min-height: 44px; }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media { grid-column: 1; grid-row: 1; }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    width: calc(100% - clamp(120px, 40vw, 170px));
+    margin-inline-start: clamp(120px, 40vw, 170px);
+  }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link .pcard-body {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-image-link { width: clamp(120px, 40vw, 170px); }
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-actions { position: absolute; inset-inline: 0; inset-block-start: auto; inset-block-end: 0; width: clamp(120px, 40vw, 170px); height: 48px; min-height: 48px; padding: 2px 5px; }
+  .pf-grid.is-grid-view .pcard-mobile-list > .pcard-media { min-height: 200px; }
+  .pf-grid.is-grid-view .pcard-mobile-list > .pcard-media > .pcard-image-link { position: relative; width: 100%; height: 200px; }
+  .pf-grid.is-grid-view .pcard-mobile-list > .pcard-media > .pcard-actions { position: absolute; inset-inline: 0; inset-block-start: auto; inset-block-end: 0; width: 100%; }
+  .pf-grid.is-grid-view .pcard-mobile-list > .pcard-link { display: flex; grid-row: auto; margin: 0; }
+  .pf-grid.is-grid-view .pcard-mobile-list > .pcard-link .pcard-body { padding: 14px 15px 16px; }
+  .site-home .property-showcase .pcard-mobile-list > .pcard-media > .pcard-actions { position: absolute; inset-inline: 0; bottom: 0; width: 100%; }
+}
+
+@media (min-width: 721px) and (max-width: 980px) {
+  .pf-page .pf-grid.is-list-view > .pcard { grid-template-columns: minmax(180px, 27%) minmax(0, 1fr); grid-template-rows: minmax(210px, auto); min-height: 210px; }
+  .pf-page .pf-grid.is-list-view > .pcard > .pcard-media { min-height: 210px; }
+  .pf-page .pf-grid.is-list-view > .pcard .pcard-body { padding: 14px 15px; }
+}
+
+@media (max-width: 1024px) {
+  .pcard > .pcard-media > .pcard-actions .property-action { flex-basis: 44px; width: 44px; height: 44px; min-height: 44px; }
+  .pcard > .pcard-media > .pcard-actions .property-actions,
+  .pcard > .pcard-media > .pcard-actions .property-actions-compact { gap: 4px; padding: 3px; border-radius: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pcard > .pcard-media > .pcard-actions .property-action { transition: none; }
+}
+
+/* Premium photo-first cards for the explicit marketplace grid view. */
+.pf-page .pf-grid.is-grid-view > .pcard {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e3e8eb;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 7px 22px rgb(11 26 43 / 6%);
+  transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+}
+.pf-page .pf-grid.is-grid-view > .pcard:hover,
+.pf-page .pf-grid.is-grid-view > .pcard:focus-within {
+  transform: translateY(-3px);
+  border-color: #cdb477;
+  box-shadow: 0 16px 32px rgb(11 26 43 / 12%);
+}
+.pf-page .pf-grid.is-grid-view > .pcard > .pcard-media {
+  position: relative;
+  flex: 0 0 auto;
+  height: clamp(180px, 20vw, 250px);
+  min-height: clamp(180px, 20vw, 250px);
+  aspect-ratio: auto;
+  overflow: hidden;
+  background: #ece8df;
+}
+.pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-image-link,
+.pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-image-link picture,
+.pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-image-link img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-image-link img {
+  object-fit: cover;
+  transition: transform 350ms ease;
+}
+.pf-page .pf-grid.is-grid-view > .pcard:hover > .pcard-media > .pcard-image-link img,
+.pf-page .pf-grid.is-grid-view > .pcard:focus-within > .pcard-media > .pcard-image-link img {
+  transform: scale(1.045);
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-arrow { display: none; }
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-badges {
+  top: 12px;
+  right: 12px;
+  left: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-badge {
+  min-height: 28px;
+  padding: 5px 10px;
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 9px;
+  font-size: .72rem;
+  box-shadow: 0 2px 9px rgb(0 0 0 / 12%);
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-badge-discount {
+  top: 48px;
+  right: 12px;
+  border-radius: 8px;
+}
+.pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions {
+  min-height: 50px;
+  padding: 5px 10px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions .property-action {
+  border-color: rgb(255 255 255 / 46%);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 2px 7px rgb(0 0 0 / 14%);
+}
+.pf-page .pf-grid.is-grid-view > .pcard > .pcard-link {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-body {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 11px;
+  padding: 16px 17px 17px;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-topline {
+  align-items: center;
+  gap: 8px;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-meta {
+  gap: 5px 8px;
+  color: #697785;
+  font-size: .75rem;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-code {
+  padding: 3px 7px;
+  border: 1px solid #edf0f2;
+  border-radius: 7px;
+  background: #f8f9fa;
+  color: #75808b;
+  font-size: .68rem;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-title {
+  min-height: 3.35em;
+  color: #172b3f;
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1.7;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-price-row {
+  min-height: 52px;
+  justify-content: center;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid #e8eee9;
+  border-radius: 11px;
+  background: #f6f8f5;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-price,
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-price-value {
+  color: #193f32;
+  font-size: 1.08rem;
+  font-weight: 850;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-unit-price,
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-price-label {
+  color: #718077;
+  font-size: .7rem;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-specs {
+  gap: 6px;
+  margin-top: 0;
+  padding: 9px;
+  border: 1px solid #eee9df;
+  border-radius: 11px;
+  background: #faf8f4;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-specs span {
+  min-height: 29px;
+  padding: 5px 8px;
+  border-color: #ebe6dc;
+  border-radius: 8px;
+  background: #fff;
+  color: #586675;
+  font-size: .69rem;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-footer {
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #edf0f2;
+  color: #697785;
+}
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-details-link {
+  color: #89651f;
+  font-weight: 800;
+}
+
+@media (max-width: 1024px) {
+  .pf-page .pf-grid.is-grid-view > .pcard .pcard-body { padding: 14px; }
+  .pf-page .pf-grid.is-grid-view > .pcard .pcard-title { font-size: .96rem; }
+}
+@media (max-width: 720px) {
+  .pf-page .pf-grid.is-grid-view > .pcard { border-radius: 17px; }
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media {
+    height: clamp(170px, 48vw, 210px);
+    min-height: clamp(170px, 48vw, 210px);
+  }
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions { min-height: 50px; }
+  .pf-page .pf-grid.is-grid-view > .pcard .pcard-body { gap: 9px; padding: 13px 13px 14px; }
+  .pf-page .pf-grid.is-grid-view > .pcard .pcard-title { min-height: 0; font-size: .96rem; }
+  .pf-page .pf-grid.is-grid-view > .pcard .pcard-price-row { min-height: 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pf-page .pf-grid.is-grid-view > .pcard,
+  .pf-page .pf-grid.is-grid-view > .pcard .pcard-media img { transition: none; }
+  .pf-page .pf-grid.is-grid-view > .pcard:hover,
+  .pf-page .pf-grid.is-grid-view > .pcard:focus-within { transform: none; }
 }
