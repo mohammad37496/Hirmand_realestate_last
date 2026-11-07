@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeftRight, CalendarDays, CheckCircle2, Clock3, Heart, Link2, Loader2, ListFilter, Search, Share2, SlidersHorizontal, StickyNote, Tag, X } from "lucide-react";
+import { ArrowLeftRight, CalendarDays, CheckCircle2, Heart, Link2, Loader2, ListFilter, Search, Share2, SlidersHorizontal, StickyNote, Tag, X } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
 import { FavoriteScoreCompare } from "@/components/hirmand/favorite-score-compare";
@@ -29,6 +29,7 @@ import "@/favorite-shortlist-report.css";
 import "@/workspace-backup.css";
 import "@/favorites-route-planner.css";
 import "@/favorite-weighted-matrix.css";
+import "@/favorites-redesign.css";
 
 const FAVORITES_KEY = "hirmand-favorite-properties";
 const RECENT_PROPERTIES_KEY = "hirmand-recent-properties";
@@ -451,15 +452,6 @@ function FavoritesPage() {
         </header>
 
         <CustomerWorkspaceSync />
-        <BuyerFinancialProfile properties={properties} />
-        <FavoriteMatchProfile properties={properties} />
-        <FavoriteActionCenter properties={properties} />
-        <FavoriteNeighborhoodSnapshot properties={properties} />
-        <FavoriteShortlistReport properties={properties} />
-        <WorkspaceBackupRestore />
-        <FavoriteListingChanges properties={properties} />
-        <FavoritesBudgetDashboard properties={properties} />
-        <FavoritesViewingRoute properties={properties} />
 
         {planOpen ? (
           <div className="favorites-plan-backdrop" role="presentation" onMouseDown={(event) => {
@@ -538,9 +530,6 @@ function FavoritesPage() {
             </Link>
           </section>
         ) : null}
-
-        {!loading && properties.length ? <FavoriteScoreCompare properties={properties} /> : null}
-        {!loading && properties.length ? <FavoriteWeightedMatrix properties={properties} /> : null}
 
         {loading ? (
           <section className="property-empty">
@@ -671,6 +660,27 @@ function FavoritesPage() {
                 ))}
               </div>
             )}
+          </section>
+        ) : null}
+
+        {!loading && properties.length ? (
+          <section className="favorites-insights" aria-label="ابزارهای تکمیلی سبد منتخب">
+            <header className="favorites-insights-head">
+              <span className="kicker">بررسی هوشمند سبد</span>
+              <h2>ابزارهای تصمیم‌گیری و پیگیری</h2>
+              <p>پس از مرور فایل‌های ذخیره‌شده، از گزارش‌ها و ابزارهای تکمیلی برای مقایسه و برنامه‌ریزی استفاده کنید.</p>
+            </header>
+            <FavoriteScoreCompare properties={properties} />
+            <FavoriteWeightedMatrix properties={properties} />
+            <BuyerFinancialProfile properties={properties} />
+            <FavoriteMatchProfile properties={properties} />
+            <FavoriteActionCenter properties={properties} />
+            <FavoriteNeighborhoodSnapshot properties={properties} />
+            <FavoriteShortlistReport properties={properties} />
+            <FavoriteListingChanges properties={properties} />
+            <FavoritesBudgetDashboard properties={properties} />
+            <FavoritesViewingRoute properties={properties} />
+            <WorkspaceBackupRestore />
           </section>
         ) : null}
       </main>
