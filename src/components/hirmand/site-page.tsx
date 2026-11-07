@@ -303,11 +303,6 @@ function TrustStrip() {
           </div>
         ))}
       </div>
-      <div className="trust-strip-links" aria-label="شفافیت و اطلاعات هیرمند">
-        <Link to="/consultants"><BadgeCheck size={16} />مشاهده مشاوران و راه‌های تماس</Link>
-        <Link to="/guides"><Scale size={16} />راهنمای تصمیم‌گیری و معامله</Link>
-        <Link to="/" hash="contact"><Phone size={16} />نشانی و ارتباط با دفتر</Link>
-      </div>
     </section>
   );
 }
