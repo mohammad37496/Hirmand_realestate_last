@@ -14,16 +14,19 @@ const deployEnv = await readFile(
   new URL("./validate-deploy-env.mjs", import.meta.url),
   "utf8",
 );
+const liveMediaSmoke = await readFile(
+  new URL("./live-property-media-smoke.mjs", import.meta.url),
+  "utf8",
+);
+const liveMediaWorkflow = await readFile(
+  new URL("../.github/workflows/live-property-media-smoke.yml", import.meta.url),
+  "utf8",
+);
 
 test("FFmpeg download has a finite timeout and an actionable timeout error", () => {
   assert.match(ffmpegDownloader, /AbortSignal\.timeout\(timeoutMs\)/);
   assert.match(ffmpegDownloader, /\$\{label\} download timed out after/);
 });
-
-test("npm build does not repeat fallback image downloads", () => {
-  assert.match(deployEnv, /npm_lifecycle_event !== "build"/);
-});
-
 
 const propertyStore = (await readFile(
   new URL("../src/lib/properties.ts", import.meta.url),
@@ -33,6 +36,26 @@ const packageManifest = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8",
 );
+
+test("production prebuild avoids remote fallback image downloads", () => {
+  const scripts = JSON.parse(packageManifest).scripts;
+  assert.equal(scripts.prebuild, "node scripts/ensure-ffmpeg.mjs");
+  assert.match(scripts["assets:fallback:refresh"], /generate-fallback-assets\.mjs/);
+  assert.doesNotMatch(deployEnv, /generate-fallback-assets\.mjs/);
+});
+
+test("live property media smoke runs only after a successful main Liara deployment", () => {
+  assert.ok(liveMediaWorkflow.includes("workflow_run:"));
+  assert.ok(liveMediaWorkflow.includes("- Deploy to Liara"));
+  assert.ok(liveMediaWorkflow.includes("github.event.workflow_run.conclusion == 'success'"));
+  assert.ok(liveMediaWorkflow.includes("github.event.workflow_run.head_branch == 'main'"));
+  assert.ok(liveMediaWorkflow.includes("ref: ${{ github.event.workflow_run.head_sha }}"));
+  assert.ok(liveMediaWorkflow.includes("node scripts/live-property-media-smoke.mjs"));
+  assert.ok(liveMediaSmoke.includes("hirmandrealestate.ir"));
+  assert.ok(liveMediaSmoke.includes("data-property-link=\"true\""));
+  assert.ok(liveMediaSmoke.includes("property-lightbox-media-wrap .property-media-watermark"));
+  assert.ok(liveMediaSmoke.includes("isFallbackSource"));
+});
 const ffmpegProvisioner = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
   "utf8",
@@ -243,7 +266,8 @@ test("media start-rate quota is independent for each upload pathway", () => {
 });
 
 test("production prebuild provisions the checksum-verified FFmpeg binary used for watermarking", () => {
-  assert.match(packageManifest, /"prebuild": "node scripts\/ensure-ffmpeg\.mjs && node scripts\/generate-fallback-assets\.mjs"/);
+  assert.ok(packageManifest.includes('"prebuild": "node scripts/ensure-ffmpeg.mjs"'));
+  assert.ok(ffmpegProvisioner.includes("ensureWatermarkFont()"));
 });
 
 test("object-store offload never deletes the database fallback before saving the Liara URL", () => {
