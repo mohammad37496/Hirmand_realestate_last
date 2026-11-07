@@ -2601,12 +2601,14 @@ body:has(.property-detail-page) {
   -webkit-backdrop-filter:blur(14px)!important;
 }
 .property-video-controls button{
-  width:32px!important;
-  height:32px!important;
+  width:44px!important;
+  height:44px!important;
+  min-width:44px!important;
+  min-height:44px!important;
   padding:0!important;
   display:grid!important;
   place-items:center!important;
-  flex:0 0 32px!important;
+  flex:0 0 44px!important;
   border:1px solid rgba(255,255,255,.12)!important;
   border-radius:9px!important;
   color:#fff!important;
@@ -2675,9 +2677,11 @@ body:has(.property-detail-page) {
     border-radius:12px!important;
   }
   .property-video-controls button{
-    width:30px!important;
-    height:30px!important;
-    flex-basis:30px!important;
+    width:44px!important;
+    height:44px!important;
+    min-width:44px!important;
+    min-height:44px!important;
+    flex-basis:44px!important;
     border-radius:8px!important;
   }
   .property-video-time{

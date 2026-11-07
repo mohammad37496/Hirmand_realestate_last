@@ -25,6 +25,7 @@ const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.met
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
+const favoritesPersonalCss = fs.readFileSync(new URL("../src/favorites-personal.css", import.meta.url), "utf8");
 const propertiesMapCardsCss = fs.readFileSync(new URL("../src/properties-map-cards.css", import.meta.url), "utf8");
 const propertiesProCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
@@ -143,6 +144,28 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
   assert.ok(verificationCopyRule, "property verification text rule should exist");
   assert.doesNotMatch(verificationCopyRule, /overflow-wrap\s*:\s*anywhere/i);
   assert.match(verificationCopyRule, /overflow-wrap\s*:\s*break-word/i);
+});
+
+testRunner.test("favorites empty-state text and property video controls remain usable on phones", () => {
+  const emptyState = favoritesPersonalCss.match(/\.favorites-score-empty\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.match(emptyState, /display:\s*grid/);
+  assert.match(emptyState, /grid-template-columns:\s*20px\s+minmax\(0,\s*1fr\)/);
+  assert.match(favoritesPersonalCss, /\.favorites-score-empty>strong,\.favorites-score-empty>span\s*\{[^}]*word-break:normal/is);
+
+  const controls = propertyDetailCss.match(/\.property-video-controls button\s*\{[^}]*\}/is)?.[0] ?? "";
+  assert.ok(controls, "property video control buttons must have a dedicated touch-target rule");
+  assert.match(controls, /min-width:44px/i);
+  assert.match(controls, /min-height:44px/i);
+  assert.match(controls, /width:44px/i);
+  assert.match(controls, /height:44px/i);
+});
+
+testRunner.test("responsive smoke exercises a loaded map view and the one-item compare empty state", () => {
+  assert.match(browserSmoke, /نمایش فایل‌ها روی نقشه/);
+  assert.match(browserSmoke, /pf-map-list-empty/);
+  assert.match(browserSmoke, /map-side property list did not reach a loaded or empty state/);
+  assert.match(browserSmoke, /minimum-two-files empty state/);
+  assert.match(browserSmoke, /outerHTML: element\.outerHTML/);
 });
 
 testRunner.test("two-field spec ranges split evenly instead of collapsing a label", () => {

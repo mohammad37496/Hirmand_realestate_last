@@ -154,10 +154,18 @@ try {
       // Every route that renders shared property cards must preserve the RTL
       // mobile invariant: image on the right, property details on the left.
       const sharedMobileCard = page.locator(route === "/properties" ? ".pf-grid .pcard-mobile-list" : ".pcard-mobile-list").first();
-      if (route === "/" || route === "/properties" || route === "/favorites" || route === "/compare") {
+      if (route === "/" || route === "/properties" || route === "/favorites") {
         await sharedMobileCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
         if (!(await sharedMobileCard.isVisible().catch(() => false))) {
           failures.push(route + " @ 320px: published property cards did not render before layout verification");
+        }
+      }
+      if (route === "/compare") {
+        const minimumSelectionReady = await page.waitForFunction(() =>
+          document.querySelector(".compare-page .property-empty strong")?.textContent?.includes("حداقل ۲ فایل") === true,
+        null, { timeout: 15_000 }).then(() => true).catch(() => false);
+        if (!minimumSelectionReady) {
+          failures.push("/compare @ 320px: one selected property should show the minimum-two-files empty state");
         }
       }
       if (await sharedMobileCard.isVisible().catch(() => false)) {
@@ -583,13 +591,6 @@ try {
           await page.waitForFunction(() => !new URLSearchParams(window.location.search).has("sort"),
             null, { timeout: 5_000 }).catch(() => {});
           await page.waitForTimeout(500);
-          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش شبکه‌ای فایل‌ها";
-          const defaultView = page.locator('.pf-views button[aria-label="' + defaultViewLabel + '"]').first();
-          await page.waitForFunction((selector) => document.querySelector(selector)?.getAttribute("aria-pressed") === "true",
-            '.pf-views button[aria-label="' + defaultViewLabel + '"]', { timeout: 8_000 }).catch(() => {});
-          if ((await defaultView.getAttribute("aria-pressed").catch(() => null)) !== "true") {
-            failures.push("/properties @ " + width + "px: default view was not restored before responsive screenshot capture");
-          }
           if (width <= 720) {
             const screenshotCard = page.locator(".pf-grid .pcard-mobile-list").first();
             const cardReady = await screenshotCard.waitFor({ state: "visible", timeout: 20_000 }).then(() => true).catch(() => false);
@@ -614,11 +615,39 @@ try {
               }
             }
           } else {
+            const mapView = page.locator('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]').first();
+            await mapView.waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+            if ((await mapView.getAttribute("aria-pressed").catch(() => null)) !== "true") {
+              await page.waitForFunction(() => {
+                const button = document.querySelector('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]');
+                const key = button && Object.keys(button).find((name) => name.startsWith("__reactProps$"));
+                return Boolean(key && typeof button[key]?.onClick === "function");
+              }, null, { timeout: 10_000 }).catch(() => {});
+              await mapView.click().catch(() => {});
+            }
             const mapResultsReady = await page.waitForFunction(() => {
               const list = document.querySelector(".pf-map-list");
-              return Boolean(list) && !/در حال جست‌وجو/.test(list.innerText);
+              if (!list) return false;
+              const loading = list.querySelector(".pf-map-list-empty strong")?.textContent?.includes("در حال جست‌وجو");
+              return !loading && Boolean(list.querySelector(".pf-map-card-row, .pf-map-list-empty"));
             }, null, { timeout: 20_000 }).then(() => true).catch(() => false);
-            if (!mapResultsReady) failures.push("/properties @ " + width + "px: map-side property list remained in its loading state during screenshot capture");
+            if (!mapResultsReady) failures.push("/properties @ " + width + "px: map-side property list did not reach a loaded or empty state");
+
+            // Return to a fresh default grid document before taking the screenshot;
+            // the map viewport writes bounds to the URL while it is active.
+            await page.goto(new URL("/properties?sort=newest", baseUrl).toString(), {
+              waitUntil: "domcontentloaded",
+              timeout: 30_000,
+            });
+            await page.waitForFunction(() => !new URLSearchParams(window.location.search).has("sort"),
+              null, { timeout: 5_000 }).catch(() => {});
+          }
+          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش شبکه‌ای فایل‌ها";
+          const defaultViewSelector = '.pf-views button[aria-label="' + defaultViewLabel + '"]';
+          await page.waitForFunction((selector) => document.querySelector(selector)?.getAttribute("aria-pressed") === "true",
+            defaultViewSelector, { timeout: 8_000 }).catch(() => {});
+          if ((await page.locator(defaultViewSelector).first().getAttribute("aria-pressed").catch(() => null)) !== "true") {
+            failures.push("/properties @ " + width + "px: default view was not restored before responsive screenshot capture");
           }
           const filterDrawerState = await page.locator(".pf-sidebar").first().evaluate((drawer) => {
             const style = getComputedStyle(drawer);
@@ -724,6 +753,10 @@ try {
                   width: Math.round(rect.width),
                   height: Math.round(rect.height),
                   text: (element.innerText || element.getAttribute("aria-label") || "").trim().replace(/\s+/g, " ").slice(0, 50),
+                  ariaLabel: element.getAttribute("aria-label") || "",
+                  title: element.getAttribute("title") || "",
+                  parentClass: typeof element.parentElement?.className === "string" ? element.parentElement.className : "",
+                  outerHTML: element.outerHTML.slice(0, 220),
                 });
               }
             }
