@@ -117,7 +117,7 @@ function PropertyImage({
     </picture>
   );
 }
-export function PropertyCard({ property }: { property: Property | PropertyCardData }) {
+export function PropertyCard({ property, showActions = true }: { property: Property | PropertyCardData; showActions?: boolean }) {
   const image = imageFor(property);
   const transaction = TRANSACTION_LABEL[property.transactionType];
   const type = PROPERTY_TYPE_LABEL[property.propertyType];
@@ -175,9 +175,11 @@ export function PropertyCard({ property }: { property: Property | PropertyCardDa
             ٪{property.priceDropPercent.toLocaleString("fa-IR")} کاهش
           </span>
         ) : null}
-        <div className="pcard-actions" aria-label="عملیات فایل">
-          <PropertyActions property={property} compact />
-        </div>
+        {showActions ? (
+          <div className="pcard-actions" aria-label="عملیات فایل">
+            <PropertyActions property={property} compact />
+          </div>
+        ) : null}
       </div>
 
       <Link
@@ -330,7 +332,7 @@ export function PropertyShowcase({ initialProperties = [] }: { initialProperties
         <label><span className="sr-only">محله</span><select value={neighborhood} onChange={(event) => setNeighborhood(event.target.value)}><option value="">همه محله‌ها</option>{neighborhoods.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
         <button type="button" className="btn-gold property-filter-button" onClick={applyFilters} disabled={loading}>{loading ? "در حال جستجو..." : "جستجو"}</button>
       </div></div>
-    {properties.length ? <div className="property-grid">{properties.map((property) => <PropertyCard key={property.id} property={property} />)}</div> : <div className="property-empty"><MapPinned size={24} /><strong>فعلاً فایل منتشرشده‌ای با این فیلتر پیدا نشد.</strong><p>فیلترها را تغییر دهید یا درخواست ملک ثبت کنید تا مشاور فایل مناسب را برایتان پیدا کند.</p><div className="properties-empty-actions"><Link to="/" hash="inquiry" className="btn-gold">ثبت درخواست ملک</Link><Link to="/budget-match" className="btn-ghost">جستجوی بودجه</Link></div></div>}
+    {properties.length ? <div className="property-grid">{properties.map((property) => <PropertyCard key={property.id} property={property} showActions={false} />)}</div> : <div className="property-empty"><MapPinned size={24} /><strong>فعلاً فایل منتشرشده‌ای با این فیلتر پیدا نشد.</strong><p>فیلترها را تغییر دهید یا درخواست ملک ثبت کنید تا مشاور فایل مناسب را برایتان پیدا کند.</p><div className="properties-empty-actions"><Link to="/" hash="inquiry" className="btn-gold">ثبت درخواست ملک</Link><Link to="/budget-match" className="btn-ghost">جستجوی بودجه</Link></div></div>}
   </Reveal>;
 }
 function SectionHead({ kicker, title, text }: { kicker: string; title: string; text?: string }) { return <div className="section-head"><span className="kicker">{kicker}</span><h2>{title}</h2>{text ? <p>{text}</p> : null}</div>; }

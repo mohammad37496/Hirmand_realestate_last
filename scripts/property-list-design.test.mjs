@@ -7,6 +7,7 @@ const responsiveHardeningCss = fs.readFileSync(new URL("../src/mobile-responsive
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const homePropertyCss = fs.readFileSync(new URL("../src/home-property-layout.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
+const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
 
 test("desktop property list anchors actions to the lower edge of the property image", () => {
   const desktopListStart = marketplaceCss.indexOf("Professional desktop list cards");
@@ -30,7 +31,10 @@ test("tablet list cards retain a readable image and details beside the image act
 
 test("mobile shared RTL list cards and explicit photo grid mode remain intact", () => {
   assert.match(propertyShowcase, /<article className="pcard pcard-mobile-list">/);
-  assert.match(propertyShowcase, /<div className="pcard-media">[\s\S]*?<Link[\s\S]*?className="pcard-image-link"[\s\S]*?<div className="pcard-actions"[\s\S]*?<\/div>\s*<\/div>\s*<Link[\s\S]*?className="pcard-link"/);
+  assert.match(propertyShowcase, /showActions = true/);
+  assert.match(propertyShowcase, /\{showActions \? \([\s\S]*?<div className="pcard-actions"[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?\) : null\}/);
+  assert.match(propertiesRoute, /<PropertyCard key=\{property\.id\} property=\{property\} showActions=\{viewMode !== "list"\} \/>/);
+  assert.match(propertyShowcase, /<PropertyCard key=\{property\.id\} property=\{property\} showActions=\{false\} \/>/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link\s*\{[^}]*direction:rtl/);
   assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?inset-block-end:\s*0/);
   assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list\s*\{[^}]*display:block/);

@@ -404,33 +404,42 @@ try {
               body.left + body.width / 2,
               body.top + body.height / 2,
             ) : null;
+            return {
+              imageOnRight: Boolean(imageLink && body && imageLink.left >= body.right - 2),
+              bodyContentVisible: Boolean(bodyElement && body && body.width > 0 && body.height > 0 &&
+                bodyStyle && bodyStyle.visibility !== "hidden" && Number(bodyStyle.opacity) > 0 &&
+                bodyElement.textContent?.trim() && bodyHitTarget && bodyElement.contains(bodyHitTarget)),
+            };
+          });
+          if (!geometry.imageOnRight) failures.push("/properties @ 320px: property image is not on the right of the details");
+          if (!geometry.bodyContentVisible) failures.push("/properties @ 320px: property details are covered or not visible beside the image");
+          if (await firstCard.locator(".pcard-actions .property-action").count()) {
+            failures.push("/properties @ 320px: compact property actions should be hidden in list view");
+          }
+
+          const gridButton = page.locator('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]').first();
+          await gridButton.click();
+          await page.waitForFunction(() => document.querySelector('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed") === "true");
+          const gridActionGeometry = await firstCard.evaluate((card) => {
             const rail = card.querySelector(".pcard-actions .property-actions, .pcard-actions .property-actions-compact");
             const railRect = rail?.getBoundingClientRect();
             const cardRect = card.getBoundingClientRect();
             const railStyle = rail ? getComputedStyle(rail) : null;
             const buttons = Array.from(card.querySelectorAll(".pcard-actions .property-action"));
             return {
-              imageOnRight: Boolean(imageLink && body && imageLink.left >= body.right - 2),
-              bodyContentVisible: Boolean(bodyElement && body && body.width > 0 && body.height > 0 &&
-                bodyStyle && bodyStyle.visibility !== "hidden" && Number(bodyStyle.opacity) > 0 &&
-                bodyElement.textContent?.trim() && bodyHitTarget && bodyElement.contains(bodyHitTarget)),
               actions: buttons.map((button) => button.getAttribute("aria-label") || ""),
-              actionRailContained: Boolean(railRect &&
-                railRect.left >= cardRect.left - 1 && railRect.right <= cardRect.right + 1),
-              actionRailScrollable: Boolean(rail && railStyle &&
-                ["auto", "scroll"].includes(railStyle.overflowX) && rail.scrollWidth > rail.clientWidth + 1),
+              actionRailContained: Boolean(railRect && railRect.left >= cardRect.left - 1 && railRect.right <= cardRect.right + 1),
+              actionRailScrollable: Boolean(rail && railStyle && ["auto", "scroll"].includes(railStyle.overflowX) && rail.scrollWidth > rail.clientWidth + 1),
               actionTargetsUsable: buttons.length > 0 && buttons.every((button) => {
                 const buttonRect = button.getBoundingClientRect();
                 return buttonRect.width >= 44 && buttonRect.height >= 44;
               }),
             };
           });
-          if (!geometry.imageOnRight) failures.push("/properties @ 320px: property image is not on the right of the details");
-          if (!geometry.bodyContentVisible) failures.push("/properties @ 320px: property details are covered or not visible beside the image");
-          if (!geometry.actions.some((label) => label.includes("ذخیره")) || !geometry.actions.some((label) => label.includes("مقایسه"))) failures.push("/properties @ 320px: favorite or compare action is missing");
-          if (!geometry.actionRailContained) failures.push("/properties @ 320px: property action rail exceeds the card bounds");
-          if (!geometry.actionRailScrollable) failures.push("/properties @ 320px: compact property actions are not horizontally scrollable");
-          if (!geometry.actionTargetsUsable) failures.push("/properties @ 320px: property action buttons must keep 44px touch targets");
+          if (!gridActionGeometry.actions.some((label) => label.includes("ذخیره")) || !gridActionGeometry.actions.some((label) => label.includes("مقایسه"))) failures.push("/properties @ 320px grid: favorite or compare action is missing");
+          if (!gridActionGeometry.actionRailContained) failures.push("/properties @ 320px grid: property action rail exceeds the card bounds");
+          if (!gridActionGeometry.actionRailScrollable) failures.push("/properties @ 320px grid: compact property actions are not horizontally scrollable");
+          if (!gridActionGeometry.actionTargetsUsable) failures.push("/properties @ 320px grid: property action buttons must keep 44px touch targets");
           for (const edgeAction of [firstCard.locator(".pcard-actions .property-action").first(), firstCard.locator(".pcard-actions .property-action").last()]) {
             await edgeAction.evaluate((button) => button.scrollIntoView({ block: "nearest", inline: "nearest" }));
             const edgeActionVisible = await edgeAction.evaluate((button) => {
@@ -478,6 +487,7 @@ try {
         } else {
           failures.push("/properties @ 320px: no published property card was available for layout verification");
         }
+        await page.locator('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]').first().click();
         await page.waitForFunction(() => document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
           null, { timeout: 8_000 }).catch(() => {});
         const retainedKeys = ["q", "transaction", "sort", "minArea", "maxArea"];
