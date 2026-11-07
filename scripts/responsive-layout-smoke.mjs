@@ -171,12 +171,16 @@ try {
       if (await sharedMobileCard.isVisible().catch(() => false)) {
         const cardLayout = await sharedMobileCard.evaluate((card) => {
           const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
-          const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
+          const title = card.querySelector(".pcard-title");
+          const titleRange = title ? document.createRange() : null;
+          // .pcard-body is a full-width overlay; measure the rendered title
+          // text to verify the actual left-hand details column in RTL layout.
+          titleRange?.selectNodeContents(title);
+          const details = titleRange?.getBoundingClientRect();
           return {
-            imageOnRight: Boolean(media && body &&
-              media.left + media.width / 2 > body.left + body.width / 2),
+            imageOnRight: Boolean(media && details && media.left >= details.right - 2),
             hasImage: Boolean(media && media.width > 0 && media.height > 0),
-            hasDetails: Boolean(body && body.width > 0 && body.height > 0),
+            hasDetails: Boolean(details && details.width > 0 && details.height > 0),
           };
         });
         if (!cardLayout.hasImage || !cardLayout.hasDetails || !cardLayout.imageOnRight) {
@@ -553,8 +557,8 @@ try {
         const desktopPage = await browser.newPage({ viewport: { width: 1024, height: 900 } });
         await desktopPage.goto(new URL("/properties", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
         await desktopPage.waitForTimeout(700);
-        const desktopMapDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]').getAttribute("aria-pressed").catch(() => null);
-        if (desktopMapDefault !== "true") failures.push("/properties @ 1024px: desktop map-first default changed unexpectedly");
+        const desktopGridDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]').getAttribute("aria-pressed").catch(() => null);
+        if (desktopGridDefault !== "true") failures.push("/properties @ 1024px: desktop photo-grid default changed unexpectedly");
         await desktopPage.setViewportSize({ width: 320, height: 900 });
         const resizedMobileDefaultReady = await desktopPage.waitForFunction(() => {
           const listButton = document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]');
@@ -643,7 +647,7 @@ try {
             }, null, { timeout: 20_000 }).then(() => true).catch(() => false);
             if (!mapResultsReady) failures.push("/properties @ " + width + "px: map-side property list did not reach a loaded or empty state");
 
-            // Return to a fresh default map-and-cards document before taking the screenshot;
+            // Return to a fresh default photo-grid document before taking the screenshot;
             // the map viewport writes bounds to the URL while it is active.
             await page.goto(new URL("/properties?sort=newest", baseUrl).toString(), {
               waitUntil: "domcontentloaded",
@@ -652,7 +656,7 @@ try {
             await page.waitForFunction(() => !new URLSearchParams(window.location.search).has("sort"),
               null, { timeout: 5_000 }).catch(() => {});
           }
-          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه";
+          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش شبکه‌ای فایل‌ها";
           const defaultViewSelector = '.pf-views button[aria-label="' + defaultViewLabel + '"]';
           await page.waitForFunction((selector) => document.querySelector(selector)?.getAttribute("aria-pressed") === "true",
             defaultViewSelector, { timeout: 8_000 }).catch(() => {});
