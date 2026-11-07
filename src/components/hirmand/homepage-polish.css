@@ -538,6 +538,12 @@
   }
 }
 
+@media (max-width: 720px) {
+  .site-home .home-property-categories {
+    display: none;
+  }
+}
+
 @media (max-width: 360px) {
   .site-home .home-property-categories .type-body {
     padding: 17px 15px 18px;
