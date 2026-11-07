@@ -424,7 +424,7 @@ testRunner.test("Liara deployment verifies the exact main commit and published m
   const liveBrowserSmokeIndex = deployWorkflow.indexOf("Verify live property experience in a real browser");
   assert.ok(liveRevisionIndex >= 0 && liveRevisionIndex < liveBrowserInstallIndex && liveBrowserInstallIndex < liveBrowserSmokeIndex,
     "live browser checks must run only after the exact Liara revision is verified");
-  assert.match(deployWorkflow, /- name: Deploy\s+timeout-minutes: 40/);
+  assert.match(deployWorkflow, /- name: Deploy\s+timeout-minutes: 60/);
   assert.match(liveDeploymentSmoke, /EXPECTED_DEPLOYMENT_SHA/);
   assert.match(liveDeploymentSmoke, /const pageOrigin = new URL\(pageUrl\)\.origin;/,
     "live asset checks must use the actual final page origin after redirects");

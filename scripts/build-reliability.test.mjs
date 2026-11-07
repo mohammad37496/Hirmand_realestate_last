@@ -22,6 +22,14 @@ const liveMediaWorkflow = await readFile(
   new URL("../.github/workflows/live-property-media-smoke.yml", import.meta.url),
   "utf8",
 );
+const liaraDeployWorkflow = await readFile(
+  new URL("../.github/workflows/deploy-liara.yml", import.meta.url),
+  "utf8",
+);
+const liaraIgnore = await readFile(
+  new URL("../.liaraignore", import.meta.url),
+  "utf8",
+);
 
 test("FFmpeg download has a finite timeout and an actionable timeout error", () => {
   assert.match(ffmpegDownloader, /AbortSignal\.timeout\(timeoutMs\)/);
@@ -55,6 +63,29 @@ test("live property media smoke runs only after a successful main Liara deployme
   assert.ok(liveMediaSmoke.includes("data-property-link=\"true\""));
   assert.ok(liveMediaSmoke.includes("property-lightbox-media-wrap .property-media-watermark"));
   assert.ok(liveMediaSmoke.includes("isFallbackSource"));
+});
+
+test("Liara deploy provisions checksum-verified FFmpeg on the GitHub runner before upload", () => {
+  const provisionStep = liaraDeployWorkflow.indexOf(
+    "name: Provision checksum-verified FFmpeg runtime on GitHub runner",
+  );
+  const deployStep = liaraDeployWorkflow.indexOf("- name: Deploy", provisionStep);
+  assert.ok(provisionStep >= 0 && deployStep > provisionStep);
+  assert.match(liaraDeployWorkflow, /uses: actions\/setup-node@v4/);
+  assert.match(liaraDeployWorkflow, /run: npm ci/);
+  assert.match(liaraDeployWorkflow, /npm run prebuild/);
+  assert.match(liaraDeployWorkflow, /test -x \.runtime\/ffmpeg\/ffmpeg/);
+  assert.match(liaraDeployWorkflow, /test -x src\/\.runtime\/ffmpeg\/ffmpeg/);
+  assert.match(liaraDeployWorkflow, /test -x src\/lib\/\.runtime\/ffmpeg\/ffmpeg/);
+  assert.match(liaraDeployWorkflow, /timeout-minutes: 60/);
+});
+
+test("Liara upload context explicitly includes provisioned FFmpeg and watermark font files", () => {
+  for (const directory of [".runtime", "src/.runtime", "src/lib/.runtime"]) {
+    assert.ok(liaraIgnore.includes(`!${directory}/`), `${directory} parent must be re-included`);
+    assert.ok(liaraIgnore.includes(`!${directory}/ffmpeg/**`), `${directory} FFmpeg files must be included`);
+    assert.ok(liaraIgnore.includes(`!${directory}/fonts/**`), `${directory} font files must be included`);
+  }
 });
 const ffmpegProvisioner = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
