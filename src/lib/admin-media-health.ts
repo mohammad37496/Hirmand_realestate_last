@@ -4,6 +4,11 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import {
+  adminMediaCleanupOrphanCountSql,
+  adminMediaCleanupOrphanDeleteSql,
+  adminMediaReferencedCountSql,
+} from "@/lib/admin-media-cleanup-sql";
 
 async function requireAdmin() {
   if (await verifyAdminSessionToken(getCookie(ADMIN_SESSION_COOKIE))) {
@@ -40,13 +45,12 @@ export const getAdminMediaHealth = createServerFn({ method: "POST" })
     }
 
     const sql = await getSql();
-    const [objects, references, stale, chunks] = await Promise.all([
+    const [objects, references, orphanCandidates, stale, chunks] = await Promise.all([
       sql.query<{ count: number; bytes: number }>(
         "select count(*)::int as count, coalesce(sum(size_bytes),0)::bigint as bytes from media_objects",
       ),
-      sql.query<{ count: number }>(
-        "select count(distinct m.id)::int as count from media_objects m join (select distinct regexp_replace(value, '^.*/api/media/', '') as id from properties p cross join lateral jsonb_array_elements_text(coalesce(p.images, '[]'::jsonb))) refs on refs.id = m.id where m.pathname like 'properties/uploads/%'",
-      ),
+      sql.query<{ count: number }>(adminMediaReferencedCountSql),
+      sql.query<{ count: number }>(adminMediaCleanupOrphanCountSql, [String(data.staleMinutes)]),
       sql.query<{ count: number }>(
         "select count(*)::int as count from media_upload_sessions where created_at < current_timestamp - ($1::text || ' minutes')::interval",
         [String(data.staleMinutes)],
@@ -66,7 +70,7 @@ export const getAdminMediaHealth = createServerFn({ method: "POST" })
       storedObjects,
       storedBytes: Number(objects[0]?.bytes) || 0,
       referencedDatabaseObjects,
-      orphanObjects: Math.max(0, storedObjects - referencedDatabaseObjects),
+      orphanObjects: Number(orphanCandidates[0]?.count) || 0,
       staleUploadSessions,
       staleUploadChunks,
       scannedAt: new Date().toISOString(),
@@ -82,7 +86,8 @@ export const cleanupAdminMedia = createServerFn({ method: "POST" })
     const sql = await getSql();
 
     const orphanRows = await sql.query<{ id: string }>(
-      "delete from media_objects m where m.pathname like 'properties/uploads/%' and not exists (select 1 from properties p cross join lateral jsonb_array_elements_text(coalesce(p.images, '[]'::jsonb)) refs(value) where p.deleted_at is null and regexp_replace(refs.value, '^.*/api/media/', '') = m.id) returning m.id",
+      adminMediaCleanupOrphanDeleteSql,
+      [String(data.staleMinutes)],
     );
 
     const staleRows = await sql.query<{ id: string }>(
