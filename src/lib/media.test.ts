@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isLiaraStorageHost, mediaSourceCandidates } from "./media.ts";
-import { liaraObjectKeyFromUrl } from "./liara-object-storage.server.ts";
+import { PGlite } from "@electric-sql/pglite";
+import { isLiaraStorageHost, mediaPreviewSource, mediaSourceCandidates } from "./media.ts";
+import {
+  isAllowedLiaraMediaKey,
+  fetchWithHeaderTimeout,
+  liaraObjectKeyFromUrl,
+} from "./liara-object-storage.server.ts";
+import {
+  hasCompletedCustomerUploadMedia,
+  hasRejectedCustomerSubmissionMedia,
+  isPublishedPropertyMedia,
+  createLiaraVideoResponse,
+  liaraMediaCacheControl,
+} from "./liara-media-access.server.ts";
 import {
   createRangeNotSatisfiableResponse,
   liaraRangeNotSatisfiableResponse,
@@ -26,6 +38,60 @@ test("only Liara storage hosts are classified for signed proxying", () => {
 test("non-Liara, non-Divar media keeps its original source first", () => {
   const source = "https://cdn.example.com/properties/home.webp";
   assert.deepEqual(mediaSourceCandidates(source, "/images/type-apartment.jpg"), [source]);
+});
+
+test("private Liara image previews use the proxy and carry owner capability only when supplied", () => {
+  const image = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/photo.webp";
+  const proxy = "/api/media-proxy?url=" + encodeURIComponent(image);
+  assert.equal(mediaPreviewSource(image), proxy);
+  assert.equal(mediaPreviewSource(image, "HIR-26-ABCDEF123456"), proxy + "&trackingToken=HIR-26-ABCDEF123456");
+  const video = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/clip.mp4?type=video";
+  assert.equal(
+    mediaPreviewSource(video, "HIR-26-ABCDEF123456"),
+    "/api/media-proxy?url=" + encodeURIComponent(video) + "&trackingToken=HIR-26-ABCDEF123456",
+  );
+  const publicImage = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/published.webp";
+  assert.equal(
+    mediaPreviewSource(publicImage, "HIR-26-ABCDEF123456"),
+    "/api/media-proxy?url=" + encodeURIComponent(publicImage),
+  );
+  const divarImage = "https://s100.divarcdn.com/static/photo/2026/11/07/example.jpg";
+  assert.equal(
+    mediaPreviewSource(divarImage, "HIR-26-ABCDEF123456"),
+    "/api/media-proxy?url=" + encodeURIComponent(divarImage),
+  );
+});
+
+test("Liara fetch timeout ends at response headers so long media streams are not aborted", async () => {
+  const signals: AbortSignal[] = [];
+  const response = await fetchWithHeaderTimeout(
+    async (_url, init) => {
+      if (init?.signal) signals.push(init.signal);
+      return new Response("streaming media");
+    },
+    new URL("https://storage.example/video.mp4"),
+    {},
+    5,
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(signals[0]?.aborted, false);
+  assert.equal(await response.text(), "streaming media");
+});
+
+test("Liara fetch timeout still aborts requests that never receive response headers", async () => {
+  const signals: AbortSignal[] = [];
+  const fetcher = (_url: URL, init?: RequestInit) =>
+    new Promise<Response>((_resolve, reject) => {
+      if (init?.signal) {
+        signals.push(init.signal);
+        init.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      }
+    });
+  await assert.rejects(
+    fetchWithHeaderTimeout(fetcher as typeof fetch, new URL("https://storage.example/video.mp4"), {}, 5),
+    /aborted/,
+  );
+  assert.equal(signals[0]?.aborted, true);
 });
 
 
@@ -131,6 +197,205 @@ test("legacy stored Liara proxy paths are normalized to the current same-origin 
   );
 });
 
+test("public Liara media keys are limited to intentional site media prefixes", () => {
+  for (const key of [
+    "properties/uploads/gallery/home.webp",
+    "properties/divar/imported/photo.webp",
+    "properties/customer-submissions/owner/photo.webp",
+    "areas/uploads/neighborhood/cover.webp",
+  ]) {
+    assert.equal(isAllowedLiaraMediaKey(key), true, key);
+  }
+
+  for (const key of [
+    "music/track.mp3",
+    "admin-deal-documents/private.pdf",
+    "properties/uploads/../admin/private.webp",
+    "properties/uploads//empty-segment.webp",
+    "properties/uploads\\private.webp",
+    "properties/uploads/",
+  ]) {
+    assert.equal(isAllowedLiaraMediaKey(key), false, key);
+  }
+});
+
+test("published property references are the only public path for private property uploads", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table properties (
+        id text primary key,
+        images jsonb not null default '[]'::jsonb,
+        floor_plan_url text,
+        virtual_tour_url text,
+        status text not null,
+        deleted_at timestamptz,
+        publish_at timestamptz,
+        unpublish_at timestamptz
+      );
+    `);
+    const publishedUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/published.webp";
+    const draftUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/draft.webp";
+    const deletedUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/deleted.webp";
+    const floorPlanUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/floor-plan.webp";
+    const virtualTourUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/tour.mp4?type=video";
+    const legacyUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/legacy.webp";
+    await db.query(
+      "insert into properties (id, images, status) values ($1, $2::jsonb, 'published')",
+      ["published", JSON.stringify([publishedUrl])],
+    );
+    await db.query(
+      "insert into properties (id, images, status) values ($1, $2::jsonb, 'draft')",
+      ["draft", JSON.stringify([draftUrl])],
+    );
+    await db.query(
+      "insert into properties (id, images, status, deleted_at) values ($1, $2::jsonb, 'published', current_timestamp)",
+      ["deleted", JSON.stringify([deletedUrl])],
+    );
+    await db.query(
+      "insert into properties (id, floor_plan_url, status) values ($1, $2, 'published')",
+      ["floor-plan", floorPlanUrl],
+    );
+    await db.query(
+      "insert into properties (id, virtual_tour_url, status) values ($1, $2, 'published')",
+      ["virtual-tour", virtualTourUrl],
+    );
+    await db.query(
+      "insert into properties (id, images, status) values ($1, $2::jsonb, 'published')",
+      ["legacy", JSON.stringify(["/api/liara-media?url=" + encodeURIComponent(legacyUrl)])],
+    );
+    const sql = {
+      query: async <T>(statement: string, parameters?: unknown[]) =>
+        (await db.query(statement, parameters as never)).rows as T[],
+    };
+
+    assert.equal(await isPublishedPropertyMedia(sql, publishedUrl), true);
+    assert.equal(await isPublishedPropertyMedia(sql, draftUrl), false);
+    assert.equal(await isPublishedPropertyMedia(sql, deletedUrl), false);
+    assert.equal(await isPublishedPropertyMedia(sql, floorPlanUrl), true);
+    assert.equal(await isPublishedPropertyMedia(sql, virtualTourUrl), true);
+    assert.equal(await isPublishedPropertyMedia(sql, legacyUrl), true);
+  } finally {
+    await db.close();
+  }
+});
+
+test("customer-submission media requires the exact rejected tracking capability or a recent completed upload", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table customer_property_submissions (
+        public_tracking_token text not null,
+        status text not null,
+        property_data jsonb not null
+      );
+      create table media_upload_sessions (
+        id text primary key,
+        pathname text not null,
+        kind text not null,
+        stored_url text,
+        stored_storage text,
+        completion_state text,
+        completion_result jsonb,
+        created_at timestamptz not null default current_timestamp
+      );
+    `);
+    const rejectedUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/rejected/photo.webp";
+    const pendingUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/pending/photo.webp";
+    const uploadedUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/new/photo.webp";
+    const uploadedVideoUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/new/clip.mp4?type=video";
+    const key = "properties/customer-submissions/new/photo.webp";
+    const videoKey = "properties/customer-submissions/new/clip.mp4";
+    const token = "HIR-26-ABCDEF123456";
+    await db.query(
+      "insert into customer_property_submissions values ($1, 'rejected', $2::jsonb)",
+      [token, JSON.stringify({ images: [rejectedUrl] })],
+    );
+    await db.query(
+      "insert into customer_property_submissions values ($1, 'pending', $2::jsonb)",
+      ["HIR-26-123456ABCDEF", JSON.stringify({ images: [pendingUrl] })],
+    );
+    await db.query(
+      `insert into media_upload_sessions
+       (id, pathname, kind, stored_url, stored_storage, completion_state, completion_result)
+       values ('upload-ok', $1, 'customer-property-media', $2, 'object-store', 'assembled', $3::jsonb)`,
+      [key, uploadedUrl, JSON.stringify({ url: uploadedUrl })],
+    );
+    await db.query(
+      `insert into media_upload_sessions
+       (id, pathname, kind, stored_url, stored_storage, completion_state, completion_result)
+       values ('upload-video', $1, 'customer-property-media', $2, 'object-store', 'assembled', $3::jsonb)`,
+      [videoKey, uploadedVideoUrl.replace("?type=video", ""), JSON.stringify({ url: uploadedVideoUrl })],
+    );
+    await db.query(
+      `insert into media_upload_sessions
+       (id, pathname, kind, stored_url, stored_storage, completion_state, completion_result, created_at)
+       values ('upload-stale', $1, 'customer-property-media', $2, 'object-store', 'assembled', $3::jsonb, current_timestamp - interval '3 hours')`,
+      ["properties/customer-submissions/stale/photo.webp", uploadedUrl, JSON.stringify({ url: uploadedUrl })],
+    );
+    const sql = {
+      query: async <T>(statement: string, parameters?: unknown[]) =>
+        (await db.query(statement, parameters as never)).rows as T[],
+    };
+
+    assert.equal(await hasRejectedCustomerSubmissionMedia(sql, token, rejectedUrl), true);
+    assert.equal(await hasRejectedCustomerSubmissionMedia(sql, token, pendingUrl), false);
+    assert.equal(await hasRejectedCustomerSubmissionMedia(sql, "HIR-26-000000000000", rejectedUrl), false);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, key, uploadedUrl), true);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, videoKey, uploadedVideoUrl), true);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, key + "/other", uploadedUrl), false);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, "properties/customer-submissions/stale/photo.webp", uploadedUrl), false);
+  } finally {
+    await db.close();
+  }
+});
+
+test("Liara video proxy preserves 206 range metadata and returns uncached 416 responses", () => {
+  const partial = createLiaraVideoResponse(
+    new Response("abc", {
+      status: 206,
+      headers: {
+        "content-type": "video/mp4",
+        "content-length": "3",
+        "content-range": "bytes 0-2/10",
+        "accept-ranges": "bytes",
+      },
+    }),
+    "properties/uploads/published/clip.mp4",
+    "public, max-age=86400",
+  );
+  assert.ok(partial);
+  assert.equal(partial.status, 206);
+  assert.equal(partial.headers.get("content-type"), "video/mp4");
+  assert.equal(partial.headers.get("content-range"), "bytes 0-2/10");
+  assert.equal(partial.headers.get("content-length"), "3");
+  assert.equal(partial.headers.get("accept-ranges"), "bytes");
+  assert.equal(partial.headers.get("cache-control"), "public, max-age=86400");
+  assert.equal(partial.headers.get("vary"), "Range");
+
+  const unsatisfied = createLiaraVideoResponse(
+    new Response(null, {
+      status: 416,
+      headers: { "content-range": "bytes */10", "accept-ranges": "bytes" },
+    }),
+    "properties/customer-submissions/private/clip.mp4",
+    "private, no-store",
+  );
+  assert.ok(unsatisfied);
+  assert.equal(unsatisfied.status, 416);
+  assert.equal(unsatisfied.headers.get("content-range"), "bytes */10");
+  assert.equal(unsatisfied.headers.get("cache-control"), "no-store");
+
+  assert.equal(
+    createLiaraVideoResponse(
+      new Response("not a video", { status: 200, headers: { "content-type": "text/html" } }),
+      "properties/uploads/published/clip.mp4",
+      "public, max-age=86400",
+    ),
+    null,
+  );
+});
+
 test("Liara music 416 responses preserve Content-Range and bypass shared caches", () => {
   const response = liaraRangeNotSatisfiableResponse(
     new Response(null, {
@@ -152,6 +417,13 @@ test("Liara music 416 responses preserve Content-Range and bypass shared caches"
     liaraRangeNotSatisfiableResponse(new Response(null, { status: 404 })),
     null,
   );
+});
+
+test("unpublished customer media and draft property uploads are never cached publicly", () => {
+  assert.equal(liaraMediaCacheControl("properties/customer-submissions/photo.webp", true), "private, no-store");
+  assert.equal(liaraMediaCacheControl("properties/uploads/draft/photo.webp", false), "private, no-store");
+  assert.match(liaraMediaCacheControl("properties/uploads/published/photo.webp", true), /^public,/);
+  assert.match(liaraMediaCacheControl("properties/divar/photo.webp", false), /^public,/);
 });
 
 test("database media 416 responses return Content-Range directly instead of throwing", () => {

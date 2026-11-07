@@ -15,7 +15,7 @@ import {
 } from "@/lib/property-options";
 import { normalizeMoneyText } from "@/lib/property-input-normalization";
 import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
-import { isVideoUrl } from "@/lib/media";
+import { isVideoUrl, mediaPreviewSource } from "@/lib/media";
 import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
 import "@/owner-property.css";
 
@@ -472,7 +472,7 @@ function SubmitPropertyPage() {
           >
             {uploading ? <><Loader2 size={26} className="customer-property-spin"/><strong>در حال آپلود… {progress.toLocaleString("fa-IR")}٪</strong><small dir="ltr">{uploadLabel}</small><div className="customer-property-progress"><span style={{width:Math.min(100,Math.max(0,progress))+"%"}}/></div></> : <><Upload size={28}/><strong>افزودن عکس و ویدئو</strong><small>حداکثر ۱۲ رسانه · هر فایل حداکثر ۲۵ مگابایت</small></>}
           </button>
-          {media.length ? <div className="customer-property-media-grid">{media.map((src,index)=><div className="customer-property-media" key={src}><button type="button" onClick={(e)=>{e.stopPropagation();setMedia((current)=>current.filter((item)=>item!==src));}} aria-label="حذف رسانه"><X size={15}/></button>{isVideoUrl(src)?<><video src={src} controls muted preload="metadata"/><span><Film size={13}/> ویدئو</span></>:<><img src={src} alt={"تصویر ملک "+(index+1)}/><span><ImagePlus size={13}/> {index===0?"کاور":"تصویر "+(index+1).toLocaleString("fa-IR")}</span></>}</div>)}</div> : null}
+          {media.length ? <div className="customer-property-media-grid">{media.map((src,index)=><div className="customer-property-media" key={src}><button type="button" onClick={(e)=>{e.stopPropagation();setMedia((current)=>current.filter((item)=>item!==src));}} aria-label="حذف رسانه"><X size={15}/></button>{isVideoUrl(src)?<><video src={mediaPreviewSource(src, editToken)} controls muted preload="metadata"/><span><Film size={13}/> ویدئو</span></>:<><img src={mediaPreviewSource(src, editToken)} alt={"تصویر ملک "+(index+1)}/><span><ImagePlus size={13}/> {index===0?"کاور":"تصویر "+(index+1).toLocaleString("fa-IR")}</span></>}</div>)}</div> : null}
         </section>
 
         {error ? <p className="customer-property-error" role="alert">{error}</p> : null}

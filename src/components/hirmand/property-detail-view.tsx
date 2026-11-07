@@ -154,7 +154,7 @@ import "@/property-deal-room.css";
 import { formatToman } from "@/lib/money";
 import { formatPersianDate } from "@/lib/persian-date";
 import { trackAnalyticsEvent } from "@/lib/analytics";
-import { isVideoUrl, mediaSourceCandidates } from "@/lib/media";
+import { isVideoUrl, mediaPreviewSource, mediaSourceCandidates } from "@/lib/media";
 import { isPermanentlyWatermarkedMediaUrl } from "@/lib/property-watermark";
 import { getPropertyFallbackImage, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { areaSlug } from "@/lib/areas";
@@ -616,7 +616,7 @@ function VideoPlayer({
       <div className="property-video-frame">
         <video
           ref={videoRef}
-          src={src}
+          src={mediaPreviewSource(src)}
           playsInline
           preload="metadata"
           autoPlay={autoPlay}
@@ -1019,7 +1019,7 @@ function Gallery({
               aria-current={index === active ? "true" : undefined}
             >
               {isVideoUrl(src) ? (
-                <video src={src} muted playsInline preload="none" aria-hidden="true" />
+                <video src={mediaPreviewSource(src)} muted playsInline preload="none" aria-hidden="true" />
               ) : (
                 <ResilientImage src={src} fallback={fallback} fallbackLegacy={fallbackLegacy} alt="" loading="lazy" />
               )}
@@ -1138,7 +1138,7 @@ function Gallery({
                     aria-current={index === active ? "true" : undefined}
                   >
                     {isVideoUrl(src) ? (
-                      <video src={src} muted playsInline preload="metadata" aria-hidden="true" />
+                      <video src={mediaPreviewSource(src)} muted playsInline preload="metadata" aria-hidden="true" />
                     ) : (
                       <ResilientImage src={src} fallback={fallback} fallbackLegacy={fallbackLegacy} alt="" loading="lazy" />
                     )}
