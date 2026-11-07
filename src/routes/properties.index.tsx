@@ -431,7 +431,7 @@ function PropertiesIndexPage() {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchId, setSavedSearchId] = useState("");
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("split");
+  const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("grid");
   const [viewModeManuallySelected, setViewModeManuallySelected] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [desktopFilterViewport, setDesktopFilterViewport] = useState(false);
@@ -467,12 +467,12 @@ function PropertiesIndexPage() {
     return () => media.removeEventListener("change", updateViewport);
   }, []);
 
-  // Open listings in map-and-cards mode on desktop and a compact list on mobile
+  // Open listings in a photo grid on desktop and a compact list on mobile
   // until the visitor explicitly chooses a view. Manual choices survive resizes.
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
     const applyResponsiveDefault = () => {
-      if (!viewModeManuallySelected) setViewMode(media.matches ? "list" : "split");
+      if (!viewModeManuallySelected) setViewMode(media.matches ? "list" : "grid");
     };
     applyResponsiveDefault();
     media.addEventListener("change", applyResponsiveDefault);
@@ -1092,7 +1092,7 @@ function PropertiesIndexPage() {
     setMapBounds(undefined);
     setOffset(0);
     setSelectedPropertyId(null);
-    setViewMode("list");
+    setViewMode("grid");
   }
 
   function resetFilters() {
