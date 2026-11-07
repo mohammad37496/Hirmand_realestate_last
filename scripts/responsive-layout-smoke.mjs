@@ -583,7 +583,7 @@ try {
           await page.waitForFunction(() => !new URLSearchParams(window.location.search).has("sort"),
             null, { timeout: 5_000 }).catch(() => {});
           await page.waitForTimeout(500);
-          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه";
+          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش شبکه‌ای فایل‌ها";
           const defaultView = page.locator('.pf-views button[aria-label="' + defaultViewLabel + '"]').first();
           await page.waitForFunction((selector) => document.querySelector(selector)?.getAttribute("aria-pressed") === "true",
             '.pf-views button[aria-label="' + defaultViewLabel + '"]', { timeout: 8_000 }).catch(() => {});
