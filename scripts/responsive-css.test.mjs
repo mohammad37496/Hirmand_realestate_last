@@ -27,6 +27,7 @@ const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", impo
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
 const propertiesMapCardsCss = fs.readFileSync(new URL("../src/properties-map-cards.css", import.meta.url), "utf8");
 const propertiesProCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
+const budgetMatcherCss = fs.readFileSync(new URL("../src/budget-matcher-redesign.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
@@ -72,6 +73,8 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
     "finance widgets must not keep a 240px desktop side column on phones");
   assert.match(responsiveCss, /\.budget-matcher\s+\.budget-matcher-hero\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
     "the budget hero must keep a readable Persian text column at tablet widths");
+  assert.match(budgetMatcherCss, /@media\s*\(min-width:\s*761px\)\s*and\s*\(max-width:\s*980px\)[\s\S]*?\.budget-matcher-hero-mark\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) !important;[\s\S]*?\.budget-matcher-mark-copy\s*\{[^}]*width:\s*100% !important;[^}]*text-align:\s*center !important;/s,
+    "the budget matcher brand mark must stack and keep its copy inside the tablet width range");
   assert.match(responsiveCss, /\.action-menu\.floating-call-menu\s*\{[^}]*position:\s*fixed\s*!important/is,
     "the desktop floating contact menu must not stretch as a relative action menu");
 

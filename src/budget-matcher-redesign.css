@@ -478,6 +478,25 @@
   }
 }
 
+@media (min-width: 761px) and (max-width: 980px) {
+  .budget-matcher .budget-matcher-hero-mark {
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: center !important;
+    gap: 10px !important;
+  }
+
+  .budget-matcher .budget-matcher-mark-copy {
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  .budget-matcher .budget-matcher-mark-copy > span,
+  .budget-matcher .budget-matcher-mark-copy small {
+    max-width: none !important;
+    text-align: center !important;
+  }
+}
+
 @media (max-width: 760px) {
   .budget-matcher {
     width: min(calc(100% - 24px), 680px) !important;
