@@ -29,6 +29,8 @@ test("customer accounts support email registration and sign-in on Better Auth", 
   assert.doesNotMatch(client, /runPreSignInSignOut\(\{[^}]*clearWorkspace/);
   assert.match(server, /process\.env\.NODE_ENV === "production" \? \[\] : LOCAL_DEV_ORIGINS/);
   assert.match(server, /allowPreviewOAuth/);
+  assert.match(server, /requireLocalEmailVerified:\s*true/);
+  assert.doesNotMatch(server, /requireLocalEmailVerified:\s*false/);
   assert.match(login, /GROK_PROVIDERS\.map/);
   assert.match(login, /!mounted \|\| isPending/);
 });
