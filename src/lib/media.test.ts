@@ -13,6 +13,10 @@ import {
   createLiaraVideoResponse,
   liaraMediaCacheControl,
 } from "./liara-media-access.server.ts";
+import {
+  createRangeNotSatisfiableResponse,
+  liaraRangeNotSatisfiableResponse,
+} from "./music-range-response.ts";
 
 test("Liara object URLs use the signed same-origin media proxy", () => {
   const source = "https://storage.c2.liara.space/hirmand/properties/uploads/home.webp";
@@ -359,9 +363,40 @@ test("Liara video proxy preserves 206 range metadata and returns uncached 416 re
   );
 });
 
+test("Liara music 416 responses preserve Content-Range and bypass shared caches", () => {
+  const response = liaraRangeNotSatisfiableResponse(
+    new Response(null, {
+      status: 416,
+      headers: {
+        "accept-ranges": "bytes",
+        "content-range": "bytes */12345",
+      },
+    }),
+  );
+
+  assert.ok(response);
+  assert.equal(response.status, 416);
+  assert.equal(response.headers.get("accept-ranges"), "bytes");
+  assert.equal(response.headers.get("content-range"), "bytes */12345");
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("content-disposition"), "inline");
+  assert.equal(
+    liaraRangeNotSatisfiableResponse(new Response(null, { status: 404 })),
+    null,
+  );
+});
+
 test("unpublished customer media and draft property uploads are never cached publicly", () => {
   assert.equal(liaraMediaCacheControl("properties/customer-submissions/photo.webp", true), "private, no-store");
   assert.equal(liaraMediaCacheControl("properties/uploads/draft/photo.webp", false), "private, no-store");
   assert.match(liaraMediaCacheControl("properties/uploads/published/photo.webp", true), /^public,/);
   assert.match(liaraMediaCacheControl("properties/divar/photo.webp", false), /^public,/);
+});
+
+test("database media 416 responses return Content-Range directly instead of throwing", () => {
+  const response = createRangeNotSatisfiableResponse("bytes */6201453");
+  assert.equal(response.status, 416);
+  assert.equal(response.headers.get("content-range"), "bytes */6201453");
+  assert.equal(response.headers.get("accept-ranges"), "bytes");
+  assert.equal(response.headers.get("cache-control"), "no-store");
 });
