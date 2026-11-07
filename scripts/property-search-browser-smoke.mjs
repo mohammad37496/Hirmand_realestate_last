@@ -34,14 +34,14 @@ async function openAndExpectFixture(url, label) {
   const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
   page.on("pageerror", (error) => pageErrors.push(`${label}: ${error.message}`));
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
-  const gridButton = page.getByRole("button", { name: "نمایش شبکه‌ای فایل‌ها" });
-  await gridButton.waitFor({ state: "visible", timeout: timeoutMs });
+  const mapButton = page.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" });
+  await mapButton.waitFor({ state: "visible", timeout: timeoutMs });
+  await mapButton.click();
   await page.waitForFunction(
-    () => document.querySelector('button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+    () => document.querySelector('button[aria-label="نمایش فایل‌ها روی نقشه"]')?.getAttribute("aria-pressed") === "true",
     null,
     { timeout: timeoutMs },
   );
-  await page.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" }).click();
   const itemTitle = page.locator(".pf-map-item-copy strong").filter({ hasText: title }).first();
   await itemTitle.waitFor({ state: "visible", timeout: timeoutMs });
   assert.equal((await itemTitle.innerText()).trim(), title, `${label}: expected the controlled fixture to match`);

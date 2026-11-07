@@ -20,6 +20,7 @@ const propertyPriceHistoryCss = fs.readFileSync(new URL("../src/property-price-h
 const propertyVerificationStampCss = fs.readFileSync(new URL("../src/property-verification-stamp.css", import.meta.url), "utf8");
 const propertyDecisionToolsCss = fs.readFileSync(new URL("../src/property-decision-tools.css", import.meta.url), "utf8");
 const propertyScenarioToolsCss = fs.readFileSync(new URL("../src/property-scenario-tools.css", import.meta.url), "utf8");
+const propertySearchBrowserSmoke = fs.readFileSync(new URL("../scripts/property-search-browser-smoke.mjs", import.meta.url), "utf8");
 const globalCss = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const rootRoute = fs.readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
@@ -168,6 +169,10 @@ testRunner.test("responsive smoke exercises a loaded map view and the one-item c
     "responsive screenshots must restore the intended mobile-list or desktop map-and-cards default");
   assert.match(browserSmoke, /minimum-two-files empty state/);
   assert.match(browserSmoke, /outerHTML: element\.outerHTML/);
+  assert.match(propertySearchBrowserSmoke, /const mapButton = page\.getByRole\("button", \{ name: "نمایش فایل‌ها روی نقشه" \}\)/);
+  assert.match(propertySearchBrowserSmoke, /await mapButton\.click\(\)/);
+  assert.doesNotMatch(propertySearchBrowserSmoke, /button\[aria-label="نمایش شبکه‌ای فایل‌ها"\]/,
+    "property search smoke must not depend on grid being the desktop default");
 });
 
 testRunner.test("two-field spec ranges split evenly instead of collapsing a label", () => {
