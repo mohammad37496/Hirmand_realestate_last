@@ -9,7 +9,7 @@ import {
   normalizeStoredMediaUrl,
 } from "@/lib/music-library.server";
 import { isDatabaseMediaUrl } from "@/lib/media-store.server";
-import { liaraRangeNotSatisfiableHeaders } from "@/lib/music-range-response";
+import { liaraRangeNotSatisfiableResponse } from "@/lib/music-range-response";
 
 const CACHE_CONTROL =
   "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400";
@@ -90,13 +90,8 @@ export default defineEventHandler(async (event) => {
     }
 
     if (!upstream.ok) {
-      const rangeFailureHeaders = liaraRangeNotSatisfiableHeaders(upstream);
-      if (rangeFailureHeaders) {
-        return new Response(null, {
-          status: 416,
-          headers: rangeFailureHeaders,
-        });
-      }
+      const rangeFailureResponse = liaraRangeNotSatisfiableResponse(upstream);
+      if (rangeFailureResponse) return rangeFailureResponse;
 
       const status = upstream.status === 404 ? 404 : 502;
       throw createError({

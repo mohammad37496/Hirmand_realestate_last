@@ -3,9 +3,9 @@ import {
   defineEventHandler,
   getHeader,
   getRouterParam,
-  setResponseHeader,
 } from "h3";
 import { getMediaMeta, readMediaRange } from "@/lib/media-store.server";
+import { createRangeNotSatisfiableResponse } from "@/lib/music-range-response";
 
 /**
  * Serves stored media from our own origin.
@@ -76,9 +76,7 @@ export default defineEventHandler(async (event) => {
   const range = parseRangeHeader(getHeader(event, "range"), size);
 
   if (range === "unsatisfiable") {
-    setResponseHeader(event, "content-range", `bytes */${size}`);
-    setResponseHeader(event, "accept-ranges", "bytes");
-    throw createError({ statusCode: 416, statusMessage: "بازه درخواستی نامعتبر است." });
+    return createRangeNotSatisfiableResponse(`bytes */${size}`);
   }
 
   const start = range ? range.start : 0;
