@@ -34,6 +34,14 @@ async function openAndExpectFixture(url, label) {
   const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
   page.on("pageerror", (error) => pageErrors.push(`${label}: ${error.message}`));
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+  const gridButton = page.getByRole("button", { name: "نمایش شبکه‌ای فایل‌ها" });
+  await gridButton.waitFor({ state: "visible", timeout: timeoutMs });
+  await page.waitForFunction(
+    () => document.querySelector('button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+    null,
+    { timeout: timeoutMs },
+  );
+  await page.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" }).click();
   const itemTitle = page.locator(".pf-map-item-copy strong").filter({ hasText: title }).first();
   await itemTitle.waitFor({ state: "visible", timeout: timeoutMs });
   assert.equal((await itemTitle.innerText()).trim(), title, `${label}: expected the controlled fixture to match`);
@@ -71,6 +79,7 @@ try {
   // Invalid bounds must show validation feedback and not leak a stale match.
   const invalid = await browser.newPage({ viewport: { width: 1365, height: 900 } });
   await invalid.goto(new URL("/properties?minArea=-1", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
+  await invalid.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" }).click();
   const validation = invalid.locator(".pf-filter-validation-error");
   await validation.waitFor({ state: "visible", timeout: timeoutMs });
   assert.match(await validation.innerText(), /حداقل متراژ/);
@@ -82,6 +91,7 @@ try {
   const emptyUrl = new URL("/properties", baseUrl);
   emptyUrl.searchParams.set("q", "عبارت-آزمایشی-بدون-نتیجه-۷۸۹۱۲۳");
   await empty.goto(emptyUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
+  await empty.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" }).click();
   await empty.locator(".pf-map-list-empty").waitFor({ state: "visible", timeout: timeoutMs });
   assert.match(await empty.locator(".pf-map-list-empty").innerText(), /پیدا نشد/);
   assert.equal(await empty.locator(".pf-map-item-copy strong").filter({ hasText: title }).count(), 0);
