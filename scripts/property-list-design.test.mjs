@@ -87,6 +87,12 @@ test("explicit grid cards use a premium photo, action and information hierarchy"
   assert.match(gridPolish, /@media \(prefers-reduced-motion:\s*reduce\)/);
 });
 
+test("property marketplace opens in a desktop grid and keeps the compact mobile default", () => {
+  assert.match(propertiesRoute, /useState<"grid" \| "list" \| "split">\("grid"\)/);
+  assert.match(propertiesRoute, /const media = window\.matchMedia\("\(max-width: 720px\)"\)[\s\S]*?setViewMode\(media\.matches \? "list" : "grid"\)/);
+  assert.match(propertiesRoute, /function showAllPropertiesWithoutMapBounds\(\)[\s\S]*?setViewMode\("grid"\)/);
+});
+
 test("mobile marketplace filters, view toggles and map controls keep 44px touch targets", () => {
   const tabletControls = marketplaceCss.slice(marketplaceCss.indexOf("/* Tablet and phone controls"));
   assert.match(tabletControls, /@media \(max-width: 1024px\)[\s\S]*?\.pf-page \.pf-sort \.pf-select,[\s\S]*?\.pf-page \.pf-sidebar \.pf-close\s*\{[\s\S]*?min-height:\s*44px !important/);
