@@ -151,8 +151,11 @@ try {
       // Give the client enough time to hydrate before interacting with React controls.
       await page.waitForTimeout(500);
 
-      // Every route that renders shared property cards must preserve the RTL
-      // mobile invariant: image on the right, property details on the left.
+      // Shared property cards intentionally have different mobile layouts:
+      // the public listing defaults to its photo-first grid, its explicit list
+      // view uses the compact RTL horizontal card, and favorites keeps its
+      // dedicated photo-first card design. Verify the active design instead of
+      // imposing the list-view geometry on every route.
       const sharedMobileCard = page.locator(route === "/properties" ? ".pf-grid .pcard-mobile-list" : ".pcard-mobile-list").first();
       if (route === "/" || route === "/properties" || route === "/favorites") {
         await sharedMobileCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
@@ -170,21 +173,32 @@ try {
       }
       if (await sharedMobileCard.isVisible().catch(() => false)) {
         const cardLayout = await sharedMobileCard.evaluate((card) => {
-          const media = card.querySelector(".pcard-image-link")?.getBoundingClientRect();
+          const imageLink = card.querySelector(".pcard-media > .pcard-image-link")?.getBoundingClientRect();
           const title = card.querySelector(".pcard-title");
           const titleRange = title ? document.createRange() : null;
-          // .pcard-media and .pcard-body are full-width layout overlays;
-          // measure the actual image link and rendered title text instead.
+          // The media/body wrappers can span or overlap the full card. Measure
+          // the visible image link and rendered title text instead.
           titleRange?.selectNodeContents(title);
           const details = titleRange?.getBoundingClientRect();
+          const favoritesPage = Boolean(card.closest(".favorites-page"));
+          const propertyGrid = card.closest(".pf-page")?.querySelector(".pf-grid");
+          const photoFirst = favoritesPage || propertyGrid?.classList.contains("is-grid-view") === true;
+          const expectedLayout = photoFirst ? "photo-first" : "rtl-horizontal";
+          const layoutMatches = photoFirst
+            ? Boolean(imageLink && details && imageLink.bottom <= details.top + 2)
+            : Boolean(imageLink && details && imageLink.left >= details.right - 2);
           return {
-            imageOnRight: Boolean(media && details && media.left >= details.right - 2),
-            hasImage: Boolean(media && media.width > 0 && media.height > 0),
+            expectedLayout,
+            layoutMatches,
+            hasImage: Boolean(imageLink && imageLink.width > 0 && imageLink.height > 0),
             hasDetails: Boolean(details && details.width > 0 && details.height > 0),
+            imageRect: imageLink ? { left: imageLink.left, right: imageLink.right, top: imageLink.top, bottom: imageLink.bottom, width: imageLink.width, height: imageLink.height } : null,
+            titleRect: details ? { left: details.left, right: details.right, top: details.top, bottom: details.bottom, width: details.width, height: details.height } : null,
+            gridClass: propertyGrid?.className ?? null,
           };
         });
-        if (!cardLayout.hasImage || !cardLayout.hasDetails || !cardLayout.imageOnRight) {
-          failures.push(route + " @ 320px: shared property card must show its image on the right and details on the left");
+        if (!cardLayout.hasImage || !cardLayout.hasDetails || !cardLayout.layoutMatches) {
+          failures.push(route + " @ 320px: shared property card does not match its " + cardLayout.expectedLayout + " image/details layout; geometry=" + JSON.stringify(cardLayout));
         }
         const sharedCardImage = sharedMobileCard.locator(".pcard-media img").first();
         await sharedCardImage.scrollIntoViewIfNeeded().catch(() => {});
