@@ -1,7 +1,7 @@
 import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
-import { GROK_PROVIDERS } from "./providers";
+import { GROK_PROVIDERS as AVAILABLE_GROK_PROVIDERS } from "./providers";
 
 /**
  * Better Auth client for this React SPA (browser-side).
@@ -29,16 +29,15 @@ export const authClient = createAuthClient({
 });
 
 /**
- * True when sign-in UI should be shown — i.e. whenever `VITE_AUTH_ENABLED` is
- * not `"false"`. The shipped template sets it to `"false"`
- * (`.grok/app-env.json`), which selects the dev user (see `use-current-user`);
- * with the key removed, sign-in is real in preview (baked preview client) and
- * when deployed (injected per-app client).
+ * True when sign-in UI should be shown. Set `VITE_AUTH_ENABLED=false` only for
+ * a local development fallback; customer accounts are enabled by default.
  */
 export const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
 /** The upstream providers to render sign-in buttons for. */
-export { GROK_PROVIDERS };
+const grokOAuthEnabled = import.meta.env.VITE_GROK_OAUTH_ENABLED === "true" ||
+  (import.meta.env.DEV && import.meta.env.VITE_GROK_OAUTH_ENABLED !== "false");
+export const GROK_PROVIDERS = grokOAuthEnabled ? AVAILABLE_GROK_PROVIDERS : [];
 
 // ── Live-preview bearer token ────────────────────────────────────────────────
 // The embedded preview iframe has partitioned cookies, so we keep the session's
@@ -64,6 +63,22 @@ function setBearerToken(token: string | null): void {
     else window.sessionStorage.removeItem(BEARER_KEY);
   } catch {
     /* storage unavailable — ignore */
+  }
+}
+
+function clearCustomerWorkspaceCache(): void {
+  if (typeof window === "undefined") return;
+  try {
+    [
+      "hirmand-favorite-properties",
+      "hirmand-favorite-meta-v1",
+      "hirmand-saved-searches",
+      "hirmand-recent-properties",
+      "hirmand-workspace-owner-v1",
+      "hirmand-workspace-pending-v1",
+    ].forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // Local workspace data is best-effort; the server copy remains intact.
   }
 }
 
@@ -229,6 +244,7 @@ export async function signOut(redirectTo = "/"): Promise<void> {
       if (error) throw new Error(error.message ?? "Sign-out failed");
     },
     clearToken: () => setBearerToken(null),
+    clearWorkspace: clearCustomerWorkspaceCache,
     redirect: () => {
       window.location.href = redirectTo;
     },

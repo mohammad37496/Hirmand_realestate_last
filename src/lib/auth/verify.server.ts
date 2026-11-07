@@ -1,6 +1,8 @@
 import { getRequest } from "@tanstack/react-start/server";
+import { createError } from "h3";
 import { gateIdentityEnabled } from "./gate-identity.server";
 import { auth, authConfigured } from "./server";
+import { resolveDatabaseUrl } from "../../../scripts/resolve-database-url.mjs";
 
 /**
  * Server-side session resolution (server-only).
@@ -13,7 +15,7 @@ import { auth, authConfigured } from "./server";
  */
 
 /** True when a real database is configured server-side. */
-const databaseConfigured = Boolean(process.env.DATABASE_URL?.trim());
+const databaseConfigured = Boolean(resolveDatabaseUrl().url);
 
 /** Re-export so callers can branch on it without importing `server.ts`. */
 export { authConfigured };
@@ -70,6 +72,16 @@ export async function getSessionUser(
   return { id: session.user.id, email: session.user.email ?? null };
 }
 
+/** Resolve a session from an explicit request header set (for H3 API routes). */
+export async function getSessionUserFromHeaders(
+  headers: Headers,
+): Promise<VerifiedUser | null> {
+  if (!authConfigured && !gateIdentityEnabled()) return null;
+  const session = await auth.api.getSession({ headers });
+  if (!session?.user) return null;
+  return { id: session.user.id, email: session.user.email ?? null };
+}
+
 /**
  * Resolve the current user id for a server function, or throw when unauthorized.
  * Prefer `authMiddleware` (`./middleware`), which calls this for you.
@@ -93,5 +105,21 @@ export async function requireUserId(bearerToken?: string): Promise<string> {
   }
   const user = await getSessionUser(bearerToken);
   if (!user) throw new UnauthorizedError();
+  return user.id;
+}
+
+/** Require the authenticated user for an H3 route using its request headers. */
+export async function requireUserIdFromHeaders(headers: Headers): Promise<string> {
+  if (!authConfigured && !gateIdentityEnabled()) {
+    if (databaseConfigured) {
+      throw new Error(
+        "Auth is disabled (VITE_AUTH_ENABLED=false) but DATABASE_URL is set — " +
+          "refusing to fall back to the shared dev user against a real database.",
+      );
+    }
+    return DEV_USER_ID;
+  }
+  const user = await getSessionUserFromHeaders(headers);
+  if (!user) throw createError({ statusCode: 401, statusMessage: "Unauthorized" });
   return user.id;
 }

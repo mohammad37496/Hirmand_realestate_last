@@ -12,7 +12,6 @@ import { FavoriteMatchProfile } from "@/components/hirmand/favorite-match-profil
 import { FavoriteNeighborhoodSnapshot } from "@/components/hirmand/favorite-neighborhood-snapshot";
 import { FavoriteShortlistReport } from "@/components/hirmand/favorite-shortlist-report";
 import { WorkspaceBackupRestore } from "@/components/hirmand/workspace-backup-restore";
-import { CustomerWorkspaceSync } from "@/components/hirmand/customer-workspace-sync";
 import { FavoriteWeightedMatrix } from "@/components/hirmand/favorite-weighted-matrix";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { listPublishedPropertiesBySlugs, type Property } from "@/lib/properties";
@@ -83,6 +82,7 @@ function persistFavoriteMeta(value: FavoriteMetaMap) {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(FAVORITE_META_KEY, JSON.stringify(value));
+    window.dispatchEvent(new Event("hirmand:workspace-changed"));
   } catch {
     // Ignore storage failures; favorites remain usable without annotations.
   }
@@ -138,6 +138,7 @@ async function shareFavorites(slugs: string[]) {
 function persistSlugs(key: string, slugs: string[]) {
   try {
     localStorage.setItem(key, JSON.stringify(slugs));
+    window.dispatchEvent(new Event("hirmand:workspace-changed"));
   } catch {
     // Storage can be unavailable in private browsing; the current page still works.
   }
@@ -451,7 +452,6 @@ function FavoritesPage() {
           </div>
         </header>
 
-        <CustomerWorkspaceSync />
 
         {planOpen ? (
           <div className="favorites-plan-backdrop" role="presentation" onMouseDown={(event) => {

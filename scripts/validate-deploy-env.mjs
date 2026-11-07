@@ -5,6 +5,7 @@ import {
   resolveMigrationDatabaseUrl,
   listDbRelatedEnvKeys,
 } from "./resolve-database-url.mjs";
+import { customerAuthEnvironmentErrors } from "./customer-auth-env.mjs";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -14,6 +15,13 @@ if (isProduction) {
 }
 const runtime = resolveDatabaseUrl();
 const migration = resolveMigrationDatabaseUrl();
+
+const authEnvironmentErrors = customerAuthEnvironmentErrors(process.env, Boolean(runtime.url));
+if (authEnvironmentErrors.length) {
+  console.error("[deploy] Customer accounts are enabled but production configuration is incomplete:");
+  for (const item of authEnvironmentErrors) console.error(`[deploy]   missing or invalid: ${item}`);
+  process.exit(1);
+}
 
 if (runtime.url) {
   if (!process.env.DATABASE_URL?.trim()) {

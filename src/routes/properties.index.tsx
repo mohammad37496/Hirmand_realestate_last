@@ -115,6 +115,7 @@ function readSavedSearches(): SavedSearch[] {
       .slice(0, MAX_SAVED_SEARCHES);
     try {
       localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(normalized));
+      window.dispatchEvent(new Event("hirmand:workspace-changed"));
     } catch {
       // Keep the normalized searches in memory when storage is blocked.
     }
@@ -991,6 +992,7 @@ function PropertiesIndexPage() {
 
     try {
       localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(next));
+      window.dispatchEvent(new Event("hirmand:workspace-changed"));
       setSavedSearches(next);
       setSavedSearchId(entry.id);
       setSavedSearchAlerts((current) => ({ ...current, [entry.id]: 0 }));
@@ -1056,6 +1058,7 @@ function PropertiesIndexPage() {
     );
     try {
       localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(updatedSearches));
+      window.dispatchEvent(new Event("hirmand:workspace-changed"));
       setSavedSearches(updatedSearches);
       setSavedSearchAlerts((current) => {
         const copy = { ...current };
@@ -1073,6 +1076,7 @@ function PropertiesIndexPage() {
     const next = savedSearches.filter((item) => item.id !== savedSearchId);
     try {
       localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(next));
+      window.dispatchEvent(new Event("hirmand:workspace-changed"));
       setSavedSearches(next);
       setSavedSearchId("");
       setSavedSearchAlerts((current) => {
@@ -1889,6 +1893,7 @@ function PropertiesIndexPage() {
                       );
                       try {
                         localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(next));
+                        window.dispatchEvent(new Event("hirmand:workspace-changed"));
                         setSavedSearches(next);
                         setSavedSearchAlerts((current) => {
                           const copy = { ...current };

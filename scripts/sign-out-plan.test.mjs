@@ -37,6 +37,7 @@ function harness(overrides = {}) {
       return Promise.resolve();
     },
     clearToken: () => order.push("clear"),
+    clearWorkspace: () => order.push("workspace"),
     redirect: () => order.push("redirect"),
     timeoutMs: TEST_TIMEOUT_MS,
     ...overrides,
@@ -62,13 +63,13 @@ test("preview: a successful sign-out clears the token, then redirects", async ()
   const h = preview();
   await h.run();
   assert.equal(h.requests, 1);
-  assert.deepEqual(h.order, ["clear", "redirect"]);
+  assert.deepEqual(h.order, ["clear", "workspace", "redirect"]);
 });
 
 test("preview: a rejected sign-out still clears the token and redirects", async () => {
   const h = preview({ requestSignOut: rejects });
   await h.run();
-  assert.deepEqual(h.order, ["clear", "redirect"]);
+  assert.deepEqual(h.order, ["clear", "workspace", "redirect"]);
 });
 
 test("preview: a sign-out that throws synchronously still clears and redirects", async () => {
@@ -78,7 +79,7 @@ test("preview: a sign-out that throws synchronously still clears and redirects",
     },
   });
   await h.run();
-  assert.deepEqual(h.order, ["clear", "redirect"]);
+  assert.deepEqual(h.order, ["clear", "workspace", "redirect"]);
 });
 
 test("preview: a sign-out that never settles clears and redirects once the wait expires", async (t) => {
@@ -92,14 +93,14 @@ test("preview: a sign-out that never settles clears and redirects once the wait 
 
   t.mock.timers.tick(1);
   await done;
-  assert.deepEqual(h.order, ["clear", "redirect"]);
+  assert.deepEqual(h.order, ["clear", "workspace", "redirect"]);
 });
 
 test("preview: no bearer means nothing to invalidate, so no request is made", async () => {
   const h = preview({ hasBearer: false });
   await h.run();
   assert.equal(h.requests, 0);
-  assert.deepEqual(h.order, ["clear", "redirect"]);
+  assert.deepEqual(h.order, ["clear", "workspace", "redirect"]);
 });
 
 test("preview: a stored bearer is still invalidated server-side", async () => {
@@ -115,7 +116,7 @@ test("preview: a stored bearer is still invalidated server-side", async () => {
 test("deployed: a confirmed sign-out clears the token, then redirects", async () => {
   const h = deployed();
   await h.run();
-  assert.deepEqual(h.order, ["clear", "redirect"]);
+  assert.deepEqual(h.order, ["clear", "workspace", "redirect"]);
 });
 
 test("deployed: a sign-out that never settles throws and does NOT redirect", async () => {
@@ -164,17 +165,22 @@ test("settleWithin waits its full window, then gives up rather than hanging", as
 /** A pre-sign-in clear whose request never settles. */
 function preSignIn(livePreview, overrides = {}) {
   let cleared = 0;
+  let workspaceClears = 0;
   const done = runPreSignInSignOut({
     livePreview,
     hasBearer: true,
     requestSignOut: hangs,
     clearToken: () => (cleared += 1),
+    clearWorkspace: () => (workspaceClears += 1),
     ...overrides,
   });
   return {
     done,
     get cleared() {
       return cleared;
+    },
+    get workspaceClears() {
+      return workspaceClears;
     },
   };
 }
@@ -190,6 +196,7 @@ test("pre-sign-in: the preview clear gives up at the preview bound", async (t) =
   t.mock.timers.tick(1);
   await h.done;
   assert.equal(h.cleared, 1);
+  assert.equal(h.workspaceClears, 0, "anonymous local workspace must survive first OAuth sign-in");
 });
 
 test("pre-sign-in: a deployed session gets the deployed window, not the preview one", async (t) => {
@@ -207,6 +214,7 @@ test("pre-sign-in: a deployed session gets the deployed window, not the preview 
   t.mock.timers.tick(DEPLOYED_SIGN_OUT_TIMEOUT_MS - PREVIEW_SIGN_OUT_TIMEOUT_MS);
   await h.done;
   assert.equal(h.cleared, 1);
+  assert.equal(h.workspaceClears, 0, "pre-sign-in cleanup must not erase data before account ownership is known");
 });
 
 test("pre-sign-in: a failed clear never blocks sign-in", async () => {
@@ -227,6 +235,7 @@ test("pre-sign-in: the preview skips the request when there is no bearer", async
   await h.done;
   assert.equal(requests, 0);
   assert.equal(h.cleared, 1);
+  assert.equal(h.workspaceClears, 0);
 });
 
 test("every sign-out bound comes from one rule", () => {
@@ -244,5 +253,5 @@ test("the defaults are bounded, and deployed waits longer than preview", async (
   const done = h.run();
   t.mock.timers.tick(PREVIEW_SIGN_OUT_TIMEOUT_MS);
   await done;
-  assert.deepEqual(h.order, ["clear", "redirect"]);
+  assert.deepEqual(h.order, ["clear", "workspace", "redirect"]);
 });

@@ -77,6 +77,7 @@ export function settleWithin(start, timeoutMs) {
  * @property {boolean} hasBearer Whether a preview bearer token is stored.
  * @property {() => unknown} requestSignOut Ask the server to end the session; must reject on a failed response.
  * @property {() => void} clearToken Drop the stored bearer token.
+ * @property {() => void} [clearWorkspace] Clear the previous account's local workspace cache.
  * @property {() => void} redirect Leave the page.
  * @property {number} [timeoutMs]
  */
@@ -96,6 +97,7 @@ export async function runSignOut({
   hasBearer,
   requestSignOut,
   clearToken,
+  clearWorkspace,
   redirect,
   timeoutMs,
 }) {
@@ -106,6 +108,7 @@ export async function runSignOut({
       await settleWithin(requestSignOut, timeoutMs ?? signOutTimeoutMs(livePreview));
     }
     clearToken();
+    clearWorkspace?.();
     redirect();
     return;
   }
@@ -119,6 +122,7 @@ export async function runSignOut({
     );
   }
   clearToken();
+  clearWorkspace?.();
   redirect();
 }
 

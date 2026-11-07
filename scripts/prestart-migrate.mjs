@@ -46,9 +46,8 @@ export async function runMigrations({ connectionString }) {
       let source;
       try {
         source = await readFile(join(MIGRATIONS_DIR, name), "utf8");
-      } catch {
-        console.error(`[migrate] migration file not found: ${name}`);
-        continue;
+      } catch (error) {
+        throw new Error(`[migrate] migration file not found: ${name}`, { cause: error });
       }
 
       console.log(`[migrate] applying ${name}`);
