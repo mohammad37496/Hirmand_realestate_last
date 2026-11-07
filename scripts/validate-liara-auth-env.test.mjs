@@ -35,6 +35,13 @@ test("invalid auth origins are rejected before deploy", () => {
   ]);
 });
 
+test("invalid database URLs are rejected before deploy", () => {
+  const env = ready.map((row) => row.key === "DATABASE_URL" ? { ...row, value: "not-a-postgres-url" } : row);
+  assert.deepEqual(validateLiaraCustomerAuthEnvironment(env), [
+    "DATABASE_URL must be a valid PostgreSQL connection URL",
+  ]);
+});
+
 test("production deployment is blocked when customer accounts are explicitly disabled", () => {
   assert.deepEqual(validateLiaraCustomerAuthEnvironment([{ key: "VITE_AUTH_ENABLED", value: "false" }]), [
     "VITE_AUTH_ENABLED must be true to enable customer accounts",

@@ -34,8 +34,18 @@ export function validateLiaraCustomerAuthEnvironment(payload) {
   }
 
   const errors = [];
-  if (!DATABASE_KEYS.some((key) => env.get(key))) {
+  const databaseKey = DATABASE_KEYS.find((key) => env.get(key));
+  if (!databaseKey) {
     errors.push(`one persistent PostgreSQL URL (${DATABASE_KEYS.join(", ")})`);
+  } else {
+    try {
+      const databaseUrl = new URL(env.get(databaseKey));
+      if (!["postgres:", "postgresql:"].includes(databaseUrl.protocol) || !databaseUrl.hostname) {
+        errors.push(`${databaseKey} must be a valid PostgreSQL connection URL`);
+      }
+    } catch {
+      errors.push(`${databaseKey} must be a valid PostgreSQL connection URL`);
+    }
   }
   const baseUrl = env.get("BETTER_AUTH_URL");
   if (!baseUrl) {
