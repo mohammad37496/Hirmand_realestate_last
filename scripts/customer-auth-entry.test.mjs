@@ -19,6 +19,7 @@ const server = source("../src/lib/auth/server.ts");
 const workspaceGet = source("../server/routes/api/customer-workspace.get.ts");
 const workspacePost = source("../server/routes/api/customer-workspace.post.ts");
 const verify = source("../src/lib/auth/verify.server.ts");
+const verifyWorkflow = source("../.github/workflows/verify.yml");
 
 test("customer accounts support email registration and sign-in on Better Auth", () => {
   assert.match(authConfig, /emailAndPasswordEnabled\s*=\s*true/);
@@ -28,6 +29,10 @@ test("customer accounts support email registration and sign-in on Better Auth", 
   assert.match(client, /VITE_GROK_OAUTH_ENABLED/);
   assert.doesNotMatch(client, /runPreSignInSignOut\(\{[^}]*clearWorkspace/);
   assert.match(server, /process\.env\.NODE_ENV === "production" \? \[\] : LOCAL_DEV_ORIGINS/);
+  assert.match(server, /"http:\/\/localhost:8081"/,
+    "the isolated production-preview E2E origin must be trusted for credentialed sign-up");
+  assert.match(verifyWorkflow, /CUSTOMER_AUTH_SMOKE_URL=http:\/\/localhost:8081 node scripts\/customer-auth-e2e-smoke\.mjs/,
+    "Verify must exercise real sign-up, account isolation, sign-out and sign-in against its temporary PostgreSQL database");
   assert.match(server, /allowPreviewOAuth/);
   assert.match(server, /requireLocalEmailVerified:\s*true/);
   assert.doesNotMatch(server, /requireLocalEmailVerified:\s*false/);

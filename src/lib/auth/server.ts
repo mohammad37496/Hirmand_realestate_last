@@ -111,6 +111,9 @@ const LOCAL_DEV_ORIGINS: string[] = [
   "http://localhost:8080",
   "http://127.0.0.1:8080",
   "http://[::1]:8080",
+  // Production-preview E2E runs against the migrated, isolated CI Postgres DB.
+  "http://localhost:8081",
+  "http://127.0.0.1:8081",
 ];
 const baseURL = explicitBaseURL ?? {
   // Include loopback hosts so dynamic baseURL resolves for local email/password
