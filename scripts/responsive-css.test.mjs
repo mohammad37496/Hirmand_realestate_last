@@ -29,6 +29,7 @@ const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-mark
 const favoritesPersonalCss = fs.readFileSync(new URL("../src/favorites-personal.css", import.meta.url), "utf8");
 const propertiesMapCardsCss = fs.readFileSync(new URL("../src/properties-map-cards.css", import.meta.url), "utf8");
 const propertiesProCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
+const budgetMatcherCss = fs.readFileSync(new URL("../src/budget-matcher-redesign.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
@@ -74,6 +75,8 @@ testRunner.test("ordinary Persian text is not subject to global anywhere wrappin
     "finance widgets must not keep a 240px desktop side column on phones");
   assert.match(responsiveCss, /\.budget-matcher\s+\.budget-matcher-hero\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
     "the budget hero must keep a readable Persian text column at tablet widths");
+  assert.match(budgetMatcherCss, /@media\s*\(min-width:\s*761px\)\s*and\s*\(max-width:\s*980px\)[\s\S]*?\.budget-matcher-hero-mark\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) !important;[\s\S]*?\.budget-matcher-mark-copy\s*\{[^}]*width:\s*100% !important;[^}]*text-align:\s*center !important;/s,
+    "the budget matcher brand mark must stack and keep its copy inside the tablet width range");
   assert.match(responsiveCss, /\.action-menu\.floating-call-menu\s*\{[^}]*position:\s*fixed\s*!important/is,
     "the desktop floating contact menu must not stretch as a relative action menu");
 
@@ -195,6 +198,19 @@ testRunner.test("compact property-detail actions keep touch-friendly hit areas o
   assert.match(documentPackCss, /\.property-document-reset\s*\{[^}]*min-height:\s*40px/s);
   assert.match(questionLogCss, /\.property-question-top button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px/s);
   assert.match(renovationTrackerCss, /\.property-renovation-row button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px/s);
+});
+
+testRunner.test("property map markers, controls and popup actions keep 44px touch targets", () => {
+  assert.match(propertiesDivarCss, /\.pf-map-item-open\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(propertiesDivarCss, /\.pf-map-marker\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px/s);
+  assert.match(propertiesDivarCss, /\.pf-map-controls button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px/s);
+  assert.match(propertiesDivarCss, /\.pf-map-popup > a\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(propertiesDivarCss, /\.pf-map-popup-close\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-controls\s*\{\s*top:\s*56px;/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-marker\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px/s);
+  assert.match(browserSmoke, /if \(width === 390\)[\s\S]*?mobile map target is below 44px/);
+  assert.match(browserSmoke, /\.pf-map-controls button, \.pf-map-marker, \.pf-map-popup-close/);
+  assert.match(browserSmoke, /tapping a map marker did not expose the popup close control/);
 });
 
 testRunner.test("responsive guardrails load after the older global styles", () => {
