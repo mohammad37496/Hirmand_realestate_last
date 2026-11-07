@@ -96,7 +96,7 @@
   border-radius: 20px;
   transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
 }
-.site-home .property-card:hover:hover {
+.site-home .property-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 16px 34px rgb(20 31 45 / 10%);
 }
