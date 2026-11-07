@@ -192,6 +192,8 @@ testRunner.test("responsive smoke exercises a loaded map view and the one-item c
   assert.match(browserSmoke, /const defaultViewLabel = width <= 720/);
   assert.match(browserSmoke, /: "نمایش شبکه‌ای فایل‌ها"/,
     "responsive screenshots must restore the intended mobile-list or desktop photo-grid default");
+  assert.match(browserSmoke, /const gridView = page\.locator\('\.pf-views button\[aria-label="نمایش شبکه‌ای فایل‌ها"\]'\)\.first\(\)/,
+    "the optional map smoke must restore the persisted desktop grid choice before screenshots");
   assert.match(browserSmoke, /titleRange\?\.selectNodeContents\(title\)/,
     "mobile card direction must be measured from visible title text, not the full-width body overlay");
   assert.match(browserSmoke, /minimum-two-files empty state/);

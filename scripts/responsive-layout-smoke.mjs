@@ -647,6 +647,19 @@ try {
             }, null, { timeout: 20_000 }).then(() => true).catch(() => false);
             if (!mapResultsReady) failures.push("/properties @ " + width + "px: map-side property list did not reach a loaded or empty state");
 
+            // The map toggle is persisted as a manual choice. Restore the
+            // current desktop default explicitly before reloading the screenshot
+            // page, otherwise localStorage correctly restores the map selection.
+            const gridView = page.locator('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]').first();
+            await gridView.waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+            if ((await gridView.getAttribute("aria-pressed").catch(() => null)) !== "true") {
+              await gridView.click().catch(() => {});
+            }
+            const gridRestored = await page.waitForFunction(() =>
+              document.querySelector('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+            null, { timeout: 5_000 }).then(() => true).catch(() => false);
+            if (!gridRestored) failures.push("/properties @ " + width + "px: desktop grid view could not be restored after the optional map check");
+
             // Return to a fresh default photo-grid document before taking the screenshot;
             // the map viewport writes bounds to the URL while it is active.
             await page.goto(new URL("/properties?sort=newest", baseUrl).toString(), {
