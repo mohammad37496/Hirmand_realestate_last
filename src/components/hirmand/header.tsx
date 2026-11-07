@@ -333,7 +333,6 @@ export function Header() {
             <a key={person.id} className="mobile-call" href={`tel:${person.phone}`} onClick={closeMenu}>
               <span className="mobile-call-icon" aria-hidden="true"><Phone size={17} /></span>
               <span className="mobile-call-copy"><strong>{person.name}</strong><small>{person.role} · <bdi dir="ltr">{person.phoneDisplay}</bdi></small></span>
-              <span className="mobile-call-arrow" aria-hidden="true">←</span>
             </a>
           ))}
         </div>
