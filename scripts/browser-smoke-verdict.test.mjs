@@ -409,6 +409,13 @@ test("property navigation waits for the detail render before sampling expected t
     "body text must be sampled only after the routed property detail has rendered");
 });
 
+test("lightbox next-image navigation is scoped to the open lightbox", () => {
+  const src = readFileSync(join(TEMPLATE_ROOT, "scripts/browser-smoke.mjs"), "utf8");
+  assert.match(src, /propertyPage\.locator\("\.property-lightbox"\)\.getByRole\("button", \{ name: "تصویر بعدی" \}\)\.click\(\)/);
+  assert.doesNotMatch(src, /propertyPage\.getByRole\("button", \{ name: "تصویر بعدی" \}\)/,
+    "the gallery and lightbox both have a next-image button, so navigation must target the lightbox");
+});
+
 test("browser-smoke file I/O only touches guarded paths", () => {
   const src = readFileSync(join(TEMPLATE_ROOT, "scripts/browser-smoke.mjs"), "utf8");
   assert.doesNotMatch(src, /(?:writeFileSync|readFileSync|statSync|realpathSync)\(\s*["'`]/);

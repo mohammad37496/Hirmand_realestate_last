@@ -461,7 +461,7 @@ try {
               (await propertyPage.locator(".property-lightbox-media-wrap .property-media-watermark").count()) === 1;
             propertyNavigationCheck.noWatermarkOnLightboxThumbnails =
               (await propertyPage.locator(".property-lightbox-thumb .property-media-watermark").count()) === 0;
-            await propertyPage.getByRole("button", { name: "تصویر بعدی" }).click();
+            await propertyPage.locator(".property-lightbox").getByRole("button", { name: "تصویر بعدی" }).click();
             await propertyPage.waitForFunction(() => {
               const image = document.querySelector(".property-lightbox-media-button img");
               return image instanceof HTMLImageElement &&
