@@ -14,6 +14,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
+import {
+  clearMusicUploadQueue,
+  createMusicUploadId,
+  persistMusicUploadQueue,
+  readMusicUploadQueue,
+} from "@/lib/music-upload-queue";
 
 type AdminMusicTrack = {
   id: string;
@@ -74,6 +80,11 @@ export function AdminMusicManager() {
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [uploadId, setUploadId] = useState<string | null>(null);
+  const [queueReady, setQueueReady] = useState(false);
+  const [retryPending, setRetryPending] = useState(false);
+  const [retryMessage, setRetryMessage] = useState("");
+  const [queueWarning, setQueueWarning] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
@@ -113,6 +124,17 @@ export function AdminMusicManager() {
 
   useEffect(() => {
     void load();
+    void readMusicUploadQueue().then((queued) => {
+      if (!queued) return;
+      setFile(queued.file);
+      setUploadId(queued.uploadId);
+      setTitle(queued.title);
+      setArtist(queued.artist);
+      setRetryPending(true);
+      setRetryMessage(queued.message || "آپلود قبلی کامل نشده است؛ با همان فایل و شناسه ادامه دهید.");
+    }).catch(() => {
+      setQueueWarning("صف آپلود قبلی از حافظهٔ مرورگر خوانده نشد؛ در صورت نیاز فایل را دوباره انتخاب کنید.");
+    }).finally(() => setQueueReady(true));
     return () => {
       audioRef.current?.pause();
       audioRef.current = null;
@@ -210,18 +232,43 @@ export function AdminMusicManager() {
       return;
     }
 
+    let stableUploadId = uploadId;
+    try {
+      stableUploadId = stableUploadId ?? createMusicUploadId();
+    } catch (error) {
+      toast.error(uploadErrorMessage(error, "شناسهٔ امن آپلود ساخته نشد."));
+      return;
+    }
+
     setBusy(true);
     setUploadProgress(0);
     setStage("در حال آماده‌سازی…");
 
     const controller = new AbortController();
+    const queueItem = {
+      uploadId: stableUploadId,
+      file: normalized.file,
+      title: title.trim(),
+      artist: artist.trim(),
+    };
 
     try {
+      setUploadId(stableUploadId);
+      setRetryMessage("");
+      const queueSaved = await persistMusicUploadQueue(queueItem);
+      setQueueWarning(queueSaved
+        ? ""
+        : "ذخیرهٔ صف در حافظهٔ مرورگر در دسترس نیست؛ تا بسته‌شدن این صفحه فایل را نگه دارید.");
+
       const result = await uploadInChunks({
         endpoint: "/api/music-upload",
         file: normalized.file,
         contentType: normalized.mimeType,
         payload: { title: title.trim(), artist: artist.trim() },
+        uploadId: stableUploadId,
+        retryChunks: true,
+        retryCompletion: true,
+        preserveSessionOnError: true,
         signal: controller.signal,
         rejectedMessage: "فایل انتخاب‌شده برای آپلود پذیرفته نشد.",
         onProgress: (percentage) => {
@@ -233,15 +280,28 @@ export function AdminMusicManager() {
       const track = result.response.track as AdminMusicTrack | undefined;
       if (!track) throw new Error("ثبت آهنگ در کتابخانه انجام نشد.");
 
-      setTracks((prev) => [...prev, track]);
+      setTracks((prev) => prev.some((item) => item.id === track.id) ? prev : [...prev, track]);
+      const queueCleared = await clearMusicUploadQueue();
       setTitle("");
       setArtist("");
       setFile(null);
+      setUploadId(null);
+      setRetryPending(false);
+      setRetryMessage("");
+      if (queueCleared || !queueSaved) setQueueWarning("");
+      else setQueueWarning("آهنگ ثبت شد، اما صف محلی پاک نشد؛ در تلاش بعدی همان آهنگ بدون تکرار بازیابی می‌شود.");
       if (inputRef.current) inputRef.current.value = "";
 
       toast.success("آهنگ آپلود و به فهرست سایت اضافه شد.");
     } catch (error) {
-      toast.error(uploadErrorMessage(error, "آپلود آهنگ انجام نشد."));
+      const message = uploadErrorMessage(error, "آپلود آهنگ انجام نشد.");
+      setRetryPending(true);
+      setRetryMessage(message);
+      const queueSaved = await persistMusicUploadQueue({ ...queueItem, message });
+      if (!queueSaved) {
+        setQueueWarning("ذخیرهٔ صف در حافظهٔ مرورگر ناموفق بود؛ فایل تا زمان بازبودن این صفحه حفظ شده است.");
+      }
+      toast.error(message);
     } finally {
       setBusy(false);
       setUploadProgress(0);
@@ -360,6 +420,7 @@ export function AdminMusicManager() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              disabled={busy || retryPending}
               maxLength={160}
               placeholder="مثلاً شب‌های اصفهان"
             />
@@ -370,6 +431,7 @@ export function AdminMusicManager() {
             <input
               value={artist}
               onChange={(e) => setArtist(e.target.value)}
+              disabled={busy || retryPending}
               maxLength={120}
               placeholder="نام خواننده"
             />
@@ -382,7 +444,25 @@ export function AdminMusicManager() {
               id="admin-music-file"
               type="file"
               accept=".mp3,.ogg,.oga,.wav,.m4a,.aac,audio/*"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              disabled={busy || !queueReady}
+              onChange={(e) => {
+                const nextFile = e.target.files?.[0] ?? null;
+                try {
+                  setFile(nextFile);
+                  setUploadId(nextFile ? createMusicUploadId() : null);
+                  setTitle("");
+                  setArtist("");
+                  setRetryPending(false);
+                  setRetryMessage("");
+                  setQueueWarning("");
+                  void clearMusicUploadQueue();
+                } catch (error) {
+                  setFile(null);
+                  setUploadId(null);
+                  toast.error(uploadErrorMessage(error, "شناسهٔ امن آپلود ساخته نشد."));
+                }
+                e.currentTarget.value = "";
+              }}
             />
             <span className={file ? "admin-music-file-card is-selected" : "admin-music-file-card"}>
               <span className="admin-music-file-icon">
@@ -400,6 +480,16 @@ export function AdminMusicManager() {
             </span>
           </label>
 
+          {retryPending ? (
+            <div className="admin-music-retry-notice" role="status">
+              <strong>فایل ناموفق برای تلاش مجدد نگه داشته شد</strong>
+              <p>{retryMessage || "همین فایل با همان شناسه ادامه پیدا می‌کند و آهنگ تکراری ثبت نمی‌شود."}</p>
+              {queueWarning ? <p role="alert">{queueWarning}</p> : null}
+            </div>
+          ) : queueWarning ? (
+            <p className="admin-music-queue-warning" role="status">{queueWarning}</p>
+          ) : null}
+
           {busy ? (
             <div className="admin-music-upload-progress" role="status">
               <div className="admin-music-upload-bar">
@@ -409,9 +499,9 @@ export function AdminMusicManager() {
             </div>
           ) : null}
 
-          <button type="submit" className="btn-gold" disabled={busy || !file}>
+          <button type="submit" className="btn-gold" disabled={!queueReady || busy || !file}>
             {busy ? <Loader2 size={16} className="admin-spin" /> : <Upload size={16} />}
-            {busy ? "در حال آپلود…" : "آپلود و انتشار آهنگ"}
+            {busy ? "در حال آپلود…" : retryPending ? "تلاش مجدد همین فایل" : "آپلود و انتشار آهنگ"}
           </button>
         </form>
       </section>
@@ -607,6 +697,9 @@ const MUSIC_ADMIN_CSS = `
 .admin-music-file-copy strong{font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111315}
 .admin-music-file-copy small{color:rgb(0 0 0 / .58);font-size:.72rem}
 .admin-music-upload-progress{grid-column:1/-1;display:flex;flex-direction:column;gap:6px}
+.admin-music-retry-notice{grid-column:1/-1;display:grid;gap:5px;padding:12px 14px;border:1px solid #e5c98c;border-radius:12px;background:#fffaf0;color:#775317}
+.admin-music-retry-notice p,.admin-music-queue-warning{margin:0;font-size:.74rem;line-height:1.8}
+.admin-music-queue-warning{grid-column:1/-1;color:#8a5e14}
 .admin-music-upload-bar{height:6px;border-radius:999px;background:rgb(0 0 0 / .1);overflow:hidden}
 .admin-music-upload-bar span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#111315,#4a4f55);transition:width .18s linear}
 .admin-music-upload-progress small{color:rgb(0 0 0 / .64);font-size:.74rem}

@@ -19,6 +19,10 @@ type BeginResponse = {
   totalChunks?: number;
   totalBytes?: number;
   maxBytes?: number;
+  completed?: boolean;
+  assembled?: boolean;
+  completing?: boolean;
+  response?: Record<string, unknown>;
   statusMessage?: string;
   message?: string;
 };
@@ -122,6 +126,12 @@ export async function uploadInChunks(options: {
   rejectedMessage?: string;
   /** Replays finalization for routes whose finish step is idempotent. */
   retryCompletion?: boolean;
+  /** Stable ID retained by the caller so a retry can recover the same session. */
+  uploadId?: string;
+  /** Retry transient chunk transport/storage failures with the same chunk index. */
+  retryChunks?: boolean;
+  /** Keep the server session and chunks when an opted-in upload fails. */
+  preserveSessionOnError?: boolean;
 }): Promise<ChunkedUploadResult> {
   const {
     endpoint,
@@ -141,6 +151,7 @@ export async function uploadInChunks(options: {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       action: "begin",
+      ...(options.uploadId ? { uploadId: options.uploadId } : {}),
       filename: file.name,
       contentType,
       sizeBytes: file.size,
@@ -154,8 +165,23 @@ export async function uploadInChunks(options: {
   if (!beginResponse.ok || !begin?.uploadId) {
     throw new Error(responseMessage(begin, rejected));
   }
+  if (options.uploadId && begin.uploadId !== options.uploadId) {
+    throw new Error("سرور شناسهٔ پایدار تلاش مجدد را تأیید نکرد؛ فایل از صف حذف نشد.");
+  }
 
   const uploadId = begin.uploadId;
+  if (begin.completed) {
+    if (!begin.response || typeof begin.response !== "object") {
+      throw new Error("سرور آپلود قبلی را کامل اعلام کرد، اما رسید ثبت آهنگ را برنگرداند.");
+    }
+    onProgress?.(100);
+    return {
+      uploadId,
+      totalChunks: Number(begin.totalChunks) || 0,
+      totalBytes: Number(begin.totalBytes) || file.size,
+      response: begin.response,
+    };
+  }
   const chunkSize =
     Number(begin.chunkSize) || 2 * 1024 * 1024;
   const totalChunks = Math.max(
@@ -167,7 +193,7 @@ export async function uploadInChunks(options: {
   try {
     let sent = 0;
     for (
-      let index = 0;
+      let index = begin.assembled || begin.completing ? totalChunks : 0;
       index < totalChunks;
       index += 1
     ) {
@@ -177,26 +203,42 @@ export async function uploadInChunks(options: {
         Math.min(start + chunkSize, file.size),
       );
 
-      const chunkResponse = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "content-type": "application/octet-stream",
-          "x-upload-id": uploadId,
-          "x-upload-index": String(index),
-        },
-        body: slice,
-        signal,
-      });
+      const maxChunkAttempts = options.retryChunks ? 3 : 1;
+      let chunkResponse: Response | null = null;
+      let chunkAcknowledgement: Record<string, unknown> | null = null;
+      for (let attempt = 0; attempt < maxChunkAttempts; attempt += 1) {
+        try {
+          chunkResponse = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "content-type": "application/octet-stream",
+              "x-upload-id": uploadId,
+              "x-upload-index": String(index),
+            },
+            body: slice,
+            signal,
+          });
+        } catch (error) {
+          if (signal?.aborted || attempt + 1 >= maxChunkAttempts) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+          continue;
+        }
 
-      const chunkAcknowledgement =
-        (await readJson(chunkResponse)) as Record<string, unknown> | null;
-      if (!chunkResponse.ok) {
-        throw new Error(
-          responseMessage(
-            chunkAcknowledgement,
-            `ارسال بخش ${index + 1} از ${totalChunks} انجام نشد.`,
-          ),
-        );
+        chunkAcknowledgement = (await readJson(chunkResponse)) as Record<string, unknown> | null;
+        if (chunkResponse.ok) break;
+        if (chunkResponse.status < 500 || attempt + 1 >= maxChunkAttempts) {
+          throw new Error(
+            responseMessage(
+              chunkAcknowledgement,
+              `ارسال بخش ${index + 1} از ${totalChunks} انجام نشد.`,
+            ),
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+      }
+
+      if (!chunkResponse?.ok) {
+        throw new Error(`ارسال بخش ${index + 1} از ${totalChunks} انجام نشد.`);
       }
 
       const expectedBytesReceived = sent + slice.size;
@@ -293,13 +335,17 @@ export async function uploadInChunks(options: {
       response: (complete ?? {}) as Record<string, unknown>,
     };
   } catch (error) {
-    // Never leave a half-filled session behind.
-    void fetch(endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "abort", uploadId }),
-      keepalive: true,
-    }).catch(() => undefined);
+    // Retryable uploads keep their stable session and receipt. Aborting after
+    // an ambiguous response could erase the only proof that the server already
+    // committed the music track.
+    if (!options.preserveSessionOnError) {
+      void fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "abort", uploadId }),
+        keepalive: true,
+      }).catch(() => undefined);
+    }
     throw error;
   }
 }

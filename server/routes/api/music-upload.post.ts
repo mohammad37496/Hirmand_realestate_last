@@ -7,6 +7,7 @@ import {
   ALLOWED_AUDIO_TYPE_SET,
   AUDIO_CHUNK_BYTES,
   MAX_AUDIO_BYTES,
+  findMusicTrackById,
   insertMusicTrack,
   mimeFromFilename,
 } from "@/lib/music-library.server";
@@ -32,6 +33,7 @@ export default defineEventHandler(async (event) => {
   return handleChunkedUpload(event, {
     kind: "audio",
     pathPrefix: "music",
+    allowClientUploadId: true,
     maxBytes: MAX_AUDIO_BYTES,
     chunkSize: AUDIO_CHUNK_BYTES,
     resolveContentType: ({ filename, declared }) => {
@@ -47,8 +49,27 @@ export default defineEventHandler(async (event) => {
       { column: "title", label: "عنوان آهنگ", required: true, maxLength: 160 },
       { column: "artist", label: "نام هنرمند", maxLength: 120 },
     ],
+    recoverCompleted: async ({ uploadId, contentType, sizeBytes, text }) => {
+      const track = await findMusicTrackById(uploadId);
+      if (!track) return null;
+      const expectedTitle = text.title.trim() || "آهنگ بدون عنوان";
+      const expectedArtist = text.artist.trim();
+      if (
+        track.title !== expectedTitle ||
+        track.artist !== expectedArtist ||
+        track.sizeBytes !== sizeBytes ||
+        track.mimeType !== contentType
+      ) {
+        throw createError({
+          statusCode: 409,
+          statusMessage: "این شناسه قبلاً برای آهنگ دیگری ثبت شده است.",
+        });
+      }
+      return { track };
+    },
     finish: async ({ stored, session, text, totalBytes }) => {
       const track = await insertMusicTrack({
+        id: String(session.id),
         title: text.title.trim() || "آهنگ بدون عنوان",
         artist: text.artist.trim(),
         url: stored.url,
