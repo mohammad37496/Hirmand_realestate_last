@@ -275,11 +275,6 @@
   line-height:1.65;
 }
 
-.header-redesign .nav-tool-item-arrow{
-  color:var(--header-brass)!important;
-  font-size:.9rem;
-}
-
 .header-redesign .nav-actions{
   min-width:0;
   display:flex;

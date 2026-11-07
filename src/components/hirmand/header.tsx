@@ -158,7 +158,6 @@ export function Header() {
                           <Link key={tool.id} to={tool.href} role="menuitem" className={cn("nav-tool-item", pathname === tool.href && "is-active")} onClick={closeMenu}>
                             <span className="nav-tool-item-icon" aria-hidden="true"><Icon size={18} strokeWidth={1.9} /></span>
                             <span className="nav-tool-item-copy"><strong>{tool.label}</strong><small>{tool.text}</small></span>
-                            <span className="nav-tool-item-arrow" aria-hidden="true">←</span>
                           </Link>
                         );
                       })}
