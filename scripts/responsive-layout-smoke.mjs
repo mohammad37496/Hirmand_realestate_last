@@ -170,11 +170,11 @@ try {
       }
       if (await sharedMobileCard.isVisible().catch(() => false)) {
         const cardLayout = await sharedMobileCard.evaluate((card) => {
-          const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
+          const media = card.querySelector(".pcard-image-link")?.getBoundingClientRect();
           const title = card.querySelector(".pcard-title");
           const titleRange = title ? document.createRange() : null;
-          // .pcard-body is a full-width overlay; measure the rendered title
-          // text to verify the actual left-hand details column in RTL layout.
+          // .pcard-media and .pcard-body are full-width layout overlays;
+          // measure the actual image link and rendered title text instead.
           titleRange?.selectNodeContents(title);
           const details = titleRange?.getBoundingClientRect();
           return {

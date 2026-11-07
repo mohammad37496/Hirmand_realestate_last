@@ -196,6 +196,8 @@ testRunner.test("responsive smoke exercises a loaded map view and the one-item c
     "the optional map smoke must restore the persisted desktop grid choice before screenshots");
   assert.match(browserSmoke, /titleRange\?\.selectNodeContents\(title\)/,
     "mobile card direction must be measured from visible title text, not the full-width body overlay");
+  assert.match(browserSmoke, /querySelector\("\.pcard-image-link"\)/,
+    "mobile card direction must use the actual image link, not the full-width media wrapper");
   assert.match(browserSmoke, /minimum-two-files empty state/);
   assert.match(browserSmoke, /outerHTML: element\.outerHTML/);
   assert.match(propertySearchBrowserSmoke, /const mapButton = page\.getByRole\("button", \{ name: "نمایش فایل‌ها روی نقشه" \}\)/);
