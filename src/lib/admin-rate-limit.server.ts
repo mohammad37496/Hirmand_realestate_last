@@ -128,6 +128,7 @@ function warnOnce(error: unknown) {
   );
 }
 
+/** Stable rate-limit identity. User-Agent is caller-controlled and must not split a caller's bucket. */
 export function clientFingerprint(event: H3Event): string {
   const forwarded = getHeader(event, "x-forwarded-for")?.split(",")[0]?.trim();
   const ip =
@@ -135,8 +136,7 @@ export function clientFingerprint(event: H3Event): string {
     getRequestIP(event, { xForwardedFor: true }) ||
     getHeader(event, "x-real-ip")?.trim() ||
     "unknown";
-  const agent = getHeader(event, "user-agent")?.slice(0, 80) ?? "";
-  return `${ip}|${agent}`;
+  return ip;
 }
 
 export type RateLimitResult = {
