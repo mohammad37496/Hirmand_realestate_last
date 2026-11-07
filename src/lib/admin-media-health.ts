@@ -49,7 +49,7 @@ export const getAdminMediaHealth = createServerFn({ method: "POST" })
       sql.query<{ count: number; bytes: number }>(
         "select count(*)::int as count, coalesce(sum(size_bytes),0)::bigint as bytes from media_objects",
       ),
-      sql.query<{ count: number }>(adminMediaReferencedCountSql),
+      sql.query<{ count: number }>(adminMediaReferencedCountSql, [String(data.staleMinutes)]),
       sql.query<{ count: number }>(adminMediaCleanupOrphanCountSql, [String(data.staleMinutes)]),
       sql.query<{ count: number }>(
         "select count(*)::int as count from media_upload_sessions where created_at < current_timestamp - ($1::text || ' minutes')::interval",
