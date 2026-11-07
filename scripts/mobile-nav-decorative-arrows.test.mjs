@@ -11,6 +11,15 @@ test("mobile primary navigation has no decorative trailing arrows", () => {
   assert.doesNotMatch(styles, /mobile-menu-link-arrow/);
 });
 
+test("mobile consultant call links have no decorative trailing arrows", () => {
+  const mobileCallList = header.slice(header.indexOf('<div className="mobile-call-list">'), header.indexOf("</div>\n      </div>", header.indexOf('<div className="mobile-call-list">')));
+  assert.doesNotMatch(mobileCallList, /mobile-call-arrow|<span[^>]*>←<\/span>/);
+  assert.match(mobileCallList, /href=\{`tel:\$\{person\.phone\}`\}/);
+  assert.match(mobileCallList, /<bdi dir="ltr">\{person\.phoneDisplay\}<\/bdi>/);
+  assert.match(styles, /\.header-redesign \.mobile-call\s*\{[^}]*grid-template-columns:auto minmax\(0,1fr\)/s);
+  assert.doesNotMatch(styles, /mobile-call-arrow/);
+});
+
 test("functional finance-tools disclosure chevron remains accessible", () => {
   assert.match(header, /aria-expanded=\{financeOpen\}/);
   assert.match(header, /aria-controls="mobile-finance-tools"/);
