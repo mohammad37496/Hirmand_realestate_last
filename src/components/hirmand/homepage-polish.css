@@ -1,34 +1,5 @@
 /* Homepage final polish — uses existing Hirmand design tokens. */
 
-.site-home .trust-strip-links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 9px;
-  margin: 14px auto 0;
-}
-
-.site-home .trust-strip-links a {
-  display: inline-flex;
-  min-height: 40px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 7px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--fg);
-  background: var(--surface, #fff);
-  font-size: .78rem;
-  font-weight: 750;
-  text-decoration: none;
-}
-
-.site-home .trust-strip-links a:hover {
-  border-color: var(--gold-line);
-  background: rgb(192 138 42 / 7%);
-}
-
 .site-home .home-guides-preview {
   padding-block: clamp(28px, 4vw, 48px);
 }
@@ -121,15 +92,6 @@
     padding: 16px;
   }
 
-  .site-home .trust-strip-links {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .site-home .trust-strip-links a {
-    justify-content: flex-start;
-    border-radius: 12px;
-  }
 }
 
 .site-home section {
