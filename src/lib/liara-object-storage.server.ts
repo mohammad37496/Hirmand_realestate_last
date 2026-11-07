@@ -307,10 +307,20 @@ export function liaraObjectKeyFromUrl(
 
     const raw = target.pathname.slice(acceptedPrefix.length);
     if (!raw) return null;
-    return raw
-      .split("/")
-      .map((segment) => decodeURIComponent(segment))
-      .join("/");
+    const segments = raw.split("/").map((segment) => decodeURIComponent(segment));
+    // A percent-encoded separator must not turn one URL path segment into
+    // multiple S3 key segments. In particular, `..%2fother-bucket/...` would
+    // otherwise escape the configured bucket when objectUrl() normalizes the
+    // resulting dot segment in the request pathname.
+    if (
+      segments.some(
+        (segment) =>
+          segment === "." || segment === ".." || /[\\/]/.test(segment),
+      )
+    ) {
+      return null;
+    }
+    return segments.join("/");
   } catch {
     return null;
   }

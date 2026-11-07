@@ -53,6 +53,46 @@ test("legacy .liara.site property URLs resolve to the configured bucket key", ()
   }
 });
 
+test("Liara object URLs reject encoded path separators and bucket traversal", () => {
+  const keys = ["LIARA_ENDPOINT", "LIARA_BUCKET_NAME", "LIARA_ACCESS_KEY", "LIARA_SECRET_KEY"] as const;
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  process.env.LIARA_ENDPOINT = "https://storage.c2.liara.space";
+  process.env.LIARA_BUCKET_NAME = "hirmand-realestate";
+  process.env.LIARA_ACCESS_KEY = "test-access-key";
+  process.env.LIARA_SECRET_KEY = "test-secret-key";
+  try {
+    const maliciousSegments = [
+      "%2e%2e%2fother-bucket%2fsecret.webp",
+      "..%2fother-bucket%2fsecret.webp",
+      "%2fother-bucket%2fsecret.webp",
+      "%5c..%5cother-bucket%5csecret.webp",
+    ];
+
+    for (const segment of maliciousSegments) {
+      assert.equal(
+        liaraObjectKeyFromUrl(
+          `https://storage.c2.liara.site/hirmand-realestate/${segment}`,
+        ),
+        null,
+        `expected encoded traversal to be rejected: ${segment}`,
+      );
+    }
+
+    assert.equal(
+      liaraObjectKeyFromUrl(
+        "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/gallery/photo.webp",
+      ),
+      "properties/uploads/gallery/photo.webp",
+      "valid nested object keys must remain supported",
+    );
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
+});
+
 
 test("legacy stored Liara proxy paths are normalized to the current same-origin route", () => {
   const target = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/legacy.webp";
