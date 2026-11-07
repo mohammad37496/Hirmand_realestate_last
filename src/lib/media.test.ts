@@ -4,6 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { isLiaraStorageHost, mediaPreviewSource, mediaSourceCandidates } from "./media.ts";
 import {
   isAllowedLiaraMediaKey,
+  fetchWithHeaderTimeout,
   liaraObjectKeyFromUrl,
 } from "./liara-object-storage.server.ts";
 import {
@@ -59,6 +60,38 @@ test("private Liara image previews use the proxy and carry owner capability only
     mediaPreviewSource(divarImage, "HIR-26-ABCDEF123456"),
     "/api/media-proxy?url=" + encodeURIComponent(divarImage),
   );
+});
+
+test("Liara fetch timeout ends at response headers so long media streams are not aborted", async () => {
+  const signals: AbortSignal[] = [];
+  const response = await fetchWithHeaderTimeout(
+    async (_url, init) => {
+      if (init?.signal) signals.push(init.signal);
+      return new Response("streaming media");
+    },
+    new URL("https://storage.example/video.mp4"),
+    {},
+    5,
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(signals[0]?.aborted, false);
+  assert.equal(await response.text(), "streaming media");
+});
+
+test("Liara fetch timeout still aborts requests that never receive response headers", async () => {
+  const signals: AbortSignal[] = [];
+  const fetcher = (_url: URL, init?: RequestInit) =>
+    new Promise<Response>((_resolve, reject) => {
+      if (init?.signal) {
+        signals.push(init.signal);
+        init.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+      }
+    });
+  await assert.rejects(
+    fetchWithHeaderTimeout(fetcher as typeof fetch, new URL("https://storage.example/video.mp4"), {}, 5),
+    /aborted/,
+  );
+  assert.equal(signals[0]?.aborted, true);
 });
 
 

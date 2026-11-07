@@ -28,7 +28,7 @@ function isAllowedTarget(target: URL): boolean {
   return target.protocol === "https:" && (isDivarRemoteHost(target.toString()) || isLiaraStorageHost(target.toString()));
 }
 
-async function readBoundedImage(response: Response): Promise<Uint8Array> {
+async function readBoundedImage(response: Response, timeoutMs = TIMEOUT_MS): Promise<Uint8Array> {
   const declaredLength = Number(response.headers.get("content-length") ?? 0);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BYTES) {
     throw createError({ statusCode: 502, statusMessage: "حجم تصویر نامعتبر است." });
@@ -41,9 +41,19 @@ async function readBoundedImage(response: Response): Promise<Uint8Array> {
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
+  let timedOut = false;
+  const timeout = timeoutMs > 0
+    ? setTimeout(() => {
+        timedOut = true;
+        void reader.cancel().catch(() => undefined);
+      }, timeoutMs)
+    : undefined;
   try {
     while (true) {
       const { done, value } = await reader.read();
+      if (timedOut) {
+        throw createError({ statusCode: 504, statusMessage: "دریافت تصویر بیش از حد طول کشید." });
+      }
       if (done) break;
       if (!value) continue;
       total += value.byteLength;
@@ -53,7 +63,13 @@ async function readBoundedImage(response: Response): Promise<Uint8Array> {
       }
       chunks.push(value);
     }
+  } catch (error) {
+    if (timedOut) {
+      throw createError({ statusCode: 504, statusMessage: "دریافت تصویر بیش از حد طول کشید." });
+    }
+    throw error;
   } finally {
+    if (timeout) clearTimeout(timeout);
     reader.releaseLock();
   }
 
@@ -171,7 +187,7 @@ export default defineEventHandler(async (event) => {
     if (!response.ok) {
       throw createError({ statusCode: response?.status === 404 ? 404 : 502, statusMessage: "دریافت تصویر از فضای ذخیره‌سازی هیرمند ممکن نشد." });
     }
-    const bytes = await readBoundedImage(response);
+    const bytes = await readBoundedImage(response, TIMEOUT_MS);
     const contentType = detectRasterImageType(bytes);
     if (!contentType) throw createError({ statusCode: 502, statusMessage: "محتوای ذخیره‌شده تصویر معتبر نیست." });
     return new Response(bytes.buffer as ArrayBuffer, {
@@ -241,7 +257,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const bytes = await readBoundedImage(response);
+  const bytes = await readBoundedImage(response, TIMEOUT_MS);
   if (!bytes.length) {
     throw createError({ statusCode: 502, statusMessage: "حجم تصویر نامعتبر است." });
   }

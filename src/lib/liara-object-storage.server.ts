@@ -233,7 +233,8 @@ export async function putLiaraObject(input: {
 /**
  * Fetches a private Liara object with a server-side Signature V4 request.
  * The optional Range header is forwarded after signing so browsers can seek
- * inside an audio file without exposing storage credentials.
+ * inside audio/video files without exposing storage credentials. timeoutMs
+ * bounds only the wait for response headers; callers own body-stream limits.
  */
 export async function getLiaraObject(input: {
   key: string;
@@ -254,16 +255,33 @@ export async function getLiaraObject(input: {
   if (input.range) {
     (request.headers as Record<string, string>).range = input.range;
   }
-  request.signal = AbortSignal.timeout(input.timeoutMs ?? 30_000);
 
   try {
-    return await fetch(url, request);
+    // Bound connection/header latency, not the streamed response body. Callers
+    // may be proxying long audio/video objects and must be able to consume them
+    // after the initial response headers arrive.
+    return await fetchWithHeaderTimeout(fetch, url, request, input.timeoutMs ?? 30_000);
   } catch (error) {
     console.warn(
       "[liara-storage] GET request failed:",
       error instanceof Error ? error.message : error,
     );
     return null;
+  }
+}
+
+export async function fetchWithHeaderTimeout(
+  fetcher: typeof fetch,
+  url: URL,
+  request: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.max(1, timeoutMs));
+  try {
+    return await fetcher(url, { ...request, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
