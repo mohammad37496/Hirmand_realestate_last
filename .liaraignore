@@ -28,14 +28,26 @@ android-staff/
 # below keep those binaries in the deployment payload while discarding the large
 # compressed archives.
 .runtime/
+!.runtime/
+.runtime/*
 !.runtime/ffmpeg/
+!.runtime/ffmpeg/**
 !.runtime/fonts/
+!.runtime/fonts/**
 src/.runtime/
+!src/.runtime/
+src/.runtime/*
 !src/.runtime/ffmpeg/
+!src/.runtime/ffmpeg/**
 !src/.runtime/fonts/
+!src/.runtime/fonts/**
 src/lib/.runtime/
+!src/lib/.runtime/
+src/lib/.runtime/*
 !src/lib/.runtime/ffmpeg/
+!src/lib/.runtime/ffmpeg/**
 !src/lib/.runtime/fonts/
+!src/lib/.runtime/fonts/**
 node_modules/
 dist/
 .output/

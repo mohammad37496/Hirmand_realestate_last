@@ -20,10 +20,34 @@ jobs:
   deploy:
     if: ${{ !contains(github.event.head_commit.message, 'trigger neighborhood catalog sync') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Node.js for runtime asset provisioning
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deploy tooling dependencies
+        timeout-minutes: 10
+        run: npm ci
+
+      - name: Provision checksum-verified FFmpeg runtime on GitHub runner
+        timeout-minutes: 15
+        env:
+          HIRMAND_FFMPEG_DOWNLOAD_TIMEOUT_MS: 120000
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run prebuild
+          test -x .runtime/ffmpeg/ffmpeg
+          test -s .runtime/fonts/Vazirmatn-Regular.ttf
+          test -x src/.runtime/ffmpeg/ffmpeg
+          test -x src/lib/.runtime/ffmpeg/ffmpeg
+          .runtime/ffmpeg/ffmpeg -hide_banner -version
 
       - name: Install Liara CLI
         run: npm i -g @liara/cli@9
@@ -35,7 +59,7 @@ jobs:
         run: node scripts/write-deployment-info.mjs
 
       - name: Deploy
-        timeout-minutes: 40
+        timeout-minutes: 60
         env:
           LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
           LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
