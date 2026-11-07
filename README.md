@@ -97,6 +97,8 @@ npm run dev
 - `https://hirmandrealestate.ir/api/auth/oauth2/callback/grok-google`
 - `https://hirmandrealestate.ir/api/auth/oauth2/callback/grok-x`
 
+در شروع production، دستور `npm start` ابتدا migrationهای ریشهٔ `migrations/` را اجرا می‌کند و سپس سرور Nitro را بالا می‌آورد. وقتی حساب‌های کاربری فعال‌اند، خطای migration مانع شروع سرور می‌شود تا API حساب روی schema ناقص اجرا نشود. پیش از deploy، اتصال `DATABASE_URL` و secretهای حساب را در محیط Liara بررسی کنید.
+
 > آپلود آهنگ و رسانه بدون `BLOB_READ_WRITE_TOKEN` هم کار می‌کند: فایل‌ها در پایگاه داده
 > ذخیره و از مسیر `/api/media/<id>` با پشتیبانی از Range (برای جابه‌جایی داخل آهنگ) سرو
 > می‌شوند. با تنظیم این متغیر، فایل‌ها روی CDN قرار می‌گیرند و سقف حجم آپلود بالاتر می‌رود.
