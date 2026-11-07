@@ -305,10 +305,10 @@ testRunner.test("all shared property cards use the readable RTL mobile list layo
   assert.match(responsiveCss, /\.area-profile-listings, \.compare-grid, \.budget-result-grid[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
 });
 
-testRunner.test("desktop defaults to grid and mobile to list until a visitor manually selects a view", () => {
-  const responsiveEffect = propertiesRoute.match(/\/\/ Open listings as a grid[\s\S]*?\}, \[viewModeManuallySelected\]\);/)?.[0] ?? "";
-  assert.ok(responsiveEffect, "responsive grid and list defaults should be applied");
-  assert.match(responsiveEffect, /if \(!viewModeManuallySelected\) setViewMode\(media\.matches \? "list" : "grid"\)/);
+testRunner.test("desktop defaults to map-and-cards and mobile to list until a visitor manually selects a view", () => {
+  const responsiveEffect = propertiesRoute.match(/\/\/ Open listings in map-and-cards mode[\s\S]*?\}, \[viewModeManuallySelected\]\);/)?.[0] ?? "";
+  assert.ok(responsiveEffect, "responsive map-and-cards and list defaults should be applied");
+  assert.match(responsiveEffect, /if \(!viewModeManuallySelected\) setViewMode\(media\.matches \? "list" : "split"\)/);
   assert.match(responsiveEffect, /media\.addEventListener\("change", applyResponsiveDefault\)/);
   assert.match(propertiesRoute, /setViewModeManuallySelected\(true\)/);
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
