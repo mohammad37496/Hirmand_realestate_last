@@ -192,7 +192,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
+  min-height: 44px;
   padding: 4px 5px;
   border-radius: 8px;
   color: var(--hr-gold);
@@ -253,7 +253,8 @@
   position: absolute;
   z-index: 4;
   max-width: 150px;
-  min-height: 30px;
+  min-width: 44px;
+  min-height: 44px;
   transform: translate(-50%, -50%);
   padding: 5px 11px;
   border: 1px solid #fff;
@@ -301,7 +302,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 35px;
+  min-height: 44px;
   padding: 7px 11px;
   border: 1px solid rgb(32 52 45 / .10);
   border-radius: 10px;
@@ -332,8 +333,8 @@
 .pf-map-controls button {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border: 1px solid rgb(32 52 45 / .12);
   border-radius: 10px;
   background: rgb(255 255 255 / .96);
@@ -442,11 +443,11 @@
   .pf-map-divar-layout .pf-map-item-media { width: 72px; height: 72px; }
   .pf-map-card-row { grid-template-columns: minmax(0, 1fr) 48px; }
   .pf-map-item-open { font-size: .65rem; }
-  .pf-map-marker { max-width: 108px; min-height: 27px; padding: 4px 8px; font-size: .65rem; }
+  .pf-map-marker { max-width: 108px; min-width: 44px; min-height: 44px; padding: 4px 8px; font-size: .65rem; }
   .pf-map-floating-head { top: 8px; inset-inline: 8px; }
-  .pf-map-floating-head span, .pf-map-floating-head a { min-height: 32px; padding: 5px 7px; font-size: .65rem; }
-  .pf-map-controls { top: 49px; inset-inline-start: 8px; }
-  .pf-map-controls button { width: 34px; height: 34px; }
+  .pf-map-floating-head span, .pf-map-floating-head a { min-height: 44px; padding: 5px 7px; font-size: .65rem; }
+  .pf-map-controls { top: 56px; inset-inline-start: 8px; }
+  .pf-map-controls button { width: 44px; height: 44px; }
   .pf-map-empty-note, .pf-map-offline-note { inset-inline: 42px; font-size: .7rem; }
 }
 
@@ -894,7 +895,7 @@
   user-select: text;
 }
 .pf-map-popup > strong {
-  padding-inline-end: 22px;
+  padding-inline-end: 52px;
   overflow-wrap: break-word;
   word-break: normal;
   font-size: .78rem;
@@ -908,7 +909,7 @@
 }
 .pf-map-popup > a {
   justify-self: start;
-  min-height: 34px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   padding: 5px 10px;
@@ -925,8 +926,8 @@
   inset-inline-end: 7px;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 0;
   border-radius: 7px;

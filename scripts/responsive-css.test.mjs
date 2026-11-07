@@ -197,6 +197,19 @@ testRunner.test("compact property-detail actions keep touch-friendly hit areas o
   assert.match(renovationTrackerCss, /\.property-renovation-row button\s*\{[^}]*width:\s*40px;[^}]*height:\s*40px/s);
 });
 
+testRunner.test("property map markers, controls and popup actions keep 44px touch targets", () => {
+  assert.match(propertiesDivarCss, /\.pf-map-item-open\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(propertiesDivarCss, /\.pf-map-marker\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px/s);
+  assert.match(propertiesDivarCss, /\.pf-map-controls button\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px/s);
+  assert.match(propertiesDivarCss, /\.pf-map-popup > a\s*\{[^}]*min-height:\s*44px/s);
+  assert.match(propertiesDivarCss, /\.pf-map-popup-close\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-controls\s*\{\s*top:\s*56px;/s);
+  assert.match(responsiveCss, /\.pf-page \.pf-map-marker\s*\{[^}]*min-width:\s*44px;[^}]*min-height:\s*44px/s);
+  assert.match(browserSmoke, /if \(width === 390\)[\s\S]*?mobile map target is below 44px/);
+  assert.match(browserSmoke, /\.pf-map-controls button, \.pf-map-marker, \.pf-map-popup-close/);
+  assert.match(browserSmoke, /tapping a map marker did not expose the popup close control/);
+});
+
 testRunner.test("responsive guardrails load after the older global styles", () => {
   assert.match(rootRoute, /import responsiveHardeningCss from "\.\.\/mobile-responsive-hardening\.css\?url";/);
   const linkPositions = [...rootRoute.matchAll(/\{ rel: "stylesheet", href: ([A-Za-z][A-Za-z0-9]*) \}/g)].map((match) => ({

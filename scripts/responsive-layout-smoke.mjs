@@ -671,6 +671,69 @@ try {
               await page.waitForFunction(() => !document.querySelector(".pf-sidebar.is-open"), null, { timeout: 5_000 }).catch(() => {});
             }
           }
+
+          if (width === 390) {
+            const mapView = page.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" });
+            await mapView.click({ timeout: 8_000 }).catch(() => {});
+            const mapReady = await page.waitForFunction(() => {
+              const list = document.querySelector(".pf-map-list");
+              return Boolean(list && list.querySelector(".pf-map-card-row, .pf-map-list-empty")
+                && !list.querySelector(".pf-map-list-empty strong")?.textContent?.includes("در حال جست‌وجو"));
+            }, null, { timeout: 20_000 }).then(() => true).catch(() => false);
+            if (!mapReady) failures.push("/properties @ 390px: mobile map view did not reach a loaded or empty state");
+
+            const mapTargets = await page.evaluate(() => {
+              const selector = ".pf-map-controls button, .pf-map-marker, .pf-map-popup-close, .pf-map-popup > a, .pf-map-floating-head a, .pf-map-item-open";
+              return [...document.querySelectorAll(selector)].flatMap((element) => {
+                const rect = element.getBoundingClientRect();
+                const style = getComputedStyle(element);
+                if (rect.width < 1 || rect.height < 1 || style.display === "none" || style.visibility === "hidden") return [];
+                return [{
+                  label: element.getAttribute("aria-label") || element.getAttribute("title") || element.textContent?.trim() || "",
+                  className: typeof element.className === "string" ? element.className : element.tagName.toLowerCase(),
+                  width: rect.width,
+                  height: rect.height,
+                }];
+              });
+            });
+            if (mapTargets.length === 0) failures.push("/properties @ 390px: mobile map target check found no visible controls");
+            for (const target of mapTargets) {
+              if (target.width < 44 || target.height < 44) {
+                failures.push("/properties @ 390px: mobile map target is below 44px; " + JSON.stringify(target));
+              }
+              if (!target.label) failures.push("/properties @ 390px: mobile map target has no accessible name; " + JSON.stringify(target));
+            }
+
+            const marker = page.locator(".pf-map-marker:visible").first();
+            if (await marker.count().catch(() => 0)) {
+              await marker.click({ timeout: 5_000 }).catch(() => {});
+              const popupClose = page.locator(".pf-map-popup-close:visible").first();
+              const popupReady = await popupClose.waitFor({ state: "visible", timeout: 5_000 }).then(() => true).catch(() => false);
+              if (!popupReady) {
+                failures.push("/properties @ 390px: tapping a map marker did not expose the popup close control");
+              } else {
+                const popupTargets = await page.evaluate(() => [...document.querySelectorAll(".pf-map-popup-close, .pf-map-popup > a")].flatMap((element) => {
+                  const rect = element.getBoundingClientRect();
+                  const style = getComputedStyle(element);
+                  if (rect.width < 1 || rect.height < 1 || style.display === "none" || style.visibility === "hidden") return [];
+                  return [{ label: element.getAttribute("aria-label") || element.textContent?.trim() || "", width: rect.width, height: rect.height }];
+                }));
+                for (const target of popupTargets) {
+                  if (target.width < 44 || target.height < 44 || !target.label) {
+                    failures.push("/properties @ 390px: popup action is too small or unlabeled; " + JSON.stringify(target));
+                  }
+                }
+                await popupClose.click().catch(() => {});
+              }
+            }
+
+            await page.goto(new URL("/properties?sort=newest", baseUrl).toString(), {
+              waitUntil: "domcontentloaded",
+              timeout: 30_000,
+            });
+            await page.waitForFunction(() => document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+              null, { timeout: 8_000 }).catch(() => {});
+          }
         }
         await page.evaluate(() => new Promise((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(resolve)),
