@@ -124,7 +124,47 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
     ? options.maxAttempts
     : 4;
   const retryDelays = options.retryDelays ?? [1_000, 3_000, 7_000];
-  const retryableStatuses = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+  function requestHeaders(requestUrl) {
+    const headers = new Headers(options.headers ?? {});
+    // Never accept a caller-supplied Authorization header for arbitrary URLs.
+    // The scoped workflow token is added only to the pinned GitHub asset API.
+    headers.delete("authorization");
+    const parsed = new URL(requestUrl);
+    if (
+      parsed.origin === "https://api.github.com" &&
+      /^\/repos\/BtbN\/FFmpeg-Builds\/releases\/assets\/\d+$/.test(parsed.pathname) &&
+      options.githubToken
+    ) {
+      headers.set("authorization", `Bearer ${options.githubToken}`);
+    }
+    return headers;
+  }
+
+  function isRateLimitResponse(response, body = "") {
+    if (response.status !== 403) return false;
+    const remaining = response.headers.get("x-ratelimit-remaining");
+    const retryAfter = response.headers.get("retry-after");
+    return remaining === "0" || Boolean(retryAfter) || /(?:api )?rate limit exceeded|secondary rate limit|abuse detection/i.test(body);
+  }
+
+  function retryDelay(response, attempt) {
+    const fallback = retryDelays[Math.min(attempt, retryDelays.length - 1)] ?? 7_000;
+    const retryAfter = response.headers.get("retry-after");
+    const resetAt = response.headers.get("x-ratelimit-reset");
+    let serverDelay = 0;
+    if (retryAfter) {
+      const seconds = Number(retryAfter);
+      serverDelay = Number.isFinite(seconds)
+        ? seconds * 1_000
+        : Math.max(0, Date.parse(retryAfter) - Date.now());
+    } else if (resetAt && response.headers.get("x-ratelimit-remaining") === "0") {
+      serverDelay = Math.max(0, Number(resetAt) * 1_000 - Date.now());
+    }
+    // Do not let a remote response stall CI indefinitely; retries and delays
+    // are both bounded, even when GitHub reports a long reset window.
+    return Math.min(30_000, serverDelay > 0 ? serverDelay : fallback);
+  }
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let response;
@@ -132,7 +172,7 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
       response = await fetchImpl(url, {
         redirect: "manual",
         signal: AbortSignal.timeout(timeoutMs),
-        ...(options.headers ? { headers: options.headers } : {}),
+        headers: requestHeaders(url),
       });
     } catch (error) {
       if (attempt < maxAttempts - 1) {
@@ -152,8 +192,13 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
       return download(new URL(location, url).toString(), redirects + 1, label, options);
     }
     if (!response.ok) {
-      if (retryableStatuses.has(response.status) && attempt < maxAttempts - 1) {
-        const delayMs = retryDelays[Math.min(attempt, retryDelays.length - 1)] ?? 7_000;
+      const rateLimit = response.status === 403
+        ? isRateLimitResponse(response, await response.clone().text().catch(() => ""))
+        : false;
+      const retryable = response.status === 408 || response.status === 425 || response.status === 429 ||
+        (response.status >= 500 && response.status <= 599) || rateLimit;
+      if (retryable && attempt < maxAttempts - 1) {
+        const delayMs = retryDelay(response, attempt);
         console.warn(`[ffmpeg] ${label} download returned HTTP ${response.status}; retrying in ${delayMs}ms (${attempt + 1}/${maxAttempts}).`);
         await sleep(delayMs);
         continue;
@@ -315,7 +360,10 @@ export async function ensureFfmpegBinary() {
   console.log(`[ffmpeg] Downloading verified ${asset.name}…`);
   let archive = await download(url, 0, "FFmpeg", customBaseUrl
     ? {}
-    : { headers: { Accept: "application/octet-stream", "X-GitHub-Api-Version": "2022-11-28" } });
+    : {
+        headers: { Accept: "application/octet-stream", "X-GitHub-Api-Version": "2022-11-28" },
+        githubToken: process.env.GITHUB_TOKEN,
+      });
   verify(archive, asset.sha256);
 
   mkdirSync(TARGET_DIR, { recursive: true });

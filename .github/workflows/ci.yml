@@ -64,8 +64,13 @@ jobs:
       - name: Phone Bridge schema and SQL
         run: npm run test:phone-bridge:sql
 
+      - name: Provision checksum-verified FFmpeg runtime
+        run: npm run prebuild
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       - name: Production build
-        run: npm run build
+        run: npm run build --ignore-scripts
         env:
           VITE_SITE_URL: https://www.hirmandrealestate.ir
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci

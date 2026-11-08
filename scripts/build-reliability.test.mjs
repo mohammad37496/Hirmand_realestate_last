@@ -26,6 +26,14 @@ const liaraDeployWorkflow = await readFile(
   new URL("../.github/workflows/deploy-liara.yml", import.meta.url),
   "utf8",
 );
+const ciWorkflow = await readFile(
+  new URL("../.github/workflows/ci.yml", import.meta.url),
+  "utf8",
+);
+const verifyWorkflow = await readFile(
+  new URL("../.github/workflows/verify.yml", import.meta.url),
+  "utf8",
+);
 const liaraIgnore = await readFile(
   new URL("../.liaraignore", import.meta.url),
   "utf8",
@@ -70,6 +78,70 @@ test("FFmpeg download does not retry permanent client errors", async () => {
   assert.equal(calls, 1);
 });
 
+test("FFmpeg GitHub API authorization is scoped to the pinned API asset endpoint", async () => {
+  const requests = [];
+  const archive = await download(
+    "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/698334968",
+    0,
+    "FFmpeg",
+    {
+      githubToken: "workflow-token",
+      headers: { Accept: "application/octet-stream", Authorization: "Bearer caller-token" },
+      fetchImpl: async (url, options) => {
+        requests.push({ url, headers: new Headers(options.headers) });
+        if (requests.length === 1) {
+          return new Response(null, {
+            status: 302,
+            headers: { Location: "https://release-assets.githubusercontent.com/signed/archive" },
+          });
+        }
+        return new Response("verified archive", { status: 200 });
+      },
+    },
+  );
+
+  assert.equal(archive.toString(), "verified archive");
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].headers.get("authorization"), "Bearer workflow-token");
+  assert.equal(requests[1].headers.has("authorization"), false);
+  assert.equal(requests[1].headers.get("accept"), "application/octet-stream");
+});
+
+test("FFmpeg downloader retries explicit GitHub rate-limit 403 and 429, not ordinary 403", async () => {
+  for (const firstResponse of [
+    new Response("API rate limit exceeded", { status: 403, headers: { "X-RateLimit-Remaining": "0" } }),
+    new Response("secondary rate limit", { status: 403, headers: { "Retry-After": "1" } }),
+    new Response("too many requests", { status: 429 }),
+  ]) {
+    let calls = 0;
+    const delays = [];
+    const archive = await download("https://api.github.com/example", 0, "FFmpeg", {
+      fetchImpl: async () => {
+        calls += 1;
+        return calls === 1 ? firstResponse : new Response("verified archive", { status: 200 });
+      },
+      sleep: async (delayMs) => delays.push(delayMs),
+      retryDelays: [10],
+    });
+    assert.equal(archive.toString(), "verified archive");
+    assert.equal(calls, 2);
+    assert.equal(delays.length, 1);
+  }
+
+  let ordinaryForbiddenCalls = 0;
+  await assert.rejects(
+    download("https://api.github.com/example", 0, "FFmpeg", {
+      fetchImpl: async () => {
+        ordinaryForbiddenCalls += 1;
+        return new Response("Resource not accessible by integration", { status: 403 });
+      },
+      sleep: async () => assert.fail("an unrelated 403 must not be retried"),
+    }),
+    /FFmpeg download failed with HTTP 403/,
+  );
+  assert.equal(ordinaryForbiddenCalls, 1);
+});
+
 const propertyStore = (await readFile(
   new URL("../src/lib/properties.ts", import.meta.url),
   "utf8",
@@ -112,6 +184,21 @@ test("Liara deploy provisions checksum-verified FFmpeg on the GitHub runner befo
   assert.match(liaraDeployWorkflow, /test -x src\/\.runtime\/ffmpeg\/ffmpeg/);
   assert.match(liaraDeployWorkflow, /test -x src\/lib\/\.runtime\/ffmpeg\/ffmpeg/);
   assert.match(liaraDeployWorkflow, /timeout-minutes: 60/);
+});
+
+test("every CI, Verify, and Liara FFmpeg provisioning call site receives only the workflow token", () => {
+  for (const [workflowName, workflow] of [
+    ["CI", ciWorkflow],
+    ["Verify", verifyWorkflow],
+    ["Liara deploy", liaraDeployWorkflow],
+  ]) {
+    assert.match(workflow, /GITHUB_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}/, `${workflowName} must provide github.token`);
+    assert.match(workflow, /permissions:\s*\n\s+contents:\s+read/, `${workflowName} must retain read-only repository permissions`);
+  }
+  assert.match(ciWorkflow, /name: Provision checksum-verified FFmpeg runtime\s+run: npm run prebuild\s+env:\s+GITHUB_TOKEN:/);
+  assert.match(verifyWorkflow, /name: Provision checksum-verified FFmpeg runtime\s+run: npm run prebuild\s+env:\s+GITHUB_TOKEN:/);
+  assert.match(ciWorkflow, /name: Production build\s+run: npm run build --ignore-scripts/);
+  assert.match(verifyWorkflow, /name: Production build\s+run: npm run build --ignore-scripts/);
 });
 
 test("Liara upload context explicitly includes provisioned FFmpeg and watermark font files", () => {

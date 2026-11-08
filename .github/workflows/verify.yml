@@ -63,7 +63,12 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm run build
+      - name: Provision checksum-verified FFmpeg runtime
+        run: npm run prebuild
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Production build
+        run: npm run build --ignore-scripts
       # `npm run build` no longer prunes devDependencies — that step moved to
       # `build:deploy`, which is what the runtime image uses. This reinstall is
       # kept as a cheap safety net in case the build command changes back, since
