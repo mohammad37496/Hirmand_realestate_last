@@ -332,7 +332,7 @@ export default defineEventHandler(async (event) => {
     );
     if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست ثبت ملک پیدا نشد." });
     await sql.query(
-      "update customer_property_submissions set priority=$2,updated_at=current_timestamp where id=$1",
+      "update customer_property_submissions set priority=$2,updated_at=greatest(clock_timestamp(),updated_at + interval '1 microsecond') where id=$1",
       [body.id, priority],
     );
     await logReviewEvent(sql, body.id, "priority", "اولویت پرونده به " + priority + " تغییر کرد.", { priority });
