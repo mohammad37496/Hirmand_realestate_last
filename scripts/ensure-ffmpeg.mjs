@@ -122,9 +122,49 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
   const sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   const maxAttempts = Number.isInteger(options.maxAttempts) && options.maxAttempts >= 1 && options.maxAttempts <= 5
     ? options.maxAttempts
-    : 4;
-  const retryDelays = options.retryDelays ?? [1_000, 3_000, 7_000];
-  const retryableStatuses = new Set([408, 425, 429, 500, 502, 503, 504]);
+    : 5;
+  const retryDelays = options.retryDelays ?? [1_000, 3_000, 7_000, 15_000];
+
+  function requestHeaders(requestUrl) {
+    const headers = new Headers(options.headers ?? {});
+    // Never accept a caller-supplied Authorization header for arbitrary URLs.
+    // The scoped workflow token is added only to the pinned GitHub asset API.
+    headers.delete("authorization");
+    const parsed = new URL(requestUrl);
+    if (
+      parsed.origin === "https://api.github.com" &&
+      /^\/repos\/BtbN\/FFmpeg-Builds\/releases\/assets\/\d+$/.test(parsed.pathname) &&
+      options.githubToken
+    ) {
+      headers.set("authorization", `Bearer ${options.githubToken}`);
+    }
+    return headers;
+  }
+
+  function isRateLimitResponse(response, body = "") {
+    if (response.status !== 403) return false;
+    const remaining = response.headers.get("x-ratelimit-remaining");
+    const retryAfter = response.headers.get("retry-after");
+    return remaining === "0" || Boolean(retryAfter) || /(?:api )?rate limit exceeded|secondary rate limit|abuse detection/i.test(body);
+  }
+
+  function retryDelay(response, attempt) {
+    const fallback = retryDelays[Math.min(attempt, retryDelays.length - 1)] ?? 7_000;
+    const retryAfter = response.headers.get("retry-after");
+    const resetAt = response.headers.get("x-ratelimit-reset");
+    let serverDelay = 0;
+    if (retryAfter) {
+      const seconds = Number(retryAfter);
+      serverDelay = Number.isFinite(seconds)
+        ? seconds * 1_000
+        : Math.max(0, Date.parse(retryAfter) - Date.now());
+    } else if (resetAt && response.headers.get("x-ratelimit-remaining") === "0") {
+      serverDelay = Math.max(0, Number(resetAt) * 1_000 - Date.now());
+    }
+    // Do not let a remote response stall CI indefinitely; retries and delays
+    // are both bounded, even when GitHub reports a long reset window.
+    return Math.min(30_000, serverDelay > 0 ? serverDelay : fallback);
+  }
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     let response;
@@ -132,7 +172,7 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
       response = await fetchImpl(url, {
         redirect: "manual",
         signal: AbortSignal.timeout(timeoutMs),
-        ...(options.headers ? { headers: options.headers } : {}),
+        headers: requestHeaders(url),
       });
     } catch (error) {
       if (attempt < maxAttempts - 1) {
@@ -152,13 +192,20 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
       return download(new URL(location, url).toString(), redirects + 1, label, options);
     }
     if (!response.ok) {
-      if (retryableStatuses.has(response.status) && attempt < maxAttempts - 1) {
-        const delayMs = retryDelays[Math.min(attempt, retryDelays.length - 1)] ?? 7_000;
+      const rateLimit = response.status === 403
+        ? isRateLimitResponse(response, await response.clone().text().catch(() => ""))
+        : false;
+      const retryable = response.status === 408 || response.status === 425 || response.status === 429 ||
+        (response.status >= 500 && response.status <= 599) || rateLimit;
+      if (retryable && attempt < maxAttempts - 1) {
+        const delayMs = retryDelay(response, attempt);
         console.warn(`[ffmpeg] ${label} download returned HTTP ${response.status}; retrying in ${delayMs}ms (${attempt + 1}/${maxAttempts}).`);
         await sleep(delayMs);
         continue;
       }
-      throw new Error(`${label} download failed with HTTP ${response.status}.`);
+      const error = new Error(`${label} download failed with HTTP ${response.status}.`);
+      error.status = response.status;
+      throw error;
     }
     try {
       return Buffer.from(await response.arrayBuffer());
@@ -173,6 +220,41 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
     }
   }
   throw new Error(`${label} download failed after ${maxAttempts} attempts.`);
+}
+
+/** Download the pinned asset, falling back only when the API is transiently unavailable. */
+export async function downloadVerifiedFfmpegArchive(asset, options = {}) {
+  const customBaseUrl = options.customBaseUrl?.trim();
+  const downloadImpl = options.downloadImpl ?? download;
+  let archive;
+
+  if (customBaseUrl) {
+    const url = `${customBaseUrl.replace(/\/+$/, "")}/${RELEASE_TAG}/${asset.name}`;
+    archive = await downloadImpl(url, 0, "FFmpeg", {});
+  } else {
+    const apiUrl = `https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/${asset.assetId}`;
+    try {
+      archive = await downloadImpl(apiUrl, 0, "FFmpeg", {
+        headers: { Accept: "application/octet-stream", "X-GitHub-Api-Version": "2022-11-28" },
+        githubToken: options.githubToken ?? process.env.GITHUB_TOKEN,
+      });
+    } catch (error) {
+      // A direct public release URL is an independent route to the same pinned
+      // asset. Use it only after the API has exhausted retries on transient
+      // server failures; never bypass API 403/404/429 or checksum failures.
+      if (!(error?.status >= 500 && error.status <= 599)) throw error;
+      const fallbackUrl = `https://github.com/BtbN/FFmpeg-Builds/releases/download/${RELEASE_TAG}/${asset.name}`;
+      console.warn(`[ffmpeg] GitHub asset API returned HTTP ${error.status} after retries; trying the public release URL without credentials.`);
+      archive = await downloadImpl(fallbackUrl, 0, "FFmpeg fallback", {
+        headers: { Accept: "application/octet-stream" },
+      });
+    }
+  }
+
+  // Both the authenticated API path and the public fallback are subject to
+  // the exact same pinned digest check before any archive is written/extracted.
+  verify(archive, asset.sha256);
+  return archive;
 }
 
 function verifyGitBlob(buffer, expected) {
@@ -304,19 +386,12 @@ export async function ensureFfmpegBinary() {
     return "";
   }
 
-  // Use the GitHub Releases API asset endpoint rather than the browser
-  // download page: the latter has intermittently returned HTTP 504 at GitHub's
-  // edge, while the API redirects directly to the signed release-assets URL.
   const customBaseUrl = process.env.HIRMAND_FFMPEG_BASE_URL?.trim();
-  const url = customBaseUrl
-    ? `${customBaseUrl.replace(/\/+$/, "")}/${RELEASE_TAG}/${asset.name}`
-    : `https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/${asset.assetId}`;
-
   console.log(`[ffmpeg] Downloading verified ${asset.name}…`);
-  let archive = await download(url, 0, "FFmpeg", customBaseUrl
-    ? {}
-    : { headers: { Accept: "application/octet-stream", "X-GitHub-Api-Version": "2022-11-28" } });
-  verify(archive, asset.sha256);
+  let archive = await downloadVerifiedFfmpegArchive(asset, {
+    customBaseUrl,
+    githubToken: process.env.GITHUB_TOKEN,
+  });
 
   mkdirSync(TARGET_DIR, { recursive: true });
   const archivePath = join(TARGET_DIR, asset.name);
