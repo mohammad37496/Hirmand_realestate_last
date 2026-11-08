@@ -4,6 +4,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
 const publicActionSchema=z.discriminatedUnion("action",[
   z.object({action:z.literal("list"),propertyId:z.string().trim().min(1).max(120)}),
@@ -56,7 +57,7 @@ export default defineEventHandler(async(event)=>{
   const parsed=publicActionSchema.safeParse(body);
   if(!parsed.success) throw createError({statusCode:422,statusMessage:"اطلاعات پرسش معتبر نیست."});
   const sql=await getSql();
-  const property=await sql.query<{id:string}>("select id from properties where id=$1 and status='published' limit 1",[parsed.data.propertyId]);
+  const property=await sql.query<{id:string}>(`select id from properties where id=$1 and ${publicPropertyVisibilitySql()} limit 1`,[parsed.data.propertyId]);
   if(!property[0]) throw createError({statusCode:404,statusMessage:"فایل موردنظر پیدا نشد."});
   if(parsed.data.action==="list"){
     const rows=await sql.query<Record<string,unknown>>("select id,question,answer,created_at,answered_at from property_questions where property_id=$1 and status='answered' order by answered_at desc nulls last,created_at desc limit 30",[parsed.data.propertyId]);

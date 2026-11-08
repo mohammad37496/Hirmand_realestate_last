@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getPublishReadiness } from "./property-publish-readiness.ts";
+import { publicPropertyVisibilitySql } from "./public-property-visibility.ts";
 
 const base = {
   transactionType: "sell" as const,
@@ -60,4 +61,16 @@ test("buy requests do not require a sale price", () => {
     price: "",
   });
   assert.equal(result.ready, true);
+});
+
+test("public property visibility includes soft-delete, scheduled publication and unpublish boundaries", () => {
+  assert.equal(
+    publicPropertyVisibilitySql(),
+    "(deleted_at is null) and (status = 'published' or (status = 'draft' and publish_at is not null and publish_at <= current_timestamp)) and (unpublish_at is null or unpublish_at > current_timestamp)",
+  );
+  assert.equal(
+    publicPropertyVisibilitySql("p"),
+    "(p.deleted_at is null) and (p.status = 'published' or (p.status = 'draft' and p.publish_at is not null and p.publish_at <= current_timestamp)) and (p.unpublish_at is null or p.unpublish_at > current_timestamp)",
+  );
+  assert.throws(() => publicPropertyVisibilitySql("p;drop"), /Invalid SQL alias/);
 });

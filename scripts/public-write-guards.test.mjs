@@ -18,6 +18,10 @@ const publicLeadActionsRoute = await readFile(
   new URL("../server/routes/api/public-lead-actions.post.ts", import.meta.url),
   "utf8",
 );
+const propertyWatchTargetRoute = await readFile(new URL("../server/routes/api/property-watch-target.post.ts", import.meta.url), "utf8");
+const propertyWatchRoute = await readFile(new URL("../server/routes/api/property-watch.post.ts", import.meta.url), "utf8");
+const propertyOpenHouseRoute = await readFile(new URL("../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
+const propertyQuestionsRoute = await readFile(new URL("../server/routes/api/property-questions.post.ts", import.meta.url), "utf8");
 
 test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
@@ -53,4 +57,13 @@ test("public lead actions check origin and rate-limit capability-token operation
   const throttleIndex = publicLeadActionsRoute.indexOf('consumeAdminAttempt("public-lead-action:"');
   const databaseCheckIndex = publicLeadActionsRoute.indexOf('dbSource === "unconfigured"');
   assert.ok(throttleIndex >= 0 && databaseCheckIndex > throttleIndex);
+});
+
+test("public property interactions share the canonical publication and unpublish visibility predicate", () => {
+  assert.match(propertyWatchTargetRoute, /publicPropertyVisibilitySql\(\)/);
+  assert.match(propertyWatchTargetRoute, /parsed\.data\.action === "set"/);
+  assert.match(propertyWatchRoute, /publicPropertyVisibilitySql\("p"\)/);
+  assert.equal((propertyOpenHouseRoute.match(/publicPropertyVisibilitySql\(\)/g) ?? []).length, 2);
+  assert.match(propertyQuestionsRoute, /publicPropertyVisibilitySql\(\)/);
+  assert.match(reportsRoute, /publicPropertyVisibilitySql\(\)/);
 });

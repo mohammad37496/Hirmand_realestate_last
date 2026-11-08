@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getCookie, readBody, setCookie } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
+import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
 const COOKIE_NAME = "hirmand_visitor_id";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -139,7 +140,7 @@ export default defineEventHandler(async (event) => {
        p.updated_at
      from property_watch_subscriptions s
      join properties p on p.id=s.property_id
-     where s.visitor_id=$1 and s.enabled=true and p.status='published'
+     where s.visitor_id=$1 and s.enabled=true and ${publicPropertyVisibilitySql("p")}
      order by s.updated_at desc
      limit 40`,
     [visitorId],

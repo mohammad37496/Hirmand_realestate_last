@@ -16,6 +16,7 @@ import { deleteStoredMedia } from "@/lib/media-store.server";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
+import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 import {
   PROPERTY_CABINET_OPTIONS,
   isAllowedPropertyFloorValue,
@@ -496,10 +497,7 @@ const DETAIL_COLUMNS = `
   last_verified_at, last_verified_by
 `;
 
-const PUBLIC_PUBLICATION_WHERE =
-  "(deleted_at is null) and (" +
-  "status = 'published' or (status = 'draft' and publish_at is not null and publish_at <= current_timestamp)" +
-  ") and (unpublish_at is null or unpublish_at > current_timestamp)";
+const PUBLIC_PUBLICATION_WHERE = publicPropertyVisibilitySql();
 
 export const listPublishedPropertyCards = createServerFn({ method: "GET" })
   .validator(publicPropertyFiltersSchema)
