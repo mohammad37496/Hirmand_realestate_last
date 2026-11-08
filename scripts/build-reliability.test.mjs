@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { download, extractFfmpegArchive } from "./ensure-ffmpeg.mjs";
+import { download, downloadVerifiedFfmpegArchive, extractFfmpegArchive } from "./ensure-ffmpeg.mjs";
 
 const ffmpegDownloader = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
@@ -124,6 +124,72 @@ test("FFmpeg GitHub API authorization is scoped to the pinned API asset endpoint
   assert.equal(requests[0].headers.get("authorization"), "Bearer workflow-token");
   assert.equal(requests[1].headers.has("authorization"), false);
   assert.equal(requests[1].headers.get("accept"), "application/octet-stream");
+});
+
+test("FFmpeg uses the public pinned release URL only after API 5xx exhaustion and verifies its checksum", async () => {
+  const assetBytes = Buffer.from("same pinned FFmpeg archive bytes");
+  const asset = {
+    assetId: 698334968,
+    name: "ffmpeg-test.tar.xz",
+    sha256: createHash("sha256").update(assetBytes).digest("hex"),
+  };
+  const requests = [];
+  const archive = await downloadVerifiedFfmpegArchive(asset, {
+    githubToken: "workflow-token",
+    downloadImpl: async (url, redirects, label, options) => {
+      requests.push({ url, redirects, label, options });
+      if (requests.length === 1) {
+        const error = new Error("FFmpeg download failed with HTTP 503.");
+        error.status = 503;
+        throw error;
+      }
+      return assetBytes;
+    },
+  });
+
+  assert.deepEqual(archive, assetBytes);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].url, "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/698334968");
+  assert.equal(requests[0].options.githubToken, "workflow-token");
+  assert.equal(requests[1].url, "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-test.tar.xz");
+  assert.equal(Object.hasOwn(requests[1].options, "githubToken"), false);
+});
+
+test("FFmpeg does not use the release fallback for 403/404 or accept an unverified fallback archive", async () => {
+  for (const status of [403, 404, 429]) {
+    let calls = 0;
+    await assert.rejects(
+      downloadVerifiedFfmpegArchive({ assetId: 1, name: "ffmpeg.tar.xz", sha256: "0".repeat(64) }, {
+        githubToken: "workflow-token",
+        downloadImpl: async () => {
+          calls += 1;
+          const error = new Error(`HTTP ${status}`);
+          error.status = status;
+          throw error;
+        },
+      }),
+      new RegExp(`HTTP ${status}`),
+    );
+    assert.equal(calls, 1, `HTTP ${status} must not trigger the public release fallback`);
+  }
+
+  let calls = 0;
+  await assert.rejects(
+    downloadVerifiedFfmpegArchive({ assetId: 1, name: "ffmpeg.tar.xz", sha256: "0".repeat(64) }, {
+      githubToken: "workflow-token",
+      downloadImpl: async () => {
+        calls += 1;
+        if (calls === 1) {
+          const error = new Error("HTTP 503");
+          error.status = 503;
+          throw error;
+        }
+        return Buffer.from("tampered fallback archive");
+      },
+    }),
+    /FFmpeg checksum mismatch/,
+  );
+  assert.equal(calls, 2, "fallback bytes must still pass the pinned SHA-256 check");
 });
 
 test("FFmpeg downloader retries explicit GitHub rate-limit 403 and 429, not ordinary 403", async () => {

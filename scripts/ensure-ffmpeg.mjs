@@ -203,7 +203,9 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
         await sleep(delayMs);
         continue;
       }
-      throw new Error(`${label} download failed with HTTP ${response.status}.`);
+      const error = new Error(`${label} download failed with HTTP ${response.status}.`);
+      error.status = response.status;
+      throw error;
     }
     try {
       return Buffer.from(await response.arrayBuffer());
@@ -218,6 +220,41 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
     }
   }
   throw new Error(`${label} download failed after ${maxAttempts} attempts.`);
+}
+
+/** Download the pinned asset, falling back only when the API is transiently unavailable. */
+export async function downloadVerifiedFfmpegArchive(asset, options = {}) {
+  const customBaseUrl = options.customBaseUrl?.trim();
+  const downloadImpl = options.downloadImpl ?? download;
+  let archive;
+
+  if (customBaseUrl) {
+    const url = `${customBaseUrl.replace(/\/+$/, "")}/${RELEASE_TAG}/${asset.name}`;
+    archive = await downloadImpl(url, 0, "FFmpeg", {});
+  } else {
+    const apiUrl = `https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/${asset.assetId}`;
+    try {
+      archive = await downloadImpl(apiUrl, 0, "FFmpeg", {
+        headers: { Accept: "application/octet-stream", "X-GitHub-Api-Version": "2022-11-28" },
+        githubToken: options.githubToken ?? process.env.GITHUB_TOKEN,
+      });
+    } catch (error) {
+      // A direct public release URL is an independent route to the same pinned
+      // asset. Use it only after the API has exhausted retries on transient
+      // server failures; never bypass API 403/404/429 or checksum failures.
+      if (!(error?.status >= 500 && error.status <= 599)) throw error;
+      const fallbackUrl = `https://github.com/BtbN/FFmpeg-Builds/releases/download/${RELEASE_TAG}/${asset.name}`;
+      console.warn(`[ffmpeg] GitHub asset API returned HTTP ${error.status} after retries; trying the public release URL without credentials.`);
+      archive = await downloadImpl(fallbackUrl, 0, "FFmpeg fallback", {
+        headers: { Accept: "application/octet-stream" },
+      });
+    }
+  }
+
+  // Both the authenticated API path and the public fallback are subject to
+  // the exact same pinned digest check before any archive is written/extracted.
+  verify(archive, asset.sha256);
+  return archive;
 }
 
 function verifyGitBlob(buffer, expected) {
@@ -349,22 +386,12 @@ export async function ensureFfmpegBinary() {
     return "";
   }
 
-  // Use the GitHub Releases API asset endpoint rather than the browser
-  // download page: the latter has intermittently returned HTTP 504 at GitHub's
-  // edge, while the API redirects directly to the signed release-assets URL.
   const customBaseUrl = process.env.HIRMAND_FFMPEG_BASE_URL?.trim();
-  const url = customBaseUrl
-    ? `${customBaseUrl.replace(/\/+$/, "")}/${RELEASE_TAG}/${asset.name}`
-    : `https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/${asset.assetId}`;
-
   console.log(`[ffmpeg] Downloading verified ${asset.name}…`);
-  let archive = await download(url, 0, "FFmpeg", customBaseUrl
-    ? {}
-    : {
-        headers: { Accept: "application/octet-stream", "X-GitHub-Api-Version": "2022-11-28" },
-        githubToken: process.env.GITHUB_TOKEN,
-      });
-  verify(archive, asset.sha256);
+  let archive = await downloadVerifiedFfmpegArchive(asset, {
+    customBaseUrl,
+    githubToken: process.env.GITHUB_TOKEN,
+  });
 
   mkdirSync(TARGET_DIR, { recursive: true });
   const archivePath = join(TARGET_DIR, asset.name);
