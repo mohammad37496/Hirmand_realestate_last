@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { BarChart3, Download, Printer, RefreshCw, WalletCards } from "lucide-react";
 import { toast } from "sonner";
-import { formatToman } from "@/lib/money";
+import { formatTomanExact } from "@/lib/money";
 import { hasAdminPermission, type AdminRole } from "@/lib/admin-roles";
 
 type Data = {
   days: number;
   properties: { created: number; published: number; draft: number; archived: number };
   leads: { created: number; open: number; contract: number; closed: number };
-  deals: { created: number; completed: number; contracted: number; volume: number; commission: number };
-  finance: { income: number; expense: number; balance: number } | null;
-  topConsultants: Array<{ name: string; deals: number; volume: number }>;
+  deals: { created: number; completed: number; contracted: number; volume: string; commission: string };
+  finance: { income: string; expense: string; balance: string } | null;
+  topConsultants: Array<{ name: string; deals: number; volume: string }>;
 };
 const fa = (v: number) => v.toLocaleString("fa-IR");
-const money = (v: number) => formatToman(Math.round(v));
+const money = (v: string) => formatTomanExact(v);
 
 export function AdminManagementReport({ role }: { role: AdminRole }) {
   const canViewDeals = hasAdminPermission(role, "deal.manage");

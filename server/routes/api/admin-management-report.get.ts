@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { financeMoneySummary, normalizeFinanceMoney } from "@/lib/admin-finance-money";
 
 const n = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const clean = (value: unknown) => typeof value === "string" ? value : "";
@@ -34,10 +35,10 @@ export default defineEventHandler(async (event) => {
       created:n(d[0]?.created),
       completed:n(d[0]?.completed),
       contracted:n(d[0]?.contracted),
-      volume: dealsAllowed ? n(d[0]?.volume) : 0,
-      commission: dealsAllowed ? n(d[0]?.commission) : 0,
+      volume: dealsAllowed ? normalizeFinanceMoney(d[0]?.volume) : "0",
+      commission: dealsAllowed ? normalizeFinanceMoney(d[0]?.commission) : "0",
     },
-    finance: financeAllowed ? {income:n(c[0]?.income),expense:n(c[0]?.expense),balance:n(c[0]?.income)-n(c[0]?.expense)} : null,
-    topConsultants: dealsAllowed ? top.map(row=>({name:clean(row.consultant)||"بدون مشاور",deals:n(row.deals),volume:n(row.volume)})) : [],
+    finance: financeAllowed ? financeMoneySummary(c[0]?.income,c[0]?.expense) : null,
+    topConsultants: dealsAllowed ? top.map(row=>({name:clean(row.consultant)||"بدون مشاور",deals:n(row.deals),volume:normalizeFinanceMoney(row.volume)})) : [],
   };
 });
