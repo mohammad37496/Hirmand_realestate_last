@@ -12,6 +12,8 @@ import { resolveMigrationDatabaseUrl, sanitizePostgresConnectionString } from ".
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 const DEPLOYMENT_INFO_FILE = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "deployment.json");
+// Stable two-int advisory key shared by every Liara app instance.
+const MIGRATION_LOCK_KEY = [1212760653, 1296643922];
 
 export async function readDeploymentCommit(path = DEPLOYMENT_INFO_FILE) {
   let source;
@@ -28,40 +30,36 @@ export async function readDeploymentCommit(path = DEPLOYMENT_INFO_FILE) {
   return deployment.commit.trim();
 }
 
-export async function runMigrations({ connectionString }) {
-  const entries = await readdir(MIGRATIONS_DIR);
-  const verifyCustomerAuth = process.env.VITE_AUTH_ENABLED !== "false";
+export async function runMigrations({
+  connectionString,
+  migrationsDir = MIGRATIONS_DIR,
+  poolFactory = (options) => new pg.Pool(options),
+  verifyCustomerAuth = process.env.VITE_AUTH_ENABLED !== "false",
+}) {
+  const entries = await readdir(migrationsDir);
   if (verifyCustomerAuth) assertRequiredMigrationFiles(entries);
-  const appliedRows = await (async () => {
-    const pool = new pg.Pool({
-      connectionString,
-      max: 1,
-      connectionTimeoutMillis: Number(process.env.DB_MIGRATION_CONNECT_TIMEOUT_MS ?? 5000),
-    });
-    const client = await pool.connect();
-    try {
-      await client.query(
-        "CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
-      );
-      const { rows } = await client.query("SELECT name FROM _migrations");
-      return rows.map((row) => String(row.name));
-    } finally {
-      client.release();
-      await pool.end();
-    }
-  })();
-
-  const pending = pendingMigrations(entries, appliedRows);
-  const pool = new pg.Pool({
+  const pool = poolFactory({
     connectionString,
     max: 1,
     connectionTimeoutMillis: Number(process.env.DB_MIGRATION_CONNECT_TIMEOUT_MS ?? 5000),
   });
-  const client = await pool.connect();
-
+  let client;
+  let lockAcquired = false;
   try {
+    client = await pool.connect();
+    // Lock before reading the ledger. All migrations are then planned and
+    // applied on this same session, so another Liara instance cannot race the
+    // same pending migration between the ledger read and its insert.
+    await client.query("SELECT pg_advisory_lock($1, $2)", MIGRATION_LOCK_KEY);
+    lockAcquired = true;
+    await client.query(
+      "CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
+    );
+    const { rows: appliedRows } = await client.query("SELECT name FROM _migrations");
+    const pending = pendingMigrations(entries, appliedRows.map((row) => String(row.name)));
+
     for (const { name } of pending) {
-      const source = await readFile(join(MIGRATIONS_DIR, name), "utf8");
+      const source = await readFile(join(migrationsDir, name), "utf8");
 
       console.log(`[migrate] applying ${name}`);
       await client.query("BEGIN");
@@ -91,7 +89,12 @@ export async function runMigrations({ connectionString }) {
       console.log("[migrate] database is up to date.");
     }
   } finally {
-    client.release();
+    if (client) {
+      if (lockAcquired) {
+        await client.query("SELECT pg_advisory_unlock($1, $2)", MIGRATION_LOCK_KEY).catch(() => {});
+      }
+      client.release();
+    }
     await pool.end();
   }
 }
