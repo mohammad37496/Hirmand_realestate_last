@@ -93,6 +93,11 @@ jobs:
         id: migrate_database
         run: npm run db:migrate
 
+      - name: Verify open-house RSVP locking across PostgreSQL sessions
+        run: node --experimental-strip-types --test scripts/open-house-rsvp-postgres.test.mjs
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
+
       - name: Seed deterministic property-detail fixture
         run: node scripts/seed-browser-smoke.mjs
 

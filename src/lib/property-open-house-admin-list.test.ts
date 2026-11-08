@@ -349,15 +349,23 @@ test("PGlite cancellation racing an RSVP leaves no active RSVP on a cancelled ev
       insert into property_open_houses(id,property_id,starts_at,capacity,status)
         values ('event-2','property-1','2099-11-09T10:00:00Z',8,'scheduled');
     `);
-    const [cancelFirstResult] = await Promise.all([
+    const [cancelFirstResult, cancelFirstRsvpResult] = await Promise.all([
       cancelPropertyOpenHouse(sql, "event-2"),
       createPropertyOpenHouseRsvp(sql, { eventId: "event-2", name: "Late Guest", phone: "09130000005", partySize: 1, note: "" }),
     ]);
     assert.equal(cancelFirstResult, "cancelled");
+    assert.equal(cancelFirstRsvpResult.kind, "not_found");
     const rejectedSignup = await createPropertyOpenHouseRsvp(sql, {
       eventId: "event-2", name: "Late Guest", phone: "09130000005", partySize: 1, note: "",
     });
     assert.equal(rejectedSignup.kind, "not_found");
+    const cancelledFirstState = await pg.query<{ event_status: string; active_rsvps: number }>(`
+      select oh.status as event_status,
+        (select count(*)::int from property_open_house_rsvps r where r.open_house_id=oh.id and r.status <> 'cancelled') as active_rsvps
+      from property_open_houses oh where oh.id='event-2'
+    `);
+    assert.equal(cancelledFirstState.rows[0]?.event_status, "cancelled");
+    assert.equal(cancelledFirstState.rows[0]?.active_rsvps, 0);
   } finally {
     await pg.close();
   }
