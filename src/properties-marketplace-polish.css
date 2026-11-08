@@ -1834,3 +1834,18 @@
   .pf-page .pf-grid.is-grid-view > .pcard:hover,
   .pf-page .pf-grid.is-grid-view > .pcard:focus-within { transform: none; }
 }
+
+/* Related property cards share one grid row, so differences in optional
+   details (price lines and feature chips) cannot change the card heights. */
+.property-detail-page .property-related .property-grid {
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+}
+
+.property-detail-page .property-related .pcard {
+  height: 100%;
+}
+
+.property-detail-page .property-related .pcard > .pcard-link {
+  flex: 1 1 auto;
+}
