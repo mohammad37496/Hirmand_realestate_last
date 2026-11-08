@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chooseCustomerWorkspaceSync, mergeCustomerWorkspaceThreeWay } from "../src/lib/customer-workspace-sync-plan.mjs";
-import { resetWorkspaceForAccountSwitch } from "../src/lib/customer-workspace-account-switch.mjs";
+import { clearWorkspaceForSignedOutUser, resetWorkspaceForAccountSwitch } from "../src/lib/customer-workspace-account-switch.mjs";
 
 const remote = {
   ownerId: "user-a",
@@ -57,6 +57,44 @@ test("switching A to B removes only B's stale base and preserves B remote worksp
   assert.deepEqual(merged.recentProperties, remoteB.recentProperties);
   assert.deepEqual(merged.savedSearches, remoteB.savedSearches);
   assert.deepEqual(merged.favoriteMeta, remoteB.favoriteMeta);
+});
+
+test("a failed account-switch key removal keeps the previous owner marker", () => {
+  for (const failedKey of ["hirmand-favorite-properties", "hirmand-workspace-base-v1:user-b"]) {
+    const values = new Map([
+      ["hirmand-workspace-owner-v1", "user-a"],
+      ["hirmand-favorite-properties", '["account-a-favorite"]'],
+      ["hirmand-workspace-base-v1:user-b", JSON.stringify({ ownerId: "user-b", revision: "9", workspace: remote })],
+    ]);
+    const storage = {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+      removeItem: (key) => {
+        if (key === failedKey) throw new Error(`cannot remove ${key}`);
+        values.delete(key);
+      },
+    };
+
+    assert.equal(resetWorkspaceForAccountSwitch({ storage, target: new EventTarget(), userId: "user-b" }), true);
+    assert.equal(values.get("hirmand-workspace-owner-v1"), "user-a", `${failedKey} failure must leave account A as owner`);
+  }
+});
+
+test("a partial sign-out clear retains the previous owner marker", () => {
+  const values = new Map([
+    ["hirmand-workspace-owner-v1", "user-a"],
+    ["hirmand-favorite-properties", '["account-a-favorite"]'],
+  ]);
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    removeItem: (key) => {
+      if (key === "hirmand-favorite-properties") throw new Error("cannot clear favorites");
+      values.delete(key);
+    },
+  };
+
+  assert.equal(clearWorkspaceForSignedOutUser({ storage, target: new EventTarget() }), true);
+  assert.equal(values.get("hirmand-workspace-owner-v1"), "user-a");
 });
 
 test("first sign-in merges anonymous browser data into the signed-in account", () => {

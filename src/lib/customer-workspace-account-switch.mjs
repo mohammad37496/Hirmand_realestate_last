@@ -24,11 +24,12 @@ export function resetWorkspaceForAccountSwitch({ storage, target, userId }) {
   }
   if (!storedOwner || storedOwner === userId) return false;
 
+  let cleared = true;
   for (const key of WORKSPACE_KEYS) {
     try {
       storage.removeItem(key);
     } catch {
-      // Keep clearing the remaining account-scoped keys if one removal fails.
+      cleared = false;
     }
   }
   try {
@@ -37,12 +38,14 @@ export function resetWorkspaceForAccountSwitch({ storage, target, userId }) {
     // set of deletions during the next three-way merge.
     storage.removeItem(`${WORKSPACE_BASE_KEY}${encodeURIComponent(userId)}`);
   } catch {
-    // Continue switching accounts even when this optional cache cannot clear.
+    cleared = false;
   }
-  try {
-    storage.setItem("hirmand-workspace-owner-v1", userId);
-  } catch {
-    // The in-memory views are still notified below.
+  if (cleared) {
+    try {
+      storage.setItem("hirmand-workspace-owner-v1", userId);
+    } catch {
+      // Keep the previous owner marker so sync cannot merge uncleared data.
+    }
   }
   // Let all mounted consumers install their sync listeners before notifying
   // them; this runs before the account-workspace fetch can resolve.
@@ -61,11 +64,19 @@ export function clearWorkspaceForSignedOutUser({ storage, target }) {
   }
   if (!storedOwner) return false;
 
-  for (const key of [...WORKSPACE_KEYS, "hirmand-workspace-owner-v1"]) {
+  let cleared = true;
+  for (const key of WORKSPACE_KEYS) {
     try {
       storage.removeItem(key);
     } catch {
-      // Keep clearing the remaining account-scoped keys if one removal fails.
+      cleared = false;
+    }
+  }
+  if (cleared) {
+    try {
+      storage.removeItem("hirmand-workspace-owner-v1");
+    } catch {
+      // Retain the owner marker when the signed-out snapshot cannot be cleared.
     }
   }
   queueMicrotask(() => target.dispatchEvent(new Event("hirmand:workspace-synced")));
