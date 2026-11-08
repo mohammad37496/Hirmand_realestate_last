@@ -2,15 +2,14 @@ import { defineEventHandler, getRequestHeaders, setHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
 import { requireUserIdFromHeaders } from "@/lib/auth/verify.server";
 import { customerWorkspaceHttpError } from "@/lib/customer-workspace-response.server";
+import { requireCustomerWorkspaceDatabase } from "@/lib/customer-workspace-database.server.mjs";
 
 export default defineEventHandler(async (event) => {
   setHeader(event, "Cache-Control", "private, no-store, max-age=0");
   setHeader(event, "Vary", "Cookie, Authorization");
   try {
     const userId = await requireUserIdFromHeaders(new Headers(getRequestHeaders(event)));
-    if (dbSource === "unconfigured") {
-      return { ownerId: userId, favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [], updatedAt: null };
-    }
+    requireCustomerWorkspaceDatabase(dbSource);
 
     const sql = await getSql();
     const rows = await sql.query<{
