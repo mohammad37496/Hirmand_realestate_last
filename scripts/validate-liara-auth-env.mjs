@@ -27,6 +27,46 @@ export function liaraEnvironmentMap(payload) {
   }));
 }
 
+/** Summarize production auth settings without returning or printing any values. */
+export function summarizeLiaraCustomerAuthEnvironment(payload) {
+  const env = liaraEnvironmentMap(payload);
+  const databaseKey = DATABASE_KEYS.find((key) => env.get(key));
+  let databaseStatus = "missing";
+  if (databaseKey) {
+    try {
+      const databaseUrl = new URL(env.get(databaseKey));
+      databaseStatus = ["postgres:", "postgresql:"].includes(databaseUrl.protocol) && databaseUrl.hostname
+        ? `valid (${databaseKey})`
+        : `invalid (${databaseKey})`;
+    } catch {
+      databaseStatus = `invalid (${databaseKey})`;
+    }
+  }
+
+  const authFlag = env.get("VITE_AUTH_ENABLED");
+  const authUrl = env.get("BETTER_AUTH_URL");
+  let authUrlStatus = authUrl ? "valid" : "missing";
+  if (authUrl) {
+    try {
+      normalizeBetterAuthOrigin(authUrl);
+    } catch {
+      authUrlStatus = "invalid";
+    }
+  }
+  const secretLength = env.get("BETTER_AUTH_SECRET")?.length ?? 0;
+  const oauthFlag = env.get("VITE_GROK_OAUTH_ENABLED");
+
+  return {
+    VITE_AUTH_ENABLED: authFlag === "true" ? "enabled" : authFlag === "false" ? "disabled" : "missing (application default: enabled)",
+    DATABASE_URL: databaseStatus,
+    BETTER_AUTH_URL: authUrlStatus,
+    BETTER_AUTH_SECRET: secretLength >= 32 ? "valid (at least 32 characters)" : secretLength ? "too short" : "missing",
+    VITE_GROK_OAUTH_ENABLED: oauthFlag === "true" ? "enabled" : oauthFlag === "false" ? "disabled" : "missing",
+    GROK_AUTH_CLIENT_ID: env.get("GROK_AUTH_CLIENT_ID") ? "present" : "missing",
+    GROK_AUTH_CLIENT_SECRET: env.get("GROK_AUTH_CLIENT_SECRET") ? "present" : "missing",
+  };
+}
+
 /** Return missing configuration names only; never expose any environment values. */
 export function validateLiaraCustomerAuthEnvironment(payload) {
   const env = liaraEnvironmentMap(payload);
@@ -82,12 +122,16 @@ function main() {
   }
 
   let errors;
+  let summary;
   try {
+    summary = summarizeLiaraCustomerAuthEnvironment(payload);
     errors = validateLiaraCustomerAuthEnvironment(payload);
   } catch {
     console.error("[liara-auth-env] Liara returned an unexpected environment listing; values were not printed.");
     process.exit(2);
   }
+  console.log("[liara-auth-env] Runtime configuration summary (values redacted):");
+  for (const [key, status] of Object.entries(summary)) console.log(`- ${key}: ${status}`);
   if (errors.length) {
     console.error("[liara-auth-env] Deployment blocked; missing required customer account settings:");
     for (const error of errors) console.error(`- ${error}`);
