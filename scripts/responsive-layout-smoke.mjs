@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
-import { resolveResponsiveSmokeTarget, responsiveSmokePropertyRoutes } from "./responsive-smoke-target.mjs";
+import { isSuccessfulPropertyDetailResponse, resolveResponsiveSmokeTarget, responsiveSmokePropertyRoutes } from "./responsive-smoke-target.mjs";
 
 const baseUrl = process.argv[2] ?? process.env.RESPONSIVE_SMOKE_BASE_URL ?? "http://127.0.0.1:8081";
 const viewportWidths = [320, 360, 375, 390, 430, 768, 1024, 1440];
@@ -112,9 +112,11 @@ try {
       await discoveryPage.close();
     }
   }
-  routes.push(...responsiveSmokePropertyRoutes({ propertyId, propertySlug }));
+  const propertyDetailRoutes = new Set(responsiveSmokePropertyRoutes({ propertyId, propertySlug }));
+  routes.push(...propertyDetailRoutes);
 
   for (const route of routes) {
+    const isPropertyDetailRoute = propertyDetailRoutes.has(route);
     const page = await browser.newPage({
       viewport: { width: 320, height: 900 },
       deviceScaleFactor: 1,
@@ -185,11 +187,35 @@ try {
       });
       if (!response) {
         failures.push(`${route}: navigation returned no response`);
+      } else if (isPropertyDetailRoute && response.status() >= 400) {
+        failures.push(`${route}: property detail returned HTTP ${response.status()}`);
       } else if (response.status() >= 500) {
         failures.push(`${route}: HTTP ${response.status()} during navigation`);
       }
       // Give the client enough time to hydrate before interacting with React controls.
       await page.waitForTimeout(500);
+
+      if (isPropertyDetailRoute) {
+        if (response && response.status() < 400) {
+          await page.waitForFunction(() => {
+            const detail = document.querySelector("main.property-detail-page");
+            return Boolean(detail?.querySelector("h1")?.textContent?.trim());
+          }, null, { timeout: 15_000 }).catch(() => {});
+        }
+        const detailState = await page.evaluate(() => {
+          const detail = document.querySelector("main.property-detail-page");
+          return {
+            hasDetailRoot: Boolean(detail),
+            title: detail?.querySelector("h1")?.textContent ?? "",
+          };
+        });
+        if (!isSuccessfulPropertyDetailResponse({
+          status: response?.status() ?? 0,
+          ...detailState,
+        })) {
+          failures.push(`${route}: property detail did not render a published property page (final URL: ${page.url()})`);
+        }
+      }
 
       // Shared property cards intentionally have different mobile layouts:
       // the public listing defaults to its photo-first grid, its explicit list

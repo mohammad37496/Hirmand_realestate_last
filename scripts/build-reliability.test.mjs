@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { download, downloadVerifiedFfmpegArchive, extractFfmpegArchive } from "./ensure-ffmpeg.mjs";
-import { resolveResponsiveSmokeTarget, responsiveSmokePropertyRoutes } from "./responsive-smoke-target.mjs";
+import { isSuccessfulPropertyDetailResponse, resolveResponsiveSmokeTarget, responsiveSmokePropertyRoutes } from "./responsive-smoke-target.mjs";
 
 const ffmpegDownloader = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
@@ -84,6 +84,19 @@ test("responsive smoke keeps explicit CI fixture values and omits unsupported de
   assert.deepEqual(responsiveSmokePropertyRoutes({ propertyId: "", propertySlug: "only-slug" }), [
     "/properties/only-slug",
   ]);
+});
+
+test("property detail smoke fails on HTTP 4xx and not-found or empty detail content", () => {
+  const valid = { status: 200, hasDetailRoot: true, title: "آپارتمان در اصفهان" };
+  assert.equal(isSuccessfulPropertyDetailResponse(valid), true);
+  assert.equal(isSuccessfulPropertyDetailResponse({ ...valid, status: 404 }), false);
+  assert.equal(isSuccessfulPropertyDetailResponse({ ...valid, status: 410 }), false);
+  assert.equal(isSuccessfulPropertyDetailResponse({ ...valid, title: "فایل پیدا نشد" }), false);
+  assert.equal(isSuccessfulPropertyDetailResponse({ ...valid, title: "" }), false);
+  assert.equal(isSuccessfulPropertyDetailResponse({ ...valid, hasDetailRoot: false }), false);
+  assert.match(responsiveSmoke, /property detail returned HTTP/);
+  assert.match(responsiveSmoke, /main\.property-detail-page/);
+  assert.match(responsiveSmoke, /isSuccessfulPropertyDetailResponse/);
 });
 
 test("FFmpeg download retries transient gateway errors with bounded backoff", async () => {
