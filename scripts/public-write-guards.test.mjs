@@ -23,6 +23,11 @@ const customerPropertySubmissionsRoute = await readFile(
   "utf8",
 );
 const dbModule = await readFile(new URL("../src/lib/db.ts", import.meta.url), "utf8");
+const propertyWatchTargetRoute = await readFile(new URL("../server/routes/api/property-watch-target.post.ts", import.meta.url), "utf8");
+const propertyWatchRoute = await readFile(new URL("../server/routes/api/property-watch.post.ts", import.meta.url), "utf8");
+const propertyOpenHouseRoute = await readFile(new URL("../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
+const propertyQuestionsRoute = await readFile(new URL("../server/routes/api/property-questions.post.ts", import.meta.url), "utf8");
+const notificationsRoute = await readFile(new URL("../src/routes/notifications.tsx", import.meta.url), "utf8");
 
 test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
@@ -81,4 +86,22 @@ test("public visit rescheduling checks conflicts and updates under the same prop
   assert.match(publicLeadActionsRoute, /reschedulePropertyVisitRequest\(sql,/);
   assert.doesNotMatch(publicLeadActionsRoute, /select id from leads where property_id is not null[\s\S]*?update leads set visit_preferred_at/);
   assert.match(publicLeadActionsRoute, /rescheduleResult\.kind === "conflict"/);
+});
+
+test("public property interactions share the canonical publication and unpublish visibility predicate", () => {
+  assert.match(propertyWatchTargetRoute, /publicPropertyVisibilitySql\(\)/);
+  assert.match(propertyWatchTargetRoute, /parsed\.data\.action === "set"/);
+  assert.match(propertyWatchRoute, /publicPropertyVisibilitySql\("p"\)/);
+  assert.equal((propertyOpenHouseRoute.match(/publicPropertyVisibilitySql\(\)/g) ?? []).length, 2);
+  assert.match(propertyQuestionsRoute, /publicPropertyVisibilitySql\(\)/);
+  assert.match(reportsRoute, /publicPropertyVisibilitySql\(\)/);
+});
+
+test("hidden property watch subscriptions remain removable without exposing hidden property details", () => {
+  assert.match(propertyWatchRoute, /if \(parsed\.data\.action === "unsubscribe"\)[\s\S]*?where visitor_id=\$1 and property_slug=\$2/);
+  assert.match(propertyWatchRoute, /if \(parsed\.data\.action === "subscribe"\)[\s\S]*?publicPropertyVisibilitySql\(\)/);
+  assert.match(propertyWatchRoute, /hiddenSubscriptions/);
+  assert.match(propertyWatchRoute, /isPublic:\s*false/);
+  assert.match(notificationsRoute, /subscription\.isPublic \? subscription\.title/);
+  assert.match(notificationsRoute, /action:\s*"unsubscribe"/);
 });

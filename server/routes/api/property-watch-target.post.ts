@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getCookie, readBody, setCookie } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
+import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
 const COOKIE_NAME = "hirmand_visitor_id";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
@@ -39,8 +40,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const sql = await getSql();
+  const visibilityFilter = parsed.data.action === "set" ? ` and ${publicPropertyVisibilitySql()}` : "";
   const propertyRows = await sql.query<Record<string, unknown>>(
-    "select id, slug, price, deposit, rent, availability_status from properties where status='published' and slug=$1 limit 1",
+    `select id, slug, price, deposit, rent, availability_status from properties where slug=$1${visibilityFilter} limit 1`,
     [parsed.data.slug],
   );
   const property = propertyRows[0];

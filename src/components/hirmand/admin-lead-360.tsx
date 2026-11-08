@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { BriefcaseBusiness, CalendarClock, FileText, MessageCircle, UserRound, WalletCards } from "lucide-react";
 import { toast } from "sonner";
-import { formatToman } from "@/lib/money";
+import { addDecimalStrings } from "@/lib/decimal-money";
+import { formatTomanExact } from "@/lib/money";
 
 type Lead = { id: string; name: string; phone: string; deal: string; neighborhood: string; consultant: string };
 type Customer = Lead & {
   job: string; propertyType: string; floorPreference: string; requestedBedrooms: number | null; requestedAmenities: string[];
   status: string; source: string; followUpAt: string | null; lastContactedAt: string | null; note: string; leaseDeadline: string | null;
-  budgets: { deposit: number | null; rent: number | null; purchase: number | null; sale: number | null; depositMin: number | null; depositMax: number | null; rentMin: number | null; rentMax: number | null; purchaseMin: number | null; purchaseMax: number | null; saleMin: number | null; saleMax: number | null };
+  budgets: { deposit: string | null; rent: string | null; purchase: string | null; sale: string | null; depositMin: string | null; depositMax: string | null; rentMin: string | null; rentMax: string | null; purchaseMin: string | null; purchaseMax: string | null; saleMin: string | null; saleMax: string | null };
   matchCount: number; propertyId: string | null; propertyTitle: string | null; propertySlug: string | null; createdAt: string;
 };
 type Payload = {
   customer: Customer | null;
   activities: Array<{ id: number; type: string; title: string; note: string; createdAt: string }>;
-  deals: Array<{ id: string; title: string; dealType: string; status: string; amount: number | null; commission: number | null; consultant: string; contractNumber: string; notes: string }>;
-  settlements: Array<{ id: string; dealId: string; consultant: string; commissionAmount: number; consultantShare: number; officeShare: number; status: string; paidAt: string | null; note: string }>;
+  deals: Array<{ id: string; title: string; dealType: string; status: string; amount: string | null; commission: string | null; consultant: string; contractNumber: string; notes: string }>;
+  settlements: Array<{ id: string; dealId: string; consultant: string; commissionAmount: string; consultantShare: string; officeShare: string; status: string; paidAt: string | null; note: string }>;
   documents: Array<{ id: string; dealId: string; type: string; status: string; fileUrl: string; note: string }>;
 };
 const statusLabel = (value: string) => ({ new: "جدید", contacted: "تماس گرفته شد", follow_up: "پیگیری", visited: "بازدید", contract: "قرارداد", closed: "بسته‌شده", spam: "اسپم" } as Record<string, string>)[value] ?? value;
@@ -41,8 +42,8 @@ export function AdminLead360({ leads }: { leads: Lead[] }) {
   }
 
   const c = payload?.customer;
-  const totalVolume = useMemo(() => (payload?.deals ?? []).reduce((sum, deal) => sum + (deal.amount ?? 0), 0), [payload]);
-  const due = useMemo(() => (payload?.settlements ?? []).filter((x) => ["pending", "approved"].includes(x.status)).reduce((sum, x) => sum + x.consultantShare, 0), [payload]);
+  const totalVolume = useMemo(() => (payload?.deals ?? []).reduce((sum, deal) => addDecimalStrings(sum, deal.amount ?? "0"), "0"), [payload]);
+  const due = useMemo(() => (payload?.settlements ?? []).filter((x) => ["pending", "approved"].includes(x.status)).reduce((sum, x) => addDecimalStrings(sum, x.consultantShare), "0"), [payload]);
 
   return (
     <section className="admin-panel admin-customer-360" dir="rtl">
@@ -64,11 +65,11 @@ export function AdminLead360({ leads }: { leads: Lead[] }) {
 
         <div className="admin-360-grid">
           <section className="admin-360-card"><h3><CalendarClock size={16} /> پیگیری و نیاز</h3><p>{c.note || "یادداشت ثبت نشده است."}</p><div className="admin-360-meta"><span>آخرین تماس: {dateLabel(c.lastContactedAt)}</span><span>پیگیری بعدی: {dateLabel(c.followUpAt)}</span><span>ثبت درخواست: {dateLabel(c.createdAt)}</span></div>{c.propertySlug ? <a className="text-link" href={"/properties/" + c.propertySlug} target="_blank" rel="noreferrer">مشاهده فایل مرتبط</a> : null}</section>
-          <section className="admin-360-card"><h3><WalletCards size={16} /> بودجه</h3><div className="admin-360-budget">{([["رهن", c.budgets.deposit], ["اجاره", c.budgets.rent], ["خرید", c.budgets.purchase], ["فروش", c.budgets.sale]] as Array<[string, number | null]>).filter(([, value]) => value != null).map(([label, value]) => <div key={label}><span>{label}</span><strong>{formatToman(value!)}</strong></div>)}{!Object.values(c.budgets).some((value) => value != null) ? <span>بودجه ثبت نشده است.</span> : null}</div></section>
+          <section className="admin-360-card"><h3><WalletCards size={16} /> بودجه</h3><div className="admin-360-budget">{([["رهن", c.budgets.deposit], ["اجاره", c.budgets.rent], ["خرید", c.budgets.purchase], ["فروش", c.budgets.sale]] as Array<[string, string | null]>).filter(([, value]) => value != null).map(([label, value]) => <div key={label}><span>{label}</span><strong>{formatTomanExact(value!)}</strong></div>)}{!Object.values(c.budgets).some((value) => value != null) ? <span>بودجه ثبت نشده است.</span> : null}</div></section>
           <section className="admin-360-card"><h3><MessageCircle size={16} /> فعالیت‌ها</h3><div className="admin-360-timeline">{payload?.activities.slice(0, 12).map((item) => <article key={item.id}><strong>{item.title || item.type}</strong><small>{dateLabel(item.createdAt)}</small>{item.note ? <p>{item.note}</p> : null}</article>)}{!payload?.activities.length ? <span>هنوز فعالیتی ثبت نشده است.</span> : null}</div></section>
-          <section className="admin-360-card"><h3><BriefcaseBusiness size={16} /> معاملات</h3><div className="admin-360-list">{payload?.deals.map((deal) => <article key={deal.id}><div><strong>{deal.title}</strong><small>{deal.dealType} · {deal.status}{deal.contractNumber ? " · قرارداد " + deal.contractNumber : ""}</small></div><b>{deal.amount == null ? "—" : formatToman(deal.amount)}</b></article>)}{!payload?.deals.length ? <span>هنوز معامله‌ای متصل نیست.</span> : null}</div>{payload?.deals.length ? <small className="admin-360-total">حجم کل: {formatToman(totalVolume)}</small> : null}</section>
+          <section className="admin-360-card"><h3><BriefcaseBusiness size={16} /> معاملات</h3><div className="admin-360-list">{payload?.deals.map((deal) => <article key={deal.id}><div><strong>{deal.title}</strong><small>{deal.dealType} · {deal.status}{deal.contractNumber ? " · قرارداد " + deal.contractNumber : ""}</small></div><b>{deal.amount == null ? "—" : formatTomanExact(deal.amount)}</b></article>)}{!payload?.deals.length ? <span>هنوز معامله‌ای متصل نیست.</span> : null}</div>{payload?.deals.length ? <small className="admin-360-total">حجم کل: {formatTomanExact(totalVolume)}</small> : null}</section>
           <section className="admin-360-card"><h3><FileText size={16} /> مدارک قرارداد</h3><div className="admin-360-list">{payload?.documents.map((doc) => <article key={doc.id}><div><strong>{doc.type}</strong><small>{docLabel(doc.status)}{doc.note ? " · " + doc.note : ""}</small></div>{doc.fileUrl ? <a className="text-link" href={doc.fileUrl} target="_blank" rel="noreferrer">فایل</a> : null}</article>)}{!payload?.documents.length ? <span>مدرک مرتبط ثبت نشده است.</span> : null}</div></section>
-          <section className="admin-360-card"><h3><WalletCards size={16} /> کمیسیون</h3><div className="admin-360-list">{payload?.settlements.map((item) => <article key={item.id}><div><strong>{item.consultant}</strong><small>{item.status} · کمیسیون {formatToman(item.commissionAmount)}</small></div><b>{formatToman(item.consultantShare)}</b></article>)}{!payload?.settlements.length ? <span>تسویه‌ای ثبت نشده است.</span> : null}</div>{payload?.settlements.length ? <small className="admin-360-total">سهم باز مشاور: {formatToman(due)}</small> : null}</section>
+          <section className="admin-360-card"><h3><WalletCards size={16} /> کمیسیون</h3><div className="admin-360-list">{payload?.settlements.map((item) => <article key={item.id}><div><strong>{item.consultant}</strong><small>{item.status} · کمیسیون {formatTomanExact(item.commissionAmount)}</small></div><b>{formatTomanExact(item.consultantShare)}</b></article>)}{!payload?.settlements.length ? <span>تسویه‌ای ثبت نشده است.</span> : null}</div>{payload?.settlements.length ? <small className="admin-360-total">سهم باز مشاور: {formatTomanExact(due)}</small> : null}</section>
         </div>
       </> : null}
     </section>

@@ -1,3 +1,5 @@
+import { formatDecimalMoney, type DecimalMoneyInput } from "./decimal-money";
+
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
 
@@ -28,6 +30,11 @@ export function parseDecimal(raw: string): number {
 export function formatToman(n: number): string {
   if (!n) return "۰";
   return Math.round(n).toLocaleString("fa-IR");
+}
+
+/** Format database numeric strings without coercing large amounts through Number. */
+export function formatTomanExact(value: DecimalMoneyInput): string {
+  return `${formatDecimalMoney(value)} تومان`;
 }
 
 export function formatGroupedInput(raw: string): string {
