@@ -5,6 +5,7 @@ import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { compareDecimalStrings, subtractDecimalStrings } from "@/lib/decimal-money";
 import { createAdminCommissionSettlement } from "@/lib/admin-deal-lifecycle";
+import { updateAdminCommissionStatus } from "@/lib/admin-commission-input";
 
 async function requireAdmin(event:H3Event){
   const token=getCookie(event,ADMIN_SESSION_COOKIE);
@@ -16,7 +17,7 @@ async function requireAdmin(event:H3Event){
 }
 const clean=(v:unknown,max=300)=>typeof v==="string"?v.trim().slice(0,max):"";
 const money=(v:unknown)=>{const raw=clean(v,40).replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/[٬،,\s]/g,"");return raw&&/^\d{1,20}(?:\.\d+)?$/.test(raw)?raw:null;};
-const validStatus=(v:unknown)=>["pending","approved","paid","cancelled"].includes(String(v))?String(v):"pending";
+const displayStatus=(v:unknown)=>["pending","approved","paid","cancelled"].includes(String(v))?String(v):"pending";
 
 export default defineEventHandler(async event=>{
   setResponseHeader(event,"cache-control","no-store");
@@ -34,7 +35,7 @@ export default defineEventHandler(async event=>{
     ]);
     const consultantRows=await sql.query<Record<string,unknown>>("select consultant,count(*)::int as count,coalesce(sum(consultant_share) filter(where status='paid'),0)::numeric as paid,coalesce(sum(consultant_share) filter(where status in ('pending','approved')),0)::numeric as due from admin_commission_settlements where trim(consultant)<>'' group by consultant order by due desc,consultant asc limit 50");
     return {
-      settlements:rows.map(r=>({id:String(r.id),consultant:String(r.consultant),dealId:r.deal_id?String(r.deal_id):null,dealTitle:r.deal_title?String(r.deal_title):null,commissionAmount:String(r.commission_amount??"0"),consultantShare:String(r.consultant_share??"0"),officeShare:String(r.office_share??"0"),status:validStatus(r.status),paidAt:r.paid_at?new Date(String(r.paid_at)).toISOString():null,note:String(r.note??""),createdAt:new Date(String(r.created_at)).toISOString()})),
+      settlements:rows.map(r=>({id:String(r.id),consultant:String(r.consultant),dealId:r.deal_id?String(r.deal_id):null,dealTitle:r.deal_title?String(r.deal_title):null,commissionAmount:String(r.commission_amount??"0"),consultantShare:String(r.consultant_share??"0"),officeShare:String(r.office_share??"0"),status:displayStatus(r.status),paidAt:r.paid_at?new Date(String(r.paid_at)).toISOString():null,note:String(r.note??""),createdAt:new Date(String(r.created_at)).toISOString()})),
       deals:deals.map(r=>({id:String(r.id),title:String(r.title),consultant:String(r.consultant??""),commission:String(r.commission??"0"),status:String(r.status),customerName:String(r.customer_name??"")})),
       summary:{pending:Number(summary[0]?.pending)||0,approved:Number(summary[0]?.approved)||0,paid:Number(summary[0]?.paid)||0,total:String(summary[0]?.total??"0"),consultants:consultantRows.map(r=>({name:String(r.consultant),count:Number(r.count)||0,paid:String(r.paid??"0"),due:String(r.due??"0")}))}
     };
@@ -62,8 +63,9 @@ export default defineEventHandler(async event=>{
 
   const id=clean(body.id,120); if(!id) throw createError({statusCode:400,statusMessage:"شناسه تسویه مشخص نیست."});
   if(action==="status"){
-    const status=validStatus(body.status);
-    await sql.query("update admin_commission_settlements set status=$2,paid_at=case when $2='paid' then current_timestamp else paid_at end,updated_at=current_timestamp where id=$1",[id,status]);
+    const result = await updateAdminCommissionStatus(sql, id, body.status);
+    if(result.kind==="invalid_status") throw createError({statusCode:400,statusMessage:"وضعیت تسویه معتبر نیست."});
+    if(result.kind==="not_found") throw createError({statusCode:404,statusMessage:"تسویه موردنظر پیدا نشد."});
     return {success:true};
   }
   if(action==="delete"){
