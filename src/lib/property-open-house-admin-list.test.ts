@@ -192,7 +192,8 @@ test("PGlite serializes concurrent visit creation and rescheduling on the proper
     await pg.exec(`
       create table properties (
         id text primary key, title text, property_type text, neighborhood text,
-        contact_name text, status text, availability_status text
+        contact_name text, status text, availability_status text, deleted_at timestamptz,
+        publish_at timestamptz, unpublish_at timestamptz
       );
       create table leads (
         id text primary key, name text, phone text, people_count integer, job text,
@@ -201,7 +202,8 @@ test("PGlite serializes concurrent visit creation and rescheduling on the proper
         visit_preferred_at timestamptz, visit_requested_at timestamptz, visit_status text,
         public_tracking_token text, updated_at timestamptz default current_timestamp
       );
-      insert into properties values ('property-1','Sample','apartment','Center','Agent','published','available');
+      insert into properties(id,title,property_type,neighborhood,contact_name,status,availability_status)
+        values ('property-1','Sample','apartment','Center','Agent','published','available');
     `);
 
     const sql = {
@@ -457,6 +459,54 @@ test("PGlite serializes open-house creation overlap checks on the property row",
       endsAt: "2099-11-09T17:00:00.000Z",
     });
     assert.equal(hiddenProperty.kind, "not_found");
+  } finally {
+    await pg.close();
+  }
+});
+
+test("public visit requests reject soft-deleted, unpublished and future-scheduled properties", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table properties (
+        id text primary key, title text not null, property_type text not null,
+        neighborhood text not null, contact_name text not null, status text not null,
+        availability_status text not null, deleted_at timestamptz,
+        publish_at timestamptz, unpublish_at timestamptz
+      );
+      create table leads (id text primary key);
+      insert into properties(id,title,property_type,neighborhood,contact_name,status,availability_status,deleted_at)
+        values ('deleted','Deleted','apartment','Center','Agent','published','available',current_timestamp);
+      insert into properties(id,title,property_type,neighborhood,contact_name,status,availability_status,unpublish_at)
+        values ('unpublished','Unpublished','apartment','Center','Agent','published','available',current_timestamp - interval '1 second');
+      insert into properties(id,title,property_type,neighborhood,contact_name,status,availability_status,publish_at)
+        values ('future-draft','Future draft','apartment','Center','Agent','draft','available',current_timestamp + interval '1 day');
+    `);
+    const sql = {
+      transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+        pg.transaction(async (transaction) => callback({
+          query: async <R = Record<string, unknown>>(query: string, params: unknown[] = []) =>
+            (await transaction.query(query, params)).rows as R[],
+        } as Sql)),
+    } as Sql;
+    const base = {
+      visitAt: "2099-11-09T10:00:00.000Z",
+      trackingToken: "HIR-26-AAAAAAAAAAAA",
+      name: "Guest",
+      phone: "09130000001",
+      peopleCount: 1,
+      job: "",
+      floorPreference: "",
+      consultant: "Agent",
+      note: "Visit request",
+    };
+
+    for (const propertyId of ["deleted", "unpublished", "future-draft"]) {
+      const result = await createPropertyVisitRequest(sql, { ...base, propertyId });
+      assert.equal(result.kind, "not_found", `${propertyId} must not accept a public visit request`);
+    }
+    const leads = await pg.query<{ count: number }>("select count(*)::int as count from leads");
+    assert.equal(leads.rows[0]?.count, 0);
   } finally {
     await pg.close();
   }

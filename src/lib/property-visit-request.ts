@@ -1,4 +1,5 @@
 import type { Sql } from "./db";
+import { publicPropertyVisibilitySql } from "./public-property-visibility.ts";
 
 type PropertyVisitRequestInput = {
   propertyId: string;
@@ -49,7 +50,7 @@ export async function createPropertyVisitRequest(
     }>(
       `select id, title, property_type, neighborhood, contact_name
          from properties
-        where id::text=$1 and status='published'
+        where id::text=$1 and ${publicPropertyVisibilitySql()}
           and availability_status not in ('sold','rented','unavailable')
         limit 1 for update`,
       [input.propertyId],

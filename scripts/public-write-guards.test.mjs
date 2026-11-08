@@ -28,6 +28,7 @@ const propertyWatchRoute = await readFile(new URL("../server/routes/api/property
 const propertyOpenHouseRoute = await readFile(new URL("../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
 const propertyOpenHouseRsvp = await readFile(new URL("../src/lib/property-open-house-rsvp.ts", import.meta.url), "utf8");
 const propertyOpenHouseCreate = await readFile(new URL("../src/lib/property-open-house-create.ts", import.meta.url), "utf8");
+const propertyVisitRequest = await readFile(new URL("../src/lib/property-visit-request.ts", import.meta.url), "utf8");
 const propertyQuestionsRoute = await readFile(new URL("../server/routes/api/property-questions.post.ts", import.meta.url), "utf8");
 const notificationsRoute = await readFile(new URL("../src/routes/notifications.tsx", import.meta.url), "utf8");
 
@@ -82,6 +83,14 @@ test("property visit availability check and lead insert share a row-locked datab
   assert.match(dbModule, /await client\.query\("COMMIT"\)/);
   assert.match(dbModule, /await client\.query\("ROLLBACK"\)/);
   assert.match(dbModule, /pg\.transaction\(async \(tx\)/);
+});
+
+test("every public lead branch uses the canonical property visibility predicate", () => {
+  assert.match(leadsRoute, /import \{ publicPropertyVisibilitySql \} from "@\/lib\/public-property-visibility"/);
+  assert.equal((leadsRoute.match(/\$\{publicPropertyVisibilitySql\(\)\}/g) ?? []).length, 5);
+  assert.doesNotMatch(leadsRoute, /from properties where id::text=\$1 and status='published'/);
+  assert.match(propertyVisitRequest, /\$\{publicPropertyVisibilitySql\(\)\}/);
+  assert.doesNotMatch(propertyVisitRequest, /where id::text=\$1 and status='published'/);
 });
 
 test("public visit rescheduling checks conflicts and updates under the same property row lock", () => {
