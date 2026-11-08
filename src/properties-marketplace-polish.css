@@ -1066,6 +1066,10 @@
 @media (min-width: 721px) {
   .pf-page .pf-grid.is-list-view {
     grid-template-columns: minmax(0, 1fr);
+    /* Equalize implicit rows so optional price/spec lines cannot change the
+       height of a list card or the image that stretches with it. */
+    grid-auto-rows: 1fr;
+    align-items: stretch;
     gap: 14px;
   }
 

@@ -22,6 +22,14 @@ test("desktop property list anchors actions to the lower edge of the property im
   assert.match(desktopList, /grid-template-columns:\s*minmax\(230px,\s*28%\)\s+minmax\(0,\s*1fr\)/);
 });
 
+test("desktop list cards and their images share one height across optional property details", () => {
+  const desktopListStart = marketplaceCss.indexOf("Professional desktop list cards");
+  const tabletListStart = marketplaceCss.indexOf("@media (min-width: 721px) and (max-width: 980px)", desktopListStart);
+  const desktopList = marketplaceCss.slice(desktopListStart, tabletListStart);
+  assert.match(desktopList, /\.pf-page \.pf-grid\.is-list-view\s*\{[^}]*grid-auto-rows:\s*1fr;[^}]*align-items:\s*stretch/);
+  assert.match(desktopList, /\.pf-page \.pf-grid\.is-list-view > \.pcard \.pcard-media\s*\{[^}]*height:\s*100%;/);
+});
+
 test("tablet list cards retain a readable image and details beside the image action overlay", () => {
   const finalTabletLayout = marketplaceCss.slice(marketplaceCss.lastIndexOf("@media (min-width: 721px) and (max-width: 980px)"));
   assert.match(finalTabletLayout, /grid-template-columns:\s*minmax\(180px,\s*27%\)\s+minmax\(0,\s*1fr\)/);
