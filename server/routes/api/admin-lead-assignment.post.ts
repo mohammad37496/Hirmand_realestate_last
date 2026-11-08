@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { loadAdminLeadAssignmentRows } from "@/lib/admin-lead-assignment";
+import { assignAdminLeadToConsultant } from "@/lib/admin-lead-assignment-action";
 
 type ConsultantLoad = {
   name: string;
@@ -66,22 +67,8 @@ export default defineEventHandler(async (event) => {
     const allowed = loads.find((item) => item.name === consultant);
     if (!allowed) throw createError({ statusCode: 400, statusMessage: "مشاور فعال موردنظر پیدا نشد." });
 
-    const rows = await sql.query<{ id: string }>(
-      "update leads set consultant=$2, updated_at=current_timestamp where id=$1 returning id",
-      [leadId, consultant],
-    );
-    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "لید پیدا نشد." });
-
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'status',$2,$3,$4::jsonb)",
-      [
-        leadId,
-        "تخصیص مشاور",
-        "مشاور «" + consultant + "» برای این لید ثبت شد.",
-        "تخصیص از مرکز تعادل بار CRM.",
-        JSON.stringify({ consultant }),
-      ],
-    ).catch(() => {});
+    const assignment = await assignAdminLeadToConsultant(sql, leadId, consultant);
+    if (assignment.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "لید پیدا نشد." });
 
     return { success: true, consultant };
   }

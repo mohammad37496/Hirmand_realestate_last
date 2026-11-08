@@ -4,12 +4,20 @@ import test from "node:test";
 
 const route = await readFile(new URL("../server/routes/api/admin-lead-assignment.post.ts", import.meta.url), "utf8");
 const component = await readFile(new URL("../src/components/hirmand/admin-lead-assignment-balancer.tsx", import.meta.url), "utf8");
+const action = await readFile(new URL("../src/lib/admin-lead-assignment-action.ts", import.meta.url), "utf8");
 
 test("lead assignment query failures are surfaced instead of masquerading as an empty workload", () => {
   assert.match(route, /loadAdminLeadAssignmentRows\(sql, action\)/);
   assert.match(route, /statusCode:\s*503/);
   assert.doesNotMatch(route, /\.catch\(\(\)\s*=>\s*\[\]\)/);
   assert.doesNotMatch(route, /return\s+\{\s*consultants:\s*\[\],\s*recommendations:\s*\[\]\s*\}/);
+  assert.match(route, /assignAdminLeadToConsultant\(sql,\s*leadId,\s*consultant\)/);
+  assert.doesNotMatch(route, /insert into lead_activities|update leads set consultant=/i);
+
+  assert.match(action, /sql\.transaction\(async\s*\(tx\)/);
+  assert.match(action, /update leads set consultant=/i);
+  assert.match(action, /insert into lead_activities/i);
+  assert.doesNotMatch(action, /\.catch\(\(\)\s*=>\s*\{\s*\}\)/);
 
   assert.match(component, /loadError/);
   assert.match(component, /role="alert"/);
