@@ -76,3 +76,9 @@ test("property visit availability check and lead insert share a row-locked datab
   assert.match(dbModule, /await client\.query\("ROLLBACK"\)/);
   assert.match(dbModule, /pg\.transaction\(async \(tx\)/);
 });
+
+test("public visit rescheduling checks conflicts and updates under the same property row lock", () => {
+  assert.match(publicLeadActionsRoute, /reschedulePropertyVisitRequest\(sql,/);
+  assert.doesNotMatch(publicLeadActionsRoute, /select id from leads where property_id is not null[\s\S]*?update leads set visit_preferred_at/);
+  assert.match(publicLeadActionsRoute, /rescheduleResult\.kind === "conflict"/);
+});
