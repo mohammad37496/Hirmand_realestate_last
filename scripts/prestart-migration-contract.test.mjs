@@ -38,4 +38,5 @@ test("Liara deploy polls for the exact migration verification line for this comm
   assert.match(workflow, /for attempt in \{1\.\.12\}/);
   assert.match(workflow, /sleep 10/);
   assert.match(workflow, /customer-auth migrations verified for deployment \$\{EXPECTED_DEPLOYMENT_SHA\}/);
+  assert.match(workflow, /0059_customer_workspace_revision\.sql/);
 });

@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { Link } from "@tanstack/react-router";
 import { authEnabled, getBearerToken } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { chooseCustomerWorkspaceSync } from "@/lib/customer-workspace-sync-plan.mjs";
+import { chooseCustomerWorkspaceSync, mergeCustomerWorkspaceThreeWay } from "@/lib/customer-workspace-sync-plan.mjs";
 import { clearWorkspaceForSignedOutUser, resetWorkspaceForAccountSwitch } from "@/lib/customer-workspace-account-switch.mjs";
 import "@/customer-workspace-sync.css";
 
@@ -13,6 +13,7 @@ const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
 const RECENT_KEY = "hirmand-recent-properties";
 const WORKSPACE_OWNER_KEY = "hirmand-workspace-owner-v1";
 const WORKSPACE_PENDING_KEY = "hirmand-workspace-pending-v1";
+const WORKSPACE_BASE_KEY = "hirmand-workspace-base-v1:";
 
 type SavedSearch = {
   id: string;
@@ -21,6 +22,16 @@ type SavedSearch = {
   alerts?: boolean;
   lastCheckedAt?: string;
 };
+
+type Workspace = {
+  favorites: string[];
+  favoriteMeta: Record<string, { tag?: string; note?: string }>;
+  savedSearches: SavedSearch[];
+  recentProperties: string[];
+};
+
+type WorkspaceBase = { ownerId: string; revision: string | null; workspace: Workspace };
+type RemoteWorkspace = Workspace & { ownerId?: string; revision: string | null; updatedAt?: string | null };
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -40,7 +51,7 @@ function writeJson(key: string, value: unknown) {
   }
 }
 
-function normalizeWorkspace(value: unknown) {
+function normalizeWorkspace(value: unknown): Workspace {
   const workspace = value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
     : {};
@@ -76,13 +87,36 @@ function normalizeWorkspace(value: unknown) {
   };
 }
 
-function localWorkspace() {
+function localWorkspace(): Workspace {
   return normalizeWorkspace({
     favorites: readJson<unknown>(FAVORITES_KEY, []),
     recentProperties: readJson<unknown>(RECENT_KEY, []),
     savedSearches: readJson<unknown>(SAVED_SEARCHES_KEY, []),
     favoriteMeta: readJson<unknown>(FAVORITE_META_KEY, {}),
   });
+}
+
+function persistWorkspace(workspace: Workspace) {
+  writeJson(FAVORITES_KEY, workspace.favorites);
+  writeJson(RECENT_KEY, workspace.recentProperties);
+  writeJson(SAVED_SEARCHES_KEY, workspace.savedSearches);
+  writeJson(FAVORITE_META_KEY, workspace.favoriteMeta);
+}
+
+function sameWorkspace(left: Workspace, right: Workspace) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function readBase(userId: string): WorkspaceBase | null {
+  const value = readJson<unknown>(`${WORKSPACE_BASE_KEY}${encodeURIComponent(userId)}`, null);
+  if (!value || typeof value !== "object") return null;
+  const base = value as Record<string, unknown>;
+  if (base.ownerId !== userId || !(base.revision === null || typeof base.revision === "string")) return null;
+  return { ownerId: userId, revision: base.revision, workspace: normalizeWorkspace(base.workspace) };
+}
+
+function saveBase(userId: string, revision: string | null, workspace: Workspace) {
+  writeJson(`${WORKSPACE_BASE_KEY}${encodeURIComponent(userId)}`, { ownerId: userId, revision, workspace });
 }
 
 type CustomerWorkspaceSyncState = {
@@ -125,109 +159,139 @@ export function CustomerWorkspaceSyncProvider({
     syncInFlight.current = true;
     setBusy(true);
     setStatus("");
+    let pendingMarker: string | null = null;
+    let attemptedPush = false;
     try {
       const bearerToken = getBearerToken();
-      const getResponse = await fetch("/api/customer-workspace", {
-        credentials: "same-origin",
-        headers: {
-          accept: "application/json",
-          ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
-        },
-      });
-      if (!getResponse.ok) throw new Error("فضای شخصی هنوز آماده نیست.");
-      const remote = await getResponse.json() as ReturnType<typeof localWorkspace> & {
-        ownerId?: string;
-        updatedAt?: string | null;
+      const headers = {
+        accept: "application/json",
+        ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
       };
-      if (activeUserId.current !== user.id) return;
-      if (remote.ownerId !== user.id) throw new Error("نشست حساب تغییر کرده است؛ صفحه را تازه‌سازی کنید.");
+      const fetchRemote = async (): Promise<RemoteWorkspace> => {
+        const response = await fetch("/api/customer-workspace", { credentials: "same-origin", headers });
+        if (!response.ok) throw new Error("فضای شخصی هنوز آماده نیست.");
+        const value = await response.json() as RemoteWorkspace;
+        if (activeUserId.current !== user.id) throw new Error("نشست حساب تغییر کرده است؛ صفحه را تازه‌سازی کنید.");
+        if (value.ownerId !== user.id) throw new Error("نشست حساب تغییر کرده است؛ صفحه را تازه‌سازی کنید.");
+        if (!(value.revision === null || (typeof value.revision === "string" && /^[1-9][0-9]{0,18}$/.test(value.revision)))) {
+          throw new Error("نسخه فضای شخصی نامعتبر است.");
+        }
+        return { ...normalizeWorkspace(value), ownerId: value.ownerId, revision: value.revision, updatedAt: value.updatedAt ?? null };
+      };
+
+      let remote = await fetchRemote();
       let storedOwner: string | null = null;
-      let pendingLocalChanges = false;
-      let pendingMarker: string | null = null;
       try {
         storedOwner = localStorage.getItem(WORKSPACE_OWNER_KEY);
         pendingMarker = localStorage.getItem(WORKSPACE_PENDING_KEY);
-        pendingLocalChanges = Boolean(pendingMarker);
       } catch {
-        // The remote account workspace can still be used without local storage.
+        // Remote-only sync remains available without local storage.
       }
-      const remoteWorkspace = {
-        ...normalizeWorkspace(remote),
-        updatedAt: remote.updatedAt ?? null,
-      };
-      const decision = chooseCustomerWorkspaceSync({
-        remote: remoteWorkspace,
-        local: localWorkspace(),
+      const local = localWorkspace();
+      const ownerMatches = storedOwner === user.id;
+      const baseRecord = ownerMatches ? readBase(user.id) : null;
+      const ownershipDecision = chooseCustomerWorkspaceSync({
+        remote,
+        local,
         ownerId: storedOwner,
         currentUserId: user.id,
-        pendingLocalChanges,
+        pendingLocalChanges: Boolean(pendingMarker),
       });
-      const workspace = decision.workspace;
-      if (activeUserId.current !== user.id) return;
-      if (decision.direction === "push" && !pendingMarker) {
-        const initialMarker = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      // A missing base is a first sync / upgrade path: treat both snapshots as
+      // additions against empty state rather than silently discarding either.
+      const base = baseRecord?.workspace ?? { favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [] };
+      let merged = ownershipDecision.direction === "pull" && storedOwner !== null && storedOwner !== user.id
+        ? remote
+        : mergeCustomerWorkspaceThreeWay(base, local, remote);
+
+      const ensurePendingMarker = (): boolean => {
+        if (pendingMarker) return true;
+        const marker = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         try {
           if (localStorage.getItem(WORKSPACE_PENDING_KEY) !== null) {
             syncQueued.current = true;
-            return;
+            return false;
           }
-          localStorage.setItem(WORKSPACE_PENDING_KEY, initialMarker);
-          pendingMarker = initialMarker;
+          localStorage.setItem(WORKSPACE_PENDING_KEY, marker);
+          pendingMarker = marker;
         } catch {
-          // The server can still accept the snapshot when local storage is unavailable.
+          // Marker is a local safeguard, not a server-side requirement.
         }
-      }
-      try {
-        if (localStorage.getItem(WORKSPACE_PENDING_KEY) !== pendingMarker) {
-          syncQueued.current = true;
-          return;
+        return true;
+      };
+
+      if (!sameWorkspace(merged, remote)) {
+        if (!ensurePendingMarker()) return;
+        attemptedPush = true;
+        let savedRevision: string | null = null;
+        let committedWorkspace: Workspace | null = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          if (activeUserId.current !== user.id) return;
+          const postResponse = await fetch("/api/customer-workspace", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "content-type": "application/json",
+              ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+            },
+            body: JSON.stringify({ ...merged, ownerId: user.id, expectedRevision: remote.revision }),
+          });
+          const saved = await postResponse.json().catch(() => null) as { success?: boolean; revision?: string } | null;
+          if (postResponse.ok && saved?.success && typeof saved.revision === "string") {
+            savedRevision = saved.revision;
+            committedWorkspace = merged;
+            break;
+          }
+          if (postResponse.status !== 409 || attempt === 2) {
+            throw new Error(postResponse.status === 409 ? "فضای شخصی روی دستگاه دیگری تغییر کرده است؛ دوباره تلاش کنید." : "ذخیره‌سازی فضای شخصی انجام نشد.");
+          }
+          remote = await fetchRemote();
+          merged = mergeCustomerWorkspaceThreeWay(base, localWorkspace(), remote);
         }
-      } catch {
-        // Continue with the remote snapshot when local storage is unavailable.
-      }
-
-      writeJson(FAVORITES_KEY, workspace.favorites);
-      writeJson(RECENT_KEY, workspace.recentProperties);
-      writeJson(SAVED_SEARCHES_KEY, workspace.savedSearches);
-      writeJson(FAVORITE_META_KEY, workspace.favoriteMeta);
-      try {
-        localStorage.setItem(WORKSPACE_OWNER_KEY, user.id);
-      } catch {
-        // Remote data is already saved; ownership metadata is a local safeguard.
-      }
-
-      if (decision.direction === "push") {
-        if (activeUserId.current !== user.id) return;
-        const postResponse = await fetch("/api/customer-workspace", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "content-type": "application/json",
-            ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
-          },
-          body: JSON.stringify({ ...workspace, ownerId: user.id }),
-        });
-        const saved = await postResponse.json().catch(() => null) as { success?: boolean; updatedAt?: string } | null;
-        if (!postResponse.ok || !saved?.success) throw new Error("ذخیره‌سازی فضای شخصی انجام نشد.");
+        if (!committedWorkspace || savedRevision === null) {
+          throw new Error("ذخیره‌سازی فضای شخصی پس از چند تلاش انجام نشد.");
+        }
+        const latestMarker = (() => {
+          try { return localStorage.getItem(WORKSPACE_PENDING_KEY); } catch { return pendingMarker; }
+        })();
+        if (latestMarker === pendingMarker) persistWorkspace(committedWorkspace);
+        else syncQueued.current = true;
+        saveBase(user.id, savedRevision, committedWorkspace);
         try {
-          if (localStorage.getItem(WORKSPACE_PENDING_KEY) === pendingMarker) {
+          localStorage.setItem(WORKSPACE_OWNER_KEY, user.id);
+          if (pendingMarker && localStorage.getItem(WORKSPACE_PENDING_KEY) === pendingMarker) {
             localStorage.removeItem(WORKSPACE_PENDING_KEY);
-          } else {
+          } else if (localStorage.getItem(WORKSPACE_PENDING_KEY) !== null) {
             syncQueued.current = true;
           }
         } catch {
-          // The server snapshot is saved even if the local marker cannot be cleared.
+          // The server and base revision are committed even if local bookkeeping fails.
         }
       } else {
+        persistWorkspace(merged);
+        saveBase(user.id, remote.revision, merged);
         try {
-          localStorage.removeItem(WORKSPACE_PENDING_KEY);
+          localStorage.setItem(WORKSPACE_OWNER_KEY, user.id);
+          if (pendingMarker && localStorage.getItem(WORKSPACE_PENDING_KEY) === pendingMarker) {
+            localStorage.removeItem(WORKSPACE_PENDING_KEY);
+          }
         } catch {
-          // The server snapshot is already authoritative for this device.
+          // Remote state is authoritative even when local bookkeeping is unavailable.
         }
       }
+
+      if (activeUserId.current !== user.id) return;
       window.dispatchEvent(new CustomEvent("hirmand:workspace-synced"));
       setStatus("فضای شخصی شما بین دستگاه‌ها همگام شد.");
     } catch (error) {
+      if (attemptedPush && !pendingMarker) {
+        try {
+          pendingMarker = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          localStorage.setItem(WORKSPACE_PENDING_KEY, pendingMarker);
+        } catch {
+          // Keep visible error state even if browser storage is unavailable.
+        }
+      }
       setStatus(error instanceof Error ? error.message : "همگام‌سازی انجام نشد.");
     } finally {
       setBusy(false);

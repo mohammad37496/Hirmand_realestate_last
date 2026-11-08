@@ -6,9 +6,13 @@ import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { customerWorkspaceHttpError } from "@/lib/customer-workspace-response.server";
 import { assertCustomerWorkspacePostOrigin } from "../../utils/customer-workspace-origin";
 import { requireCustomerWorkspaceDatabase } from "@/lib/customer-workspace-database.server.mjs";
+import { saveCustomerWorkspaceWithRevision } from "@/lib/customer-workspace-cas.server.mjs";
 
 const schema = z.object({
   ownerId: z.string().min(1).max(128),
+  expectedRevision: z.string().regex(/^[1-9][0-9]{0,18}$/)
+    .refine((value) => BigInt(value) <= 9223372036854775807n, "Invalid workspace revision")
+    .nullable(),
   favorites: z.array(z.string().trim().min(1).max(220)).max(200).default([]),
   favoriteMeta: z.record(z.string(), z.object({
     tag: z.string().max(40).optional(),
@@ -45,17 +49,11 @@ export default defineEventHandler(async (event) => {
     requireCustomerWorkspaceDatabase(dbSource);
 
     const sql = await getSql();
-    await sql.query(
-      "insert into customer_workspace(user_id,favorites,favorite_meta,saved_searches,recent_properties,updated_at) values($1,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb,current_timestamp) on conflict(user_id) do update set favorites=excluded.favorites,favorite_meta=excluded.favorite_meta,saved_searches=excluded.saved_searches,recent_properties=excluded.recent_properties,updated_at=current_timestamp",
-      [
-        userId,
-        JSON.stringify(body.data.favorites),
-        JSON.stringify(body.data.favoriteMeta),
-        JSON.stringify(body.data.savedSearches),
-        JSON.stringify(body.data.recentProperties),
-      ],
-    );
-    return { success: true, updatedAt: new Date().toISOString() };
+    const saved = await saveCustomerWorkspaceWithRevision(sql, userId, body.data, body.data.expectedRevision);
+    if (!saved.success) {
+      throw createError({ statusCode: 409, statusMessage: "Workspace revision conflict" });
+    }
+    return { success: true, revision: saved.revision, updatedAt: new Date().toISOString() };
   } catch (error) {
     return customerWorkspaceHttpError(event, error);
   }

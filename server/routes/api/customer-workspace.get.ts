@@ -18,10 +18,26 @@ export default defineEventHandler(async (event) => {
       savedSearches: unknown;
       recentProperties: unknown;
       updatedAt: string;
-    }>("select favorites,favorite_meta as \"favoriteMeta\",saved_searches as \"savedSearches\",recent_properties as \"recentProperties\",updated_at as \"updatedAt\" from customer_workspace where user_id=$1 limit 1",[userId]);
+      revision: string;
+    }>(
+      `select favorites,favorite_meta as "favoriteMeta",saved_searches as "savedSearches",
+        recent_properties as "recentProperties",updated_at as "updatedAt",revision::text as revision
+       from customer_workspace where user_id=$1 limit 1`,
+      [userId],
+    );
 
     const row = rows[0];
-    if (!row) return { ownerId: userId, favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [], updatedAt: null };
+    if (!row) {
+      return {
+        ownerId: userId,
+        favorites: [],
+        favoriteMeta: {},
+        savedSearches: [],
+        recentProperties: [],
+        updatedAt: null,
+        revision: null,
+      };
+    }
     return {
       ownerId: userId,
       favorites: Array.isArray(row.favorites) ? row.favorites : [],
@@ -29,6 +45,7 @@ export default defineEventHandler(async (event) => {
       savedSearches: Array.isArray(row.savedSearches) ? row.savedSearches : [],
       recentProperties: Array.isArray(row.recentProperties) ? row.recentProperties : [],
       updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+      revision: String(row.revision),
     };
   } catch (error) {
     return customerWorkspaceHttpError(event, error);

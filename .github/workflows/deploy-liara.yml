@@ -124,7 +124,7 @@ jobs:
         run: |
           set -euo pipefail
           APP_NAME="${LIARA_APP_NAME:-hirmand}"
-          EXPECTED_LINE="[migrate] customer-auth migrations verified for deployment ${EXPECTED_DEPLOYMENT_SHA}: 0001_auth.sql, 0058_customer_workspace.sql"
+          EXPECTED_LINE="[migrate] customer-auth migrations verified for deployment ${EXPECTED_DEPLOYMENT_SHA}: 0001_auth.sql, 0058_customer_workspace.sql, 0059_customer_workspace_revision.sql"
           TEAM_ARGS=()
           if [[ -n "${LIARA_TEAM_ID:-}" ]]; then
             TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
