@@ -544,12 +544,12 @@ export function MusicPlayer() {
       }
       if (event.key === "ArrowRight") {
         event.preventDefault();
-        seek((audioRef.current?.currentTime ?? 0) - 5);
+        seek((audioRef.current?.currentTime ?? 0) + 5);
         return;
       }
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        seek((audioRef.current?.currentTime ?? 0) + 5);
+        seek((audioRef.current?.currentTime ?? 0) - 5);
         return;
       }
       if (event.key.toLowerCase() === "m") {

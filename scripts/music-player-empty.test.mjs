@@ -32,3 +32,10 @@ test("mobile music launcher is small and opens the full control sheet", () => {
   assert.match(musicLayoutCss, /\.music-player\.is-mobile-open \.music-player-panel\s*\{[^}]*order:\s*2\s*!important;/s);
   assert.match(musicLayoutCss, /\.music-player\.is-mobile-open \.music-playlist\s*\{[^}]*order:\s*3\s*!important;/s);
 });
+
+test("keyboard ArrowRight advances and ArrowLeft rewinds the current track", () => {
+  const rightArrow = musicPlayer.match(/if \(event\.key === "ArrowRight"\) \{([\s\S]*?)\n\s*\}/)?.[1] ?? "";
+  const leftArrow = musicPlayer.match(/if \(event\.key === "ArrowLeft"\) \{([\s\S]*?)\n\s*\}/)?.[1] ?? "";
+  assert.match(rightArrow, /seek\(\(audioRef\.current\?\.currentTime \?\? 0\) \+ 5\)/);
+  assert.match(leftArrow, /seek\(\(audioRef\.current\?\.currentTime \?\? 0\) - 5\)/);
+});
