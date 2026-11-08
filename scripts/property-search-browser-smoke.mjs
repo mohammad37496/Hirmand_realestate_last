@@ -115,7 +115,10 @@ try {
     return Boolean(propsKey && typeof button[propsKey]?.onClick === "function");
   }, null, { timeout: timeoutMs });
   await emptyMapButton.click();
-  await empty.locator(".pf-map-list-empty").waitFor({ state: "visible", timeout: timeoutMs });
+  await empty.waitForFunction(() => {
+    const status = document.querySelector(".pf-map-list-empty");
+    return Boolean(status && /پیدا نشد/.test(status.textContent || ""));
+  }, null, { timeout: timeoutMs });
   assert.match(await empty.locator(".pf-map-list-empty").innerText(), /پیدا نشد/);
   assert.equal(await empty.locator(".pf-map-item-copy strong").filter({ hasText: title }).count(), 0);
   console.log("[property-search-smoke] no-match query rendered the empty-results state");
