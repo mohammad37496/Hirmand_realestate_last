@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { extractFfmpegArchive } from "./ensure-ffmpeg.mjs";
+import { download, extractFfmpegArchive } from "./ensure-ffmpeg.mjs";
 
 const ffmpegDownloader = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
@@ -34,6 +34,40 @@ const liaraIgnore = await readFile(
 test("FFmpeg download has a finite timeout and an actionable timeout error", () => {
   assert.match(ffmpegDownloader, /AbortSignal\.timeout\(timeoutMs\)/);
   assert.match(ffmpegDownloader, /\$\{label\} download timed out after/);
+});
+
+test("FFmpeg download retries transient gateway errors with bounded backoff", async () => {
+  let calls = 0;
+  const delays = [];
+  const archive = await download("https://example.invalid/ffmpeg.tar.xz", 0, "FFmpeg", {
+    fetchImpl: async () => {
+      calls += 1;
+      return calls < 3
+        ? new Response("gateway timeout", { status: 504 })
+        : new Response("verified archive", { status: 200 });
+    },
+    sleep: async (delayMs) => delays.push(delayMs),
+    retryDelays: [10, 20],
+  });
+
+  assert.equal(archive.toString(), "verified archive");
+  assert.equal(calls, 3);
+  assert.deepEqual(delays, [10, 20]);
+});
+
+test("FFmpeg download does not retry permanent client errors", async () => {
+  let calls = 0;
+  await assert.rejects(
+    download("https://example.invalid/missing.tar.xz", 0, "FFmpeg", {
+      fetchImpl: async () => {
+        calls += 1;
+        return new Response("missing", { status: 404 });
+      },
+      sleep: async () => assert.fail("a permanent 404 must not be retried"),
+    }),
+    /FFmpeg download failed with HTTP 404/,
+  );
+  assert.equal(calls, 1);
 });
 
 const propertyStore = (await readFile(
@@ -310,9 +344,13 @@ test("object-store offload never deletes the database fallback before saving the
   assert.ok(persistRemotePointer > remoteUpload && deleteDbCopy > persistRemotePointer);
 });
 
-test("FFmpeg release URL uses the same repository as its pinned release assets", () => {
-  assert.match(ffmpegProvisioner, /https:\/\/github\.com\/BtbN\/FFmpeg-Builds\/releases\/download/);
-  assert.doesNotMatch(ffmpegProvisioner, /\|\| "https:\/\/github\.com\/eugeneware\/ffmpeg-static\/releases\/download"/);
+test("FFmpeg downloads use pinned GitHub release asset IDs and the octet-stream API", () => {
+  assert.match(ffmpegProvisioner, /api\.github\.com\/repos\/BtbN\/FFmpeg-Builds\/releases\/assets\/\$\{asset\.assetId\}/);
+  assert.match(ffmpegProvisioner, /Accept:\s*"application\/octet-stream"/);
+  assert.match(ffmpegProvisioner, /assetId:\s*698334968/);
+  assert.match(ffmpegProvisioner, /assetId:\s*698335088/);
+  assert.match(ffmpegProvisioner, /sha256:\s*"11570b7bb1436ff432c91202ae0e7ea4be65359fd06650e18935c1ee9d005bf6"/);
+  assert.match(ffmpegProvisioner, /sha256:\s*"b45eb0c42d311d12f3bddcd7b3a29a3e7fcc2455076d13c79552d45b48d57c08"/);
   assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-42-gd7643a0fe3-linux64-gpl-9\.0\.tar\.xz/);
   assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
 });
