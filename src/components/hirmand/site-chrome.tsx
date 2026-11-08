@@ -27,7 +27,10 @@ export function SiteChrome({
       </a>
       <Header />
       <VisitorTracker />
-      <div className={cn("page", className)}>{children}</div>
+      <div className={cn("page", className)}>
+        <div id="customer-workspace-status-slot" />
+        {children}
+      </div>
       <Footer />
       <div className="quick-actions" aria-label="اقدام سریع">
         <Link to="/properties" className="quick-action">

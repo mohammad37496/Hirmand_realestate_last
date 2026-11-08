@@ -14,6 +14,7 @@ const actions = source("../src/components/hirmand/property-actions.tsx");
 const tracker = source("../src/components/hirmand/visitor-tracker.tsx");
 const detail = source("../src/components/hirmand/property-detail-view.tsx");
 const root = source("../src/routes/__root.tsx");
+const siteChrome = source("../src/components/hirmand/site-chrome.tsx");
 const client = source("../src/lib/auth/client.ts");
 const server = source("../src/lib/auth/server.ts");
 const workspaceGet = source("../server/routes/api/customer-workspace.get.ts");
@@ -55,6 +56,14 @@ test("site header exposes account access on desktop and mobile navigation", () =
 test("personal workspace sends signed-out visitors to the shared account flow", () => {
   assert.match(workspace, /to="\/login"\s+search=\{\{\s*next:\s*"\/favorites"\s*\}\}/);
   assert.match(root, /<CustomerWorkspaceSync enabled=\{!isAdminPath\} showStatus=\{pathname === "\/favorites"\}\s*\/>/);
+  assert.match(workspace, /createPortal\(/);
+  assert.match(workspace, /document\.getElementById\("customer-workspace-status-slot"\)/);
+  const pageStart = siteChrome.indexOf('<div className={cn("page", className)}>');
+  const statusSlot = siteChrome.indexOf('id="customer-workspace-status-slot"');
+  const pageContent = siteChrome.indexOf("{children}", statusSlot);
+  const footer = siteChrome.indexOf("<Footer />");
+  assert.ok(pageStart >= 0 && pageStart < statusSlot && statusSlot < pageContent && pageContent < footer,
+    "workspace sync status and retry must render before page content and the footer");
 });
 
 test("personal workspace syncs changes and prevents data crossing between accounts", () => {
