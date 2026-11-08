@@ -112,6 +112,8 @@ test("public property interactions share the canonical publication and unpublish
 test("open-house RSVP and cancellation use one event-row-locked transaction helper", () => {
   assert.match(propertyOpenHouseRoute, /createPropertyOpenHouseRsvp\(sql,/);
   assert.match(propertyOpenHouseRoute, /cancelPropertyOpenHouse\(sql,/);
+  assert.match(propertyOpenHouseRoute, /const result = await cancelPropertyOpenHouse\(sql, parsed\.data\.id\)/);
+  assert.match(propertyOpenHouseRoute, /if \(result === "not_found"\) throw createError\(\{statusCode:404/);
   assert.doesNotMatch(propertyOpenHouseRoute, /select id,property_id,capacity,starts_at,status from property_open_houses where id=\$1 limit 1/);
   assert.doesNotMatch(propertyOpenHouseRoute, /update property_open_houses set status='cancelled'/);
   assert.match(propertyOpenHouseRoute, /createPropertyOpenHouseRsvp\(sql,[\s\S]*?result\.kind === "capacity"/);

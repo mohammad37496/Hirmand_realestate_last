@@ -61,7 +61,8 @@ export default defineEventHandler(async(event)=>{
     }
 
     if(parsed.data.action==="cancel"){
-      await cancelPropertyOpenHouse(sql, parsed.data.id);
+      const result = await cancelPropertyOpenHouse(sql, parsed.data.id);
+      if (result === "not_found") throw createError({statusCode:404,statusMessage:"رویداد بازدید گروهی پیدا نشد."});
       return {success:true};
     }
 
