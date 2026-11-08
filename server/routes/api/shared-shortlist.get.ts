@@ -1,6 +1,6 @@
 import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
-import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
+import { getPublicSharedShortlistSlugs } from "@/lib/shared-shortlist-visibility";
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "public, max-age=60, s-maxage=300");
@@ -22,10 +22,7 @@ export default defineEventHandler(async (event) => {
     ? row.property_slugs.filter((item): item is string => typeof item === "string").slice(0, 6)
     : [];
 
-  const availableRows = slugs.length
-    ? await sql.query<{ slug: string }>(`select slug from properties where ${publicPropertyVisibilitySql()} and slug=any($1::text[])`,[slugs])
-    : [];
-  const available = availableRows.map((item) => String(item.slug));
+  const available = await getPublicSharedShortlistSlugs(sql, slugs);
 
   await sql.query("update shared_shortlists set view_count=view_count+1 where token=$1",[token]).catch(()=>{});
 
