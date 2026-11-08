@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { adminDealCreateEnumsSchema, adminDealDocumentUpdateSchema, adminDealStatusUpdateSchema } from "@/lib/admin-deal-input";
+import { deleteAdminDeal } from "@/lib/admin-deal-lifecycle";
 
 type DealStatus = "prospect"|"negotiation"|"agreement"|"contracted"|"completed"|"cancelled";
 type DealType = "sale"|"rent"|"mortgage"|"buy";
@@ -62,7 +63,12 @@ export default defineEventHandler(async event=>{
     if(!parsed.success)invalidDealEnum("وضعیت معامله معتبر نیست.");
     await sql.query("update admin_deals set status=$2,updated_at=current_timestamp where id=$1",[id,parsed.data.status]);return {success:true};
   }
-  if(action==="delete"){await sql.query("delete from admin_deal_documents where deal_id=$1",[id]);await sql.query("delete from admin_deals where id=$1",[id]);return {success:true};}
+  if(action==="delete"){
+    const result=await deleteAdminDeal(sql,id);
+    if(result.kind==="not_found")throw createError({statusCode:404,statusMessage:"معامله پیدا نشد."});
+    if(result.kind==="settlements_exist")throw createError({statusCode:409,statusMessage:"برای این معامله سابقه تسویه مالی ثبت شده است؛ ابتدا وضعیت حسابداری آن را تعیین تکلیف کنید."});
+    return {success:true};
+  }
   if(action==="seed_documents"){for(const documentType of DEFAULT_DOCUMENTS)await sql.query("insert into admin_deal_documents(id,deal_id,document_type) values($1,$2,$3) on conflict(deal_id,document_type) do nothing",[crypto.randomUUID(),id,documentType]);return {success:true};}
   if(action==="document"){
     const documentType=clean(body.documentType,160); if(!documentType)throw createError({statusCode:400,statusMessage:"نوع مدرک مشخص نیست."});
