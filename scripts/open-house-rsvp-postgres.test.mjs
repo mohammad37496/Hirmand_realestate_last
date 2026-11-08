@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
 import pg from "pg";
 import test from "node:test";
+import { createPropertyOpenHouseEvent } from "../src/lib/property-open-house-create.ts";
 import { cancelPropertyOpenHouse, createPropertyOpenHouseRsvp } from "../src/lib/property-open-house-rsvp.ts";
 
 const { Pool } = pg;
@@ -49,9 +50,9 @@ function createTransactionalSql(pool, hooks = {}) {
         await hooks.onBegin?.(backendPid);
         const transactionSql = {
           query: async (text, params = []) => {
-            const eventLock = /from\s+property_open_houses\s+where\s+id=\$1\s+for update/i.test(text);
+            const parentLock = /from\s+(?:property_open_houses|properties)\s+where\s+id=\$1[\s\S]*?for update/i.test(text);
             const result = await client.query(text, params);
-            if (eventLock) await hooks.afterEventLock?.(backendPid);
+            if (parentLock) await hooks.afterEventLock?.(backendPid);
             return result.rows;
           },
         };
@@ -115,14 +116,15 @@ test("open-house RSVP capacity, uniqueness and both cancellation lock orders ser
       );
       create table property_open_houses (
         id text primary key, property_id text not null, starts_at timestamptz not null,
-        capacity integer not null, status text not null
+        ends_at timestamptz not null, capacity integer not null, note text not null default '',
+        status text not null
       );
       create table property_open_house_rsvps (
         id text primary key, open_house_id text not null, name text not null,
         phone text not null, party_size integer not null, note text not null default '',
         status text not null default 'requested'
       );
-      insert into properties(id,status) values ('property-1','published');
+      insert into properties(id,status) values ('property-1','published'),('property-2','published');
     `);
     const migration = await readFile(
       new URL("../migrations/0061_open_house_rsvp_atomicity.sql", import.meta.url),
@@ -131,7 +133,7 @@ test("open-house RSVP capacity, uniqueness and both cancellation lock orders ser
     await pool.query(migration);
 
     const addEvent = async (id, capacity = 8) => pool.query(
-      "insert into property_open_houses(id,property_id,starts_at,capacity,status) values($1,'property-1','2099-11-09T10:00:00Z',$2,'scheduled')",
+      "insert into property_open_houses(id,property_id,starts_at,ends_at,capacity,status) values($1,'property-1','2099-11-09T10:00:00Z','2099-11-09T11:00:00Z',$2,'scheduled')",
       [id, capacity],
     );
     const activeSeats = async (eventId) => {
@@ -254,6 +256,61 @@ test("open-house RSVP capacity, uniqueness and both cancellation lock orders ser
     const cancelFirstEvent = await pool.query("select status from property_open_houses where id='cancel-first'");
     assert.equal(cancelFirstEvent.rows[0]?.status, "cancelled");
     await assertNoActiveRsvps("cancel-first");
+
+    // Concurrent admins creating the same property/time must serialize on the
+    // property row, so only one scheduled event can be inserted.
+    const createPids = [];
+    const createLockHeld = deferred();
+    const releaseCreateLock = deferred();
+    let createHolderPid;
+    const createBarrierGate = twoPartyBarrier();
+    const createSql = createTransactionalSql(pool, {
+      onBegin: async (pid) => { createPids.push(pid); await createBarrierGate(); },
+      afterEventLock: async (pid) => {
+        if (createHolderPid == null) {
+          createHolderPid = pid;
+          createLockHeld.resolve();
+          await releaseCreateLock.promise;
+        }
+      },
+    });
+    const createBase = {
+      propertyId: "property-1",
+      startsAt: "2099-11-10T10:00:00.000Z",
+      endsAt: "2099-11-10T11:00:00.000Z",
+      capacity: 8,
+      note: "",
+    };
+    const createPromises = [
+      createPropertyOpenHouseEvent(createSql, createBase),
+      createPropertyOpenHouseEvent(createSql, createBase),
+    ];
+    await waitForSignal(createLockHeld.promise, "open-house creation property lock holder");
+    const createContenderPid = createPids.find((pid) => pid !== createHolderPid);
+    const createResults = await waitForLockAndRelease(admin, createContenderPid, releaseCreateLock, createPromises);
+    assert.deepEqual(createResults.map((result) => result.kind).sort(), ["conflict", "created"]);
+
+    const nonOverlappingGate = twoPartyBarrier();
+    const nonOverlappingSql = createTransactionalSql(pool, { onBegin: () => nonOverlappingGate() });
+    const nonOverlappingResults = await Promise.all([
+      createPropertyOpenHouseEvent(nonOverlappingSql, { ...createBase, startsAt: "2099-11-10T12:00:00.000Z", endsAt: "2099-11-10T13:00:00.000Z" }),
+      createPropertyOpenHouseEvent(nonOverlappingSql, { ...createBase, startsAt: "2099-11-10T14:00:00.000Z", endsAt: "2099-11-10T15:00:00.000Z" }),
+    ]);
+    assert.deepEqual(nonOverlappingResults.map((result) => result.kind), ["created", "created"]);
+
+    const independentProperty = await createPropertyOpenHouseEvent(createTransactionalSql(pool), {
+      ...createBase,
+      propertyId: "property-2",
+    });
+    assert.equal(independentProperty.kind, "created");
+    await pool.query("update properties set unpublish_at=current_timestamp - interval '1 day' where id='property-2'");
+    const hiddenProperty = await createPropertyOpenHouseEvent(createTransactionalSql(pool), {
+      ...createBase,
+      propertyId: "property-2",
+      startsAt: "2099-11-10T16:00:00.000Z",
+      endsAt: "2099-11-10T17:00:00.000Z",
+    });
+    assert.equal(hiddenProperty.kind, "not_found");
   } finally {
     if (pool) await pool.end().catch(() => {});
     await admin.query(`drop schema if exists "${schema}" cascade`).catch(() => {});

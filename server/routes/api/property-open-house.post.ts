@@ -6,6 +6,7 @@ import { assertSameOrigin, clientFingerprint, consumeAdminAttempt } from "@/lib/
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { listOpenHouseAdminData } from "@/lib/property-open-house-admin-list";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
+import { createPropertyOpenHouseEvent } from "@/lib/property-open-house-create";
 import { cancelPropertyOpenHouse, createPropertyOpenHouseRsvp } from "@/lib/property-open-house-rsvp";
 
 const phoneSchema=z.string().trim().regex(/^09\d{9}$/,"شماره موبایل معتبر نیست.");
@@ -47,13 +48,16 @@ export default defineEventHandler(async(event)=>{
       const start=new Date(parsed.data.startsAt),end=new Date(parsed.data.endsAt);
       if(!Number.isFinite(start.getTime())||!Number.isFinite(end.getTime())||end<=start) throw createError({statusCode:422,statusMessage:"زمان پایان باید بعد از زمان شروع باشد."});
       if(start.getTime()<Date.now()+15*60*1000) throw createError({statusCode:422,statusMessage:"زمان اوپن‌هاوس باید حداقل ۱۵ دقیقه از اکنون فاصله داشته باشد."});
-      const property=await sql.query<{id:string}>("select id from properties where id=$1 and status='published' limit 1",[parsed.data.propertyId]);
-      if(!property[0]) throw createError({statusCode:404,statusMessage:"فایل منتشرشده پیدا نشد."});
-      const overlaps=await sql.query<{id:string}>("select id from property_open_houses where property_id=$1 and status='scheduled' and starts_at < $3 and ends_at > $2 limit 1",[parsed.data.propertyId,start.toISOString(),end.toISOString()]);
-      if(overlaps[0]) throw createError({statusCode:409,statusMessage:"برای این فایل یک بازه بازدید گروهی هم‌پوشان از قبل ثبت شده است."});
-      const id=crypto.randomUUID();
-      await sql.query("insert into property_open_houses(id,property_id,starts_at,ends_at,capacity,note) values($1,$2,$3,$4,$5,$6)",[id,parsed.data.propertyId,start.toISOString(),end.toISOString(),parsed.data.capacity,parsed.data.note]);
-      return {success:true,id};
+      const result = await createPropertyOpenHouseEvent(sql, {
+        propertyId: parsed.data.propertyId,
+        startsAt: start.toISOString(),
+        endsAt: end.toISOString(),
+        capacity: parsed.data.capacity,
+        note: parsed.data.note,
+      });
+      if (result.kind === "not_found") throw createError({statusCode:404,statusMessage:"فایل منتشرشده پیدا نشد."});
+      if (result.kind === "conflict") throw createError({statusCode:409,statusMessage:"برای این فایل یک بازه بازدید گروهی هم‌پوشان از قبل ثبت شده است."});
+      return {success:true,id:result.id};
     }
 
     if(parsed.data.action==="cancel"){

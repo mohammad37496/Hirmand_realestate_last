@@ -5,6 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { hasAdminPermission } from "./admin-roles.ts";
 import { listOpenHouseAdminData } from "./property-open-house-admin-list.ts";
 import { createPropertyVisitRequest, reschedulePropertyVisitRequest } from "./property-visit-request.ts";
+import { createPropertyOpenHouseEvent } from "./property-open-house-create.ts";
 import { cancelPropertyOpenHouse, createPropertyOpenHouseRsvp } from "./property-open-house-rsvp.ts";
 import type { Sql } from "./db.ts";
 
@@ -397,6 +398,67 @@ test("open-house RSVP uniqueness migration refuses pre-existing active duplicate
       { id: "rsvp-1", status: "requested" },
       { id: "rsvp-2", status: "confirmed" },
     ]);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("PGlite serializes open-house creation overlap checks on the property row", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table properties (
+        id text primary key, status text not null, deleted_at timestamptz,
+        publish_at timestamptz, unpublish_at timestamptz
+      );
+      create table property_open_houses (
+        id text primary key, property_id text not null, starts_at timestamptz not null,
+        ends_at timestamptz not null, capacity integer not null, note text not null default '',
+        status text not null default 'scheduled'
+      );
+      insert into properties(id,status) values ('property-1','published'),('property-2','published');
+    `);
+    const sql = {
+      transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+        pg.transaction(async (transaction) => callback({
+          query: async <R = Record<string, unknown>>(query: string, params: unknown[] = []) =>
+            (await transaction.query(query, params)).rows as R[],
+        } as Sql)),
+    } as Sql;
+    const base = {
+      propertyId: "property-1",
+      startsAt: "2099-11-09T10:00:00.000Z",
+      endsAt: "2099-11-09T11:00:00.000Z",
+      capacity: 8,
+      note: "",
+    };
+
+    const overlapping = await Promise.all([
+      createPropertyOpenHouseEvent(sql, base),
+      createPropertyOpenHouseEvent(sql, base),
+    ]);
+    assert.deepEqual(overlapping.map((result) => result.kind).sort(), ["conflict", "created"]);
+
+    const nonOverlapping = await Promise.all([
+      createPropertyOpenHouseEvent(sql, { ...base, startsAt: "2099-11-09T12:00:00.000Z", endsAt: "2099-11-09T13:00:00.000Z" }),
+      createPropertyOpenHouseEvent(sql, { ...base, startsAt: "2099-11-09T14:00:00.000Z", endsAt: "2099-11-09T15:00:00.000Z" }),
+    ]);
+    assert.deepEqual(nonOverlapping.map((result) => result.kind), ["created", "created"]);
+
+    const independentProperty = await createPropertyOpenHouseEvent(sql, {
+      ...base,
+      propertyId: "property-2",
+    });
+    assert.equal(independentProperty.kind, "created");
+
+    await pg.exec("update properties set unpublish_at=current_timestamp - interval '1 day' where id='property-2'");
+    const hiddenProperty = await createPropertyOpenHouseEvent(sql, {
+      ...base,
+      propertyId: "property-2",
+      startsAt: "2099-11-09T16:00:00.000Z",
+      endsAt: "2099-11-09T17:00:00.000Z",
+    });
+    assert.equal(hiddenProperty.kind, "not_found");
   } finally {
     await pg.close();
   }
