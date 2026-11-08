@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeftRight, CalendarDays, CheckCircle2, Heart, Link2, Loader2, ListFilter, Search, Share2, SlidersHorizontal, StickyNote, Tag, X } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
 import { FavoriteScoreCompare } from "@/components/hirmand/favorite-score-compare";
 import { FavoriteListingChanges } from "@/components/hirmand/favorite-listing-changes";
@@ -15,6 +15,7 @@ import { WorkspaceBackupRestore } from "@/components/hirmand/workspace-backup-re
 import { FavoriteWeightedMatrix } from "@/components/hirmand/favorite-weighted-matrix";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { listPublishedPropertiesBySlugs, type Property } from "@/lib/properties";
+import { subscribeToFavoriteMetaWorkspaceSync, subscribeToFavoriteWorkspaceSync } from "@/lib/favorites-workspace-sync.mjs";
 import { SITE } from "@/lib/site";
 import { toast } from "sonner";
 import "@/favorites-personal.css";
@@ -175,6 +176,8 @@ function FavoritesPage() {
   const [planCodes, setPlanCodes] = useState<string[]>([]);
   const [planError, setPlanError] = useState("");
   const [favoriteMeta, setFavoriteMeta] = useState<FavoriteMetaMap>(() => readFavoriteMeta());
+  const favoriteLoadVersion = useRef(0);
+  const recentLoadVersion = useRef(0);
   const [favoriteTagFilter, setFavoriteTagFilter] = useState<FavoriteTag | "all">("all");
   const [favoriteSort, setFavoriteSort] = useState<"saved" | "price-asc" | "price-desc" | "area-desc">("saved");
 
@@ -376,6 +379,7 @@ function FavoritesPage() {
 
       if (cancelled) return;
       const favoriteSlugs = cleanSlugs([...localFavoriteSlugs, ...shared], 100);
+      const favoriteRequestId = ++favoriteLoadVersion.current;
       if (shared.length) {
         setSharedFavorites(shared);
         persistSlugs(FAVORITES_KEY, favoriteSlugs);
@@ -385,34 +389,36 @@ function FavoritesPage() {
       if (favoriteSlugs.length) {
         try {
           const rows = await listPublishedPropertiesBySlugs({ data: { slugs: favoriteSlugs } });
-          if (cancelled) return;
+          if (cancelled || favoriteRequestId !== favoriteLoadVersion.current) return;
           setProperties(rows);
           const valid = new Set(rows.map((property) => property.slug));
           const retained = favoriteSlugs.filter((slug) => valid.has(slug));
           if (retained.length !== favoriteSlugs.length) persistSlugs(FAVORITES_KEY, retained);
         } catch {
-          if (!cancelled) setProperties([]);
+          if (!cancelled && favoriteRequestId === favoriteLoadVersion.current) setProperties([]);
         } finally {
-          if (!cancelled) setLoading(false);
+          if (!cancelled && favoriteRequestId === favoriteLoadVersion.current) setLoading(false);
         }
       } else {
         setLoading(false);
       }
 
       if (recentSlugs.length) {
+        const recentRequestId = ++recentLoadVersion.current;
         try {
           const rows = await listPublishedPropertiesBySlugs({ data: { slugs: recentSlugs } });
-          if (cancelled) return;
+          if (cancelled || recentRequestId !== recentLoadVersion.current) return;
           setRecentProperties(rows);
           const valid = new Set(rows.map((property) => property.slug));
           const retained = recentSlugs.filter((slug) => valid.has(slug));
           if (retained.length !== recentSlugs.length) persistSlugs(RECENT_PROPERTIES_KEY, retained);
         } catch {
-          if (!cancelled) setRecentProperties([]);
+          // Keep the last visible history if the property lookup temporarily fails.
         } finally {
-          if (!cancelled) setRecentLoading(false);
+          if (!cancelled && recentRequestId === recentLoadVersion.current) setRecentLoading(false);
         }
       } else {
+        recentLoadVersion.current += 1;
         setRecentLoading(false);
       }
     }
@@ -422,6 +428,78 @@ function FavoritesPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => subscribeToFavoriteWorkspaceSync({
+    target: window,
+    initialSlugs: readFavorites(),
+    readSlugs: readFavorites,
+    load: async (slugs) => {
+      const requestId = ++favoriteLoadVersion.current;
+      const rows = slugs.length
+        ? await listPublishedPropertiesBySlugs({ data: { slugs } })
+        : [];
+      return { rows, requestId };
+    },
+    onLoaded: (result) => {
+      if (Array.isArray(result)) {
+        favoriteLoadVersion.current += 1;
+        setProperties([]);
+        setLoading(false);
+        return;
+      }
+      const snapshot = result as { rows: Property[]; requestId: number };
+      if (snapshot.requestId !== favoriteLoadVersion.current) return;
+      setProperties(snapshot.rows);
+      setLoading(false);
+      const valid = new Set(snapshot.rows.map((property) => property.slug));
+      const currentSlugs = readFavorites();
+      const retained = currentSlugs.filter((slug) => valid.has(slug));
+      if (retained.length !== currentSlugs.length) persistSlugs(FAVORITES_KEY, retained);
+    },
+    onError: () => {
+      setLoading(false);
+      toast.error("بارگذاری فایل‌های ذخیره‌شده ناموفق بود؛ دوباره تلاش کنید.");
+    },
+  }), []);
+
+  useEffect(() => subscribeToFavoriteMetaWorkspaceSync({
+    target: window,
+    readMeta: readFavoriteMeta,
+    onLoaded: setFavoriteMeta,
+  }), []);
+
+  useEffect(() => subscribeToFavoriteWorkspaceSync({
+    target: window,
+    initialSlugs: readRecent(),
+    readSlugs: readRecent,
+    load: async (slugs) => {
+      const requestId = ++recentLoadVersion.current;
+      const rows = slugs.length
+        ? await listPublishedPropertiesBySlugs({ data: { slugs } })
+        : [];
+      return { rows, requestId };
+    },
+    onLoaded: (result) => {
+      if (Array.isArray(result)) {
+        recentLoadVersion.current += 1;
+        setRecentProperties([]);
+        setRecentLoading(false);
+        return;
+      }
+      const snapshot = result as { rows: Property[]; requestId: number };
+      if (snapshot.requestId !== recentLoadVersion.current) return;
+      setRecentProperties(snapshot.rows);
+      setRecentLoading(false);
+      const valid = new Set(snapshot.rows.map((property) => property.slug));
+      const currentSlugs = readRecent();
+      const retained = currentSlugs.filter((slug) => valid.has(slug));
+      if (retained.length !== currentSlugs.length) persistSlugs(RECENT_PROPERTIES_KEY, retained);
+    },
+    onError: () => {
+      setRecentLoading(false);
+      toast.error("بارگذاری تاریخچه مرور ناموفق بود؛ دوباره تلاش کنید.");
+    },
+  }), []);
 
   return (
     <SiteChrome className="property-detail-shell">
