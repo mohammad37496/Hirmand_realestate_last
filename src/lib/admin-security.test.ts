@@ -15,7 +15,7 @@ import {
   assertServerFnSameOrigin,
 } from "./admin-rate-limit.server.ts";
 import { contentMatchesDeclaredType, sniffMediaBytes } from "./file-signature.server.ts";
-import { hasAdminPermission, normalizeAdminRole } from "./admin-roles.ts";
+import { canApproveCustomerPropertySubmission, hasAdminPermission, normalizeAdminRole } from "./admin-roles.ts";
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -85,6 +85,17 @@ test("staff role is limited to new property intake, CRM review and Divar import"
   assert.equal(hasAdminPermission(role, "security.manage"), false);
   assert.equal(hasAdminPermission(role, "accounts.manage"), false);
   assert.equal(hasAdminPermission(role, "reports.view"), false);
+});
+
+test("customer-submission approval requires both property management and publish permissions", () => {
+  assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("owner")), true);
+  assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("manager")), true);
+  assert.equal(hasAdminPermission(normalizeAdminRole("sales"), "property.manage"), true);
+  assert.equal(hasAdminPermission(normalizeAdminRole("sales"), "property.publish"), false);
+  assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("sales")), false);
+  assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("content")), false);
+  assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("staff")), false);
+  assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("viewer")), false);
 });
 
 /* ------------------------------------------------------------------ */
