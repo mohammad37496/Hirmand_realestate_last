@@ -10,6 +10,7 @@ import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { updatePendingCustomerPropertySubmissionReview } from "@/lib/customer-property-submission-review";
+import { bulkRejectPendingCustomerPropertySubmissions } from "@/lib/customer-property-submission-lead-sync";
 
 type Action = "list" | "approve" | "reject" | "update" | "set_priority" | "history" | "bulk_set_priority" | "bulk_reject" | "export" | "assign_consultant";
 
@@ -216,26 +217,9 @@ export default defineEventHandler(async (event) => {
     }
 
     const reviewNote = typeof body.reviewNote === "string" ? body.reviewNote.trim().slice(0, 1200) : "";
-    const targets = await sql.query<{ id: string; lead_id: string | null }>(
-      `update customer_property_submissions
-         set status='rejected', review_note=$2, reviewed_at=clock_timestamp(),
-             updated_at=greatest(clock_timestamp(),updated_at + interval '1 microsecond')
-       where id = any($1::text[]) and status='pending'
-       returning id,lead_id`,
-      [ids, reviewNote],
-    );
-    if (!targets.length) return { success: true, updatedCount: 0 };
-    for (const target of targets) {
-      if (target.lead_id) {
-        await sql.query("update leads set status='closed', updated_at=current_timestamp where id=$1", [target.lead_id]).catch(() => {});
-        await sql.query(
-          "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
-          [target.lead_id, "ثبت ملک رد شد", reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.", JSON.stringify({ submissionId: target.id, bulk: true })],
-        ).catch(() => {});
-      }
-      await logReviewEvent(sql, target.id, "reject", reviewNote || "درخواست ثبت ملک رد شد.", { bulk: true });
-    }
-    return { success: true, updatedCount: targets.length, status: "rejected" };
+    if (!sql.transaction) throw createError({ statusCode: 503, statusMessage: "تراکنش امن برای رد گروهی پرونده‌ها در دسترس نیست." });
+    const updatedCount = await bulkRejectPendingCustomerPropertySubmissions(sql, { ids, reviewNote });
+    return { success: true, updatedCount, status: "rejected" };
   }
 
   if (action === "export") {

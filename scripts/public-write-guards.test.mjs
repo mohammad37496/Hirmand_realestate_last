@@ -75,7 +75,8 @@ test("public visit cancellation uses an atomic active-status predicate and retur
 });
 
 test("customer property resubmission uses a rejected-state and updated-at compare-and-swap", () => {
-  assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmission\(sql,/);
+  assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmissionWithLeadSync\(sql,/);
+  assert.match(customerPropertySubmissionsRoute, /sql\.transaction/);
   assert.match(customerPropertySubmissionsRoute, /updated_at from customer_property_submissions/);
   assert.match(customerPropertySubmissionsRoute, /if \(!resubmitted\)[\s\S]*?statusCode:\s*409/);
   assert.doesNotMatch(customerPropertySubmissionsRoute, /update customer_property_submissions[^\n]*where id=\$1"/);
