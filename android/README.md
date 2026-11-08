@@ -2,7 +2,7 @@
 
 یک همراه Android محلی برای اتصال کنترل‌شدهٔ گوشی مالک به سامانهٔ داخلی هیرمند.
 
-> این پروژه اکنون بخشی از monorepo اصلی (`Hirmand_real_Estate`) است و در پوشهٔ `android/`
+> این پروژه اکنون بخشی از monorepo اصلی (`Hirmand_realestate_last`) است و در پوشهٔ `android/`
 > زندگی می‌کند. ریپوی مستقل قبلی: `mohammad37496/mohammad37496-Hirmand_Phone_Bridge`.
 > همهٔ دستورات Gradle و Node را از داخل همین پوشه اجرا کنید.
 

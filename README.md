@@ -61,8 +61,8 @@ Phone Bridge از نسخهٔ `versionCode`/`versionName` دستگاه نیز ن�
 ## شروع سریع
 
 ```bash
-git clone https://github.com/mohammad37496/Hirmand_real_Estate.git
-cd Hirmand_real_Estate
+git clone https://github.com/mohammad37496/Hirmand_realestate_last.git
+cd Hirmand_realestate_last
 npm install
 npm run dev
 ```
@@ -75,7 +75,7 @@ npm run dev
 |-------|--------|--------|
 | `DATABASE_URL` | اتصال PostgreSQL / Neon برای فایل‌ها، Leadها، Analytics و حساب‌های کاربری | برای امکانات دیتابیسی و ورود پایدار |
 | `HIRMAND_ADMIN_KEY` | کلید دسترسی به `/admin` | برای پنل ادمین |
-| `VITE_SITE_URL` | آدرس نهایی و canonical سایت، ترجیحاً `https://www.hirmandrealestate.ir` | بسیار مهم |
+| `VITE_SITE_URL` | آدرس نهایی و canonical سایت: `https://hirmandrealestate.ir` | بسیار مهم |
 | `VITE_GOOGLE_SITE_VERIFICATION` | توکن تأیید Google Search Console | اختیاری |
 | `VITE_AUTH_ENABLED` | فعال‌سازی حساب کاربری مشتریان | بله، در صورت استفاده از فضای شخصی |
 | `BETTER_AUTH_URL` | آدرس اصلی همین سایت برای کوکی و callback ورود؛ `https://hirmandrealestate.ir` | برای حساب کاربری |
