@@ -1,12 +1,13 @@
 import { useEffect,useState } from "react";
 import { CheckCircle2,Clock3,Plus,RefreshCw,WalletCards } from "lucide-react";
 import { toast } from "sonner";
+import { formatTomanExact } from "@/lib/money";
 const fa=(n:number)=>Number(n||0).toLocaleString("fa-IR");
-const money=(n:number)=>fa(n)+" تومان";
+const money=(n:string|number|null|undefined)=>formatTomanExact(n);
 type Status="pending"|"approved"|"paid"|"cancelled";
-type Row={id:string;consultant:string;dealId:string|null;dealTitle:string|null;commissionAmount:number;consultantShare:number;officeShare:number;status:Status;paidAt:string|null;note:string};
+type Row={id:string;consultant:string;dealId:string|null;dealTitle:string|null;commissionAmount:string;consultantShare:string;officeShare:string;status:Status;paidAt:string|null;note:string};
 export function AdminCommissionSettlement(){
- const [rows,setRows]=useState<Row[]>([]),[deals,setDeals]=useState<Array<{id:string;title:string;consultant:string;commission:number}>>([]),[sum,setSum]=useState<any>({}),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);
+ const [rows,setRows]=useState<Row[]>([]),[deals,setDeals]=useState<Array<{id:string;title:string;consultant:string;commission:string}>>([]),[sum,setSum]=useState<any>({}),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false);
  const [form,setForm]=useState({consultant:"",dealId:"",commission:"",consultantShare:"",note:""});
  const load=async()=>{setLoading(true);try{const r=await fetch("/api/admin-commission",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"list"})});const x=await r.json();if(!r.ok)throw new Error(x?.statusMessage||"بارگذاری تسویه انجام نشد.");setRows(x.settlements||[]);setDeals(x.deals||[]);setSum(x.summary||{});}catch(e){toast.error(e instanceof Error?e.message:"بارگذاری تسویه انجام نشد.");}finally{setLoading(false);}};
  useEffect(()=>{void load()},[]);

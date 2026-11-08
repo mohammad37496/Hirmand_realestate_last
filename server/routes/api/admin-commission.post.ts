@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { compareDecimalStrings, subtractDecimalStrings } from "@/lib/decimal-money";
 
 async function requireAdmin(event:H3Event){
   const token=getCookie(event,ADMIN_SESSION_COOKIE);
@@ -32,20 +33,19 @@ export default defineEventHandler(async event=>{
     ]);
     const consultantRows=await sql.query<Record<string,unknown>>("select consultant,count(*)::int as count,coalesce(sum(consultant_share) filter(where status='paid'),0)::numeric as paid,coalesce(sum(consultant_share) filter(where status in ('pending','approved')),0)::numeric as due from admin_commission_settlements where trim(consultant)<>'' group by consultant order by due desc,consultant asc limit 50");
     return {
-      settlements:rows.map(r=>({id:String(r.id),consultant:String(r.consultant),dealId:r.deal_id?String(r.deal_id):null,dealTitle:r.deal_title?String(r.deal_title):null,commissionAmount:Number(r.commission_amount)||0,consultantShare:Number(r.consultant_share)||0,officeShare:Number(r.office_share)||0,status:validStatus(r.status),paidAt:r.paid_at?new Date(String(r.paid_at)).toISOString():null,note:String(r.note??""),createdAt:new Date(String(r.created_at)).toISOString()})),
-      deals:deals.map(r=>({id:String(r.id),title:String(r.title),consultant:String(r.consultant??""),commission:Number(r.commission)||0,status:String(r.status),customerName:String(r.customer_name??"")})),
-      summary:{pending:Number(summary[0]?.pending)||0,approved:Number(summary[0]?.approved)||0,paid:Number(summary[0]?.paid)||0,total:Number(summary[0]?.total)||0,consultants:consultantRows.map(r=>({name:String(r.consultant),count:Number(r.count)||0,paid:Number(r.paid)||0,due:Number(r.due)||0}))}
+      settlements:rows.map(r=>({id:String(r.id),consultant:String(r.consultant),dealId:r.deal_id?String(r.deal_id):null,dealTitle:r.deal_title?String(r.deal_title):null,commissionAmount:String(r.commission_amount??"0"),consultantShare:String(r.consultant_share??"0"),officeShare:String(r.office_share??"0"),status:validStatus(r.status),paidAt:r.paid_at?new Date(String(r.paid_at)).toISOString():null,note:String(r.note??""),createdAt:new Date(String(r.created_at)).toISOString()})),
+      deals:deals.map(r=>({id:String(r.id),title:String(r.title),consultant:String(r.consultant??""),commission:String(r.commission??"0"),status:String(r.status),customerName:String(r.customer_name??"")})),
+      summary:{pending:Number(summary[0]?.pending)||0,approved:Number(summary[0]?.approved)||0,paid:Number(summary[0]?.paid)||0,total:String(summary[0]?.total??"0"),consultants:consultantRows.map(r=>({name:String(r.consultant),count:Number(r.count)||0,paid:String(r.paid??"0"),due:String(r.due??"0")}))}
     };
   }
 
   if(action==="create"){
     const consultant=clean(body.consultant,120); const commission=money(body.commission); const consultantShare=money(body.consultantShare);
     if(!consultant||!commission||!consultantShare) throw createError({statusCode:400,statusMessage:"مشاور، کمیسیون و سهم مشاور الزامی است."});
-    const commissionNumber=Number(commission), consultantNumber=Number(consultantShare);
-    if(consultantNumber>commissionNumber) throw createError({statusCode:400,statusMessage:"سهم مشاور نمی‌تواند بیشتر از کمیسیون کل باشد."});
+    if(compareDecimalStrings(consultantShare,commission)>0) throw createError({statusCode:400,statusMessage:"سهم مشاور نمی‌تواند بیشتر از کمیسیون کل باشد."});
     const id=crypto.randomUUID();
     await sql.query("insert into admin_commission_settlements(id,consultant,deal_id,commission_amount,consultant_share,office_share,status,note,created_by) values($1,$2,$3,$4,$5,$6,'pending',$7,$8)",
-      [id,consultant,clean(body.dealId,120)||null,commissionNumber,consultantNumber,commissionNumber-consultantNumber,clean(body.note,1200),clean(claims?.displayName,120)||"مدیریت"]);
+      [id,consultant,clean(body.dealId,120)||null,commission,consultantShare,subtractDecimalStrings(commission,consultantShare),clean(body.note,1200),clean(claims?.displayName,120)||"مدیریت"]);
     return {success:true,id};
   }
 

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { BarChart3, BriefcaseBusiness, WalletCards, UsersRound } from "lucide-react";
 import { toast } from "sonner";
-import { formatToman } from "@/lib/money";
+import { addDecimalStrings } from "@/lib/decimal-money";
+import { formatTomanExact } from "@/lib/money";
 
 type Row = {
   name: string;
@@ -10,15 +11,15 @@ type Row = {
   openLeads: number;
   deals: number;
   completedDeals: number;
-  volume: number;
-  commissions: number;
-  paid: number;
-  due: number;
+  volume: string;
+  commissions: string;
+  paid: string;
+  due: string;
   conversionRate: number;
 };
 
 const compact = (value: number) => value.toLocaleString("fa-IR");
-const money = (value: number) => formatToman(Math.round(value));
+const money = (value: string) => formatTomanExact(value);
 
 export function AdminConsultantPerformance() {
   const [days, setDays] = useState(90);
@@ -45,9 +46,9 @@ export function AdminConsultantPerformance() {
     leads: acc.leads + row.leads,
     deals: acc.deals + row.deals,
     completed: acc.completed + row.completedDeals,
-    volume: acc.volume + row.volume,
-    due: acc.due + row.due,
-  }), { leads: 0, deals: 0, completed: 0, volume: 0, due: 0 });
+    volume: addDecimalStrings(acc.volume, row.volume),
+    due: addDecimalStrings(acc.due, row.due),
+  }), { leads: 0, deals: 0, completed: 0, volume: "0", due: "0" });
 
   return (
     <section className="admin-consultant-performance" dir="rtl">
