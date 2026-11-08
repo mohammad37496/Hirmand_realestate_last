@@ -1,7 +1,7 @@
 // @ts-check
 /**
- * Migration bookkeeping shared by the two appliers — `scripts/migrate.mjs`
- * (deploy, `readdir`) and `src/lib/db.ts` (PGLite preview, `import.meta.glob`).
+ * Migration bookkeeping shared by the two appliers — `scripts/prestart-migrate.mjs`
+ * (Liara deploy, `readdir`) and `src/lib/db.ts` (PGLite development, `import.meta.glob`).
  *
  * Applied files are keyed by BASENAME, so the same file applies once no matter
  * which directory it is globbed from. That is what makes the auth schema safe to

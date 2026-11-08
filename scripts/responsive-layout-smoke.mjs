@@ -151,8 +151,11 @@ try {
       // Give the client enough time to hydrate before interacting with React controls.
       await page.waitForTimeout(500);
 
-      // Every route that renders shared property cards must preserve the RTL
-      // mobile invariant: image on the right, property details on the left.
+      // Shared property cards intentionally have different mobile layouts:
+      // the public listing defaults to its photo-first grid, its explicit list
+      // view uses the compact RTL horizontal card, and favorites keeps its
+      // dedicated photo-first card design. Verify the active design instead of
+      // imposing the list-view geometry on every route.
       const sharedMobileCard = page.locator(route === "/properties" ? ".pf-grid .pcard-mobile-list" : ".pcard-mobile-list").first();
       if (route === "/" || route === "/properties" || route === "/favorites") {
         await sharedMobileCard.waitFor({ state: "visible", timeout: 15_000 }).catch(() => {});
@@ -170,17 +173,32 @@ try {
       }
       if (await sharedMobileCard.isVisible().catch(() => false)) {
         const cardLayout = await sharedMobileCard.evaluate((card) => {
-          const media = card.querySelector(".pcard-media")?.getBoundingClientRect();
-          const body = card.querySelector(".pcard-body")?.getBoundingClientRect();
+          const imageLink = card.querySelector(".pcard-media > .pcard-image-link")?.getBoundingClientRect();
+          const title = card.querySelector(".pcard-title");
+          const titleRange = title ? document.createRange() : null;
+          // The media/body wrappers can span or overlap the full card. Measure
+          // the visible image link and rendered title text instead.
+          titleRange?.selectNodeContents(title);
+          const details = titleRange?.getBoundingClientRect();
+          const favoritesPage = Boolean(card.closest(".favorites-page"));
+          const propertyGrid = card.closest(".pf-page")?.querySelector(".pf-grid");
+          const photoFirst = favoritesPage || propertyGrid?.classList.contains("is-grid-view") === true;
+          const expectedLayout = photoFirst ? "photo-first" : "rtl-horizontal";
+          const layoutMatches = photoFirst
+            ? Boolean(imageLink && details && imageLink.bottom <= details.top + 2)
+            : Boolean(imageLink && details && imageLink.left >= details.right - 2);
           return {
-            imageOnRight: Boolean(media && body &&
-              media.left + media.width / 2 > body.left + body.width / 2),
-            hasImage: Boolean(media && media.width > 0 && media.height > 0),
-            hasDetails: Boolean(body && body.width > 0 && body.height > 0),
+            expectedLayout,
+            layoutMatches,
+            hasImage: Boolean(imageLink && imageLink.width > 0 && imageLink.height > 0),
+            hasDetails: Boolean(details && details.width > 0 && details.height > 0),
+            imageRect: imageLink ? { left: imageLink.left, right: imageLink.right, top: imageLink.top, bottom: imageLink.bottom, width: imageLink.width, height: imageLink.height } : null,
+            titleRect: details ? { left: details.left, right: details.right, top: details.top, bottom: details.bottom, width: details.width, height: details.height } : null,
+            gridClass: propertyGrid?.className ?? null,
           };
         });
-        if (!cardLayout.hasImage || !cardLayout.hasDetails || !cardLayout.imageOnRight) {
-          failures.push(route + " @ 320px: shared property card must show its image on the right and details on the left");
+        if (!cardLayout.hasImage || !cardLayout.hasDetails || !cardLayout.layoutMatches) {
+          failures.push(route + " @ 320px: shared property card does not match its " + cardLayout.expectedLayout + " image/details layout; geometry=" + JSON.stringify(cardLayout));
         }
         const sharedCardImage = sharedMobileCard.locator(".pcard-media img").first();
         await sharedCardImage.scrollIntoViewIfNeeded().catch(() => {});
@@ -553,8 +571,8 @@ try {
         const desktopPage = await browser.newPage({ viewport: { width: 1024, height: 900 } });
         await desktopPage.goto(new URL("/properties", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
         await desktopPage.waitForTimeout(700);
-        const desktopMapDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش فایل‌ها روی نقشه"]').getAttribute("aria-pressed").catch(() => null);
-        if (desktopMapDefault !== "true") failures.push("/properties @ 1024px: desktop map-first default changed unexpectedly");
+        const desktopGridDefault = await desktopPage.locator('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]').getAttribute("aria-pressed").catch(() => null);
+        if (desktopGridDefault !== "true") failures.push("/properties @ 1024px: desktop photo-grid default changed unexpectedly");
         await desktopPage.setViewportSize({ width: 320, height: 900 });
         const resizedMobileDefaultReady = await desktopPage.waitForFunction(() => {
           const listButton = document.querySelector('.pf-views button[aria-label="نمایش فهرستی فایل‌ها"]');
@@ -643,7 +661,20 @@ try {
             }, null, { timeout: 20_000 }).then(() => true).catch(() => false);
             if (!mapResultsReady) failures.push("/properties @ " + width + "px: map-side property list did not reach a loaded or empty state");
 
-            // Return to a fresh default map-and-cards document before taking the screenshot;
+            // The map toggle is persisted as a manual choice. Restore the
+            // current desktop default explicitly before reloading the screenshot
+            // page, otherwise localStorage correctly restores the map selection.
+            const gridView = page.locator('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]').first();
+            await gridView.waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
+            if ((await gridView.getAttribute("aria-pressed").catch(() => null)) !== "true") {
+              await gridView.click().catch(() => {});
+            }
+            const gridRestored = await page.waitForFunction(() =>
+              document.querySelector('.pf-views button[aria-label="نمایش شبکه‌ای فایل‌ها"]')?.getAttribute("aria-pressed") === "true",
+            null, { timeout: 5_000 }).then(() => true).catch(() => false);
+            if (!gridRestored) failures.push("/properties @ " + width + "px: desktop grid view could not be restored after the optional map check");
+
+            // Return to a fresh default photo-grid document before taking the screenshot;
             // the map viewport writes bounds to the URL while it is active.
             await page.goto(new URL("/properties?sort=newest", baseUrl).toString(), {
               waitUntil: "domcontentloaded",
@@ -652,7 +683,7 @@ try {
             await page.waitForFunction(() => !new URLSearchParams(window.location.search).has("sort"),
               null, { timeout: 5_000 }).catch(() => {});
           }
-          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه";
+          const defaultViewLabel = width <= 720 ? "نمایش فهرستی فایل‌ها" : "نمایش شبکه‌ای فایل‌ها";
           const defaultViewSelector = '.pf-views button[aria-label="' + defaultViewLabel + '"]';
           await page.waitForFunction((selector) => document.querySelector(selector)?.getAttribute("aria-pressed") === "true",
             defaultViewSelector, { timeout: 8_000 }).catch(() => {});

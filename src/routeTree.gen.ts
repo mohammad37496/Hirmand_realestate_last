@@ -19,6 +19,7 @@ import { Route as ConsultantsRouteImport } from './routes/consultants'
 import { Route as FavoritesRouteImport } from './routes/favorites'
 import { Route as FileCodeRouteImport } from './routes/file-code'
 import { Route as GuidesRouteImport } from './routes/guides'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as MyHirmandRouteImport } from './routes/my-hirmand'
 import { Route as NearbyRouteImport } from './routes/nearby'
 import { Route as NotificationsRouteImport } from './routes/notifications'
@@ -95,6 +96,11 @@ const FileCodeRoute = FileCodeRouteImport.update({
 const GuidesRoute = GuidesRouteImport.update({
   id: '/guides',
   path: '/guides',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MyHirmandRoute = MyHirmandRouteImport.update({
@@ -245,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/favorites': typeof FavoritesRoute
   '/file-code': typeof FileCodeRoute
   '/guides': typeof GuidesRoute
+  '/login': typeof LoginRoute
   '/my-hirmand': typeof MyHirmandRoute
   '/nearby': typeof NearbyRoute
   '/notifications': typeof NotificationsRoute
@@ -282,6 +289,7 @@ export interface FileRoutesByTo {
   '/favorites': typeof FavoritesRoute
   '/file-code': typeof FileCodeRoute
   '/guides': typeof GuidesRoute
+  '/login': typeof LoginRoute
   '/my-hirmand': typeof MyHirmandRoute
   '/nearby': typeof NearbyRoute
   '/notifications': typeof NotificationsRoute
@@ -321,6 +329,7 @@ export interface FileRoutesById {
   '/favorites': typeof FavoritesRoute
   '/file-code': typeof FileCodeRoute
   '/guides': typeof GuidesRoute
+  '/login': typeof LoginRoute
   '/my-hirmand': typeof MyHirmandRoute
   '/nearby': typeof NearbyRoute
   '/notifications': typeof NotificationsRoute
@@ -362,6 +371,7 @@ export interface FileRouteTypes {
     | '/favorites'
     | '/file-code'
     | '/guides'
+    | '/login'
     | '/my-hirmand'
     | '/nearby'
     | '/notifications'
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/favorites'
     | '/file-code'
     | '/guides'
+    | '/login'
     | '/my-hirmand'
     | '/nearby'
     | '/notifications'
@@ -437,6 +448,7 @@ export interface FileRouteTypes {
     | '/favorites'
     | '/file-code'
     | '/guides'
+    | '/login'
     | '/my-hirmand'
     | '/nearby'
     | '/notifications'
@@ -477,6 +489,7 @@ export interface RootRouteChildren {
   FavoritesRoute: typeof FavoritesRoute
   FileCodeRoute: typeof FileCodeRoute
   GuidesRoute: typeof GuidesRoute
+  LoginRoute: typeof LoginRoute
   MyHirmandRoute: typeof MyHirmandRoute
   NearbyRoute: typeof NearbyRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -569,6 +582,13 @@ declare module '@tanstack/react-router' {
       path: '/guides'
       fullPath: '/guides'
       preLoaderRoute: typeof GuidesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/my-hirmand': {
@@ -827,6 +847,7 @@ const rootRouteChildren: RootRouteChildren = {
   FavoritesRoute: FavoritesRoute,
   FileCodeRoute: FileCodeRoute,
   GuidesRoute: GuidesRoute,
+  LoginRoute: LoginRoute,
   MyHirmandRoute: MyHirmandRoute,
   NearbyRoute: NearbyRoute,
   NotificationsRoute: NotificationsRoute,

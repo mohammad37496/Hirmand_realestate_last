@@ -50,6 +50,7 @@ export function VisitorTracker() {
           const next = [propertySlug, ...current.filter((item) => item !== propertySlug)]
             .slice(0, MAX_RECENT_PROPERTIES);
           localStorage.setItem(RECENT_PROPERTIES_KEY, JSON.stringify(next));
+          window.dispatchEvent(new Event("hirmand:workspace-changed"));
         } catch {
           // Recent views are optional convenience data.
         }

@@ -189,8 +189,15 @@ testRunner.test("responsive smoke exercises a loaded map view and the one-item c
   assert.match(browserSmoke, /نمایش فایل‌ها روی نقشه/);
   assert.match(browserSmoke, /pf-map-list-empty/);
   assert.match(browserSmoke, /map-side property list did not reach a loaded or empty state/);
-  assert.match(browserSmoke, /width <= 720 \? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه"/,
-    "responsive screenshots must restore the intended mobile-list or desktop map-and-cards default");
+  assert.match(browserSmoke, /const defaultViewLabel = width <= 720/);
+  assert.match(browserSmoke, /: "نمایش شبکه‌ای فایل‌ها"/,
+    "responsive screenshots must restore the intended mobile-list or desktop photo-grid default");
+  assert.match(browserSmoke, /const gridView = page\.locator\('\.pf-views button\[aria-label="نمایش شبکه‌ای فایل‌ها"\]'\)\.first\(\)/,
+    "the optional map smoke must restore the persisted desktop grid choice before screenshots");
+  assert.match(browserSmoke, /titleRange\?\.selectNodeContents\(title\)/,
+    "mobile card direction must be measured from visible title text, not the full-width body overlay");
+  assert.match(browserSmoke, /querySelector\("\.pcard-media > \.pcard-image-link"\)/,
+    "mobile card direction must use the actual image link, not the full-width media wrapper");
   assert.match(browserSmoke, /minimum-two-files empty state/);
   assert.match(browserSmoke, /outerHTML: element\.outerHTML/);
   assert.match(propertySearchBrowserSmoke, /const mapButton = page\.getByRole\("button", \{ name: "نمایش فایل‌ها روی نقشه" \}\)/);
@@ -396,7 +403,15 @@ testRunner.test("desktop defaults to grid and mobile to list until a visitor man
   assert.match(browserSmoke, /first shared property-card image did not load or fall back successfully/,
     "browser smoke must verify shared-card image loading on every property-list surface");
   assert.match(browserSmoke, /const imageLink = card\.querySelector\("\.pcard-media > \.pcard-image-link"\)/,
-    "RTL mobile card geometry must measure the visible image link, not its full-width media wrapper");
+    "mobile card geometry must measure the visible image link, not its full-width media wrapper");
+  assert.match(browserSmoke, /const favoritesPage = Boolean\(card\.closest\("\.favorites-page"\)\)/,
+    "favorites must retain its dedicated photo-first mobile card layout");
+  assert.match(browserSmoke, /propertyGrid\?\.classList\.contains\("is-grid-view"\)/,
+    "the default property-grid view must be verified as photo-first rather than list layout");
+  assert.match(browserSmoke, /imageLink\.bottom <= details\.top \+ 2/,
+    "photo-first mobile cards must place the image above the rendered property title");
+  assert.match(browserSmoke, /imageLink\.left >= details\.right - 2/,
+    "explicit RTL list cards must place the image to the right of the rendered property title");
   assert.match(browserSmoke, /document\.elementFromPoint\([\s\S]*?bodyElement\.contains\(bodyHitTarget\)/,
     "RTL mobile smoke must detect when the photo wrapper paints over the property details");
   assert.match(browserSmoke, /interactive map canvas/, "browser smoke must verify the map view renders its real map canvas");

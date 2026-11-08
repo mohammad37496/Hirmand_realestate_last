@@ -51,6 +51,29 @@ jobs:
 
       - name: Install Liara CLI
         run: npm i -g @liara/cli@9
+      - name: Validate required customer account environment before deployment
+        env:
+          LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+          LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
+          LIARA_APP_NAME: ${{ vars.LIARA_APP_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_NAME="${LIARA_APP_NAME:-hirmand}"
+          if [[ -z "${LIARA_TOKEN:-}" ]]; then
+            echo "::error::GitHub Actions secret LIARA_API_TOKEN is empty or unavailable."
+            exit 1
+          fi
+          TEAM_ARGS=()
+          if [[ -n "${LIARA_TEAM_ID:-}" ]]; then
+            TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
+          fi
+          liara env list \
+            --app="${APP_NAME}" \
+            --api-token="${LIARA_TOKEN}" \
+            "${TEAM_ARGS[@]}" \
+            --output=json > "${RUNNER_TEMP}/liara-env.json"
+          node scripts/validate-liara-auth-env.mjs "${RUNNER_TEMP}/liara-env.json"
       - name: Stamp deployment revision
         env:
           DEPLOYMENT_SHA: ${{ github.sha }}

@@ -5,10 +5,11 @@
 -- DATABASE_URL is set. The columns are camelCase and MUST stay double-quoted so
 -- Postgres preserves the case Better Auth queries by.
 --
--- Migrations in this folder are the single source of truth for your schema. They
--- apply to Neon during the Vercel build (`npm run build`) and to the local
--- PGLite fallback automatically on startup, so dev matches production. Applied
--- files are recorded by name in `_migrations` and NEVER run again.
+-- Keep this generated source byte-identical to the root-level copy at
+-- migrations/0001_auth.sql. The root-level copy is applied by
+-- scripts/prestart-migrate.mjs before the Liara Nitro server starts, and by the
+-- local PGLite migration loader during development. Applied files are recorded
+-- by basename in `_migrations` and NEVER run again.
 --
 -- Put YOUR app's schema in NEW ordered files (0002_*.sql, 0003_*.sql, …), never
 -- in this one. For app tables, prefer snake_case and give per-user tables a

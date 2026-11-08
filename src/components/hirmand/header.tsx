@@ -14,11 +14,14 @@ import {
   Landmark,
   LayoutGrid,
   LocateFixed,
+  LogIn,
+  LogOut,
   MapPinned,
   Menu,
   Phone,
   Search,
   UsersRound,
+  UserRound,
   WalletCards,
   X,
 } from "lucide-react";
@@ -28,6 +31,8 @@ import { CallMenu } from "./call-menu";
 import { BrandLogo } from "./logo";
 import { scrollToId } from "./scroll";
 import { useConsultants } from "./consultants-context";
+import { authEnabled, signOut } from "@/lib/auth/client";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
 const FINANCE_NAV = [
   { id: "rahn", label: "رهن به اجاره", href: "/tools/rahn-rent", icon: ArrowLeftRight, text: "تبدیل ترکیب رهن و اجاره" },
@@ -57,6 +62,36 @@ const QUICK_ACTIONS = [
 
 const PRIMARY_NAV = NAV.filter((item) => item.id !== "contact" && item.id !== "partners");
 const SECONDARY_NAV = NAV.filter((item) => item.id === "contact" || item.id === "partners");
+
+function CustomerAccountAccess({ compact = false }: { compact?: boolean }) {
+  const { user, isPending } = useCurrentUserState();
+  const [signingOut, setSigningOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted || !authEnabled || isPending) return null;
+  if (!user) {
+    return (
+      <Link to="/login" search={{ next: "/favorites" }} className={cn("customer-account-access", compact && "is-compact")}>
+        <LogIn size={compact ? 17 : 15} aria-hidden="true" />
+        <span>ورود / ثبت‌نام</span>
+      </Link>
+    );
+  }
+  return (
+    <div className={cn("customer-account-access", "is-signed-in", compact && "is-compact")}>
+      <Link to="/favorites" aria-label="فضای شخصی من">
+        <UserRound size={compact ? 17 : 15} aria-hidden="true" />
+        <span>فضای من</span>
+      </Link>
+      <button type="button" aria-label="خروج از حساب" title="خروج از حساب" disabled={signingOut} onClick={() => {
+        setSigningOut(true);
+        void signOut("/").catch(() => setSigningOut(false));
+      }}>
+        <LogOut size={14} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -255,6 +290,7 @@ export function Header() {
           </div>
 
           <CallMenu className="nav-call-menu" buttonClassName="nav-call" align="end" />
+          <CustomerAccountAccess />
 
           <button type="button" className="menu-toggle" aria-label={menuOpen ? "بستن منو" : "باز کردن منو"} aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -310,6 +346,7 @@ export function Header() {
 
         <div className="mobile-nav-section mobile-action-section">
           <span className="mobile-nav-section-title">دسترسی سریع</span>
+          <CustomerAccountAccess compact />
           <Link to="/smart-search" className="mobile-menu-inquiry is-featured" onClick={closeMenu}><Search size={17} aria-hidden="true" /><span>جستجوی هوشمند</span></Link>
           <Link to="/notifications" className="mobile-menu-inquiry" onClick={closeMenu}><Bell size={17} aria-hidden="true" /><span>اعلان‌ها</span></Link>
           <Link to="/nearby" className="mobile-menu-inquiry" onClick={closeMenu}><LocateFixed size={17} aria-hidden="true" /><span>فایل‌های نزدیک من</span></Link>

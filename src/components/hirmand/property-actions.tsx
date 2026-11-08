@@ -258,6 +258,7 @@ function toggleFavorite(slug: string): { added: boolean; persisted: boolean } {
 
   try {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(next.slice(-100)));
+    window.dispatchEvent(new Event("hirmand:workspace-changed"));
     return { added: !exists, persisted: true };
   } catch {
     return { added: !exists, persisted: false };

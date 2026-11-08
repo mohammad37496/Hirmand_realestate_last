@@ -36,6 +36,15 @@ async function openAndExpectFixture(url, label) {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
   const mapButton = page.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" });
   await mapButton.waitFor({ state: "visible", timeout: timeoutMs });
+  // `domcontentloaded` can precede React hydration on a cold CI runner. Wait
+  // for the actual click handler instead of allowing a pre-hydration click to
+  // be swallowed by the server-rendered button.
+  await page.waitForFunction(() => {
+    const button = document.querySelector('button[aria-label="نمایش فایل‌ها روی نقشه"]');
+    if (!(button instanceof HTMLButtonElement)) return false;
+    const propsKey = Object.keys(button).find((key) => key.startsWith("__reactProps$"));
+    return Boolean(propsKey && typeof button[propsKey]?.onClick === "function");
+  }, null, { timeout: timeoutMs });
   await mapButton.click();
   await page.waitForFunction(
     () => document.querySelector('button[aria-label="نمایش فایل‌ها روی نقشه"]')?.getAttribute("aria-pressed") === "true",
@@ -79,7 +88,14 @@ try {
   // Invalid bounds must show validation feedback and not leak a stale match.
   const invalid = await browser.newPage({ viewport: { width: 1365, height: 900 } });
   await invalid.goto(new URL("/properties?minArea=-1", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
-  await invalid.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" }).click();
+  const invalidMapButton = invalid.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" });
+  await invalidMapButton.waitFor({ state: "visible", timeout: timeoutMs });
+  await invalid.waitForFunction(() => {
+    const button = document.querySelector('button[aria-label="نمایش فایل‌ها روی نقشه"]');
+    const propsKey = button ? Object.keys(button).find((key) => key.startsWith("__reactProps$")) : undefined;
+    return Boolean(propsKey && typeof button[propsKey]?.onClick === "function");
+  }, null, { timeout: timeoutMs });
+  await invalidMapButton.click();
   const validation = invalid.locator(".pf-filter-validation-error");
   await validation.waitFor({ state: "visible", timeout: timeoutMs });
   assert.match(await validation.innerText(), /حداقل متراژ/);
@@ -91,8 +107,18 @@ try {
   const emptyUrl = new URL("/properties", baseUrl);
   emptyUrl.searchParams.set("q", "عبارت-آزمایشی-بدون-نتیجه-۷۸۹۱۲۳");
   await empty.goto(emptyUrl.toString(), { waitUntil: "domcontentloaded", timeout: timeoutMs });
-  await empty.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" }).click();
-  await empty.locator(".pf-map-list-empty").waitFor({ state: "visible", timeout: timeoutMs });
+  const emptyMapButton = empty.getByRole("button", { name: "نمایش فایل‌ها روی نقشه" });
+  await emptyMapButton.waitFor({ state: "visible", timeout: timeoutMs });
+  await empty.waitForFunction(() => {
+    const button = document.querySelector('button[aria-label="نمایش فایل‌ها روی نقشه"]');
+    const propsKey = button ? Object.keys(button).find((key) => key.startsWith("__reactProps$")) : undefined;
+    return Boolean(propsKey && typeof button[propsKey]?.onClick === "function");
+  }, null, { timeout: timeoutMs });
+  await emptyMapButton.click();
+  await empty.waitForFunction(() => {
+    const status = document.querySelector(".pf-map-list-empty");
+    return Boolean(status && /پیدا نشد/.test(status.textContent || ""));
+  }, null, { timeout: timeoutMs });
   assert.match(await empty.locator(".pf-map-list-empty").innerText(), /پیدا نشد/);
   assert.equal(await empty.locator(".pf-map-item-copy strong").filter({ hasText: title }).count(), 0);
   console.log("[property-search-smoke] no-match query rendered the empty-results state");

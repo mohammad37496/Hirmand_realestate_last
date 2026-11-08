@@ -1,0 +1,29 @@
+.customer-login-page{min-height:65vh;display:grid;place-items:center;padding:42px 18px 64px;background:radial-gradient(circle at 50% 0,rgba(199,157,83,.13),transparent 48%)}
+.customer-login-card{width:min(100%,480px);box-sizing:border-box;padding:clamp(22px,5vw,38px);border:1px solid rgba(11,26,43,.1);border-radius:24px;background:#fff;box-shadow:0 22px 70px rgba(11,26,43,.09);color:#14263a}
+.customer-login-brand{display:flex;align-items:center;gap:10px;margin-bottom:24px;color:#8a642d;font-size:.78rem;font-weight:800}
+.customer-login-brand>span{width:46px;height:46px;display:grid;place-items:center;border-radius:15px;background:#10243a;color:#e7c27b}
+.customer-login-card h1{margin:0 0 9px;font-size:1.45rem;line-height:1.6;color:#10243a}
+.customer-login-intro,.customer-login-signed-in p{margin:0;color:#697582;font-size:.8rem;line-height:2}
+.customer-login-tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:24px 0 18px;padding:5px;border-radius:13px;background:#f1f3f5}
+.customer-login-tabs button{min-height:42px;border:0;border-radius:10px;background:transparent;color:#647180;font:inherit;font-size:.8rem;cursor:pointer}
+.customer-login-tabs button.is-active{background:#fff;color:#10243a;box-shadow:0 2px 9px rgba(11,26,43,.09);font-weight:800}
+.customer-login-form{display:grid;gap:14px}
+.customer-login-form label{display:grid;gap:7px;color:#24384b;font-size:.76rem;font-weight:700}
+.customer-login-form label>div{min-height:48px;display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid #dce2e7;border-radius:12px;color:#8a642d;background:#fff}
+.customer-login-form input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#14263a;font:inherit;font-weight:500}
+.customer-login-form label>div:focus-within{border-color:#b58a48;box-shadow:0 0 0 3px rgba(181,138,72,.13)}
+.customer-login-submit{min-height:48px;display:flex;align-items:center;justify-content:center;gap:9px;border:0;border-radius:12px;background:#10243a;color:#f2d18c;font:inherit;font-size:.82rem;font-weight:800;text-decoration:none;cursor:pointer}
+.customer-login-submit:disabled{opacity:.6;cursor:wait}
+.customer-login-error{margin:0;color:#b23e35;font-size:.74rem;line-height:1.8}
+.customer-login-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:#89939c;font-size:.7rem}
+.customer-login-divider:before,.customer-login-divider:after{content:"";height:1px;flex:1;background:#e8ecef}
+.customer-login-providers{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.customer-login-providers button{min-height:44px;border:1px solid #dce2e7;border-radius:11px;background:#fff;color:#26394c;font:inherit;font-size:.78rem;font-weight:700;cursor:pointer}
+.customer-login-providers button:disabled{opacity:.55;cursor:wait}
+.customer-login-privacy{margin:19px 0 0;color:#89939c;font-size:.66rem;line-height:1.9}
+.customer-login-back{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:24px;color:#687785;text-decoration:none;font-size:.73rem}
+.customer-login-loading,.customer-login-signed-in{display:grid;justify-items:center;gap:12px;padding:24px 0;text-align:center;color:#9a7438}
+.customer-login-signed-in .customer-login-submit{width:100%;margin-top:10px}
+.customer-login-spin{animation:customer-login-rotate 1s linear infinite}
+@keyframes customer-login-rotate{to{transform:rotate(360deg)}}
+@media(max-width:520px){.customer-login-page{padding:24px 12px 40px}.customer-login-card{border-radius:19px}.customer-login-card h1{font-size:1.25rem}}

@@ -1,29 +1,37 @@
-import { createError, defineEventHandler } from "h3";
+import { defineEventHandler, getRequestHeaders, setHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
-import { requireUserId } from "@/lib/auth/verify.server";
+import { requireUserIdFromHeaders } from "@/lib/auth/verify.server";
+import { customerWorkspaceHttpError } from "@/lib/customer-workspace-response.server";
 
-export default defineEventHandler(async () => {
-  const userId = await requireUserId();
-  if (dbSource === "unconfigured") {
-    return { favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [], updatedAt: null };
+export default defineEventHandler(async (event) => {
+  setHeader(event, "Cache-Control", "private, no-store, max-age=0");
+  setHeader(event, "Vary", "Cookie, Authorization");
+  try {
+    const userId = await requireUserIdFromHeaders(new Headers(getRequestHeaders(event)));
+    if (dbSource === "unconfigured") {
+      return { ownerId: userId, favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [], updatedAt: null };
+    }
+
+    const sql = await getSql();
+    const rows = await sql.query<{
+      favorites: unknown;
+      favoriteMeta: unknown;
+      savedSearches: unknown;
+      recentProperties: unknown;
+      updatedAt: string;
+    }>("select favorites,favorite_meta as \"favoriteMeta\",saved_searches as \"savedSearches\",recent_properties as \"recentProperties\",updated_at as \"updatedAt\" from customer_workspace where user_id=$1 limit 1",[userId]);
+
+    const row = rows[0];
+    if (!row) return { ownerId: userId, favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [], updatedAt: null };
+    return {
+      ownerId: userId,
+      favorites: Array.isArray(row.favorites) ? row.favorites : [],
+      favoriteMeta: row.favoriteMeta && typeof row.favoriteMeta === "object" ? row.favoriteMeta : {},
+      savedSearches: Array.isArray(row.savedSearches) ? row.savedSearches : [],
+      recentProperties: Array.isArray(row.recentProperties) ? row.recentProperties : [],
+      updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
+    };
+  } catch (error) {
+    return customerWorkspaceHttpError(event, error);
   }
-
-  const sql = await getSql();
-  const rows = await sql.query<{
-    favorites: unknown;
-    favoriteMeta: unknown;
-    savedSearches: unknown;
-    recentProperties: unknown;
-    updatedAt: string;
-  }>("select favorites,\"favoriteMeta\",saved_searches as \"savedSearches\",recent_properties as \"recentProperties\",updated_at as \"updatedAt\" from customer_workspace where user_id=$1 limit 1",[userId]);
-
-  const row = rows[0];
-  if (!row) return { favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [], updatedAt: null };
-  return {
-    favorites: Array.isArray(row.favorites) ? row.favorites : [],
-    favoriteMeta: row.favoriteMeta && typeof row.favoriteMeta === "object" ? row.favoriteMeta : {},
-    savedSearches: Array.isArray(row.savedSearches) ? row.savedSearches : [],
-    recentProperties: Array.isArray(row.recentProperties) ? row.recentProperties : [],
-    updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
-  };
 });

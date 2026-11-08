@@ -130,6 +130,9 @@ jobs:
 
           npx playwright install --with-deps chromium
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
+          # Exercise real Better Auth sessions and per-account workspace
+          # isolation against this job's disposable PostgreSQL service.
+          CUSTOMER_AUTH_SMOKE_URL=http://localhost:8081 node scripts/customer-auth-e2e-smoke.mjs
           node scripts/music-player-browser.test.mjs http://127.0.0.1:8081
           # End-to-end proof of the admin upload path: begin → chunks → complete,
           # then fetch the stored media from the public endpoint, plus the

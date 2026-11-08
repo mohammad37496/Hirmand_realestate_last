@@ -1330,6 +1330,7 @@ export function PropertyDetailView({
         recentKey,
         JSON.stringify([viewedPropertySlug, ...recent].slice(0, 8)),
       );
+      window.dispatchEvent(new Event("hirmand:workspace-changed"));
     } catch {
       // History is a convenience feature; ignore storage failures.
     }
