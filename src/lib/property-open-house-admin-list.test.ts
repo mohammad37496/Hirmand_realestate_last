@@ -5,6 +5,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { hasAdminPermission } from "./admin-roles.ts";
 import { listOpenHouseAdminData } from "./property-open-house-admin-list.ts";
 import { createPropertyVisitRequest, reschedulePropertyVisitRequest } from "./property-visit-request.ts";
+import { cancelPropertyOpenHouse, createPropertyOpenHouseRsvp } from "./property-open-house-rsvp.ts";
 import type { Sql } from "./db.ts";
 
 test("property managers can read open-house schedules without selecting RSVP personal data", async () => {
@@ -242,6 +243,150 @@ test("PGlite serializes concurrent visit creation and rescheduling on the proper
       "select count(*)::int as count from leads where property_id='property-1' and visit_preferred_at='2026-11-09T12:00:00Z'",
     );
     assert.equal(booked.rows[0]?.count, 1);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("PGlite serializes concurrent open-house RSVPs so capacity and active-phone uniqueness hold", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table properties (
+        id text primary key, status text not null, deleted_at timestamptz,
+        publish_at timestamptz, unpublish_at timestamptz
+      );
+      create table property_open_houses (
+        id text primary key, property_id text not null, starts_at timestamptz not null,
+        capacity integer not null, status text not null
+      );
+      create table property_open_house_rsvps (
+        id text primary key, open_house_id text not null, name text not null,
+        phone text not null, party_size integer not null, note text not null default '',
+        status text not null default 'requested'
+      );
+      insert into properties(id,status) values ('property-1','published');
+      insert into property_open_houses(id,property_id,starts_at,capacity,status)
+        values ('event-1','property-1','2099-11-09T10:00:00Z',3,'scheduled');
+    `);
+    const migration = await readFile(
+      new URL("../../migrations/0061_open_house_rsvp_atomicity.sql", import.meta.url),
+      "utf8",
+    );
+    await pg.exec(migration);
+    const sql = {
+      transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+        pg.transaction(async (transaction) => callback({
+          query: async <R = Record<string, unknown>>(query: string, params: unknown[] = []) =>
+            (await transaction.query(query, params)).rows as R[],
+        } as Sql)),
+    } as Sql;
+
+    const capacityResults = await Promise.all([
+      createPropertyOpenHouseRsvp(sql, { eventId: "event-1", name: "One", phone: "09130000001", partySize: 2, note: "" }),
+      createPropertyOpenHouseRsvp(sql, { eventId: "event-1", name: "Two", phone: "09130000002", partySize: 2, note: "" }),
+    ]);
+    assert.deepEqual(capacityResults.map((result) => result.kind).sort(), ["capacity", "created"]);
+    const seats = await pg.query<{ booked: number }>(
+      "select coalesce(sum(party_size),0)::int as booked from property_open_house_rsvps where open_house_id='event-1' and status <> 'cancelled'",
+    );
+    assert.equal(seats.rows[0]?.booked, 2);
+
+    const duplicateResults = await Promise.all([
+      createPropertyOpenHouseRsvp(sql, { eventId: "event-1", name: "Three", phone: "09130000003", partySize: 1, note: "" }),
+      createPropertyOpenHouseRsvp(sql, { eventId: "event-1", name: "Three again", phone: "09130000003", partySize: 1, note: "" }),
+    ]);
+    assert.deepEqual(duplicateResults.map((result) => result.kind).sort(), ["created", "duplicate"]);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("PGlite cancellation racing an RSVP leaves no active RSVP on a cancelled event", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table properties (
+        id text primary key, status text not null, deleted_at timestamptz,
+        publish_at timestamptz, unpublish_at timestamptz
+      );
+      create table property_open_houses (
+        id text primary key, property_id text not null, starts_at timestamptz not null,
+        capacity integer not null, status text not null
+      );
+      create table property_open_house_rsvps (
+        id text primary key, open_house_id text not null, name text not null,
+        phone text not null, party_size integer not null, note text not null default '',
+        status text not null default 'requested'
+      );
+      insert into properties(id,status) values ('property-1','published');
+      insert into property_open_houses(id,property_id,starts_at,capacity,status)
+        values ('event-1','property-1','2099-11-09T10:00:00Z',8,'scheduled');
+    `);
+    const sql = {
+      transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+        pg.transaction(async (transaction) => callback({
+          query: async <R = Record<string, unknown>>(query: string, params: unknown[] = []) =>
+            (await transaction.query(query, params)).rows as R[],
+        } as Sql)),
+    } as Sql;
+
+    const [rsvpResult] = await Promise.all([
+      createPropertyOpenHouseRsvp(sql, { eventId: "event-1", name: "Guest", phone: "09130000004", partySize: 2, note: "" }),
+      cancelPropertyOpenHouse(sql, "event-1"),
+    ]);
+    assert.ok(["created", "not_found"].includes(rsvpResult.kind));
+
+    const finalState = await pg.query<{ event_status: string; active_rsvps: number }>(`
+      select oh.status as event_status,
+        (select count(*)::int from property_open_house_rsvps r where r.open_house_id=oh.id and r.status <> 'cancelled') as active_rsvps
+      from property_open_houses oh where oh.id='event-1'
+    `);
+    assert.equal(finalState.rows[0]?.event_status, "cancelled");
+    assert.equal(finalState.rows[0]?.active_rsvps, 0);
+
+    await pg.exec(`
+      insert into property_open_houses(id,property_id,starts_at,capacity,status)
+        values ('event-2','property-1','2099-11-09T10:00:00Z',8,'scheduled');
+    `);
+    const [cancelFirstResult] = await Promise.all([
+      cancelPropertyOpenHouse(sql, "event-2"),
+      createPropertyOpenHouseRsvp(sql, { eventId: "event-2", name: "Late Guest", phone: "09130000005", partySize: 1, note: "" }),
+    ]);
+    assert.equal(cancelFirstResult, "cancelled");
+    const rejectedSignup = await createPropertyOpenHouseRsvp(sql, {
+      eventId: "event-2", name: "Late Guest", phone: "09130000005", partySize: 1, note: "",
+    });
+    assert.equal(rejectedSignup.kind, "not_found");
+  } finally {
+    await pg.close();
+  }
+});
+
+test("open-house RSVP uniqueness migration refuses pre-existing active duplicates without changing them", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table property_open_house_rsvps (
+        id text primary key, open_house_id text not null, phone text not null,
+        status text not null
+      );
+      insert into property_open_house_rsvps values
+        ('rsvp-1','event-1','09130000006','requested'),
+        ('rsvp-2','event-1','09130000006','confirmed');
+    `);
+    const migration = await readFile(
+      new URL("../../migrations/0061_open_house_rsvp_atomicity.sql", import.meta.url),
+      "utf8",
+    );
+    await assert.rejects(pg.exec(migration), /duplicate active event\/phone pairs already exist/);
+    const rows = await pg.query<{ id: string; status: string }>(
+      "select id,status from property_open_house_rsvps order by id",
+    );
+    assert.deepEqual(rows.rows, [
+      { id: "rsvp-1", status: "requested" },
+      { id: "rsvp-2", status: "confirmed" },
+    ]);
   } finally {
     await pg.close();
   }

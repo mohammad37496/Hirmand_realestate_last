@@ -6,6 +6,7 @@ import { assertSameOrigin, clientFingerprint, consumeAdminAttempt } from "@/lib/
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { listOpenHouseAdminData } from "@/lib/property-open-house-admin-list";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
+import { cancelPropertyOpenHouse, createPropertyOpenHouseRsvp } from "@/lib/property-open-house-rsvp";
 
 const phoneSchema=z.string().trim().regex(/^09\d{9}$/,"شماره موبایل معتبر نیست.");
 const publicSchema=z.discriminatedUnion("action",[
@@ -56,8 +57,7 @@ export default defineEventHandler(async(event)=>{
     }
 
     if(parsed.data.action==="cancel"){
-      await sql.query("update property_open_houses set status='cancelled' where id=$1",[parsed.data.id]);
-      await sql.query("update property_open_house_rsvps set status='cancelled' where open_house_id=$1 and status <> 'cancelled'",[parsed.data.id]);
+      await cancelPropertyOpenHouse(sql, parsed.data.id);
       return {success:true};
     }
 
@@ -79,17 +79,17 @@ export default defineEventHandler(async(event)=>{
   const throttle=await consumeAdminAttempt("open-house-rsvp:"+clientFingerprint(event));
   if(!throttle.allowed) throw createError({statusCode:429,statusMessage:"ثبت‌نام بازدید گروهی بیش از حد مجاز انجام شده است. کمی بعد دوباره تلاش کنید."});
   assertSameOrigin(event);
-  const eventRows=await sql.query<{id:string;property_id:string;capacity:number;starts_at:string;status:string}>("select id,property_id,capacity,starts_at,status from property_open_houses where id=$1 limit 1",[parsed.data.eventId]);
-  const openHouse=eventRows[0];
-  if(!openHouse||openHouse.status!=="scheduled") throw createError({statusCode:404,statusMessage:"این بازدید گروهی دیگر فعال نیست."});
-  if(new Date(String(openHouse.starts_at)).getTime()<=Date.now()) throw createError({statusCode:409,statusMessage:"ثبت‌نام این بازدید بسته شده است."});
-    const property=await sql.query<{id:string}>(`select id from properties where id=$1 and ${publicPropertyVisibilitySql()} limit 1`,[openHouse.property_id]);
-  if(!property[0]) throw createError({statusCode:404,statusMessage:"فایل موردنظر پیدا نشد."});
-  const duplicate=await sql.query<{id:string}>("select id from property_open_house_rsvps where open_house_id=$1 and phone=$2 and status <> 'cancelled' limit 1",[openHouse.id,parsed.data.phone]);
-  if(duplicate[0]) throw createError({statusCode:409,statusMessage:"این شماره قبلاً برای این بازدید ثبت‌نام کرده است."});
-  const booked=await sql.query<{seats:number}>("select coalesce(sum(party_size),0)::int as seats from property_open_house_rsvps where open_house_id=$1 and status <> 'cancelled'",[openHouse.id]);
-  const bookedSeats=Number(booked[0]?.seats)||0;
-  if(bookedSeats+parsed.data.partySize>Number(openHouse.capacity)) throw createError({statusCode:409,statusMessage:"ظرفیت این بازدید تکمیل شده است."});
-  await sql.query("insert into property_open_house_rsvps(id,open_house_id,name,phone,party_size,note) values($1,$2,$3,$4,$5,$6)",[crypto.randomUUID(),openHouse.id,parsed.data.name,parsed.data.phone,parsed.data.partySize,parsed.data.note]);
-  return {success:true,message:"ثبت‌نام شما برای بازدید گروهی انجام شد. هیرمند برای هماهنگی نهایی با شما تماس می‌گیرد.",remainingSeats:Math.max(0,Number(openHouse.capacity)-bookedSeats-parsed.data.partySize)};
+  const result = await createPropertyOpenHouseRsvp(sql, {
+    eventId: parsed.data.eventId,
+    name: parsed.data.name,
+    phone: parsed.data.phone,
+    partySize: parsed.data.partySize,
+    note: parsed.data.note,
+  });
+  if (result.kind === "not_found") throw createError({statusCode:404,statusMessage:"این بازدید گروهی دیگر فعال نیست."});
+  if (result.kind === "closed") throw createError({statusCode:409,statusMessage:"ثبت‌نام این بازدید بسته شده است."});
+  if (result.kind === "hidden_property") throw createError({statusCode:404,statusMessage:"فایل موردنظر پیدا نشد."});
+  if (result.kind === "duplicate") throw createError({statusCode:409,statusMessage:"این شماره قبلاً برای این بازدید ثبت‌نام کرده است."});
+  if (result.kind === "capacity") throw createError({statusCode:409,statusMessage:"ظرفیت این بازدید تکمیل شده است."});
+  return {success:true,message:"ثبت‌نام شما برای بازدید گروهی انجام شد. هیرمند برای هماهنگی نهایی با شما تماس می‌گیرد.",remainingSeats:result.remainingSeats};
 });

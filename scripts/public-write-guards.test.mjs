@@ -26,6 +26,7 @@ const dbModule = await readFile(new URL("../src/lib/db.ts", import.meta.url), "u
 const propertyWatchTargetRoute = await readFile(new URL("../server/routes/api/property-watch-target.post.ts", import.meta.url), "utf8");
 const propertyWatchRoute = await readFile(new URL("../server/routes/api/property-watch.post.ts", import.meta.url), "utf8");
 const propertyOpenHouseRoute = await readFile(new URL("../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
+const propertyOpenHouseRsvp = await readFile(new URL("../src/lib/property-open-house-rsvp.ts", import.meta.url), "utf8");
 const propertyQuestionsRoute = await readFile(new URL("../server/routes/api/property-questions.post.ts", import.meta.url), "utf8");
 const notificationsRoute = await readFile(new URL("../src/routes/notifications.tsx", import.meta.url), "utf8");
 
@@ -92,9 +93,18 @@ test("public property interactions share the canonical publication and unpublish
   assert.match(propertyWatchTargetRoute, /publicPropertyVisibilitySql\(\)/);
   assert.match(propertyWatchTargetRoute, /parsed\.data\.action === "set"/);
   assert.match(propertyWatchRoute, /publicPropertyVisibilitySql\("p"\)/);
-  assert.equal((propertyOpenHouseRoute.match(/publicPropertyVisibilitySql\(\)/g) ?? []).length, 2);
+  assert.equal((propertyOpenHouseRoute.match(/publicPropertyVisibilitySql\(\)/g) ?? []).length, 1);
+  assert.match(propertyOpenHouseRsvp, /publicPropertyVisibilitySql\(\)/);
   assert.match(propertyQuestionsRoute, /publicPropertyVisibilitySql\(\)/);
   assert.match(reportsRoute, /publicPropertyVisibilitySql\(\)/);
+});
+
+test("open-house RSVP and cancellation use one event-row-locked transaction helper", () => {
+  assert.match(propertyOpenHouseRoute, /createPropertyOpenHouseRsvp\(sql,/);
+  assert.match(propertyOpenHouseRoute, /cancelPropertyOpenHouse\(sql,/);
+  assert.doesNotMatch(propertyOpenHouseRoute, /select id,property_id,capacity,starts_at,status from property_open_houses where id=\$1 limit 1/);
+  assert.doesNotMatch(propertyOpenHouseRoute, /update property_open_houses set status='cancelled'/);
+  assert.match(propertyOpenHouseRoute, /createPropertyOpenHouseRsvp\(sql,[\s\S]*?result\.kind === "capacity"/);
 });
 
 test("hidden property watch subscriptions remain removable without exposing hidden property details", () => {
