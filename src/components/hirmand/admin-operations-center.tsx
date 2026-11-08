@@ -1,9 +1,10 @@
 import { ArrowLeft,AlertCircle,CalendarClock,WalletCards,Sparkles } from "lucide-react";
 import { useEffect,useState } from "react";
-import { formatToman } from "@/lib/money";
+import { formatTomanExact } from "@/lib/money";
+import { compareDecimalStrings } from "@/lib/decimal-money";
 
 type DueLead={id:string;name:string;phone:string;deal:string;neighborhood:string;status:string;followUpAt:string|null};
-type Ops={dueCount:number;dueLeads:DueLead[];next7Count:number;staleProperties:number;finance:{income:number;expense:number;balance:number}};
+type Ops={dueCount:number;dueLeads:DueLead[];next7Count:number;staleProperties:number;finance:{income:string;expense:string;balance:string}};
 
 export function AdminOperationsCenter({
   onOpenLeads,
@@ -43,7 +44,7 @@ export function AdminOperationsCenter({
    <button type="button" onClick={onOpenLeads} data-tone={data.dueCount?"red":"green"}><AlertCircle size={18}/><span><small>پیگیری سررسیدشده</small><strong>{data.dueCount.toLocaleString("fa-IR")}</strong></span><ArrowLeft size={14}/></button>
    <button type="button" onClick={onOpenLeads}><CalendarClock size={18}/><span><small>پیگیری ۷ روز آینده</small><strong>{data.next7Count.toLocaleString("fa-IR")}</strong></span><ArrowLeft size={14}/></button>
    <button type="button" onClick={onOpenProperties} data-tone={data.staleProperties?"amber":"green"}><Sparkles size={18}/><span><small>فایل قدیمی‌تر از ۳۰ روز</small><strong>{data.staleProperties.toLocaleString("fa-IR")}</strong></span><ArrowLeft size={14}/></button>
-   {showFinance ? <button type="button" onClick={onOpenFinance}><WalletCards size={18}/><span><small>مانده دفتر</small><strong>{formatToman(Math.abs(data.finance.balance))}{data.finance.balance<0?" · بدهکار":""}</strong></span><ArrowLeft size={14}/></button> : null}
+   {showFinance ? <button type="button" onClick={onOpenFinance}><WalletCards size={18}/><span><small>مانده دفتر</small><strong>{formatTomanExact(data.finance.balance.replace(/^-/, ""))}{compareDecimalStrings(data.finance.balance,"0")<0?" · بدهکار":""}</strong></span><ArrowLeft size={14}/></button> : null}
   </div>
   <div className="admin-ops-grid">
    <div><div className="admin-ops-section-title"><strong>اقدامات فوری</strong><button className="text-link" type="button" onClick={onOpenLeads}>مشاهده همه</button></div>

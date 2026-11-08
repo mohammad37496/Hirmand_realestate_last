@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { financeMoneySummary, normalizeFinanceMoney } from "@/lib/admin-finance-money";
 
 async function requireAdmin(event:H3Event){
   const token=getCookie(event,ADMIN_SESSION_COOKIE);
@@ -22,9 +23,9 @@ export default defineEventHandler(async event=>{
     sql.query<Record<string,unknown>>("select count(*) filter(where status in ('pending','approved'))::int as outstanding from admin_commission_settlements")
   ]);
   return {
-    months:months.map(r=>({month:String(r.month),income:Number(r.income)||0,expense:Number(r.expense)||0,balance:(Number(r.income)||0)-(Number(r.expense)||0)})),
-    categories:categories.map(r=>({category:String(r.category),income:Number(r.income)||0,expense:Number(r.expense)||0})),
-    consultants:consultants.map(r=>({name:String(r.consultant),due:Number(r.due)||0,paid:Number(r.paid)||0})),
+    months:months.map(r=>({month:String(r.month),...financeMoneySummary(r.income,r.expense)})),
+    categories:categories.map(r=>({category:String(r.category),income:normalizeFinanceMoney(r.income),expense:normalizeFinanceMoney(r.expense)})),
+    consultants:consultants.map(r=>({name:String(r.consultant),due:normalizeFinanceMoney(r.due),paid:normalizeFinanceMoney(r.paid)})),
     outstanding:Number(counts[0]?.outstanding)||0
   };
 });
