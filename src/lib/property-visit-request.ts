@@ -31,6 +31,10 @@ type PropertyVisitRescheduleResult =
   | { kind: "failed" }
   | { kind: "updated" };
 
+type PropertyVisitCancellationResult =
+  | { kind: "cancelled" }
+  | { kind: "not_cancellable" };
+
 /** Check and create a visit request atomically while locking the property row. */
 export async function createPropertyVisitRequest(
   sql: Sql,
@@ -132,4 +136,16 @@ export async function reschedulePropertyVisitRequest(
     );
     return updatedRows[0] ? { kind: "updated" } : { kind: "failed" };
   });
+}
+
+/** Cancel only a still-active public visit; the predicate is the concurrency guard. */
+export async function cancelPropertyVisitRequest(
+  sql: Sql,
+  leadId: string,
+): Promise<PropertyVisitCancellationResult> {
+  const rows = await sql.query<{ id: string }>(
+    "update leads set visit_status='cancelled', updated_at=current_timestamp where id=$1 and visit_status in ('requested','confirmed') returning id",
+    [leadId],
+  );
+  return rows[0] ? { kind: "cancelled" } : { kind: "not_cancellable" };
 }
