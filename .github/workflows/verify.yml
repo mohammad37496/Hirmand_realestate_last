@@ -76,8 +76,8 @@ jobs:
       - name: Ensure CI dev dependencies after production build
         run: npm ci
 
-      # `npm run build` runs the prebuild hook, which provisions the bundled
-      # FFmpeg binary and Vazirmatn font into `.runtime/`. With those present the
+      # The explicit provisioning step above installs the bundled FFmpeg binary
+      # and Vazirmatn font into `.runtime/`. With those present the
       # watermark suite renders a real JPEG and a real video through the
       # production functions instead of skipping. This is the only job that can
       # prove FFmpeg still accepts the generated drawtext/overlay graph.
