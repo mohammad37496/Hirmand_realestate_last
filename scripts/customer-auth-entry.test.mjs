@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { getSafeLoginReturnPath } from "../src/lib/auth/return-path.mjs";
 
 const source = (path) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), "utf8");
 const login = source("../src/routes/login.tsx");
@@ -41,8 +42,16 @@ test("customer accounts support email registration and sign-in on Better Auth", 
 });
 
 test("login return path is restricted to same-origin absolute paths", () => {
-  assert.match(login, /search\.next\.startsWith\("\/"\)/);
-  assert.match(login, /!search\.next\.startsWith\("\/\/"\)/);
+  assert.match(login, /next:\s*getSafeLoginReturnPath\(search\.next\)/);
+  assert.equal(getSafeLoginReturnPath("/favorites"), "/favorites");
+  assert.equal(getSafeLoginReturnPath("/favorites?tab=saved#recent"), "/favorites?tab=saved#recent");
+});
+
+test("login return path rejects WHATWG backslash and protocol-relative open redirects", () => {
+  for (const value of ["//evil.example", "/\\evil.example", "/\\\\evil.example", "https://evil.example/path"]) {
+    assert.equal(getSafeLoginReturnPath(value), "/favorites", `must reject ${JSON.stringify(value)}`);
+  }
+  assert.equal(getSafeLoginReturnPath("/%5C%5Cevil.example"), "/%5C%5Cevil.example");
 });
 
 test("site header exposes account access on desktop and mobile navigation", () => {
