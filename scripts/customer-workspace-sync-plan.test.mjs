@@ -76,17 +76,36 @@ test("a failed account-switch key removal keeps the previous owner marker", () =
     };
 
     assert.equal(resetWorkspaceForAccountSwitch({ storage, target: new EventTarget(), userId: "user-b" }), true);
-    assert.equal(values.get("hirmand-workspace-owner-v1"), "user-a", `${failedKey} failure must leave account A as owner`);
+    assert.equal(values.get("hirmand-workspace-owner-v1"), "signed-out:user-a", `${failedKey} failure must leave a non-user owner marker`);
+    assert.notEqual(values.get("hirmand-workspace-owner-v1"), "user-a");
+    assert.notEqual(values.get("hirmand-workspace-owner-v1"), "user-b");
   }
 });
 
-test("a partial sign-out clear retains the previous owner marker", () => {
+test("account switch does not clear workspace data when its safety marker cannot be written", () => {
   const values = new Map([
     ["hirmand-workspace-owner-v1", "user-a"],
     ["hirmand-favorite-properties", '["account-a-favorite"]'],
   ]);
   const storage = {
     getItem: (key) => values.get(key) ?? null,
+    setItem: () => { throw new Error("storage is unavailable"); },
+    removeItem: (key) => values.delete(key),
+  };
+
+  assert.equal(resetWorkspaceForAccountSwitch({ storage, target: new EventTarget(), userId: "user-b" }), false);
+  assert.equal(values.get("hirmand-workspace-owner-v1"), "user-a");
+  assert.equal(values.get("hirmand-favorite-properties"), '["account-a-favorite"]');
+});
+
+test("a partial sign-out clear marks the snapshot unusable for same-account relogin", () => {
+  const values = new Map([
+    ["hirmand-workspace-owner-v1", "user-a"],
+    ["hirmand-favorite-properties", '["account-a-favorite"]'],
+  ]);
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
     removeItem: (key) => {
       if (key === "hirmand-favorite-properties") throw new Error("cannot clear favorites");
       values.delete(key);
@@ -94,7 +113,24 @@ test("a partial sign-out clear retains the previous owner marker", () => {
   };
 
   assert.equal(clearWorkspaceForSignedOutUser({ storage, target: new EventTarget() }), true);
+  assert.equal(values.get("hirmand-workspace-owner-v1"), "signed-out:user-a");
+  assert.notEqual(values.get("hirmand-workspace-owner-v1"), "user-a");
+});
+
+test("sign-out does not clear workspace data when its safety marker cannot be written", () => {
+  const values = new Map([
+    ["hirmand-workspace-owner-v1", "user-a"],
+    ["hirmand-favorite-properties", '["account-a-favorite"]'],
+  ]);
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: () => { throw new Error("storage is unavailable"); },
+    removeItem: (key) => values.delete(key),
+  };
+
+  assert.equal(clearWorkspaceForSignedOutUser({ storage, target: new EventTarget() }), false);
   assert.equal(values.get("hirmand-workspace-owner-v1"), "user-a");
+  assert.equal(values.get("hirmand-favorite-properties"), '["account-a-favorite"]');
 });
 
 test("first sign-in merges anonymous browser data into the signed-in account", () => {
