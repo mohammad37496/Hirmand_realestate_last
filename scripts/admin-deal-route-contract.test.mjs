@@ -6,6 +6,8 @@ const route = readFileSync(new URL("../server/routes/api/admin-deals.post.ts", i
 const commissionRoute = readFileSync(new URL("../server/routes/api/admin-commission.post.ts", import.meta.url), "utf8");
 const performanceRoute = readFileSync(new URL("../server/routes/api/admin-consultant-performance.get.ts", import.meta.url), "utf8");
 const lead360Route = readFileSync(new URL("../server/routes/api/admin-lead-360.post.ts", import.meta.url), "utf8");
+const targetsRoute = readFileSync(new URL("../server/routes/api/admin-consultant-targets.post.ts", import.meta.url), "utf8");
+const targetsComponent = readFileSync(new URL("../src/components/hirmand/admin-consultant-targets.tsx", import.meta.url), "utf8");
 
 test("admin deal create, status and document mutations validate enums before SQL writes", () => {
   const create = route.slice(route.indexOf('if(action==="create")'), route.indexOf('  const id=clean(body.id,120)'));
@@ -45,6 +47,20 @@ test("deal, commission and consultant reports preserve PostgreSQL numeric values
   assert.doesNotMatch(commissionRoute, /Number\(r\.commission_amount\)|Number\(r\.consultant_share\)|commissionNumber/);
   assert.doesNotMatch(performanceRoute, /item\.volume = number\(row\.volume\)|item\.due = number\(row\.due\)/);
   assert.doesNotMatch(lead360Route, /Number\(row\.amount\)|Number\(row\.commission_amount\)|Number\(customer\.budget_/);
+});
+
+test("consultant targets preserve exact numeric strings from request through aggregates and display", () => {
+  assert.match(targetsRoute, /normalizeConsultantTargetMoney\(body\.volumeTarget\)/);
+  assert.match(targetsRoute, /normalizeConsultantTargetMoney\(body\.commissionTarget\)/);
+  assert.match(targetsRoute, /volumeTarget:normalizeConsultantTargetMoney\(t\?\.volume_target\)/);
+  assert.match(targetsRoute, /x\.volume=normalizeConsultantTargetMoney\(row\.volume\)/);
+  assert.match(targetsRoute, /volume:string; commissions:string/);
+  assert.doesNotMatch(targetsRoute, /function money\([^\n]*Number\(raw\)/);
+  assert.match(targetsComponent, /volumeTarget: string; commissionTarget: string/);
+  assert.match(targetsComponent, /volume: string; commissions: string/);
+  assert.match(targetsComponent, /addDecimalStrings\(a\.volumeTarget,r\.volumeTarget\)/);
+  assert.match(targetsComponent, /formatTomanExact\(r\.volume\)/);
+  assert.doesNotMatch(targetsComponent, /formatToman\(/);
 });
 
 

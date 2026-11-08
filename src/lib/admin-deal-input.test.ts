@@ -5,6 +5,7 @@ import {
   adminDealDocumentUpdateSchema,
   adminDealStatusUpdateSchema,
 } from "./admin-deal-input.ts";
+import { normalizeConsultantTargetMoney } from "./admin-consultant-targets.ts";
 import {
   addDecimalStrings,
   compareDecimalStrings,
@@ -58,5 +59,21 @@ describe("exact decimal money operations", () => {
   it("formats large integer and fractional values without converting through Number", () => {
     assert.equal(formatDecimalMoney("9007199254740993.25"), "۹٬۰۰۷٬۱۹۹٬۲۵۴٬۷۴۰٬۹۹۳.۲۵");
     assert.equal(formatDecimalMoney("0.005"), "۰.۰۰۵");
+  });
+});
+
+describe("consultant target money input", () => {
+  it("preserves large integer and fractional decimal strings without Number coercion", () => {
+    assert.equal(normalizeConsultantTargetMoney("9007199254740993"), "9007199254740993");
+    assert.equal(normalizeConsultantTargetMoney("9007199254740993.25"), "9007199254740993.25");
+    assert.equal(normalizeConsultantTargetMoney("۹۰۰۷۱۹۹۲۵۴۷۴۰۹۹۳٫۲۵"), "9007199254740993.25");
+  });
+
+  it("rejects unsafe numeric inputs and malformed or excessive values", () => {
+    assert.equal(normalizeConsultantTargetMoney(Number("9007199254740993")), "0");
+    assert.equal(normalizeConsultantTargetMoney(0.1), "0");
+    for (const value of ["", "-1", "1e20", "1.2.3", "x", "1".repeat(21), "1".repeat(40) + ".1", null, {}, []]) {
+      assert.equal(normalizeConsultantTargetMoney(value), "0", String(value));
+    }
   });
 });
