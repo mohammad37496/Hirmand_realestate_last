@@ -40,6 +40,18 @@ export const PRICE_EXPR =
   "case when transaction_type = 'rent' then coalesce(rent, deposit) " +
   "when transaction_type = 'mortgage' then deposit else price end";
 
+/** Shared deterministic ordering for public search cards and area listings. */
+export function buildPublicPropertyOrderBySql(sortParameter = "$38::text"): string {
+  return [
+    `case when ${sortParameter} = 'newest' then case when featured and (featured_until is null or featured_until >= current_timestamp) then 0 else 1 end else 0 end,`,
+    `case when ${sortParameter} = 'price_asc' then ${PRICE_EXPR} end asc nulls last,`,
+    `case when ${sortParameter} = 'price_desc' then ${PRICE_EXPR} end desc nulls last,`,
+    `case when ${sortParameter} = 'area_asc' then area_m2 end asc nulls last,`,
+    `case when ${sortParameter} = 'area_desc' then area_m2 end asc nulls last,`,
+    "published_at desc nulls last, created_at desc nulls last, id desc",
+  ].join(" ");
+}
+
 function normalizedTextSql(expression: string): string {
   const canonical = `replace(replace(replace(replace(replace(replace(replace(lower(coalesce(${expression}, '')), 'ي', 'ی'), 'ى', 'ی'), 'ك', 'ک'), chr(8204), ''), chr(8205), ''), chr(8206), ''), chr(8207), '')`;
   const latinDigits = `translate(${canonical}, '۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789')`;

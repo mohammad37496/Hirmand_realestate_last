@@ -4,7 +4,7 @@ import { cachedPropertyRead, clearPropertyReadCache } from "@/lib/property-read-
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
-import { buildPublicPropertyFilterParams, buildPublicPropertyWhereSql, PRICE_EXPR } from "@/lib/property-search-sql";
+import { buildPublicPropertyFilterParams, buildPublicPropertyOrderBySql, buildPublicPropertyWhereSql } from "@/lib/property-search-sql";
 import { publicPropertyFiltersSchema } from "@/lib/property-search-contract";
 import { compactSearchText } from "@/lib/property-search-utils";
 import { requireAdminPermission } from "@/lib/admin-role.server";
@@ -514,12 +514,7 @@ export const listPublishedPropertyCards = createServerFn({ method: "GET" })
           [
             "select " + CARD_COLUMNS,
             "from properties where " + buildPublicPropertyWhereSql(),
-            "order by case when $38::text = 'newest' then case when featured and (featured_until is null or featured_until >= current_timestamp) then 0 else 1 end else 0 end,",
-            "case when $38::text = 'price_asc' then " + PRICE_EXPR + " end asc nulls last,",
-            "case when $38::text = 'price_desc' then " + PRICE_EXPR + " end desc nulls last,",
-            "case when $38::text = 'area_asc' then area_m2 end asc nulls last,",
-            "case when $38::text = 'area_desc' then area_m2 end desc nulls last,",
-            "published_at desc nulls last, created_at desc",
+            "order by " + buildPublicPropertyOrderBySql(),
             "limit 48 offset $37",
           ].join(" "),
           [...params, data.sort],
@@ -539,12 +534,7 @@ export const listPublishedProperties = createServerFn({ method: "GET" })
       [
         "select " + LIST_COLUMNS,
         "from properties where " + buildPublicPropertyWhereSql(),
-        "order by case when $38::text = 'newest' then case when featured then 0 else 1 end else 0 end,",
-        "case when $38::text = 'price_asc' then " + PRICE_EXPR + " end asc nulls last,",
-        "case when $38::text = 'price_desc' then " + PRICE_EXPR + " end desc nulls last,",
-        "case when $38::text = 'area_asc' then area_m2 end asc nulls last,",
-        "case when $38::text = 'area_desc' then area_m2 end desc nulls last,",
-        "published_at desc nulls last, created_at desc",
+        "order by " + buildPublicPropertyOrderBySql(),
         "limit 48 offset $37",
       ].join(" "),
       [...params, data.sort],
