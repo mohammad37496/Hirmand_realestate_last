@@ -83,7 +83,7 @@ async function readBoundedImage(response: Response, timeoutMs = TIMEOUT_MS): Pro
 }
 
 export default defineEventHandler(async (event) => {
-  const query = getQuery(event) as { url?: string; trackingToken?: string };
+  const query = getQuery(event) as { url?: string; trackingToken?: string; uploadId?: string };
   const raw = typeof query.url === "string" ? query.url.trim() : "";
 
   if (!raw) {
@@ -144,7 +144,12 @@ export default defineEventHandler(async (event) => {
             raw,
           );
           if (!ownerSubmissionAccess) {
-            recentUploadAccess = await hasCompletedCustomerUploadMedia(sql, liaraKey, raw);
+            recentUploadAccess = await hasCompletedCustomerUploadMedia(
+              sql,
+              liaraKey,
+              raw,
+              typeof query.uploadId === "string" ? query.uploadId : "",
+            );
           }
         }
       } catch {

@@ -15,7 +15,7 @@ import {
 } from "@/lib/property-options";
 import { normalizeMoneyText } from "@/lib/property-input-normalization";
 import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
-import { isVideoUrl, mediaPreviewSource } from "@/lib/media";
+import { isVideoUrl, mediaPreviewSource, withMediaUploadCapability } from "@/lib/media";
 import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
 import "@/owner-property.css";
 
@@ -276,7 +276,7 @@ function SubmitPropertyPage() {
         });
         const url = typeof result.response.url === "string" ? result.response.url : "";
         if (!url) throw new Error("نشانی فایل آپلودشده دریافت نشد.");
-        uploaded.push(url);
+        uploaded.push(withMediaUploadCapability(url, result.uploadId));
       }
       setMedia((current) => Array.from(new Set([...current, ...uploaded])).slice(0, MAX_MEDIA));
       toast.success(uploaded.length === 1 ? "رسانه با موفقیت آپلود شد." : uploaded.length.toLocaleString("fa-IR") + " رسانه آپلود شد.");

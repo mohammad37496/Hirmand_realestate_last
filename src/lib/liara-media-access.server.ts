@@ -2,21 +2,45 @@ export type MediaAccessSql = {
   query<T>(statement: string, parameters?: unknown[]): Promise<T[]>;
 };
 
-export function liaraMediaCacheControl(key: string, publishedReference: boolean): string {
+export type DatabaseMediaVisibility = "customer-submission" | "property-upload" | "public" | "unknown";
+
+/** Known database media producers; unknown namespaces are private by default. */
+export function databaseMediaVisibility(pathname: string): DatabaseMediaVisibility {
+  if (pathname.startsWith("properties/customer-submissions/")) return "customer-submission";
+  if (pathname.startsWith("properties/uploads/")) return "property-upload";
   if (
-    key.startsWith("properties/customer-submissions/") ||
-    (key.startsWith("properties/uploads/") && !publishedReference)
-  ) {
+    pathname.startsWith("properties/divar/") ||
+    pathname.startsWith("areas/uploads/") ||
+    pathname.startsWith("music/")
+  ) return "public";
+  return "unknown";
+}
+
+export function liaraMediaCacheControl(key: string, publishedReference: boolean): string {
+  if (key.startsWith("properties/customer-submissions/")) {
     return "private, no-store";
   }
-  return "public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800";
+  if (key.startsWith("properties/uploads/")) {
+    return publishedReference ? "public, max-age=300, s-maxage=300" : "private, no-store";
+  }
+  if (
+    key.startsWith("properties/divar/") ||
+    key.startsWith("areas/uploads/") ||
+    key.startsWith("music/")
+  ) {
+    return "public, max-age=31536000, immutable";
+  }
+  return "private, no-store";
 }
 
 function storedUploadUrlCandidates(rawUrl: string): string[] {
   try {
-    const normalized = new URL(rawUrl);
+    const isAbsolute = /^https?:\/\//i.test(rawUrl);
+    const normalized = new URL(rawUrl, "https://hirmandrealestate.ir");
+    const candidates = [rawUrl, isAbsolute ? normalized.toString() : normalized.pathname + normalized.search];
     normalized.searchParams.delete("type");
-    return [...new Set([rawUrl, normalized.toString()])];
+    candidates.push(isAbsolute ? normalized.toString() : normalized.pathname + normalized.search);
+    return [...new Set(candidates)];
   } catch {
     return [rawUrl];
   }
@@ -82,10 +106,14 @@ export async function hasRejectedCustomerSubmissionMedia(
          from customer_property_submissions s
          where s.public_tracking_token = $1
            and s.status = 'rejected'
-           and s.property_data->'images' @> $2::jsonb
+         and exists (
+           select 1
+           from jsonb_array_elements_text(coalesce(s.property_data->'images', '[]'::jsonb)) as images(image_url)
+           where regexp_replace(image_url, '#uploadId=[0-9a-f-]{36}$', '', 'i') = $2
+         )
          limit 1
        ) as present`,
-      [token, JSON.stringify([rawUrl])],
+      [token, rawUrl],
     );
     return rows[0]?.present === true;
   } catch {
@@ -98,23 +126,28 @@ export async function hasCompletedCustomerUploadMedia(
   sql: MediaAccessSql,
   key: string,
   rawUrl: string,
+  uploadId: string,
 ): Promise<boolean> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uploadId)) {
+    return false;
+  }
   const storedUrls = storedUploadUrlCandidates(rawUrl);
   try {
     const rows = await sql.query<{ present: boolean }>(
       `select exists(
          select 1
          from media_upload_sessions s
-         where s.kind = 'customer-property-media'
+         where s.id = $3
+           and s.kind = 'customer-property-media'
            and s.pathname = $1
            and s.stored_url = any($2::text[])
-           and s.stored_storage = 'object-store'
+           and s.stored_storage in ('object-store', 'database')
            and s.completion_state = 'assembled'
            and s.completion_result is not null
            and s.created_at >= current_timestamp - interval '120 minutes'
          limit 1
        ) as present`,
-      [key, storedUrls],
+      [key, storedUrls, uploadId],
     );
     return rows[0]?.present === true;
   } catch {

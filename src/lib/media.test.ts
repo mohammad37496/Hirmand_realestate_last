@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
-import { isLiaraStorageHost, mediaPreviewSource, mediaSourceCandidates } from "./media.ts";
+import {
+  isLiaraStorageHost,
+  mediaPreviewSource,
+  mediaSourceCandidates,
+  stripMediaUploadCapability,
+  withMediaUploadCapability,
+} from "./media.ts";
 import {
   isAllowedLiaraMediaKey,
   fetchWithHeaderTimeout,
@@ -9,6 +15,7 @@ import {
 } from "./liara-object-storage.server.ts";
 import {
   hasCompletedCustomerUploadMedia,
+  databaseMediaVisibility,
   hasRejectedCustomerSubmissionMedia,
   isPublishedPropertyMedia,
   createLiaraVideoResponse,
@@ -60,6 +67,54 @@ test("private Liara image previews use the proxy and carry owner capability only
     mediaPreviewSource(divarImage, "HIR-26-ABCDEF123456"),
     "/api/media-proxy?url=" + encodeURIComponent(divarImage),
   );
+});
+
+test("customer upload previews carry the full upload session capability and remove it from the storage URL", () => {
+  const uploadId = "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e90";
+  const image = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/photo.webp";
+  const privateImage = withMediaUploadCapability(image, uploadId);
+  assert.match(privateImage, /#uploadId=9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e90$/);
+  assert.equal(stripMediaUploadCapability(privateImage), image);
+
+  const preview = new URL(mediaPreviewSource(privateImage), "https://hirmandrealestate.ir");
+  assert.equal(preview.searchParams.get("uploadId"), uploadId);
+  assert.equal(preview.searchParams.get("url"), image);
+  assert.equal(preview.searchParams.has("trackingToken"), false);
+
+  const ownerPreview = new URL(mediaPreviewSource(privateImage, "HIR-26-ABCDEF123456"), "https://hirmandrealestate.ir");
+  assert.equal(ownerPreview.searchParams.get("uploadId"), uploadId);
+  assert.equal(ownerPreview.searchParams.get("trackingToken"), "HIR-26-ABCDEF123456");
+  assert.equal(withMediaUploadCapability(image, "invalid-upload-id"), image);
+
+  const databaseUrl = "/api/media/db-fallback-id";
+  const privateDatabaseUrl = withMediaUploadCapability(databaseUrl, uploadId);
+  assert.equal(privateDatabaseUrl, databaseUrl + "#uploadId=" + uploadId);
+  assert.equal(stripMediaUploadCapability(privateDatabaseUrl), databaseUrl);
+  const databasePreview = new URL(
+    mediaPreviewSource(privateDatabaseUrl, "HIR-26-ABCDEF123456"),
+    "https://hirmandrealestate.ir",
+  );
+  assert.equal(databasePreview.pathname, databaseUrl);
+  assert.equal(databasePreview.searchParams.get("uploadId"), uploadId);
+  assert.equal(databasePreview.searchParams.get("trackingToken"), "HIR-26-ABCDEF123456");
+});
+
+test("database media visibility keeps known public producers and hides unknown namespaces", () => {
+  assert.equal(databaseMediaVisibility("properties/customer-submissions/photo.webp"), "customer-submission");
+  assert.equal(databaseMediaVisibility("properties/uploads/photo.webp"), "property-upload");
+  assert.equal(databaseMediaVisibility("properties/divar/photo.webp"), "public");
+  assert.equal(databaseMediaVisibility("areas/uploads/photo.webp"), "public");
+  assert.equal(databaseMediaVisibility("music/track.mp3"), "public");
+  assert.equal(databaseMediaVisibility("admin-deal-documents/private.pdf"), "unknown");
+});
+
+test("media cache policy keeps private uploads uncached and bounds revocable published media to five minutes", () => {
+  assert.equal(liaraMediaCacheControl("properties/customer-submissions/photo.webp", true), "private, no-store");
+  assert.equal(liaraMediaCacheControl("properties/uploads/photo.webp", false), "private, no-store");
+  assert.equal(liaraMediaCacheControl("properties/uploads/photo.webp", true), "public, max-age=300, s-maxage=300");
+  assert.equal(liaraMediaCacheControl("music/track.mp3", false), "public, max-age=31536000, immutable");
+  assert.equal(liaraMediaCacheControl("areas/uploads/area.webp", false), "public, max-age=31536000, immutable");
+  assert.equal(liaraMediaCacheControl("properties/divar/photo.webp", false), "public, max-age=31536000, immutable");
 });
 
 test("Liara fetch timeout ends at response headers so long media streams are not aborted", async () => {
@@ -264,6 +319,14 @@ test("published property references are the only public path for private propert
       "insert into properties (id, images, status) values ($1, $2::jsonb, 'published')",
       ["legacy", JSON.stringify(["/api/liara-media?url=" + encodeURIComponent(legacyUrl)])],
     );
+    await db.query(
+      "insert into properties (id, images, status) values ($1, $2::jsonb, 'published')",
+      ["database-media", JSON.stringify(["/api/media/db-published-id"])],
+    );
+    await db.query(
+      "insert into properties (id, images, status) values ($1, $2::jsonb, 'published')",
+      ["database-video", JSON.stringify(["/api/media/db-published-video-id?type=video"])],
+    );
     const sql = {
       query: async <T>(statement: string, parameters?: unknown[]) =>
         (await db.query(statement, parameters as never)).rows as T[],
@@ -275,6 +338,8 @@ test("published property references are the only public path for private propert
     assert.equal(await isPublishedPropertyMedia(sql, floorPlanUrl), true);
     assert.equal(await isPublishedPropertyMedia(sql, virtualTourUrl), true);
     assert.equal(await isPublishedPropertyMedia(sql, legacyUrl), true);
+    assert.equal(await isPublishedPropertyMedia(sql, "/api/media/db-published-id"), true);
+    assert.equal(await isPublishedPropertyMedia(sql, "/api/media/db-published-video-id?type=video"), true);
   } finally {
     await db.close();
   }
@@ -301,6 +366,7 @@ test("customer-submission media requires the exact rejected tracking capability 
       );
     `);
     const rejectedUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/rejected/photo.webp";
+    const rejectedStoredUrl = rejectedUrl + "#uploadId=9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e92";
     const pendingUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/pending/photo.webp";
     const uploadedUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/new/photo.webp";
     const uploadedVideoUrl = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/new/clip.mp4?type=video";
@@ -309,28 +375,48 @@ test("customer-submission media requires the exact rejected tracking capability 
     const token = "HIR-26-ABCDEF123456";
     await db.query(
       "insert into customer_property_submissions values ($1, 'rejected', $2::jsonb)",
-      [token, JSON.stringify({ images: [rejectedUrl] })],
+      [token, JSON.stringify({ images: [rejectedStoredUrl] })],
     );
     await db.query(
       "insert into customer_property_submissions values ($1, 'pending', $2::jsonb)",
       ["HIR-26-123456ABCDEF", JSON.stringify({ images: [pendingUrl] })],
     );
     await db.query(
+      "insert into customer_property_submissions values ($1, 'rejected', $2::jsonb)",
+      ["HIR-26-987654ABCDEF", JSON.stringify({ images: ["/api/media/db-rejected-id#uploadId=9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e95"] })],
+    );
+    await db.query(
+      "insert into customer_property_submissions values ($1, 'rejected', $2::jsonb)",
+      ["HIR-26-987654ABCDE0", JSON.stringify({ images: ["/api/media/db-rejected-video-id?type=video#uploadId=9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e96"] })],
+    );
+    await db.query(
       `insert into media_upload_sessions
        (id, pathname, kind, stored_url, stored_storage, completion_state, completion_result)
-       values ('upload-ok', $1, 'customer-property-media', $2, 'object-store', 'assembled', $3::jsonb)`,
+       values ('9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e90', $1, 'customer-property-media', $2, 'object-store', 'assembled', $3::jsonb)`,
       [key, uploadedUrl, JSON.stringify({ url: uploadedUrl })],
     );
     await db.query(
       `insert into media_upload_sessions
        (id, pathname, kind, stored_url, stored_storage, completion_state, completion_result)
-       values ('upload-video', $1, 'customer-property-media', $2, 'object-store', 'assembled', $3::jsonb)`,
+       values ('9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e91', $1, 'customer-property-media', $2, 'object-store', 'assembled', $3::jsonb)`,
       [videoKey, uploadedVideoUrl.replace("?type=video", ""), JSON.stringify({ url: uploadedVideoUrl })],
     );
     await db.query(
       `insert into media_upload_sessions
+       (id, pathname, kind, stored_url, stored_storage, completion_state, completion_result)
+       values ('9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e94', $1, 'customer-property-media', $2, 'database', 'assembled', $3::jsonb)`,
+      ["properties/customer-submissions/db-fallback/photo.webp", "/api/media/db-fallback-id", JSON.stringify({ url: "/api/media/db-fallback-id" })],
+    );
+    await db.query(
+      `insert into media_upload_sessions
+       (id, pathname, kind, stored_url, stored_storage, completion_state, completion_result)
+       values ('9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e97', $1, 'customer-property-media', $2, 'database', 'assembled', $3::jsonb)`,
+      ["properties/customer-submissions/db-fallback/clip.mp4", "/api/media/db-fallback-video-id", JSON.stringify({ url: "/api/media/db-fallback-video-id?type=video" })],
+    );
+    await db.query(
+      `insert into media_upload_sessions
        (id, pathname, kind, stored_url, stored_storage, completion_state, completion_result, created_at)
-       values ('upload-stale', $1, 'customer-property-media', $2, 'object-store', 'assembled', $3::jsonb, current_timestamp - interval '3 hours')`,
+       values ('9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e93', $1, 'customer-property-media', $2, 'object-store', 'assembled', $3::jsonb, current_timestamp - interval '3 hours')`,
       ["properties/customer-submissions/stale/photo.webp", uploadedUrl, JSON.stringify({ url: uploadedUrl })],
     );
     const sql = {
@@ -341,13 +427,47 @@ test("customer-submission media requires the exact rejected tracking capability 
     assert.equal(await hasRejectedCustomerSubmissionMedia(sql, token, rejectedUrl), true);
     assert.equal(await hasRejectedCustomerSubmissionMedia(sql, token, pendingUrl), false);
     assert.equal(await hasRejectedCustomerSubmissionMedia(sql, "HIR-26-000000000000", rejectedUrl), false);
-    assert.equal(await hasCompletedCustomerUploadMedia(sql, key, uploadedUrl), true);
-    assert.equal(await hasCompletedCustomerUploadMedia(sql, videoKey, uploadedVideoUrl), true);
-    assert.equal(await hasCompletedCustomerUploadMedia(sql, key + "/other", uploadedUrl), false);
-    assert.equal(await hasCompletedCustomerUploadMedia(sql, "properties/customer-submissions/stale/photo.webp", uploadedUrl), false);
+    assert.equal(await hasRejectedCustomerSubmissionMedia(sql, "HIR-26-987654ABCDEF", "/api/media/db-rejected-id"), true);
+    assert.equal(await hasRejectedCustomerSubmissionMedia(sql, "HIR-26-987654ABCDE0", "/api/media/db-rejected-video-id?type=video"), true);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, key, uploadedUrl, "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e90"), true);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, videoKey, uploadedVideoUrl, "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e91"), true);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, "properties/customer-submissions/db-fallback/photo.webp", "/api/media/db-fallback-id", "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e94"), true);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, "properties/customer-submissions/db-fallback/photo.webp", "/api/media/db-fallback-id", "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e90"), false);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, "properties/customer-submissions/db-fallback/clip.mp4", "/api/media/db-fallback-video-id?type=video", "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e97"), true);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, "properties/customer-submissions/db-fallback/clip.mp4", "/api/media/db-fallback-video-id?type=video", ""), false);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, key, uploadedUrl, ""), false);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, key, uploadedUrl, "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e91"), false);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, key + "/other", uploadedUrl, "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e90"), false);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, key, uploadedUrl + "&other=1", "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e90"), false);
+    assert.equal(await hasCompletedCustomerUploadMedia(sql, "properties/customer-submissions/stale/photo.webp", uploadedUrl, "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e93"), false);
   } finally {
     await db.close();
   }
+});
+
+test("Liara media access helpers fail closed when database queries fail", async () => {
+  const failingSql = {
+    query: async () => {
+      throw new Error("database unavailable");
+    },
+  };
+  assert.equal(
+    await isPublishedPropertyMedia(failingSql, "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/draft.webp"),
+    false,
+  );
+  assert.equal(
+    await hasRejectedCustomerSubmissionMedia(failingSql, "HIR-26-ABCDEF123456", "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/rejected.webp"),
+    false,
+  );
+  assert.equal(
+    await hasCompletedCustomerUploadMedia(
+      failingSql,
+      "properties/customer-submissions/photo.webp",
+      "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/photo.webp",
+      "9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e90",
+    ),
+    false,
+  );
 });
 
 test("Liara video proxy preserves 206 range metadata and returns uncached 416 responses", () => {

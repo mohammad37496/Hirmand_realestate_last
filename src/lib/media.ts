@@ -197,10 +197,51 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
   return [value];
 }
 
-/** Build a same-origin preview URL, optionally carrying a rejected-submission owner capability. */
+const MEDIA_UPLOAD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Keep the short-lived upload capability with private submission media until review. */
+export function withMediaUploadCapability(src: string, uploadId: string): string {
+  if (!MEDIA_UPLOAD_ID_PATTERN.test(uploadId)) return src;
+  try {
+    const isAbsolute = /^https:\/\//i.test(src);
+    const url = new URL(src, "https://hirmandrealestate.ir");
+    url.hash = "uploadId=" + uploadId;
+    return isAbsolute ? url.toString() : url.pathname + url.search + url.hash;
+  } catch {
+    return src;
+  }
+}
+
+/** Remove the private upload capability before media is copied to a public property. */
+export function stripMediaUploadCapability(src: string): string {
+  try {
+    const isAbsolute = /^https:\/\//i.test(src);
+    const url = new URL(src, "https://hirmandrealestate.ir");
+    if (/^#uploadId=[0-9a-f-]{36}$/i.test(url.hash)) url.hash = "";
+    return isAbsolute ? url.toString() : url.pathname + url.search + url.hash;
+  } catch {
+    return src;
+  }
+}
+
+/** Build a same-origin preview URL, optionally carrying owner and upload capabilities. */
 export function mediaPreviewSource(src: string, trackingToken = ""): string {
   const candidate = mediaSourceCandidates(src)[0] ?? src;
   let isCustomerSubmissionMedia = false;
+  if (candidate.startsWith(DB_MEDIA_PATH)) {
+    try {
+      const mediaUrl = new URL(candidate, "https://hirmandrealestate.ir");
+      const capability = mediaUrl.hash.match(/^#uploadId=([0-9a-f-]{36})$/i);
+      if (capability && MEDIA_UPLOAD_ID_PATTERN.test(capability[1]!)) {
+        mediaUrl.hash = "";
+        mediaUrl.searchParams.set("uploadId", capability[1]!);
+      }
+      if (trackingToken) mediaUrl.searchParams.set("trackingToken", trackingToken);
+      return mediaUrl.pathname + mediaUrl.search;
+    } catch {
+      return candidate;
+    }
+  }
   if (trackingToken && candidate.startsWith("/api/media-proxy?")) {
     try {
       const proxy = new URL(candidate, "https://hirmandrealestate.ir");
@@ -215,8 +256,26 @@ export function mediaPreviewSource(src: string, trackingToken = ""): string {
       isCustomerSubmissionMedia = false;
     }
   }
-  if (trackingToken && isCustomerSubmissionMedia) {
-    return candidate + "&trackingToken=" + encodeURIComponent(trackingToken);
+  if (candidate.startsWith("/api/media-proxy?")) {
+    try {
+      const proxy = new URL(candidate, "https://hirmandrealestate.ir");
+      const targetValue = proxy.searchParams.get("url");
+      if (targetValue) {
+        const target = new URL(targetValue);
+        const capability = target.hash.match(/^#uploadId=([0-9a-f-]{36})$/i);
+        if (capability && MEDIA_UPLOAD_ID_PATTERN.test(capability[1]!)) {
+          target.hash = "";
+          proxy.searchParams.set("url", target.toString());
+          proxy.searchParams.set("uploadId", capability[1]!);
+        }
+      }
+      if (trackingToken && isCustomerSubmissionMedia) {
+        proxy.searchParams.set("trackingToken", trackingToken);
+      }
+      return proxy.pathname + proxy.search;
+    } catch {
+      // Keep the original proxy URL if a malformed source cannot be normalized.
+    }
   }
   return candidate;
 }

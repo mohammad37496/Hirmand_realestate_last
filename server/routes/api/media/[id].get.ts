@@ -2,20 +2,30 @@ import {
   createError,
   defineEventHandler,
   getHeader,
+  getCookie,
+  getQuery,
   getRouterParam,
 } from "h3";
+import { dbSource, getSql } from "@/lib/db";
+import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
+import { hasAdminPermission } from "@/lib/admin-roles";
 import { getMediaMeta, readMediaRange } from "@/lib/media-store.server";
 import { createRangeNotSatisfiableResponse } from "@/lib/music-range-response";
+import {
+  databaseMediaVisibility,
+  hasCompletedCustomerUploadMedia,
+  hasRejectedCustomerSubmissionMedia,
+  isPublishedPropertyMedia,
+  liaraMediaCacheControl,
+} from "@/lib/liara-media-access.server";
 
 /**
  * Serves stored media from our own origin.
  *
  * Audio playback and image rendering both depend on this endpoint being a
  * first-class HTTP resource: it answers `Range` requests (so the browser can
- * seek inside a song) and long-caches immutable ids.
+ * seek inside a song) and applies path-specific caching after access checks.
  */
-
-const IMMUTABLE = "public, max-age=31536000, immutable";
 
 function parseRangeHeader(
   header: string | undefined,
@@ -72,6 +82,60 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
   }
 
+  const visibility = databaseMediaVisibility(meta.pathname);
+  if (visibility === "unknown") {
+    throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
+  }
+  const query = getQuery(event) as { type?: string; trackingToken?: string; uploadId?: string };
+  const rawUrl = `/api/media/${encodeURIComponent(id)}${query.type === "video" ? "?type=video" : ""}`;
+
+  let publishedReference = false;
+  if (visibility === "customer-submission" || visibility === "property-upload") {
+    const claims = await getAdminSessionClaims(getCookie(event, ADMIN_SESSION_COOKIE));
+    const hasPrivateMediaPermission = Boolean(
+      claims && hasAdminPermission(claims.role, "property.manage"),
+    );
+    if (!hasPrivateMediaPermission && dbSource !== "unconfigured") {
+      try {
+        const sql = await getSql();
+        publishedReference = await isPublishedPropertyMedia(sql, rawUrl);
+        let ownerSubmissionAccess = false;
+        let recentUploadAccess = false;
+        if (visibility === "customer-submission" && !publishedReference) {
+          ownerSubmissionAccess = await hasRejectedCustomerSubmissionMedia(
+            sql,
+            typeof query.trackingToken === "string" ? query.trackingToken : "",
+            rawUrl,
+          );
+          if (!ownerSubmissionAccess) {
+            recentUploadAccess = await hasCompletedCustomerUploadMedia(
+              sql,
+              meta.pathname,
+              rawUrl,
+              typeof query.uploadId === "string" ? query.uploadId : "",
+            );
+          }
+        }
+
+        if (
+          visibility === "customer-submission" &&
+          !publishedReference &&
+          !ownerSubmissionAccess &&
+          !recentUploadAccess
+        ) {
+          throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
+        }
+        if (visibility === "property-upload" && !publishedReference) {
+          throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
+        }
+      } catch {
+        throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
+      }
+    } else if (!hasPrivateMediaPermission) {
+      throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
+    }
+  }
+
   const size = meta.sizeBytes;
   const range = parseRangeHeader(getHeader(event, "range"), size);
 
@@ -90,7 +154,7 @@ export default defineEventHandler(async (event) => {
   const headers: Record<string, string> = {
     "content-type": result.contentType,
     "content-length": String(result.bytes.length),
-    "cache-control": IMMUTABLE,
+    "cache-control": liaraMediaCacheControl(meta.pathname, publishedReference),
     "accept-ranges": "bytes",
     "x-content-type-options": "nosniff",
     "content-disposition": disposition(meta.pathname, result.contentType),
