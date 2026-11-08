@@ -16,7 +16,7 @@ on:
 
 # Only the newest main commit should be deployed.
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && inputs.ensure_better_auth_secret == true && 'liara-secret-bootstrap' || 'liara-deploy-main' }}
+  group: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && 'liara-dispatch-non-main' || github.event_name == 'workflow_dispatch' && inputs.ensure_better_auth_secret == true && 'liara-secret-bootstrap' || 'liara-deploy-main' }}
   cancel-in-progress: true
 
 permissions:

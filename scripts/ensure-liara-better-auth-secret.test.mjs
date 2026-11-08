@@ -32,7 +32,10 @@ test("deploy workflow exposes a false-by-default manual-only bootstrap and skips
     workflow,
     /deploy:\s+if: \$\{\{ github\.ref == 'refs\/heads\/main' && \(github\.event_name != 'workflow_dispatch' \|\| inputs\.ensure_better_auth_secret != true\)/,
   );
-  assert.match(workflow, /'liara-secret-bootstrap' \|\| 'liara-deploy-main'/);
+  assert.match(
+    workflow,
+    /'liara-dispatch-non-main' \|\| github\.event_name == 'workflow_dispatch' && inputs\.ensure_better_auth_secret == true && 'liara-secret-bootstrap' \|\| 'liara-deploy-main'/,
+  );
   assert.match(
     workflow,
     /LIARA_API_TOKEN: \$\{\{ secrets\.LIARA_API_TOKEN \}\}/,
