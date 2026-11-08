@@ -28,6 +28,7 @@
 .notification-copy p{margin:4px 0 3px;color:var(--muted);line-height:1.7;font-size:.86rem;}
 .notification-copy time{font-size:.72rem;color:var(--subtle);}
 .notification-open{white-space:nowrap;color:var(--navy-900);font-size:.82rem;font-weight:800;}
+.notification-subscription-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
 .notification-note{display:block;margin-top:10px;color:var(--subtle);}
 @media (max-width:760px){
   .smart-search-form{grid-template-columns:auto minmax(0,1fr);padding:10px;}

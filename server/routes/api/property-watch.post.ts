@@ -72,46 +72,47 @@ export default defineEventHandler(async (event) => {
 
   const sql = await getSql();
 
-  if (parsed.data.action === "subscribe" || parsed.data.action === "unsubscribe") {
+  if (parsed.data.action === "unsubscribe") {
     if (!parsed.data.slug) throw createError({ statusCode: 400, statusMessage: "فایل مشخص نشده است." });
+    await sql.query(
+      "update property_watch_subscriptions set enabled=false, updated_at=current_timestamp where visitor_id=$1 and property_slug=$2",
+      [visitorId, parsed.data.slug],
+    );
+    return { ok: true, enabled: false };
+  }
 
+  if (parsed.data.action === "subscribe") {
+    if (!parsed.data.slug) throw createError({ statusCode: 400, statusMessage: "فایل مشخص نشده است." });
     const propertyRows = await sql.query<Record<string, unknown>>(
-      "select id, slug, price, deposit, rent, availability_status from properties where deleted_at is null and status='published' and (unpublish_at is null or unpublish_at > current_timestamp) and slug=$1 limit 1",
+      `select id, slug, price, deposit, rent, availability_status from properties where ${publicPropertyVisibilitySql()} and slug=$1 limit 1`,
       [parsed.data.slug],
     );
     const property = propertyRows[0];
     if (!property) throw createError({ statusCode: 404, statusMessage: "فایل موردنظر پیدا نشد." });
 
-    if (parsed.data.action === "subscribe") {
-      await sql.query(
-        `insert into property_watch_subscriptions
-          (visitor_id, property_id, property_slug, price, deposit, rent, availability_status, enabled, updated_at)
-         values ($1,$2,$3,$4,$5,$6,$7,true,current_timestamp)
-         on conflict (visitor_id, property_id)
-         do update set
-           property_slug=excluded.property_slug,
-           price=excluded.price,
-           deposit=excluded.deposit,
-           rent=excluded.rent,
-           availability_status=excluded.availability_status,
-           enabled=true,
-           updated_at=current_timestamp`,
-        [
-          visitorId,
-          String(property.id),
-          String(property.slug),
-          normalizeMoney(property.price),
-          normalizeMoney(property.deposit),
-          normalizeMoney(property.rent),
-          String(property.availability_status ?? "available"),
-        ],
-      );
-    } else {
-      await sql.query(
-        "update property_watch_subscriptions set enabled=false, updated_at=current_timestamp where visitor_id=$1 and property_id=$2",
-        [visitorId, String(property.id)],
-      );
-    }
+    await sql.query(
+      `insert into property_watch_subscriptions
+        (visitor_id, property_id, property_slug, price, deposit, rent, availability_status, enabled, updated_at)
+       values ($1,$2,$3,$4,$5,$6,$7,true,current_timestamp)
+       on conflict (visitor_id, property_id)
+       do update set
+         property_slug=excluded.property_slug,
+         price=excluded.price,
+         deposit=excluded.deposit,
+         rent=excluded.rent,
+         availability_status=excluded.availability_status,
+         enabled=true,
+         updated_at=current_timestamp`,
+      [
+        visitorId,
+        String(property.id),
+        String(property.slug),
+        normalizeMoney(property.price),
+        normalizeMoney(property.deposit),
+        normalizeMoney(property.rent),
+        String(property.availability_status ?? "available"),
+      ],
+    );
   }
 
   if (parsed.data.action === "seen" && parsed.data.alertIds.length > 0) {
@@ -141,6 +142,16 @@ export default defineEventHandler(async (event) => {
      from property_watch_subscriptions s
      join properties p on p.id=s.property_id
      where s.visitor_id=$1 and s.enabled=true and ${publicPropertyVisibilitySql("p")}
+     order by s.updated_at desc
+     limit 40`,
+    [visitorId],
+  );
+  const hiddenSubscriptions = await sql.query<{ property_slug: string }>(
+    `select s.property_slug
+     from property_watch_subscriptions s
+     left join properties p on p.id=s.property_id
+     where s.visitor_id=$1 and s.enabled=true
+       and (p.id is null or not ${publicPropertyVisibilitySql("p")})
      order by s.updated_at desc
      limit 40`,
     [visitorId],
@@ -253,6 +264,7 @@ export default defineEventHandler(async (event) => {
     subscriptions: subscriptions.map((row) => ({
       slug: String(row.property_slug),
       title: String(row.title),
+      isPublic: true,
       availabilityStatus: String(row.availability_status ?? "available"),
       updatedAt: row.updated_at == null ? null : new Date(String(row.updated_at)).toISOString(),
       watchedPrice: normalizeMoney(row.watched_price),
@@ -263,7 +275,17 @@ export default defineEventHandler(async (event) => {
         rent: normalizeMoney(row.target_rent),
       },
       currentPriceLabel: formatAmount(normalizeMoney(row.price)),
-    })),
+    })).concat(hiddenSubscriptions.map((row) => ({
+      slug: String(row.property_slug),
+      title: "",
+      isPublic: false,
+      availabilityStatus: "unavailable",
+      updatedAt: null,
+      watchedPrice: null,
+      currentPrice: null,
+      target: { price: null, deposit: null, rent: null },
+      currentPriceLabel: null,
+    }))),
     alerts: alerts.map((row) => ({
       id: String(row.id),
       slug: String(row.property_slug),
