@@ -4,14 +4,13 @@ import { ArrowLeft, KeyRound, LoaderCircle, Mail, ShieldCheck, UserRound } from 
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { authClient, authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { getSafeLoginReturnPath } from "@/lib/auth/return-path.mjs";
 import { SITE } from "@/lib/site";
 import "@/login.css";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
-    next: typeof search.next === "string" && search.next.startsWith("/") && !search.next.startsWith("//")
-      ? search.next
-      : "/favorites",
+    next: getSafeLoginReturnPath(search.next),
   }),
   head: () => ({
     meta: [
