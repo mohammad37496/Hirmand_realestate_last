@@ -349,6 +349,8 @@ test("FFmpeg downloads use pinned GitHub release asset IDs and the octet-stream 
   assert.match(ffmpegProvisioner, /Accept:\s*"application\/octet-stream"/);
   assert.match(ffmpegProvisioner, /assetId:\s*698334968/);
   assert.match(ffmpegProvisioner, /assetId:\s*698335088/);
+  assert.match(ffmpegProvisioner, /sha256:\s*"11570b7bb1436ff432c91202ae0e7ea4be65359fd06650e18935c1ee9d005bf6"/);
+  assert.match(ffmpegProvisioner, /sha256:\s*"b45eb0c42d311d12f3bddcd7b3a29a3e7fcc2455076d13c79552d45b48d57c08"/);
   assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-42-gd7643a0fe3-linux64-gpl-9\.0\.tar\.xz/);
   assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
 });
