@@ -10,6 +10,7 @@ import { updatePendingCustomerPropertySubmissionReview } from "./customer-proper
 import { resubmitCustomerPropertySubmission } from "./customer-property-submission-resubmit.ts";
 import { bulkRejectPendingCustomerPropertySubmissions, resubmitCustomerPropertySubmissionWithLeadSync } from "./customer-property-submission-lead-sync.ts";
 import type { Sql } from "./db.ts";
+import { findPotentialDuplicateCustomerPropertySubmissions } from "./customer-property-submission-duplicate.ts";
 
 test("public owner timeline exposes only owner-facing event notes", async () => {
   assert.equal(ownerStatusEventNote("created", "پرونده ثبت شد"), "پرونده ثبت شد");
@@ -497,6 +498,74 @@ test("customer submission lead sync fails closed without transaction support", a
   const sql = { query: async () => [] } as unknown as Sql;
   await assert.rejects(resubmitCustomerPropertySubmissionWithLeadSync(sql, resubmitInput), /transaction support is required/);
   await assert.rejects(bulkRejectPendingCustomerPropertySubmissions(sql, { ids: ["submission-1"], reviewNote: "note" }), /transaction support is required/);
+});
+
+test("customer submission duplicate detection excludes the submission being created", async () => {
+  const pg = new PGlite();
+  await pg.exec(`
+    create table customer_property_submissions (
+      id text primary key,
+      status text not null,
+      public_tracking_token text not null,
+      owner_name text not null,
+      owner_phone text not null,
+      property_data jsonb not null,
+      created_at timestamptz not null default current_timestamp
+    );
+    insert into customer_property_submissions(id,status,public_tracking_token,owner_name,owner_phone,property_data)
+      values ('new-submission','pending','token-new','مالک','09123456789','{"neighborhood":"مرداویج","areaM2":100,"title":"آپارتمان"}'::jsonb);
+  `);
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+      (await pg.query(text, params)).rows as T[],
+  } as Pick<Sql, "query">;
+  try {
+    const duplicates = await findPotentialDuplicateCustomerPropertySubmissions(sql, {
+      excludeSubmissionId: "new-submission",
+      ownerPhone: "09123456789",
+      neighborhood: "مرداویج",
+      areaM2: "100",
+      normalizedTitle: "آپارتمان",
+    });
+    assert.deepEqual(duplicates, []);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("customer submission duplicate detection still finds another matching submission", async () => {
+  const pg = new PGlite();
+  await pg.exec(`
+    create table customer_property_submissions (
+      id text primary key,
+      status text not null,
+      public_tracking_token text not null,
+      owner_name text not null,
+      owner_phone text not null,
+      property_data jsonb not null,
+      created_at timestamptz not null default current_timestamp
+    );
+    insert into customer_property_submissions(id,status,public_tracking_token,owner_name,owner_phone,property_data)
+      values
+        ('new-submission','pending','token-new','مالک','09123456789','{"neighborhood":"مرداویج","areaM2":100,"title":"آپارتمان"}'::jsonb),
+        ('existing-submission','approved','token-existing','مالک دیگر','09123456789','{"neighborhood":"مرداویج","areaM2":100,"title":"آپارتمان"}'::jsonb);
+  `);
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+      (await pg.query(text, params)).rows as T[],
+  } as Pick<Sql, "query">;
+  try {
+    const duplicates = await findPotentialDuplicateCustomerPropertySubmissions(sql, {
+      excludeSubmissionId: "new-submission",
+      ownerPhone: "09123456789",
+      neighborhood: "مرداویج",
+      areaM2: "100",
+      normalizedTitle: "آپارتمان",
+    });
+    assert.deepEqual(duplicates.map((row) => row.id), ["existing-submission"]);
+  } finally {
+    await pg.close();
+  }
 });
 
 test("customer submission resubmit and bulk reject routes use transactional lead-sync helpers", async () => {

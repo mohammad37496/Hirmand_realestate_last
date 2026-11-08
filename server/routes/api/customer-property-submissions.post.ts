@@ -5,6 +5,7 @@ import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { resubmitCustomerPropertySubmissionWithLeadSync } from "@/lib/customer-property-submission-lead-sync";
+import { findPotentialDuplicateCustomerPropertySubmissions } from "@/lib/customer-property-submission-duplicate";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -221,10 +222,13 @@ export default defineEventHandler(async (event) => {
   }
 
   const normalizedTitle = parsed.data.title.trim().toLowerCase();
-  const duplicateRows = await sql.query<{ id: string; public_tracking_token: string; owner_name: string; owner_phone: string }>(
-    "select id,public_tracking_token,owner_name,owner_phone from customer_property_submissions where status in ('pending','approved') and (owner_phone=$1 or ((property_data->>'neighborhood')=$2 and (property_data->>'areaM2')=$3 and lower(coalesce(property_data->>'title',''))=$4)) order by created_at desc limit 3",
-    [parsed.data.ownerPhone, parsed.data.neighborhood, String(parsed.data.areaM2), normalizedTitle],
-  );
+  const duplicateRows = await findPotentialDuplicateCustomerPropertySubmissions(sql, {
+    excludeSubmissionId: submissionId,
+    ownerPhone: parsed.data.ownerPhone,
+    neighborhood: parsed.data.neighborhood,
+    areaM2: String(parsed.data.areaM2),
+    normalizedTitle,
+  });
 
   await sql.query(
     "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'created',$3,$4::jsonb)",
