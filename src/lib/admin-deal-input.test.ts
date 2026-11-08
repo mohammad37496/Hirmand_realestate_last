@@ -1,5 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { PGlite } from "@electric-sql/pglite";
+import type { Sql } from "./db.ts";
+import { updateAdminCommissionStatus } from "./admin-commission-input.ts";
 import {
   adminDealCreateEnumsSchema,
   adminDealDocumentUpdateSchema,
@@ -99,5 +103,49 @@ describe("finance ledger exact money", () => {
       { income: "90071992547409930000", expense: "90071992547409929999", balance: "1" },
     );
     assert.deepEqual(financeMoneySummary("invalid", null), { income: "0", expense: "0", balance: "0" });
+  });
+});
+
+describe("commission settlement status validation", () => {
+  it("rejects an invalid status without changing a paid settlement", async () => {
+    const pg = new PGlite();
+    try {
+      await pg.exec(`
+        create table admin_commission_settlements (
+          id text primary key, status text not null, paid_at timestamptz,
+          updated_at timestamptz not null default current_timestamp
+        );
+        insert into admin_commission_settlements(id,status,paid_at,updated_at)
+          values ('settlement-1','paid','2026-11-01 09:30:00+00','2026-11-01 09:30:00+00');
+      `);
+      const before = await pg.query<{ status: string; paid_at: string; updated_at: string }>(
+        "select status,paid_at::text,updated_at::text from admin_commission_settlements where id=$1",
+        ["settlement-1"],
+      );
+      const sql = {
+        query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+          (await pg.query(text, params)).rows as T[],
+      } as Sql;
+
+      assert.deepEqual(await updateAdminCommissionStatus(sql, "settlement-1", "paidd"), { kind: "invalid_status" });
+      assert.deepEqual(
+        await pg.query("select status,paid_at::text,updated_at::text from admin_commission_settlements where id=$1", ["settlement-1"]),
+        before,
+      );
+      assert.equal((await updateAdminCommissionStatus(sql, "settlement-1", "approved")).kind, "updated");
+      assert.equal((await updateAdminCommissionStatus(sql, "missing", "approved")).kind, "not_found");
+    } finally {
+      await pg.close();
+    }
+  });
+
+  it("validates commission status before any settlement update in the route", async () => {
+    const route = await readFile(new URL("../../server/routes/api/admin-commission.post.ts", import.meta.url), "utf8");
+    const statusAction = route.slice(route.indexOf('if(action==="status")'), route.indexOf('if(action==="delete")'));
+    assert.match(statusAction, /updateAdminCommissionStatus\(sql, id, body\.status\)/);
+    assert.match(statusAction, /kind==="invalid_status"\) throw createError\(\{statusCode:400/);
+    assert.match(statusAction, /kind==="not_found"\) throw createError\(\{statusCode:404/);
+    assert.doesNotMatch(statusAction, /validStatus\(body\.status\)/);
+    assert.doesNotMatch(statusAction, /update admin_commission_settlements/);
   });
 });
