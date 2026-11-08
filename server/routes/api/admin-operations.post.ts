@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { financeMoneySummary } from "@/lib/admin-finance-money";
 
 async function requireAdmin(event:H3Event){
   const token = getCookie(event, ADMIN_SESSION_COOKIE);
@@ -22,7 +23,7 @@ export default defineEventHandler(async(event)=>{
   const claims = await requireAdmin(event);
   const role = normalizeAdminRole(claims?.role);
   const canViewFinance = hasAdminPermission(role, "finance.manage");
-  if(dbSource==="unconfigured") return {dueLeads:[],dueCount:0,next7Count:0,staleProperties:0,finance:{income:0,expense:0,balance:0}};
+  if(dbSource==="unconfigured") return {dueLeads:[],dueCount:0,next7Count:0,staleProperties:0,finance:financeMoneySummary("0","0")};
   const sql=await getSql();
   const [due,next7,stale] = await Promise.all([
     sql.query<Record<string,unknown>>(
@@ -39,13 +40,11 @@ export default defineEventHandler(async(event)=>{
       `select count(*)::int as count from properties
        where status='published' and updated_at < current_timestamp - interval '30 days'`),
   ]);
-  let income = 0;
-  let expense = 0;
+  let financeSummary = financeMoneySummary("0","0");
   if (canViewFinance) {
-    const finance = await sql.query<{income:number;expense:number}>(
+    const finance = await sql.query<{income:string;expense:string}>(
       "select coalesce(sum(amount) filter(where kind='income'),0)::numeric as income, coalesce(sum(amount) filter(where kind='expense'),0)::numeric as expense from finance_transactions");
-    income = Number(finance[0]?.income) || 0;
-    expense = Number(finance[0]?.expense) || 0;
+    financeSummary = financeMoneySummary(finance[0]?.income,finance[0]?.expense);
   }
   return {
     dueCount:due.length,
@@ -56,6 +55,6 @@ export default defineEventHandler(async(event)=>{
     })),
     next7Count:Number(next7[0]?.count)||0,
     staleProperties:Number(stale[0]?.count)||0,
-    finance:{income,expense,balance:income-expense}
+    finance:financeSummary
   };
 });

@@ -8,6 +8,14 @@ const performanceRoute = readFileSync(new URL("../server/routes/api/admin-consul
 const lead360Route = readFileSync(new URL("../server/routes/api/admin-lead-360.post.ts", import.meta.url), "utf8");
 const targetsRoute = readFileSync(new URL("../server/routes/api/admin-consultant-targets.post.ts", import.meta.url), "utf8");
 const targetsComponent = readFileSync(new URL("../src/components/hirmand/admin-consultant-targets.tsx", import.meta.url), "utf8");
+const financeRoute = readFileSync(new URL("../server/routes/api/admin-finance.post.ts", import.meta.url), "utf8");
+const financeInsightsRoute = readFileSync(new URL("../server/routes/api/admin-finance-insights.get.ts", import.meta.url), "utf8");
+const managementReportRoute = readFileSync(new URL("../server/routes/api/admin-management-report.get.ts", import.meta.url), "utf8");
+const operationsRoute = readFileSync(new URL("../server/routes/api/admin-operations.post.ts", import.meta.url), "utf8");
+const financeManager = readFileSync(new URL("../src/components/hirmand/admin-finance-manager.tsx", import.meta.url), "utf8");
+const financeInsights = readFileSync(new URL("../src/components/hirmand/admin-finance-insights.tsx", import.meta.url), "utf8");
+const managementReport = readFileSync(new URL("../src/components/hirmand/admin-management-report.tsx", import.meta.url), "utf8");
+const operationsCenter = readFileSync(new URL("../src/components/hirmand/admin-operations-center.tsx", import.meta.url), "utf8");
 
 test("admin deal create, status and document mutations validate enums before SQL writes", () => {
   const create = route.slice(route.indexOf('if(action==="create")'), route.indexOf('  const id=clean(body.id,120)'));
@@ -89,4 +97,32 @@ test("consultant performance requires report access and gates every financial ag
   assert.match(performanceRoute, /volume: string \| null/);
   assert.match(performanceRoute, /access: \{ deals: canViewDeals, commissions: canViewCommissions \}/);
   assert.match(readFileSync(new URL("../src/components/hirmand/admin-consultant-performance.tsx", import.meta.url), "utf8"), /volume: string \| null/);
+});
+
+test("finance ledger, insights, management report and operations preserve exact PostgreSQL money strings", () => {
+  assert.match(financeRoute, /amount:normalizeFinanceMoney\(r\.amount\)/);
+  assert.match(financeRoute, /summary:financeMoneySummary\(totals\[0\]\?\.income,totals\[0\]\?\.expense\)/);
+  assert.match(financeRoute, /const amount=parseFinanceAmount\(body\.amount\)/);
+  assert.doesNotMatch(financeRoute, /Number\(r\.amount\)|Number\(totals\[0\]\?\.income\)|Number\(totals\[0\]\?\.expense\)/);
+
+  assert.match(financeInsightsRoute, /financeMoneySummary\(r\.income,r\.expense\)/);
+  assert.match(financeInsightsRoute, /normalizeFinanceMoney\(r\.due\)/);
+  assert.doesNotMatch(financeInsightsRoute, /Number\(r\.(?:income|expense|due|paid)\)/);
+
+  assert.match(managementReportRoute, /normalizeFinanceMoney\(d\[0\]\?\.volume\)/);
+  assert.match(managementReportRoute, /financeMoneySummary\(c\[0\]\?\.income,c\[0\]\?\.expense\)/);
+  assert.match(managementReportRoute, /normalizeFinanceMoney\(row\.volume\)/);
+  assert.doesNotMatch(managementReportRoute, /n\(d\[0\]\?\.(?:volume|commission)\)|n\(c\[0\]\?\.(?:income|expense)\)|n\(row\.volume\)/);
+
+  assert.match(operationsRoute, /financeMoneySummary\(finance\[0\]\?\.income,finance\[0\]\?\.expense\)/);
+  assert.doesNotMatch(operationsRoute, /Number\(finance\[0\]\?\.(?:income|expense)\)/);
+
+  assert.match(financeManager, /amount:string/);
+  assert.match(financeManager, /formatTomanExact\(item\.amount\)/);
+  assert.match(financeInsights, /addDecimalStrings\(s,x\.income\)/);
+  assert.match(financeInsights, /formatTomanExact\(n\)/);
+  assert.match(managementReport, /volume: string; commission: string/);
+  assert.match(managementReport, /formatTomanExact\(v\)/);
+  assert.match(operationsCenter, /balance:string/);
+  assert.match(operationsCenter, /formatTomanExact\(data\.finance\.balance/);
 });

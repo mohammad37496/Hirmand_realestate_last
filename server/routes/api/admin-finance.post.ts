@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-sessi
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { financeMoneySummary, normalizeFinanceMoney, parseFinanceAmount } from "@/lib/admin-finance-money";
 
 type Kind = "income" | "expense";
 
@@ -16,17 +17,6 @@ async function requireAdmin(event:H3Event){
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "finance.manage")) {
     throw createError({ statusCode: 403, statusMessage: "سطح دسترسی مالی برای این حساب فعال نیست." });
   }
-}
-
-function parseAmount(value: unknown) {
-  const normalized = String(value ?? "")
-    .trim()
-    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
-    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-    .replace(/[\s٬،,]/g, "");
-  if (!normalized || !/^\d+$/.test(normalized)) return null;
-  const amount = Number(normalized);
-  return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
 }
 
 function tehranCalendarDateNow() {
@@ -69,7 +59,7 @@ export default defineEventHandler(async(event)=>{
   };
   if (dbSource === "unconfigured") {
     if ((body.action ?? "list") === "list") {
-      return { transactions: [], summary: { income: 0, expense: 0, balance: 0 } };
+      return { transactions: [], summary: financeMoneySummary("0", "0") };
     }
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده مالی تنظیم نشده است؛ تغییرات ثبت نشد." });
   }
@@ -80,24 +70,23 @@ export default defineEventHandler(async(event)=>{
     const rows=await sql.query<Record<string,unknown>>(
       `select id,kind,title,amount,transaction_date,property_id,lead_id,consultant,category,note,created_at
        from finance_transactions order by transaction_date desc,created_at desc limit $1`,[limit]);
-    const totals=await sql.query<{income:number;expense:number}>(
+    const totals=await sql.query<{income:string;expense:string}>(
       "select coalesce(sum(amount) filter(where kind='income'),0)::numeric as income, coalesce(sum(amount) filter(where kind='expense'),0)::numeric as expense from finance_transactions");
-    const income=Number(totals[0]?.income)||0, expense=Number(totals[0]?.expense)||0;
     return {transactions:rows.map(r=>({
-      id:Number(r.id),kind:String(r.kind) as Kind,title:String(r.title),amount:Number(r.amount)||0,
+      id:Number(r.id),kind:String(r.kind) as Kind,title:String(r.title),amount:normalizeFinanceMoney(r.amount),
       transactionDate:String(r.transaction_date),propertyId:r.property_id==null?null:String(r.property_id),
       leadId:r.lead_id==null?null:String(r.lead_id),consultant:String(r.consultant??""),
       category:String(r.category??""),note:String(r.note??""),
       createdAt:new Date(String(r.created_at)).toISOString()
-    })),summary:{income,expense,balance:income-expense}};
+    })),summary:financeMoneySummary(totals[0]?.income,totals[0]?.expense)};
   }
 
   if(body.action==="create"){
     const kind=body.kind;
     if(kind!=="income"&&kind!=="expense") throw createError({statusCode:400,statusMessage:"نوع تراکنش نامعتبر است."});
-    const amount=parseAmount(body.amount);
+    const amount=parseFinanceAmount(body.amount);
     const title=String(body.title??"").trim().slice(0,180);
-    if(!title||amount==null||amount<0) throw createError({statusCode:400,statusMessage:"عنوان و مبلغ تراکنش را کامل کنید."});
+    if(!title||amount==null) throw createError({statusCode:400,statusMessage:"عنوان و مبلغ تراکنش را کامل کنید."});
     const date = body.transactionDate ? String(body.transactionDate) : tehranCalendarDateNow();
     if (!isValidCalendarDate(date)) {
       throw createError({ statusCode: 400, statusMessage: "تاریخ معتبر نیست؛ سال، ماه و روز را بررسی کنید." });

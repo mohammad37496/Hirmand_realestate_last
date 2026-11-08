@@ -10,6 +10,7 @@ import {
   adminDealStatusUpdateSchema,
 } from "./admin-deal-input.ts";
 import { normalizeConsultantTargetMoney } from "./admin-consultant-targets.ts";
+import { financeMoneySummary, normalizeFinanceMoney, parseFinanceAmount } from "./admin-finance-money.ts";
 import {
   addDecimalStrings,
   compareDecimalStrings,
@@ -79,6 +80,29 @@ describe("consultant target money input", () => {
     for (const value of ["", "-1", "1e20", "1.2.3", "x", "1".repeat(21), "1".repeat(40) + ".1", null, {}, []]) {
       assert.equal(normalizeConsultantTargetMoney(value), "0", String(value));
     }
+  });
+});
+
+describe("finance ledger exact money", () => {
+  it("accepts up to the numeric(20,0) limit as a decimal string", () => {
+    assert.equal(parseFinanceAmount("۹٬۰۰۷٬۱۹۹٬۲۵۴٬۷۴۰٬۹۹۳٬۰۰۰"), "9007199254740993000");
+    assert.equal(parseFinanceAmount("00000042"), "42");
+    assert.equal(parseFinanceAmount("1".repeat(20)), "1".repeat(20));
+  });
+
+  it("rejects invalid, negative, fractional and over-precision ledger amounts", () => {
+    for (const value of ["", "-1", "1.5", "1e20", "1".repeat(21), "abc", null, {}, []]) {
+      assert.equal(parseFinanceAmount(value), null, String(value));
+    }
+  });
+
+  it("keeps ledger rows and aggregate balances exact beyond Number.MAX_SAFE_INTEGER", () => {
+    assert.equal(normalizeFinanceMoney("90071992547409930000"), "90071992547409930000");
+    assert.deepEqual(
+      financeMoneySummary("90071992547409930000", "90071992547409929999"),
+      { income: "90071992547409930000", expense: "90071992547409929999", balance: "1" },
+    );
+    assert.deepEqual(financeMoneySummary("invalid", null), { income: "0", expense: "0", balance: "0" });
   });
 });
 
