@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   ensure-better-auth-secret:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ensure_better_auth_secret == true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.ensure_better_auth_secret == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -39,6 +39,7 @@ jobs:
       - name: Ensure Better Auth secret in Liara
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF: ${{ github.ref }}
           ENSURE_BETTER_AUTH_SECRET: ${{ inputs.ensure_better_auth_secret }}
           LIARA_API_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
           LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
@@ -46,7 +47,7 @@ jobs:
         run: node scripts/ensure-liara-better-auth-secret.mjs
 
   deploy:
-    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.ensure_better_auth_secret != true) && !contains(github.event.head_commit.message, 'trigger neighborhood catalog sync') }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.ensure_better_auth_secret != true) && !contains(github.event.head_commit.message, 'trigger neighborhood catalog sync') }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:

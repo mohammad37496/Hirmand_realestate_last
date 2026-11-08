@@ -9,13 +9,18 @@ const SECRET_KEY = "BETTER_AUTH_SECRET";
 /** Ensure the Liara secret exists without exposing environment values or CLI output. */
 export function ensureLiaraBetterAuthSecret({
   eventName,
+  ref,
   enabled,
   env,
   runCli = runLiaraCli,
   makeRandomBytes = randomBytes,
   writeStdout = (value) => process.stdout.write(value),
 }) {
-  if (eventName !== "workflow_dispatch" || enabled !== true)
+  if (
+    eventName !== "workflow_dispatch" ||
+    ref !== "refs/heads/main" ||
+    enabled !== true
+  )
     return { status: "skipped" };
 
   const appName = env.LIARA_APP_NAME?.trim() || "hirmand";
@@ -26,8 +31,8 @@ export function ensureLiaraBetterAuthSecret({
       "LIARA_API_TOKEN is unavailable; secret bootstrap stopped safely.",
     );
 
-  const commonArgs = ["--app", appName, "--api-token", apiToken];
-  if (teamId) commonArgs.push("--team-id", teamId);
+  const commonArgs = [`--app=${appName}`, `--api-token=${apiToken}`];
+  if (teamId) commonArgs.push(`--team-id=${teamId}`);
   const readEnvironment = () => {
     const result = runCli(["env", "list", ...commonArgs, "--output=json"]);
     if (result.status !== 0)
@@ -93,6 +98,7 @@ function main() {
   try {
     ensureLiaraBetterAuthSecret({
       eventName: process.env.GITHUB_EVENT_NAME,
+      ref: process.env.GITHUB_REF,
       enabled: process.env.ENSURE_BETTER_AUTH_SECRET === "true",
       env: process.env,
     });

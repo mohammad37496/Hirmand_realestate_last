@@ -6,6 +6,7 @@ import { ensureLiaraBetterAuthSecret } from "./ensure-liara-better-auth-secret.m
 
 const base = {
   eventName: "workflow_dispatch",
+  ref: "refs/heads/main",
   enabled: true,
   env: {
     LIARA_API_TOKEN: "test-token",
@@ -25,11 +26,11 @@ test("deploy workflow exposes a false-by-default manual-only bootstrap and skips
   );
   assert.match(
     workflow,
-    /ensure-better-auth-secret:\s+if: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.ensure_better_auth_secret == true \}\}/,
+    /ensure-better-auth-secret:\s+if: \$\{\{ github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main' && inputs\.ensure_better_auth_secret == true \}\}/,
   );
   assert.match(
     workflow,
-    /deploy:\s+if: \$\{\{ \(github\.event_name != 'workflow_dispatch' \|\| inputs\.ensure_better_auth_secret != true\)/,
+    /deploy:\s+if: \$\{\{ github\.ref == 'refs\/heads\/main' && \(github\.event_name != 'workflow_dispatch' \|\| inputs\.ensure_better_auth_secret != true\)/,
   );
   assert.match(workflow, /'liara-secret-bootstrap' \|\| 'liara-deploy-main'/);
   assert.match(
@@ -45,6 +46,11 @@ test("secret bootstrap is strictly manual and opt-in", () => {
     { eventName: "push", enabled: true },
     { eventName: "pull_request", enabled: true },
     { eventName: "workflow_dispatch", enabled: false },
+    {
+      eventName: "workflow_dispatch",
+      ref: "refs/heads/ops/manual-better-auth-secret-bootstrap",
+      enabled: true,
+    },
   ]) {
     let calls = 0;
     const result = ensureLiaraBetterAuthSecret({
