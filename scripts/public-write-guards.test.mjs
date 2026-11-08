@@ -68,6 +68,12 @@ test("public lead actions check origin and rate-limit capability-token operation
   assert.ok(throttleIndex >= 0 && databaseCheckIndex > throttleIndex);
 });
 
+test("public visit cancellation uses an atomic active-status predicate and returns conflict for stale state", () => {
+  assert.match(publicLeadActionsRoute, /cancelPropertyVisitRequest\(sql, leadId\)/);
+  assert.match(publicLeadActionsRoute, /cancelResult\.kind !== "cancelled"[\s\S]*?statusCode: 409/);
+  assert.doesNotMatch(publicLeadActionsRoute, /update leads set visit_status='cancelled'[^\n]*where id=\$1"/);
+});
+
 test("customer property resubmission uses a rejected-state and updated-at compare-and-swap", () => {
   assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmission\(sql,/);
   assert.match(customerPropertySubmissionsRoute, /updated_at from customer_property_submissions/);
