@@ -244,6 +244,11 @@ async function main() {
       `unpublished property media must be private,no-store, got ${mediaResponse.headers.get("cache-control")}`,
     );
   }
+  if (mediaResponse.headers.get("cross-origin-resource-policy") !== "same-origin") {
+    throw new Error(
+      `private property media must set Cross-Origin-Resource-Policy: same-origin, got ${mediaResponse.headers.get("cross-origin-resource-policy")}`,
+    );
+  }
   const declared = (mediaResponse.headers.get("content-type") || "").split(";")[0].trim();
   if (!RASTER_TYPES.has(declared)) {
     throw new Error(`media endpoint served unexpected content-type ${declared}`);

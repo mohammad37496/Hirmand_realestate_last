@@ -5,6 +5,7 @@ import {
   getCookie,
   getQuery,
   getRouterParam,
+  setHeader,
 } from "h3";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
@@ -72,6 +73,7 @@ function disposition(pathname: string, contentType: string): string {
 }
 
 export default defineEventHandler(async (event) => {
+  setHeader(event, "Cross-Origin-Resource-Policy", "same-origin");
   const id = getRouterParam(event, "id")?.trim();
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: "شناسه رسانه نامعتبر است." });
@@ -159,10 +161,12 @@ export default defineEventHandler(async (event) => {
     "x-content-type-options": "nosniff",
     "content-disposition": disposition(meta.pathname, result.contentType),
     "content-security-policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; media-src 'self' blob: data:",
+    "cross-origin-resource-policy": "same-origin",
   };
 
   if (range) {
     headers["content-range"] = `bytes ${start}-${start + result.bytes.length - 1}/${size}`;
+    headers.vary = "Range";
   }
 
   // `new Response` (instead of a raw stream) keeps the range semantics intact

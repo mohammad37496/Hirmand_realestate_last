@@ -515,6 +515,7 @@ test("Liara video proxy preserves 206 range metadata and returns uncached 416 re
   assert.equal(partial.headers.get("accept-ranges"), "bytes");
   assert.equal(partial.headers.get("cache-control"), "public, max-age=86400");
   assert.equal(partial.headers.get("vary"), "Range");
+  assert.equal(partial.headers.get("cross-origin-resource-policy"), "same-origin");
 
   const unsatisfied = createLiaraVideoResponse(
     new Response(null, {
@@ -528,6 +529,7 @@ test("Liara video proxy preserves 206 range metadata and returns uncached 416 re
   assert.equal(unsatisfied.status, 416);
   assert.equal(unsatisfied.headers.get("content-range"), "bytes */10");
   assert.equal(unsatisfied.headers.get("cache-control"), "no-store");
+  assert.equal(unsatisfied.headers.get("cross-origin-resource-policy"), "same-origin");
 
   assert.equal(
     createLiaraVideoResponse(
@@ -556,6 +558,7 @@ test("Liara music 416 responses preserve Content-Range and bypass shared caches"
   assert.equal(response.headers.get("content-range"), "bytes */12345");
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal(response.headers.get("content-disposition"), "inline");
+  assert.equal(response.headers.get("cross-origin-resource-policy"), "same-origin");
   assert.equal(
     liaraRangeNotSatisfiableResponse(new Response(null, { status: 404 })),
     null,

@@ -195,6 +195,7 @@ export function createLiaraVideoResponse(
       "cache-control": "no-store",
       "content-disposition": "inline",
       "x-content-type-options": "nosniff",
+      "cross-origin-resource-policy": "same-origin",
     });
     const contentRange = upstream.headers.get("content-range");
     if (contentRange) headers.set("content-range", contentRange);

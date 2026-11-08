@@ -202,6 +202,7 @@ export default defineEventHandler(async (event) => {
         "cache-control": cacheControl,
         "x-content-type-options": "nosniff",
         "content-security-policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
+        "cross-origin-resource-policy": "same-origin",
       },
     });
   }
@@ -279,6 +280,7 @@ export default defineEventHandler(async (event) => {
       "cache-control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=604800",
       "x-content-type-options": "nosniff",
       "content-security-policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'",
+      "cross-origin-resource-policy": "same-origin",
     },
   });
 });

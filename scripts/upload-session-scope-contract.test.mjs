@@ -60,6 +60,13 @@ test("database media endpoint gates private upload prefixes and preserves public
   assert.match(databaseMediaRoute, /liaraMediaCacheControl\(meta\.pathname,\s*publishedReference\)/);
   assert.match(databaseMediaRoute, /createRangeNotSatisfiableResponse\(`bytes \*\/\$\{size\}`\)/);
   assert.match(databaseMediaRoute, /status:\s*range\s*\?\s*206\s*:\s*200/);
+  assert.match(databaseMediaRoute, /"cross-origin-resource-policy": "same-origin"/);
+  assert.match(databaseMediaRoute, /setHeader\(event, "Cross-Origin-Resource-Policy", "same-origin"\)/);
+  assert.match(databaseMediaRoute, /headers\.vary = "Range"/);
+});
+
+test("successful image responses from the Liara/Divar proxy are same-origin isolated", () => {
+  assert.equal((mediaProxyRoute.match(/"cross-origin-resource-policy": "same-origin"/g) ?? []).length, 2);
 });
 
 test("admin upload smoke fetches unpublished media with its session and checks private cache headers", () => {
@@ -70,6 +77,7 @@ test("admin upload smoke fetches unpublished media with its session and checks p
   assert.doesNotMatch(uploadSmoke, /await fetch\(mediaUrl\)/);
   assert.match(uploadSmoke, /mediaResponse\.status !== 200/);
   assert.match(uploadSmoke, /mediaResponse\.headers\.get\("cache-control"\) !== "private, no-store"/);
+  assert.match(uploadSmoke, /mediaResponse\.headers\.get\("cross-origin-resource-policy"\) !== "same-origin"/);
   assert.match(uploadSmoke, /const isLiaraUrl =/);
   assert.match(uploadSmoke, /\/api\/media-proxy\?url=/);
 });
