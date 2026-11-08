@@ -30,10 +30,12 @@ const FONT_GIT_BLOB_SHA1 = "64e4a8189557a17b63fd7a77794207483e592972";
 
 const ASSETS = {
   "linux-x64": {
+    assetId: 698334968,
     name: "ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-gpl-9.0.tar.xz",
     sha256: "11570b7bb1436ff432c91202ae0e7ea4be65359fd06650e18935c1ee9d005bf6",
   },
   "linux-arm64": {
+    assetId: 698335088,
     name: "ffmpeg-n9.0.2-42-gd7643a0fe3-linuxarm64-gpl-9.0.tar.xz",
     sha256: "b45eb0c42d311d12f3bddcd7b3a29a3e7fcc2455076d13c79552d45b48d57c08",
   },
@@ -130,6 +132,7 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
       response = await fetchImpl(url, {
         redirect: "manual",
         signal: AbortSignal.timeout(timeoutMs),
+        ...(options.headers ? { headers: options.headers } : {}),
       });
     } catch (error) {
       if (attempt < maxAttempts - 1) {
@@ -301,15 +304,18 @@ export async function ensureFfmpegBinary() {
     return "";
   }
 
-  // The pinned asset names/digests above belong to BtbN/FFmpeg-Builds,
-  // not eugeneware/ffmpeg-static. Keeping the repositories mismatched caused
-  // HTTP 404 during Liara's prebuild and prevented the entire deployment.
-  const baseUrl = process.env.HIRMAND_FFMPEG_BASE_URL?.trim()
-    || "https://github.com/BtbN/FFmpeg-Builds/releases/download";
-  const url = `${baseUrl}/${RELEASE_TAG}/${asset.name}`;
+  // Use the GitHub Releases API asset endpoint rather than the browser
+  // download page: the latter has intermittently returned HTTP 504 at GitHub's
+  // edge, while the API redirects directly to the signed release-assets URL.
+  const customBaseUrl = process.env.HIRMAND_FFMPEG_BASE_URL?.trim();
+  const url = customBaseUrl
+    ? `${customBaseUrl.replace(/\/+$/, "")}/${RELEASE_TAG}/${asset.name}`
+    : `https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/${asset.assetId}`;
 
   console.log(`[ffmpeg] Downloading verified ${asset.name}…`);
-  let archive = await download(url);
+  let archive = await download(url, 0, "FFmpeg", customBaseUrl
+    ? {}
+    : { headers: { Accept: "application/octet-stream", "X-GitHub-Api-Version": "2022-11-28" } });
   verify(archive, asset.sha256);
 
   mkdirSync(TARGET_DIR, { recursive: true });

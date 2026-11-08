@@ -344,9 +344,11 @@ test("object-store offload never deletes the database fallback before saving the
   assert.ok(persistRemotePointer > remoteUpload && deleteDbCopy > persistRemotePointer);
 });
 
-test("FFmpeg release URL uses the same repository as its pinned release assets", () => {
-  assert.match(ffmpegProvisioner, /https:\/\/github\.com\/BtbN\/FFmpeg-Builds\/releases\/download/);
-  assert.doesNotMatch(ffmpegProvisioner, /\|\| "https:\/\/github\.com\/eugeneware\/ffmpeg-static\/releases\/download"/);
+test("FFmpeg downloads use pinned GitHub release asset IDs and the octet-stream API", () => {
+  assert.match(ffmpegProvisioner, /api\.github\.com\/repos\/BtbN\/FFmpeg-Builds\/releases\/assets\/\$\{asset\.assetId\}/);
+  assert.match(ffmpegProvisioner, /Accept:\s*"application\/octet-stream"/);
+  assert.match(ffmpegProvisioner, /assetId:\s*698334968/);
+  assert.match(ffmpegProvisioner, /assetId:\s*698335088/);
   assert.match(ffmpegProvisioner, /ffmpeg-n9\.0\.2-42-gd7643a0fe3-linux64-gpl-9\.0\.tar\.xz/);
   assert.match(ffmpegProvisioner, /FFmpeg lacks required media watermark capabilities/);
 });
