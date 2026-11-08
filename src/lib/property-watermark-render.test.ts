@@ -251,7 +251,10 @@ test(
         data: input,
         contentType: "video/mp4",
         pathname: "properties/uploads/clip.mp4",
-        settings: SETTINGS,
+        // Isolate drawtext from the logo so the pixel assertion below proves
+        // the Persian text rendered, while the separate filter contract test
+        // continues to cover the logo overlay and its end-of-stream behavior.
+        settings: { ...SETTINGS, showLogo: false },
       });
 
       assert.equal(result.contentType, "video/mp4");
@@ -304,7 +307,7 @@ test(
 
       let brightPersianTextPixels = 0;
       for (let y = Math.round(height * 0.84); y < height; y += 1) {
-        for (let x = Math.round(width * 0.52); x < Math.round(width * 0.84); x += 1) {
+        for (let x = Math.round(width * 0.52); x < width - 24; x += 1) {
           if (gray[y * width + x] > 180) brightPersianTextPixels += 1;
         }
       }
