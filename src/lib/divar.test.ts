@@ -149,6 +149,25 @@ test("public media candidates keep Divar images same-origin through the proxy", 
   ]);
 });
 
+test("legacy HTTP Divar media is upgraded before proxying without rewriting unrelated hosts", () => {
+  const legacySource = "http://img.divarcdn.com/sample/one.jpg";
+  const secureSource = "https://img.divarcdn.com/sample/one.jpg";
+  const expected = [
+    "/api/media-proxy?url=" + encodeURIComponent(secureSource),
+  ];
+
+  assert.deepEqual(mediaSourceCandidates(legacySource), expected);
+  assert.deepEqual(
+    mediaSourceCandidates("/api/media-proxy?url=" + encodeURIComponent(legacySource)),
+    expected,
+  );
+  assert.deepEqual(mediaSourceCandidates(secureSource), expected);
+  assert.deepEqual(
+    mediaSourceCandidates("http://example.com/sample/one.jpg"),
+    ["http://example.com/sample/one.jpg"],
+  );
+});
+
 test("Divar media candidates do not hide a failed real image behind a placeholder", () => {
   const source = "https://img.divarcdn.com/sample/one.jpg";
   assert.deepEqual(mediaSourceCandidates(source, "/images/property-placeholder.webp"), [

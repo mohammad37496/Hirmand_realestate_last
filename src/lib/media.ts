@@ -48,6 +48,18 @@ export function isDivarRemoteHost(value: string): boolean {
   }
 }
 
+/** Upgrade legacy Divar media URLs to HTTPS before they enter the server proxy. */
+function secureDivarMediaUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" || !isDivarRemoteHost(value)) return value;
+    url.protocol = "https:";
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 /** Only allow HTTPS media, except for explicit loopback development URLs. */
 function isAllowedRemoteMediaUrl(url: URL): boolean {
   if (url.protocol === "https:") return true;
@@ -171,8 +183,11 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
 
     if ((isTrustedRelativeOrigin || isTrustedAbsoluteOrigin) && isLegacyProxyPath) {
       const storedTarget = legacyUrl.searchParams.get("url")?.trim() ?? "";
-      if (isLiaraStorageHost(storedTarget) || isDivarRemoteHost(storedTarget)) {
+      if (isLiaraStorageHost(storedTarget)) {
         return ["/api/media-proxy?url=" + encodeURIComponent(storedTarget)];
+      }
+      if (isDivarRemoteHost(storedTarget)) {
+        return ["/api/media-proxy?url=" + encodeURIComponent(secureDivarMediaUrl(storedTarget))];
       }
       return [value];
     }
@@ -187,7 +202,7 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
     // Imported classifieds media should never make the visitor's browser call
     // Divar or a foreign image proxy directly. The same-origin route fetches
     // the image server-side and keeps the browser request on Hirmand's domain.
-    return [`/api/media-proxy?url=${encodeURIComponent(value)}`];
+    return [`/api/media-proxy?url=${encodeURIComponent(secureDivarMediaUrl(value))}`];
   }
 
   if (isLiaraRemote) {
