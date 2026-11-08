@@ -11,8 +11,8 @@ import { saveCustomerWorkspaceWithRevision } from "@/lib/customer-workspace-cas.
 const schema = z.object({
   ownerId: z.string().min(1).max(128),
   expectedRevision: z.string().regex(/^[1-9][0-9]{0,18}$/)
-    .refine((value) => BigInt(value) <= 9223372036854775807n, "Invalid workspace revision")
-    .nullable(),
+    .refine((value: string) => BigInt(value) <= 9223372036854775807n, "Invalid workspace revision")
+    .nullable().default(null),
   favorites: z.array(z.string().trim().min(1).max(220)).max(200).default([]),
   favoriteMeta: z.record(z.string(), z.object({
     tag: z.string().max(40).optional(),

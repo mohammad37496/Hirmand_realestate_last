@@ -111,5 +111,32 @@ test("cross-account workspace writes return 409 before validating the new revisi
   const ownerMismatch = route.indexOf("rawBodyObject.ownerId !== userId");
   const schemaValidation = route.indexOf("schema.safeParse(rawBody)");
   assert.ok(ownerMismatch >= 0 && schemaValidation > ownerMismatch);
-  assert.match(route, /expectedRevision: z\.string\(\)\.regex/);
+  assert.match(route, /expectedRevision: z\.string\(\)\.regex[\s\S]*?\.nullable\(\)\.default\(null\)/);
+});
+
+test("same-account legacy writes without a revision default to null and conflict instead of overwriting", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`create table customer_workspace (
+      user_id text primary key,
+      favorites jsonb not null default '[]'::jsonb,
+      favorite_meta jsonb not null default '{}'::jsonb,
+      saved_searches jsonb not null default '[]'::jsonb,
+      recent_properties jsonb not null default '[]'::jsonb,
+      updated_at timestamptz not null default current_timestamp
+    )`);
+    await db.exec(await readFile(new URL("../../migrations/0059_customer_workspace_revision.sql", import.meta.url), "utf8"));
+    /** @type {{ query: (statement: string, params?: unknown[]) => Promise<Array<Record<string, unknown>>> }} */
+    const sql = { query: async (statement, params) => (await db.query(statement, params)).rows };
+    await db.query("insert into customer_workspace(user_id,favorites) values($1,$2::jsonb)", ["legacy-owner", JSON.stringify(["persisted"]) ]);
+    const legacyWrite = await saveCustomerWorkspaceWithRevision(sql, "legacy-owner", {
+      favorites: ["stale-client"], favoriteMeta: {}, savedSearches: [], recentProperties: [],
+    }, null);
+    assert.deepEqual(legacyWrite, { success: false, conflict: true });
+    const persisted = await db.query("select favorites,revision::text as revision from customer_workspace where user_id=$1", ["legacy-owner"]);
+    assert.deepEqual(persisted.rows[0]?.favorites, ["persisted"]);
+    assert.equal(persisted.rows[0]?.revision, "1");
+  } finally {
+    await db.close();
+  }
 });

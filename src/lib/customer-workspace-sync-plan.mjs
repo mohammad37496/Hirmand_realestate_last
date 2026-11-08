@@ -6,21 +6,31 @@
 /** @param {unknown} left @param {unknown} right */
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
-/** Merge set-like arrays while retaining deterministic remote-first order. */
-/** @param {string[]} baseValues @param {string[]} localValues @param {string[]} remoteValues @param {number} limit @param {boolean} [localFirst] */
-function mergeSet(baseValues, localValues, remoteValues, limit, localFirst = false) {
+/** Merge set-like arrays, prioritizing this device's additions before truncation. */
+/** @param {string[]} baseValues @param {string[]} localValues @param {string[]} remoteValues @param {number} limit */
+function mergeSet(baseValues, localValues, remoteValues, limit) {
   const base = new Set(baseValues);
   const local = new Set(localValues);
   const remote = new Set(remoteValues);
-  const candidates = [...new Set([...(localFirst ? localValues : remoteValues), ...(localFirst ? remoteValues : localValues), ...baseValues])];
-  return candidates.filter((value) => {
+  /** @param {string} value */
+  const merged = (value) => {
     const before = base.has(value);
     const localHas = local.has(value);
     const remoteHas = remote.has(value);
     if (localHas === before) return remoteHas;
     if (remoteHas === before) return localHas;
     return localHas;
-  }).slice(0, limit);
+  };
+  const localAdditions = localValues.filter((value) => !base.has(value));
+  const remoteAdditions = remoteValues.filter((value) => !base.has(value));
+  const candidates = [...new Set([
+    ...localAdditions,
+    ...remoteAdditions,
+    ...localValues,
+    ...remoteValues,
+    ...baseValues,
+  ])];
+  return candidates.filter(merged).slice(0, limit);
 }
 
 /**
@@ -65,13 +75,21 @@ export function mergeCustomerWorkspaceThreeWay(base, local, remote) {
     Object.fromEntries((local.savedSearches ?? []).map((item) => [item.id, item])),
     Object.fromEntries((remote.savedSearches ?? []).map((item) => [item.id, item])),
   ));
-  const savedSearches = [
-    ...(remote.savedSearches ?? []).map((item) => savedSearchesById[item.id]).filter(Boolean),
-    ...(local.savedSearches ?? []).map((item) => savedSearchesById[item.id]).filter(Boolean),
-  ].filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index).slice(0, 10);
+  const baseSearchesById = Object.fromEntries((base.savedSearches ?? []).map((item) => [item.id, item]));
+  const localChangedIds = (local.savedSearches ?? [])
+    .filter((item) => !same(item, baseSearchesById[item.id])).map((item) => item.id);
+  const remoteChangedIds = (remote.savedSearches ?? [])
+    .filter((item) => !same(item, baseSearchesById[item.id])).map((item) => item.id);
+  const savedSearchOrder = [...new Set([
+    ...localChangedIds,
+    ...remoteChangedIds,
+    ...(local.savedSearches ?? []).map((item) => item.id),
+    ...(remote.savedSearches ?? []).map((item) => item.id),
+  ])];
+  const savedSearches = savedSearchOrder.map((id) => savedSearchesById[id]).filter(Boolean).slice(0, 10);
   return {
     favorites: mergeSet(base.favorites ?? [], local.favorites ?? [], remote.favorites ?? [], 200),
-    recentProperties: mergeSet(base.recentProperties ?? [], local.recentProperties ?? [], remote.recentProperties ?? [], 20, true),
+    recentProperties: mergeSet(base.recentProperties ?? [], local.recentProperties ?? [], remote.recentProperties ?? [], 20),
     savedSearches,
     favoriteMeta: /** @type {Record<string, { tag?: string, note?: string }>} */ (mergeKeyed(base.favoriteMeta ?? {}, local.favoriteMeta ?? {}, remote.favoriteMeta ?? {})),
   };

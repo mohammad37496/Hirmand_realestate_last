@@ -26,8 +26,8 @@ test("first sign-in merges anonymous browser data into the signed-in account", (
     pendingLocalChanges: false,
   });
   assert.equal(result.direction, "push");
-  assert.deepEqual(result.workspace.favorites, ["remote-a", "shared", "local-a"]);
-  assert.deepEqual(result.workspace.savedSearches.map((item) => item.id), ["remote-search", "local-search"]);
+  assert.deepEqual(result.workspace.favorites, ["local-a", "shared", "remote-a"]);
+  assert.deepEqual(result.workspace.savedSearches.map((item) => item.id), ["local-search", "remote-search"]);
 });
 
 test("a different account never receives the previous account's local snapshot", () => {
@@ -128,4 +128,57 @@ test("same-id saved-search conflicts deterministically prefer local changes", ()
     { favorites: [], recentProperties: [], savedSearches: [{ id: "s", name: "Remote", params: "a=1" }], favoriteMeta: {} },
   );
   assert.equal(merged.savedSearches[0]?.name, "Local");
+});
+
+test("favorites cap prioritizes local additions and retains remote additions and deletions", () => {
+  const baseFavorites = Array.from({ length: 199 }, (_, index) => `favorite-${index}`);
+  const merged = mergeCustomerWorkspaceThreeWay(
+    { favorites: baseFavorites, recentProperties: [], savedSearches: [], favoriteMeta: {} },
+    { favorites: [...baseFavorites.slice(1), "local-favorite"], recentProperties: [], savedSearches: [], favoriteMeta: {} },
+    { favorites: [...baseFavorites, "remote-favorite"], recentProperties: [], savedSearches: [], favoriteMeta: {} },
+  );
+  assert.equal(merged.favorites.length, 200);
+  assert.equal(merged.favorites[0], "local-favorite");
+  assert.ok(merged.favorites.includes("remote-favorite"));
+  assert.ok(!merged.favorites.includes("favorite-0"));
+});
+
+test("saved-search cap prioritizes local changed IDs and additions before remote additions", () => {
+  const baseSearches = Array.from({ length: 8 }, (_, index) => ({
+    id: `search-${index}`, name: `Base ${index}`, params: `page=${index}`,
+  }));
+  const localSearches = [
+    ...baseSearches.slice(1, 7),
+    { ...baseSearches[7], name: "Local changed" },
+    { id: "local-search", name: "Local addition", params: "local=1" },
+  ];
+  const remoteSearches = [
+    ...baseSearches,
+    { id: "remote-search-1", name: "Remote addition 1", params: "remote=1" },
+    { id: "remote-search-2", name: "Remote addition 2", params: "remote=2" },
+  ];
+  const merged = mergeCustomerWorkspaceThreeWay(
+    { favorites: [], recentProperties: [], savedSearches: baseSearches, favoriteMeta: {} },
+    { favorites: [], recentProperties: [], savedSearches: localSearches, favoriteMeta: {} },
+    { favorites: [], recentProperties: [], savedSearches: remoteSearches, favoriteMeta: {} },
+  );
+  assert.equal(merged.savedSearches.length, 10);
+  assert.deepEqual(merged.savedSearches.slice(0, 2).map((item) => item.id), ["search-7", "local-search"]);
+  assert.equal(merged.savedSearches[0]?.name, "Local changed");
+  assert.ok(merged.savedSearches.some((item) => item.id === "remote-search-1"));
+  assert.ok(merged.savedSearches.some((item) => item.id === "remote-search-2"));
+  assert.ok(!merged.savedSearches.some((item) => item.id === "search-0"));
+});
+
+test("recent-properties cap prioritizes local additions and retains remote additions and deletions", () => {
+  const baseRecent = Array.from({ length: 19 }, (_, index) => `recent-${index}`);
+  const merged = mergeCustomerWorkspaceThreeWay(
+    { favorites: [], recentProperties: baseRecent, savedSearches: [], favoriteMeta: {} },
+    { favorites: [], recentProperties: [...baseRecent.slice(1), "local-recent"], savedSearches: [], favoriteMeta: {} },
+    { favorites: [], recentProperties: [...baseRecent, "remote-recent"], savedSearches: [], favoriteMeta: {} },
+  );
+  assert.equal(merged.recentProperties.length, 20);
+  assert.equal(merged.recentProperties[0], "local-recent");
+  assert.ok(merged.recentProperties.includes("remote-recent"));
+  assert.ok(!merged.recentProperties.includes("recent-0"));
 });
