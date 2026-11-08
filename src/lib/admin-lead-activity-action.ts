@@ -88,3 +88,34 @@ export async function updateAdminLeadWithActivity(
     };
   });
 }
+
+export type SaveAdminLeadMatchesResult = { kind: "updated" } | { kind: "not_found" };
+
+/** Persist the computed match snapshot and its CRM timeline entry atomically. */
+export async function saveAdminLeadMatchesWithActivity(
+  sql: Sql,
+  input: { leadId: string; matches: unknown[]; count: number; mode: string; modeLabel: string },
+): Promise<SaveAdminLeadMatchesResult> {
+  if (typeof sql.transaction !== "function") {
+    throw new Error("Database transaction support is required for lead match updates.");
+  }
+
+  return sql.transaction(async (tx) => {
+    const rows = await tx.query<{ id: string }>(
+      "update leads set matched_properties=$2::jsonb, match_count=$3, updated_at=current_timestamp where id=$1 returning id",
+      [input.leadId, JSON.stringify(input.matches), input.count],
+    );
+    if (!rows[0]) return { kind: "not_found" };
+
+    await tx.query(
+      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'match',$2,$3,$4::jsonb)",
+      [
+        input.leadId,
+        "مچ فایل‌ها انجام شد",
+        "معیار: " + input.modeLabel + " · " + input.count + " فایل پیشنهاد شد.",
+        JSON.stringify({ mode: input.mode, count: input.count }),
+      ],
+    );
+    return { kind: "updated" };
+  });
+}
