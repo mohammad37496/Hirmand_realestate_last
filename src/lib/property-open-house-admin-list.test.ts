@@ -347,6 +347,7 @@ test("PGlite cancellation racing an RSVP leaves no active RSVP on a cancelled ev
     `);
     assert.equal(finalState.rows[0]?.event_status, "cancelled");
     assert.equal(finalState.rows[0]?.active_rsvps, 0);
+    assert.equal(await cancelPropertyOpenHouse(sql, "missing-event"), "not_found");
 
     await pg.exec(`
       insert into property_open_houses(id,property_id,starts_at,capacity,status)
