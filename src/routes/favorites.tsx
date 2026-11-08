@@ -177,6 +177,7 @@ function FavoritesPage() {
   const [planError, setPlanError] = useState("");
   const [favoriteMeta, setFavoriteMeta] = useState<FavoriteMetaMap>(() => readFavoriteMeta());
   const favoriteLoadVersion = useRef(0);
+  const recentLoadVersion = useRef(0);
   const [favoriteTagFilter, setFavoriteTagFilter] = useState<FavoriteTag | "all">("all");
   const [favoriteSort, setFavoriteSort] = useState<"saved" | "price-asc" | "price-desc" | "area-desc">("saved");
 
@@ -403,19 +404,21 @@ function FavoritesPage() {
       }
 
       if (recentSlugs.length) {
+        const recentRequestId = ++recentLoadVersion.current;
         try {
           const rows = await listPublishedPropertiesBySlugs({ data: { slugs: recentSlugs } });
-          if (cancelled) return;
+          if (cancelled || recentRequestId !== recentLoadVersion.current) return;
           setRecentProperties(rows);
           const valid = new Set(rows.map((property) => property.slug));
           const retained = recentSlugs.filter((slug) => valid.has(slug));
           if (retained.length !== recentSlugs.length) persistSlugs(RECENT_PROPERTIES_KEY, retained);
         } catch {
-          if (!cancelled) setRecentProperties([]);
+          // Keep the last visible history if the property lookup temporarily fails.
         } finally {
-          if (!cancelled) setRecentLoading(false);
+          if (!cancelled && recentRequestId === recentLoadVersion.current) setRecentLoading(false);
         }
       } else {
+        recentLoadVersion.current += 1;
         setRecentLoading(false);
       }
     }
@@ -441,17 +444,55 @@ function FavoritesPage() {
       if (Array.isArray(result)) {
         favoriteLoadVersion.current += 1;
         setProperties([]);
+        setLoading(false);
         return;
       }
       const snapshot = result as { rows: Property[]; requestId: number };
       if (snapshot.requestId !== favoriteLoadVersion.current) return;
       setProperties(snapshot.rows);
+      setLoading(false);
       const valid = new Set(snapshot.rows.map((property) => property.slug));
       const currentSlugs = readFavorites();
       const retained = currentSlugs.filter((slug) => valid.has(slug));
       if (retained.length !== currentSlugs.length) persistSlugs(FAVORITES_KEY, retained);
     },
-    onLoading: setLoading,
+    onError: () => {
+      setLoading(false);
+      toast.error("بارگذاری فایل‌های ذخیره‌شده ناموفق بود؛ دوباره تلاش کنید.");
+    },
+  }), []);
+
+  useEffect(() => subscribeToFavoriteWorkspaceSync({
+    target: window,
+    initialSlugs: readRecent(),
+    readSlugs: readRecent,
+    load: async (slugs) => {
+      const requestId = ++recentLoadVersion.current;
+      const rows = slugs.length
+        ? await listPublishedPropertiesBySlugs({ data: { slugs } })
+        : [];
+      return { rows, requestId };
+    },
+    onLoaded: (result) => {
+      if (Array.isArray(result)) {
+        recentLoadVersion.current += 1;
+        setRecentProperties([]);
+        setRecentLoading(false);
+        return;
+      }
+      const snapshot = result as { rows: Property[]; requestId: number };
+      if (snapshot.requestId !== recentLoadVersion.current) return;
+      setRecentProperties(snapshot.rows);
+      setRecentLoading(false);
+      const valid = new Set(snapshot.rows.map((property) => property.slug));
+      const currentSlugs = readRecent();
+      const retained = currentSlugs.filter((slug) => valid.has(slug));
+      if (retained.length !== currentSlugs.length) persistSlugs(RECENT_PROPERTIES_KEY, retained);
+    },
+    onError: () => {
+      setRecentLoading(false);
+      toast.error("بارگذاری تاریخچه مرور ناموفق بود؛ دوباره تلاش کنید.");
+    },
   }), []);
 
   return (

@@ -19,6 +19,7 @@ export function subscribeToFavoriteWorkspaceSync({
     const nextSlugs = readSlugs();
     if (nextSlugs.length === lastSlugs.length && nextSlugs.every((slug, index) => slug === lastSlugs[index])) return;
 
+    const previousSlugs = lastSlugs;
     lastSlugs = nextSlugs;
     const currentRequest = ++requestId;
     if (!nextSlugs.length) {
@@ -31,7 +32,10 @@ export function subscribeToFavoriteWorkspaceSync({
     void load(nextSlugs).then((rows) => {
       if (currentRequest === requestId) onLoaded(rows, nextSlugs);
     }).catch((error) => {
-      if (currentRequest === requestId) onError?.(error);
+      if (currentRequest === requestId) {
+        lastSlugs = previousSlugs;
+        onError?.(error);
+      }
     }).finally(() => {
       if (currentRequest === requestId) onLoading?.(false);
     });
