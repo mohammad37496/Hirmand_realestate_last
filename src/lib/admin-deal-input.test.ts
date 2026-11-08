@@ -5,6 +5,12 @@ import {
   adminDealDocumentUpdateSchema,
   adminDealStatusUpdateSchema,
 } from "./admin-deal-input.ts";
+import {
+  addDecimalStrings,
+  compareDecimalStrings,
+  formatDecimalMoney,
+  subtractDecimalStrings,
+} from "./decimal-money.ts";
 
 describe("admin deal enum validation", () => {
   it("keeps defaults only when optional create values are omitted", () => {
@@ -39,5 +45,18 @@ describe("admin deal enum validation", () => {
     for (const documentStatus of ["pending", "received", "verified", "rejected"] as const) {
       assert.equal(adminDealDocumentUpdateSchema.parse({ documentStatus }).documentStatus, documentStatus);
     }
+  });
+});
+
+describe("exact decimal money operations", () => {
+  it("compares and subtracts amounts beyond Number.MAX_SAFE_INTEGER without rounding", () => {
+    assert.equal(compareDecimalStrings("9007199254740993", "9007199254740992"), 1);
+    assert.equal(subtractDecimalStrings("9007199254740993.25", "9007199254740992.5"), "0.75");
+    assert.equal(addDecimalStrings("9007199254740993.25", "0.75"), "9007199254740994");
+  });
+
+  it("formats large integer and fractional values without converting through Number", () => {
+    assert.equal(formatDecimalMoney("9007199254740993.25"), "۹٬۰۰۷٬۱۹۹٬۲۵۴٬۷۴۰٬۹۹۳.۲۵");
+    assert.equal(formatDecimalMoney("0.005"), "۰.۰۰۵");
   });
 });
