@@ -194,6 +194,45 @@ test("FFmpeg uses the public pinned release URL after exhausted API transport re
   assert.equal(new Headers(requests[1].options.headers).has("authorization"), false);
 });
 
+test("FFmpeg uses the public pinned release URL after exhausted API timeout retries", async () => {
+  const assetBytes = Buffer.from("same pinned FFmpeg archive bytes after API timeout");
+  const asset = {
+    assetId: 698334968,
+    name: "ffmpeg-timeout-test.tar.xz",
+    sha256: createHash("sha256").update(assetBytes).digest("hex"),
+  };
+  let fetchCalls = 0;
+  const requests = [];
+  const archive = await downloadVerifiedFfmpegArchive(asset, {
+    githubToken: "workflow-token",
+    downloadImpl: async (url, redirects, label, options) => {
+      requests.push({ url, options });
+      if (url.startsWith("https://api.github.com/")) {
+        return download(url, redirects, label, {
+          ...options,
+          maxAttempts: 2,
+          retryDelays: [1],
+          sleep: async () => {},
+          fetchImpl: async () => {
+            fetchCalls += 1;
+            const timeout = new Error("request timed out");
+            timeout.name = "TimeoutError";
+            throw timeout;
+          },
+        });
+      }
+      return assetBytes;
+    },
+  });
+
+  assert.deepEqual(archive, assetBytes);
+  assert.equal(fetchCalls, 2, "API timeout must exhaust bounded retries first");
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].url, "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-timeout-test.tar.xz");
+  assert.equal(Object.hasOwn(requests[1].options, "githubToken"), false);
+  assert.equal(new Headers(requests[1].options.headers).has("authorization"), false);
+});
+
 test("FFmpeg does not use the release fallback for authorization or ordinary rate-limit statuses, or accept unverified bytes", async () => {
   for (const status of [401, 403, 404, 429]) {
     let calls = 0;
