@@ -129,3 +129,25 @@ test("cross-device workspace smoke verifies favorites, metadata, saved searches 
   assert.match(workspaceE2e, /firstDeviceSyncedWorkspace\.favoriteMeta/);
   assert.match(workspaceE2e, /firstDeviceSyncedWorkspace\.recentProperties/);
 });
+
+test("server-side session authorization bypasses Better Auth's cached session cookie", () => {
+  const serverSessionCalls = [...verify.matchAll(/auth\.api\.getSession\(\{([\s\S]*?)\}\)/g)];
+  assert.equal(serverSessionCalls.length, 2, "both server session resolvers must verify against the database");
+  for (const [, options] of serverSessionCalls) {
+    assert.match(options, /headers/);
+    assert.match(options, /query:\s*\{\s*disableCookieCache:\s*true\s*\}/);
+  }
+  assert.match(server, /cookieCache:\s*\{\s*enabled:\s*true/,
+    "the ordinary Better Auth client session cache remains enabled");
+});
+
+test("expired-session smoke retains both cookies and explicitly bypasses the cache", () => {
+  assert.match(workspaceE2e, /cookie\.name === "__Host-grok-auth\.session_token"/);
+  assert.match(workspaceE2e, /cookie\.name === "__Host-grok-auth\.session_data"/);
+  assert.doesNotMatch(workspaceE2e, /context\.clearCookies\(\)|context\.addCookies\(/,
+    "the smoke must preserve the original browser cookies while expiring the database row");
+  assert.match(workspaceE2e, /\/api\/auth\/get-session\?disableCookieCache=true/);
+  assert.match(workspaceE2e, /expiredSession\?\.user \?\? null, null/);
+  assert.match(workspaceE2e, /expiredWorkspaceResponse\.status\(\), 401/);
+  assert.match(workspaceE2e, /expiredWorkspaceResponse\.headers\(\)\["cache-control"\]/);
+});

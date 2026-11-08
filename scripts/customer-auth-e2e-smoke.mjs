@@ -49,10 +49,10 @@ async function expireUserSessionsInDisposableDatabase(userId, context) {
   );
 
   const cookies = await context.cookies(baseUrl);
-  const sessionTokenCookie = cookies.find((cookie) => cookie.name.endsWith("session_token"));
+  const sessionTokenCookie = cookies.find((cookie) => cookie.name === "__Host-grok-auth.session_token");
+  const sessionDataCookie = cookies.find((cookie) => cookie.name === "__Host-grok-auth.session_data");
   assert.ok(sessionTokenCookie, "the signed-in browser must have a Better Auth session token cookie");
-  await context.clearCookies();
-  await context.addCookies([sessionTokenCookie]);
+  assert.ok(sessionDataCookie, "the signed-in browser must retain its Better Auth cached session cookie");
 
   const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
   try {
@@ -263,7 +263,9 @@ try {
   assert.ok(firstDeviceSyncedWorkspace.recentProperties.includes("device-two-recent"));
 
   await expireUserSessionsInDisposableDatabase(firstSession.user.id, firstContext);
-  const expiredSessionResponse = await firstPage.request.get(new URL("/api/auth/get-session", baseUrl).toString());
+  const expiredSessionResponse = await firstPage.request.get(
+    new URL("/api/auth/get-session?disableCookieCache=true", baseUrl).toString(),
+  );
   assert.equal(expiredSessionResponse.status(), 200);
   const expiredSession = await expiredSessionResponse.json();
   assert.equal(expiredSession?.user ?? null, null, "Better Auth must reject a session whose database expiry has passed");
