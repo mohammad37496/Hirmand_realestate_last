@@ -122,8 +122,8 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
   const sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   const maxAttempts = Number.isInteger(options.maxAttempts) && options.maxAttempts >= 1 && options.maxAttempts <= 5
     ? options.maxAttempts
-    : 4;
-  const retryDelays = options.retryDelays ?? [1_000, 3_000, 7_000];
+    : 5;
+  const retryDelays = options.retryDelays ?? [1_000, 3_000, 7_000, 15_000];
 
   function requestHeaders(requestUrl) {
     const headers = new Headers(options.headers ?? {});

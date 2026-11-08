@@ -63,6 +63,25 @@ test("FFmpeg download retries transient gateway errors with bounded backoff", as
   assert.deepEqual(delays, [10, 20]);
 });
 
+test("FFmpeg download bounds repeated 5xx retries to five attempts", async () => {
+  let calls = 0;
+  const delays = [];
+  await assert.rejects(
+    download("https://api.github.com/example", 0, "FFmpeg", {
+      maxAttempts: 5,
+      retryDelays: [10, 20, 30, 40],
+      fetchImpl: async () => {
+        calls += 1;
+        return new Response("upstream unavailable", { status: 503 });
+      },
+      sleep: async (delayMs) => delays.push(delayMs),
+    }),
+    /FFmpeg download failed with HTTP 503/,
+  );
+  assert.equal(calls, 5);
+  assert.deepEqual(delays, [10, 20, 30, 40]);
+});
+
 test("FFmpeg download does not retry permanent client errors", async () => {
   let calls = 0;
   await assert.rejects(
