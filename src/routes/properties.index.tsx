@@ -48,6 +48,7 @@ import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { compactSearchText, normalizeSearchText, parseIntegerFilter, toLatinDigits, validatePropertySearchNumbers } from "@/lib/property-search-utils";
 import { getOrCreateInFlight } from "@/lib/in-flight-query";
+import { createSnapshotRefreshGate } from "@/lib/snapshot-refresh-gate";
 import { parseCoordinateBounds } from "@/lib/map-geometry";
 
 const PAGE_SIZE = 48;
@@ -113,12 +114,6 @@ function readSavedSearches(): SavedSearch[] {
             : new Date().toISOString(),
       }))
       .slice(0, MAX_SAVED_SEARCHES);
-    try {
-      localStorage.setItem(SAVED_SEARCHES_KEY, JSON.stringify(normalized));
-      window.dispatchEvent(new Event("hirmand:workspace-changed"));
-    } catch {
-      // Keep the normalized searches in memory when storage is blocked.
-    }
     return normalized;
   } catch {
     return [];
@@ -432,6 +427,7 @@ function PropertiesIndexPage() {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchId, setSavedSearchId] = useState("");
   const [savedSearchAlerts, setSavedSearchAlerts] = useState<Record<string, number>>({});
+  const savedSearchAlertRefreshGate = useRef(createSnapshotRefreshGate());
   const [viewMode, setViewMode] = useState<"grid" | "list" | "split">("grid");
   const [viewModeManuallySelected, setViewModeManuallySelected] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -445,6 +441,31 @@ function PropertiesIndexPage() {
   const requestId = useRef(0);
   const queryCache = useRef(new Map<string, { rows: typeof initial.properties; count: number; timestamp: number }>());
   const inFlightQueries = useRef(new Map<string, Promise<{ rows: typeof initial.properties; count: number; timestamp: number }>>());
+
+  const refreshSavedSearchAlerts = useCallback((entries: SavedSearch[]) => {
+    const signature = JSON.stringify(entries);
+    return savedSearchAlertRefreshGate.current.refresh(signature, async () => {
+      const enabled = entries.filter((item) => item.alerts !== false && item.lastCheckedAt);
+      const next: Record<string, number> = {};
+      await Promise.all(
+        enabled.map(async (item) => {
+          try {
+            const rows = await listPublishedPropertyCards({ data: filtersFromSavedSearch(item.params) });
+            const since = new Date(item.lastCheckedAt || "").getTime();
+            if (!Number.isFinite(since)) return;
+            const count = rows.filter((property) => {
+              const published = property.publishedAt ? new Date(property.publishedAt).getTime() : NaN;
+              return Number.isFinite(published) && published > since;
+            }).length;
+            if (count > 0) next[item.id] = count;
+          } catch {
+            // An individual alert check failing should not break the property list.
+          }
+        }),
+      );
+      return next;
+    }, setSavedSearchAlerts, { force: true });
+  }, []);
 
   const searchValidationErrors = useMemo(() => {
     const numeric = validatePropertySearchNumbers({
@@ -493,9 +514,15 @@ function PropertiesIndexPage() {
   }, []);
 
   useEffect(() => {
-    const storedSearches = readSavedSearches();
-    setSavedSearches(storedSearches);
-    void refreshSavedSearchAlerts(storedSearches);
+    const refreshSavedSearchState = () => {
+      const storedSearches = readSavedSearches();
+      setSavedSearches(storedSearches);
+      setSavedSearchId((current) => storedSearches.some((item) => item.id === current) ? current : "");
+      void refreshSavedSearchAlerts(storedSearches);
+    };
+    refreshSavedSearchState();
+    const onWorkspaceSynced = () => refreshSavedSearchState();
+    window.addEventListener("hirmand:workspace-synced", onWorkspaceSynced);
     const alertTimer = window.setInterval(() => {
       const current = readSavedSearches();
       void refreshSavedSearchAlerts(current);
@@ -553,8 +580,11 @@ function PropertiesIndexPage() {
     setSort(validSort);
     skipInitialFetch.current = Array.from(params.keys()).length === 0;
     setUrlReady(true);
-    return () => window.clearInterval(alertTimer);
-  }, []);
+    return () => {
+      window.clearInterval(alertTimer);
+      window.removeEventListener("hirmand:workspace-synced", onWorkspaceSynced);
+    };
+  }, [refreshSavedSearchAlerts]);
 
   useEffect(() => {
     if (!urlReady) return;
@@ -941,33 +971,6 @@ function PropertiesIndexPage() {
       "newest",
       0,
     );
-  }
-
-  async function refreshSavedSearchAlerts(entries: SavedSearch[]) {
-    const enabled = entries.filter((item) => item.alerts !== false && item.lastCheckedAt);
-    if (!enabled.length) {
-      setSavedSearchAlerts({});
-      return;
-    }
-
-    const next: Record<string, number> = {};
-    await Promise.all(
-      enabled.map(async (item) => {
-        try {
-          const rows = await listPublishedPropertyCards({ data: filtersFromSavedSearch(item.params) });
-          const since = new Date(item.lastCheckedAt || "").getTime();
-          if (!Number.isFinite(since)) return;
-          const count = rows.filter((property) => {
-            const published = property.publishedAt ? new Date(property.publishedAt).getTime() : NaN;
-            return Number.isFinite(published) && published > since;
-          }).length;
-          if (count > 0) next[item.id] = count;
-        } catch {
-          // An individual alert check failing should not break the property list.
-        }
-      }),
-    );
-    setSavedSearchAlerts(next);
   }
 
   function saveCurrentSearch() {

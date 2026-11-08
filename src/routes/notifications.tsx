@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, BellRing, CheckCheck, ExternalLink, RefreshCw, TrendingDown } from "lucide-react";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { listPublishedPropertyCards, type PropertyCardData, type PropertyOrientation, type PropertyType, type PropertyTransaction } from "@/lib/properties";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
+import { createSnapshotRefreshGate } from "@/lib/snapshot-refresh-gate";
 
 type WatchAlert = { id: string; slug: string; type: string; message: string; createdAt: string };
 type FeedItem = { id: string; kind: "watch" | "drop" | "new" | "saved-search"; title: string; text: string; href?: string; createdAt?: string; alertId?: string };
@@ -11,6 +12,7 @@ type FeedItem = { id: string; kind: "watch" | "drop" | "new" | "saved-search"; t
 const SEEN_AT_KEY = "hirmand-notification-seen-at";
 const SEEN_ALERTS_KEY = "hirmand-notification-alerts-seen";
 const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
+type SavedSearch = { id: string; name: string; params: string; alerts?: boolean; lastCheckedAt?: string };
 
 export const Route = createFileRoute("/notifications")({
   head: () => {
@@ -22,7 +24,7 @@ export const Route = createFileRoute("/notifications")({
 });
 
 function safeRead(key: string) { try { return localStorage.getItem(key); } catch { return null; } }
-function readSavedSearches(): Array<{ id: string; name: string; params: string; alerts?: boolean; lastCheckedAt?: string }> {
+function readSavedSearches(): SavedSearch[] {
   try {
     const raw = localStorage.getItem(SAVED_SEARCHES_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
@@ -30,6 +32,74 @@ function readSavedSearches(): Array<{ id: string; name: string; params: string; 
   } catch {
     return [];
   }
+}
+
+async function loadSavedSearchMatches(savedSearches: SavedSearch[]) {
+  const searchMatches = await Promise.all(savedSearches.map(async (search) => {
+    try {
+      const params = new URLSearchParams(search.params);
+      const numberParam = (key: string) => {
+        const value = Number(params.get(key));
+        return Number.isFinite(value) ? Math.round(value) : undefined;
+      };
+      const rawTransaction = params.get("transaction") ?? "";
+      const transactionType = ["sell", "buy", "rent", "mortgage"].includes(rawTransaction) ? rawTransaction as PropertyTransaction : undefined;
+      const rawPropertyType = params.get("type") ?? "";
+      const propertyType = ["apartment", "villa", "office", "heritage", "land", "commercial"].includes(rawPropertyType)
+        ? rawPropertyType as PropertyType
+        : undefined;
+      const rawOrientation = params.get("orientation") ?? "";
+      const orientation = ["north","south","east","west","northeast","northwest","southeast","southwest","two_fronts","three_fronts","four_fronts","other"].includes(rawOrientation)
+        ? rawOrientation as PropertyOrientation
+        : undefined;
+      const rows = await listPublishedPropertyCards({ data: {
+        search: params.get("q") || undefined,
+        transactionType,
+        propertyType,
+        neighborhood: params.get("neighborhood") || undefined,
+        minArea: numberParam("minArea"),
+        maxArea: numberParam("maxArea"),
+        minPrice: numberParam("minPrice"),
+        maxPrice: numberParam("maxPrice"),
+        minBedrooms: numberParam("bedrooms"),
+        minBathrooms: numberParam("bathrooms"),
+        minFloor: numberParam("minFloor"),
+        maxFloor: numberParam("maxFloor"),
+        floorType: params.get("floorType") === "suite" ? "suite" : undefined,
+        orientation,
+        convertibleOnly: params.get("convertible") === "1" || undefined,
+        minTotalFloors: numberParam("minFloors"),
+        maxTotalFloors: numberParam("maxFloors"),
+        minBuiltYear: numberParam("minYear"),
+        maxBuiltYear: numberParam("maxYear"),
+        parkingOnly: params.get("parking") === "1" || undefined,
+        elevatorOnly: params.get("elevator") === "1" || undefined,
+        storageOnly: params.get("storage") === "1" || undefined,
+        specFilters: (params.get("specs") || "").split(",").map((item) => item.trim()).filter(Boolean),
+        featureSearch: params.get("features") || undefined,
+        featuredOnly: params.get("featured") === "1" || undefined,
+        hasImagesOnly: params.get("images") === "1" || undefined,
+        hasLocationOnly: params.get("location") === "1" || undefined,
+        sort: "newest",
+        offset: 0,
+      }});
+      const since = Date.parse(search.lastCheckedAt || "");
+      if (!Number.isFinite(since)) return null;
+      const matching = rows.filter((property) => {
+        const published = property.publishedAt ? Date.parse(property.publishedAt) : NaN;
+        return Number.isFinite(published) && published > since;
+      });
+      return matching.length ? {
+        id: search.id,
+        name: search.name,
+        count: matching.length,
+        createdAt: matching.reduce((latestAt, item) => Math.max(latestAt, Date.parse(item.publishedAt || "") || 0), 0) ? new Date(Math.max(...matching.map((item) => Date.parse(item.publishedAt || "") || 0))).toISOString() : new Date().toISOString(),
+      } : null;
+    } catch {
+      return null;
+    }
+  }));
+  return searchMatches.filter((item): item is { id: string; name: string; count: number; createdAt: string } => Boolean(item));
 }
 
 function safeWrite(key: string, value: string) {
@@ -46,11 +116,29 @@ function NotificationsPage() {
   const [savedSearchMatches, setSavedSearchMatches] = useState<Array<{ id: string; name: string; count: number; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+  const savedSearchRefreshGate = useRef(createSnapshotRefreshGate());
 
-  async function refresh() {
+  const refreshSavedSearchMatches = useCallback(async (force = false) => {
+    const savedSearches = readSavedSearches().filter((item) => item.alerts !== false && item.lastCheckedAt);
+    const signature = JSON.stringify(savedSearches);
+    await savedSearchRefreshGate.current.refresh(signature, () => loadSavedSearchMatches(savedSearches), (nextSearchMatches) => {
+      setSavedSearchMatches(nextSearchMatches);
+      const seen = new Set<string>(JSON.parse(safeRead(SEEN_ALERTS_KEY) ?? "[]"));
+      const freshSearches = nextSearchMatches.filter((item) => !seen.has("search:" + item.id + ":" + item.createdAt));
+      if ("Notification" in window && Notification.permission === "granted" && freshSearches.length) {
+        for (const item of freshSearches.slice(0, 1)) {
+          new Notification("هیرمند · فایل جدید مطابق جستجو", { body: item.name + " · " + item.count.toLocaleString("fa-IR") + " فایل جدید" });
+          seen.add("search:" + item.id + ":" + item.createdAt);
+        }
+        safeWrite(SEEN_ALERTS_KEY, JSON.stringify([...seen].slice(-100)));
+      }
+    }, { force });
+  }, []);
+
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const savedSearches = readSavedSearches().filter((item) => item.alerts !== false && item.lastCheckedAt);
+      const savedSearchRefresh = refreshSavedSearchMatches(true);
       const [watchResponse, latest] = await Promise.all([
         fetch("/api/property-watch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "sync" }) })
           .then((response) => response.json() as Promise<{ alerts?: WatchAlert[] }>),
@@ -59,86 +147,15 @@ function NotificationsPage() {
       const nextAlerts = Array.isArray(watchResponse.alerts) ? watchResponse.alerts : [];
       setAlerts(nextAlerts);
       setRecent(latest);
-
-      const searchMatches = await Promise.all(savedSearches.map(async (search) => {
-        try {
-          const params = new URLSearchParams(search.params);
-          const numberParam = (key: string) => {
-            const value = Number(params.get(key));
-            return Number.isFinite(value) ? Math.round(value) : undefined;
-          };
-          const rawTransaction = params.get("transaction") ?? "";
-          const transactionType = ["sell", "buy", "rent", "mortgage"].includes(rawTransaction) ? rawTransaction as PropertyTransaction : undefined;
-          const rawPropertyType = params.get("type") ?? "";
-          const propertyType = ["apartment", "villa", "office", "heritage", "land", "commercial"].includes(rawPropertyType)
-            ? rawPropertyType as PropertyType
-            : undefined;
-          const rawOrientation = params.get("orientation") ?? "";
-          const orientation = ["north","south","east","west","northeast","northwest","southeast","southwest","two_fronts","three_fronts","four_fronts","other"].includes(rawOrientation)
-            ? rawOrientation as PropertyOrientation
-            : undefined;
-          const rows = await listPublishedPropertyCards({ data: {
-            search: params.get("q") || undefined,
-            transactionType,
-            propertyType,
-            neighborhood: params.get("neighborhood") || undefined,
-            minArea: numberParam("minArea"),
-            maxArea: numberParam("maxArea"),
-            minPrice: numberParam("minPrice"),
-            maxPrice: numberParam("maxPrice"),
-            minBedrooms: numberParam("bedrooms"),
-            minBathrooms: numberParam("bathrooms"),
-            minFloor: numberParam("minFloor"),
-            maxFloor: numberParam("maxFloor"),
-            floorType: params.get("floorType") === "suite" ? "suite" : undefined,
-            orientation,
-            convertibleOnly: params.get("convertible") === "1" || undefined,
-            minTotalFloors: numberParam("minFloors"),
-            maxTotalFloors: numberParam("maxFloors"),
-            minBuiltYear: numberParam("minYear"),
-            maxBuiltYear: numberParam("maxYear"),
-            parkingOnly: params.get("parking") === "1" || undefined,
-            elevatorOnly: params.get("elevator") === "1" || undefined,
-            storageOnly: params.get("storage") === "1" || undefined,
-            specFilters: (params.get("specs") || "").split(",").map((item) => item.trim()).filter(Boolean),
-            featureSearch: params.get("features") || undefined,
-            featuredOnly: params.get("featured") === "1" || undefined,
-            hasImagesOnly: params.get("images") === "1" || undefined,
-            hasLocationOnly: params.get("location") === "1" || undefined,
-            sort: "newest",
-            offset: 0,
-          }});
-          const since = Date.parse(search.lastCheckedAt || "");
-          if (!Number.isFinite(since)) return null;
-          const matching = rows.filter((property) => {
-            const published = property.publishedAt ? Date.parse(property.publishedAt) : NaN;
-            return Number.isFinite(published) && published > since;
-          });
-          return matching.length ? {
-            id: search.id,
-            name: search.name,
-            count: matching.length,
-            createdAt: matching.reduce((latestAt, item) => Math.max(latestAt, Date.parse(item.publishedAt || "") || 0), 0) ? new Date(Math.max(...matching.map((item) => Date.parse(item.publishedAt || "") || 0))).toISOString() : new Date().toISOString(),
-          } : null;
-        } catch {
-          return null;
-        }
-      }));
-      const nextSearchMatches = searchMatches.filter((item): item is { id: string; name: string; count: number; createdAt: string } => Boolean(item));
-      setSavedSearchMatches(nextSearchMatches);
+      await savedSearchRefresh;
       if ("Notification" in window) setBrowserPermission(Notification.permission);
 
       const seen = new Set<string>(JSON.parse(safeRead(SEEN_ALERTS_KEY) ?? "[]"));
       const freshAlerts = nextAlerts.filter((alert) => !seen.has(alert.id));
-      const freshSearches = nextSearchMatches.filter((item) => !seen.has("search:" + item.id + ":" + item.createdAt));
-      if ("Notification" in window && Notification.permission === "granted" && (freshAlerts.length || freshSearches.length)) {
+      if ("Notification" in window && Notification.permission === "granted" && freshAlerts.length) {
         for (const alert of freshAlerts.slice(0, 2)) {
           new Notification("هیرمند · اعلان ملک", { body: alert.message });
           seen.add(alert.id);
-        }
-        for (const item of freshSearches.slice(0, 1)) {
-          new Notification("هیرمند · فایل جدید مطابق جستجو", { body: item.name + " · " + item.count.toLocaleString("fa-IR") + " فایل جدید" });
-          seen.add("search:" + item.id + ":" + item.createdAt);
         }
         safeWrite(SEEN_ALERTS_KEY, JSON.stringify([...seen].slice(-100)));
       }
@@ -146,9 +163,14 @@ function NotificationsPage() {
     } catch {
       // Keep the existing notification feed when a source temporarily fails.
     } finally { setLoading(false); }
-  }
+  }, [refreshSavedSearchMatches]);
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    const onWorkspaceSynced = () => { void refreshSavedSearchMatches(); };
+    window.addEventListener("hirmand:workspace-synced", onWorkspaceSynced);
+    void refresh();
+    return () => window.removeEventListener("hirmand:workspace-synced", onWorkspaceSynced);
+  }, [refresh, refreshSavedSearchMatches]);
 
   const feed = useMemo<FeedItem[]>(() => {
     const items: FeedItem[] = alerts.map((alert) => ({
