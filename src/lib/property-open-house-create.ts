@@ -39,7 +39,7 @@ export async function createPropertyOpenHouseEvent(
 
     const id = crypto.randomUUID();
     const inserted = await transactionSql.query<{ id: string }>(
-      "insert into property_open_houses(id,property_id,starts_at,ends_at,capacity,note) values($1,$2,$3,$4,$5,$6) returning id",
+      "insert into property_open_houses(id,property_id,starts_at,ends_at,capacity,note,status) values($1,$2,$3,$4,$5,$6,'scheduled') returning id",
       [id, property.id, input.startsAt, input.endsAt, input.capacity, input.note],
     );
     return inserted[0] ? { kind: "created", id: inserted[0].id } : { kind: "not_found" };
