@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { compareDecimalStrings } from "@/lib/decimal-money";
 
 function number(value: unknown) {
   const n = Number(value);
@@ -40,11 +41,11 @@ export default defineEventHandler(async (event) => {
     ),
   ]);
 
-  type Row = { name: string; leads: number; contractedLeads: number; openLeads: number; deals: number; completedDeals: number; volume: number; commissions: number; paid: number; due: number };
+  type Row = { name: string; leads: number; contractedLeads: number; openLeads: number; deals: number; completedDeals: number; volume: string; commissions: string; paid: string; due: string };
   const map = new Map<string, Row>();
   const ensure = (value: unknown) => {
     const name = String(value ?? "").trim() || "بدون مشاور";
-    if (!map.has(name)) map.set(name, { name, leads: 0, contractedLeads: 0, openLeads: 0, deals: 0, completedDeals: 0, volume: 0, commissions: 0, paid: 0, due: 0 });
+    if (!map.has(name)) map.set(name, { name, leads: 0, contractedLeads: 0, openLeads: 0, deals: 0, completedDeals: 0, volume: "0", commissions: "0", paid: "0", due: "0" });
     return map.get(name)!;
   };
   for (const row of leads) {
@@ -57,19 +58,19 @@ export default defineEventHandler(async (event) => {
     const item = ensure(row.consultant);
     item.deals = number(row.deal_count);
     item.completedDeals = number(row.completed_deals);
-    item.volume = number(row.volume);
-    item.commissions = number(row.commissions);
+    item.volume = String(row.volume ?? "0");
+    item.commissions = String(row.commissions ?? "0");
   }
   for (const row of settlements) {
     const item = ensure(row.consultant);
-    item.paid = number(row.paid);
-    item.due = number(row.due);
+    item.paid = String(row.paid ?? "0");
+    item.due = String(row.due ?? "0");
   }
 
   const rows = [...map.values()].map((item) => ({
     ...item,
     conversionRate: item.leads > 0 ? Math.round((item.deals / item.leads) * 1000) / 10 : 0,
-  })).sort((a, b) => b.deals - a.deals || b.volume - a.volume || a.name.localeCompare(b.name, "fa"));
+  })).sort((a, b) => b.deals - a.deals || compareDecimalStrings(b.volume, a.volume) || a.name.localeCompare(b.name, "fa"));
 
   return { days, consultants: rows };
 });
