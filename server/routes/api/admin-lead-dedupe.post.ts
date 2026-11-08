@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { mergeAdminLeadDuplicate } from "@/lib/admin-lead-dedupe";
 
 const DIGIT_TRANSLATION = "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩";
 
@@ -40,6 +41,7 @@ export default defineEventHandler(async (event) => {
           ) as phone_key,
           lower(regexp_replace(trim(coalesce(name,'')), '[[:space:]]+', '', 'g')) as name_key
         from leads
+        where status not in ('closed','spam')
       ),
       pairs as (
         select a.id as a_id, a.name as a_name, a.phone as a_phone, a.status as a_status, a.consultant as a_consultant, a.property_id as a_property_id, a.created_at as a_created_at,
@@ -105,7 +107,7 @@ export default defineEventHandler(async (event) => {
 
   if (action === "preview") {
     const rows = await sql.query<Record<string, unknown>>(
-      "select id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,status,source,acquisition_source,acquisition_medium,acquisition_campaign,follow_up_at,last_contacted_at,property_id,visit_preferred_at,visit_requested_at,visit_status,lease_deadline,budget_deposit,budget_rent,budget_purchase,budget_sale,budget_deposit_min,budget_deposit_max,budget_rent_min,budget_rent_max,budget_purchase_min,budget_purchase_max,budget_sale_min,budget_sale_max,budget_equivalent,budget_bedrooms,budget_rate,requested_bedrooms,requested_amenities,matched_properties,match_count from leads where id = any($1::text[]) order by case when id=$2 then 0 else 1 end",
+      "select id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,status,source,acquisition_source,acquisition_medium,acquisition_campaign,follow_up_at,last_contacted_at,property_id,visit_preferred_at,visit_requested_at,visit_status,lease_deadline,budget_deposit,budget_rent,budget_purchase,budget_sale,budget_deposit_min,budget_deposit_max,budget_rent_min,budget_rent_max,budget_purchase_min,budget_purchase_max,budget_sale_min,budget_sale_max,budget_equivalent,budget_bedrooms,budget_rate,requested_bedrooms,requested_amenities,matched_properties,match_count from leads where id = any($1::text[]) and status not in ('closed','spam') order by case when id=$2 then 0 else 1 end",
       [[canonicalId, duplicateId], canonicalId],
     );
     if (rows.length !== 2) throw createError({ statusCode: 404, statusMessage: "یکی از لیدهای انتخاب‌شده پیدا نشد." });
@@ -120,106 +122,21 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "عملیات تکراری‌های CRM نامعتبر است." });
   }
 
-  const rows = await sql.query<Record<string, unknown>>(
-    `with duplicate as (
-      select * from leads where id = $2
-    ),
-    merged as (
-      update leads l
-      set
-        name = case when trim(coalesce(l.name,'')) = '' then d.name else l.name end,
-        phone = case when trim(coalesce(l.phone,'')) = '' then d.phone else l.phone end,
-        people_count = coalesce(l.people_count, d.people_count),
-        job = case when trim(coalesce(l.job,'')) = '' then d.job else l.job end,
-        deal = case when trim(coalesce(l.deal,'')) = '' then d.deal else l.deal end,
-        property_type = case when trim(coalesce(l.property_type,'')) = '' then d.property_type else l.property_type end,
-        neighborhood = case when trim(coalesce(l.neighborhood,'')) = '' then d.neighborhood else l.neighborhood end,
-        consultant = case when trim(coalesce(l.consultant,'')) = '' then d.consultant else l.consultant end,
-        note = case when trim(coalesce(l.note,'')) = '' then d.note else l.note end,
-        source = case when trim(coalesce(l.source,'')) = '' then d.source else l.source end,
-        acquisition_source = coalesce(l.acquisition_source, d.acquisition_source),
-        acquisition_medium = coalesce(l.acquisition_medium, d.acquisition_medium),
-        acquisition_campaign = coalesce(l.acquisition_campaign, d.acquisition_campaign),
-        acquisition_referrer = coalesce(l.acquisition_referrer, d.acquisition_referrer),
-        follow_up_at = coalesce(l.follow_up_at, d.follow_up_at),
-        last_contacted_at = coalesce(l.last_contacted_at, d.last_contacted_at),
-        property_id = coalesce(l.property_id, d.property_id),
-        visit_preferred_at = coalesce(l.visit_preferred_at, d.visit_preferred_at),
-        visit_requested_at = coalesce(l.visit_requested_at, d.visit_requested_at),
-        visit_status = case when coalesce(l.visit_status,'none') = 'none' then coalesce(d.visit_status,l.visit_status) else l.visit_status end,
-        lease_deadline = coalesce(l.lease_deadline, d.lease_deadline),
-        budget_deposit = coalesce(l.budget_deposit, d.budget_deposit),
-        budget_rent = coalesce(l.budget_rent, d.budget_rent),
-        budget_purchase = coalesce(l.budget_purchase, d.budget_purchase),
-        budget_sale = coalesce(l.budget_sale, d.budget_sale),
-        budget_deposit_min = coalesce(l.budget_deposit_min, d.budget_deposit_min),
-        budget_deposit_max = coalesce(l.budget_deposit_max, d.budget_deposit_max),
-        budget_rent_min = coalesce(l.budget_rent_min, d.budget_rent_min),
-        budget_rent_max = coalesce(l.budget_rent_max, d.budget_rent_max),
-        budget_purchase_min = coalesce(l.budget_purchase_min, d.budget_purchase_min),
-        budget_purchase_max = coalesce(l.budget_purchase_max, d.budget_purchase_max),
-        budget_sale_min = coalesce(l.budget_sale_min, d.budget_sale_min),
-        budget_sale_max = coalesce(l.budget_sale_max, d.budget_sale_max),
-        budget_equivalent = coalesce(l.budget_equivalent, d.budget_equivalent),
-        budget_bedrooms = coalesce(l.budget_bedrooms, d.budget_bedrooms),
-        budget_rate = coalesce(l.budget_rate, d.budget_rate),
-        requested_bedrooms = coalesce(l.requested_bedrooms, d.requested_bedrooms),
-        requested_amenities = case
-          when jsonb_array_length(coalesce(l.requested_amenities,'[]'::jsonb)) = 0
-            then coalesce(d.requested_amenities,'[]'::jsonb)
-          else l.requested_amenities
-        end,
-        matched_properties = case
-          when jsonb_array_length(coalesce(l.matched_properties,'[]'::jsonb)) = 0
-            then coalesce(d.matched_properties,'[]'::jsonb)
-          else l.matched_properties
-        end,
-        match_count = greatest(coalesce(l.match_count,0),coalesce(d.match_count,0)),
-        updated_at = current_timestamp
-      from duplicate d
-      where l.id = $1
-      returning l.id
-    ),
-    moved_activities as (
-      update lead_activities
-      set lead_id = $1
-      where lead_id = $2
-      returning id
-    ),
-    closed_duplicate as (
-      update leads
-      set
-        status = 'closed',
-        note = concat_ws(E'\\n', nullif(trim(note),''), 'این لید در ' || to_char(current_timestamp,'YYYY-MM-DD HH24:MI') || ' با لید ' || $1 || ' ادغام شد.'),
-        updated_at = current_timestamp
-      where id = $2
-      returning id
-    )
-    select (select id from merged) as canonical_id,
-           (select count(*) from moved_activities)::int as moved_activities,
-           (select id from closed_duplicate) as duplicate_id`,
-    [canonicalId, duplicateId],
-  );
-
-  if (!rows[0]?.canonical_id) {
-    throw createError({ statusCode: 500, statusMessage: "ادغام لید انجام نشد." });
+  const result = await mergeAdminLeadDuplicate(sql, canonicalId, duplicateId);
+  if (result.kind === "not_found") {
+    throw createError({ statusCode: 404, statusMessage: "یکی از لیدهای انتخاب‌شده پیدا نشد." });
   }
-
-  await sql.query(
-    "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'status',$2,$3,$4::jsonb)",
-    [
-      canonicalId,
-      "ادغام لید تکراری",
-      "رکورد " + duplicateId + " در این لید ادغام شد.",
-      "رکورد دوم بسته شد و فعالیت‌های آن منتقل شدند.",
-      JSON.stringify({ mergedLeadId: duplicateId }),
-    ],
-  ).catch(() => {});
+  if (result.kind === "duplicate_inactive") {
+    throw createError({ statusCode: 409, statusMessage: "این لید قبلاً بسته یا ادغام شده است؛ فهرست را تازه‌سازی کنید." });
+  }
+  if (result.kind === "canonical_inactive") {
+    throw createError({ statusCode: 409, statusMessage: "لید اصلی بسته یا غیرفعال است؛ یک لید فعال انتخاب کنید." });
+  }
 
   return {
     success: true,
     canonicalId,
     duplicateId,
-    movedActivities: Number(rows[0].moved_activities) || 0,
+    movedActivities: result.movedActivities,
   };
 });

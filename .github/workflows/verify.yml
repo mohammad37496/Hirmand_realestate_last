@@ -98,6 +98,11 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
 
+      - name: Verify lead deduplication locking across PostgreSQL sessions
+        run: node --experimental-strip-types --test src/lib/admin-lead-dedupe.test.ts
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
+
       - name: Seed deterministic property-detail fixture
         run: node scripts/seed-browser-smoke.mjs
 
