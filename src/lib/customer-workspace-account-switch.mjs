@@ -40,3 +40,25 @@ export function resetWorkspaceForAccountSwitch({ storage, target, userId }) {
   queueMicrotask(() => target.dispatchEvent(new Event("hirmand:workspace-synced")));
   return true;
 }
+
+/** Clear a signed-in account's local snapshot on sign-out and notify mounted views. */
+/** @param {{ storage: Pick<Storage, "getItem" | "removeItem">, target: EventTarget }} options */
+export function clearWorkspaceForSignedOutUser({ storage, target }) {
+  let storedOwner;
+  try {
+    storedOwner = storage.getItem("hirmand-workspace-owner-v1");
+  } catch {
+    return false;
+  }
+  if (!storedOwner) return false;
+
+  for (const key of [...WORKSPACE_KEYS, "hirmand-workspace-owner-v1"]) {
+    try {
+      storage.removeItem(key);
+    } catch {
+      // Keep clearing the remaining account-scoped keys if one removal fails.
+    }
+  }
+  queueMicrotask(() => target.dispatchEvent(new Event("hirmand:workspace-synced")));
+  return true;
+}

@@ -74,7 +74,7 @@ test("personal workspace syncs changes and prevents data crossing between accoun
   assert.match(actions, /hirmand:workspace-changed/);
   assert.match(tracker, /hirmand:workspace-changed/);
   assert.match(detail, /hirmand:workspace-changed/);
-  assert.match(workspace, /WORKSPACE_OWNER_KEY, WORKSPACE_PENDING_KEY/);
+  assert.match(workspace, /clearWorkspaceForSignedOutUser\(\{ storage: localStorage, target: window \}\)/);
   assert.match(workspaceGet, /select favorites,favorite_meta/);
   assert.match(workspaceGet, /requireUserIdFromHeaders\(new Headers\(getRequestHeaders\(event\)\)\)/);
   assert.match(workspacePost, /requireUserIdFromHeaders\(new Headers\(getRequestHeaders\(event\)\)\)/);

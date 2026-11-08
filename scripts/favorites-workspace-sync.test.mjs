@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { subscribeToFavoriteMetaWorkspaceSync, subscribeToFavoriteWorkspaceSync } from "../src/lib/favorites-workspace-sync.mjs";
-import { resetWorkspaceForAccountSwitch } from "../src/lib/customer-workspace-account-switch.mjs";
+import { clearWorkspaceForSignedOutUser, resetWorkspaceForAccountSwitch } from "../src/lib/customer-workspace-account-switch.mjs";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -106,6 +106,43 @@ test("first sign-in without an owner marker preserves the guest workspace for me
   assert.equal(resetWorkspaceForAccountSwitch({ storage, target, userId: "first-account" }), false);
   assert.equal(values.get("hirmand-favorite-properties"), '["guest-favorite"]');
   assert.equal(values.has("hirmand-favorite-meta-v1"), true);
+});
+
+test("sign-out clears the previous account workspace and refreshes mounted views without reload", async () => {
+  const target = new EventTarget();
+  const values = new Map([
+    ["hirmand-workspace-owner-v1", "account-a"],
+    ["hirmand-favorite-properties", '["account-a-property"]'],
+    ["hirmand-recent-properties", '["account-a-recent"]'],
+    ["hirmand-saved-searches", '[{"id":"account-a-search"}]'],
+    ["hirmand-favorite-meta-v1", JSON.stringify({ "account-a-property": { note: "یادداشت حساب الف" } })],
+    ["hirmand-workspace-pending-v1", "pending-a"],
+  ]);
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    removeItem: (key) => values.delete(key),
+  };
+  let mountedMeta = JSON.parse(values.get("hirmand-favorite-meta-v1"));
+  const stop = subscribeToFavoriteMetaWorkspaceSync({
+    target,
+    readMeta: () => JSON.parse(values.get("hirmand-favorite-meta-v1") ?? "{}"),
+    onLoaded: (meta) => { mountedMeta = meta; },
+  });
+
+  assert.equal(clearWorkspaceForSignedOutUser({ storage, target }), true);
+  await tick();
+  assert.deepEqual(mountedMeta, {}, "the mounted favorites view must clear account A metadata on sign-out");
+  for (const key of [
+    "hirmand-workspace-owner-v1",
+    "hirmand-favorite-properties",
+    "hirmand-recent-properties",
+    "hirmand-saved-searches",
+    "hirmand-favorite-meta-v1",
+    "hirmand-workspace-pending-v1",
+  ]) {
+    assert.equal(values.has(key), false, `${key} must be cleared on sign-out`);
+  }
+  stop();
 });
 
 test("a mounted favorites view refreshes after remote sync without reloading", async () => {
