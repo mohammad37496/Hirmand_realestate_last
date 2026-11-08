@@ -128,6 +128,68 @@ try {
   const restoredWorkspace = await restoredWorkspaceResponse.json();
   assert.deepEqual(restoredWorkspace.favorites, ["guest-favorite"], "server workspace must survive sign-out and sign-in");
 
+  // A second isolated browser context represents another device for the SAME
+  // account. A local edit there must reach the first device on its next focus.
+  const secondDeviceContext = await browser.newContext();
+  const secondDevicePage = await secondDeviceContext.newPage();
+  secondDevicePage.on("pageerror", (error) => errors.push(error.message));
+  const secondDeviceSessionCheck = secondDevicePage.waitForResponse((response) =>
+    response.url().includes("/api/auth/get-session"),
+  );
+  await secondDevicePage.goto(new URL("/login?next=%2F", baseUrl).toString(), { waitUntil: "domcontentloaded" });
+  await secondDeviceSessionCheck;
+  await secondDevicePage.locator(".customer-login-form input[type=email]").fill(email);
+  await secondDevicePage.locator(".customer-login-form input[type=password]").fill(password);
+  const secondDeviceSignInPromise = secondDevicePage.waitForResponse((response) =>
+    response.url().endsWith("/api/auth/sign-in/email"),
+  );
+  await secondDevicePage.getByRole("button", { name: "ورود به حساب", exact: true }).click();
+  const secondDeviceSignIn = await secondDeviceSignInPromise;
+  assert.equal(secondDeviceSignIn.status(), 200, "the same account should sign in from a second device");
+  await secondDevicePage.waitForURL((url) => url.pathname === "/");
+  const secondDeviceSessionResponse = await secondDevicePage.request.get(new URL("/api/auth/get-session", baseUrl).toString());
+  const secondDeviceSession = await secondDeviceSessionResponse.json();
+  assert.equal(secondDeviceSession?.user?.id, firstSession.user.id, "both devices should resolve to the same account");
+  await secondDevicePage.waitForFunction(() =>
+    localStorage.getItem("hirmand-workspace-owner-v1") !== null &&
+    localStorage.getItem("hirmand-workspace-pending-v1") === null,
+  );
+  const secondDeviceInitialWorkspace = await secondDevicePage.request.get(new URL("/api/customer-workspace", baseUrl).toString());
+  assert.equal(secondDeviceInitialWorkspace.status(), 200);
+  assert.deepEqual((await secondDeviceInitialWorkspace.json()).favorites, ["guest-favorite"]);
+
+  const secondDeviceSyncPromise = secondDevicePage.waitForResponse((response) =>
+    response.url().endsWith("/api/customer-workspace") && response.request().method() === "POST",
+  );
+  await secondDevicePage.evaluate(() => {
+    const favorites = JSON.parse(localStorage.getItem("hirmand-favorite-properties") || "[]");
+    localStorage.setItem("hirmand-favorite-properties", JSON.stringify([...new Set([...favorites, "device-two-favorite"])]));
+    const searches = JSON.parse(localStorage.getItem("hirmand-saved-searches") || "[]");
+    localStorage.setItem("hirmand-saved-searches", JSON.stringify([
+      ...searches,
+      { id: "device-two-search", name: "Device two", params: "city=isfahan", alerts: false },
+    ]));
+    window.dispatchEvent(new Event("hirmand:workspace-changed"));
+  });
+  const secondDeviceSync = await secondDeviceSyncPromise;
+  assert.equal(secondDeviceSync.status(), 200, "the second device should persist its workspace edit");
+
+  const firstDevicePullPromise = firstPage.waitForResponse((response) =>
+    response.url().endsWith("/api/customer-workspace") && response.request().method() === "GET",
+  );
+  await firstPage.evaluate(() => window.dispatchEvent(new Event("focus")));
+  const firstDevicePull = await firstDevicePullPromise;
+  assert.equal(firstDevicePull.status(), 200, "the first device should fetch the latest remote workspace on focus");
+  await firstPage.waitForFunction(() => {
+    const favorites = JSON.parse(localStorage.getItem("hirmand-favorite-properties") || "[]");
+    const searches = JSON.parse(localStorage.getItem("hirmand-saved-searches") || "[]");
+    return favorites.includes("device-two-favorite") && searches.some((item) => item.id === "device-two-search");
+  });
+  const firstDeviceAfterSync = await firstPage.request.get(new URL("/api/customer-workspace", baseUrl).toString());
+  const firstDeviceSyncedWorkspace = await firstDeviceAfterSync.json();
+  assert.ok(firstDeviceSyncedWorkspace.favorites.includes("device-two-favorite"));
+  assert.ok(firstDeviceSyncedWorkspace.savedSearches.some((item) => item.id === "device-two-search"));
+
   assert.deepEqual(errors, [], "auth pages should not throw browser errors");
   console.log(JSON.stringify({
     signUp: "passed",
@@ -141,8 +203,12 @@ try {
     signedOutWorkspaceStatus: signedOutWorkspace.status(),
     signInAgain: "passed",
     workspaceRestoredAfterSignIn: "passed",
+    sameAccountSecondDeviceSignIn: "passed",
+    secondDeviceWorkspaceWrite: "passed",
+    firstDevicePulledSecondDeviceChanges: "passed",
     browserErrors: errors,
   }, null, 2));
+  await secondDeviceContext.close();
   await secondContext.close();
   await firstContext.close();
 } finally {
