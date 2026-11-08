@@ -63,17 +63,21 @@ test("customer-auth migration verification rejects a missing root migration file
     () => assertRequiredMigrationFiles(["0001_auth.sql"]),
     /0058_customer_workspace\.sql/,
   );
+  assert.throws(
+    () => assertRequiredMigrationFiles(["0001_auth.sql", "0058_customer_workspace.sql"]),
+    /0059_customer_workspace_revision\.sql/,
+  );
 });
 
 test("customer-auth migration verification rejects a missing ledger row", () => {
   assert.throws(
-    () => assertRequiredMigrationLedger(["0001_auth.sql"]),
-    /0058_customer_workspace\.sql/,
+    () => assertRequiredMigrationLedger(["0001_auth.sql", "0058_customer_workspace.sql"]),
+    /0059_customer_workspace_revision\.sql/,
   );
 });
 
-test("customer-auth migration verification accepts both required files and ledger rows", () => {
-  assert.deepEqual(CUSTOMER_AUTH_MIGRATIONS, ["0001_auth.sql", "0058_customer_workspace.sql"]);
+test("customer-auth migration verification accepts all required files and ledger rows", () => {
+  assert.deepEqual(CUSTOMER_AUTH_MIGRATIONS, ["0001_auth.sql", "0058_customer_workspace.sql", "0059_customer_workspace_revision.sql"]);
   assert.doesNotThrow(() => assertRequiredMigrationFiles(CUSTOMER_AUTH_MIGRATIONS));
   assert.doesNotThrow(() => assertRequiredMigrationLedger(CUSTOMER_AUTH_MIGRATIONS));
 });

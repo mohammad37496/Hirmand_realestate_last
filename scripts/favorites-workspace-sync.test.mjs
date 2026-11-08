@@ -120,6 +120,7 @@ test("sign-out clears the previous account workspace and refreshes mounted views
   ]);
   const storage = {
     getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
     removeItem: (key) => values.delete(key),
   };
   let mountedMeta = JSON.parse(values.get("hirmand-favorite-meta-v1"));

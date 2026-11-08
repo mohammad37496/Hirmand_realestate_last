@@ -5,6 +5,7 @@ const WORKSPACE_KEYS = [
   "hirmand-saved-searches",
   "hirmand-workspace-pending-v1",
 ];
+const WORKSPACE_BASE_KEY = "hirmand-workspace-base-v1:";
 
 /**
  * Clear the previous account's local snapshot before fetching the next
@@ -23,17 +24,37 @@ export function resetWorkspaceForAccountSwitch({ storage, target, userId }) {
   }
   if (!storedOwner || storedOwner === userId) return false;
 
+  try {
+    // Mark the snapshot unusable before clearing it. If any removal fails,
+    // even a later login as the previous owner must sync from the server.
+    storage.setItem("hirmand-workspace-owner-v1", `signed-out:${storedOwner}`);
+  } catch {
+    // Abort before deleting data when the safety marker cannot be persisted.
+    return false;
+  }
+
+  let cleared = true;
   for (const key of WORKSPACE_KEYS) {
     try {
       storage.removeItem(key);
     } catch {
-      // Keep clearing the remaining account-scoped keys if one removal fails.
+      cleared = false;
     }
   }
   try {
-    storage.setItem("hirmand-workspace-owner-v1", userId);
+    // The target account's old base belongs to a previous login on this
+    // browser. Keeping it would make the cleared local snapshot look like a
+    // set of deletions during the next three-way merge.
+    storage.removeItem(`${WORKSPACE_BASE_KEY}${encodeURIComponent(userId)}`);
   } catch {
-    // The in-memory views are still notified below.
+    cleared = false;
+  }
+  if (cleared) {
+    try {
+      storage.setItem("hirmand-workspace-owner-v1", userId);
+    } catch {
+      // Keep the sentinel so sync cannot merge uncleared data.
+    }
   }
   // Let all mounted consumers install their sync listeners before notifying
   // them; this runs before the account-workspace fetch can resolve.
@@ -42,7 +63,7 @@ export function resetWorkspaceForAccountSwitch({ storage, target, userId }) {
 }
 
 /** Clear a signed-in account's local snapshot on sign-out and notify mounted views. */
-/** @param {{ storage: Pick<Storage, "getItem" | "removeItem">, target: EventTarget }} options */
+/** @param {{ storage: Pick<Storage, "getItem" | "removeItem" | "setItem">, target: EventTarget }} options */
 export function clearWorkspaceForSignedOutUser({ storage, target }) {
   let storedOwner;
   try {
@@ -52,11 +73,28 @@ export function clearWorkspaceForSignedOutUser({ storage, target }) {
   }
   if (!storedOwner) return false;
 
-  for (const key of [...WORKSPACE_KEYS, "hirmand-workspace-owner-v1"]) {
+  try {
+    // Mark the snapshot unusable before clearing it. If any removal fails,
+    // even the same account must take the remote-only path on its next login.
+    storage.setItem("hirmand-workspace-owner-v1", `signed-out:${storedOwner}`);
+  } catch {
+    // Abort before deleting data when the safety marker cannot be persisted.
+    return false;
+  }
+
+  let cleared = true;
+  for (const key of WORKSPACE_KEYS) {
     try {
       storage.removeItem(key);
     } catch {
-      // Keep clearing the remaining account-scoped keys if one removal fails.
+      cleared = false;
+    }
+  }
+  if (cleared) {
+    try {
+      storage.removeItem("hirmand-workspace-owner-v1");
+    } catch {
+      // Retain the owner marker when the signed-out snapshot cannot be cleared.
     }
   }
   queueMicrotask(() => target.dispatchEvent(new Event("hirmand:workspace-synced")));
