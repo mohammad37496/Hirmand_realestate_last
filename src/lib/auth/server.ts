@@ -41,6 +41,7 @@ import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
 import { resolveDatabaseUrl, sanitizePostgresConnectionString } from "../../../scripts/resolve-database-url.mjs";
+import { normalizeBetterAuthOrigin } from "../../../scripts/auth-origin.mjs";
 import {
   GROK_ISSUER_DEFAULT,
   PREVIEW_ALLOWED_HOSTS,
@@ -100,7 +101,11 @@ export const authConfigured = !authDisabled && (emailAndPasswordEnabled || grokO
 // it derives the origin per-request from the (proxied) host, validated against the
 // preview allowlist, which makes the OAuth `redirect_uri` the concrete preview URL
 // the broker's preview client accepts.
-const explicitBaseURL = env("BETTER_AUTH_URL");
+const configuredBaseURL = env("BETTER_AUTH_URL");
+// Better Auth compares Origin headers exactly. Canonicalize a root trailing
+// slash so `https://example.com/` cannot become a trusted origin that browsers
+// never send (they send `https://example.com`).
+const explicitBaseURL = configuredBaseURL ? normalizeBetterAuthOrigin(configuredBaseURL) : undefined;
 // Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
 // requires a mutable `allowedHosts: string[]`.
 const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];

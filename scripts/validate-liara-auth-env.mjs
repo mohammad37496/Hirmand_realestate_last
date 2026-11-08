@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { isMainModule } from "./with-app-env.mjs";
+import { normalizeBetterAuthOrigin } from "./auth-origin.mjs";
 
 const DATABASE_KEYS = [
   "DATABASE_URL",
@@ -52,12 +53,9 @@ export function validateLiaraCustomerAuthEnvironment(payload) {
     errors.push("BETTER_AUTH_URL");
   } else {
     try {
-      const parsed = new URL(baseUrl);
-      if (parsed.protocol !== "https:" || parsed.origin !== baseUrl.replace(/\/$/, "")) {
-        errors.push("BETTER_AUTH_URL must be an HTTPS origin without a path");
-      }
+      normalizeBetterAuthOrigin(baseUrl);
     } catch {
-      errors.push("BETTER_AUTH_URL must be a valid HTTPS origin");
+      errors.push("BETTER_AUTH_URL must be an HTTPS origin without a path");
     }
   }
   if ((env.get("BETTER_AUTH_SECRET")?.length ?? 0) < 32) errors.push("BETTER_AUTH_SECRET (at least 32 characters)");

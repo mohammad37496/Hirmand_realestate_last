@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { liaraEnvironmentMap, validateLiaraCustomerAuthEnvironment } from "./validate-liara-auth-env.mjs";
+import { normalizeBetterAuthOrigin } from "./auth-origin.mjs";
 
 const ready = [
   { key: "DATABASE_URL", value: "postgresql://redacted" },
@@ -33,6 +34,18 @@ test("invalid auth origins are rejected before deploy", () => {
   assert.deepEqual(validateLiaraCustomerAuthEnvironment(env), [
     "BETTER_AUTH_URL must be an HTTPS origin without a path",
   ]);
+});
+
+test("Better Auth URL with a trailing root slash normalizes to the browser origin", () => {
+  assert.equal(normalizeBetterAuthOrigin("https://hirmandrealestate.ir/"), "https://hirmandrealestate.ir");
+  const env = ready.map((row) => row.key === "BETTER_AUTH_URL" ? { ...row, value: "https://hirmandrealestate.ir/" } : row);
+  assert.deepEqual(validateLiaraCustomerAuthEnvironment(env), []);
+});
+
+test("Better Auth origin normalization rejects paths, queries, and fragments", () => {
+  for (const value of ["https://hirmandrealestate.ir/login", "https://hirmandrealestate.ir/?x=1", "https://hirmandrealestate.ir/#auth"]) {
+    assert.throws(() => normalizeBetterAuthOrigin(value));
+  }
 });
 
 test("invalid database URLs are rejected before deploy", () => {
