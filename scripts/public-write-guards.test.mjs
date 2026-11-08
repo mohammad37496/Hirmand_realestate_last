@@ -18,6 +18,10 @@ const publicLeadActionsRoute = await readFile(
   new URL("../server/routes/api/public-lead-actions.post.ts", import.meta.url),
   "utf8",
 );
+const customerPropertySubmissionsRoute = await readFile(
+  new URL("../server/routes/api/customer-property-submissions.post.ts", import.meta.url),
+  "utf8",
+);
 
 test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
@@ -53,4 +57,11 @@ test("public lead actions check origin and rate-limit capability-token operation
   const throttleIndex = publicLeadActionsRoute.indexOf('consumeAdminAttempt("public-lead-action:"');
   const databaseCheckIndex = publicLeadActionsRoute.indexOf('dbSource === "unconfigured"');
   assert.ok(throttleIndex >= 0 && databaseCheckIndex > throttleIndex);
+});
+
+test("customer property resubmission uses a rejected-state and updated-at compare-and-swap", () => {
+  assert.match(customerPropertySubmissionsRoute, /resubmitCustomerPropertySubmission\(sql,/);
+  assert.match(customerPropertySubmissionsRoute, /updated_at from customer_property_submissions/);
+  assert.match(customerPropertySubmissionsRoute, /if \(!resubmitted\)[\s\S]*?statusCode:\s*409/);
+  assert.doesNotMatch(customerPropertySubmissionsRoute, /update customer_property_submissions[^\n]*where id=\$1"/);
 });
