@@ -15,7 +15,7 @@ import { WorkspaceBackupRestore } from "@/components/hirmand/workspace-backup-re
 import { FavoriteWeightedMatrix } from "@/components/hirmand/favorite-weighted-matrix";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { listPublishedPropertiesBySlugs, type Property } from "@/lib/properties";
-import { subscribeToFavoriteWorkspaceSync } from "@/lib/favorites-workspace-sync.mjs";
+import { subscribeToFavoriteMetaWorkspaceSync, subscribeToFavoriteWorkspaceSync } from "@/lib/favorites-workspace-sync.mjs";
 import { SITE } from "@/lib/site";
 import { toast } from "sonner";
 import "@/favorites-personal.css";
@@ -460,6 +460,12 @@ function FavoritesPage() {
       setLoading(false);
       toast.error("بارگذاری فایل‌های ذخیره‌شده ناموفق بود؛ دوباره تلاش کنید.");
     },
+  }), []);
+
+  useEffect(() => subscribeToFavoriteMetaWorkspaceSync({
+    target: window,
+    readMeta: readFavoriteMeta,
+    onLoaded: setFavoriteMeta,
   }), []);
 
   useEffect(() => subscribeToFavoriteWorkspaceSync({

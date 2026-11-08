@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { subscribeToFavoriteWorkspaceSync } from "../src/lib/favorites-workspace-sync.mjs";
+import { subscribeToFavoriteMetaWorkspaceSync, subscribeToFavoriteWorkspaceSync } from "../src/lib/favorites-workspace-sync.mjs";
+import { resetWorkspaceForAccountSwitch } from "../src/lib/customer-workspace-account-switch.mjs";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -18,6 +19,93 @@ test("FavoritesPage wires workspace sync to the visible properties state", () =>
   assert.match(favoritesSource, /initialSlugs:\s*readRecent\(\)/);
   assert.match(favoritesSource, /setRecentProperties\(snapshot\.rows\)/);
   assert.match(favoritesSource, /recentRequestId !== recentLoadVersion\.current/);
+  assert.match(favoritesSource, /subscribeToFavoriteMetaWorkspaceSync\(/);
+  assert.match(favoritesSource, /readMeta:\s*readFavoriteMeta/);
+  assert.match(favoritesSource, /onLoaded:\s*setFavoriteMeta/);
+});
+
+test("a mounted favorites view replaces account A metadata when account B syncs without reloading", () => {
+  const target = new EventTarget();
+  let storedMeta = {
+    "account-a-property": { tag: "پیگیری", note: "یادداشت محرمانه حساب الف" },
+    "shared-property": { note: "یادداشت حساب الف" },
+  };
+  let mountedMeta = structuredClone(storedMeta);
+  const stop = subscribeToFavoriteMetaWorkspaceSync({
+    target,
+    readMeta: () => structuredClone(storedMeta),
+    onLoaded: (meta) => { mountedMeta = meta; },
+  });
+
+  storedMeta = {
+    "account-b-property": { tag: "بازدید", note: "یادداشت حساب ب" },
+    "shared-property": { note: "یادداشت حساب ب" },
+  };
+  target.dispatchEvent(new Event("hirmand:workspace-synced"));
+
+  assert.deepEqual(mountedMeta, storedMeta, "mounted metadata must be replaced by the new account snapshot");
+  assert.equal(mountedMeta["account-a-property"], undefined, "account A-only annotations must disappear");
+  assert.equal(mountedMeta["shared-property"].note, "یادداشت حساب ب", "same-property metadata must not retain account A's note");
+
+  stop();
+});
+
+test("account switch clears mounted account A metadata before the new account fetch resolves", async () => {
+  const target = new EventTarget();
+  const values = new Map([
+    ["hirmand-workspace-owner-v1", "account-a"],
+    ["hirmand-favorite-properties", '["account-a-property"]'],
+    ["hirmand-recent-properties", '["account-a-recent"]'],
+    ["hirmand-saved-searches", '[{"id":"account-a-search"}]'],
+    ["hirmand-favorite-meta-v1", JSON.stringify({ "account-a-property": { note: "یادداشت حساب الف" } })],
+    ["hirmand-workspace-pending-v1", "pending-a"],
+  ]);
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+  };
+  let mountedMeta = JSON.parse(values.get("hirmand-favorite-meta-v1"));
+  const stop = subscribeToFavoriteMetaWorkspaceSync({
+    target,
+    readMeta: () => JSON.parse(values.get("hirmand-favorite-meta-v1") ?? "{}"),
+    onLoaded: (meta) => { mountedMeta = meta; },
+  });
+  let resolveAccountB;
+  const accountBFetch = new Promise((resolve) => { resolveAccountB = resolve; });
+
+  assert.equal(resetWorkspaceForAccountSwitch({ storage, target, userId: "account-b" }), true);
+  await tick();
+  assert.deepEqual(mountedMeta, {}, "the mounted page must immediately discard all account A annotations");
+  assert.equal(values.get("hirmand-workspace-owner-v1"), "account-b");
+  assert.equal(values.has("hirmand-favorite-properties"), false);
+  assert.equal(values.has("hirmand-recent-properties"), false);
+  assert.equal(values.has("hirmand-saved-searches"), false);
+  assert.equal(values.has("hirmand-workspace-pending-v1"), false);
+
+  resolveAccountB({ favoriteMeta: { "account-b-property": { note: "یادداشت حساب ب" } } });
+  const remote = await accountBFetch;
+  values.set("hirmand-favorite-meta-v1", JSON.stringify(remote.favoriteMeta));
+  target.dispatchEvent(new Event("hirmand:workspace-synced"));
+  assert.deepEqual(mountedMeta, { "account-b-property": { note: "یادداشت حساب ب" } });
+  assert.equal(mountedMeta["account-a-property"], undefined);
+  stop();
+});
+
+test("first sign-in without an owner marker preserves the guest workspace for merge", () => {
+  const target = new EventTarget();
+  const values = new Map([
+    ["hirmand-favorite-properties", '["guest-favorite"]'],
+    ["hirmand-favorite-meta-v1", JSON.stringify({ "guest-favorite": { note: "guest note" } })],
+  ]);
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+  };
+  assert.equal(resetWorkspaceForAccountSwitch({ storage, target, userId: "first-account" }), false);
+  assert.equal(values.get("hirmand-favorite-properties"), '["guest-favorite"]');
+  assert.equal(values.has("hirmand-favorite-meta-v1"), true);
 });
 
 test("a mounted favorites view refreshes after remote sync without reloading", async () => {

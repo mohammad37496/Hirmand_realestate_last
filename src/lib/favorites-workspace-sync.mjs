@@ -47,3 +47,16 @@ export function subscribeToFavoriteWorkspaceSync({
     target.removeEventListener("hirmand:workspace-synced", onWorkspaceSynced);
   };
 }
+
+/**
+ * Replace mounted favorite annotations whenever the active account workspace
+ * snapshot is synchronized. Unlike property refreshes, this must run even
+ * when the favorite slug list is unchanged because metadata is account-scoped.
+ * @template T
+ * @param {{ target: EventTarget, readMeta: () => T, onLoaded: (meta: T) => void }} options
+ */
+export function subscribeToFavoriteMetaWorkspaceSync({ target, readMeta, onLoaded }) {
+  const onWorkspaceSynced = () => onLoaded(readMeta());
+  target.addEventListener("hirmand:workspace-synced", onWorkspaceSynced);
+  return () => target.removeEventListener("hirmand:workspace-synced", onWorkspaceSynced);
+}

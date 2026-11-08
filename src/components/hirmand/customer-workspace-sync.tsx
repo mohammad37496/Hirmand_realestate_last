@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { authEnabled, getBearerToken } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { chooseCustomerWorkspaceSync } from "@/lib/customer-workspace-sync-plan.mjs";
+import { resetWorkspaceForAccountSwitch } from "@/lib/customer-workspace-account-switch.mjs";
 import "@/customer-workspace-sync.css";
 
 const FAVORITES_KEY = "hirmand-favorite-properties";
@@ -101,6 +102,11 @@ export function CustomerWorkspaceSync({
   useEffect(() => setMounted(true), []);
   useEffect(() => {
     activeUserId.current = user?.id ?? null;
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    resetWorkspaceForAccountSwitch({ storage: localStorage, target: window, userId: user.id });
   }, [user?.id]);
 
   const sync = useCallback(async () => {
