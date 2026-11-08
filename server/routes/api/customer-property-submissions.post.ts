@@ -97,8 +97,9 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: "کد رهگیری نامعتبر است." });
     }
 
+    // Keep timestamptz as text: node-postgres Date parsing truncates microseconds and breaks the CAS.
     const rows = await sql.query<Record<string, unknown>>(
-      "select id,lead_id,public_tracking_token,status,owner_name,owner_phone,property_data,review_note,updated_at from customer_property_submissions where public_tracking_token=$1 limit 1",
+      "select id,lead_id,public_tracking_token,status,owner_name,owner_phone,property_data,review_note,updated_at::text as updated_at from customer_property_submissions where public_tracking_token=$1 limit 1",
       [trackingToken],
     );
     const submission = rows[0];
@@ -135,7 +136,7 @@ export default defineEventHandler(async (event) => {
     const previousReviewNote = String(submission.review_note ?? "").trim();
     const resubmitted = await resubmitCustomerPropertySubmission(sql, {
       id: String(submission.id),
-      expectedUpdatedAt: submission.updated_at,
+      expectedUpdatedAt: String(submission.updated_at ?? ""),
       ownerName: parsed.data.ownerName,
       ownerPhone: parsed.data.ownerPhone,
       propertyData: JSON.stringify(parsed.data),

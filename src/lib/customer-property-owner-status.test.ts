@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import { PGlite } from "@electric-sql/pglite";
 import {
   ownerStatusEventNote,
   publicCustomerPropertyReviewNote,
@@ -40,7 +41,7 @@ test("public lead tracking returns review notes only after an explicit rejection
 test("customer resubmission only wins when the rejected status and timestamp still match", async () => {
   const input = {
     id: "submission-1",
-    expectedUpdatedAt: "2026-11-08T12:00:00.000Z",
+    expectedUpdatedAt: "2026-11-08 12:00:00.123456+00",
     ownerName: "مالک",
     ownerPhone: "09123456789",
     propertyData: "{}",
@@ -63,4 +64,54 @@ test("customer resubmission only wins when the rejected status and timestamp sti
     query: async () => [],
   }, input);
   assert.equal(stale, false);
+
+  const route = await readFile(
+    new URL("../../server/routes/api/customer-property-submissions.post.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /updated_at::text as updated_at/i);
+});
+
+test("customer resubmission preserves PostgreSQL timestamptz microseconds in its compare-and-swap", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      set time zone 'UTC';
+      create table customer_property_submissions (
+        id text primary key, status text not null, updated_at timestamptz not null,
+        review_note text not null default '', reviewed_at timestamptz,
+        queue_started_at timestamptz not null default current_timestamp,
+        owner_name text not null, owner_phone text not null, property_data jsonb not null
+      );
+      insert into customer_property_submissions
+        (id,status,updated_at,owner_name,owner_phone,property_data)
+      values ('submission-1','rejected','2026-11-08 12:00:00.123456+00','مالک قبلی','09111111111','{}'::jsonb);
+    `);
+
+    const snapshot = await pg.query<{ updated_at: string }>(
+      "select updated_at::text as updated_at from customer_property_submissions where id=$1",
+      ["submission-1"],
+    );
+    assert.equal(snapshot.rows[0]?.updated_at, "2026-11-08 12:00:00.123456+00");
+
+    const resubmitted = await resubmitCustomerPropertySubmission({
+      query: async <T>(text: string, params: unknown[] = []): Promise<T[]> =>
+        (await pg.query(text, params)).rows as T[],
+    }, {
+      id: "submission-1",
+      expectedUpdatedAt: snapshot.rows[0]!.updated_at,
+      ownerName: "مالک جدید",
+      ownerPhone: "09123456789",
+      propertyData: "{}",
+    });
+
+    assert.equal(resubmitted, true);
+    const current = await pg.query<{ status: string; owner_name: string }>(
+      "select status,owner_name from customer_property_submissions where id=$1",
+      ["submission-1"],
+    );
+    assert.deepEqual(current.rows[0], { status: "pending", owner_name: "مالک جدید" });
+  } finally {
+    await pg.close();
+  }
 });

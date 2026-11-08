@@ -7,7 +7,7 @@ export async function resubmitCustomerPropertySubmission(
   sql: QuerySql,
   input: {
     id: string;
-    expectedUpdatedAt: unknown;
+    expectedUpdatedAt: string;
     ownerName: string;
     ownerPhone: string;
     propertyData: string;
