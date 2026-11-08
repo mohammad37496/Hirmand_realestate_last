@@ -8,6 +8,7 @@ import {
   isValidMapCoordinate,
   parseCoordinateBounds,
 } from "@/lib/map-geometry";
+import { adjacentClusterPropertyId } from "@/lib/map-cluster-navigation";
 
 type MapProperty = PropertyCardData;
 
@@ -279,6 +280,7 @@ export function PropertiesMap({
     [markers, selectedPropertyId],
   );
   const popupProperty = selectedMapMarker?.items.find((item) => item.id === selectedPropertyId) ?? null;
+  const popupPropertyIndex = selectedMapMarker?.items.findIndex((item) => item.id === selectedPropertyId) ?? -1;
   const popupLeft = selectedMapMarker ? Math.max(8, Math.min(selectedMapMarker.x - 130, size.width - 268)) : 8;
   const popupTop = selectedMapMarker
     ? selectedMapMarker.y > size.height - 165
@@ -423,6 +425,31 @@ export function PropertiesMap({
           <button type="button" className="pf-map-popup-close" onClick={() => setPopupDismissed(true)} aria-label="بستن اطلاعات فایل">×</button>
           <strong>{popupProperty.title}</strong>
           <span>{popupProperty.neighborhood || "اصفهان"} · {propertyAmountLabel(popupProperty)}</span>
+          {selectedMapMarker.items.length > 1 ? (
+            <div className="pf-map-cluster-navigation" aria-label="انتخاب فایل دیگر در این خوشه">
+              <button
+                type="button"
+                onClick={() => {
+                  const nextId = adjacentClusterPropertyId(selectedMapMarker.items, selectedPropertyId, -1);
+                  if (nextId) onSelect(nextId);
+                }}
+                aria-label="فایل قبلی در خوشه"
+              >
+                قبلی
+              </button>
+              <span aria-live="polite">{(popupPropertyIndex + 1).toLocaleString("fa-IR")} از {selectedMapMarker.items.length.toLocaleString("fa-IR")} فایل</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextId = adjacentClusterPropertyId(selectedMapMarker.items, selectedPropertyId, 1);
+                  if (nextId) onSelect(nextId);
+                }}
+                aria-label="فایل بعدی در خوشه"
+              >
+                بعدی
+              </button>
+            </div>
+          ) : null}
           <a href={`/properties/${encodeURIComponent(popupProperty.slug.trim() || popupProperty.id)}`}>مشاهده جزئیات فایل</a>
         </div>
       ) : null}

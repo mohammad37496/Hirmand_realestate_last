@@ -6,6 +6,7 @@ import {
   isValidMapCoordinate,
   parseCoordinateBounds,
 } from "./map-geometry.ts";
+import { adjacentClusterPropertyId } from "./map-cluster-navigation.ts";
 
 test("parses URL bounds in west,south,east,north order", () => {
   assert.deepEqual(parseCoordinateBounds("51.61,32.62,51.65,32.66"), [51.61, 32.62, 51.65, 32.66]);
@@ -61,4 +62,17 @@ test("small screens still return a valid fit without invalid dimensions", () => 
   const view = fitCoordinateBounds([51.61, 32.62, 51.65, 32.66], 0, 0);
   assert.ok(view);
   assert.ok(Number.isFinite(view.latitude) && Number.isFinite(view.longitude));
+});
+
+test("map cluster navigation exposes every member and wraps in both directions", () => {
+  const items = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.equal(adjacentClusterPropertyId(items, "a", 1), "b");
+  assert.equal(adjacentClusterPropertyId(items, "b", 1), "c");
+  assert.equal(adjacentClusterPropertyId(items, "c", 1), "a");
+  assert.equal(adjacentClusterPropertyId(items, "a", -1), "c");
+  assert.equal(adjacentClusterPropertyId(items, "b", -1), "a");
+  assert.equal(adjacentClusterPropertyId(items, "c", -1), "b");
+  assert.equal(adjacentClusterPropertyId(items, null, 1), "a");
+  assert.equal(adjacentClusterPropertyId(items, null, -1), "c");
+  assert.equal(adjacentClusterPropertyId([], null, 1), null);
 });
