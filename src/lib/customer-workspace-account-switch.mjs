@@ -5,6 +5,7 @@ const WORKSPACE_KEYS = [
   "hirmand-saved-searches",
   "hirmand-workspace-pending-v1",
 ];
+const WORKSPACE_BASE_KEY = "hirmand-workspace-base-v1:";
 
 /**
  * Clear the previous account's local snapshot before fetching the next
@@ -29,6 +30,14 @@ export function resetWorkspaceForAccountSwitch({ storage, target, userId }) {
     } catch {
       // Keep clearing the remaining account-scoped keys if one removal fails.
     }
+  }
+  try {
+    // The target account's old base belongs to a previous login on this
+    // browser. Keeping it would make the cleared local snapshot look like a
+    // set of deletions during the next three-way merge.
+    storage.removeItem(`${WORKSPACE_BASE_KEY}${encodeURIComponent(userId)}`);
+  } catch {
+    // Continue switching accounts even when this optional cache cannot clear.
   }
   try {
     storage.setItem("hirmand-workspace-owner-v1", userId);

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { chooseCustomerWorkspaceSync, mergeCustomerWorkspaceThreeWay } from "../src/lib/customer-workspace-sync-plan.mjs";
+import { resetWorkspaceForAccountSwitch } from "../src/lib/customer-workspace-account-switch.mjs";
 
 const remote = {
   ownerId: "user-a",
@@ -16,6 +17,47 @@ const local = {
   savedSearches: [{ id: "local-search", name: "Local", params: "type=rent" }],
   favoriteMeta: { "local-a": { note: "local" } },
 };
+
+test("switching A to B removes only B's stale base and preserves B remote workspace data", () => {
+  const values = new Map([
+    ["hirmand-workspace-owner-v1", "user-a"],
+    ["hirmand-workspace-base-v1:user-a", JSON.stringify({ ownerId: "user-a", revision: "4", workspace: local })],
+    ["hirmand-workspace-base-v1:user-b", JSON.stringify({ ownerId: "user-b", revision: "9", workspace: remote })],
+    ["hirmand-favorite-properties", JSON.stringify(local.favorites)],
+    ["hirmand-recent-properties", JSON.stringify(local.recentProperties)],
+    ["hirmand-saved-searches", JSON.stringify(local.savedSearches)],
+    ["hirmand-favorite-meta-v1", JSON.stringify(local.favoriteMeta)],
+  ]);
+  const storage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+  };
+
+  assert.equal(resetWorkspaceForAccountSwitch({ storage, target: new EventTarget(), userId: "user-b" }), true);
+  assert.equal(values.has("hirmand-workspace-base-v1:user-a"), true, "account A's base must remain available to A");
+  assert.equal(values.has("hirmand-workspace-base-v1:user-b"), false, "account B's stale base must be discarded");
+
+  const localAfterSwitch = {
+    favorites: [], recentProperties: [], savedSearches: [], favoriteMeta: {},
+  };
+  const remoteB = {
+    ownerId: "user-b",
+    favorites: ["b-favorite"],
+    recentProperties: ["b-recent"],
+    savedSearches: [{ id: "b-search", name: "B search", params: "city=Isfahan" }],
+    favoriteMeta: { "b-favorite": { note: "B's note" } },
+  };
+  const merged = mergeCustomerWorkspaceThreeWay(
+    { favorites: [], recentProperties: [], savedSearches: [], favoriteMeta: {} },
+    localAfterSwitch,
+    remoteB,
+  );
+  assert.deepEqual(merged.favorites, remoteB.favorites);
+  assert.deepEqual(merged.recentProperties, remoteB.recentProperties);
+  assert.deepEqual(merged.savedSearches, remoteB.savedSearches);
+  assert.deepEqual(merged.favoriteMeta, remoteB.favoriteMeta);
+});
 
 test("first sign-in merges anonymous browser data into the signed-in account", () => {
   const result = chooseCustomerWorkspaceSync({
