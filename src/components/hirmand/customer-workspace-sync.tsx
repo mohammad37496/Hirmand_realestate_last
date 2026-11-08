@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { authEnabled, getBearerToken } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { chooseCustomerWorkspaceSync } from "@/lib/customer-workspace-sync-plan.mjs";
+import { clearWorkspaceForSignedOutUser, resetWorkspaceForAccountSwitch } from "@/lib/customer-workspace-account-switch.mjs";
 import "@/customer-workspace-sync.css";
 
 const FAVORITES_KEY = "hirmand-favorite-properties";
@@ -108,6 +109,11 @@ export function CustomerWorkspaceSyncProvider({
   const syncRef = useRef<() => void>(() => {});
   useEffect(() => {
     activeUserId.current = user?.id ?? null;
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    resetWorkspaceForAccountSwitch({ storage: localStorage, target: window, userId: user.id });
   }, [user?.id]);
 
   const sync = useCallback(async () => {
@@ -285,13 +291,7 @@ export function CustomerWorkspaceSyncProvider({
 
   useEffect(() => {
     if (!enabled || isPending || user || !authEnabled) return;
-    try {
-      if (!localStorage.getItem(WORKSPACE_OWNER_KEY)) return;
-      [FAVORITES_KEY, FAVORITE_META_KEY, SAVED_SEARCHES_KEY, RECENT_KEY, WORKSPACE_OWNER_KEY, WORKSPACE_PENDING_KEY]
-        .forEach((key) => localStorage.removeItem(key));
-    } catch {
-      // Local workspace privacy cleanup is best-effort when storage is unavailable.
-    }
+    clearWorkspaceForSignedOutUser({ storage: localStorage, target: window });
   }, [enabled, isPending, user]);
 
   return (
