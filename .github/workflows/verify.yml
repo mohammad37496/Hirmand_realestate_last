@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 40
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
+      VITE_AUTH_ENABLED: "true"
       BROWSER_SMOKE_PROPERTY_ID: browser-smoke-property-001
       BROWSER_SMOKE_PROPERTY_SLUG: آپارتمان-تست-ناوبری-۱۴۰۵-browser-smoke
       BROWSER_SMOKE_PROPERTY_TITLE: فایل تست ناوبری جزئیات هیرمند

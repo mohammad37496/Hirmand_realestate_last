@@ -2,13 +2,20 @@ import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import pg from "pg";
-import { pendingMigrations } from "../scripts/migration-plan.mjs";
+import {
+  assertRequiredMigrationFiles,
+  assertRequiredMigrationLedger,
+  CUSTOMER_AUTH_MIGRATIONS,
+  pendingMigrations,
+} from "../scripts/migration-plan.mjs";
 import { resolveMigrationDatabaseUrl, sanitizePostgresConnectionString } from "./resolve-database-url.mjs";
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
 export async function runMigrations({ connectionString }) {
   const entries = await readdir(MIGRATIONS_DIR);
+  const verifyCustomerAuth = process.env.VITE_AUTH_ENABLED !== "false";
+  if (verifyCustomerAuth) assertRequiredMigrationFiles(entries);
   const appliedRows = await (async () => {
     const pool = new pg.Pool({
       connectionString,
@@ -29,11 +36,6 @@ export async function runMigrations({ connectionString }) {
   })();
 
   const pending = pendingMigrations(entries, appliedRows);
-  if (pending.length === 0) {
-    console.log("[migrate] database is up to date.");
-    return;
-  }
-
   const pool = new pg.Pool({
     connectionString,
     max: 1,
@@ -43,12 +45,7 @@ export async function runMigrations({ connectionString }) {
 
   try {
     for (const { name } of pending) {
-      let source;
-      try {
-        source = await readFile(join(MIGRATIONS_DIR, name), "utf8");
-      } catch (error) {
-        throw new Error(`[migrate] migration file not found: ${name}`, { cause: error });
-      }
+      const source = await readFile(join(MIGRATIONS_DIR, name), "utf8");
 
       console.log(`[migrate] applying ${name}`);
       await client.query("BEGIN");
@@ -68,7 +65,13 @@ export async function runMigrations({ connectionString }) {
         throw error;
       }
     }
-    console.log("[migrate] database is up to date.");
+    if (verifyCustomerAuth) {
+      const { rows } = await client.query("SELECT name FROM _migrations");
+      assertRequiredMigrationLedger(rows.map((row) => String(row.name)));
+      console.log(`[migrate] customer-auth migrations verified: ${CUSTOMER_AUTH_MIGRATIONS.join(", ")}`);
+    } else {
+      console.log("[migrate] database is up to date.");
+    }
   } finally {
     client.release();
     await pool.end();

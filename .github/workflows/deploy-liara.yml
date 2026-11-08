@@ -112,6 +112,34 @@ jobs:
             --message="Deploy ${GITHUB_SHA::7} from ${GITHUB_REF_NAME}" \
             --debug
 
+      - name: Verify customer-auth migrations in Liara runtime logs
+        timeout-minutes: 3
+        env:
+          LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+          LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
+          LIARA_APP_NAME: ${{ vars.LIARA_APP_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_NAME="${LIARA_APP_NAME:-hirmand}"
+          TEAM_ARGS=()
+          if [[ -n "${LIARA_TEAM_ID:-}" ]]; then
+            TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
+          fi
+          if liara app logs \
+            --app="${APP_NAME}" \
+            --api-token="${LIARA_TOKEN}" \
+            "${TEAM_ARGS[@]}" \
+            --timestamps \
+            --last-lines \
+            --since="15 minutes ago" 2>/dev/null |
+            grep -Fq '[migrate] customer-auth migrations verified: 0001_auth.sql, 0058_customer_workspace.sql'; then
+            echo "Customer-auth migration ledger verification found in Liara runtime logs."
+          else
+            echo "::error::Liara runtime logs did not report successful customer-auth migration ledger verification."
+            exit 1
+          fi
+
       - name: Verify live Liara release matches this commit
         id: live_release_verify
         continue-on-error: true
