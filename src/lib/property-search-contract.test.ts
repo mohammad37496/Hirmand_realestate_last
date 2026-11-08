@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { publicPropertyFiltersSchema } from "./property-search-contract.ts";
 
@@ -60,4 +61,13 @@ test("public floor filters allow -60 and levels 0 through 20, rejecting unsuppor
   }
   assert.equal(publicPropertyFiltersSchema.safeParse({ minFloor: -60, maxFloor: 0 }).success, true);
   assert.equal(publicPropertyFiltersSchema.safeParse({ minFloor: 0, maxFloor: 20 }).success, true);
+});
+
+test("stale load-more requests cannot clear a newer query loading state", async () => {
+  const route = await readFile(new URL("../routes/properties.index.tsx", import.meta.url), "utf8");
+  const loadMoreStart = route.indexOf("const loadMore = useCallback");
+  const loadMoreEnd = route.indexOf("  }, [", loadMoreStart);
+  const loadMore = route.slice(loadMoreStart, loadMoreEnd);
+  assert.match(loadMore, /if \(requestId\.current === queryVersion\) setLoadingMore\(false\)/);
+  assert.doesNotMatch(loadMore, /finally\s*\{\s*setLoadingMore\(false\)/);
 });
