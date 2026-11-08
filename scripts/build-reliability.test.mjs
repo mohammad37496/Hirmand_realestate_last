@@ -155,8 +155,47 @@ test("FFmpeg uses the public pinned release URL only after API 5xx exhaustion an
   assert.equal(Object.hasOwn(requests[1].options, "githubToken"), false);
 });
 
-test("FFmpeg does not use the release fallback for 403/404 or accept an unverified fallback archive", async () => {
-  for (const status of [403, 404, 429]) {
+test("FFmpeg uses the public pinned release URL after exhausted API transport retries without credentials", async () => {
+  const assetBytes = Buffer.from("same pinned FFmpeg archive bytes after network failure");
+  const asset = {
+    assetId: 698334968,
+    name: "ffmpeg-transport-test.tar.xz",
+    sha256: createHash("sha256").update(assetBytes).digest("hex"),
+  };
+  const requests = [];
+  const fetchCalls = [];
+  const archive = await downloadVerifiedFfmpegArchive(asset, {
+    githubToken: "workflow-token",
+    downloadImpl: async (url, redirects, label, options) => {
+      requests.push({ url, redirects, label, options });
+      if (url.startsWith("https://api.github.com/")) {
+        return download(url, redirects, label, {
+          ...options,
+          maxAttempts: 2,
+          retryDelays: [1],
+          sleep: async () => {},
+          fetchImpl: async (requestUrl, requestOptions) => {
+            fetchCalls.push({ url: requestUrl, headers: new Headers(requestOptions.headers) });
+            throw new TypeError("fetch failed: ECONNRESET");
+          },
+        });
+      }
+      return assetBytes;
+    },
+  });
+
+  assert.deepEqual(archive, assetBytes);
+  assert.equal(fetchCalls.length, 2, "API transport failures must exhaust bounded retries first");
+  assert.equal(fetchCalls[0].headers.get("authorization"), "Bearer workflow-token");
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].url, "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/698334968");
+  assert.equal(requests[1].url, "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-transport-test.tar.xz");
+  assert.equal(Object.hasOwn(requests[1].options, "githubToken"), false);
+  assert.equal(new Headers(requests[1].options.headers).has("authorization"), false);
+});
+
+test("FFmpeg does not use the release fallback for authorization or ordinary rate-limit statuses, or accept unverified bytes", async () => {
+  for (const status of [401, 403, 404, 429]) {
     let calls = 0;
     await assert.rejects(
       downloadVerifiedFfmpegArchive({ assetId: 1, name: "ffmpeg.tar.xz", sha256: "0".repeat(64) }, {
@@ -284,6 +323,13 @@ test("every CI, Verify, and Liara FFmpeg provisioning call site receives only th
   assert.match(verifyWorkflow, /name: Provision checksum-verified FFmpeg runtime\s+run: npm run prebuild\s+env:\s+GITHUB_TOKEN:/);
   assert.match(ciWorkflow, /name: Production build\s+run: npm run build --ignore-scripts/);
   assert.match(verifyWorkflow, /name: Production build\s+run: npm run build --ignore-scripts/);
+});
+
+test("CI provisions FFmpeg before npm test so real watermark render tests cannot silently skip", () => {
+  const provisionStep = ciWorkflow.indexOf("name: Provision checksum-verified FFmpeg runtime");
+  const testStep = ciWorkflow.indexOf("name: Tests");
+  assert.ok(provisionStep >= 0 && testStep > provisionStep, "FFmpeg provisioning must precede the npm test step");
+  assert.match(ciWorkflow, /name: Tests\s+run: npm test/);
 });
 
 test("Liara upload context explicitly includes provisioned FFmpeg and watermark font files", () => {

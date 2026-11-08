@@ -182,8 +182,11 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
         continue;
       }
       if (error && typeof error === "object" && error.name === "TimeoutError") {
-        throw new Error(`${label} download timed out after ${timeoutMs}ms: ${url}`);
+        const timeoutError = new Error(`${label} download timed out after ${timeoutMs}ms: ${url}`, { cause: error });
+        timeoutError.isTransportError = true;
+        throw timeoutError;
       }
+      if (error && typeof error === "object") error.isTransportError = true;
       throw error;
     }
     if (response.status >= 300 && response.status < 400) {
@@ -216,6 +219,7 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
         await sleep(delayMs);
         continue;
       }
+      if (error && typeof error === "object") error.isTransportError = true;
       throw error;
     }
   }
@@ -241,10 +245,13 @@ export async function downloadVerifiedFfmpegArchive(asset, options = {}) {
     } catch (error) {
       // A direct public release URL is an independent route to the same pinned
       // asset. Use it only after the API has exhausted retries on transient
-      // server failures; never bypass API 403/404/429 or checksum failures.
-      if (!(error?.status >= 500 && error.status <= 599)) throw error;
+      // server failures or transport failures; never bypass API 401/403/404/429
+      // or checksum failures.
+      const transientServerFailure = error?.status >= 500 && error.status <= 599;
+      if (!transientServerFailure && error?.isTransportError !== true) throw error;
       const fallbackUrl = `https://github.com/BtbN/FFmpeg-Builds/releases/download/${RELEASE_TAG}/${asset.name}`;
-      console.warn(`[ffmpeg] GitHub asset API returned HTTP ${error.status} after retries; trying the public release URL without credentials.`);
+      const failureReason = transientServerFailure ? `HTTP ${error.status}` : "a transport error";
+      console.warn(`[ffmpeg] GitHub asset API failed with ${failureReason} after retries; trying the public release URL without credentials.`);
       archive = await downloadImpl(fallbackUrl, 0, "FFmpeg fallback", {
         headers: { Accept: "application/octet-stream" },
       });

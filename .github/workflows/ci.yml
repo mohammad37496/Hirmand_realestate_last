@@ -54,6 +54,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Provision checksum-verified FFmpeg runtime
+        run: npm run prebuild
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       - name: Tests
         run: npm test
 
@@ -63,11 +68,6 @@ jobs:
       # this project has broken before.
       - name: Phone Bridge schema and SQL
         run: npm run test:phone-bridge:sql
-
-      - name: Provision checksum-verified FFmpeg runtime
-        run: npm run prebuild
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Production build
         run: npm run build --ignore-scripts
