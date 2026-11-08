@@ -5,6 +5,7 @@ import {
   ownerStatusEventNote,
   publicCustomerPropertyReviewNote,
 } from "./customer-property-owner-status.ts";
+import { resubmitCustomerPropertySubmission } from "./customer-property-submission-resubmit.ts";
 
 test("public owner timeline exposes only owner-facing event notes", async () => {
   assert.equal(ownerStatusEventNote("created", "پرونده ثبت شد"), "پرونده ثبت شد");
@@ -34,4 +35,32 @@ test("public lead tracking returns review notes only after an explicit rejection
     "utf8",
   );
   assert.match(route, /publicCustomerPropertyReviewNote\(\s*customerPropertySubmissionStatus\s*,\s*row\.customer_property_submission_review_note\s*,?\s*\)/);
+});
+
+test("customer resubmission only wins when the rejected status and timestamp still match", async () => {
+  const input = {
+    id: "submission-1",
+    expectedUpdatedAt: "2026-11-08T12:00:00.000Z",
+    ownerName: "مالک",
+    ownerPhone: "09123456789",
+    propertyData: "{}",
+  };
+  let queryText = "";
+  let queryParams: unknown[] = [];
+  const won = await resubmitCustomerPropertySubmission({
+    query: async <T>(text: string, params: unknown[] = []): Promise<T[]> => {
+      queryText = text;
+      queryParams = params;
+      return [{ id: "submission-1" }] as T[];
+    },
+  }, input);
+
+  assert.equal(won, true);
+  assert.match(queryText, /where id=\$1 and status='rejected' and updated_at=\$5\s+returning id/i);
+  assert.deepEqual(queryParams, [input.id, input.ownerName, input.ownerPhone, input.propertyData, input.expectedUpdatedAt]);
+
+  const stale = await resubmitCustomerPropertySubmission({
+    query: async () => [],
+  }, input);
+  assert.equal(stale, false);
 });

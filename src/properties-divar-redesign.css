@@ -907,6 +907,27 @@
   font-size: .7rem;
   line-height: 1.5;
 }
+.pf-map-cluster-navigation {
+  display: grid;
+  grid-template-columns: minmax(44px, 1fr) auto minmax(44px, 1fr);
+  align-items: center;
+  gap: 6px;
+  color: #66736d;
+  font-size: .68rem;
+  text-align: center;
+}
+.pf-map-cluster-navigation button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 5px 8px;
+  border: 1px solid rgb(32 52 45 / .16);
+  border-radius: 8px;
+  background: #f4f0e6;
+  color: #594722;
+  font-size: .68rem;
+  font-weight: 850;
+  cursor: pointer;
+}
 .pf-map-popup > a {
   justify-self: start;
   min-height: 44px;

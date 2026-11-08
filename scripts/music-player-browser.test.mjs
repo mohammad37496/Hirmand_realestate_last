@@ -33,6 +33,7 @@ try {
   await page.addInitScript(() => {
     const mediaState = new WeakMap();
     const sourceState = new WeakMap();
+    const currentTimeState = new WeakMap();
     Object.defineProperty(HTMLMediaElement.prototype, "src", {
       configurable: true,
       get() {
@@ -58,6 +59,15 @@ try {
       configurable: true,
       get() {
         return 180;
+      },
+    });
+    Object.defineProperty(HTMLMediaElement.prototype, "currentTime", {
+      configurable: true,
+      get() {
+        return currentTimeState.get(this) ?? 0;
+      },
+      set(value) {
+        currentTimeState.set(this, Number(value));
       },
     });
     HTMLMediaElement.prototype.load = function load() {
@@ -97,6 +107,14 @@ try {
     null,
     { timeout: 10_000 },
   );
+
+  await page.locator("audio").evaluate((audio) => { audio.currentTime = 40; });
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true })));
+  assert.equal(await page.locator("audio").evaluate((audio) => audio.currentTime), 45,
+    "ArrowRight must seek five seconds forward");
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true })));
+  assert.equal(await page.locator("audio").evaluate((audio) => audio.currentTime), 40,
+    "ArrowLeft must seek five seconds backward");
 
   const fallbackResult = await page.locator("audio").evaluate((audio) => ({
     source: audio.src,
@@ -792,6 +810,7 @@ try {
       "a one-track playlist restarts when repeat is enabled",
       "a late play() resolution from a previous track cannot restart a paused track",
       "playlist selection and next/previous controls update the active track",
+      "keyboard ArrowRight seeks forward and ArrowLeft seeks backward",
       "touch and desktop targets, seek controls, and playlist scrolling fit nine phone, landscape, tablet, and desktop viewports",
       "the desktop dock keeps identical geometry on the home, property, area, and tools routes",
       "resizing an open touch player between landscape and tablet keeps its dock and playlist visible",

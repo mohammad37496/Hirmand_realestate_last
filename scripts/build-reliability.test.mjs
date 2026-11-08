@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { download, downloadVerifiedFfmpegArchive, extractFfmpegArchive } from "./ensure-ffmpeg.mjs";
+import { resolveResponsiveSmokeTarget, responsiveSmokePropertyRoutes } from "./responsive-smoke-target.mjs";
 
 const ffmpegDownloader = await readFile(
   new URL("./ensure-ffmpeg.mjs", import.meta.url),
@@ -34,6 +35,10 @@ const verifyWorkflow = await readFile(
   new URL("../.github/workflows/verify.yml", import.meta.url),
   "utf8",
 );
+const responsiveSmoke = await readFile(
+  new URL("./responsive-layout-smoke.mjs", import.meta.url),
+  "utf8",
+);
 const liaraIgnore = await readFile(
   new URL("../.liaraignore", import.meta.url),
   "utf8",
@@ -42,6 +47,43 @@ const liaraIgnore = await readFile(
 test("FFmpeg download has a finite timeout and an actionable timeout error", () => {
   assert.match(ffmpegDownloader, /AbortSignal\.timeout\(timeoutMs\)/);
   assert.match(ffmpegDownloader, /\$\{label\} download timed out after/);
+});
+
+test("production responsive smoke discovers a real published property without a synthetic fixture", () => {
+  const target = resolveResponsiveSmokeTarget({
+    href: "/properties/آپارتمان-واقعی-اصفهان",
+    dataPropertyId: "property-live-123",
+    baseUrl: "https://hirmandrealestate.ir",
+  });
+  assert.deepEqual(target, {
+    propertyId: "property-live-123",
+    propertySlug: "آپارتمان-واقعی-اصفهان",
+  });
+  assert.deepEqual(responsiveSmokePropertyRoutes(target), [
+    "/properties/%D8%A2%D9%BE%D8%A7%D8%B1%D8%AA%D9%85%D8%A7%D9%86-%D9%88%D8%A7%D9%82%D8%B9%DB%8C-%D8%A7%D8%B5%D9%81%D9%87%D8%A7%D9%86",
+    "/file/property-live-123",
+    "/v/%D8%A2%D9%BE%D8%A7%D8%B1%D8%AA%D9%85%D8%A7%D9%86-%D9%88%D8%A7%D9%82%D8%B9%DB%8C-%D8%A7%D8%B5%D9%81%D9%87%D8%A7%D9%86/property-live-123",
+  ]);
+  assert.match(responsiveSmoke, /data-property-id/);
+  assert.match(responsiveSmoke, /responsiveSmokePropertyRoutes\(\{ propertyId, propertySlug \}\)/);
+  assert.doesNotMatch(responsiveSmoke, /browser-smoke-property-001/);
+});
+
+test("responsive smoke keeps explicit CI fixture values and omits unsupported detail routes", () => {
+  const target = resolveResponsiveSmokeTarget({
+    href: "/properties/discovered-slug",
+    dataPropertyId: "discovered-id",
+    baseUrl: "https://preview.example",
+    configuredId: "browser-smoke-property-001",
+    configuredSlug: "browser-smoke-slug",
+  });
+  assert.deepEqual(target, {
+    propertyId: "browser-smoke-property-001",
+    propertySlug: "browser-smoke-slug",
+  });
+  assert.deepEqual(responsiveSmokePropertyRoutes({ propertyId: "", propertySlug: "only-slug" }), [
+    "/properties/only-slug",
+  ]);
 });
 
 test("FFmpeg download retries transient gateway errors with bounded backoff", async () => {
