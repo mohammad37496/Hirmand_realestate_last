@@ -110,31 +110,66 @@ function verifyWatermarkCapabilities(binaryPath) {
   }
 }
 
-async function download(url, redirects = 0, label = "FFmpeg") {
+export async function download(url, redirects = 0, label = "FFmpeg", options = {}) {
   if (redirects > 5) throw new Error(`Too many ${label} download redirects.`);
   const configuredTimeout = Number(process.env.HIRMAND_FFMPEG_DOWNLOAD_TIMEOUT_MS);
   const timeoutMs = Number.isInteger(configuredTimeout) && configuredTimeout >= 1000 && configuredTimeout <= 120_000
     ? configuredTimeout
     : 120_000;
-  let response;
-  try {
-    response = await fetch(url, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (error) {
-    if (error && typeof error === "object" && error.name === "TimeoutError") {
-      throw new Error(`${label} download timed out after ${timeoutMs}ms: ${url}`);
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  const maxAttempts = Number.isInteger(options.maxAttempts) && options.maxAttempts >= 1 && options.maxAttempts <= 5
+    ? options.maxAttempts
+    : 4;
+  const retryDelays = options.retryDelays ?? [1_000, 3_000, 7_000];
+  const retryableStatuses = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    let response;
+    try {
+      response = await fetchImpl(url, {
+        redirect: "manual",
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      if (attempt < maxAttempts - 1) {
+        const delayMs = retryDelays[Math.min(attempt, retryDelays.length - 1)] ?? 7_000;
+        console.warn(`[ffmpeg] ${label} download attempt ${attempt + 1}/${maxAttempts} failed; retrying in ${delayMs}ms.`);
+        await sleep(delayMs);
+        continue;
+      }
+      if (error && typeof error === "object" && error.name === "TimeoutError") {
+        throw new Error(`${label} download timed out after ${timeoutMs}ms: ${url}`);
+      }
+      throw error;
     }
-    throw error;
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) throw new Error(`${label} download redirect has no location (${response.status}).`);
+      return download(new URL(location, url).toString(), redirects + 1, label, options);
+    }
+    if (!response.ok) {
+      if (retryableStatuses.has(response.status) && attempt < maxAttempts - 1) {
+        const delayMs = retryDelays[Math.min(attempt, retryDelays.length - 1)] ?? 7_000;
+        console.warn(`[ffmpeg] ${label} download returned HTTP ${response.status}; retrying in ${delayMs}ms (${attempt + 1}/${maxAttempts}).`);
+        await sleep(delayMs);
+        continue;
+      }
+      throw new Error(`${label} download failed with HTTP ${response.status}.`);
+    }
+    try {
+      return Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+      if (attempt < maxAttempts - 1) {
+        const delayMs = retryDelays[Math.min(attempt, retryDelays.length - 1)] ?? 7_000;
+        console.warn(`[ffmpeg] ${label} response body failed; retrying in ${delayMs}ms (${attempt + 1}/${maxAttempts}).`);
+        await sleep(delayMs);
+        continue;
+      }
+      throw error;
+    }
   }
-  if (response.status >= 300 && response.status < 400) {
-    const location = response.headers.get("location");
-    if (!location) throw new Error(`${label} download redirect has no location (${response.status}).`);
-    return download(new URL(location, url).toString(), redirects + 1, label);
-  }
-  if (!response.ok) throw new Error(`${label} download failed with HTTP ${response.status}.`);
-  return Buffer.from(await response.arrayBuffer());
+  throw new Error(`${label} download failed after ${maxAttempts} attempts.`);
 }
 
 function verifyGitBlob(buffer, expected) {
