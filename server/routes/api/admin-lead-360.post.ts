@@ -12,10 +12,13 @@ export default defineEventHandler(async (event) => {
   if (!(await verifyAdminSessionToken(token))) throw createError({ statusCode: 401, statusMessage: "نشست مدیریت معتبر نیست." });
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
+  const role = normalizeAdminRole(claims?.role);
+  if (!hasAdminPermission(role, "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی پرونده مشتری برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { customer: null, activities: [], deals: [], settlements: [], documents: [] };
+  const canViewDeals = hasAdminPermission(role, "deal.manage");
+  const canViewCommissions = hasAdminPermission(role, "commission.manage");
+  if (dbSource === "unconfigured") return { customer: null, activities: [], deals: [], settlements: [], documents: [], access: { deals: canViewDeals, commissions: canViewCommissions } };
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const leadId = clean(body.id);
@@ -31,10 +34,17 @@ export default defineEventHandler(async (event) => {
       "select id,activity_type,title,note,created_at from lead_activities where lead_id=$1 order by created_at desc limit 100",
       [leadId],
     ),
-    sql.query<Record<string, unknown>>(
-      "select id,title,deal_type,status,amount,commission,consultant,contract_number,contract_date,closing_date,notes,updated_at from admin_deals where lead_id=$1 order by updated_at desc",
-      [leadId],
-    ),
+    canViewDeals
+      ? canViewCommissions
+        ? sql.query<Record<string, unknown>>(
+            "select id,title,deal_type,status,amount,commission,consultant,contract_number,contract_date,closing_date,notes,updated_at from admin_deals where lead_id=$1 order by updated_at desc",
+            [leadId],
+          )
+        : sql.query<Record<string, unknown>>(
+            "select id,title,deal_type,status,amount,consultant,contract_number,contract_date,closing_date,notes,updated_at from admin_deals where lead_id=$1 order by updated_at desc",
+            [leadId],
+          )
+      : Promise.resolve([] as Record<string, unknown>[]),
   ]);
   const customer = leadRows[0];
   if (!customer) throw createError({ statusCode: 404, statusMessage: "پرونده مشتری پیدا نشد." });
@@ -42,11 +52,13 @@ export default defineEventHandler(async (event) => {
   const dealIds = dealRows.map((row) => String(row.id));
   let settlementRows: Record<string, unknown>[] = [];
   let documentRows: Record<string, unknown>[] = [];
-  if (dealIds.length) {
-    settlementRows = await sql.query<Record<string, unknown>>(
-      "select id,deal_id,consultant,commission_amount,consultant_share,office_share,status,paid_at,note from admin_commission_settlements where deal_id = any($1::text[]) order by updated_at desc",
-      [dealIds],
-    );
+  if (dealIds.length && canViewDeals) {
+    if (canViewCommissions) {
+      settlementRows = await sql.query<Record<string, unknown>>(
+        "select id,deal_id,consultant,commission_amount,consultant_share,office_share,status,paid_at,note from admin_commission_settlements where deal_id = any($1::text[]) order by updated_at desc",
+        [dealIds],
+      );
+    }
     documentRows = await sql.query<Record<string, unknown>>(
       "select id,deal_id,document_type,status,file_url,note,received_at,verified_at from admin_deal_documents where deal_id = any($1::text[]) order by created_at asc",
       [dealIds],
@@ -54,6 +66,7 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
+    access: { deals: canViewDeals, commissions: canViewCommissions },
     customer: {
       id: String(customer.id),
       name: String(customer.name),
