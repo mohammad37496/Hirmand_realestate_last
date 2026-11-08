@@ -16,6 +16,11 @@ export function databaseMediaVisibility(pathname: string): DatabaseMediaVisibili
   return "unknown";
 }
 
+/** Legacy Blob URLs are public, so only known public media paths may use that fallback. */
+export function shouldUseLegacyBlobFallback(pathname: string, blobAvailable: boolean): boolean {
+  return blobAvailable && databaseMediaVisibility(pathname) === "public";
+}
+
 export function liaraMediaCacheControl(key: string, publishedReference: boolean): string {
   if (key.startsWith("properties/customer-submissions/")) {
     return "private, no-store";

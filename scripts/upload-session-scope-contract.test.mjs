@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const root = new URL("../", import.meta.url);
-const [protocol, propertyRoute, areaRoute, customerRoute, mediaProxyRoute, customerForm, adminReview, databaseMediaRoute] = await Promise.all([
+const [protocol, propertyRoute, areaRoute, customerRoute, mediaProxyRoute, customerForm, adminReview, databaseMediaRoute, uploadSmoke, mediaStore, mediaAccess] = await Promise.all([
   readFile(new URL("src/lib/chunked-upload.server.ts", root), "utf8"),
   readFile(new URL("server/routes/api/upload.post.ts", root), "utf8"),
   readFile(new URL("server/routes/api/area-upload.post.ts", root), "utf8"),
@@ -12,6 +12,9 @@ const [protocol, propertyRoute, areaRoute, customerRoute, mediaProxyRoute, custo
   readFile(new URL("src/routes/submit-property.tsx", root), "utf8"),
   readFile(new URL("server/routes/api/admin-customer-property-submissions.post.ts", root), "utf8"),
   readFile(new URL("server/routes/api/media/[id].get.ts", root), "utf8"),
+  readFile(new URL("scripts/upload-e2e-smoke.mjs", root), "utf8"),
+  readFile(new URL("src/lib/media-store.server.ts", root), "utf8"),
+  readFile(new URL("src/lib/liara-media-access.server.ts", root), "utf8"),
 ]);
 
 test("property and area upload routes cannot exchange media session IDs", () => {
@@ -57,4 +60,22 @@ test("database media endpoint gates private upload prefixes and preserves public
   assert.match(databaseMediaRoute, /liaraMediaCacheControl\(meta\.pathname,\s*publishedReference\)/);
   assert.match(databaseMediaRoute, /createRangeNotSatisfiableResponse\(`bytes \*\/\$\{size\}`\)/);
   assert.match(databaseMediaRoute, /status:\s*range\s*\?\s*206\s*:\s*200/);
+});
+
+test("admin upload smoke fetches unpublished media with its session and checks private cache headers", () => {
+  assert.match(uploadSmoke, /const anonymousResponse = await fetch\(new URL\(sameOriginPath, baseUrl\)\)/);
+  assert.match(uploadSmoke, /anonymousResponse\.status !== 404/);
+  assert.match(uploadSmoke, /if \(!sameOriginPath\)[\s\S]*?private property media must use the same-origin media endpoint/);
+  assert.match(uploadSmoke, /mediaResponse = await call\(sameOriginPath\)/);
+  assert.doesNotMatch(uploadSmoke, /await fetch\(mediaUrl\)/);
+  assert.match(uploadSmoke, /mediaResponse\.status !== 200/);
+  assert.match(uploadSmoke, /mediaResponse\.headers\.get\("cache-control"\) !== "private, no-store"/);
+  assert.match(uploadSmoke, /const isLiaraUrl =/);
+  assert.match(uploadSmoke, /\/api\/media-proxy\?url=/);
+});
+
+test("private media paths cannot fall back to public Vercel Blob URLs", () => {
+  assert.match(mediaAccess, /shouldUseLegacyBlobFallback\(pathname: string, blobAvailable: boolean\): boolean[\s\S]*?blobAvailable && databaseMediaVisibility\(pathname\) === "public"/);
+  assert.match(mediaStore, /if \(shouldUseLegacyBlobFallback\(input\.pathname, blobConfigured\(\)\)\)/);
+  assert.match(mediaStore, /else if \(shouldUseLegacyBlobFallback\(pathname, blobConfigured\(\)\)\)/);
 });

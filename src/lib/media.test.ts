@@ -20,6 +20,7 @@ import {
   isPublishedPropertyMedia,
   createLiaraVideoResponse,
   liaraMediaCacheControl,
+  shouldUseLegacyBlobFallback,
 } from "./liara-media-access.server.ts";
 import {
   createRangeNotSatisfiableResponse,
@@ -106,6 +107,28 @@ test("database media visibility keeps known public producers and hides unknown n
   assert.equal(databaseMediaVisibility("areas/uploads/photo.webp"), "public");
   assert.equal(databaseMediaVisibility("music/track.mp3"), "public");
   assert.equal(databaseMediaVisibility("admin-deal-documents/private.pdf"), "unknown");
+});
+
+test("legacy public Blob fallback is disabled for private property media even when configured", () => {
+  const keys = ["BLOB_READ_WRITE_TOKEN", "LIARA_ENDPOINT", "LIARA_BUCKET_NAME", "LIARA_ACCESS_KEY", "LIARA_SECRET_KEY"] as const;
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  process.env.BLOB_READ_WRITE_TOKEN = "legacy-blob-test-token";
+  for (const key of keys.slice(1)) delete process.env[key];
+  try {
+    const blobAvailable = Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+    assert.equal(blobAvailable, true);
+    assert.equal(shouldUseLegacyBlobFallback("properties/customer-submissions/photo.webp", blobAvailable), false);
+    assert.equal(shouldUseLegacyBlobFallback("properties/uploads/draft.webp", blobAvailable), false);
+    assert.equal(shouldUseLegacyBlobFallback("private-deal-documents/contract.pdf", blobAvailable), false);
+    assert.equal(shouldUseLegacyBlobFallback("music/track.mp3", blobAvailable), true);
+    assert.equal(shouldUseLegacyBlobFallback("areas/uploads/area.webp", blobAvailable), true);
+    assert.equal(shouldUseLegacyBlobFallback("properties/divar/photo.webp", blobAvailable), true);
+  } finally {
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  }
 });
 
 test("media cache policy keeps private uploads uncached and bounds revocable published media to five minutes", () => {
