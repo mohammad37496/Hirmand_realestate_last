@@ -21,10 +21,12 @@ export function AdminLeadAssignmentBalancer() {
   const [consultants, setConsultants] = useState<ConsultantLoad[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-lead-assignment", {
         method: "POST",
@@ -36,7 +38,9 @@ export function AdminLeadAssignmentBalancer() {
       setConsultants(Array.isArray(data.consultants) ? data.consultants : []);
       setRecommendations(Array.isArray(data.recommendations) ? data.recommendations : []);
     } catch (error) {
-      toast.error(adminErrorMessage(error, "پیشنهاد تخصیص مشاور بارگذاری نشد."));
+      const message = adminErrorMessage(error, "پیشنهاد تخصیص مشاور بارگذاری نشد.");
+      setLoadError(message);
+      toast.error(message);
       setConsultants([]);
       setRecommendations([]);
     } finally {
@@ -72,13 +76,17 @@ export function AdminLeadAssignmentBalancer() {
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <Gauge size={17} />
           مرکز تعادل بار مشاوران
-          <span className="admin-lead-status" style={{ marginInlineStart: 4 }}>{recommendations.length.toLocaleString("fa-IR")} لید بدون مشاور</span>
+          <span className="admin-lead-status" style={{ marginInlineStart: 4 }}>{loadError ? "وضعیت نامشخص" : `${recommendations.length.toLocaleString("fa-IR")} لید بدون مشاور`}</span>
         </span>
         <button type="button" className="btn-ghost" onClick={(event) => { event.preventDefault(); void load(); }} disabled={loading}>
           <RefreshCw size={14} className={loading ? "admin-spin" : ""} /> بروزرسانی
         </button>
       </summary>
       <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
+        {loadError ? <div role="alert" className="admin-empty" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <span>{loadError}</span>
+          <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>تلاش دوباره</button>
+        </div> : null}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
           {consultants.map((item) => (
             <div key={item.phone || item.name} style={{ border: "1px solid var(--line)", borderRadius: 11, padding: 10, background: "var(--surface-2,#f7f5f0)" }}>
@@ -88,7 +96,7 @@ export function AdminLeadAssignmentBalancer() {
             </div>
           ))}
         </div>
-        {!loading && !recommendations.length ? <div className="admin-empty"><UsersRound size={22} />همه لیدهای فعال مشاور دارند.</div> : null}
+        {!loading && !loadError && !recommendations.length ? <div className="admin-empty"><UsersRound size={22} />همه لیدهای فعال مشاور دارند.</div> : null}
         {loading ? <div className="admin-empty"><RefreshCw size={22} className="admin-spin" />در حال محاسبه بار مشاوران…</div> : null}
         {!loading ? recommendations.slice(0, 12).map((item) => (
           <div key={item.lead.id} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 10, display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 10, alignItems: "center" }}>
@@ -97,7 +105,7 @@ export function AdminLeadAssignmentBalancer() {
               <small style={{ display: "block", color: "var(--muted)", marginTop: 4 }}>{item.lead.deal} · {item.lead.propertyType || "نوع نامشخص"}{item.lead.neighborhood ? " · " + item.lead.neighborhood : ""}</small>
               <small style={{ display: "block", color: "var(--subtle)", marginTop: 3 }}>پیشنهاد: {item.suggested?.name || "مشاوری در دسترس نیست"}{item.alternatives.length ? " · جایگزین: " + item.alternatives.map((x) => x.name).join("، ") : ""}</small>
             </div>
-            {item.suggested ? <button type="button" className="btn-gold" onClick={() => void assign(item.lead.id, item.suggested!.name)} disabled={busy === item.lead.id}>
+            {item.suggested ? <button type="button" className="btn-gold" onClick={() => void assign(item.lead.id, item.suggested!.name)} disabled={Boolean(loadError) || busy === item.lead.id}>
               {busy === item.lead.id ? "در حال ثبت…" : "تخصیص پیشنهادی"}
             </button> : null}
           </div>
