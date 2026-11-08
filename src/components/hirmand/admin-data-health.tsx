@@ -25,9 +25,12 @@ function faDate(value: string) { return new Date(value).toLocaleString("fa-IR", 
 export function AdminDataHealth() {
   const [data, setData] = useState<ScanResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   const scan = useCallback(async () => {
     setLoading(true);
+    setScanError(null);
+    setData(null);
     try {
       const response = await fetch("/api/admin-data-health", {
         method: "POST",
@@ -39,7 +42,9 @@ export function AdminDataHealth() {
       if (!response.ok) throw new Error(payload.statusMessage || "بررسی سلامت داده انجام نشد.");
       setData(payload);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "بررسی سلامت داده انجام نشد.");
+      const message = error instanceof Error ? error.message : "بررسی سلامت داده انجام نشد.";
+      setScanError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   }, []);
 
@@ -78,7 +83,12 @@ export function AdminDataHealth() {
           <RefreshCw size={14} className={loading ? "admin-spin" : ""} /> {loading ? "در حال اسکن…" : "اسکن دوباره"}
         </button>
       </div>
-      {!data ? <div className="admin-empty">در حال آماده‌سازی اسکن…</div> : (
+      {scanError ? <div role="alert" className="admin-empty" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <span>{scanError}</span>
+        <button type="button" className="btn-ghost" onClick={() => void scan()} disabled={loading}>تلاش دوباره</button>
+      </div> : null}
+      {!scanError && loading && !data ? <div className="admin-empty">در حال آماده‌سازی اسکن…</div> : null}
+      {!scanError && data ? (
         <>
           <div className="admin-data-health-summary">
             <div className="is-critical"><span>بحرانی</span><strong>{fa(data.summary.critical)}</strong></div>
@@ -104,7 +114,7 @@ export function AdminDataHealth() {
             </div>
           )}
         </>
-      )}
+      ) : null}
     </section>
   );
 }
