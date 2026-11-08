@@ -1,13 +1,19 @@
-import { Cloud, LogIn, RefreshCw, ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { authEnabled, signIn, GROK_PROVIDERS } from "@/lib/auth/client";
+import { Cloud, RefreshCw, ShieldCheck } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
+import { authEnabled, getBearerToken } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { chooseCustomerWorkspaceSync, mergeCustomerWorkspaceThreeWay } from "@/lib/customer-workspace-sync-plan.mjs";
+import { clearWorkspaceForSignedOutUser, resetWorkspaceForAccountSwitch } from "@/lib/customer-workspace-account-switch.mjs";
 import "@/customer-workspace-sync.css";
 
 const FAVORITES_KEY = "hirmand-favorite-properties";
 const FAVORITE_META_KEY = "hirmand-favorite-meta-v1";
 const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
 const RECENT_KEY = "hirmand-recent-properties";
+const WORKSPACE_OWNER_KEY = "hirmand-workspace-owner-v1";
+const WORKSPACE_PENDING_KEY = "hirmand-workspace-pending-v1";
+const WORKSPACE_BASE_KEY = "hirmand-workspace-base-v1:";
 
 type SavedSearch = {
   id: string;
@@ -16,6 +22,16 @@ type SavedSearch = {
   alerts?: boolean;
   lastCheckedAt?: string;
 };
+
+type Workspace = {
+  favorites: string[];
+  favoriteMeta: Record<string, { tag?: string; note?: string }>;
+  savedSearches: SavedSearch[];
+  recentProperties: string[];
+};
+
+type WorkspaceBase = { ownerId: string; revision: string | null; workspace: Workspace };
+type RemoteWorkspace = Workspace & { ownerId?: string; revision: string | null; updatedAt?: string | null };
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -28,99 +44,331 @@ function readJson<T>(key: string, fallback: T): T {
 
 function writeJson(key: string, value: unknown) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    const serialized = JSON.stringify(value);
+    if (localStorage.getItem(key) !== serialized) localStorage.setItem(key, serialized);
   } catch {
     // Local storage remains an optional fallback.
   }
 }
 
-function localWorkspace() {
-  const favorites = readJson<unknown>(FAVORITES_KEY, []);
-  const recentProperties = readJson<unknown>(RECENT_KEY, []);
-  const savedSearches = readJson<unknown>(SAVED_SEARCHES_KEY, []);
-  const favoriteMeta = readJson<unknown>(FAVORITE_META_KEY, {});
+function normalizeWorkspace(value: unknown): Workspace {
+  const workspace = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+  const favorites = workspace.favorites;
+  const recentProperties = workspace.recentProperties;
+  const savedSearches = workspace.savedSearches;
+  const favoriteMeta = workspace.favoriteMeta;
+  const validMeta = favoriteMeta && typeof favoriteMeta === "object" && !Array.isArray(favoriteMeta)
+    ? Object.fromEntries(Object.entries(favoriteMeta)
+      .filter(([slug, meta]) => Boolean(slug.trim() && slug.length <= 220 && meta && typeof meta === "object" && !Array.isArray(meta)))
+      .slice(0, 200)
+      .map(([slug, meta]) => {
+        const item = meta as Record<string, unknown>;
+        return [slug, {
+          ...(typeof item.tag === "string" ? { tag: item.tag.slice(0, 40) } : {}),
+          ...(typeof item.note === "string" ? { note: item.note.slice(0, 500) } : {}),
+        }];
+      }))
+    : {};
   return {
-    favorites: Array.isArray(favorites) ? favorites.filter((item): item is string => typeof item === "string").slice(0, 200) : [],
-    recentProperties: Array.isArray(recentProperties) ? recentProperties.filter((item): item is string => typeof item === "string").slice(0, 20) : [],
-    savedSearches: Array.isArray(savedSearches) ? savedSearches.filter((item): item is SavedSearch => Boolean(item && typeof item === "object" && typeof item.id === "string")).slice(0, 10) : [],
-    favoriteMeta:
-      favoriteMeta && typeof favoriteMeta === "object" && !Array.isArray(favoriteMeta)
-        ? favoriteMeta as Record<string, { tag?: string; note?: string }>
-        : {},
+    favorites: Array.isArray(favorites) ? favorites.filter((item): item is string => typeof item === "string" && item.trim().length > 0 && item.length <= 220).slice(0, 200) : [],
+    recentProperties: Array.isArray(recentProperties) ? recentProperties.filter((item): item is string => typeof item === "string" && item.trim().length > 0 && item.length <= 220).slice(0, 20) : [],
+    savedSearches: Array.isArray(savedSearches) ? savedSearches
+      .filter((item): item is SavedSearch => Boolean(item && typeof item === "object" && typeof item.id === "string" && item.id.length <= 80 && typeof item.name === "string" && typeof item.params === "string" && item.name.length <= 120 && item.params.length <= 1500))
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        params: item.params,
+        ...(typeof item.alerts === "boolean" ? { alerts: item.alerts } : {}),
+        ...(typeof item.lastCheckedAt === "string" ? { lastCheckedAt: item.lastCheckedAt.slice(0, 80) } : {}),
+      })).slice(0, 10) : [],
+    favoriteMeta: validMeta,
   };
 }
 
-function mergeWorkspace(remote: ReturnType<typeof localWorkspace>) {
-  const local = localWorkspace();
-  const favorites = [...new Set([...remote.favorites, ...local.favorites])].slice(0, 200);
-  const recentProperties = [...new Set([...local.recentProperties, ...remote.recentProperties])].slice(0, 20);
-  const byId = new Map<string, SavedSearch>();
-  [...remote.savedSearches, ...local.savedSearches].forEach((item) => byId.set(item.id, item));
-  const favoriteMeta = { ...remote.favoriteMeta, ...local.favoriteMeta };
-  return {
-    favorites,
-    recentProperties,
-    savedSearches: Array.from(byId.values()).slice(0, 10),
-    favoriteMeta,
-  };
+function localWorkspace(): Workspace {
+  return normalizeWorkspace({
+    favorites: readJson<unknown>(FAVORITES_KEY, []),
+    recentProperties: readJson<unknown>(RECENT_KEY, []),
+    savedSearches: readJson<unknown>(SAVED_SEARCHES_KEY, []),
+    favoriteMeta: readJson<unknown>(FAVORITE_META_KEY, {}),
+  });
 }
 
-export function CustomerWorkspaceSync() {
+function persistWorkspace(workspace: Workspace) {
+  writeJson(FAVORITES_KEY, workspace.favorites);
+  writeJson(RECENT_KEY, workspace.recentProperties);
+  writeJson(SAVED_SEARCHES_KEY, workspace.savedSearches);
+  writeJson(FAVORITE_META_KEY, workspace.favoriteMeta);
+}
+
+function sameWorkspace(left: Workspace, right: Workspace) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function readBase(userId: string): WorkspaceBase | null {
+  const value = readJson<unknown>(`${WORKSPACE_BASE_KEY}${encodeURIComponent(userId)}`, null);
+  if (!value || typeof value !== "object") return null;
+  const base = value as Record<string, unknown>;
+  if (base.ownerId !== userId || !(base.revision === null || typeof base.revision === "string")) return null;
+  return { ownerId: userId, revision: base.revision, workspace: normalizeWorkspace(base.workspace) };
+}
+
+function saveBase(userId: string, revision: string | null, workspace: Workspace) {
+  writeJson(`${WORKSPACE_BASE_KEY}${encodeURIComponent(userId)}`, { ownerId: userId, revision, workspace });
+}
+
+type CustomerWorkspaceSyncState = {
+  user: ReturnType<typeof useCurrentUserState>["user"];
+  isPending: boolean;
+  busy: boolean;
+  status: string;
+  retry: () => void;
+};
+
+const CustomerWorkspaceSyncContext = createContext<CustomerWorkspaceSyncState | null>(null);
+
+export function CustomerWorkspaceSyncProvider({
+  enabled = true,
+  children,
+}: { enabled?: boolean; children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  const [signingIn, setSigningIn] = useState(false);
-  const [signInError, setSignInError] = useState("");
   const bootedUser = useRef<string | null>(null);
+  const activeUserId = useRef<string | null>(user?.id ?? null);
+  const syncInFlight = useRef(false);
+  const syncQueued = useRef(false);
+  const syncRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    activeUserId.current = user?.id ?? null;
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    resetWorkspaceForAccountSwitch({ storage: localStorage, target: window, userId: user.id });
+  }, [user?.id]);
 
   const sync = useCallback(async () => {
     if (!user || !authEnabled) return;
+    if (syncInFlight.current) {
+      syncQueued.current = true;
+      return;
+    }
+    syncInFlight.current = true;
     setBusy(true);
     setStatus("");
+    let pendingMarker: string | null = null;
+    let attemptedPush = false;
     try {
-      const getResponse = await fetch("/api/customer-workspace", {
-        credentials: "same-origin",
-        headers: { accept: "application/json" },
-      });
-      if (!getResponse.ok) throw new Error("فضای شخصی هنوز آماده نیست.");
-      const remote = await getResponse.json() as ReturnType<typeof localWorkspace>;
-      const merged = mergeWorkspace({
-        favorites: Array.isArray(remote.favorites) ? remote.favorites.filter((item): item is string => typeof item === "string") : [],
-        recentProperties: Array.isArray(remote.recentProperties) ? remote.recentProperties.filter((item): item is string => typeof item === "string") : [],
-        savedSearches: Array.isArray(remote.savedSearches) ? remote.savedSearches : [],
-        favoriteMeta: remote.favoriteMeta && typeof remote.favoriteMeta === "object" ? remote.favoriteMeta : {},
-      });
+      const bearerToken = getBearerToken();
+      const headers = {
+        accept: "application/json",
+        ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+      };
+      const fetchRemote = async (): Promise<RemoteWorkspace> => {
+        const response = await fetch("/api/customer-workspace", { credentials: "same-origin", headers });
+        if (!response.ok) throw new Error("فضای شخصی هنوز آماده نیست.");
+        const value = await response.json() as RemoteWorkspace;
+        if (activeUserId.current !== user.id) throw new Error("نشست حساب تغییر کرده است؛ صفحه را تازه‌سازی کنید.");
+        if (value.ownerId !== user.id) throw new Error("نشست حساب تغییر کرده است؛ صفحه را تازه‌سازی کنید.");
+        if (!(value.revision === null || (typeof value.revision === "string" && /^[1-9][0-9]{0,18}$/.test(value.revision)))) {
+          throw new Error("نسخه فضای شخصی نامعتبر است.");
+        }
+        return { ...normalizeWorkspace(value), ownerId: value.ownerId, revision: value.revision, updatedAt: value.updatedAt ?? null };
+      };
 
-      writeJson(FAVORITES_KEY, merged.favorites);
-      writeJson(RECENT_KEY, merged.recentProperties);
-      writeJson(SAVED_SEARCHES_KEY, merged.savedSearches);
-      writeJson(FAVORITE_META_KEY, merged.favoriteMeta);
-
-      const postResponse = await fetch("/api/customer-workspace", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(merged),
+      let remote = await fetchRemote();
+      let storedOwner: string | null = null;
+      try {
+        storedOwner = localStorage.getItem(WORKSPACE_OWNER_KEY);
+        pendingMarker = localStorage.getItem(WORKSPACE_PENDING_KEY);
+      } catch {
+        // Remote-only sync remains available without local storage.
+      }
+      const local = localWorkspace();
+      const ownerMatches = storedOwner === user.id;
+      const baseRecord = ownerMatches ? readBase(user.id) : null;
+      const ownershipDecision = chooseCustomerWorkspaceSync({
+        remote,
+        local,
+        ownerId: storedOwner,
+        currentUserId: user.id,
+        pendingLocalChanges: Boolean(pendingMarker),
       });
-      const saved = await postResponse.json().catch(() => null) as { success?: boolean } | null;
-      if (!postResponse.ok || !saved?.success) throw new Error("ذخیره‌سازی فضای شخصی انجام نشد.");
+      // A missing base is a first sync / upgrade path: treat both snapshots as
+      // additions against empty state rather than silently discarding either.
+      const base = baseRecord?.workspace ?? { favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [] };
+      let merged = ownershipDecision.direction === "pull" && storedOwner !== null && storedOwner !== user.id
+        ? remote
+        : mergeCustomerWorkspaceThreeWay(base, local, remote);
+
+      const ensurePendingMarker = (): boolean => {
+        if (pendingMarker) return true;
+        const marker = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        try {
+          if (localStorage.getItem(WORKSPACE_PENDING_KEY) !== null) {
+            syncQueued.current = true;
+            return false;
+          }
+          localStorage.setItem(WORKSPACE_PENDING_KEY, marker);
+          pendingMarker = marker;
+        } catch {
+          // Marker is a local safeguard, not a server-side requirement.
+        }
+        return true;
+      };
+
+      if (!sameWorkspace(merged, remote)) {
+        if (!ensurePendingMarker()) return;
+        attemptedPush = true;
+        let savedRevision: string | null = null;
+        let committedWorkspace: Workspace | null = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          if (activeUserId.current !== user.id) return;
+          const postResponse = await fetch("/api/customer-workspace", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "content-type": "application/json",
+              ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+            },
+            body: JSON.stringify({ ...merged, ownerId: user.id, expectedRevision: remote.revision }),
+          });
+          const saved = await postResponse.json().catch(() => null) as { success?: boolean; revision?: string } | null;
+          if (postResponse.ok && saved?.success && typeof saved.revision === "string") {
+            savedRevision = saved.revision;
+            committedWorkspace = merged;
+            break;
+          }
+          if (postResponse.status !== 409 || attempt === 2) {
+            throw new Error(postResponse.status === 409 ? "فضای شخصی روی دستگاه دیگری تغییر کرده است؛ دوباره تلاش کنید." : "ذخیره‌سازی فضای شخصی انجام نشد.");
+          }
+          remote = await fetchRemote();
+          merged = mergeCustomerWorkspaceThreeWay(base, localWorkspace(), remote);
+        }
+        if (!committedWorkspace || savedRevision === null) {
+          throw new Error("ذخیره‌سازی فضای شخصی پس از چند تلاش انجام نشد.");
+        }
+        const latestMarker = (() => {
+          try { return localStorage.getItem(WORKSPACE_PENDING_KEY); } catch { return pendingMarker; }
+        })();
+        if (latestMarker === pendingMarker) persistWorkspace(committedWorkspace);
+        else syncQueued.current = true;
+        saveBase(user.id, savedRevision, committedWorkspace);
+        try {
+          localStorage.setItem(WORKSPACE_OWNER_KEY, user.id);
+          if (pendingMarker && localStorage.getItem(WORKSPACE_PENDING_KEY) === pendingMarker) {
+            localStorage.removeItem(WORKSPACE_PENDING_KEY);
+          } else if (localStorage.getItem(WORKSPACE_PENDING_KEY) !== null) {
+            syncQueued.current = true;
+          }
+        } catch {
+          // The server and base revision are committed even if local bookkeeping fails.
+        }
+      } else {
+        persistWorkspace(merged);
+        saveBase(user.id, remote.revision, merged);
+        try {
+          localStorage.setItem(WORKSPACE_OWNER_KEY, user.id);
+          if (pendingMarker && localStorage.getItem(WORKSPACE_PENDING_KEY) === pendingMarker) {
+            localStorage.removeItem(WORKSPACE_PENDING_KEY);
+          }
+        } catch {
+          // Remote state is authoritative even when local bookkeeping is unavailable.
+        }
+      }
+
+      if (activeUserId.current !== user.id) return;
       window.dispatchEvent(new CustomEvent("hirmand:workspace-synced"));
       setStatus("فضای شخصی شما بین دستگاه‌ها همگام شد.");
     } catch (error) {
+      if (attemptedPush && !pendingMarker) {
+        try {
+          pendingMarker = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          localStorage.setItem(WORKSPACE_PENDING_KEY, pendingMarker);
+        } catch {
+          // Keep visible error state even if browser storage is unavailable.
+        }
+      }
       setStatus(error instanceof Error ? error.message : "همگام‌سازی انجام نشد.");
     } finally {
       setBusy(false);
+      syncInFlight.current = false;
+      if (syncQueued.current) {
+        syncQueued.current = false;
+        syncRef.current();
+      }
     }
   }, [user]);
 
   useEffect(() => {
-    if (isPending || !user || !authEnabled || bootedUser.current === user.id) return;
+    syncRef.current = () => { void sync(); };
+  }, [sync]);
+
+  useEffect(() => {
+    if (!enabled || isPending || !user || !authEnabled || bootedUser.current === user.id) return;
     bootedUser.current = user.id;
     void sync();
-  }, [isPending, user, authEnabled, sync]);
+  }, [enabled, isPending, user, sync]);
 
-  if (isPending || !authEnabled) return null;
+  useEffect(() => {
+    if (!enabled || isPending || !user || !authEnabled) return;
+    let timer: number | undefined;
+    const queueSync = (markLocalChange: boolean) => {
+      if (markLocalChange) {
+        try {
+          localStorage.setItem(WORKSPACE_PENDING_KEY, `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        } catch {
+          // Sync still runs; the pending marker only resolves cross-device conflicts.
+        }
+      }
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        void sync();
+      }, 700);
+    };
+    const onWorkspaceChanged = () => queueSync(true);
+    const onFocus = () => queueSync(false);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") queueSync(false);
+    };
+    const onStorage = (event: StorageEvent) => {
+      if ([FAVORITES_KEY, FAVORITE_META_KEY, SAVED_SEARCHES_KEY, RECENT_KEY, WORKSPACE_PENDING_KEY].includes(event.key ?? "")) {
+        queueSync(false);
+      }
+    };
+    window.addEventListener("hirmand:workspace-changed", onWorkspaceChanged);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      window.removeEventListener("hirmand:workspace-changed", onWorkspaceChanged);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [enabled, isPending, user, sync]);
 
+  useEffect(() => {
+    if (!enabled || isPending || user || !authEnabled) return;
+    clearWorkspaceForSignedOutUser({ storage: localStorage, target: window });
+  }, [enabled, isPending, user]);
+
+  return (
+    <CustomerWorkspaceSyncContext.Provider value={{ user, isPending, busy, status, retry: () => { void sync(); } }}>
+      {children}
+    </CustomerWorkspaceSyncContext.Provider>
+  );
+}
+
+export function CustomerWorkspaceSyncStatus() {
+  const workspace = useContext(CustomerWorkspaceSyncContext);
+  if (!workspace || !authEnabled || workspace.isPending) return null;
+  const { user, busy, status, retry } = workspace;
   if (!user) {
     return (
       <section className="customer-workspace-sync customer-workspace-signin">
@@ -129,26 +377,12 @@ export function CustomerWorkspaceSync() {
           <strong>فضای شخصی هیرمند</strong>
           <p>برای نگه‌داشتن علاقه‌مندی‌ها و جست‌وجوها روی موبایل و کامپیوتر، وارد حساب شوید.</p>
         </div>
-        <button
-          type="button"
-          className="btn-gold"
-          disabled={signingIn || !GROK_PROVIDERS[0]}
-          onClick={() => {
-            const provider = GROK_PROVIDERS[0];
-            if (!provider) return;
-            setSigningIn(true);
-            void signIn(provider.providerId, { callbackURL: "/favorites" })
-              .catch(() => setSignInError("ورود به حساب انجام نشد. دوباره تلاش کنید."))
-              .finally(() => setSigningIn(false));
-          }}
-        >
-          <LogIn size={15} /> {signingIn ? "در حال ورود…" : "ورود"}
-        </button>
-        {signInError ? <p className="customer-workspace-sync-error" role="alert">{signInError}</p> : null}
+        <Link to="/login" search={{ next: "/favorites" }} className="btn-gold">
+          ورود یا ساخت حساب
+        </Link>
       </section>
     );
   }
-
   return (
     <section className="customer-workspace-sync">
       <div className="customer-workspace-icon"><Cloud size={20} /></div>
@@ -157,7 +391,7 @@ export function CustomerWorkspaceSync() {
         <p><ShieldCheck size={13} /> علاقه‌مندی‌ها، جست‌وجوهای ذخیره‌شده و فایل‌های اخیر روی حساب شما نگه‌داری می‌شود.</p>
         {status ? <span role="status">{status}</span> : null}
       </div>
-      <button type="button" className="btn-ghost" onClick={() => void sync()} disabled={busy}>
+      <button type="button" className="btn-ghost" onClick={retry} disabled={busy}>
         <RefreshCw size={15} className={busy ? "workspace-sync-spin" : ""} />
         {busy ? "در حال همگام‌سازی…" : "همگام‌سازی"}
       </button>

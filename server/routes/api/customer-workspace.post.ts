@@ -1,10 +1,18 @@
-import { createError, defineEventHandler, readBody } from "h3";
+import { createError, defineEventHandler, getHeader, getRequestHeaders, getRequestURL, readBody, setHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { requireUserId } from "@/lib/auth/verify.server";
+import { requireUserIdFromHeaders } from "@/lib/auth/verify.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { customerWorkspaceHttpError } from "@/lib/customer-workspace-response.server";
+import { assertCustomerWorkspacePostOrigin } from "../../utils/customer-workspace-origin";
+import { requireCustomerWorkspaceDatabase } from "@/lib/customer-workspace-database.server.mjs";
+import { saveCustomerWorkspaceWithRevision } from "@/lib/customer-workspace-cas.server.mjs";
 
 const schema = z.object({
+  ownerId: z.string().min(1).max(128),
+  expectedRevision: z.string().regex(/^[1-9][0-9]{0,18}$/)
+    .refine((value: string) => BigInt(value) <= 9223372036854775807n, "Invalid workspace revision")
+    .nullable().default(null),
   favorites: z.array(z.string().trim().min(1).max(220)).max(200).default([]),
   favoriteMeta: z.record(z.string(), z.object({
     tag: z.string().max(40).optional(),
@@ -21,26 +29,41 @@ const schema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
-  assertSameOrigin(event);
-  const userId = await requireUserId();
-  const body = schema.safeParse(await readBody(event).catch(() => null));
-  if (!body.success) {
-    throw createError({ statusCode:400, statusMessage:body.error.issues[0]?.message || "فضای شخصی نامعتبر است." });
-  }
-  if (dbSource === "unconfigured") {
-    return { success: false, message: "پایگاه داده تنظیم نشده است." };
-  }
+  setHeader(event, "Cache-Control", "private, no-store, max-age=0");
+  setHeader(event, "Vary", "Cookie, Authorization");
+  try {
+    assertCustomerWorkspacePostOrigin({
+      origin: getHeader(event, "origin"),
+      host: getHeader(event, "x-forwarded-host") ?? getHeader(event, "host"),
+      requestOrigin: getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin,
+    });
+    assertSameOrigin(event);
+    const userId = await requireUserIdFromHeaders(new Headers(getRequestHeaders(event)));
+    const rawBody = await readBody(event).catch(() => null);
+    const rawBodyObject: Record<string, unknown> | null = rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
+      ? rawBody as Record<string, unknown>
+      : null;
+    // Preserve the explicit cross-account conflict response even for older or
+    // malformed clients that do not yet send the optimistic revision field.
+    if (rawBodyObject && typeof rawBodyObject.ownerId === "string" && rawBodyObject.ownerId !== userId) {
+      throw createError({ statusCode: 409, statusMessage: "Workspace account changed" });
+    }
+    const body = schema.safeParse(rawBody);
+    if (!body.success) {
+      throw createError({ statusCode: 400, statusMessage: body.error.issues[0]?.message || "فضای شخصی نامعتبر است." });
+    }
+    if (body.data.ownerId !== userId) {
+      throw createError({ statusCode: 409, statusMessage: "Workspace account changed" });
+    }
+    requireCustomerWorkspaceDatabase(dbSource);
 
-  const sql = await getSql();
-  await sql.query(
-    "insert into customer_workspace(user_id,favorites,favorite_meta,saved_searches,recent_properties,updated_at) values($1,$2::jsonb,$3::jsonb,$4::jsonb,$5::jsonb,current_timestamp) on conflict(user_id) do update set favorites=excluded.favorites,favorite_meta=excluded.favorite_meta,saved_searches=excluded.saved_searches,recent_properties=excluded.recent_properties,updated_at=current_timestamp",
-    [
-      userId,
-      JSON.stringify(body.data.favorites),
-      JSON.stringify(body.data.favoriteMeta),
-      JSON.stringify(body.data.savedSearches),
-      JSON.stringify(body.data.recentProperties),
-    ],
-  );
-  return { success: true, updatedAt: new Date().toISOString() };
+    const sql = await getSql();
+    const saved = await saveCustomerWorkspaceWithRevision(sql, userId, body.data, body.data.expectedRevision);
+    if (!saved.success) {
+      throw createError({ statusCode: 409, statusMessage: "Workspace revision conflict" });
+    }
+    return { success: true, revision: saved.revision, updatedAt: new Date().toISOString() };
+  } catch (error) {
+    return customerWorkspaceHttpError(event, error);
+  }
 });

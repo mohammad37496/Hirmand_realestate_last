@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 40
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
+      VITE_AUTH_ENABLED: "true"
       BROWSER_SMOKE_PROPERTY_ID: browser-smoke-property-001
       BROWSER_SMOKE_PROPERTY_SLUG: آپارتمان-تست-ناوبری-۱۴۰۵-browser-smoke
       BROWSER_SMOKE_PROPERTY_TITLE: فایل تست ناوبری جزئیات هیرمند
@@ -63,7 +64,12 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm run build
+      - name: Provision checksum-verified FFmpeg runtime
+        run: npm run prebuild
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Production build
+        run: npm run build --ignore-scripts
       # `npm run build` no longer prunes devDependencies — that step moved to
       # `build:deploy`, which is what the runtime image uses. This reinstall is
       # kept as a cheap safety net in case the build command changes back, since
@@ -71,8 +77,8 @@ jobs:
       - name: Ensure CI dev dependencies after production build
         run: npm ci
 
-      # `npm run build` runs the prebuild hook, which provisions the bundled
-      # FFmpeg binary and Vazirmatn font into `.runtime/`. With those present the
+      # The explicit provisioning step above installs the bundled FFmpeg binary
+      # and Vazirmatn font into `.runtime/`. With those present the
       # watermark suite renders a real JPEG and a real video through the
       # production functions instead of skipping. This is the only job that can
       # prove FFmpeg still accepts the generated drawtext/overlay graph.
@@ -130,6 +136,9 @@ jobs:
 
           npx playwright install --with-deps chromium
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
+          # Exercise real Better Auth sessions and per-account workspace
+          # isolation against this job's disposable PostgreSQL service.
+          CUSTOMER_AUTH_SMOKE_URL=http://localhost:8081 node scripts/customer-auth-e2e-smoke.mjs
           node scripts/music-player-browser.test.mjs http://127.0.0.1:8081
           # End-to-end proof of the admin upload path: begin → chunks → complete,
           # then fetch the stored media from the public endpoint, plus the

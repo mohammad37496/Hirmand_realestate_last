@@ -2473,7 +2473,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                     </button>
                   </div>
                 ) : (
-                  <div className="admin-property-list">
+                  <div className="admin-property-list is-grid">
                     {filtered.map((property) => (
                       <article
                         key={property.id}

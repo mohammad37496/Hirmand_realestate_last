@@ -1,7 +1,7 @@
 // @ts-check
 /**
- * Migration bookkeeping shared by the two appliers — `scripts/migrate.mjs`
- * (deploy, `readdir`) and `src/lib/db.ts` (PGLite preview, `import.meta.glob`).
+ * Migration bookkeeping shared by the two appliers — `scripts/prestart-migrate.mjs`
+ * (Liara deploy, `readdir`) and `src/lib/db.ts` (PGLite development, `import.meta.glob`).
  *
  * Applied files are keyed by BASENAME, so the same file applies once no matter
  * which directory it is globbed from. That is what makes the auth schema safe to
@@ -55,4 +55,36 @@ export function pendingMigrations(paths, applied) {
   }
 
   return migrations.filter(({ name }) => !done.has(name));
+}
+
+export const CUSTOMER_AUTH_MIGRATIONS = Object.freeze([
+  "0001_auth.sql",
+  "0058_customer_workspace.sql",
+  "0059_customer_workspace_revision.sql",
+]);
+
+/**
+ * Fail closed when an auth-enabled deployment is missing a required root migration.
+ * @param {Iterable<string>} paths
+ * @param {readonly string[]} [required]
+ */
+export function assertRequiredMigrationFiles(paths, required = CUSTOMER_AUTH_MIGRATIONS) {
+  const available = new Set([...paths].filter(isMigrationFile).map(migrationName));
+  const missing = required.filter((name) => !available.has(name));
+  if (missing.length) {
+    throw new Error(`Required customer-auth migration file(s) missing from migrations/: ${missing.join(", ")}`);
+  }
+}
+
+/**
+ * Fail closed unless every required customer-auth migration is recorded as applied.
+ * @param {Iterable<string>} applied
+ * @param {readonly string[]} [required]
+ */
+export function assertRequiredMigrationLedger(applied, required = CUSTOMER_AUTH_MIGRATIONS) {
+  const recorded = new Set(applied);
+  const missing = required.filter((name) => !recorded.has(name));
+  if (missing.length) {
+    throw new Error(`Required customer-auth migration(s) absent from _migrations: ${missing.join(", ")}`);
+  }
 }

@@ -39,7 +39,6 @@ import type { PropertyCardData } from "@/lib/properties";
 import { Reveal } from "./reveal";
 import { scrollToId } from "./scroll";
 import { SiteChrome } from "./site-chrome";
-import { SmartRecommendations } from "./smart-recommendations";
 import { DEFAULT_GUIDES } from "@/lib/site-content-static";
 import { useConsultants } from "./consultants-context";
 import type { Consultant } from "@/lib/consultants";
@@ -302,11 +301,6 @@ function TrustStrip() {
             <span>{item.label}</span>
           </div>
         ))}
-      </div>
-      <div className="trust-strip-links" aria-label="شفافیت و اطلاعات هیرمند">
-        <Link to="/consultants"><BadgeCheck size={16} />مشاهده مشاوران و راه‌های تماس</Link>
-        <Link to="/guides"><Scale size={16} />راهنمای تصمیم‌گیری و معامله</Link>
-        <Link to="/" hash="contact"><Phone size={16} />نشانی و ارتباط با دفتر</Link>
       </div>
     </section>
   );
@@ -943,7 +937,6 @@ export function SitePage({
         <TrustStrip />
         <PropertyShowcase initialProperties={initialProperties} />
         <Properties />
-        <SmartRecommendations />
         <GuidesPreview />
         <Inquiry draft={draft} />
         <details className="home-secondary">

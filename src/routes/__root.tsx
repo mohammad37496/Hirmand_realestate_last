@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { MusicPlayer } from "@/components/hirmand/music-player";
+import { CustomerWorkspaceSyncProvider } from "@/components/hirmand/customer-workspace-sync";
 import { SITE } from "@/lib/site";
 import { trackPublic404 } from "@/lib/seo-redirects";
 import appCss from "../styles.css?url";
@@ -35,6 +36,7 @@ import propertiesFiltersRedesignCss from "../properties-filters-redesign.css?url
 import responsiveHardeningCss from "../mobile-responsive-hardening.css?url";
 import propertiesMarketplacePolishCss from "../properties-marketplace-polish.css?url";
 import propertiesMapCardsCss from "../properties-map-cards.css?url";
+import customerAccountCss from "../customer-account.css?url";
 import musicPlayerLayoutCss from "../music-player-layout.css?url";
 
 export const Route = createRootRoute({
@@ -91,6 +93,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: propertiesMarketplacePolishCss },
       { rel: "stylesheet", href: responsiveHardeningCss },
       { rel: "stylesheet", href: propertiesMapCardsCss },
+      { rel: "stylesheet", href: customerAccountCss },
       { rel: "stylesheet", href: musicPlayerLayoutCss },
     ],
   }),
@@ -122,8 +125,10 @@ function RootDocument() {
         <PwaRegistrar />
         <PreviewHostBridge />
         <AuthProvider>
-          <Outlet />
-          {!isAdminPath && <MusicPlayer />}
+          <CustomerWorkspaceSyncProvider enabled={!isAdminPath}>
+            <Outlet />
+            {!isAdminPath && <MusicPlayer />}
+          </CustomerWorkspaceSyncProvider>
         </AuthProvider>
         <Scripts />
       </body>

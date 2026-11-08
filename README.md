@@ -73,11 +73,16 @@ npm run dev
 
 | متغیر | توضیح | اجباری |
 |-------|--------|--------|
-| `DATABASE_URL` | اتصال PostgreSQL / Neon برای فایل‌ها، Leadها و Analytics | برای امکانات دیتابیسی |
+| `DATABASE_URL` | اتصال PostgreSQL / Neon برای فایل‌ها، Leadها، Analytics و حساب‌های کاربری | برای امکانات دیتابیسی و ورود پایدار |
 | `HIRMAND_ADMIN_KEY` | کلید دسترسی به `/admin` | برای پنل ادمین |
 | `VITE_SITE_URL` | آدرس نهایی و canonical سایت، ترجیحاً `https://www.hirmandrealestate.ir` | بسیار مهم |
 | `VITE_GOOGLE_SITE_VERIFICATION` | توکن تأیید Google Search Console | اختیاری |
-| `VITE_AUTH_ENABLED` | فعال‌سازی Better Auth | خیر |
+| `VITE_AUTH_ENABLED` | فعال‌سازی حساب کاربری مشتریان | بله، در صورت استفاده از فضای شخصی |
+| `BETTER_AUTH_URL` | آدرس اصلی همین سایت برای کوکی و callback ورود؛ `https://hirmandrealestate.ir` | برای حساب کاربری |
+| `BETTER_AUTH_SECRET` | کلید محرمانه ثابت و تصادفی با حداقل ۳۲ نویسه | برای حساب کاربری |
+| `VITE_GROK_OAUTH_ENABLED` | نمایش و فعال‌سازی ورود Google و X پس از آماده‌شدن کلاینت Broker | اختیاری؛ پیش‌فرض خاموش در تولید |
+| `GROK_AUTH_CLIENT_ID` / `GROK_AUTH_CLIENT_SECRET` | شناسه و رمز اختصاصی OAuth Broker برای ورود Google و X | وقتی OAuth فعال است |
+| `GROK_AUTH_ISSUER` | نشانی سرویس OAuth؛ پیش‌فرض `https://auth.grok.me` | اختیاری |
 | `BLOB_READ_WRITE_TOKEN` | فضای ذخیره‌سازی Vercel Blob برای رسانه‌های حجیم | اختیاری |
 | `HIRMAND_PHONE_BRIDGE_TOKEN` | کلید خصوصی اپ Phone Bridge برای ارسال دادهٔ گوشی به `/api/device-sync/v1` | برای اتصال اپ الزامی |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | شمارنده مشترک محدودسازی تلاش ورود و آپلود | اختیاری ولی روی Vercel لازم |
@@ -86,6 +91,13 @@ npm run dev
 > و سرور تک‌پروسه‌ای کافی است، ولی روی Vercel که هر درخواست ممکن است به نمونه دیگری
 > برسد، شمارنده با هر cold start صفر می‌شود. پس از تنظیم این دو متغیر روی محیط
 > تولید، محدودسازی بین همه نمونه‌ها مشترک می‌شود.
+
+برای فعال‌شدن ورود Google و X، پس از دریافت شناسه و رمز اختصاصی از OAuth Broker، مقدار `VITE_GROK_OAUTH_ENABLED=true` را تنظیم و همین دو نشانی callback را در تنظیمات Broker ثبت کنید:
+
+- `https://hirmandrealestate.ir/api/auth/oauth2/callback/grok-google`
+- `https://hirmandrealestate.ir/api/auth/oauth2/callback/grok-x`
+
+در شروع production، دستور `npm start` ابتدا migrationهای ریشهٔ `migrations/` را اجرا می‌کند و سپس سرور Nitro را بالا می‌آورد. وقتی حساب‌های کاربری فعال‌اند، خطای migration مانع شروع سرور می‌شود تا API حساب روی schema ناقص اجرا نشود. پیش از deploy، اتصال `DATABASE_URL` و secretهای حساب را در محیط Liara بررسی کنید.
 
 > آپلود آهنگ و رسانه بدون `BLOB_READ_WRITE_TOKEN` هم کار می‌کند: فایل‌ها در پایگاه داده
 > ذخیره و از مسیر `/api/media/<id>` با پشتیبانی از Range (برای جابه‌جایی داخل آهنگ) سرو

@@ -10,14 +10,21 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { isMigrationFile, migrationName, pendingMigrations } from "./migration-plan.mjs";
+import {
+  assertRequiredMigrationFiles,
+  assertRequiredMigrationLedger,
+  CUSTOMER_AUTH_MIGRATIONS,
+  isMigrationFile,
+  migrationName,
+  pendingMigrations,
+} from "./migration-plan.mjs";
 import { projectRoot } from "./with-app-env.mjs";
 
 const AUTH_MIGRATION = "0001_auth.sql";
 
 /**
  * The auth-on copy of the Better Auth schema and its source, or null when the
- * app has not turned sign-in on (the shipped state).
+ * app has turned sign-in on.
  */
 function authSchemaCopy(root) {
   const copy = join(root, "migrations", AUTH_MIGRATION);
@@ -51,6 +58,30 @@ test("pending migrations are returned in name order", () => {
   );
 });
 
+test("customer-auth migration verification rejects a missing root migration file", () => {
+  assert.throws(
+    () => assertRequiredMigrationFiles(["0001_auth.sql"]),
+    /0058_customer_workspace\.sql/,
+  );
+  assert.throws(
+    () => assertRequiredMigrationFiles(["0001_auth.sql", "0058_customer_workspace.sql"]),
+    /0059_customer_workspace_revision\.sql/,
+  );
+});
+
+test("customer-auth migration verification rejects a missing ledger row", () => {
+  assert.throws(
+    () => assertRequiredMigrationLedger(["0001_auth.sql", "0058_customer_workspace.sql"]),
+    /0059_customer_workspace_revision\.sql/,
+  );
+});
+
+test("customer-auth migration verification accepts all required files and ledger rows", () => {
+  assert.deepEqual(CUSTOMER_AUTH_MIGRATIONS, ["0001_auth.sql", "0058_customer_workspace.sql", "0059_customer_workspace_revision.sql"]);
+  assert.doesNotThrow(() => assertRequiredMigrationFiles(CUSTOMER_AUTH_MIGRATIONS));
+  assert.doesNotThrow(() => assertRequiredMigrationLedger(CUSTOMER_AUTH_MIGRATIONS));
+});
+
 test("non-.sql entries are dropped (readdir also yields the auth/ directory)", () => {
   assert.equal(isMigrationFile("auth"), false);
   assert.deepEqual(pendingMigrations(["auth", "README.md"], []), []);
@@ -73,10 +104,10 @@ test("this workspace contains no duplicate migration basenames", () => {
   assert.doesNotThrow(() => pendingMigrations(names, []));
 });
 
-test("the auth schema ships outside the globbed directory", () => {
+test("the auth schema is copied into the globbed directory when sign-in is enabled", () => {
   const migrationsDir = join(projectRoot(), "migrations");
   const pending = pendingMigrations(readdirSync(migrationsDir), []);
-  assert.equal(pending.some((item) => item.name === AUTH_MIGRATION), false);
+  assert.equal(pending.some((item) => item.name === AUTH_MIGRATION), true);
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes(AUTH_MIGRATION));
 });
 

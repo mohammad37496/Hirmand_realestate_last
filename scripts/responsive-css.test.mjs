@@ -3,6 +3,7 @@ import fs from "node:fs";
 import testRunner from "node:test";
 
 const mobileFixes = fs.readFileSync(new URL("../src/mobile-device-fixes.css", import.meta.url), "utf8");
+const homepagePolishCss = fs.readFileSync(new URL("../src/components/hirmand/homepage-polish.css", import.meta.url), "utf8");
 const uiClarityCss = fs.readFileSync(new URL("../src/ui-clarity.css", import.meta.url), "utf8");
 const themeProCss = fs.readFileSync(new URL("../src/theme-pro.css", import.meta.url), "utf8");
 const propertyDetailCss = fs.readFileSync(new URL("../src/property-detail-pro.css", import.meta.url), "utf8");
@@ -27,6 +28,8 @@ const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
 const propertiesMarketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
 const favoritesPersonalCss = fs.readFileSync(new URL("../src/favorites-personal.css", import.meta.url), "utf8");
+const favoritesRedesignCss = fs.readFileSync(new URL("../src/favorites-redesign.css", import.meta.url), "utf8");
+const favoritesRoute = fs.readFileSync(new URL("../src/routes/favorites.tsx", import.meta.url), "utf8");
 const propertiesMapCardsCss = fs.readFileSync(new URL("../src/properties-map-cards.css", import.meta.url), "utf8");
 const propertiesProCss = fs.readFileSync(new URL("../src/properties-pro.css", import.meta.url), "utf8");
 const propertyPhotoNotesCss = fs.readFileSync(new URL("../src/property-photo-notes.css", import.meta.url), "utf8");
@@ -59,6 +62,11 @@ testRunner.test("shared mobile styles do not hide root-level horizontal overflow
     "html must expose root-level horizontal overflow for diagnosis");
   assert.doesNotMatch(themeProCss, /body\s*\{[^}]*overflow-x\s*:\s*(?:hidden|clip)/is,
     "body must expose root-level horizontal overflow for diagnosis");
+});
+
+testRunner.test("homepage property categories are completely hidden on mobile", () => {
+  assert.match(homepagePolishCss, /@media\s*\(max-width:\s*720px\)\s*\{\s*\.site-home \.home-property-categories\s*\{\s*display:\s*none;\s*\}\s*\}/,
+    "the entire property-category section must be removed from the mobile homepage layout");
 });
 
 testRunner.test("ordinary Persian text is not subject to global anywhere wrapping", () => {
@@ -165,12 +173,31 @@ testRunner.test("favorites empty-state text and property video controls remain u
   assert.match(controls, /height:44px/i);
 });
 
+testRunner.test("favorites workspace keeps photo-first cards at every breakpoint and defers analysis tools", () => {
+  assert.match(favoritesRoute, /import\s+"@\/favorites-redesign\.css"/);
+  assert.match(favoritesRedesignCss, /\.favorites-page\s*>\s*\.property-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
+  assert.match(favoritesRedesignCss, /\.favorites-page\s+\.pcard-media\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*10/s);
+  assert.match(favoritesRedesignCss, /\.favorites-page\s+\.pcard-media\s+img\s*\{[^}]*object-fit:\s*cover/s);
+  assert.match(favoritesRedesignCss, /@media\s*\(max-width:\s*1100px\)[\s\S]*?grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(favoritesRedesignCss, /@media\s*\(max-width:\s*720px\)[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(favoritesRedesignCss, /\.favorites-page\s+\.pcard\.pcard-mobile-list\s+\.pcard-media\s+img\s*\{[^}]*min-height:\s*0;[^}]*aspect-ratio:\s*16\s*\/\s*10/s);
+  assert.ok(favoritesRoute.indexOf("<div className=\"property-grid\">") < favoritesRoute.indexOf("<section className=\"favorites-insights\""),
+    "saved properties must appear before the optional analysis panels");
+});
+
 testRunner.test("responsive smoke exercises a loaded map view and the one-item compare empty state", () => {
   assert.match(browserSmoke, /نمایش فایل‌ها روی نقشه/);
   assert.match(browserSmoke, /pf-map-list-empty/);
   assert.match(browserSmoke, /map-side property list did not reach a loaded or empty state/);
-  assert.match(browserSmoke, /width <= 720 \? "نمایش فهرستی فایل‌ها" : "نمایش فایل‌ها روی نقشه"/,
-    "responsive screenshots must restore the intended mobile-list or desktop map-and-cards default");
+  assert.match(browserSmoke, /const defaultViewLabel = width <= 720/);
+  assert.match(browserSmoke, /: "نمایش شبکه‌ای فایل‌ها"/,
+    "responsive screenshots must restore the intended mobile-list or desktop photo-grid default");
+  assert.match(browserSmoke, /const gridView = page\.locator\('\.pf-views button\[aria-label="نمایش شبکه‌ای فایل‌ها"\]'\)\.first\(\)/,
+    "the optional map smoke must restore the persisted desktop grid choice before screenshots");
+  assert.match(browserSmoke, /titleRange\?\.selectNodeContents\(title\)/,
+    "mobile card direction must be measured from visible title text, not the full-width body overlay");
+  assert.match(browserSmoke, /querySelector\("\.pcard-media > \.pcard-image-link"\)/,
+    "mobile card direction must use the actual image link, not the full-width media wrapper");
   assert.match(browserSmoke, /minimum-two-files empty state/);
   assert.match(browserSmoke, /outerHTML: element\.outerHTML/);
   assert.match(propertySearchBrowserSmoke, /const mapButton = page\.getByRole\("button", \{ name: "نمایش فایل‌ها روی نقشه" \}\)/);
@@ -284,7 +311,10 @@ testRunner.test("mobile property directory starts in an accessible horizontal li
   assert.match(propertiesRoute, /aria-label="نمایش فایل‌ها روی نقشه" aria-pressed=\{viewMode === "split"\}/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[\s\S]*?grid-template-columns:clamp\(120px,40vw,170px\) minmax\(0,1fr\)/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-link[^}]*direction:rtl/);
-  assert.match(propertyShowcase, /<div className="pcard-media">[\s\S]*?<div className="pcard-actions"[\s\S]*?<\/div>\s*<\/div>\s*<Link[\s\S]*?className="pcard-link"/);
+  assert.match(propertyShowcase, /showActions = true/);
+  assert.match(propertyShowcase, /\{showActions \? \([\s\S]*?<div className="pcard-actions"[\s\S]*?<PropertyActions property=\{property\} compact \/>[\s\S]*?\) : null\}/);
+  assert.match(propertyShowcase, /<PropertyCard key=\{property\.id\} property=\{property\} showActions=\{false\} \/>/);
+  assert.match(propertiesRoute, /<PropertyCard key=\{property\.id\} property=\{property\} showActions=\{viewMode !== "list"\} \/>/);
   assert.match(propertiesMarketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions[\s\S]*?inset-block-end:\s*0/);
   assert.match(propertyCardCss, /\.pcard-mobile-list \.pcard-specs[\s\S]*?background:transparent/);
   const marketplaceMobileListRule = propertiesMarketplaceCss.match(/\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*\}/is)?.[0] ?? "";
@@ -329,10 +359,11 @@ testRunner.test("all shared property cards use the readable RTL mobile list layo
   assert.match(responsiveCss, /\.area-profile-listings, \.compare-grid, \.budget-result-grid[\s\S]*?grid-template-columns:minmax\(0,1fr\)/);
 });
 
-testRunner.test("desktop defaults to map-and-cards and mobile to list until a visitor manually selects a view", () => {
-  const responsiveEffect = propertiesRoute.match(/\/\/ Open listings in map-and-cards mode[\s\S]*?\}, \[viewModeManuallySelected\]\);/)?.[0] ?? "";
-  assert.ok(responsiveEffect, "responsive map-and-cards and list defaults should be applied");
-  assert.match(responsiveEffect, /if \(!viewModeManuallySelected\) setViewMode\(media\.matches \? "list" : "split"\)/);
+testRunner.test("desktop defaults to grid and mobile to list until a visitor manually selects a view", () => {
+  const responsiveEffect = propertiesRoute.match(/\/\/ Open listings in a photo grid[\s\S]*?\}, \[viewModeManuallySelected\]\);/)?.[0] ?? "";
+  assert.ok(responsiveEffect, "responsive grid and list defaults should be applied");
+  assert.match(responsiveEffect, /if \(!viewModeManuallySelected\) setViewMode\(media\.matches \? "list" : "grid"\)/);
+  assert.match(propertiesRoute, /useState<"grid" \| "list" \| "split">\("grid"\)/);
   assert.match(responsiveEffect, /media\.addEventListener\("change", applyResponsiveDefault\)/);
   assert.match(propertiesRoute, /setViewModeManuallySelected\(true\)/);
   assert.match(propertiesRoute, /viewMode === "grid" \? " is-grid-view" : ""/);
@@ -372,7 +403,15 @@ testRunner.test("desktop defaults to map-and-cards and mobile to list until a vi
   assert.match(browserSmoke, /first shared property-card image did not load or fall back successfully/,
     "browser smoke must verify shared-card image loading on every property-list surface");
   assert.match(browserSmoke, /const imageLink = card\.querySelector\("\.pcard-media > \.pcard-image-link"\)/,
-    "RTL mobile card geometry must measure the visible image link, not its full-width media wrapper");
+    "mobile card geometry must measure the visible image link, not its full-width media wrapper");
+  assert.match(browserSmoke, /const favoritesPage = Boolean\(card\.closest\("\.favorites-page"\)\)/,
+    "favorites must retain its dedicated photo-first mobile card layout");
+  assert.match(browserSmoke, /propertyGrid\?\.classList\.contains\("is-grid-view"\)/,
+    "the default property-grid view must be verified as photo-first rather than list layout");
+  assert.match(browserSmoke, /imageLink\.bottom <= details\.top \+ 2/,
+    "photo-first mobile cards must place the image above the rendered property title");
+  assert.match(browserSmoke, /imageLink\.left >= details\.right - 2/,
+    "explicit RTL list cards must place the image to the right of the rendered property title");
   assert.match(browserSmoke, /document\.elementFromPoint\([\s\S]*?bodyElement\.contains\(bodyHitTarget\)/,
     "RTL mobile smoke must detect when the photo wrapper paints over the property details");
   assert.match(browserSmoke, /interactive map canvas/, "browser smoke must verify the map view renders its real map canvas");

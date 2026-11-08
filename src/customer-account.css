@@ -1,0 +1,9 @@
+.customer-account-access{min-height:36px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 11px;border:1px solid rgba(181,138,72,.38);border-radius:999px;background:rgba(199,157,83,.1);color:#f0d49b;text-decoration:none;font-size:.7rem;font-weight:800;white-space:nowrap}
+.customer-account-access:hover{background:rgba(199,157,83,.18)}
+.customer-account-access.is-signed-in{padding:0 7px 0 11px;gap:9px}
+.customer-account-access.is-signed-in>a{display:inline-flex;align-items:center;gap:6px;color:inherit;text-decoration:none}
+.customer-account-access.is-signed-in>button{width:27px;height:27px;display:grid;place-items:center;border:0;border-radius:50%;background:rgba(255,255,255,.09);color:inherit;cursor:pointer}
+.customer-account-access button:disabled{opacity:.5;cursor:wait}
+.customer-account-access.is-compact{width:max-content;min-height:43px;margin:4px 0 8px;padding:0 14px;border-radius:12px;color:#f0d49b;background:#10243a}
+.customer-account-access.is-compact.is-signed-in{padding:0 9px 0 14px}
+@media(max-width:1100px){.nav-actions>.customer-account-access{display:none}}

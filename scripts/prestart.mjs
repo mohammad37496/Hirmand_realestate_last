@@ -6,14 +6,19 @@
  *   - normalizes the platform-injected port into NITRO_PORT
  *   - ensures NODE_ENV is set
  *   - runs pending migrations (idempotent, transactional per file)
- *   - warns (non-fatal) when required production env vars are missing
+ *   - rejects incomplete production customer-auth configuration
  *
  * It is intentionally NOT a replacement for the Nitro `node-server` runtime:
  * Nitro owns HTTP binding, request handling, and shutdown. We just make sure it
  * sees the right port, a migrated database, and the right environment.
  */
-import { resolveDatabaseUrl, sanitizePostgresConnectionString } from "./resolve-database-url.mjs";
+import { resolveMigrationDatabaseUrl, sanitizePostgresConnectionString } from "./resolve-database-url.mjs";
+import {
+  customerAuthEnvironmentErrors,
+  shouldAbortOnCustomerAuthMigrationError,
+} from "./customer-auth-env.mjs";
 import { runMigrations } from "./prestart-migrate.mjs";
+import { runWithTimeout } from "./run-with-timeout.mjs";
 
 const PORT = Number(process.env.PORT || process.env.NITRO_PORT || 3000);
 
@@ -29,23 +34,30 @@ process.env.NODE_ENV ??= "production";
 
 console.log(`[prestart] NODE_ENV=${process.env.NODE_ENV}, binding port ${PORT}`);
 
-const resolved = resolveDatabaseUrl();
+const resolved = resolveMigrationDatabaseUrl();
+const authEnvironmentErrors = customerAuthEnvironmentErrors(process.env, Boolean(resolved.url));
+if (authEnvironmentErrors.length) {
+  console.error("[prestart] Customer accounts are enabled but production configuration is incomplete:");
+  for (const item of authEnvironmentErrors) console.error(`[prestart]   missing or invalid: ${item}`);
+  process.exit(1);
+}
+
 if (resolved.url) {
   const url = sanitizePostgresConnectionString(resolved.url);
   console.log(`[prestart] migrations via ${resolved.key}`);
   try {
-    await Promise.race([
-      runMigrations({ connectionString: url }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("migration timeout")), 15_000)),
-    ]);
-  } catch (error) {
-    // Never keep the HTTP listener from booting because the database is slow or unavailable.
-    // Runtime requests will surface database errors normally, and the next deployment/start
-    // will retry migrations.
-    console.warn(
-      "[prestart] WARNING: database migrations were not completed before startup:",
-      error instanceof Error ? error.message : error,
+    await runWithTimeout(
+      () => runMigrations({ connectionString: url }),
+      15_000,
+      "migration timeout",
     );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : error;
+    if (shouldAbortOnCustomerAuthMigrationError(process.env)) {
+      console.error("[prestart] Customer accounts are enabled; refusing to start before database migrations complete:", message);
+      process.exit(1);
+    }
+    console.warn("[prestart] WARNING: database migrations were not completed before startup:", message);
   }
 } else if (process.env.NODE_ENV === "production") {
   console.warn("[prestart] WARNING: DATABASE_URL is not set — skipping migrations.");
