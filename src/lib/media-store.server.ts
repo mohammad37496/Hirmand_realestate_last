@@ -2,13 +2,14 @@
  * Server-only media storage.
  *
  * Uploaded media lives in the application database (`media_objects`) and is
- * served from our own origin with HTTP range support. An external object store
- * (Vercel Blob) is used opportunistically when it is configured, so large files
- * keep the fast CDN path while everything still works with just `DATABASE_URL`.
+ * served from our own origin with HTTP range support. Liara stores private and
+ * public media; legacy Vercel Blob is restricted to known public namespaces.
+ * Private property media falls back to the database when Liara is unavailable.
  */
 
 import { dbSource, getSql } from "@/lib/db";
 import { DB_MEDIA_PATH } from "@/lib/media";
+import { shouldUseLegacyBlobFallback } from "@/lib/liara-media-access.server";
 import {
   deleteLiaraObject,
   liaraObjectKeyFromUrl,
@@ -98,8 +99,10 @@ export async function storeMedia(input: {
     if (url) return { url, storage: "object-store", id: null };
   }
 
-  // Legacy Vercel Blob remains a compatibility path for existing deployments.
-  if (blobConfigured()) {
+  // Legacy Vercel Blob URLs are public. Keep this compatibility path limited to
+  // namespaces that are intentionally public; private property media falls back
+  // to the database endpoint, where session/owner/admin authorization is enforced.
+  if (shouldUseLegacyBlobFallback(input.pathname, blobConfigured())) {
     const url = await putToObjectStore(input.pathname, bytes, contentType);
     if (url) return { url, storage: "object-store", id: null };
   }
@@ -241,7 +244,7 @@ export async function storeAssembledUpload(input: {
         body: dataResult.bytes,
         contentType,
       });
-    } else if (blobConfigured()) {
+    } else if (shouldUseLegacyBlobFallback(pathname, blobConfigured())) {
       remoteUrl = await putToObjectStore(pathname, dataResult.bytes, contentType);
     }
 

@@ -3,8 +3,8 @@
  * End-to-end proof for the admin property-media upload path.
  *
  * This drives the *real* HTTP contract the browser uses — `begin`, one binary
- * chunk per slice, `complete` — then fetches the returned URL from the public
- * media endpoint and checks the bytes are a real raster image. It exists because
+ * chunk per slice, `complete` — then fetches the returned URL through the
+ * authenticated same-origin media path and checks the bytes are a real raster image. It exists because
  * a passing typecheck/build never proved this path: the permanent-watermark
  * FFmpeg filter used to abort at filter-graph init and every image upload
  * answered HTTP 500.
@@ -211,11 +211,43 @@ async function main() {
   }
   console.log("[upload-e2e] replayed complete returned the same URL");
 
-  const absolute = new URL(result.url, baseUrl).toString();
-  const mediaResponse = await fetch(absolute);
+  const mediaUrl = new URL(result.url, baseUrl);
+  const appOrigin = new URL(baseUrl).origin;
+  const isLiaraUrl =
+    mediaUrl.protocol === "https:" &&
+    ["liara.space", "liara.site", "liara.ir"].some(
+      (domain) => mediaUrl.hostname === domain || mediaUrl.hostname.endsWith("." + domain),
+    );
+  const sameOriginPath = mediaUrl.origin === appOrigin
+    ? mediaUrl.pathname + mediaUrl.search
+    : isLiaraUrl
+      ? "/api/media-proxy?url=" + encodeURIComponent(mediaUrl.toString())
+      : "";
+  if (!sameOriginPath) {
+    throw new Error(
+      `private property media must use the same-origin media endpoint, got ${mediaUrl.toString()}`,
+    );
+  }
+  const anonymousResponse = await fetch(new URL(sameOriginPath, baseUrl));
+  if (anonymousResponse.status !== 404) {
+    throw new Error(
+      `unpublished property media must reject anonymous reads with HTTP 404, got ${anonymousResponse.status}`,
+    );
+  }
+  const mediaResponse = await call(sameOriginPath);
   const body = Buffer.from(await mediaResponse.arrayBuffer());
-  if (!mediaResponse.ok) {
-    throw new Error(`serving ${absolute} failed with HTTP ${mediaResponse.status}`);
+  if (mediaResponse.status !== 200) {
+    throw new Error(`serving ${mediaUrl.toString()} failed with HTTP ${mediaResponse.status}`);
+  }
+  if (sameOriginPath && mediaResponse.headers.get("cache-control") !== "private, no-store") {
+    throw new Error(
+      `unpublished property media must be private,no-store, got ${mediaResponse.headers.get("cache-control")}`,
+    );
+  }
+  if (mediaResponse.headers.get("cross-origin-resource-policy") !== "same-origin") {
+    throw new Error(
+      `private property media must set Cross-Origin-Resource-Policy: same-origin, got ${mediaResponse.headers.get("cross-origin-resource-policy")}`,
+    );
   }
   const declared = (mediaResponse.headers.get("content-type") || "").split(";")[0].trim();
   if (!RASTER_TYPES.has(declared)) {

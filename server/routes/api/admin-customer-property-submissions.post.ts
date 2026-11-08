@@ -4,7 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { TEAM } from "@/lib/site";
-import { isAllowedMediaRef, isVideoUrl } from "@/lib/media";
+import { isAllowedMediaRef, isVideoUrl, stripMediaUploadCapability } from "@/lib/media";
 import { propertyInputSchema } from "@/lib/properties";
 import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
@@ -486,7 +486,9 @@ export default defineEventHandler(async (event) => {
       : {}) as Record<string, unknown>;
 
     const propertyId = crypto.randomUUID();
-    const media = Array.isArray(data.images) ? data.images.filter((item): item is string => typeof item === "string") : [];
+    const media = Array.isArray(data.images)
+      ? data.images.filter((item): item is string => typeof item === "string").map(stripMediaUploadCapability)
+      : [];
     const propertyPayload = {
       id: propertyId,
       title: String(data.title ?? ""),
