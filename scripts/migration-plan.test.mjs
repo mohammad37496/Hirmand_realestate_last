@@ -10,7 +10,14 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { isMigrationFile, migrationName, pendingMigrations } from "./migration-plan.mjs";
+import {
+  assertRequiredMigrationFiles,
+  assertRequiredMigrationLedger,
+  CUSTOMER_AUTH_MIGRATIONS,
+  isMigrationFile,
+  migrationName,
+  pendingMigrations,
+} from "./migration-plan.mjs";
 import { projectRoot } from "./with-app-env.mjs";
 
 const AUTH_MIGRATION = "0001_auth.sql";
@@ -49,6 +56,26 @@ test("pending migrations are returned in name order", () => {
       { name: "0003_c.sql", path: "/migrations/0003_c.sql" },
     ],
   );
+});
+
+test("customer-auth migration verification rejects a missing root migration file", () => {
+  assert.throws(
+    () => assertRequiredMigrationFiles(["0001_auth.sql"]),
+    /0058_customer_workspace\.sql/,
+  );
+});
+
+test("customer-auth migration verification rejects a missing ledger row", () => {
+  assert.throws(
+    () => assertRequiredMigrationLedger(["0001_auth.sql"]),
+    /0058_customer_workspace\.sql/,
+  );
+});
+
+test("customer-auth migration verification accepts both required files and ledger rows", () => {
+  assert.deepEqual(CUSTOMER_AUTH_MIGRATIONS, ["0001_auth.sql", "0058_customer_workspace.sql"]);
+  assert.doesNotThrow(() => assertRequiredMigrationFiles(CUSTOMER_AUTH_MIGRATIONS));
+  assert.doesNotThrow(() => assertRequiredMigrationLedger(CUSTOMER_AUTH_MIGRATIONS));
 });
 
 test("non-.sql entries are dropped (readdir also yields the auth/ directory)", () => {

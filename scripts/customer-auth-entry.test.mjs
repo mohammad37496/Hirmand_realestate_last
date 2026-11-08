@@ -15,6 +15,7 @@ const actions = source("../src/components/hirmand/property-actions.tsx");
 const tracker = source("../src/components/hirmand/visitor-tracker.tsx");
 const detail = source("../src/components/hirmand/property-detail-view.tsx");
 const root = source("../src/routes/__root.tsx");
+const siteChrome = source("../src/components/hirmand/site-chrome.tsx");
 const client = source("../src/lib/auth/client.ts");
 const server = source("../src/lib/auth/server.ts");
 const workspaceGet = source("../server/routes/api/customer-workspace.get.ts");
@@ -60,11 +61,31 @@ test("site header exposes account access on desktop and mobile navigation", () =
   assert.match(header, /<CustomerAccountAccess compact\s*\/>/);
   assert.match(header, /to="\/login"/);
   assert.match(header, /if \(!mounted \|\| !authEnabled \|\| isPending\) return null/);
+  assert.match(workspaceE2e, /assertHeaderAccountAccess\(page, false\)/,
+    "the browser smoke must verify signed-out account access in desktop and mobile navigation");
+  assert.match(workspaceE2e, /assertHeaderAccountAccess\(firstPage, true\)/,
+    "the browser smoke must verify signed-in account access in desktop and mobile navigation");
+  assert.match(workspaceE2e, /\.mobile-menu\.is-open \.customer-account-access\.is-compact/);
+  assert.match(workspaceE2e, /width: 320, height: 800/);
+  assert.match(workspaceE2e, /expireUserSessionsInDisposableDatabase/,
+    "the browser smoke must force an expired session in the disposable database");
+  assert.match(workspaceE2e, /refusing to mutate a non-local database/,
+    "the expired-session test must refuse non-disposable database hosts");
+  assert.match(workspaceE2e, /expired session must not read the customer workspace/);
 });
 
 test("personal workspace sends signed-out visitors to the shared account flow", () => {
   assert.match(workspace, /to="\/login"\s+search=\{\{\s*next:\s*"\/favorites"\s*\}\}/);
-  assert.match(root, /<CustomerWorkspaceSync enabled=\{!isAdminPath\} showStatus=\{pathname === "\/favorites"\}\s*\/>/);
+  assert.match(root, /<CustomerWorkspaceSyncProvider enabled=\{!isAdminPath\}>\s*<Outlet \/>/);
+  assert.match(favorites, /<CustomerWorkspaceSyncStatus \/>/);
+  assert.ok(favorites.indexOf("<CustomerWorkspaceSyncStatus />") < favorites.indexOf("{planOpen ? ("),
+    "workspace sync status and retry must render inside the favorites page content");
+  assert.doesNotMatch(workspace, /createPortal\(|document\.getElementById\("customer-workspace-status-slot"\)/,
+    "workspace status must render in the owning React tree rather than portaling into hydrated content");
+  assert.match(workspace, /CustomerWorkspaceSyncContext\.Provider/);
+  assert.match(workspace, /onClick=\{retry\}\s+disabled=\{busy\}/,
+    "the in-page retry control must keep the existing single-flight disabled state and retry callback");
+  assert.doesNotMatch(siteChrome, /customer-workspace-status-slot/);
 });
 
 test("personal workspace syncs changes and prevents data crossing between accounts", () => {
