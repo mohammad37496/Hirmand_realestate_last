@@ -4,6 +4,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { requireUserIdFromHeaders } from "@/lib/auth/verify.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { customerWorkspaceHttpError } from "@/lib/customer-workspace-response.server";
+import { requireCustomerWorkspaceDatabase } from "@/lib/customer-workspace-database.server.mjs";
 
 const schema = z.object({
   ownerId: z.string().min(1).max(128),
@@ -35,9 +36,7 @@ export default defineEventHandler(async (event) => {
     if (body.data.ownerId !== userId) {
       throw createError({ statusCode: 409, statusMessage: "Workspace account changed" });
     }
-    if (dbSource === "unconfigured") {
-      return { success: false, message: "پایگاه داده تنظیم نشده است." };
-    }
+    requireCustomerWorkspaceDatabase(dbSource);
 
     const sql = await getSql();
     await sql.query(
