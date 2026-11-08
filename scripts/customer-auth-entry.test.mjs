@@ -61,6 +61,12 @@ test("site header exposes account access on desktop and mobile navigation", () =
   assert.match(header, /<CustomerAccountAccess compact\s*\/>/);
   assert.match(header, /to="\/login"/);
   assert.match(header, /if \(!mounted \|\| !authEnabled \|\| isPending\) return null/);
+  assert.match(workspaceE2e, /assertHeaderAccountAccess\(page, false\)/,
+    "the browser smoke must verify signed-out account access in desktop and mobile navigation");
+  assert.match(workspaceE2e, /assertHeaderAccountAccess\(firstPage, true\)/,
+    "the browser smoke must verify signed-in account access in desktop and mobile navigation");
+  assert.match(workspaceE2e, /\.mobile-menu\.is-open \.customer-account-access\.is-compact/);
+  assert.match(workspaceE2e, /width: 320, height: 800/);
 });
 
 test("personal workspace sends signed-out visitors to the shared account flow", () => {

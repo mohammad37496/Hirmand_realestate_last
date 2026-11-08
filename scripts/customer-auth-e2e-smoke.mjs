@@ -12,6 +12,32 @@ const secondEmail = `customer-auth-${randomUUID()}@example.com`;
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
 const errors = [];
 
+async function assertHeaderAccountAccess(page, signedIn) {
+  const desktopAccess = page.locator(".nav-actions > .customer-account-access");
+  await desktopAccess.waitFor({ state: "visible" });
+  if (signedIn) {
+    assert.equal(await desktopAccess.locator('a[aria-label="فضای شخصی من"]').isVisible(), true);
+    assert.equal(await desktopAccess.locator('button[aria-label="خروج از حساب"]').isVisible(), true);
+  } else {
+    assert.match(await desktopAccess.innerText(), /ورود \/ ثبت‌نام/);
+  }
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  const menuToggle = page.locator(".menu-toggle");
+  await menuToggle.waitFor({ state: "visible" });
+  await menuToggle.click();
+  const mobileAccess = page.locator(".mobile-menu.is-open .customer-account-access.is-compact");
+  await mobileAccess.waitFor({ state: "visible" });
+  if (signedIn) {
+    assert.equal(await mobileAccess.locator('a[aria-label="فضای شخصی من"]').isVisible(), true);
+    assert.equal(await mobileAccess.locator('button[aria-label="خروج از حساب"]').isVisible(), true);
+  } else {
+    assert.match(await mobileAccess.innerText(), /ورود \/ ثبت‌نام/);
+  }
+  await menuToggle.click();
+  await page.setViewportSize({ width: 1280, height: 800 });
+}
+
 async function signUp(context, address, displayName, seedGuestWorkspace = false) {
   const page = await context.newPage();
   page.on("pageerror", (error) => errors.push(error.message));
@@ -20,6 +46,7 @@ async function signUp(context, address, displayName, seedGuestWorkspace = false)
   );
   await page.goto(new URL("/login?next=%2F", baseUrl).toString(), { waitUntil: "domcontentloaded" });
   await sessionCheck;
+  if (seedGuestWorkspace) await assertHeaderAccountAccess(page, false);
   await page.getByRole("tab", { name: "ساخت حساب", exact: true }).click();
   await page.locator(".customer-login-form input[autocomplete=name]").fill(displayName);
   await page.locator(".customer-login-form input[type=email]").fill(address);
@@ -49,6 +76,7 @@ async function signUp(context, address, displayName, seedGuestWorkspace = false)
 try {
   const firstContext = await browser.newContext();
   const firstPage = await signUp(firstContext, email, "Auth Smoke One", true);
+  await assertHeaderAccountAccess(firstPage, true);
   const firstSessionResponse = await firstPage.request.get(new URL("/api/auth/get-session", baseUrl).toString());
   assert.equal(firstSessionResponse.status(), 200);
   const firstSession = await firstSessionResponse.json();
@@ -209,6 +237,7 @@ try {
   assert.deepEqual(errors, [], "auth pages should not throw browser errors");
   console.log(JSON.stringify({
     signUp: "passed",
+    desktopAndMobileHeaderAccess: "passed",
     session: "passed",
     guestWorkspaceMerge: "passed",
     workspacePersistence: "passed",
