@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "public, max-age=60, s-maxage=300");
@@ -22,7 +23,7 @@ export default defineEventHandler(async (event) => {
     : [];
 
   const availableRows = slugs.length
-    ? await sql.query<{ slug: string }>("select slug from properties where deleted_at is null and status='published' and (unpublish_at is null or unpublish_at > current_timestamp) and slug=any($1::text[])",[slugs])
+    ? await sql.query<{ slug: string }>(`select slug from properties where ${publicPropertyVisibilitySql()} and slug=any($1::text[])`,[slugs])
     : [];
   const available = availableRows.map((item) => String(item.slug));
 

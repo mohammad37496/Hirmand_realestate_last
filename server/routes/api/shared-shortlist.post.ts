@@ -2,6 +2,7 @@ import { createError, defineEventHandler, readBody, setResponseHeader } from "h3
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
 const schema = z.object({
   slugs: z.array(z.string().trim().min(1).max(220)).min(1).max(6),
@@ -26,7 +27,7 @@ export default defineEventHandler(async (event) => {
   const uniqueSlugs = Array.from(new Set(parsed.data.slugs)).slice(0, 6);
   const sql = await getSql();
   const rows = await sql.query<{ slug: string }>(
-    "select slug from properties where status='published' and slug=any($1::text[])",
+    `select slug from properties where ${publicPropertyVisibilitySql()} and slug=any($1::text[])`,
     [uniqueSlugs],
   );
   const published = rows.map((row) => String(row.slug));
