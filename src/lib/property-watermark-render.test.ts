@@ -235,7 +235,7 @@ test(
         "-f",
         "lavfi",
         "-i",
-        "testsrc2=size=640x360:rate=25",
+        "color=c=0x101820:size=640x360:rate=25",
         "-t",
         "1",
         "-c:v",
@@ -251,7 +251,10 @@ test(
         data: input,
         contentType: "video/mp4",
         pathname: "properties/uploads/clip.mp4",
-        settings: SETTINGS,
+        // Isolate drawtext from the logo so the pixel assertion below proves
+        // the Persian text rendered, while the separate filter contract test
+        // continues to cover the logo overlay and its end-of-stream behavior.
+        settings: { ...SETTINGS, showLogo: false },
       });
 
       assert.equal(result.contentType, "video/mp4");
@@ -276,6 +279,41 @@ test(
       assert.ok(
         Math.abs(seconds - 1) < 0.35,
         `watermarked video must keep the source duration (got ${seconds}s)`,
+      );
+
+      // Decode the rendered frame and prove the Persian drawtext itself is
+      // visible in its reserved footer region. The solid dark source ensures
+      // bright pixels there can only come from the watermark overlay.
+      const grayPath = join(workDir, "video-footer.gray");
+      await execFileAsync(FFMPEG, [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        outputPath,
+        "-frames:v",
+        "1",
+        "-pix_fmt",
+        "gray",
+        "-f",
+        "rawvideo",
+        grayPath,
+      ]);
+      const gray = await readFile(grayPath);
+      const width = 640;
+      const height = Math.round(gray.length / width);
+      assert.equal(height, 360, "watermarked video must preserve its frame dimensions");
+
+      let brightPersianTextPixels = 0;
+      for (let y = Math.round(height * 0.84); y < height; y += 1) {
+        for (let x = Math.round(width * 0.52); x < width - 24; x += 1) {
+          if (gray[y * width + x] > 180) brightPersianTextPixels += 1;
+        }
+      }
+      assert.ok(
+        brightPersianTextPixels > 30,
+        `Persian video watermark text must be visibly rendered in the footer (found ${brightPersianTextPixels} bright pixels)`,
       );
     } finally {
       await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
