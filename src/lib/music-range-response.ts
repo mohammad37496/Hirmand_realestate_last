@@ -9,6 +9,7 @@ export function createRangeNotSatisfiableResponse(
     // shared cache for a later, valid range request to the same media URL.
     "cache-control": "no-store",
     "content-disposition": "inline",
+    "cross-origin-resource-policy": "same-origin",
   };
   if (contentRange) headers["content-range"] = contentRange;
   return new Response(null, { status: 416, headers });

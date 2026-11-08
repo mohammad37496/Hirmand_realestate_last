@@ -3,7 +3,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Download, Exte
 import { toast } from "sonner";
 import { TEAM } from "@/lib/site";
 import { formatToman } from "@/lib/money";
-import { isVideoUrl } from "@/lib/media";
+import { isVideoUrl, mediaPreviewSource } from "@/lib/media";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { PROPERTY_FLOOR_OPTIONS, isAllowedPropertyFloorValue } from "@/lib/property-options";
 import "./admin-customer-property-submissions.css";
@@ -508,7 +508,7 @@ export function AdminCustomerPropertySubmissions() {
               </label>
               <div className="admin-customer-submission-main">
                 <div className="admin-customer-submission-cover">
-                  {firstImage ? <img src={firstImage} alt="" loading="lazy"/> : <ImageIcon size={25}/>}
+                  {firstImage ? <img src={mediaPreviewSource(firstImage)} alt="" loading="lazy"/> : <ImageIcon size={25}/>}
                   <span>{media.length.toLocaleString("fa-IR")} رسانه</span>
                 </div>
                 <div className="admin-customer-submission-copy">
@@ -544,7 +544,7 @@ export function AdminCustomerPropertySubmissions() {
                       <div className="admin-customer-final-preview-head"><div><span className="kicker">پیش‌نمایش نهایی</span><strong>نمایی که قبل از انتشار بررسی می‌کنی</strong></div><button type="button" className="btn-ghost" onClick={()=>setPreviewOpen(false)}>بستن</button></div>
                       <div className="admin-customer-final-preview-card">
                         <div className="admin-customer-final-preview-media">
-                          {mediaDraftItems().length ? mediaDraftItems().map((src,index)=> index===0 ? (isVideoUrl(src) ? <video key={src} src={src} controls muted preload="metadata"/> : <img key={src} src={src} alt="" />) : null) : <ImageIcon size={32}/>}
+                          {mediaDraftItems().length ? mediaDraftItems().map((src,index)=> index===0 ? (isVideoUrl(src) ? <video key={src} src={mediaPreviewSource(src)} controls muted preload="metadata"/> : <img key={src} src={mediaPreviewSource(src)} alt="" />) : null) : <ImageIcon size={32}/>}
                         </div>
                         <div className="admin-customer-final-preview-copy">
                           <div className="admin-customer-preview-tags"><span>{labelTransaction(editDraft.transactionType)}</span><span>{labelType(editDraft.propertyType)}</span><span>{String(editDraft.neighborhood || "محله نامشخص")}</span></div>
@@ -625,7 +625,7 @@ export function AdminCustomerPropertySubmissions() {
                       <div className="admin-customer-submission-media">
                         {mediaDraftItems().map((src,index)=>(
                           <div key={src} className={index===0 && !isVideoUrl(src) ? "is-cover" : ""}>
-                            {isVideoUrl(src)?<video src={src} controls preload="metadata"/>:<img src={src} alt="" loading="lazy"/>}
+                            {isVideoUrl(src)?<video src={mediaPreviewSource(src)} controls preload="metadata"/>:<img src={mediaPreviewSource(src)} alt="" loading="lazy"/>}
                             <div className="admin-customer-media-controls">
                               <button type="button" onClick={()=>moveMedia(index,-1)} disabled={index===0}><ArrowUp size={13}/></button>
                               <button type="button" onClick={()=>moveMedia(index,1)} disabled={index===mediaDraftItems().length-1}><ArrowDown size={13}/></button>

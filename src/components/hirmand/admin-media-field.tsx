@@ -13,7 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-import { MAX_PROPERTY_MEDIA, isVideoUrl } from "@/lib/media";
+import { MAX_PROPERTY_MEDIA, isVideoUrl, mediaPreviewSource } from "@/lib/media";
 import type { PropertyType } from "@/lib/properties";
 import { getPropertyFallbackImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { faBytes } from "@/components/hirmand/admin-ui-utils";
@@ -152,9 +152,9 @@ function MediaThumb({ src, fallback }: { src: string; fallback: string }) {
   }
 
   return isVideoUrl(src) ? (
-    <video src={src} muted playsInline preload="metadata" onError={() => setBroken(true)} />
+    <video src={mediaPreviewSource(src)} muted playsInline preload="metadata" onError={() => setBroken(true)} />
   ) : (
-    <img src={src} alt="" loading="lazy" onError={() => setBroken(true)} />
+    <img src={mediaPreviewSource(src)} alt="" loading="lazy" onError={() => setBroken(true)} />
   );
 }
 
