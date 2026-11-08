@@ -5,6 +5,9 @@ export const DB_MEDIA_PATH = "/api/media/";
 export const MAX_PROPERTY_MEDIA = 20;
 
 const DIVAR_MEDIA_DOMAINS = ["divar.ir", "divar.com", "divarcdn.com"] as const;
+// These exact image hosts are grounded in the checked-in Divar media fixtures.
+// Do not widen this list from a suffix match: import-time fetches are server-side.
+const DIVAR_IMAGE_HOSTS = new Set(["img.divarcdn.com", "s100.divarcdn.com", "divar.ir"]);
 
 /** Liara buckets may be private; their public-looking object URLs still need a
  * signed same-origin read when the bucket policy does not allow anonymous GETs. */
@@ -48,15 +51,18 @@ export function isDivarRemoteHost(value: string): boolean {
   }
 }
 
-/** Upgrade legacy Divar media URLs to HTTPS before they enter the server proxy. */
-function secureDivarMediaUrl(value: string): string {
+/** Normalize only known first-party Divar image hosts before fetching/importing. */
+export function normalizeDivarImageUrl(value: string): string | null {
   try {
     const url = new URL(value);
-    if (url.protocol !== "http:" || !isDivarRemoteHost(value)) return value;
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    if (!DIVAR_IMAGE_HOSTS.has(url.hostname.toLowerCase())) return null;
+    if (url.username || url.password || url.port) return null;
     url.protocol = "https:";
+    url.hash = "";
     return url.toString();
   } catch {
-    return value;
+    return null;
   }
 }
 
@@ -186,8 +192,9 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
       if (isLiaraStorageHost(storedTarget)) {
         return ["/api/media-proxy?url=" + encodeURIComponent(storedTarget)];
       }
-      if (isDivarRemoteHost(storedTarget)) {
-        return ["/api/media-proxy?url=" + encodeURIComponent(secureDivarMediaUrl(storedTarget))];
+      const normalizedDivarTarget = normalizeDivarImageUrl(storedTarget);
+      if (normalizedDivarTarget) {
+        return ["/api/media-proxy?url=" + encodeURIComponent(normalizedDivarTarget)];
       }
       return [value];
     }
@@ -195,14 +202,14 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
     // Keep malformed and unsupported source URLs visible as failed media.
   }
 
-  const isDivarRemote = isDivarRemoteHost(value);
+  const normalizedDivarSource = normalizeDivarImageUrl(value);
   const isLiaraRemote = isLiaraStorageHost(value);
 
-  if (isDivarRemote) {
+  if (normalizedDivarSource) {
     // Imported classifieds media should never make the visitor's browser call
     // Divar or a foreign image proxy directly. The same-origin route fetches
     // the image server-side and keeps the browser request on Hirmand's domain.
-    return [`/api/media-proxy?url=${encodeURIComponent(secureDivarMediaUrl(value))}`];
+    return [`/api/media-proxy?url=${encodeURIComponent(normalizedDivarSource)}`];
   }
 
   if (isLiaraRemote) {
