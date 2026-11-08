@@ -18,6 +18,7 @@ const publicLeadActionsRoute = await readFile(
   new URL("../server/routes/api/public-lead-actions.post.ts", import.meta.url),
   "utf8",
 );
+const dbModule = await readFile(new URL("../src/lib/db.ts", import.meta.url), "utf8");
 
 test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
@@ -53,4 +54,14 @@ test("public lead actions check origin and rate-limit capability-token operation
   const throttleIndex = publicLeadActionsRoute.indexOf('consumeAdminAttempt("public-lead-action:"');
   const databaseCheckIndex = publicLeadActionsRoute.indexOf('dbSource === "unconfigured"');
   assert.ok(throttleIndex >= 0 && databaseCheckIndex > throttleIndex);
+});
+
+test("property visit availability check and lead insert share a row-locked database transaction", () => {
+  assert.match(leadsRoute, /createPropertyVisitRequest\(sql,/);
+  assert.doesNotMatch(leadsRoute, /select id from leads where property_id::text=\$1 and visit_status/);
+  assert.match(dbModule, /const transaction: NonNullable<Sql\["transaction"\]> = async/);
+  assert.match(dbModule, /await client\.query\("BEGIN"\)/);
+  assert.match(dbModule, /await client\.query\("COMMIT"\)/);
+  assert.match(dbModule, /await client\.query\("ROLLBACK"\)/);
+  assert.match(dbModule, /pg\.transaction\(async \(tx\)/);
 });

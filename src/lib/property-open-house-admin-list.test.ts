@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { hasAdminPermission } from "./admin-roles.ts";
 import { listOpenHouseAdminData } from "./property-open-house-admin-list.ts";
+import { createPropertyVisitRequest } from "./property-visit-request.ts";
+import type { Sql } from "./db.ts";
 
 test("property managers can read open-house schedules without selecting RSVP personal data", async () => {
   const queries: string[] = [];
@@ -52,4 +54,70 @@ test("property managers can read open-house schedules without selecting RSVP per
     "utf8",
   );
   assert.match(adminShell, /<AdminPropertyOpenHouse propertyId=\{form\.id\} canViewRsvps=\{canManageLeads\}/);
+});
+
+test("concurrent visit requests for one property and time cannot both reserve the slot", async () => {
+  const visits: Array<{ propertyId: string; visitAt: string }> = [];
+  let lockTail = Promise.resolve();
+  let propertyLockQuery = "";
+  const property = {
+    id: "property-1",
+    title: "آپارتمان نمونه",
+    property_type: "apartment",
+    neighborhood: "چهارباغ",
+    contact_name: "مشاور",
+  };
+  const transactionSql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> => {
+      if (/from properties/i.test(text)) {
+        propertyLockQuery = text;
+        return [property] as T[];
+      }
+      if (/select id from leads/i.test(text)) {
+        const duplicate = visits.some((visit) =>
+          visit.propertyId === String(params[0]) && visit.visitAt === String(params[1]),
+        );
+        return (duplicate ? [{ id: "existing-visit" }] : []) as T[];
+      }
+      if (/insert into leads/i.test(text)) {
+        visits.push({ propertyId: String(params[11]), visitAt: String(params[12]) });
+        return [{ id: String(params[0]) }] as T[];
+      }
+      throw new Error(`Unexpected visit query: ${text}`);
+    },
+  } as Sql;
+  const sql = {
+    query: async () => { throw new Error("visit queries must run inside a transaction"); },
+    transaction: async <T>(callback: (tx: Sql) => Promise<T>): Promise<T> => {
+      const previous = lockTail;
+      let release!: () => void;
+      lockTail = new Promise<void>((resolve) => { release = resolve; });
+      await previous;
+      try {
+        return await callback(transactionSql);
+      } finally {
+        release();
+      }
+    },
+  } as unknown as Sql;
+  const base = {
+    propertyId: "property-1",
+    visitAt: "2026-11-09T10:00:00.000Z",
+    name: "مشتری",
+    phone: "09123456789",
+    peopleCount: null,
+    job: "",
+    floorPreference: "",
+    consultant: "",
+    note: "درخواست بازدید",
+  };
+
+  const results = await Promise.all([
+    createPropertyVisitRequest(sql, { ...base, trackingToken: "HIR-26-AAAAAAAAAAAA" }),
+    createPropertyVisitRequest(sql, { ...base, trackingToken: "HIR-26-BBBBBBBBBBBB" }),
+  ]);
+
+  assert.deepEqual(results.map((result) => result.kind).sort(), ["conflict", "created"]);
+  assert.equal(visits.length, 1);
+  assert.match(propertyLockQuery, /for update/i);
 });
