@@ -833,7 +833,8 @@ function PropertiesIndexPage() {
         toast.error("بارگذاری صفحهٔ بعد انجام نشد. اتصال اینترنت را بررسی و دوباره تلاش کنید.");
       }
     } finally {
-      setLoadingMore(false);
+      // A stale request must not clear the loading state owned by a newer query.
+      if (requestId.current === queryVersion) setLoadingMore(false);
     }
   }, [
     loading,
