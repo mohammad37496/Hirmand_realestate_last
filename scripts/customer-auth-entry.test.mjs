@@ -64,15 +64,16 @@ test("site header exposes account access on desktop and mobile navigation", () =
 
 test("personal workspace sends signed-out visitors to the shared account flow", () => {
   assert.match(workspace, /to="\/login"\s+search=\{\{\s*next:\s*"\/favorites"\s*\}\}/);
-  assert.match(root, /<CustomerWorkspaceSync enabled=\{!isAdminPath\} showStatus=\{pathname === "\/favorites"\}\s*\/>/);
-  assert.match(workspace, /createPortal\(/);
-  assert.match(workspace, /document\.getElementById\("customer-workspace-status-slot"\)/);
-  const pageStart = siteChrome.indexOf('<div className={cn("page", className)}>');
-  const statusSlot = siteChrome.indexOf('id="customer-workspace-status-slot"');
-  const pageContent = siteChrome.indexOf("{children}", statusSlot);
-  const footer = siteChrome.indexOf("<Footer />");
-  assert.ok(pageStart >= 0 && pageStart < statusSlot && statusSlot < pageContent && pageContent < footer,
-    "workspace sync status and retry must render before page content and the footer");
+  assert.match(root, /<CustomerWorkspaceSyncProvider enabled=\{!isAdminPath\}>\s*<Outlet \/>/);
+  assert.match(favorites, /<CustomerWorkspaceSyncStatus \/>/);
+  assert.ok(favorites.indexOf("<CustomerWorkspaceSyncStatus />") < favorites.indexOf("{planOpen ? ("),
+    "workspace sync status and retry must render inside the favorites page content");
+  assert.doesNotMatch(workspace, /createPortal\(|document\.getElementById\("customer-workspace-status-slot"\)/,
+    "workspace status must render in the owning React tree rather than portaling into hydrated content");
+  assert.match(workspace, /CustomerWorkspaceSyncContext\.Provider/);
+  assert.match(workspace, /onClick=\{retry\}\s+disabled=\{busy\}/,
+    "the in-page retry control must keep the existing single-flight disabled state and retry callback");
+  assert.doesNotMatch(siteChrome, /customer-workspace-status-slot/);
 });
 
 test("personal workspace syncs changes and prevents data crossing between accounts", () => {

@@ -13,6 +13,7 @@ import { FavoriteNeighborhoodSnapshot } from "@/components/hirmand/favorite-neig
 import { FavoriteShortlistReport } from "@/components/hirmand/favorite-shortlist-report";
 import { WorkspaceBackupRestore } from "@/components/hirmand/workspace-backup-restore";
 import { FavoriteWeightedMatrix } from "@/components/hirmand/favorite-weighted-matrix";
+import { CustomerWorkspaceSyncStatus } from "@/components/hirmand/customer-workspace-sync";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { listPublishedPropertiesBySlugs, type Property } from "@/lib/properties";
 import { SITE } from "@/lib/site";
@@ -452,6 +453,7 @@ function FavoritesPage() {
           </div>
         </header>
 
+        <CustomerWorkspaceSyncStatus />
 
         {planOpen ? (
           <div className="favorites-plan-backdrop" role="presentation" onMouseDown={(event) => {

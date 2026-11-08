@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { MusicPlayer } from "@/components/hirmand/music-player";
-import { CustomerWorkspaceSync } from "@/components/hirmand/customer-workspace-sync";
+import { CustomerWorkspaceSyncProvider } from "@/components/hirmand/customer-workspace-sync";
 import { SITE } from "@/lib/site";
 import { trackPublic404 } from "@/lib/seo-redirects";
 import appCss from "../styles.css?url";
@@ -125,9 +125,10 @@ function RootDocument() {
         <PwaRegistrar />
         <PreviewHostBridge />
         <AuthProvider>
-          <Outlet />
-          <CustomerWorkspaceSync enabled={!isAdminPath} showStatus={pathname === "/favorites"} />
-          {!isAdminPath && <MusicPlayer />}
+          <CustomerWorkspaceSyncProvider enabled={!isAdminPath}>
+            <Outlet />
+            {!isAdminPath && <MusicPlayer />}
+          </CustomerWorkspaceSyncProvider>
         </AuthProvider>
         <Scripts />
       </body>

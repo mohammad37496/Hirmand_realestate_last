@@ -1,6 +1,5 @@
 import { Cloud, RefreshCw, ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { authEnabled, getBearerToken } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -85,29 +84,28 @@ function localWorkspace() {
   });
 }
 
-export function CustomerWorkspaceSync({
+type CustomerWorkspaceSyncState = {
+  user: ReturnType<typeof useCurrentUserState>["user"];
+  isPending: boolean;
+  busy: boolean;
+  status: string;
+  retry: () => void;
+};
+
+const CustomerWorkspaceSyncContext = createContext<CustomerWorkspaceSyncState | null>(null);
+
+export function CustomerWorkspaceSyncProvider({
   enabled = true,
-  showStatus = false,
-}: { enabled?: boolean; showStatus?: boolean }) {
+  children,
+}: { enabled?: boolean; children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
-  const [statusContainer, setStatusContainer] = useState<HTMLElement | null>(null);
   const bootedUser = useRef<string | null>(null);
   const activeUserId = useRef<string | null>(user?.id ?? null);
   const syncInFlight = useRef(false);
   const syncQueued = useRef(false);
   const syncRef = useRef<() => void>(() => {});
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-  useEffect(() => {
-    if (!mounted || !showStatus) {
-      setStatusContainer(null);
-      return;
-    }
-    setStatusContainer(document.getElementById("customer-workspace-status-slot"));
-  }, [mounted, showStatus]);
   useEffect(() => {
     activeUserId.current = user?.id ?? null;
   }, [user?.id]);
@@ -296,10 +294,19 @@ export function CustomerWorkspaceSync({
     }
   }, [enabled, isPending, user]);
 
-  if (!mounted || isPending || !authEnabled || !showStatus || !statusContainer) return null;
+  return (
+    <CustomerWorkspaceSyncContext.Provider value={{ user, isPending, busy, status, retry: () => { void sync(); } }}>
+      {children}
+    </CustomerWorkspaceSyncContext.Provider>
+  );
+}
 
+export function CustomerWorkspaceSyncStatus() {
+  const workspace = useContext(CustomerWorkspaceSyncContext);
+  if (!workspace || !authEnabled || workspace.isPending) return null;
+  const { user, busy, status, retry } = workspace;
   if (!user) {
-    return createPortal((
+    return (
       <section className="customer-workspace-sync customer-workspace-signin">
         <div className="customer-workspace-icon"><Cloud size={20} /></div>
         <div>
@@ -310,10 +317,9 @@ export function CustomerWorkspaceSync({
           ورود یا ساخت حساب
         </Link>
       </section>
-    ), statusContainer);
+    );
   }
-
-  return createPortal((
+  return (
     <section className="customer-workspace-sync">
       <div className="customer-workspace-icon"><Cloud size={20} /></div>
       <div className="customer-workspace-copy">
@@ -321,10 +327,10 @@ export function CustomerWorkspaceSync({
         <p><ShieldCheck size={13} /> علاقه‌مندی‌ها، جست‌وجوهای ذخیره‌شده و فایل‌های اخیر روی حساب شما نگه‌داری می‌شود.</p>
         {status ? <span role="status">{status}</span> : null}
       </div>
-      <button type="button" className="btn-ghost" onClick={() => void sync()} disabled={busy}>
+      <button type="button" className="btn-ghost" onClick={retry} disabled={busy}>
         <RefreshCw size={15} className={busy ? "workspace-sync-spin" : ""} />
         {busy ? "در حال همگام‌سازی…" : "همگام‌سازی"}
       </button>
     </section>
-  ), statusContainer);
+  );
 }
