@@ -22,6 +22,10 @@ const customerPropertySubmissionsRoute = await readFile(
   new URL("../server/routes/api/customer-property-submissions.post.ts", import.meta.url),
   "utf8",
 );
+const customerSubmissionDuplicateHelper = await readFile(
+  new URL("../src/lib/customer-property-submission-duplicate.ts", import.meta.url),
+  "utf8",
+);
 const dbModule = await readFile(new URL("../src/lib/db.ts", import.meta.url), "utf8");
 const propertyWatchTargetRoute = await readFile(new URL("../server/routes/api/property-watch-target.post.ts", import.meta.url), "utf8");
 const propertyWatchRoute = await readFile(new URL("../server/routes/api/property-watch.post.ts", import.meta.url), "utf8");
@@ -80,6 +84,11 @@ test("customer property resubmission uses a rejected-state and updated-at compar
   assert.match(customerPropertySubmissionsRoute, /updated_at from customer_property_submissions/);
   assert.match(customerPropertySubmissionsRoute, /if \(!resubmitted\)[\s\S]*?statusCode:\s*409/);
   assert.doesNotMatch(customerPropertySubmissionsRoute, /update customer_property_submissions[^\n]*where id=\$1"/);
+});
+
+test("customer submission duplicate detection excludes its own newly inserted row", () => {
+  assert.match(customerPropertySubmissionsRoute, /findPotentialDuplicateCustomerPropertySubmissions\(sql/);
+  assert.match(customerSubmissionDuplicateHelper, /id\s*<>\s*\$5/);
 });
 
 test("property visit availability check and lead insert share a row-locked database transaction", () => {
