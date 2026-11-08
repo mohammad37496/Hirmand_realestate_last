@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { loadAdminLeadAssignmentRows } from "@/lib/admin-lead-assignment";
 
 type ConsultantLoad = {
   name: string;
@@ -32,37 +33,22 @@ function workScore(load: Pick<ConsultantLoad, "activeLeads" | "overdue" | "viewi
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { consultants: [], recommendations: [] };
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای مدیریت تخصیص مشاوران در دسترس نیست." });
+  }
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const action = typeof body.action === "string" ? body.action : "recommend";
   const sql = await getSql();
+  let rows: Awaited<ReturnType<typeof loadAdminLeadAssignmentRows>>;
+  try {
+    rows = await loadAdminLeadAssignmentRows(sql, action);
+  } catch (error) {
+    console.error("[admin-lead-assignment] assignment data query unavailable", error);
+    throw createError({ statusCode: 503, statusMessage: "بارگذاری اطلاعات تعادل بار مشاوران ناموفق بود. دوباره تلاش کنید." });
+  }
 
-  const consultants = await sql.query<Record<string, unknown>>(
-    `select
-       c.name,
-       c.phone,
-       count(l.id) filter (where l.status not in ('closed','spam'))::int as active_leads,
-       count(l.id) filter (
-         where l.status in ('new','contacted','follow_up','visited')
-           and l.follow_up_at is not null
-           and l.follow_up_at < current_timestamp
-       )::int as overdue,
-       count(l.id) filter (
-         where l.status not in ('closed','spam')
-           and (l.visit_requested_at is not null or l.visit_status = 'requested')
-       )::int as viewing_requests
-     from consultants c
-     left join leads l on trim(coalesce(l.consultant,'')) = trim(c.name)
-     where c.is_active = true
-     group by c.name, c.phone, c.sort_order
-     order by c.sort_order asc, c.name asc`,
-  ).catch((error) => {
-    console.error("[admin-lead-assignment] consultant query unavailable", error);
-    return [];
-  });
-
-  const loads: ConsultantLoad[] = consultants.map((row) => {
+  const loads: ConsultantLoad[] = rows.consultants.map((row) => {
     const base = {
       name: String(row.name ?? ""),
       phone: String(row.phone ?? ""),
@@ -100,14 +86,10 @@ export default defineEventHandler(async (event) => {
     return { success: true, consultant };
   }
 
-  const unassigned = await sql.query<Record<string, unknown>>(
-    "select id,name,phone,deal,property_type,neighborhood,created_at from leads where trim(coalesce(consultant,''))='' and status not in ('closed','spam') order by created_at desc limit 24",
-  ).catch(() => []);
-
   const sorted = [...loads].sort((a, b) => a.score - b.score || a.activeLeads - b.activeLeads || a.name.localeCompare(b.name, "fa"));
   return {
     consultants: loads,
-    recommendations: unassigned.map((lead) => ({
+    recommendations: rows.unassigned.map((lead) => ({
       lead: {
         id: String(lead.id),
         name: String(lead.name ?? ""),
