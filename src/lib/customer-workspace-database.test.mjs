@@ -105,3 +105,11 @@ test("concurrent first writes with null expected revision create only one worksp
     await db.close();
   }
 });
+
+test("cross-account workspace writes return 409 before validating the new revision field", async () => {
+  const route = await readFile(new URL("../../server/routes/api/customer-workspace.post.ts", import.meta.url), "utf8");
+  const ownerMismatch = route.indexOf("rawBodyObject.ownerId !== userId");
+  const schemaValidation = route.indexOf("schema.safeParse(rawBody)");
+  assert.ok(ownerMismatch >= 0 && schemaValidation > ownerMismatch);
+  assert.match(route, /expectedRevision: z\.string\(\)\.regex/);
+});

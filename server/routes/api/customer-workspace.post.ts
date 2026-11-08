@@ -39,7 +39,16 @@ export default defineEventHandler(async (event) => {
     });
     assertSameOrigin(event);
     const userId = await requireUserIdFromHeaders(new Headers(getRequestHeaders(event)));
-    const body = schema.safeParse(await readBody(event).catch(() => null));
+    const rawBody = await readBody(event).catch(() => null);
+    const rawBodyObject: Record<string, unknown> | null = rawBody && typeof rawBody === "object" && !Array.isArray(rawBody)
+      ? rawBody as Record<string, unknown>
+      : null;
+    // Preserve the explicit cross-account conflict response even for older or
+    // malformed clients that do not yet send the optimistic revision field.
+    if (rawBodyObject && typeof rawBodyObject.ownerId === "string" && rawBodyObject.ownerId !== userId) {
+      throw createError({ statusCode: 409, statusMessage: "Workspace account changed" });
+    }
+    const body = schema.safeParse(rawBody);
     if (!body.success) {
       throw createError({ statusCode: 400, statusMessage: body.error.issues[0]?.message || "فضای شخصی نامعتبر است." });
     }
