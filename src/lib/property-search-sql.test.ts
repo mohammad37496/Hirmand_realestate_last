@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
-import { buildPublicPropertyFilterParams, buildPublicPropertyWhereSql } from "./property-search-sql.ts";
+import { readFile } from "node:fs/promises";
+import { buildPublicPropertyFilterParams, buildPublicPropertyOrderBySql, buildPublicPropertyWhereSql } from "./property-search-sql.ts";
 
 type Fixture = {
   id: string;
@@ -304,6 +305,36 @@ test("controlled fixture: result count and pagination use the same WHERE contrac
     );
     assert.equal(count.rows[0]?.count, 3);
     assert.deepEqual(page.rows.map((row) => row.id), ["sale-b"]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("public listing order prioritizes active featured properties and deterministically paginates ties", async () => {
+  const db = await createFixtureDb();
+  try {
+    await db.exec(`
+      update properties
+         set published_at='2026-11-01 12:00:00+00', created_at='2026-10-01 12:00:00+00';
+      update properties set featured=true, featured_until='2099-01-01 00:00:00+00' where id='sale-a';
+      update properties set featured=true, featured_until='2000-01-01 00:00:00+00' where id='sale-b';
+    `);
+    const params = ["newest"];
+    const orderBy = buildPublicPropertyOrderBySql("$1::text");
+    const firstPage = await db.query<{ id: string }>(
+      `select id from properties order by ${orderBy} limit 3 offset 0`,
+      params,
+    );
+    const secondPage = await db.query<{ id: string }>(
+      `select id from properties order by ${orderBy} limit 3 offset 3`,
+      params,
+    );
+    assert.deepEqual(firstPage.rows.map((row) => row.id), ["sale-a", "sell-f", "sale-b"]);
+    assert.deepEqual(secondPage.rows.map((row) => row.id), ["rent-c", "mortgage-e", "land-d"]);
+    assert.equal(new Set([...firstPage.rows, ...secondPage.rows].map((row) => row.id)).size, 6);
+
+    const source = await readFile(new URL("./properties.ts", import.meta.url), "utf8");
+    assert.equal((source.match(/"order by " \+ buildPublicPropertyOrderBySql\(\)/g) ?? []).length, 2);
   } finally {
     await db.close();
   }
