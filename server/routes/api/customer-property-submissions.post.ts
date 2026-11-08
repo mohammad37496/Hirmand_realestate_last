@@ -6,6 +6,7 @@ import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { resubmitCustomerPropertySubmissionWithLeadSync } from "@/lib/customer-property-submission-lead-sync";
 import { findPotentialDuplicateCustomerPropertySubmissions } from "@/lib/customer-property-submission-duplicate";
+import { createInitialCustomerPropertySubmission } from "@/lib/customer-property-submission-create";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -181,64 +182,42 @@ export default defineEventHandler(async (event) => {
     return { success:true, duplicate:true, trackingToken: existing[0].public_tracking_token || trackingToken };
   }
 
+  const normalizedTitle = parsed.data.title.trim().toLowerCase();
+  let possibleDuplicate = false;
+  let possibleDuplicateCount = 0;
   try {
-    await sql.query(
-      "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,follow_up_at,public_tracking_token) values ($1,$2,$3,1,$4,$5,$6,$7,'',$8,'website',current_timestamp + interval '2 hours',$9)",
-      [
-        leadId,
-        parsed.data.ownerName,
-        parsed.data.ownerPhone,
-        "مالک",
-        "ثبت ملک - " + parsed.data.transactionType,
-        parsed.data.propertyType,
-        parsed.data.neighborhood,
-        buildLeadNote(parsed.data),
-        trackingToken,
-      ],
-    );
-    await sql.query(
-      "insert into customer_property_submissions (id,lead_id,public_tracking_token,status,owner_name,owner_phone,property_data,queue_started_at) values ($1,$2,$3,'pending',$4,$5,$6::jsonb,current_timestamp)",
-      [
-        submissionId,
-        leadId,
-        trackingToken,
-        parsed.data.ownerName,
-        parsed.data.ownerPhone,
-        JSON.stringify(parsed.data),
-      ],
-    );
-    await sql.query(
-      "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'follow_up',$2,$3,$4::jsonb)",
-      [
-        leadId,
-        "ثبت ملک توسط مشتری",
-        "ملک جدید برای بررسی و انتشار ارسال شده است.",
-        JSON.stringify({ submissionId, mediaCount: parsed.data.images.length }),
-      ],
-    ).catch(() => {});
+    const duplicateRows = await findPotentialDuplicateCustomerPropertySubmissions(sql, {
+      excludeSubmissionId: submissionId,
+      ownerPhone: parsed.data.ownerPhone,
+      neighborhood: parsed.data.neighborhood,
+      areaM2: String(parsed.data.areaM2),
+      normalizedTitle,
+    });
+    possibleDuplicate = duplicateRows.length > 0;
+    possibleDuplicateCount = duplicateRows.length;
   } catch (error) {
-    await sql.query("delete from leads where id=$1", [leadId]).catch(() => {});
-    throw error;
+    console.warn("[customer-property-submissions] optional duplicate lookup failed", error);
   }
 
-  const normalizedTitle = parsed.data.title.trim().toLowerCase();
-  const duplicateRows = await findPotentialDuplicateCustomerPropertySubmissions(sql, {
-    excludeSubmissionId: submissionId,
+  await createInitialCustomerPropertySubmission(sql, {
+    leadId,
+    submissionId,
+    trackingToken,
+    ownerName: parsed.data.ownerName,
     ownerPhone: parsed.data.ownerPhone,
+    deal: "ثبت ملک - " + parsed.data.transactionType,
+    propertyType: parsed.data.propertyType,
     neighborhood: parsed.data.neighborhood,
-    areaM2: String(parsed.data.areaM2),
-    normalizedTitle,
+    leadNote: buildLeadNote(parsed.data),
+    propertyData: JSON.stringify(parsed.data),
+    mediaCount: parsed.data.images.length,
+    possibleDuplicate,
   });
-
-  await sql.query(
-    "insert into customer_property_submission_events (id,submission_id,action,note,metadata) values ($1,$2,'created',$3,$4::jsonb)",
-    [crypto.randomUUID(), submissionId, "ثبت ملک جدید توسط مشتری و ورود به صف بررسی.", JSON.stringify({ trackingToken, possibleDuplicate: duplicateRows.length > 0 })],
-  ).catch(() => {});
   return {
     success:true,
     duplicate:false,
-    possibleDuplicate: duplicateRows.length > 0,
-    possibleDuplicateCount: duplicateRows.length,
+    possibleDuplicate,
+    possibleDuplicateCount,
     submissionId,
     trackingToken,
     message:"ملک شما با موفقیت برای بررسی کارشناسان هیرمند ارسال شد.",

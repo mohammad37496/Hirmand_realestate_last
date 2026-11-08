@@ -11,6 +11,7 @@ import { resubmitCustomerPropertySubmission } from "./customer-property-submissi
 import { bulkRejectPendingCustomerPropertySubmissions, resubmitCustomerPropertySubmissionWithLeadSync } from "./customer-property-submission-lead-sync.ts";
 import type { Sql } from "./db.ts";
 import { findPotentialDuplicateCustomerPropertySubmissions } from "./customer-property-submission-duplicate.ts";
+import { createInitialCustomerPropertySubmission } from "./customer-property-submission-create.ts";
 
 test("public owner timeline exposes only owner-facing event notes", async () => {
   assert.equal(ownerStatusEventNote("created", "پرونده ثبت شد"), "پرونده ثبت شد");
@@ -566,6 +567,108 @@ test("customer submission duplicate detection still finds another matching submi
   } finally {
     await pg.close();
   }
+});
+
+async function createInitialSubmissionFixture(failAt?: "lead" | "submission" | "activity" | "owner-event") {
+  const pg = new PGlite();
+  await pg.exec(`
+    create table leads (
+      id text primary key, name text not null, phone text not null, people_count integer not null,
+      job text not null, deal text not null, property_type text not null, neighborhood text not null,
+      consultant text not null, note text not null, source text not null, follow_up_at timestamptz,
+      public_tracking_token text not null
+    );
+    create table customer_property_submissions (
+      id text primary key, lead_id text not null references leads(id), public_tracking_token text not null,
+      status text not null, owner_name text not null, owner_phone text not null,
+      property_data jsonb not null, queue_started_at timestamptz not null
+    );
+    create table lead_activities (
+      id bigserial primary key, lead_id text not null references leads(id), activity_type text not null,
+      title text not null, note text not null, metadata jsonb not null
+    );
+    create table customer_property_submission_events (
+      id text primary key, submission_id text not null references customer_property_submissions(id),
+      action text not null, note text not null, metadata jsonb not null
+    );
+    ${failAt ? `
+      create function reject_initial_submission_insert() returns trigger language plpgsql as $$
+      begin raise exception 'injected ${failAt} insert failure'; end $$;
+      create trigger reject_initial_submission_insert before insert on ${
+        failAt === "lead" ? "leads" : failAt === "submission" ? "customer_property_submissions" : failAt === "activity" ? "lead_activities" : "customer_property_submission_events"
+      } for each row execute function reject_initial_submission_insert();
+    ` : ""}
+  `);
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+      (await pg.query(text, params)).rows as T[],
+    transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+      pg.transaction(async (tx) => callback({
+        query: async <R = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+          (await tx.query(text, params)).rows as R[],
+      } as Sql)),
+  } as Sql;
+  return { pg, sql };
+}
+
+const initialSubmissionInput = {
+  leadId: "lead-1",
+  submissionId: "submission-1",
+  trackingToken: "HIR-26-ABCDEF123456",
+  ownerName: "مالک",
+  ownerPhone: "09123456789",
+  deal: "ثبت ملک - sell",
+  propertyType: "apartment",
+  neighborhood: "مرداویج",
+  leadNote: "ثبت ملک برای بررسی",
+  propertyData: JSON.stringify({ title: "آپارتمان" }),
+  mediaCount: 2,
+  possibleDuplicate: false,
+};
+
+for (const failure of ["lead", "submission", "activity", "owner-event"] as const) {
+  test(`initial customer submission rolls back every record when ${failure} insert fails`, async () => {
+    const { pg, sql } = await createInitialSubmissionFixture(failure);
+    try {
+      await assert.rejects(createInitialCustomerPropertySubmission(sql, initialSubmissionInput), /injected .* insert failure/);
+      const counts = await pg.query<{ leads: number; submissions: number; activities: number; events: number }>(`
+        select
+          (select count(*)::int from leads) as leads,
+          (select count(*)::int from customer_property_submissions) as submissions,
+          (select count(*)::int from lead_activities) as activities,
+          (select count(*)::int from customer_property_submission_events) as events
+      `);
+      assert.deepEqual(counts.rows[0], { leads: 0, submissions: 0, activities: 0, events: 0 });
+    } finally {
+      await pg.close();
+    }
+  });
+}
+
+test("initial customer submission commits all required records together", async () => {
+  const { pg, sql } = await createInitialSubmissionFixture();
+  try {
+    await createInitialCustomerPropertySubmission(sql, initialSubmissionInput);
+    const counts = await pg.query<{ leads: number; submissions: number; activities: number; events: number }>(`
+      select
+        (select count(*)::int from leads) as leads,
+        (select count(*)::int from customer_property_submissions) as submissions,
+        (select count(*)::int from lead_activities) as activities,
+        (select count(*)::int from customer_property_submission_events) as events
+    `);
+    assert.deepEqual(counts.rows[0], { leads: 1, submissions: 1, activities: 1, events: 1 });
+  } finally {
+    await pg.close();
+  }
+});
+
+test("initial customer submission route treats duplicate lookup as optional before its transaction", async () => {
+  const route = await readFile(
+    new URL("../../server/routes/api/customer-property-submissions.post.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(route, /findPotentialDuplicateCustomerPropertySubmissions\(sql,[\s\S]*?catch \(error\) \{[\s\S]*?optional duplicate lookup failed[\s\S]*?\}\s*await createInitialCustomerPropertySubmission/);
+  assert.doesNotMatch(route, /delete from leads where id=/i);
 });
 
 test("customer submission resubmit and bulk reject routes use transactional lead-sync helpers", async () => {
