@@ -1,5 +1,14 @@
 import { setResponseStatus, type H3Event } from "h3";
 
+export function customerWorkspaceStatusText(statusCode: number) {
+  if (statusCode === 400) return "Bad Request";
+  if (statusCode === 401) return "Unauthorized";
+  if (statusCode === 403) return "Forbidden";
+  if (statusCode === 409) return "Conflict";
+  if (statusCode === 503) return "Service Unavailable";
+  return "Internal Server Error";
+}
+
 /** Preserve private response headers when H3 would otherwise replace an error response. */
 export function customerWorkspaceHttpError(event: H3Event, error: unknown) {
   const requestedStatus =
@@ -10,11 +19,7 @@ export function customerWorkspaceHttpError(event: H3Event, error: unknown) {
     ? requestedStatus
     : 500;
 
-  const statusText = statusCode === 400 ? "Bad Request"
-    : statusCode === 401 ? "Unauthorized"
-      : statusCode === 403 ? "Forbidden"
-        : statusCode === 409 ? "Conflict"
-          : "Internal Server Error";
+  const statusText = customerWorkspaceStatusText(statusCode);
   if (statusCode >= 500) console.error("[customer-workspace] request failed", error);
   setResponseStatus(event, statusCode, statusText);
   const message = statusCode === 401 ? "Unauthorized"
