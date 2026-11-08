@@ -311,6 +311,25 @@ test("controlled fixture: map bounds combine with price and transaction filters"
   }
 });
 
+test("map bounds use the same rounded public coordinates as visible markers", async () => {
+  const db = await createFixtureDb();
+  try {
+    await db.exec("update properties set longitude=51.66441 where id='sale-a'; update properties set longitude=51.67 where id='sale-b';");
+    assert.deepEqual(await searchIds(db, {
+      transactionType: "buy",
+      mapBounds: [51.65, 32.64, 51.6644, 32.66],
+    }), ["sale-a"]);
+
+    await db.exec("update properties set longitude=51.66459 where id='sale-a';");
+    assert.deepEqual(await searchIds(db, {
+      transactionType: "buy",
+      mapBounds: [51.65, 32.64, 51.6646, 32.66],
+    }), []);
+  } finally {
+    await db.close();
+  }
+});
+
 test("controlled fixture: result count and pagination use the same WHERE contract", async () => {
   const db = await createFixtureDb();
   try {
