@@ -174,14 +174,6 @@ export default defineEventHandler(async (event) => {
   const leadId = crypto.randomUUID();
   void getCookie(event, VISITOR_COOKIE);
 
-  const existing = await sql.query<{ id:string; public_tracking_token:string|null }>(
-    "select id, public_tracking_token from customer_property_submissions where owner_phone=$1 and created_at > current_timestamp - interval '30 minutes' and status='pending' limit 1",
-    [parsed.data.ownerPhone],
-  );
-  if (existing[0]) {
-    return { success:true, duplicate:true, trackingToken: existing[0].public_tracking_token || trackingToken };
-  }
-
   const normalizedTitle = parsed.data.title.trim().toLowerCase();
   let possibleDuplicate = false;
   let possibleDuplicateCount = 0;
@@ -199,7 +191,7 @@ export default defineEventHandler(async (event) => {
     console.warn("[customer-property-submissions] optional duplicate lookup failed", error);
   }
 
-  await createInitialCustomerPropertySubmission(sql, {
+  const creation = await createInitialCustomerPropertySubmission(sql, {
     leadId,
     submissionId,
     trackingToken,
@@ -213,6 +205,9 @@ export default defineEventHandler(async (event) => {
     mediaCount: parsed.data.images.length,
     possibleDuplicate,
   });
+  if (creation.kind === "duplicate") {
+    return { success:true, duplicate:true, trackingToken: creation.trackingToken };
+  }
   return {
     success:true,
     duplicate:false,

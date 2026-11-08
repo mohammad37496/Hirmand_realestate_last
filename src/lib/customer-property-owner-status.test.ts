@@ -581,7 +581,8 @@ async function createInitialSubmissionFixture(failAt?: "lead" | "submission" | "
     create table customer_property_submissions (
       id text primary key, lead_id text not null references leads(id), public_tracking_token text not null,
       status text not null, owner_name text not null, owner_phone text not null,
-      property_data jsonb not null, queue_started_at timestamptz not null
+      property_data jsonb not null, queue_started_at timestamptz not null,
+      created_at timestamptz not null default current_timestamp
     );
     create table lead_activities (
       id bigserial primary key, lead_id text not null references leads(id), activity_type text not null,
@@ -662,12 +663,47 @@ test("initial customer submission commits all required records together", async 
   }
 });
 
+test("concurrent initial submissions for the same phone create one lead and return its tracking token", async () => {
+  const { pg, sql } = await createInitialSubmissionFixture();
+  try {
+    const [first, second] = await Promise.all([
+      createInitialCustomerPropertySubmission(sql, initialSubmissionInput),
+      createInitialCustomerPropertySubmission(sql, {
+        ...initialSubmissionInput,
+        leadId: "lead-2",
+        submissionId: "submission-2",
+        trackingToken: "HIR-26-654321FEDCBA",
+      }),
+    ]);
+    const outcomes = [first, second];
+    assert.equal(outcomes.filter((result) => result.kind === "created").length, 1);
+    const duplicate = outcomes.find((result) => result.kind === "duplicate");
+    assert.equal(duplicate?.kind, "duplicate");
+    if (duplicate?.kind === "duplicate") {
+      const stored = await sql.query<{ public_tracking_token: string }>(
+        "select public_tracking_token from customer_property_submissions",
+      );
+      assert.equal(duplicate.trackingToken, stored[0]?.public_tracking_token);
+    }
+    const counts = await pg.query<{ leads: number; submissions: number; activities: number; events: number }>(`
+      select
+        (select count(*)::int from leads) as leads,
+        (select count(*)::int from customer_property_submissions) as submissions,
+        (select count(*)::int from lead_activities) as activities,
+        (select count(*)::int from customer_property_submission_events) as events
+    `);
+    assert.deepEqual(counts.rows[0], { leads: 1, submissions: 1, activities: 1, events: 1 });
+  } finally {
+    await pg.close();
+  }
+});
+
 test("initial customer submission route treats duplicate lookup as optional before its transaction", async () => {
   const route = await readFile(
     new URL("../../server/routes/api/customer-property-submissions.post.ts", import.meta.url),
     "utf8",
   );
-  assert.match(route, /findPotentialDuplicateCustomerPropertySubmissions\(sql,[\s\S]*?catch \(error\) \{[\s\S]*?optional duplicate lookup failed[\s\S]*?\}\s*await createInitialCustomerPropertySubmission/);
+  assert.match(route, /findPotentialDuplicateCustomerPropertySubmissions\(sql,[\s\S]*?catch \(error\) \{[\s\S]*?optional duplicate lookup failed[\s\S]*?\}\s*const creation = await createInitialCustomerPropertySubmission/);
   assert.doesNotMatch(route, /delete from leads where id=/i);
 });
 
