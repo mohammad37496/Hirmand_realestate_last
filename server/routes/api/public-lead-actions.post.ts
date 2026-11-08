@@ -2,7 +2,7 @@ import { createError, defineEventHandler, getQuery, readBody, setResponseHeader 
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
-import { reschedulePropertyVisitRequest } from "@/lib/property-visit-request";
+import { cancelPropertyVisitRequest, reschedulePropertyVisitRequest } from "@/lib/property-visit-request";
 
 const tokenSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
 const bodySchema = z.discriminatedUnion("action", [
@@ -93,13 +93,10 @@ export default defineEventHandler(async (event) => {
   }
 
   if (parsed.data.action === "cancel") {
-    if (visitStatus !== "requested" && visitStatus !== "confirmed") {
+    const cancelResult = await cancelPropertyVisitRequest(sql, leadId);
+    if (cancelResult.kind !== "cancelled") {
       throw createError({ statusCode: 409, statusMessage: "این بازدید در حالتی نیست که از طرف شما قابل لغو باشد." });
     }
-    await sql.query(
-      "update leads set visit_status='cancelled', updated_at=current_timestamp where id=$1",
-      [leadId],
-    );
     return { success: true, action: "cancel", message: "درخواست بازدید لغو شد." };
   }
 
