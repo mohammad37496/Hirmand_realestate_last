@@ -16,7 +16,7 @@ type PropertyVisitRequestInput = {
   note: string;
   intake?: {
     activity: PublicLeadActivity | ((property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string }) => PublicLeadActivity);
-    followUp: PublicLeadFollowUp;
+    followUp: PublicLeadFollowUp | ((property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string }) => PublicLeadFollowUp);
   };
 };
 
@@ -98,7 +98,10 @@ export async function createPropertyVisitRequest(
       const activity = typeof input.intake.activity === "function"
         ? input.intake.activity(property)
         : input.intake.activity;
-      await recordPublicLeadIntake(transactionSql, rows[0].id, activity, input.intake.followUp);
+      const followUp = typeof input.intake.followUp === "function"
+        ? input.intake.followUp(property)
+        : input.intake.followUp;
+      await recordPublicLeadIntake(transactionSql, rows[0].id, activity, followUp);
     }
     return { kind: "created", id: rows[0].id, property };
   });

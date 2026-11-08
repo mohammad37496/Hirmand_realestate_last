@@ -474,13 +474,13 @@ export default defineEventHandler(async (event) => {
           note: "فایل: " + property.title + "\n" + (parsed.data.note.trim() || "درخواست بازدید از فایل"),
           metadata: { propertyId: property.id, visitPreferredAt: visitDate.toISOString() },
         }),
-        followUp: {
-          title: "پیگیری فوری درخواست بازدید",
+        followUp: (property) => ({
+          title: "پیگیری فوری درخواست بازدید: " + property.title,
           description: "مشتری برای این فایل درخواست بازدید ثبت کرده است؛ زمان پیشنهادی: " + visitDate.toLocaleString("fa-IR"),
-          assignee: parsed.data.consultant,
+          assignee: property.contact_name || parsed.data.consultant,
           priority: "urgent",
           dueMinutes: 60,
-        },
+        }),
       },
     });
     if (visitResult.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "فایل موردنظر برای بازدید در دسترس نیست." });
