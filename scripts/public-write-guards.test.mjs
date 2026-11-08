@@ -27,6 +27,7 @@ const propertyWatchTargetRoute = await readFile(new URL("../server/routes/api/pr
 const propertyWatchRoute = await readFile(new URL("../server/routes/api/property-watch.post.ts", import.meta.url), "utf8");
 const propertyOpenHouseRoute = await readFile(new URL("../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
 const propertyOpenHouseRsvp = await readFile(new URL("../src/lib/property-open-house-rsvp.ts", import.meta.url), "utf8");
+const propertyOpenHouseCreate = await readFile(new URL("../src/lib/property-open-house-create.ts", import.meta.url), "utf8");
 const propertyQuestionsRoute = await readFile(new URL("../server/routes/api/property-questions.post.ts", import.meta.url), "utf8");
 const notificationsRoute = await readFile(new URL("../src/routes/notifications.tsx", import.meta.url), "utf8");
 
@@ -105,6 +106,15 @@ test("open-house RSVP and cancellation use one event-row-locked transaction help
   assert.doesNotMatch(propertyOpenHouseRoute, /select id,property_id,capacity,starts_at,status from property_open_houses where id=\$1 limit 1/);
   assert.doesNotMatch(propertyOpenHouseRoute, /update property_open_houses set status='cancelled'/);
   assert.match(propertyOpenHouseRoute, /createPropertyOpenHouseRsvp\(sql,[\s\S]*?result\.kind === "capacity"/);
+});
+
+test("admin open-house creation checks visibility, overlap and insertion under one property-row lock", () => {
+  assert.match(propertyOpenHouseRoute, /createPropertyOpenHouseEvent\(sql,/);
+  assert.doesNotMatch(propertyOpenHouseRoute, /select id from property_open_houses where property_id=\$1 and status='scheduled'/);
+  assert.match(propertyOpenHouseCreate, /sql\.transaction\(async \(transactionSql\)/);
+  assert.match(propertyOpenHouseCreate, /from properties where id=\$1 and \$\{publicPropertyVisibilitySql\(\)\} limit 1 for update/);
+  assert.match(propertyOpenHouseCreate, /select id from property_open_houses where property_id=\$1 and status='scheduled'/);
+  assert.match(propertyOpenHouseCreate, /insert into property_open_houses/);
 });
 
 test("hidden property watch subscriptions remain removable without exposing hidden property details", () => {
