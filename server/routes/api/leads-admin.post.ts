@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-sessi
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { updateAdminLeadWithActivity } from "@/lib/admin-lead-activity-action";
 
 type Status = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 type VisitStatus = "none" | "requested" | "confirmed" | "completed" | "cancelled";
@@ -340,26 +341,15 @@ export default defineEventHandler(async (event) => {
         statusMessage: "وضعیت درخواست معتبر نیست.",
       });
     }
-    const rows = await sql.query<{ id: string }>(
-      "update leads set status=$2, follow_up_at=$3, last_contacted_at=case when $2='contacted' then current_timestamp else last_contacted_at end, updated_at=current_timestamp where id=$1 returning id",
-      [
-        body.id,
-        body.status,
-        ["new", "contacted", "follow_up", "visited"].includes(body.status) ? new Date(Date.now() + (body.status === "new" ? 24 : body.status === "visited" ? 72 : 48) * 60 * 60 * 1000).toISOString() : null,
-      ],
-    );
-    if (!rows[0]) {
-      throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
-    }
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'status',$2,$3,$4::jsonb)",
-      [
-        body.id,
-        "وضعیت تغییر کرد",
-        "وضعیت جدید: " + (body.status ?? ""),
-        JSON.stringify({ status: body.status }),
-      ],
-    ).catch(() => {});
+    const result = await updateAdminLeadWithActivity(sql, {
+      kind: "status",
+      leadId: body.id,
+      status: body.status,
+      followUpAt: ["new", "contacted", "follow_up", "visited"].includes(body.status)
+        ? new Date(Date.now() + (body.status === "new" ? 24 : body.status === "visited" ? 72 : 48) * 60 * 60 * 1000).toISOString()
+        : null,
+    });
+    if (result.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
     return { success: true };
   }
 
@@ -368,32 +358,16 @@ export default defineEventHandler(async (event) => {
     if (!visitStatus || !["none","requested","confirmed","completed","cancelled"].includes(visitStatus)) {
       throw createError({ statusCode: 400, statusMessage: "وضعیت بازدید معتبر نیست." });
     }
-    const rows = await sql.query<{ id: string }>(
-      "update leads set visit_status=$2, updated_at=current_timestamp where id=$1 returning id",
-      [body.id, visitStatus],
-    );
-    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'visit',$2,$3,$4::jsonb)",
-      [body.id, "وضعیت بازدید تغییر کرد", "وضعیت بازدید: " + visitStatus, "", JSON.stringify({ visitStatus })],
-    ).catch(() => {});
+    const result = await updateAdminLeadWithActivity(sql, { kind: "visit_status", leadId: body.id, visitStatus });
+    if (result.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
     return { success: true, visitStatus };
   }
 
   if (body.action === "note") {
     const note = typeof body.note === "string" ? body.note.trim().slice(0, 4000) : "";
-    const rows = await sql.query<{ note: string | null }>(
-      "update leads set note=$2, updated_at=current_timestamp where id=$1 returning note",
-      [body.id, note],
-    );
-    if (!rows[0]) {
-      throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
-    }
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note) values ($1,'note',$2,$3)",
-      [body.id, "یادداشت داخلی به‌روزرسانی شد", rows[0].note ?? ""],
-    ).catch(() => {});
-    return { success: true, note: rows[0].note ?? "" };
+    const result = await updateAdminLeadWithActivity(sql, { kind: "note", leadId: body.id, note });
+    if (result.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
+    return { success: true, note: result.note ?? "" };
   }
 
   if (body.action === "follow_up") {
@@ -409,22 +383,9 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: "زمان پیگیری نامعتبر است." });
     }
 
-    const rows = await sql.query<{ id: string; follow_up_at: string | null }>(
-      "update leads set follow_up_at=$2, status=case when $2 is not null and status='new' then 'follow_up' else status end, updated_at=current_timestamp where id=$1 returning id, follow_up_at",
-      [body.id, followUpAt],
-    );
-    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
-
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'follow_up',$2,$3,$4::jsonb)",
-      [
-        body.id,
-        followUpAt ? "پیگیری زمان‌بندی شد" : "پیگیری حذف شد",
-        followUpAt ? "زمان پیگیری: " + followUpAt : "زمان پیگیری بعدی پاک شد.",
-        JSON.stringify({ followUpAt }),
-      ],
-    );
-    return { success: true, followUpAt: rows[0].follow_up_at };
+    const result = await updateAdminLeadWithActivity(sql, { kind: "follow_up", leadId: body.id, followUpAt });
+    if (result.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
+    return { success: true, followUpAt: result.followUpAt ?? null };
   }
 
   if (body.action === "activity") {
