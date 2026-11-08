@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { compareDecimalStrings, subtractDecimalStrings } from "@/lib/decimal-money";
+import { createAdminCommissionSettlement } from "@/lib/admin-deal-lifecycle";
 
 async function requireAdmin(event:H3Event){
   const token=getCookie(event,ADMIN_SESSION_COOKIE);
@@ -44,8 +45,18 @@ export default defineEventHandler(async event=>{
     if(!consultant||!commission||!consultantShare) throw createError({statusCode:400,statusMessage:"مشاور، کمیسیون و سهم مشاور الزامی است."});
     if(compareDecimalStrings(consultantShare,commission)>0) throw createError({statusCode:400,statusMessage:"سهم مشاور نمی‌تواند بیشتر از کمیسیون کل باشد."});
     const id=crypto.randomUUID();
-    await sql.query("insert into admin_commission_settlements(id,consultant,deal_id,commission_amount,consultant_share,office_share,status,note,created_by) values($1,$2,$3,$4,$5,$6,'pending',$7,$8)",
-      [id,consultant,clean(body.dealId,120)||null,commission,consultantShare,subtractDecimalStrings(commission,consultantShare),clean(body.note,1200),clean(claims?.displayName,120)||"مدیریت"]);
+    const result=await createAdminCommissionSettlement(sql,{
+      id,
+      consultant,
+      dealId:clean(body.dealId,120)||null,
+      commission,
+      consultantShare,
+      officeShare:subtractDecimalStrings(commission,consultantShare),
+      note:clean(body.note,1200),
+      createdBy:clean(claims?.displayName,120)||"مدیریت",
+    });
+    if(result.kind==="deal_not_found")throw createError({statusCode:404,statusMessage:"معامله مرتبط پیدا نشد."});
+    if(result.kind!=="created")throw createError({statusCode:500,statusMessage:"ثبت تسویه کمیسیون انجام نشد."});
     return {success:true,id};
   }
 

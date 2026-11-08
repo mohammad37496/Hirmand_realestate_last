@@ -6,6 +6,7 @@ const route = readFileSync(new URL("../server/routes/api/admin-deals.post.ts", i
 const commissionRoute = readFileSync(new URL("../server/routes/api/admin-commission.post.ts", import.meta.url), "utf8");
 const performanceRoute = readFileSync(new URL("../server/routes/api/admin-consultant-performance.get.ts", import.meta.url), "utf8");
 const lead360Route = readFileSync(new URL("../server/routes/api/admin-lead-360.post.ts", import.meta.url), "utf8");
+const dealLifecycle = readFileSync(new URL("../src/lib/admin-deal-lifecycle.ts", import.meta.url), "utf8");
 
 test("admin deal create, status and document mutations validate enums before SQL writes", () => {
   const create = route.slice(route.indexOf('if(action==="create")'), route.indexOf('  const id=clean(body.id,120)'));
@@ -73,4 +74,16 @@ test("consultant performance requires report access and gates every financial ag
   assert.match(performanceRoute, /volume: string \| null/);
   assert.match(performanceRoute, /access: \{ deals: canViewDeals, commissions: canViewCommissions \}/);
   assert.match(readFileSync(new URL("../src/components/hirmand/admin-consultant-performance.tsx", import.meta.url), "utf8"), /volume: string \| null/);
+});
+
+test("deal deletion preserves settlements and settlement creation locks its linked deal", () => {
+  assert.match(route, /deleteAdminDeal\(sql,id\)/);
+  assert.match(route, /result\.kind==="settlements_exist"\)throw createError\(\{statusCode:409/);
+  assert.doesNotMatch(route, /delete from admin_commission_settlements/);
+  assert.doesNotMatch(route, /delete from admin_deal_documents where deal_id=\$1/);
+  assert.match(commissionRoute, /createAdminCommissionSettlement\(sql,/);
+  assert.match(commissionRoute, /result\.kind==="deal_not_found"\)throw createError\(\{statusCode:404/);
+  assert.match(dealLifecycle, /from admin_deals where id=\$1 limit 1 for update/);
+  assert.match(dealLifecycle, /from admin_deals where id=\$1 limit 1 for key share/);
+  assert.match(dealLifecycle, /from admin_commission_settlements where deal_id=\$1 limit 1/);
 });
