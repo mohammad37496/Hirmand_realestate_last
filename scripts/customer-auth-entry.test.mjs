@@ -18,6 +18,7 @@ const client = source("../src/lib/auth/client.ts");
 const server = source("../src/lib/auth/server.ts");
 const workspaceGet = source("../server/routes/api/customer-workspace.get.ts");
 const workspacePost = source("../server/routes/api/customer-workspace.post.ts");
+const workspaceE2e = source("./customer-auth-e2e-smoke.mjs");
 const verify = source("../src/lib/auth/verify.server.ts");
 const verifyWorkflow = source("../.github/workflows/verify.yml");
 
@@ -86,4 +87,15 @@ test("personal workspace syncs changes and prevents data crossing between accoun
   assert.doesNotMatch(favorites, /import \{ CustomerWorkspaceSync \}/);
   assert.match(verify, /export async function requireUserIdFromHeaders/);
   assert.match(verify, /statusCode: 401, statusMessage: "Unauthorized"/);
+});
+
+test("cross-device workspace smoke verifies favorites, metadata, saved searches and history", () => {
+  assert.match(workspaceE2e, /device-two-favorite/);
+  assert.match(workspaceE2e, /saved on device two/);
+  assert.match(workspaceE2e, /device-two-search/);
+  assert.match(workspaceE2e, /device-two-recent/);
+  assert.match(workspaceE2e, /secondWorkspace\.favoriteMeta/);
+  assert.match(workspaceE2e, /secondWorkspace\.recentProperties/);
+  assert.match(workspaceE2e, /firstDeviceSyncedWorkspace\.favoriteMeta/);
+  assert.match(workspaceE2e, /firstDeviceSyncedWorkspace\.recentProperties/);
 });

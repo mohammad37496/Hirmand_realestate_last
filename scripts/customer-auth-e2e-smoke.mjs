@@ -96,7 +96,9 @@ try {
   const secondWorkspace = await secondWorkspaceResponse.json();
   assert.equal(secondWorkspace.ownerId, secondSession.user.id);
   assert.deepEqual(secondWorkspace.favorites, [], "a second account must not see the first account's favorites");
+  assert.deepEqual(secondWorkspace.favoriteMeta, {}, "a second account must not see the first account's favorite metadata");
   assert.deepEqual(secondWorkspace.savedSearches, []);
+  assert.deepEqual(secondWorkspace.recentProperties, [], "a second account must not see the first account's browsing history");
 
   const signOutResponse = await firstPage.request.post(new URL("/api/auth/sign-out", baseUrl).toString(), {
     headers: { origin },
@@ -164,11 +166,18 @@ try {
   await secondDevicePage.evaluate(() => {
     const favorites = JSON.parse(localStorage.getItem("hirmand-favorite-properties") || "[]");
     localStorage.setItem("hirmand-favorite-properties", JSON.stringify([...new Set([...favorites, "device-two-favorite"])]));
+    const favoriteMeta = JSON.parse(localStorage.getItem("hirmand-favorite-meta-v1") || "{}");
+    localStorage.setItem("hirmand-favorite-meta-v1", JSON.stringify({
+      ...favoriteMeta,
+      "device-two-favorite": { note: "saved on device two" },
+    }));
     const searches = JSON.parse(localStorage.getItem("hirmand-saved-searches") || "[]");
     localStorage.setItem("hirmand-saved-searches", JSON.stringify([
       ...searches,
       { id: "device-two-search", name: "Device two", params: "city=isfahan", alerts: false },
     ]));
+    const recent = JSON.parse(localStorage.getItem("hirmand-recent-properties") || "[]");
+    localStorage.setItem("hirmand-recent-properties", JSON.stringify([...new Set(["device-two-recent", ...recent])]));
     window.dispatchEvent(new Event("hirmand:workspace-changed"));
   });
   const secondDeviceSync = await secondDeviceSyncPromise;
@@ -183,12 +192,19 @@ try {
   await firstPage.waitForFunction(() => {
     const favorites = JSON.parse(localStorage.getItem("hirmand-favorite-properties") || "[]");
     const searches = JSON.parse(localStorage.getItem("hirmand-saved-searches") || "[]");
-    return favorites.includes("device-two-favorite") && searches.some((item) => item.id === "device-two-search");
+    const recent = JSON.parse(localStorage.getItem("hirmand-recent-properties") || "[]");
+    const favoriteMeta = JSON.parse(localStorage.getItem("hirmand-favorite-meta-v1") || "{}");
+    return favorites.includes("device-two-favorite") &&
+      searches.some((item) => item.id === "device-two-search") &&
+      recent.includes("device-two-recent") &&
+      favoriteMeta["device-two-favorite"]?.note === "saved on device two";
   });
   const firstDeviceAfterSync = await firstPage.request.get(new URL("/api/customer-workspace", baseUrl).toString());
   const firstDeviceSyncedWorkspace = await firstDeviceAfterSync.json();
   assert.ok(firstDeviceSyncedWorkspace.favorites.includes("device-two-favorite"));
+  assert.equal(firstDeviceSyncedWorkspace.favoriteMeta["device-two-favorite"].note, "saved on device two");
   assert.ok(firstDeviceSyncedWorkspace.savedSearches.some((item) => item.id === "device-two-search"));
+  assert.ok(firstDeviceSyncedWorkspace.recentProperties.includes("device-two-recent"));
 
   assert.deepEqual(errors, [], "auth pages should not throw browser errors");
   console.log(JSON.stringify({
