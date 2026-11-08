@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { readDeploymentCommit } from "./prestart-migrate.mjs";
+import { readDeploymentCommit, runMigrations } from "./prestart-migrate.mjs";
 
 test("production prestart uses the direct PostgreSQL URL for DDL migrations", async () => {
   const source = await readFile(new URL("./prestart.mjs", import.meta.url), "utf8");
@@ -39,4 +39,80 @@ test("Liara deploy polls for the exact migration verification line for this comm
   assert.match(workflow, /sleep 10/);
   assert.match(workflow, /customer-auth migrations verified for deployment \$\{EXPECTED_DEPLOYMENT_SHA\}/);
   assert.match(workflow, /0059_customer_workspace_revision\.sql/);
+});
+
+test("migration runner acquires its advisory lock before reading the migration ledger", async () => {
+  const source = await readFile(new URL("./prestart-migrate.mjs", import.meta.url), "utf8");
+  const lockIndex = source.indexOf("pg_advisory_lock");
+  const ledgerIndex = source.indexOf('SELECT name FROM _migrations');
+  assert.ok(lockIndex >= 0 && ledgerIndex > lockIndex);
+  assert.match(source, /pg_advisory_unlock/);
+  assert.match(source, /client = await pool\.connect\(\)/);
+  assert.match(source, /pendingMigrations\(entries, appliedRows\.map/);
+});
+
+test("concurrent migration runners apply a pending migration only once", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hirmand-migration-lock-"));
+  try {
+    await writeFile(join(directory, "0001_test.sql"), "SELECT 1;", "utf8");
+    const state = { applied: new Set(), executions: 0, nextClientId: 0, lockClients: [], ledgerClients: [] };
+    let lockQueue = Promise.resolve();
+
+    async function acquireLock() {
+      const previous = lockQueue;
+      let release;
+      lockQueue = new Promise((resolve) => { release = resolve; });
+      await previous;
+      return release;
+    }
+
+    class FakeClient {
+      constructor() {
+        this.id = ++state.nextClientId;
+        this.releaseLock = null;
+      }
+
+      async query(text, params = []) {
+        if (text.startsWith("SELECT pg_advisory_lock")) {
+          state.lockClients.push(this.id);
+          this.releaseLock = await acquireLock();
+          return { rows: [] };
+        }
+        if (text.startsWith("SELECT pg_advisory_unlock")) {
+          this.releaseLock?.();
+          return { rows: [] };
+        }
+        if (text.startsWith("CREATE TABLE IF NOT EXISTS _migrations")) return { rows: [] };
+        if (text === "SELECT name FROM _migrations") {
+          state.ledgerClients.push(this.id);
+          return { rows: [...state.applied].map((name) => ({ name })) };
+        }
+        if (["BEGIN", "COMMIT", "ROLLBACK"].includes(text)) return { rows: [] };
+        if (text.trim() === "SELECT 1;") {
+          state.executions += 1;
+          await new Promise((resolve) => setTimeout(resolve, 15));
+          return { rows: [] };
+        }
+        if (text.startsWith("INSERT INTO _migrations")) {
+          state.applied.add(String(params[0]));
+          return { rows: [] };
+        }
+        throw new Error(`Unexpected migration query: ${text}`);
+      }
+
+      release() {}
+    }
+
+    const poolFactory = () => ({ connect: async () => new FakeClient(), end: async () => {} });
+    await Promise.all([
+      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false }),
+      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false }),
+    ]);
+
+    assert.equal(state.executions, 1);
+    assert.deepEqual([...state.applied], ["0001_test.sql"]);
+    assert.deepEqual(state.ledgerClients, state.lockClients);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
