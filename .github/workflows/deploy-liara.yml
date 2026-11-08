@@ -38,6 +38,7 @@ jobs:
       - name: Provision checksum-verified FFmpeg runtime on GitHub runner
         timeout-minutes: 15
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           HIRMAND_FFMPEG_DOWNLOAD_TIMEOUT_MS: 120000
         shell: bash
         run: |
