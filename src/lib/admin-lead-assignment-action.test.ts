@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import type { Sql } from "./db.ts";
 import { assignAdminLeadToConsultant } from "./admin-lead-assignment-action.ts";
-import { updateAdminLeadWithActivity, type AdminLeadActivityMutation } from "./admin-lead-activity-action.ts";
+import { saveAdminLeadMatchesWithActivity, updateAdminLeadWithActivity, type AdminLeadActivityMutation } from "./admin-lead-activity-action.ts";
 
 async function createFixture(options: { failActivity?: boolean } = {}) {
   const pg = new PGlite();
@@ -189,4 +189,104 @@ test("lead activity mutations fail closed when transaction support is unavailabl
     updateAdminLeadWithActivity(sql, { kind: "status", leadId: "lead-1", status: "closed", followUpAt: null }),
     /transaction support is required/,
   );
+});
+
+async function createLeadMatchFixture(options: { failActivity?: boolean } = {}) {
+  const pg = new PGlite();
+  await pg.exec(`
+    create table leads (
+      id text primary key,
+      matched_properties jsonb not null default '[]'::jsonb,
+      match_count integer not null default 0,
+      updated_at timestamptz not null default current_timestamp
+    );
+    create table lead_activities (
+      id bigserial primary key,
+      lead_id text not null references leads(id),
+      activity_type text not null,
+      title text not null,
+      note text not null,
+      metadata jsonb not null default '{}'::jsonb
+    );
+    insert into leads(id,matched_properties,match_count) values ('lead-1','[{"id":"old"}]'::jsonb,1);
+    ${options.failActivity ? `create function reject_match_activity() returns trigger language plpgsql as $$ begin raise exception 'activity storage unavailable'; end $$;
+      create trigger reject_match_activity before insert on lead_activities for each row execute function reject_match_activity();` : ""}
+  `);
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+      (await pg.query(text, params)).rows as T[],
+    transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+      pg.transaction(async (tx) => callback({
+        query: async <R = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+          (await tx.query(text, params)).rows as R[],
+      } as Sql)),
+  } as Sql;
+  return { pg, sql };
+}
+
+test("lead match snapshot and CRM activity are saved together", async () => {
+  const { pg, sql } = await createLeadMatchFixture();
+  try {
+    assert.deepEqual(await saveAdminLeadMatchesWithActivity(sql, {
+      leadId: "lead-1",
+      matches: [{ id: "property-1", score: 91 }],
+      count: 1,
+      mode: "smart",
+      modeLabel: "تطبیق هوشمند",
+    }), { kind: "updated" });
+    assert.deepEqual(await sql.query("select matched_properties,match_count from leads where id='lead-1'"), [
+      { matched_properties: [{ id: "property-1", score: 91 }], match_count: 1 },
+    ]);
+    assert.deepEqual(await sql.query("select activity_type,metadata from lead_activities where lead_id='lead-1'"), [
+      { activity_type: "match", metadata: { mode: "smart", count: 1 } },
+    ]);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("lead match snapshot rolls back when its CRM activity cannot be stored", async () => {
+  const { pg, sql } = await createLeadMatchFixture({ failActivity: true });
+  try {
+    await assert.rejects(saveAdminLeadMatchesWithActivity(sql, {
+      leadId: "lead-1",
+      matches: [{ id: "property-2", score: 88 }],
+      count: 1,
+      mode: "price",
+      modeLabel: "قیمت حدودی",
+    }), /activity storage unavailable/);
+    assert.deepEqual(await sql.query("select matched_properties,match_count from leads where id='lead-1'"), [
+      { matched_properties: [{ id: "old" }], match_count: 1 },
+    ]);
+    assert.deepEqual(await sql.query("select id from lead_activities"), []);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("lead match save returns not_found without inserting an activity", async () => {
+  const { pg, sql } = await createLeadMatchFixture();
+  try {
+    assert.deepEqual(await saveAdminLeadMatchesWithActivity(sql, {
+      leadId: "missing",
+      matches: [],
+      count: 0,
+      mode: "smart",
+      modeLabel: "تطبیق هوشمند",
+    }), { kind: "not_found" });
+    assert.deepEqual(await sql.query("select id from lead_activities"), []);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("lead match save fails closed without transaction support", async () => {
+  const sql = { query: async () => [] } as unknown as Sql;
+  await assert.rejects(saveAdminLeadMatchesWithActivity(sql, {
+    leadId: "lead-1",
+    matches: [],
+    count: 0,
+    mode: "smart",
+    modeLabel: "تطبیق هوشمند",
+  }), /transaction support is required/);
 });

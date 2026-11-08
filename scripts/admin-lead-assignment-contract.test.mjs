@@ -7,6 +7,7 @@ const component = await readFile(new URL("../src/components/hirmand/admin-lead-a
 const action = await readFile(new URL("../src/lib/admin-lead-assignment-action.ts", import.meta.url), "utf8");
 const leadAdminRoute = await readFile(new URL("../server/routes/api/leads-admin.post.ts", import.meta.url), "utf8");
 const leadActivityAction = await readFile(new URL("../src/lib/admin-lead-activity-action.ts", import.meta.url), "utf8");
+const adminMatchRoute = await readFile(new URL("../server/routes/api/admin-match.post.ts", import.meta.url), "utf8");
 const leadMutationRoutes = leadAdminRoute.slice(
   leadAdminRoute.indexOf('if (body.action === "status")'),
   leadAdminRoute.indexOf('if (body.action === "activity")'),
@@ -40,4 +41,15 @@ test("CRM lead field changes commit with their timeline activities", () => {
   assert.doesNotMatch(leadMutationRoutes, /\.catch\(\(\)\s*=>\s*\{\s*\}\)/);
   assert.match(leadActivityAction, /sql\.transaction\(async\s*\(tx\)/);
   assert.match(leadActivityAction, /insert into lead_activities/i);
+});
+
+test("lead matching saves the match snapshot and CRM timeline atomically", () => {
+  assert.match(adminMatchRoute, /saveAdminLeadMatchesWithActivity\(sql/);
+  const start = adminMatchRoute.indexOf("const saveResult = await saveAdminLeadMatchesWithActivity");
+  const end = adminMatchRoute.indexOf("return {", start);
+  const matchMutation = adminMatchRoute.slice(start, end);
+  assert.doesNotMatch(matchMutation, /update leads set matched_properties/i);
+  assert.doesNotMatch(matchMutation, /insert into lead_activities/i);
+  assert.match(leadActivityAction, /export async function saveAdminLeadMatchesWithActivity/);
+  assert.match(leadActivityAction, /sql\.transaction\(async\s*\(tx\)/);
 });
