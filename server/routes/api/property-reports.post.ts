@@ -4,6 +4,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -53,7 +54,7 @@ export default defineEventHandler(async (event) => {
     const sql = await getSql();
     const visitorId = getCookie(event, VISITOR_COOKIE);
     const propertyRows = await sql.query<{ id: string; slug: string; title: string }>(
-      "select id, slug, title from properties where id=$1 and slug=$2 and status='published' limit 1",
+      `select id, slug, title from properties where id=$1 and slug=$2 and ${publicPropertyVisibilitySql()} limit 1`,
       [parsed.data.propertyId, parsed.data.propertySlug],
     );
     const property = propertyRows[0];

@@ -7,6 +7,7 @@ import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { createSnapshotRefreshGate } from "@/lib/snapshot-refresh-gate";
 
 type WatchAlert = { id: string; slug: string; type: string; message: string; createdAt: string };
+type WatchSubscription = { slug: string; title: string; isPublic: boolean };
 type FeedItem = { id: string; kind: "watch" | "drop" | "new" | "saved-search"; title: string; text: string; href?: string; createdAt?: string; alertId?: string };
 
 const SEEN_AT_KEY = "hirmand-notification-seen-at";
@@ -112,6 +113,7 @@ function safeWrite(key: string, value: string) {
 
 function NotificationsPage() {
   const [alerts, setAlerts] = useState<WatchAlert[]>([]);
+  const [subscriptions, setSubscriptions] = useState<WatchSubscription[]>([]);
   const [recent, setRecent] = useState<PropertyCardData[]>([]);
   const [savedSearchMatches, setSavedSearchMatches] = useState<Array<{ id: string; name: string; count: number; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -141,11 +143,12 @@ function NotificationsPage() {
       const savedSearchRefresh = refreshSavedSearchMatches(true);
       const [watchResponse, latest] = await Promise.all([
         fetch("/api/property-watch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "sync" }) })
-          .then((response) => response.json() as Promise<{ alerts?: WatchAlert[] }>),
+          .then((response) => response.json() as Promise<{ alerts?: WatchAlert[]; subscriptions?: WatchSubscription[] }>),
         listPublishedPropertyCards({ data: { sort: "newest", offset: 0 } }),
       ]);
       const nextAlerts = Array.isArray(watchResponse.alerts) ? watchResponse.alerts : [];
       setAlerts(nextAlerts);
+      setSubscriptions(Array.isArray(watchResponse.subscriptions) ? watchResponse.subscriptions : []);
       setRecent(latest);
       await savedSearchRefresh;
       if ("Notification" in window) setBrowserPermission(Notification.permission);
@@ -229,6 +232,20 @@ function NotificationsPage() {
     setSavedSearchMatches([]);
   }
 
+  async function unsubscribe(slug: string) {
+    try {
+      const response = await fetch("/api/property-watch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "unsubscribe", slug }),
+      });
+      if (!response.ok) throw new Error("unsubscribe failed");
+      setSubscriptions((current) => current.filter((item) => item.slug !== slug));
+    } catch {
+      // Keep the subscription visible so the visitor can retry.
+    }
+  }
+
   return (
     <SiteChrome className="property-detail-shell">
       <main className="smart-tool-page">
@@ -243,6 +260,28 @@ function NotificationsPage() {
           </div>
           {browserPermission === "denied" ? <small className="notification-note">اعلان مرورگر در تنظیمات مرورگر مسدود شده است.</small> : null}
         </section>
+        {subscriptions.length ? (
+          <section className="notification-feed" aria-labelledby="notification-subscriptions-title">
+            <div className="smart-search-result-head">
+              <div><span className="kicker">مدیریت پیگیری‌ها</span><h2 id="notification-subscriptions-title">فایل‌های تحت پیگیری</h2></div>
+            </div>
+            <div className="notification-list">
+              {subscriptions.map((subscription) => (
+                <article key={subscription.slug} className="notification-card">
+                  <div className="notification-icon" aria-hidden="true"><BellRing size={18} /></div>
+                  <div className="notification-copy">
+                    <strong>{subscription.isPublic ? subscription.title : "فایل دیگر در فهرست عمومی در دسترس نیست"}</strong>
+                    <p>{subscription.isPublic ? "اعلان تغییر قیمت و وضعیت این فایل فعال است." : "می‌توانید پیگیری باقی‌مانده برای این فایل را خاموش کنید."}</p>
+                  </div>
+                  <div className="notification-subscription-actions">
+                    {subscription.isPublic ? <Link to="/properties/$slug" params={{ slug: subscription.slug }} className="notification-open">باز کردن</Link> : null}
+                    <button type="button" className="btn-ghost" onClick={() => void unsubscribe(subscription.slug)}>خاموش کردن</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
         <section className="notification-feed" aria-live="polite">
           <div className="smart-search-result-head">
             <div><span className="kicker">آخرین رویدادها</span><h2>{feed.length.toLocaleString("fa-IR")} اعلان فعال</h2></div>
