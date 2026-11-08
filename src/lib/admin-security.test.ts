@@ -85,6 +85,21 @@ test("staff role is limited to new property intake, CRM review and Divar import"
   assert.equal(hasAdminPermission(role, "security.manage"), false);
   assert.equal(hasAdminPermission(role, "accounts.manage"), false);
   assert.equal(hasAdminPermission(role, "reports.view"), false);
+  assert.equal(hasAdminPermission(role, "deal.manage"), false);
+  assert.equal(hasAdminPermission(role, "commission.manage"), false);
+});
+
+test("report-only roles cannot read deal or commission financial details", () => {
+  for (const roleName of ["viewer", "content"] as const) {
+    const role = normalizeAdminRole(roleName);
+    assert.equal(hasAdminPermission(role, "reports.view"), true);
+    assert.equal(hasAdminPermission(role, "deal.manage"), false);
+    assert.equal(hasAdminPermission(role, "commission.manage"), false);
+  }
+  const sales = normalizeAdminRole("sales");
+  assert.equal(hasAdminPermission(sales, "reports.view"), true);
+  assert.equal(hasAdminPermission(sales, "deal.manage"), true);
+  assert.equal(hasAdminPermission(sales, "commission.manage"), true);
 });
 
 test("customer-submission approval requires both property management and publish permissions", () => {

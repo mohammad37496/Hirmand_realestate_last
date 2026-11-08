@@ -37,12 +37,40 @@ test("deal, commission and consultant reports preserve PostgreSQL numeric values
   assert.match(commissionRoute, /compareDecimalStrings\(consultantShare,commission\)/);
   assert.match(commissionRoute, /subtractDecimalStrings\(commission,consultantShare\)/);
   assert.match(commissionRoute, /commissionAmount:String\(r\.commission_amount\?\?"0"\)/);
-  assert.match(performanceRoute, /item\.volume = String\(row\.volume \?\? "0"\)/);
-  assert.match(performanceRoute, /compareDecimalStrings\(b\.volume, a\.volume\)/);
+  assert.match(performanceRoute, /item\.volume = canViewDeals \? String\(row\.volume \?\? "0"\) : null/);
+  assert.match(performanceRoute, /compareDecimalStrings\(b\.volume \?\? "0", a\.volume \?\? "0"\)/);
   assert.match(lead360Route, /amount: row\.amount == null \? null : String\(row\.amount\)/);
   assert.match(lead360Route, /consultantShare: String\(row\.consultant_share \?\? "0"\)/);
   assert.doesNotMatch(route, /Number\(r\.amount\)|Number\(r\.commission\)|Number\(stats\[0\]\?\.volume\)/);
   assert.doesNotMatch(commissionRoute, /Number\(r\.commission_amount\)|Number\(r\.consultant_share\)|commissionNumber/);
   assert.doesNotMatch(performanceRoute, /item\.volume = number\(row\.volume\)|item\.due = number\(row\.due\)/);
   assert.doesNotMatch(lead360Route, /Number\(row\.amount\)|Number\(row\.commission_amount\)|Number\(customer\.budget_/);
+});
+
+
+test("lead 360 gates deal documents and commission settlements by scoped permissions", () => {
+  assert.match(lead360Route, /const role = normalizeAdminRole\(claims\?\.role\)/);
+  assert.match(lead360Route, /hasAdminPermission\(role, "lead\.manage"\)/);
+  assert.match(lead360Route, /const canViewDeals = hasAdminPermission\(role, "deal\.manage"\)/);
+  assert.match(lead360Route, /const canViewCommissions = hasAdminPermission\(role, "commission\.manage"\)/);
+  assert.match(lead360Route, /canViewDeals\s*\?\s*canViewCommissions\s*\?\s*sql\.query/);
+  assert.match(lead360Route, /if \(canViewCommissions\) \{/);
+  assert.match(lead360Route, /if \(dealIds\.length && canViewDeals\) \{/);
+  assert.match(lead360Route, /access: \{ deals: canViewDeals, commissions: canViewCommissions \}/);
+  assert.ok(lead360Route.indexOf("if (canViewCommissions) {") < lead360Route.indexOf("from admin_commission_settlements"));
+  assert.ok(lead360Route.indexOf("if (dealIds.length && canViewDeals) {") < lead360Route.indexOf("from admin_deal_documents"));
+  assert.match(lead360Route, /settlements: settlementRows\.map/);
+  assert.match(lead360Route, /documents: documentRows\.map/);
+});
+
+test("consultant performance requires report access and gates every financial aggregate", () => {
+  assert.match(performanceRoute, /hasAdminPermission\(role, "reports\.view"\)/);
+  assert.match(performanceRoute, /const canViewDeals = hasAdminPermission\(role, "deal\.manage"\)/);
+  assert.match(performanceRoute, /const canViewCommissions = hasAdminPermission\(role, "commission\.manage"\)/);
+  assert.match(performanceRoute, /canViewDeals\s*\?\s*canViewCommissions\s*\?\s*sql\.query/);
+  assert.match(performanceRoute, /canViewCommissions\s*\?\s*sql\.query/);
+  assert.match(performanceRoute, /select consultant,count\(\*\)::int as deal_count,count\(\*\) filter\(where status='completed'\)::int as completed_deals from admin_deals/);
+  assert.match(performanceRoute, /volume: string \| null/);
+  assert.match(performanceRoute, /access: \{ deals: canViewDeals, commissions: canViewCommissions \}/);
+  assert.match(readFileSync(new URL("../src/components/hirmand/admin-consultant-performance.tsx", import.meta.url), "utf8"), /volume: string \| null/);
 });

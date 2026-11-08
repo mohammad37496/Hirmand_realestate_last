@@ -16,10 +16,13 @@ export default defineEventHandler(async (event) => {
   if (!(await verifyAdminSessionToken(token))) throw createError({ statusCode: 401, statusMessage: "نشست مدیریت معتبر نیست." });
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
+  const role = normalizeAdminRole(claims?.role);
+  if (!hasAdminPermission(role, "reports.view")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش مشاوران برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { days: 90, consultants: [] };
+  const canViewDeals = hasAdminPermission(role, "deal.manage");
+  const canViewCommissions = hasAdminPermission(role, "commission.manage");
+  if (dbSource === "unconfigured") return { days: 90, access: { deals: canViewDeals, commissions: canViewCommissions }, consultants: [] };
 
   const query = getQuery(event);
   const rawDays = Number(query.days);
@@ -31,21 +34,33 @@ export default defineEventHandler(async (event) => {
       "select consultant,count(*)::int as lead_count,count(*) filter(where status='contract')::int as contracted_leads,count(*) filter(where status not in ('closed','spam'))::int as open_leads from leads where created_at >= current_timestamp - ($1::int * interval '1 day') group by consultant",
       [days],
     ),
-    sql.query<Record<string, unknown>>(
-      "select consultant,count(*)::int as deal_count,count(*) filter(where status='completed')::int as completed_deals,coalesce(sum(amount),0)::numeric as volume,coalesce(sum(commission),0)::numeric as commissions from admin_deals where created_at >= current_timestamp - ($1::int * interval '1 day') group by consultant",
-      [days],
-    ),
-    sql.query<Record<string, unknown>>(
-      "select consultant,coalesce(sum(consultant_share) filter(where status='paid'),0)::numeric as paid,coalesce(sum(consultant_share) filter(where status in ('pending','approved')),0)::numeric as due from admin_commission_settlements where created_at >= current_timestamp - ($1::int * interval '1 day') group by consultant",
-      [days],
-    ),
+    canViewDeals
+      ? canViewCommissions
+        ? sql.query<Record<string, unknown>>(
+            "select consultant,count(*)::int as deal_count,count(*) filter(where status='completed')::int as completed_deals,coalesce(sum(amount),0)::numeric as volume,coalesce(sum(commission),0)::numeric as commissions from admin_deals where created_at >= current_timestamp - ($1::int * interval '1 day') group by consultant",
+            [days],
+          )
+        : sql.query<Record<string, unknown>>(
+            "select consultant,count(*)::int as deal_count,count(*) filter(where status='completed')::int as completed_deals,coalesce(sum(amount),0)::numeric as volume from admin_deals where created_at >= current_timestamp - ($1::int * interval '1 day') group by consultant",
+            [days],
+          )
+      : sql.query<Record<string, unknown>>(
+          "select consultant,count(*)::int as deal_count,count(*) filter(where status='completed')::int as completed_deals from admin_deals where created_at >= current_timestamp - ($1::int * interval '1 day') group by consultant",
+          [days],
+        ),
+    canViewCommissions
+      ? sql.query<Record<string, unknown>>(
+          "select consultant,coalesce(sum(consultant_share) filter(where status='paid'),0)::numeric as paid,coalesce(sum(consultant_share) filter(where status in ('pending','approved')),0)::numeric as due from admin_commission_settlements where created_at >= current_timestamp - ($1::int * interval '1 day') group by consultant",
+          [days],
+        )
+      : Promise.resolve([] as Record<string, unknown>[]),
   ]);
 
-  type Row = { name: string; leads: number; contractedLeads: number; openLeads: number; deals: number; completedDeals: number; volume: string; commissions: string; paid: string; due: string };
+  type Row = { name: string; leads: number; contractedLeads: number; openLeads: number; deals: number; completedDeals: number; volume: string | null; commissions: string | null; paid: string | null; due: string | null };
   const map = new Map<string, Row>();
   const ensure = (value: unknown) => {
     const name = String(value ?? "").trim() || "بدون مشاور";
-    if (!map.has(name)) map.set(name, { name, leads: 0, contractedLeads: 0, openLeads: 0, deals: 0, completedDeals: 0, volume: "0", commissions: "0", paid: "0", due: "0" });
+    if (!map.has(name)) map.set(name, { name, leads: 0, contractedLeads: 0, openLeads: 0, deals: 0, completedDeals: 0, volume: canViewDeals ? "0" : null, commissions: canViewCommissions ? "0" : null, paid: canViewCommissions ? "0" : null, due: canViewCommissions ? "0" : null });
     return map.get(name)!;
   };
   for (const row of leads) {
@@ -58,19 +73,19 @@ export default defineEventHandler(async (event) => {
     const item = ensure(row.consultant);
     item.deals = number(row.deal_count);
     item.completedDeals = number(row.completed_deals);
-    item.volume = String(row.volume ?? "0");
-    item.commissions = String(row.commissions ?? "0");
+    item.volume = canViewDeals ? String(row.volume ?? "0") : null;
+    item.commissions = canViewCommissions ? String(row.commissions ?? "0") : null;
   }
   for (const row of settlements) {
     const item = ensure(row.consultant);
-    item.paid = String(row.paid ?? "0");
-    item.due = String(row.due ?? "0");
+    item.paid = canViewCommissions ? String(row.paid ?? "0") : null;
+    item.due = canViewCommissions ? String(row.due ?? "0") : null;
   }
 
   const rows = [...map.values()].map((item) => ({
     ...item,
     conversionRate: item.leads > 0 ? Math.round((item.deals / item.leads) * 1000) / 10 : 0,
-  })).sort((a, b) => b.deals - a.deals || compareDecimalStrings(b.volume, a.volume) || a.name.localeCompare(b.name, "fa"));
+  })).sort((a, b) => b.deals - a.deals || compareDecimalStrings(b.volume ?? "0", a.volume ?? "0") || a.name.localeCompare(b.name, "fa"));
 
-  return { days, consultants: rows };
+  return { days, access: { deals: canViewDeals, commissions: canViewCommissions }, consultants: rows };
 });
