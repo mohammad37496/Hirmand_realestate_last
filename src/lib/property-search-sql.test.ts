@@ -247,6 +247,27 @@ test("controlled fixture: several filters compose with AND and removing one broa
   }
 });
 
+test("spec filters OR within each group and AND across selected groups", async () => {
+  const db = await createFixtureDb();
+  try {
+    await db.exec(`
+      update properties
+         set cabinet_type='mdf', flooring_type='ceramic', heating_system='split', other_amenities='["pool"]'::jsonb
+       where id='sale-a';
+      update properties
+         set cabinet_type='wood', flooring_type='laminate', heating_system='split', other_amenities='["garden"]'::jsonb
+       where id='sale-b';
+    `);
+
+    assert.deepEqual(await searchIds(db, { specFilters: ["cabinet:mdf", "flooring:ceramic"] }), ["sale-a"]);
+    assert.deepEqual(await searchIds(db, { specFilters: ["cabinet:mdf", "cabinet:wood"] }), ["sale-a", "sale-b"]);
+    assert.deepEqual(await searchIds(db, { specFilters: ["pool", "garden"] }), ["sale-a", "sale-b"]);
+    assert.deepEqual(await searchIds(db, { specFilters: ["cabinet:mdf", "pool"] }), ["sale-a"]);
+  } finally {
+    await db.close();
+  }
+});
+
 test("controlled fixture: Persian spelling variants, city and street text find the same listing", async () => {
   const db = await createFixtureDb();
   try {
@@ -285,6 +306,25 @@ test("controlled fixture: map bounds combine with price and transaction filters"
       minPrice: 1_000_000_000,
       mapBounds: [51.655, 32.645, 51.665, 32.655],
     }), ["sale-a", "sale-b"]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("map bounds use the same rounded public coordinates as visible markers", async () => {
+  const db = await createFixtureDb();
+  try {
+    await db.exec("update properties set longitude=51.66441 where id='sale-a'; update properties set longitude=51.67 where id='sale-b';");
+    assert.deepEqual(await searchIds(db, {
+      transactionType: "buy",
+      mapBounds: [51.65, 32.64, 51.6644, 32.66],
+    }), ["sale-a"]);
+
+    await db.exec("update properties set longitude=51.66459 where id='sale-a';");
+    assert.deepEqual(await searchIds(db, {
+      transactionType: "buy",
+      mapBounds: [51.65, 32.64, 51.6646, 32.66],
+    }), []);
   } finally {
     await db.close();
   }

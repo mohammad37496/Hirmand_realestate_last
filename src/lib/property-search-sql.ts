@@ -59,6 +59,28 @@ function normalizedTextSql(expression: string): string {
   return `regexp_replace(${withoutDiacritics}, '[[:space:][:punct:]]+', '', 'g')`;
 }
 
+/** Match any selected value within a spec group, while requiring every selected group. */
+function buildSpecFilterSql(): string {
+  const groups = [
+    { selected: "selected.value like 'cabinet:%'", matches: "cabinet_type = substring(selected.value from 9)" },
+    { selected: "selected.value like 'flooring:%'", matches: "flooring_type = substring(selected.value from 10)" },
+    { selected: "selected.value like 'cooling:%'", matches: "cooling_system = substring(selected.value from 9)" },
+    { selected: "selected.value like 'heating:%'", matches: "heating_system = substring(selected.value from 9)" },
+    { selected: "selected.value like 'closet:%'", matches: "wall_closet_type = substring(selected.value from 8)" },
+    {
+      selected: "selected.value not like 'cabinet:%' and selected.value not like 'flooring:%' and selected.value not like 'cooling:%' and selected.value not like 'heating:%' and selected.value not like 'closet:%'",
+      matches: "coalesce(other_amenities, '[]'::jsonb) ? selected.value",
+    },
+  ];
+
+  const groupedMatches = groups.map(({ selected, matches }) =>
+    `(not exists (select 1 from unnest($22::text[]) as selected(value) where ${selected}) or ` +
+    `exists (select 1 from unnest($22::text[]) as selected(value) where ${selected} and ${matches}))`,
+  );
+
+  return `and ($22::text[] is null or cardinality($22::text[]) = 0 or (${groupedMatches.join(" and ")}))`;
+}
+
 export function buildPublicPropertyWhereSql(): string {
   return [
     "(deleted_at is null) and (status = 'published' or (status = 'draft' and publish_at is not null and publish_at <= current_timestamp)) and (unpublish_at is null or unpublish_at > current_timestamp)",
@@ -83,23 +105,17 @@ export function buildPublicPropertyWhereSql(): string {
     "and ($19::boolean is false or parking = true)",
     "and ($20::boolean is false or elevator = true)",
     "and ($21::boolean is false or storage = true)",
-    "and ($22::text[] is null or cardinality($22::text[]) = 0 or exists (select 1 from unnest($22::text[]) as selected(value) where " +
-      "(selected.value like 'cabinet:%' and cabinet_type = substring(selected.value from 9)) or " +
-      "(selected.value like 'flooring:%' and flooring_type = substring(selected.value from 10)) or " +
-      "(selected.value like 'cooling:%' and cooling_system = substring(selected.value from 9)) or " +
-      "(selected.value like 'heating:%' and heating_system = substring(selected.value from 9)) or " +
-      "(selected.value like 'closet:%' and wall_closet_type = substring(selected.value from 8)) or " +
-      "coalesce(other_amenities, '[]'::jsonb) ? selected.value))",
+    buildSpecFilterSql(),
     `and ($23::text is null or exists (select 1 from jsonb_array_elements_text(coalesce(features, '[]'::jsonb)) as feature(value) where strpos(${normalizedTextSql("feature.value")}, ${normalizedTextSql("$23::text")}) > 0))`,
     "and ($24::boolean is false or (jsonb_typeof(coalesce(images, '[]'::jsonb)) = 'array' and jsonb_array_length(coalesce(images, '[]'::jsonb)) > 0))",
     "and ($25::boolean is false or (latitude is not null and longitude is not null))",
     "and ($26::text is null or floor_label = $26)",
     "and ($27::text is null or orientation = $27)",
     "and ($28::boolean is false or convertible = true)",
-    "and ($29::double precision is null or (longitude is not null and longitude >= $29))",
-    "and ($30::double precision is null or (latitude is not null and latitude >= $30))",
-    "and ($31::double precision is null or (longitude is not null and longitude <= $31))",
-    "and ($32::double precision is null or (latitude is not null and latitude <= $32))",
+    "and ($29::double precision is null or (longitude is not null and round(longitude::numeric, 3) >= $29))",
+    "and ($30::double precision is null or (latitude is not null and round(latitude::numeric, 3) >= $30))",
+    "and ($31::double precision is null or (longitude is not null and round(longitude::numeric, 3) <= $31))",
+    "and ($32::double precision is null or (latitude is not null and round(latitude::numeric, 3) <= $32))",
     "and ($33::numeric is null or deposit >= $33)",
     "and ($34::numeric is null or deposit <= $34)",
     "and ($35::numeric is null or rent >= $35)",

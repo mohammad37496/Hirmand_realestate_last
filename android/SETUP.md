@@ -4,15 +4,15 @@
 
     HIRMAND_PHONE_BRIDGE_TOKEN=<یک کلید تصادفی طولانی>
 
-Endpoint سایت (هدف نهایی):
+Backend رسمی Phone Bridge در همین مخزن پیاده‌سازی شده است. پس از اعمال migrationهای Phone Bridge
+(از `0068_phone_bridge.sql` به بعد) و تنظیم کلید ثبت اولیه در Liara، endpoint عمومی سایت فعال است:
 
-    https://www.hirmandrealestate.ir/api/device-sync/v1
+    https://hirmandrealestate.ir/api/device-sync/v1
 
-> ⚠️ این endpoint هنوز روی سایت اصلی وجود ندارد. ریپوی `Hirmand_real_Estate` نه مسیر
-> `server/routes/api/device-sync/` دارد، نه migration مربوط به Phone Bridge. تا وقتی
-> این backend ساخته نشده، اپ فقط با گیرندهٔ آزمایشی LAN کار می‌کند.
-
-    https://www.hirmandrealestate.ir/api/device-sync/v1
+ثبت اولیه از `HIRMAND_PHONE_BRIDGE_TOKEN` استفاده می‌کند؛ پس از pairing، سرور برای هر نصب
+توکن اختصاصی تولید می‌کند و اپ آن را در Android Keystore نگه می‌دارد. مسیرهای sync، heartbeat،
+ثبت دستگاه و ارسال فایل نیز زیر همین prefix قرار دارند. گیرندهٔ `android/server` فقط برای
+اجرای محلی/LAN است و `DEVICE_SYNC_TOKEN` آن با کلید ثبت اولیهٔ سایت متفاوت است.
 
 برای کار بدون اینترنت عمومی، سرور باید در همان LAN یا Hotspot گوشی باشد. نمونه:
 
