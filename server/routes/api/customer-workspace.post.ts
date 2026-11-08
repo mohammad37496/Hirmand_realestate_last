@@ -1,9 +1,10 @@
-import { createError, defineEventHandler, getRequestHeaders, readBody, setHeader } from "h3";
+import { createError, defineEventHandler, getHeader, getRequestHeaders, getRequestURL, readBody, setHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { requireUserIdFromHeaders } from "@/lib/auth/verify.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { customerWorkspaceHttpError } from "@/lib/customer-workspace-response.server";
+import { assertCustomerWorkspacePostOrigin } from "../../utils/customer-workspace-origin";
 import { requireCustomerWorkspaceDatabase } from "@/lib/customer-workspace-database.server.mjs";
 
 const schema = z.object({
@@ -27,6 +28,11 @@ export default defineEventHandler(async (event) => {
   setHeader(event, "Cache-Control", "private, no-store, max-age=0");
   setHeader(event, "Vary", "Cookie, Authorization");
   try {
+    assertCustomerWorkspacePostOrigin({
+      origin: getHeader(event, "origin"),
+      host: getHeader(event, "x-forwarded-host") ?? getHeader(event, "host"),
+      requestOrigin: getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin,
+    });
     assertSameOrigin(event);
     const userId = await requireUserIdFromHeaders(new Headers(getRequestHeaders(event)));
     const body = schema.safeParse(await readBody(event).catch(() => null));
