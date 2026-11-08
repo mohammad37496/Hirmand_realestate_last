@@ -4,13 +4,13 @@ import { z } from "zod";
 import { SITE, TEAM } from "@/lib/site";
 import { dbSource, getSql, type Sql } from "@/lib/db";
 import { storeMedia } from "@/lib/media-store.server";
-import { detectRasterImageType, isAllowedDivarImageUrl, isDivarRemoteHost } from "@/lib/media";
+import { detectRasterImageType, isAllowedDivarImageUrl, isDivarRemoteHost, normalizeDivarImageUrl } from "@/lib/media";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { isMoneyText, normalizeMoneyText } from "@/lib/property-input-normalization";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
-import { extractDivarMediaUrls } from "./divar-media-utils";
+import { buildDivarReimportImages, extractDivarMediaUrls } from "./divar-media-utils";
 import { getDivarAgencyReason } from "./divar-agency-filter";
 export { getDivarAgencyReason } from "./divar-agency-filter";
 import { findDivarCoordinates } from "./divar-coordinate-utils";
@@ -746,7 +746,7 @@ async function uploadDivarImages(token: string, urls: string[]): Promise<DivarIm
   }> = [];
 
   const safeUrls = Array.from(
-    new Set(urls.filter(isAllowedDivarImageUrl)),
+    new Set(urls.map(normalizeDivarImageUrl).filter((url): url is string => Boolean(url))),
   ).slice(0, MAX_IMAGES);
   const concurrency = 6;
 
@@ -1475,7 +1475,6 @@ export const importDivarFile = createServerFn({ method: "POST" })
         );
       } else {
         const currentImages = parseJsonArray(existingProperty.images);
-        const hostedCurrentImages = currentImages.filter((url) => !isDivarSourceUrl(url));
         const hasRemoteSourceImages = currentImages.some(isDivarSourceUrl);
         const missingImages = Math.max(0, images.length - currentImages.length);
         const shouldRefreshImages =
@@ -1488,16 +1487,7 @@ export const importDivarFile = createServerFn({ method: "POST" })
           : { images: [] as string[], stored: 0, failures: [] as { source: string; reason: string }[], sourceImages: images };
         // Hosted copies first, then any source still needed to keep the gallery
         // complete. Nothing that already worked is dropped.
-        const fallbackSourceImages = uploadResult.sourceImages.filter((url) =>
-          uploadResult.failures.some((failure) => failure.source === url),
-        );
-        const finalImages = Array.from(
-          new Set([
-            ...hostedCurrentImages,
-            ...uploadResult.images.filter((url) => !isDivarSourceUrl(url)),
-            ...fallbackSourceImages,
-          ]),
-        ).slice(0, MAX_IMAGES);
+        const finalImages = buildDivarReimportImages(currentImages, uploadResult, MAX_IMAGES);
 
         await sql.query(
           `update properties
@@ -1545,15 +1535,7 @@ export const importDivarFile = createServerFn({ method: "POST" })
     const importedResult = await uploadDivarImages(token, images);
     // Hosted copies come first; sources we could not copy keep the gallery
     // complete and are rendered through our own image proxy.
-    const failedSourceImages = importedResult.sourceImages.filter((url) =>
-      importedResult.failures.some((failure) => failure.source === url),
-    );
-    const importedImages = Array.from(
-      new Set([
-        ...importedResult.images.filter((url) => !isDivarSourceUrl(url)),
-        ...failedSourceImages,
-      ]),
-    ).slice(0, MAX_IMAGES);
+    const importedImages = buildDivarReimportImages([], importedResult, MAX_IMAGES);
 
     const id = existingPropertyId ? existingPropertyId : crypto.randomUUID();
     const propertyType = propertyTypeToSite(String(row.property_type) as DivarPropertyType);

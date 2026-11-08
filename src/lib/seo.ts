@@ -2,7 +2,7 @@ import { SITE, TEAM } from "@/lib/site";
 import type { Property } from "@/lib/properties";
 import type { SiteSettings } from "@/lib/site-settings";
 import { propertyPath } from "@/lib/property-path";
-import { DB_MEDIA_PATH, isDivarRemoteHost } from "@/lib/media";
+import { DB_MEDIA_PATH, normalizeDivarImageUrl } from "@/lib/media";
 import {
   getPropertyFallbackImage,
   getPropertyFallbackLegacyImage,
@@ -42,8 +42,9 @@ function shareableImageUrl(src: string | null | undefined): string {
   if (value.startsWith(DB_MEDIA_PATH)) return absoluteUrl(value);
   try {
     const url = new URL(value);
-    if (isDivarRemoteHost(value)) {
-      return absoluteUrl(`/api/media-proxy?url=${encodeURIComponent(url.toString())}`);
+    const divarImageUrl = normalizeDivarImageUrl(value);
+    if (divarImageUrl) {
+      return absoluteUrl(`/api/media-proxy?url=${encodeURIComponent(divarImageUrl)}`);
     }
     if (url.protocol === "https:") return url.toString();
     return "";
