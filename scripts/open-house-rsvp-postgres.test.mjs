@@ -14,13 +14,27 @@ function deferred() {
   return { promise, resolve };
 }
 
+async function waitForSignal(promise, label) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(`Timed out waiting for ${label}`)), 5_000);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function twoPartyBarrier() {
   let arrived = 0;
   const gate = deferred();
   return async () => {
     arrived += 1;
     if (arrived === 2) gate.resolve();
-    await gate.promise;
+    await waitForSignal(gate.promise, "both PostgreSQL transactions to begin");
   };
 }
 
@@ -65,6 +79,20 @@ async function waitForBlockedBackend(admin, backendPid) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   assert.fail(`PostgreSQL backend ${backendPid} never entered a row-lock wait`);
+}
+
+async function waitForLockAndRelease(admin, backendPid, release, operations) {
+  let waitError;
+  try {
+    await waitForBlockedBackend(admin, backendPid);
+  } catch (error) {
+    waitError = error;
+  } finally {
+    release.resolve();
+  }
+  const results = await Promise.all(operations);
+  if (waitError) throw waitError;
+  return results;
 }
 
 test("open-house RSVP capacity, uniqueness and both cancellation lock orders serialize across PostgreSQL sessions", {
@@ -138,11 +166,9 @@ test("open-house RSVP capacity, uniqueness and both cancellation lock orders ser
       createPropertyOpenHouseRsvp(capacitySql, { eventId: "capacity-race", name: "One", phone: "09130000001", partySize: 2, note: "" }),
       createPropertyOpenHouseRsvp(capacitySql, { eventId: "capacity-race", name: "Two", phone: "09130000002", partySize: 2, note: "" }),
     ];
-    await capacityLockHeld.promise;
+    await waitForSignal(capacityLockHeld.promise, "capacity lock holder");
     const capacityContenderPid = capacityPids.find((pid) => pid !== capacityHolderPid);
-    await waitForBlockedBackend(admin, capacityContenderPid);
-    releaseCapacityLock.resolve();
-    const capacityResults = await Promise.all(capacityPromises);
+    const capacityResults = await waitForLockAndRelease(admin, capacityContenderPid, releaseCapacityLock, capacityPromises);
     assert.deepEqual(capacityResults.map((result) => result.kind).sort(), ["capacity", "created"]);
     assert.equal(await activeSeats("capacity-race"), 2);
 
@@ -166,11 +192,9 @@ test("open-house RSVP capacity, uniqueness and both cancellation lock orders ser
       createPropertyOpenHouseRsvp(duplicateSql, { eventId: "duplicate-race", name: "Same", phone: "09130000003", partySize: 1, note: "" }),
       createPropertyOpenHouseRsvp(duplicateSql, { eventId: "duplicate-race", name: "Same", phone: "09130000003", partySize: 1, note: "" }),
     ];
-    await duplicateLockHeld.promise;
+    await waitForSignal(duplicateLockHeld.promise, "duplicate lock holder");
     const duplicateContenderPid = duplicatePids.find((pid) => pid !== duplicateHolderPid);
-    await waitForBlockedBackend(admin, duplicateContenderPid);
-    releaseDuplicateLock.resolve();
-    const duplicateResults = await Promise.all(duplicatePromises);
+    const duplicateResults = await waitForLockAndRelease(admin, duplicateContenderPid, releaseDuplicateLock, duplicatePromises);
     assert.deepEqual(duplicateResults.map((result) => result.kind).sort(), ["created", "duplicate"]);
     await assert.rejects(
       pool.query(
@@ -193,14 +217,14 @@ test("open-house RSVP capacity, uniqueness and both cancellation lock orders ser
       createTransactionalSql(pool, { afterEventLock: async () => { rsvpLocked.resolve(); await releaseRsvp.promise; } }),
       { eventId: "rsvp-first", name: "Guest", phone: "09130000004", partySize: 2, note: "" },
     );
-    await rsvpLocked.promise;
+    await waitForSignal(rsvpLocked.promise, "RSVP lock holder");
     const cancelAfterRsvp = cancelPropertyOpenHouse(
       createTransactionalSql(pool, { onBegin: (pid) => cancelPid.resolve(pid) }),
       "rsvp-first",
     );
-    await waitForBlockedBackend(admin, await cancelPid.promise);
-    releaseRsvp.resolve();
-    const [rsvpFirstResult, cancelAfterRsvpResult] = await Promise.all([rsvpFirst, cancelAfterRsvp]);
+    const [rsvpFirstResult, cancelAfterRsvpResult] = await waitForLockAndRelease(
+      admin, await cancelPid.promise, releaseRsvp, [rsvpFirst, cancelAfterRsvp],
+    );
     assert.equal(rsvpFirstResult.kind, "created");
     assert.equal(cancelAfterRsvpResult, "cancelled");
     const rsvpFirstEvent = await pool.query("select status from property_open_houses where id='rsvp-first'");
@@ -217,14 +241,14 @@ test("open-house RSVP capacity, uniqueness and both cancellation lock orders ser
       createTransactionalSql(pool, { afterEventLock: async () => { cancelLocked.resolve(); await releaseCancel.promise; } }),
       "cancel-first",
     );
-    await cancelLocked.promise;
+    await waitForSignal(cancelLocked.promise, "cancellation lock holder");
     const rsvpAfterCancel = createPropertyOpenHouseRsvp(
       createTransactionalSql(pool, { onBegin: (pid) => rsvpPid.resolve(pid) }),
       { eventId: "cancel-first", name: "Late", phone: "09130000005", partySize: 1, note: "" },
     );
-    await waitForBlockedBackend(admin, await rsvpPid.promise);
-    releaseCancel.resolve();
-    const [cancelFirstResult, rsvpAfterCancelResult] = await Promise.all([cancelFirst, rsvpAfterCancel]);
+    const [cancelFirstResult, rsvpAfterCancelResult] = await waitForLockAndRelease(
+      admin, await rsvpPid.promise, releaseCancel, [cancelFirst, rsvpAfterCancel],
+    );
     assert.equal(cancelFirstResult, "cancelled");
     assert.equal(rsvpAfterCancelResult.kind, "not_found");
     const cancelFirstEvent = await pool.query("select status from property_open_houses where id='cancel-first'");
