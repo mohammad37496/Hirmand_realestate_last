@@ -5,6 +5,7 @@ import pg from "pg";
 import test from "node:test";
 import { createPropertyOpenHouseEvent } from "../src/lib/property-open-house-create.ts";
 import { cancelPropertyOpenHouse, createPropertyOpenHouseRsvp } from "../src/lib/property-open-house-rsvp.ts";
+import { cancelPropertyVisitRequest } from "../src/lib/property-visit-request.ts";
 
 const { Pool } = pg;
 const databaseUrl = process.env.TEST_DATABASE_URL?.trim();
@@ -312,6 +313,62 @@ test("open-house RSVP capacity, uniqueness and both cancellation lock orders ser
     });
     assert.equal(hiddenProperty.kind, "not_found");
   } finally {
+    if (pool) await pool.end().catch(() => {});
+    await admin.query(`drop schema if exists "${schema}" cascade`).catch(() => {});
+    await admin.end();
+  }
+});
+
+test("public visit cancellation cannot overwrite an admin-completed visit after waiting on its row lock", {
+  skip: !databaseUrl && "TEST_DATABASE_URL must point to an isolated PostgreSQL test database",
+}, async () => {
+  const admin = new Pool({ connectionString: databaseUrl, max: 1 });
+  const schema = `public_lead_cancel_${process.pid}_${randomBytes(4).toString("hex")}`;
+  let pool;
+  let adminClient;
+  let adminTransactionOpen = false;
+  try {
+    await admin.query(`create schema "${schema}"`);
+    pool = new Pool({ connectionString: databaseUrl, max: 4, options: `-c search_path=${schema},public` });
+    await pool.query(`
+      create table leads (
+        id text primary key,
+        visit_status text not null,
+        updated_at timestamptz not null default current_timestamp
+      );
+      insert into leads(id,visit_status) values ('lead-1','requested');
+    `);
+
+    adminClient = await pool.connect();
+    await adminClient.query("begin");
+    adminTransactionOpen = true;
+    await adminClient.query("update leads set visit_status='completed' where id='lead-1'");
+
+    const cancelBackend = deferred();
+    const sql = {
+      query: async (text, params = []) => {
+        const client = await pool.connect();
+        try {
+          const pid = Number((await client.query("select pg_backend_pid() as pid")).rows[0]?.pid);
+          cancelBackend.resolve(pid);
+          return (await client.query(text, params)).rows;
+        } finally {
+          client.release();
+        }
+      },
+    };
+    const cancellation = cancelPropertyVisitRequest(sql, "lead-1");
+    const cancelPid = await waitForSignal(cancelBackend.promise, "public cancellation backend");
+    await waitForBlockedBackend(admin, cancelPid);
+
+    await adminClient.query("commit");
+    adminTransactionOpen = false;
+    assert.deepEqual(await cancellation, { kind: "not_cancellable" });
+    const result = await pool.query("select visit_status from leads where id='lead-1'");
+    assert.equal(result.rows[0]?.visit_status, "completed");
+  } finally {
+    if (adminTransactionOpen && adminClient) await adminClient.query("rollback").catch(() => {});
+    adminClient?.release();
     if (pool) await pool.end().catch(() => {});
     await admin.query(`drop schema if exists "${schema}" cascade`).catch(() => {});
     await admin.end();
