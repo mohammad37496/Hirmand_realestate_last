@@ -3,6 +3,7 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import {
   isLiaraStorageHost,
+  normalizeDivarImageUrl,
   mediaPreviewSource,
   mediaSourceCandidates,
   stripMediaUploadCapability,
@@ -41,6 +42,25 @@ test("only Liara storage hosts are classified for signed proxying", () => {
   assert.equal(isLiaraStorageHost("https://liara.space/image.webp"), true);
   assert.equal(isLiaraStorageHost("https://storage.c2.liara.site/hirmand-realestate/properties/home.webp"), true);
   assert.equal(isLiaraStorageHost("https://storage.c2.liara.site.evil.example/home.webp"), false);
+});
+
+test("Divar image normalization uses exact hosts, upgrades HTTP and rejects URL authority tricks", () => {
+  assert.equal(
+    normalizeDivarImageUrl("http://img.divarcdn.com/a/photo.jpg?width=800#legacy"),
+    "https://img.divarcdn.com/a/photo.jpg?width=800",
+  );
+  assert.equal(normalizeDivarImageUrl("https://s100.divarcdn.com/a/photo.webp?x=1"), "https://s100.divarcdn.com/a/photo.webp?x=1");
+  assert.equal(normalizeDivarImageUrl("http://divar.ir/images/sample.jpg"), "https://divar.ir/images/sample.jpg");
+  for (const value of [
+    "http://evil.divarcdn.com/a.jpg",
+    "https://img.divarcdn.com.evil.example/a.jpg",
+    "https://user:pass@img.divarcdn.com/a.jpg",
+    "https://img.divarcdn.com:8443/a.jpg",
+    "ftp://img.divarcdn.com/a.jpg",
+    "not a url",
+  ]) {
+    assert.equal(normalizeDivarImageUrl(value), null, value);
+  }
 });
 
 test("non-Liara, non-Divar media keeps its original source first", () => {
@@ -273,6 +293,17 @@ test("legacy stored Liara proxy paths are normalized to the current same-origin 
     mediaSourceCandidates(invalidTarget, "/images/type-apartment.jpg"),
     [invalidTarget],
   );
+});
+
+test("legacy Divar proxy targets are normalized only for exact approved image hosts", () => {
+  const legacy = "http://img.divarcdn.com/photo.jpg?width=800";
+  const secure = "https://img.divarcdn.com/photo.jpg?width=800";
+  assert.deepEqual(mediaSourceCandidates("/api/media-proxy?url=" + encodeURIComponent(legacy)), [
+    "/api/media-proxy?url=" + encodeURIComponent(secure),
+  ]);
+  const unapproved = "http://evil.divarcdn.com/photo.jpg";
+  const stored = "/api/media-proxy?url=" + encodeURIComponent(unapproved);
+  assert.deepEqual(mediaSourceCandidates(stored), [stored]);
 });
 
 test("public Liara media keys are limited to intentional site media prefixes", () => {

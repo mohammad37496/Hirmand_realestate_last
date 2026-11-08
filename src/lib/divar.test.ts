@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { extractDivarMediaUrls } from "./divar-media-utils.ts";
+import { buildDivarReimportImages, extractDivarMediaUrls } from "./divar-media-utils.ts";
 import { getDivarAgencyReason } from "./divar-agency-filter.ts";
 import { findDivarCoordinates } from "./divar-coordinate-utils.ts";
 import { isDivarRemoteHost, mediaSourceCandidates } from "./media.ts";
@@ -36,6 +36,47 @@ test("extractDivarMediaUrls finds nested CDN image URLs even when the leaf key i
   assert.deepEqual(urls, [
     "https://img.divarcdn.com/sample/one.jpg",
     "https://img.divarcdn.com/sample/two.webp",
+  ]);
+});
+
+test("extractDivarMediaUrls upgrades legacy HTTP images and rejects unapproved lookalike hosts", () => {
+  assert.deepEqual(extractDivarMediaUrls({ media: [
+    { value: "http://img.divarcdn.com/sample/legacy.jpg" },
+    { value: "http://s100.divarcdn.com/sample/second.webp" },
+    { value: "http://evil.divarcdn.com/sample/spoof.jpg" },
+    { value: "https://img.divarcdn.com.evil.example/sample/spoof.jpg" },
+  ] }), [
+    "https://img.divarcdn.com/sample/legacy.jpg",
+    "https://s100.divarcdn.com/sample/second.webp",
+  ]);
+});
+
+test("Divar re-import preserves hosted images and normalized failed-source fallbacks", () => {
+  const hosted = "https://storage.c2.liara.site/hirmand-realestate/properties/divar/old.webp";
+  const legacy = "https://img.divarcdn.com/sample/legacy.jpg";
+  assert.deepEqual(buildDivarReimportImages(
+    [hosted, "http://img.divarcdn.com/sample/legacy.jpg"],
+    { images: [], sourceImages: [legacy], failures: [{ source: legacy, reason: "timeout" }] },
+  ), [hosted, legacy]);
+});
+
+test("Divar re-import replaces successfully uploaded sources without dropping existing hosted media", () => {
+  const hosted = "https://storage.c2.liara.site/hirmand-realestate/properties/divar/old.webp";
+  const uploaded = "https://storage.c2.liara.site/hirmand-realestate/properties/divar/new.webp";
+  const legacy = "https://img.divarcdn.com/sample/legacy.jpg";
+  assert.deepEqual(buildDivarReimportImages(
+    [hosted, "http://img.divarcdn.com/sample/legacy.jpg"],
+    { images: [uploaded], sourceImages: [legacy], failures: [] },
+  ), [hosted, uploaded]);
+});
+
+test("an empty refreshed Divar source list cannot erase an existing remote-only gallery", () => {
+  assert.deepEqual(buildDivarReimportImages(
+    ["http://img.divarcdn.com/sample/legacy.jpg", "https://s100.divarcdn.com/sample/second.webp"],
+    { images: [], sourceImages: [], failures: [] },
+  ), [
+    "https://img.divarcdn.com/sample/legacy.jpg",
+    "https://s100.divarcdn.com/sample/second.webp",
   ]);
 });
 
