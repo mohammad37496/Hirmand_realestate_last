@@ -6,6 +6,7 @@ import { buildBudgetLeadNote, budgetEquivalent } from "@/lib/budget-lead";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
 import { createPropertyVisitRequest } from "@/lib/property-visit-request";
+import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -354,7 +355,7 @@ export default defineEventHandler(async (event) => {
       neighborhood: string;
       contact_name: string;
     }>(
-      "select id,title,property_type,neighborhood,contact_name from properties where id::text=$1 and status='published' and availability_status not in ('sold','rented','unavailable') limit 1",
+      `select id,title,property_type,neighborhood,contact_name from properties where id::text=$1 and ${publicPropertyVisibilitySql()} and availability_status not in ('sold','rented','unavailable') limit 1`,
       [parsed.data.propertyId],
     );
     const property = propertyRows[0];
@@ -409,7 +410,7 @@ export default defineEventHandler(async (event) => {
       neighborhood: string;
       contact_name: string;
     }>(
-      "select id,title,property_type,neighborhood,contact_name from properties where id::text=$1 and status='published' and availability_status not in ('sold','rented','unavailable') limit 1",
+      `select id,title,property_type,neighborhood,contact_name from properties where id::text=$1 and ${publicPropertyVisibilitySql()} and availability_status not in ('sold','rented','unavailable') limit 1`,
       [parsed.data.propertyId],
     );
     const property = propertyRows[0];
@@ -474,7 +475,7 @@ export default defineEventHandler(async (event) => {
 
   if (parsed.data.deal === "پیشنهاد قیمت" && parsed.data.offerAmount != null && parsed.data.propertyId) {
     const propertyRows = await sql.query<{ id: string; title: string; property_type: string; neighborhood: string; contact_name: string; price: number | null }>(
-      "select id,title,property_type,neighborhood,contact_name,price from properties where id::text=$1 and status='published' and availability_status not in ('sold','rented','unavailable') limit 1",
+      `select id,title,property_type,neighborhood,contact_name,price from properties where id::text=$1 and ${publicPropertyVisibilitySql()} and availability_status not in ('sold','rented','unavailable') limit 1`,
       [parsed.data.propertyId],
     );
     const property = propertyRows[0];
@@ -559,7 +560,7 @@ export default defineEventHandler(async (event) => {
       contact_name: string;
       price: number | null;
     }>(
-      "select id,title,property_type,neighborhood,contact_name,price from properties where id::text=$1 and status='published' and availability_status not in ('sold','rented','unavailable') limit 1",
+      `select id,title,property_type,neighborhood,contact_name,price from properties where id::text=$1 and ${publicPropertyVisibilitySql()} and availability_status not in ('sold','rented','unavailable') limit 1`,
       [parsed.data.propertyId],
     );
     const property = propertyRows[0];
@@ -615,7 +616,7 @@ export default defineEventHandler(async (event) => {
       neighborhood: string;
       contact_name: string;
     }>(
-      "select id,title,property_type,neighborhood,contact_name from properties where id::text=$1 and status='published' and availability_status not in ('sold','rented','unavailable') limit 1",
+      `select id,title,property_type,neighborhood,contact_name from properties where id::text=$1 and ${publicPropertyVisibilitySql()} and availability_status not in ('sold','rented','unavailable') limit 1`,
       [parsed.data.propertyId],
     );
     const property = propertyRows[0];
