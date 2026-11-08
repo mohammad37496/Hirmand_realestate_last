@@ -67,6 +67,11 @@ test("site header exposes account access on desktop and mobile navigation", () =
     "the browser smoke must verify signed-in account access in desktop and mobile navigation");
   assert.match(workspaceE2e, /\.mobile-menu\.is-open \.customer-account-access\.is-compact/);
   assert.match(workspaceE2e, /width: 320, height: 800/);
+  assert.match(workspaceE2e, /expireUserSessionsInDisposableDatabase/,
+    "the browser smoke must force an expired session in the disposable database");
+  assert.match(workspaceE2e, /refusing to mutate a non-local database/,
+    "the expired-session test must refuse non-disposable database hosts");
+  assert.match(workspaceE2e, /expired session must not read the customer workspace/);
 });
 
 test("personal workspace sends signed-out visitors to the shared account flow", () => {

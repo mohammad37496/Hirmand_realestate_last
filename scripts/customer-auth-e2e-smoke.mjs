@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
+import pg from "pg";
 
 const baseUrl = process.env.CUSTOMER_AUTH_SMOKE_URL || "http://127.0.0.1:3018";
 const origin = new URL(baseUrl).origin;
@@ -36,6 +37,33 @@ async function assertHeaderAccountAccess(page, signedIn) {
   }
   await menuToggle.click();
   await page.setViewportSize({ width: 1280, height: 800 });
+}
+
+async function expireUserSessionsInDisposableDatabase(userId, context) {
+  const databaseUrl = process.env.DATABASE_URL;
+  assert.ok(databaseUrl, "expired-session smoke requires the disposable Verify DATABASE_URL");
+  const databaseHost = new URL(databaseUrl).hostname;
+  assert.ok(
+    ["localhost", "127.0.0.1", "::1"].includes(databaseHost),
+    `refusing to mutate a non-local database during auth smoke: ${databaseHost}`,
+  );
+
+  const cookies = await context.cookies(baseUrl);
+  const sessionTokenCookie = cookies.find((cookie) => cookie.name.endsWith("session_token"));
+  assert.ok(sessionTokenCookie, "the signed-in browser must have a Better Auth session token cookie");
+  await context.clearCookies();
+  await context.addCookies([sessionTokenCookie]);
+
+  const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+  try {
+    const expired = await pool.query(
+      'update "session" set "expiresAt" = current_timestamp - interval \'1 minute\' where "userId" = $1 returning id',
+      [userId],
+    );
+    assert.ok(expired.rowCount > 0, "the disposable database should contain the signed-in session");
+  } finally {
+    await pool.end();
+  }
 }
 
 async function signUp(context, address, displayName, seedGuestWorkspace = false) {
@@ -234,6 +262,15 @@ try {
   assert.ok(firstDeviceSyncedWorkspace.savedSearches.some((item) => item.id === "device-two-search"));
   assert.ok(firstDeviceSyncedWorkspace.recentProperties.includes("device-two-recent"));
 
+  await expireUserSessionsInDisposableDatabase(firstSession.user.id, firstContext);
+  const expiredSessionResponse = await firstPage.request.get(new URL("/api/auth/get-session", baseUrl).toString());
+  assert.equal(expiredSessionResponse.status(), 200);
+  const expiredSession = await expiredSessionResponse.json();
+  assert.equal(expiredSession?.user ?? null, null, "Better Auth must reject a session whose database expiry has passed");
+  const expiredWorkspaceResponse = await firstPage.request.get(new URL("/api/customer-workspace", baseUrl).toString());
+  assert.equal(expiredWorkspaceResponse.status(), 401, "an expired session must not read the customer workspace");
+  assert.match(expiredWorkspaceResponse.headers()["cache-control"] || "", /private.*no-store/i);
+
   assert.deepEqual(errors, [], "auth pages should not throw browser errors");
   console.log(JSON.stringify({
     signUp: "passed",
@@ -251,6 +288,8 @@ try {
     sameAccountSecondDeviceSignIn: "passed",
     secondDeviceWorkspaceWrite: "passed",
     firstDevicePulledSecondDeviceChanges: "passed",
+    expiredSession: "rejected",
+    expiredSessionWorkspaceStatus: expiredWorkspaceResponse.status(),
     browserErrors: errors,
   }, null, 2));
   await secondDeviceContext.close();
