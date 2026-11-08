@@ -11,6 +11,22 @@ import {
 import { resolveMigrationDatabaseUrl, sanitizePostgresConnectionString } from "./resolve-database-url.mjs";
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+const DEPLOYMENT_INFO_FILE = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "deployment.json");
+
+export async function readDeploymentCommit(path = DEPLOYMENT_INFO_FILE) {
+  let source;
+  try {
+    source = await readFile(path, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+  const deployment = JSON.parse(source);
+  if (typeof deployment.commit !== "string" || !deployment.commit.trim()) {
+    throw new Error("public/deployment.json must contain a non-empty commit field.");
+  }
+  return deployment.commit.trim();
+}
 
 export async function runMigrations({ connectionString }) {
   const entries = await readdir(MIGRATIONS_DIR);
@@ -68,7 +84,9 @@ export async function runMigrations({ connectionString }) {
     if (verifyCustomerAuth) {
       const { rows } = await client.query("SELECT name FROM _migrations");
       assertRequiredMigrationLedger(rows.map((row) => String(row.name)));
-      console.log(`[migrate] customer-auth migrations verified: ${CUSTOMER_AUTH_MIGRATIONS.join(", ")}`);
+      const deploymentCommit = await readDeploymentCommit();
+      const deploymentLabel = deploymentCommit ? ` for deployment ${deploymentCommit}` : "";
+      console.log(`[migrate] customer-auth migrations verified${deploymentLabel}: ${CUSTOMER_AUTH_MIGRATIONS.join(", ")}`);
     } else {
       console.log("[migrate] database is up to date.");
     }
