@@ -32,3 +32,10 @@ export function responsiveSmokePropertyRoutes({ propertyId, propertySlug }) {
   }
   return routes;
 }
+
+/** A successful HTTP response alone is insufficient: the actual detail view must render. */
+export function isSuccessfulPropertyDetailResponse({ status, hasDetailRoot, title }) {
+  const normalizedTitle = String(title ?? "").trim();
+  return Number(status) >= 200 && Number(status) < 400 && hasDetailRoot === true &&
+    normalizedTitle.length > 0 && !normalizedTitle.includes("فایل پیدا نشد");
+}
