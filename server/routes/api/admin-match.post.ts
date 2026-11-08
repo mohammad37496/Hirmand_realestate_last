@@ -5,6 +5,7 @@ import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
+import { saveAdminLeadMatchesWithActivity } from "@/lib/admin-lead-activity-action";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -435,35 +436,23 @@ export default defineEventHandler(async (event) => {
     serializeProperty(item.row, item.score, item.reasons, item.amenityCoverage, item.priceMatch),
   );
 
-  await sql.query(
-    "update leads set matched_properties=$2::jsonb, match_count=$3, updated_at=current_timestamp where id=$1",
-    [
-      body.leadId,
-      JSON.stringify(
-        serializedMatches.map((item) => ({
-          id: item.id,
-          slug: item.slug,
-          title: item.title,
-          score: item.score,
-          priceMatch: item.priceMatch,
-          amenityCoverage: item.amenityCoverage,
-          mode,
-          updatedAt: new Date().toISOString(),
-        })),
-      ),
-      serializedMatches.length,
-    ],
-  );
-
-  await sql.query(
-    "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'match',$2,$3,$4::jsonb)",
-    [
-      body.leadId,
-      "مچ فایل‌ها انجام شد",
-      "معیار: " + MODE_META_LABEL[mode] + " · " + serializedMatches.length + " فایل پیشنهاد شد.",
-      JSON.stringify({ mode, count: serializedMatches.length }),
-    ],
-  ).catch(() => {});
+  const saveResult = await saveAdminLeadMatchesWithActivity(sql, {
+    leadId: body.leadId,
+    matches: serializedMatches.map((item) => ({
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      score: item.score,
+      priceMatch: item.priceMatch,
+      amenityCoverage: item.amenityCoverage,
+      mode,
+      updatedAt: new Date().toISOString(),
+    })),
+    count: serializedMatches.length,
+    mode,
+    modeLabel: MODE_META_LABEL[mode],
+  });
+  if (saveResult.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "درخواست پیدا نشد." });
 
   return {
     lead: { ...mapLead(lead), matchCount: serializedMatches.length },
