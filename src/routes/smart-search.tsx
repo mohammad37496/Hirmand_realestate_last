@@ -45,6 +45,10 @@ function SmartSearchPage() {
   async function runSearch(nextQuery = query) {
     const text = nextQuery.trim();
     if (!text) {
+      // Invalidate any search or pagination request that is still in flight.
+      searchRequestId.current += 1;
+      setLoading(false);
+      setLoadingMore(false);
       toast.info("عبارت جستجو را وارد کنید.");
       return;
     }

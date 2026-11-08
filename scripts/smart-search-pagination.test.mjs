@@ -14,3 +14,11 @@ test("smart property search exposes subsequent 48-result pages", () => {
   assert.match(smartSearch, /فایل نمایش داده شده/);
   assert.doesNotMatch(smartSearch, /\{properties\.length\.toLocaleString\("fa-IR"\)\} فایل پیدا شد/);
 });
+
+test("submitting an empty smart search invalidates pending search and pagination responses", () => {
+  const emptyQueryBranch = smartSearch.match(/if \(!text\) \{([\s\S]*?)\n\s*\}/)?.[1] ?? "";
+  assert.match(emptyQueryBranch, /searchRequestId\.current\s*\+=\s*1/);
+  assert.match(emptyQueryBranch, /setLoading\(false\)/);
+  assert.match(emptyQueryBranch, /setLoadingMore\(false\)/);
+  assert.ok(emptyQueryBranch.indexOf("searchRequestId.current += 1") < emptyQueryBranch.indexOf("return;"));
+});

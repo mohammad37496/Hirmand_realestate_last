@@ -95,3 +95,8 @@ export function normalizeAdminRole(value: unknown): AdminRole {
 export function hasAdminPermission(role: AdminRole, permission: AdminPermission) {
   return ADMIN_ROLE_PERMISSIONS[role].includes(permission);
 }
+
+/** Customer-submission approval creates and publishes a public property. */
+export function canApproveCustomerPropertySubmission(role: AdminRole) {
+  return hasAdminPermission(role, "property.manage") && hasAdminPermission(role, "property.publish");
+}
