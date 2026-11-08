@@ -247,6 +247,27 @@ test("controlled fixture: several filters compose with AND and removing one broa
   }
 });
 
+test("spec filters OR within each group and AND across selected groups", async () => {
+  const db = await createFixtureDb();
+  try {
+    await db.exec(`
+      update properties
+         set cabinet_type='mdf', flooring_type='ceramic', heating_system='split', other_amenities='["pool"]'::jsonb
+       where id='sale-a';
+      update properties
+         set cabinet_type='wood', flooring_type='laminate', heating_system='split', other_amenities='["garden"]'::jsonb
+       where id='sale-b';
+    `);
+
+    assert.deepEqual(await searchIds(db, { specFilters: ["cabinet:mdf", "flooring:ceramic"] }), ["sale-a"]);
+    assert.deepEqual(await searchIds(db, { specFilters: ["cabinet:mdf", "cabinet:wood"] }), ["sale-a", "sale-b"]);
+    assert.deepEqual(await searchIds(db, { specFilters: ["pool", "garden"] }), ["sale-a", "sale-b"]);
+    assert.deepEqual(await searchIds(db, { specFilters: ["cabinet:mdf", "pool"] }), ["sale-a"]);
+  } finally {
+    await db.close();
+  }
+});
+
 test("controlled fixture: Persian spelling variants, city and street text find the same listing", async () => {
   const db = await createFixtureDb();
   try {
