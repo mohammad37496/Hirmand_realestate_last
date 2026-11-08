@@ -5,6 +5,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { buildBudgetLeadNote, budgetEquivalent } from "@/lib/budget-lead";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
+import { createPropertyVisitRequest } from "@/lib/property-visit-request";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -506,43 +507,29 @@ export default defineEventHandler(async (event) => {
 
   if (parsed.data.propertyId && parsed.data.visitPreferredAt) {
     const visitDate = new Date(parsed.data.visitPreferredAt);
-    const propertyRows = await sql.query<{ id: string; title: string; property_type: string; neighborhood: string; contact_name: string }>(
-      "select id, title, property_type, neighborhood, contact_name, availability_status from properties where id::text = $1 and status = 'published' and availability_status not in ('sold','rented','unavailable') limit 1",
-      [parsed.data.propertyId],
-    );
-    const property = propertyRows[0];
-    if (!property) throw createError({ statusCode: 404, statusMessage: "فایل موردنظر برای بازدید در دسترس نیست." });
-    const conflictRows = await sql.query<{ id: string }>(
-      "select id from leads where property_id::text=$1 and visit_status in ('requested','confirmed') and abs(extract(epoch from (visit_preferred_at - $2::timestamptz))) < 2700 limit 1",
-      [property.id, visitDate.toISOString()],
-    );
-    if (conflictRows[0]) {
+    const trackingToken = createPublicTrackingToken();
+    const visitResult = await createPropertyVisitRequest(sql, {
+      propertyId: parsed.data.propertyId,
+      visitAt: visitDate.toISOString(),
+      trackingToken,
+      name: parsed.data.name,
+      phone: parsed.data.phone,
+      peopleCount: parsed.data.peopleCount ?? null,
+      job: parsed.data.job,
+      floorPreference: parsed.data.floorPreference,
+      consultant: parsed.data.consultant,
+      note: parsed.data.note.trim() || "درخواست بازدید فایل",
+    });
+    if (visitResult.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "فایل موردنظر برای بازدید در دسترس نیست." });
+    if (visitResult.kind === "conflict") {
       throw createError({
         statusCode: 409,
         statusMessage: "این بازه برای این فایل قبلاً درخواستی دارد. لطفاً یکی از زمان‌های خالی را انتخاب کنید.",
       });
     }
-    const trackingToken = createPublicTrackingToken();
-    const rows = await sql.query<{ id: string }>(
-      "insert into leads (id, name, phone, people_count, job, deal, property_type, neighborhood, consultant, note, source, follow_up_at, floor_preference, property_id, visit_preferred_at, visit_requested_at, visit_status, public_tracking_token) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'website',current_timestamp + interval '4 hours',$11,$12,$13,current_timestamp,'requested',$14) returning id",
-      [
-        crypto.randomUUID(),
-        parsed.data.name,
-        parsed.data.phone,
-        parsed.data.peopleCount ?? null,
-        parsed.data.job,
-        "بازدید",
-        property.property_type,
-        property.neighborhood,
-        property.contact_name || parsed.data.consultant,
-        parsed.data.note.trim() || "درخواست بازدید فایل",
-        parsed.data.floorPreference,
-        property.id,
-        visitDate.toISOString(),
-        trackingToken,
-      ],
-    );
-    if (!rows[0]) throw createError({ statusCode: 500, statusMessage: "ثبت درخواست بازدید انجام نشد." });
+    if (visitResult.kind !== "created") throw createError({ statusCode: 500, statusMessage: "ثبت درخواست بازدید انجام نشد." });
+    const property = visitResult.property;
+    const rows = [{ id: visitResult.id }];
     await sql.query(
       "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'visit',$2,$3,$4::jsonb)",
       [

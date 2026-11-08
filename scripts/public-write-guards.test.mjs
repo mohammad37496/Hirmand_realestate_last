@@ -22,6 +22,7 @@ const customerPropertySubmissionsRoute = await readFile(
   new URL("../server/routes/api/customer-property-submissions.post.ts", import.meta.url),
   "utf8",
 );
+const dbModule = await readFile(new URL("../src/lib/db.ts", import.meta.url), "utf8");
 const propertyWatchTargetRoute = await readFile(new URL("../server/routes/api/property-watch-target.post.ts", import.meta.url), "utf8");
 const propertyWatchRoute = await readFile(new URL("../server/routes/api/property-watch.post.ts", import.meta.url), "utf8");
 const propertyOpenHouseRoute = await readFile(new URL("../server/routes/api/property-open-house.post.ts", import.meta.url), "utf8");
@@ -69,6 +70,22 @@ test("customer property resubmission uses a rejected-state and updated-at compar
   assert.match(customerPropertySubmissionsRoute, /updated_at from customer_property_submissions/);
   assert.match(customerPropertySubmissionsRoute, /if \(!resubmitted\)[\s\S]*?statusCode:\s*409/);
   assert.doesNotMatch(customerPropertySubmissionsRoute, /update customer_property_submissions[^\n]*where id=\$1"/);
+});
+
+test("property visit availability check and lead insert share a row-locked database transaction", () => {
+  assert.match(leadsRoute, /createPropertyVisitRequest\(sql,/);
+  assert.doesNotMatch(leadsRoute, /select id from leads where property_id::text=\$1 and visit_status/);
+  assert.match(dbModule, /const transaction: NonNullable<Sql\["transaction"\]> = async/);
+  assert.match(dbModule, /await client\.query\("BEGIN"\)/);
+  assert.match(dbModule, /await client\.query\("COMMIT"\)/);
+  assert.match(dbModule, /await client\.query\("ROLLBACK"\)/);
+  assert.match(dbModule, /pg\.transaction\(async \(tx\)/);
+});
+
+test("public visit rescheduling checks conflicts and updates under the same property row lock", () => {
+  assert.match(publicLeadActionsRoute, /reschedulePropertyVisitRequest\(sql,/);
+  assert.doesNotMatch(publicLeadActionsRoute, /select id from leads where property_id is not null[\s\S]*?update leads set visit_preferred_at/);
+  assert.match(publicLeadActionsRoute, /rescheduleResult\.kind === "conflict"/);
 });
 
 test("public property interactions share the canonical publication and unpublish visibility predicate", () => {

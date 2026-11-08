@@ -2,6 +2,7 @@ import { createError, defineEventHandler, getQuery, readBody, setResponseHeader 
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { reschedulePropertyVisitRequest } from "@/lib/property-visit-request";
 
 const tokenSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
 const bodySchema = z.discriminatedUnion("action", [
@@ -72,17 +73,22 @@ export default defineEventHandler(async (event) => {
     if (!nextDate) {
       throw createError({ statusCode: 422, statusMessage: "زمان جدید باید معتبر و حداقل ۳۰ دقیقه از اکنون فاصله داشته باشد." });
     }
-    const conflictRows = await sql.query<{ id: string }>(
-      "select id from leads where property_id is not null and property_id::text=(select property_id::text from leads where id=$1) and id<>$1 and visit_status in ('requested','confirmed') and abs(extract(epoch from (visit_preferred_at - $2::timestamptz))) < 2700 limit 1",
-      [leadId, nextDate],
-    );
-    if (conflictRows[0]) {
+    const rescheduleResult = await reschedulePropertyVisitRequest(sql, {
+      leadId,
+      visitAt: nextDate,
+    });
+    if (rescheduleResult.kind === "not_found") {
+      throw createError({ statusCode: 404, statusMessage: "درخواست بازدید یا فایل موردنظر پیدا نشد." });
+    }
+    if (rescheduleResult.kind === "not_reschedulable") {
+      throw createError({ statusCode: 409, statusMessage: "برای این درخواست، امکان تغییر زمان بازدید وجود ندارد." });
+    }
+    if (rescheduleResult.kind === "conflict") {
       throw createError({ statusCode: 409, statusMessage: "این بازه برای بازدید دیگری رزرو شده است. زمان دیگری را انتخاب کنید." });
     }
-    await sql.query(
-      "update leads set visit_preferred_at=$2, visit_status='requested', updated_at=current_timestamp where id=$1",
-      [leadId, nextDate],
-    );
+    if (rescheduleResult.kind !== "updated") {
+      throw createError({ statusCode: 500, statusMessage: "تغییر زمان بازدید انجام نشد." });
+    }
     return { success: true, action: "reschedule", message: "زمان پیشنهادی جدید ثبت شد و برای تأیید دوباره به هیرمند ارسال شد." };
   }
 
