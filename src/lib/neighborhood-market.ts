@@ -3,6 +3,7 @@ import { setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { cachedPropertyRead } from "@/lib/property-read-cache.server";
+import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
 export type NeighborhoodMarketSnapshot = {
   neighborhood: string;
@@ -56,7 +57,7 @@ export const getNeighborhoodMarketSnapshot = createServerFn({ method: "GET" })
             `with neighborhood_files as (
                select slug, transaction_type, price, rent, area_m2, published_at, price_drop_percent
                from properties
-               where status='published'
+               where ${publicPropertyVisibilitySql()}
                  and lower(trim(neighborhood))=lower(trim($1))
              ),
              event_stats as (
