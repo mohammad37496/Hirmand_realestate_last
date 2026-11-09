@@ -84,6 +84,14 @@ try {
   const secondSessionContext = await browser.newContext();
   const secondSessionPage = await openLogin(secondSessionContext);
   await signIn(secondSessionPage, oldPassword);
+  const secondSessionCookiesBeforeReset = await secondSessionContext.cookies(baseUrl);
+  const secondSessionTokenCookieBeforeReset = secondSessionCookiesBeforeReset.find((cookie) => cookie.name.endsWith("session_token"));
+  assert.ok(secondSessionTokenCookieBeforeReset, "the second browser must retain its original HttpOnly session token");
+  assert.equal(
+    secondSessionCookiesBeforeReset.some((cookie) => cookie.name.endsWith("session_data")),
+    false,
+    "session cookie caching must be disabled so a signed snapshot cannot outlive database revocation",
+  );
 
   const recoveryContext = await browser.newContext();
   const recoveryPage = await openLogin(recoveryContext);
@@ -186,8 +194,13 @@ try {
 
   for (const context of [signupContext, secondSessionContext]) {
     const page = context === signupContext ? signupPage : secondSessionPage;
-    const session = await page.request.get(new URL("/api/auth/get-session?disableCookieCache=true", baseUrl).toString());
-    assert.equal(session.status(), 200);
+    const session = context === secondSessionContext
+      ? await fetch(new URL("/api/auth/get-session", baseUrl), {
+          headers: { cookie: `${secondSessionTokenCookieBeforeReset.name}=${secondSessionTokenCookieBeforeReset.value}` },
+        })
+      : await page.request.get(new URL("/api/auth/get-session", baseUrl).toString());
+    const sessionStatus = typeof session.status === "function" ? session.status() : session.status;
+    assert.equal(sessionStatus, 200);
     assert.equal((await session.json())?.user ?? null, null, "password reset must revoke every previous session");
   }
 
@@ -200,6 +213,14 @@ try {
   const otherSessionContext = await browser.newContext();
   const otherSessionPage = await openLogin(otherSessionContext);
   await signIn(otherSessionPage, resetPassword);
+  const otherSessionCookiesBeforeChange = await otherSessionContext.cookies(baseUrl);
+  const otherSessionTokenCookieBeforeChange = otherSessionCookiesBeforeChange.find((cookie) => cookie.name.endsWith("session_token"));
+  assert.ok(otherSessionTokenCookieBeforeChange, "the password-change browser must retain its original HttpOnly session token");
+  assert.equal(
+    otherSessionCookiesBeforeChange.some((cookie) => cookie.name.endsWith("session_data")),
+    false,
+    "password-change sessions must not receive a signed session snapshot cookie",
+  );
   const passwordChangePage = recoveryPage;
   await passwordChangePage.goto(new URL("/favorites", baseUrl).toString(), { waitUntil: "domcontentloaded" });
   await passwordChangePage.locator(".customer-password-panel").waitFor();
@@ -219,7 +240,9 @@ try {
   const goodChange = await goodChangePromise;
   assert.equal(goodChange.status(), 200, "the current password should permit a password change");
   assert.match(await passwordChangePage.locator('.customer-password-panel [role="status"]').innerText(), /نشست‌های دیگر/);
-  const otherSession = await otherSessionPage.request.get(new URL("/api/auth/get-session?disableCookieCache=true", baseUrl).toString());
+  const otherSession = await fetch(new URL("/api/auth/get-session", baseUrl), {
+    headers: { cookie: `${otherSessionTokenCookieBeforeChange.name}=${otherSessionTokenCookieBeforeChange.value}` },
+  });
   assert.equal((await otherSession.json())?.user ?? null, null, "changePassword must revoke other active sessions");
 
   await passwordChangePage.request.post(new URL("/api/auth/sign-out", baseUrl).toString(), { headers: { origin }, data: {} });

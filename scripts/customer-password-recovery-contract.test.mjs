@@ -16,6 +16,8 @@ const deploy = read(".github/workflows/deploy-liara.yml");
 test("Better Auth uses a one-hour, one-use recovery token and revokes sessions", () => {
   assert.match(authServer, /resetPasswordTokenExpiresIn:\s*60\s*\*\s*60/);
   assert.match(authServer, /revokeSessionsOnPasswordReset:\s*true/);
+  assert.match(authServer, /cookieCache:\s*\{\s*enabled:\s*false\s*\}/,
+    "revoked sessions must not remain valid in another device's signed cookie cache");
   assert.match(authServer, /"reset-password:":\s*"hashed"/);
   assert.match(authServer, /minPasswordLength:\s*8/);
   assert.match(authServer, /maxPasswordLength:\s*128/);
@@ -73,4 +75,12 @@ test("Verify runs a real recovery lifecycle against disposable PostgreSQL and a 
     "an incorrect current password must not change the credential",
     "changePassword must revoke other active sessions",
   ]) assert.ok(e2e.includes(behavior), `E2E must cover: ${behavior}`);
+  assert.doesNotMatch(e2e, /get-session\?disableCookieCache=true/,
+    "cross-device revocation must be tested through the default session endpoint behavior");
+  assert.match(e2e, /headers:\s*\{\s*cookie:\s*`\$\{secondSessionTokenCookieBeforeReset\.name\}/,
+    "reset revocation must send the second browser's original cookie even if the server clears it in its response");
+  assert.match(e2e, /headers:\s*\{\s*cookie:\s*`\$\{otherSessionTokenCookieBeforeChange\.name\}/,
+    "password-change revocation must send the other browser's original cookie even if the server clears it in its response");
+  assert.match(e2e, /typeof session\.status === "function" \? session\.status\(\) : session\.status/,
+    "the smoke must read status consistently from Playwright and native Fetch responses");
 });
