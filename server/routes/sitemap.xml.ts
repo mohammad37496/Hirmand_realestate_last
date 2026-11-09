@@ -106,7 +106,7 @@ async function loadGuideUrls(): Promise<{ loc: string; lastmod?: string }[]> {
     try {
       const res = await pool.query<{ id: string; updated_at: Date | string | null }>(
         `select id, updated_at from site_content_items
-         where kind = 'guide' and active = true and id ~ '^[a-z0-9-]{2,80}$'
+         where kind = 'guide' and active = true and id ~* '^[a-z0-9-]{2,80}$'
          order by sort_order asc, updated_at desc limit 1000`,
       );
       if (!res.rows.length) {

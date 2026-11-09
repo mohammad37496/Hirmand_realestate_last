@@ -26,7 +26,7 @@ test("guide library links and shares the stable article URL", () => {
 test("sitemap includes published guide detail URLs from the content table", () => {
   const sitemap = read("../server/routes/sitemap.xml.ts");
   assert.match(sitemap, /function loadGuideUrls/);
-  assert.match(sitemap, /kind = 'guide' and active = true/);
+  assert.match(sitemap, /kind = 'guide' and active = true and id ~\* '\^\[a-z0-9-\]/);
   assert.match(sitemap, /select exists\(select 1 from site_content_items\) as has_content/);
   assert.match(sitemap, /if \(!existing\.rows\[0\]\?\.has_content\)/);
   assert.match(sitemap, /`\$\{SITE\}\/guides\/\$\{encodeURIComponent\(String\(row\.id\)\)\}`/);
