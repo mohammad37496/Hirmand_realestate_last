@@ -47,7 +47,7 @@ export function buildPublicPropertyOrderBySql(sortParameter = "$38::text"): stri
     `case when ${sortParameter} = 'price_asc' then ${PRICE_EXPR} end asc nulls last,`,
     `case when ${sortParameter} = 'price_desc' then ${PRICE_EXPR} end desc nulls last,`,
     `case when ${sortParameter} = 'area_asc' then area_m2 end asc nulls last,`,
-    `case when ${sortParameter} = 'area_desc' then area_m2 end asc nulls last,`,
+    `case when ${sortParameter} = 'area_desc' then area_m2 end desc nulls last,`,
     "published_at desc nulls last, created_at desc nulls last, id desc",
   ].join(" ");
 }
