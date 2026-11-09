@@ -123,16 +123,32 @@ jobs:
           sudo mkdir -p /workspace
           sudo chown "$USER":"$USER" /workspace
 
-          npx vite preview --host 127.0.0.1 --port 8081 > /tmp/hirmand-preview.log 2>&1 &
+          node scripts/password-reset-mail-mock.mjs > /tmp/hirmand-password-reset-mail-mock.log 2>&1 &
+          MAIL_MOCK_PID=$!
+          for attempt in {1..20}; do
+            if curl --silent --fail http://127.0.0.1:4321/count >/dev/null; then break; fi
+            sleep 0.5
+          done
+
+          BETTER_AUTH_URL=http://localhost:8081 \
+          RESEND_API_URL=http://127.0.0.1:4321/emails \
+          RESEND_API_KEY=ci-password-reset-test-key \
+          RESEND_FROM_EMAIL='Hirmand <accounts@hirmandrealestate.ir>' \
+            npx vite preview --host 127.0.0.1 --port 8081 > /tmp/hirmand-preview.log 2>&1 &
           PREVIEW_PID=$!
 
           cleanup() {
             status=$?
             kill "$PREVIEW_PID" >/dev/null 2>&1 || true
             wait "$PREVIEW_PID" >/dev/null 2>&1 || true
+            kill "$MAIL_MOCK_PID" >/dev/null 2>&1 || true
+            wait "$MAIL_MOCK_PID" >/dev/null 2>&1 || true
             if [ "$status" -ne 0 ]; then
               echo "::group::Vite preview log"
               cat /tmp/hirmand-preview.log || true
+              echo "::endgroup::"
+              echo "::group::Password-reset mail mock log"
+              cat /tmp/hirmand-password-reset-mail-mock.log || true
               echo "::endgroup::"
             fi
             exit "$status"
@@ -159,6 +175,9 @@ jobs:
           # Exercise real Better Auth sessions and per-account workspace
           # isolation against this job's disposable PostgreSQL service.
           CUSTOMER_AUTH_SMOKE_URL=http://localhost:8081 node scripts/customer-auth-e2e-smoke.mjs
+          # Exercise the complete recovery and password-change lifecycle using
+          # a loopback-only Resend mock; no external email is ever sent.
+          PASSWORD_RESET_SMOKE_URL=http://localhost:8081 node scripts/password-reset-e2e-smoke.mjs
           node scripts/music-player-browser.test.mjs http://127.0.0.1:8081
           # End-to-end proof of the admin upload path: begin → chunks → complete.
           # Anonymous reads must return 404; the authenticated same-origin read

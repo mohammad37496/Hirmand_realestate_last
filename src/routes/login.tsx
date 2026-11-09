@@ -11,6 +11,9 @@ import "@/login.css";
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
     next: getSafeLoginReturnPath(search.next),
+    ...(typeof search.token === "string" ? { token: search.token } : {}),
+    ...(typeof search.error === "string" ? { error: search.error } : {}),
+    ...(search.reset === "success" ? { reset: "success" as const } : {}),
   }),
   head: () => ({
     meta: [
@@ -23,17 +26,77 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { next } = Route.useSearch();
+  const { next, token, error: resetError, reset } = Route.useSearch();
   const { user, isPending } = useCurrentUserState();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot" | "reset">(token || resetError ? "reset" : "signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState(reset === "success" ? "رمز عبور با موفقیت تغییر کرد. برای ورود، رمز جدید را وارد کنید." : "");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (token || resetError) setMode("reset");
+  }, [token, resetError]);
+
+  async function requestPasswordReset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    setBusy(true);
+    try {
+      const result = await authClient.requestPasswordReset({
+        email: email.trim(),
+        redirectTo: `${window.location.origin}/login`,
+      });
+      if (result.error) {
+        if (result.error.status === 429) throw new Error("درخواست‌های بازیابی بیش از حد مجاز است. یک دقیقه دیگر دوباره تلاش کنید.");
+        throw new Error("ارسال درخواست انجام نشد. کمی بعد دوباره تلاش کنید.");
+      }
+      setMessage("اگر این ایمیل در هیرمند حساب کاربری داشته باشد، پیوند بازیابی برای آن ارسال می‌شود. پوشه هرزنامه را هم بررسی کنید.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "ارتباط با سامانه بازیابی برقرار نشد. دوباره تلاش کنید.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    if (!token) {
+      setError("پیوند بازیابی معتبر نیست یا اعتبار آن پایان یافته است. درخواست پیوند تازه بدهید.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("تکرار رمز عبور با رمز جدید یکسان نیست.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await authClient.resetPassword({ token, newPassword: password });
+      if (result.error) {
+        const code = result.error.code;
+        if (code === "INVALID_TOKEN") throw new Error("پیوند بازیابی نامعتبر، منقضی یا قبلاً استفاده شده است. پیوند تازه‌ای درخواست کنید.");
+        if (code === "PASSWORD_TOO_SHORT") throw new Error("رمز جدید باید حداقل ۸ نویسه داشته باشد.");
+        if (code === "PASSWORD_TOO_LONG") throw new Error("رمز جدید نباید بیشتر از ۱۲۸ نویسه باشد.");
+        throw new Error("تغییر رمز انجام نشد. پیوند تازه‌ای درخواست کنید یا دوباره تلاش کنید.");
+      }
+      // Reset revokes DB sessions. Explicitly clear this browser's cached
+      // session/cookies as well, then reload so the sign-in form is authoritative.
+      await authClient.signOut().catch(() => undefined);
+      window.location.replace("/login?reset=success");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "تغییر رمز انجام نشد. دوباره تلاش کنید.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,6 +122,40 @@ function LoginPage() {
           <div className="customer-login-brand"><span><UserRound size={24} /></span><small>فضای شخصی هیرمند</small></div>
           {!mounted || isPending ? (
             <div className="customer-login-loading"><LoaderCircle size={22} /> در حال بررسی حساب…</div>
+          ) : mode === "forgot" ? (
+            <>
+              <h1 id="customer-login-title">بازیابی رمز عبور</h1>
+              <p className="customer-login-intro">ایمیل حساب خود را وارد کنید تا در صورت وجود حساب، پیوند امن بازیابی برایتان ارسال شود.</p>
+              <form className="customer-login-form" onSubmit={(event) => void requestPasswordReset(event)}>
+                <label><span>ایمیل حساب</span><div><Mail size={17} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" maxLength={254} required placeholder="name@example.com" dir="ltr" /></div></label>
+                {error ? <p className="customer-login-error" role="alert">{error}</p> : null}
+                {message ? <p className="customer-login-notice" role="status">{message}</p> : null}
+                <button type="submit" className="customer-login-submit" disabled={busy}>
+                  {busy ? <LoaderCircle size={17} className="customer-login-spin" /> : <Mail size={17} />}
+                  {busy ? "در حال ارسال…" : "ارسال پیوند بازیابی"}
+                </button>
+              </form>
+              <button type="button" className="customer-login-text-button" onClick={() => { setMode("signin"); setError(""); setMessage(""); }}>بازگشت به ورود</button>
+            </>
+          ) : mode === "reset" ? (
+            <>
+              <h1 id="customer-login-title">تعیین رمز عبور جدید</h1>
+              <p className="customer-login-intro">رمز جدید باید حداقل ۸ و حداکثر ۱۲۸ نویسه داشته باشد. پیوند بازیابی فقط یک‌بار و تا یک ساعت معتبر است.</p>
+              {token ? (
+                <form className="customer-login-form" onSubmit={(event) => void resetPassword(event)}>
+                  <label><span>رمز عبور جدید</span><div><KeyRound size={17} /><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={8} maxLength={128} required placeholder="حداقل ۸ نویسه" dir="ltr" /></div></label>
+                  <label><span>تکرار رمز عبور جدید</span><div><KeyRound size={17} /><input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} maxLength={128} required placeholder="رمز جدید را دوباره وارد کنید" dir="ltr" /></div></label>
+                  {error ? <p className="customer-login-error" role="alert">{error}</p> : null}
+                  <button type="submit" className="customer-login-submit" disabled={busy}>
+                    {busy ? <LoaderCircle size={17} className="customer-login-spin" /> : <ShieldCheck size={17} />}
+                    {busy ? "در حال ذخیره…" : "ثبت رمز جدید"}
+                  </button>
+                </form>
+              ) : (
+                <p className="customer-login-error" role="alert">پیوند بازیابی نامعتبر یا منقضی شده است.</p>
+              )}
+              <button type="button" className="customer-login-text-button" onClick={() => { setMode("forgot"); setError(""); setMessage(""); }}>درخواست پیوند بازیابی تازه</button>
+            </>
           ) : user ? (
             <div className="customer-login-signed-in">
               <ShieldCheck size={34} />
@@ -89,11 +186,14 @@ function LoginPage() {
                 <label><span>ایمیل</span><div><Mail size={17} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" maxLength={254} required placeholder="name@example.com" dir="ltr" /></div></label>
                 <label><span>رمز عبور</span><div><KeyRound size={17} /><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={8} maxLength={128} required placeholder="حداقل ۸ نویسه" dir="ltr" /></div></label>
                 {error ? <p className="customer-login-error" role="alert">{error}</p> : null}
+                {message ? <p className="customer-login-notice" role="status">{message}</p> : null}
                 <button type="submit" className="customer-login-submit" disabled={busy}>
                   {busy ? <LoaderCircle size={17} className="customer-login-spin" /> : <ShieldCheck size={17} />}
                   {busy ? "در حال انجام…" : mode === "signup" ? "ساخت حساب و ورود" : "ورود به حساب"}
                 </button>
               </form>
+
+              {mode === "signin" ? <button type="button" className="customer-login-text-button" onClick={() => { setMode("forgot"); setError(""); setMessage(""); }}>رمز عبور را فراموش کرده‌اید؟</button> : null}
 
               {GROK_PROVIDERS.length ? <>
                 <div className="customer-login-divider"><span>یا ورود با</span></div>

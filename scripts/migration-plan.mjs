@@ -61,6 +61,7 @@ export const CUSTOMER_AUTH_MIGRATIONS = Object.freeze([
   "0001_auth.sql",
   "0058_customer_workspace.sql",
   "0059_customer_workspace_revision.sql",
+  "0101_auth_rate_limit.sql",
 ]);
 
 /**
