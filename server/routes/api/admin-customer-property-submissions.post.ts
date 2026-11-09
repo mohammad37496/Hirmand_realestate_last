@@ -11,6 +11,7 @@ import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { updatePendingCustomerPropertySubmissionReview } from "@/lib/customer-property-submission-review";
 import { bulkRejectPendingCustomerPropertySubmissions } from "@/lib/customer-property-submission-lead-sync";
+import { loadCustomerSubmissionQueueStats } from "@/lib/customer-submission-queue-stats";
 
 type Action = "list" | "approve" | "reject" | "update" | "set_priority" | "history" | "bulk_set_priority" | "bulk_reject" | "export" | "assign_consultant";
 
@@ -127,30 +128,13 @@ export default defineEventHandler(async (event) => {
       if (row.status === "pending" || row.status === "approved" || row.status === "rejected") counts[row.status] = Number(row.count) || 0;
     }
     const total = Number(totalRows[0]?.count) || 0;
-    const workloadRows = await sql.query<{ assigned_consultant_phone: string | null; count: number }>(
-      "select assigned_consultant_phone,count(*)::int as count from customer_property_submissions where status='pending' group by assigned_consultant_phone",
-    ).catch(() => [] as { assigned_consultant_phone: string | null; count: number }[]);
-    const workloadByPhone = new Map(workloadRows.map((row) => [String(row.assigned_consultant_phone ?? ""), Number(row.count) || 0]));
-    const slaRows = await sql.query<{ overdue: number; high_priority: number; unassigned: number; average_age_hours: number | null }>(
-      "select count(*) filter (where coalesce(queue_started_at,created_at) < current_timestamp - interval '24 hours')::int as overdue, count(*) filter (where priority='high')::int as high_priority, count(*) filter (where assigned_consultant_phone is null or assigned_consultant_phone='')::int as unassigned, avg(extract(epoch from (current_timestamp-coalesce(queue_started_at,created_at)))/3600)::float8 as average_age_hours from customer_property_submissions where status='pending'",
-    ).catch(() => [{ overdue: 0, high_priority: 0, unassigned: 0, average_age_hours: 0 }]);
-    const sla = slaRows[0] ?? { overdue: 0, high_priority: 0, unassigned: 0, average_age_hours: 0 };
+    const queueStats = await loadCustomerSubmissionQueueStats(sql, TEAM);
     return {
       total,
       page,
       pageSize,
       counts,
-      queueStats: {
-        overdue: Number(sla.overdue) || 0,
-        highPriority: Number(sla.high_priority) || 0,
-        unassigned: Number(sla.unassigned) || 0,
-        averageAgeHours: Number(sla.average_age_hours) || 0,
-        consultants: TEAM.map((person) => ({
-          name: person.name,
-          phone: person.phone,
-          count: workloadByPhone.get(person.phone) ?? 0,
-        })),
-      },
+      queueStats,
       submissions: rows.map((row) => ({
         id: String(row.id),
         leadId: row.lead_id == null ? null : String(row.lead_id),
