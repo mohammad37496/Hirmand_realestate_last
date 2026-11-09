@@ -406,6 +406,42 @@ test("public listing area sort honors ascending and descending directions", asyn
   }
 });
 
+test("malformed legacy other-amenities JSONB objects do not false-match spec filters", async () => {
+  const db = await createFixtureDb();
+  try {
+    await db.exec(`
+      update properties
+         set other_amenities='{"pool":true}'::jsonb
+       where id='sale-a';
+      update properties
+         set other_amenities='42'::jsonb
+       where id='sale-b';
+      update properties
+         set other_amenities='["pool"]'::jsonb
+       where id='rent-c';
+    `);
+
+    assert.deepEqual(await searchIds(db, { specFilters: ["pool"] }), ["rent-c"]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("malformed legacy features JSONB values do not crash feature search", async () => {
+  const db = await createFixtureDb();
+  try {
+    await db.exec(`
+      update properties set features='{"unexpected":true}'::jsonb where id='sale-a';
+      update properties set features='"legacy scalar"'::jsonb where id='sale-b';
+      update properties set features='["بالکن"]'::jsonb where id='rent-c';
+    `);
+
+    assert.deepEqual(await searchIds(db, { featureSearch: "بالکن" }), ["rent-c"]);
+  } finally {
+    await db.close();
+  }
+});
+
 
 test("public property SQL excludes unsupported legacy floor values", () => {
   assert.match(buildPublicPropertyWhereSql(), /floor is null or floor = -60 or floor between 0 and 20/);

@@ -69,7 +69,9 @@ function buildSpecFilterSql(): string {
     { selected: "selected.value like 'closet:%'", matches: "wall_closet_type = substring(selected.value from 8)" },
     {
       selected: "selected.value not like 'cabinet:%' and selected.value not like 'flooring:%' and selected.value not like 'cooling:%' and selected.value not like 'heating:%' and selected.value not like 'closet:%'",
-      matches: "coalesce(other_amenities, '[]'::jsonb) ? selected.value",
+      matches:
+        "case when jsonb_typeof(coalesce(other_amenities, '[]'::jsonb)) = 'array' " +
+        "then coalesce(other_amenities, '[]'::jsonb) ? selected.value else false end",
     },
   ];
 
@@ -106,7 +108,7 @@ export function buildPublicPropertyWhereSql(): string {
     "and ($20::boolean is false or elevator = true)",
     "and ($21::boolean is false or storage = true)",
     buildSpecFilterSql(),
-    `and ($23::text is null or exists (select 1 from jsonb_array_elements_text(coalesce(features, '[]'::jsonb)) as feature(value) where strpos(${normalizedTextSql("feature.value")}, ${normalizedTextSql("$23::text")}) > 0))`,
+    `and ($23::text is null or exists (select 1 from jsonb_array_elements_text(case when jsonb_typeof(coalesce(features, '[]'::jsonb)) = 'array' then coalesce(features, '[]'::jsonb) else '[]'::jsonb end) as feature(value) where strpos(${normalizedTextSql("feature.value")}, ${normalizedTextSql("$23::text")}) > 0))`,
     "and ($24::boolean is false or (jsonb_typeof(coalesce(images, '[]'::jsonb)) = 'array' and jsonb_array_length(coalesce(images, '[]'::jsonb)) > 0))",
     "and ($25::boolean is false or (latitude is not null and longitude is not null))",
     "and ($26::text is null or floor_label = $26)",
