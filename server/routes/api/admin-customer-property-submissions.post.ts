@@ -11,6 +11,7 @@ import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { updatePendingCustomerPropertySubmissionReview } from "@/lib/customer-property-submission-review";
 import { bulkRejectPendingCustomerPropertySubmissions } from "@/lib/customer-property-submission-lead-sync";
+import { loadCustomerSubmissionHistory } from "@/lib/customer-submission-history";
 
 type Action = "list" | "approve" | "reject" | "update" | "set_priority" | "history" | "bulk_set_priority" | "bulk_reject" | "export" | "assign_consultant";
 
@@ -289,20 +290,7 @@ export default defineEventHandler(async (event) => {
   if (!body.id) throw createError({ statusCode: 400, statusMessage: "شناسه درخواست مشخص نیست." });
 
   if (action === "history") {
-    const events = await sql.query<Record<string, unknown>>(
-      "select id,action,note,metadata,created_at from customer_property_submission_events where submission_id=$1 order by created_at desc limit 50",
-      [body.id],
-    ).catch(() => [] as Record<string, unknown>[]);
-    return {
-      success: true,
-      events: events.map((row) => ({
-        id: String(row.id),
-        action: String(row.action),
-        note: String(row.note ?? ""),
-        metadata: row.metadata && typeof row.metadata === "object" ? row.metadata : {},
-        createdAt: new Date(String(row.created_at)).toISOString(),
-      })),
-    };
+    return { success: true, events: await loadCustomerSubmissionHistory(sql, body.id) };
   }
 
   if (action === "set_priority") {
