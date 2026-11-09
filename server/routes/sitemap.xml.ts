@@ -109,6 +109,15 @@ async function loadGuideUrls(): Promise<{ loc: string; lastmod?: string }[]> {
          where kind = 'guide' and active = true and id ~ '^[a-z0-9-]{2,80}$'
          order by sort_order asc, updated_at desc limit 1000`,
       );
+      if (!res.rows.length) {
+        const existing = await pool.query<{ has_content: boolean }>(
+          "select exists(select 1 from site_content_items) as has_content",
+        );
+        if (!existing.rows[0]?.has_content) {
+          return DEFAULT_GUIDES.map((guide) => ({ loc: `${SITE}/guides/${encodeURIComponent(guide.id)}` }));
+        }
+        return [];
+      }
       return res.rows.map((row) => ({
         loc: `${SITE}/guides/${encodeURIComponent(String(row.id))}`,
         lastmod: row.updated_at != null ? new Date(row.updated_at).toISOString().slice(0, 10) : undefined,
