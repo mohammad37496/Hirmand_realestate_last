@@ -94,7 +94,14 @@ export type SaveAdminLeadMatchesResult = { kind: "updated" } | { kind: "not_foun
 /** Persist the computed match snapshot and its CRM timeline entry atomically. */
 export async function saveAdminLeadMatchesWithActivity(
   sql: Sql,
-  input: { leadId: string; matches: unknown[]; count: number; mode: string; modeLabel: string },
+  input: {
+    leadId: string;
+    matches: unknown[];
+    count: number;
+    mode: string;
+    modeLabel: string;
+    activity?: { title: string; note: string; metadata?: Record<string, unknown> };
+  },
 ): Promise<SaveAdminLeadMatchesResult> {
   if (typeof sql.transaction !== "function") {
     throw new Error("Database transaction support is required for lead match updates.");
@@ -107,13 +114,18 @@ export async function saveAdminLeadMatchesWithActivity(
     );
     if (!rows[0]) return { kind: "not_found" };
 
+    const activity = input.activity ?? {
+      title: "مچ فایل‌ها انجام شد",
+      note: "معیار: " + input.modeLabel + " · " + input.count + " فایل پیشنهاد شد.",
+      metadata: { mode: input.mode, count: input.count },
+    };
     await tx.query(
       "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'match',$2,$3,$4::jsonb)",
       [
         input.leadId,
-        "مچ فایل‌ها انجام شد",
-        "معیار: " + input.modeLabel + " · " + input.count + " فایل پیشنهاد شد.",
-        JSON.stringify({ mode: input.mode, count: input.count }),
+        activity.title,
+        activity.note,
+        JSON.stringify(activity.metadata ?? {}),
       ],
     );
     return { kind: "updated" };

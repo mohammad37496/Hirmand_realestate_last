@@ -1,6 +1,7 @@
-import { getSql } from "@/lib/db";
-import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
-import { isAllowedPropertyFloorValue } from "@/lib/property-options";
+import type { getSql } from "./db.ts";
+import { DEFAULT_MATCH_RAHN_RATE } from "./budget-matching.ts";
+import { isAllowedPropertyFloorValue } from "./property-options.ts";
+import { saveAdminLeadMatchesWithActivity } from "./admin-lead-activity-action.ts";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 type SqlClient = Awaited<ReturnType<typeof getSql>>;
@@ -412,45 +413,36 @@ export async function autoMatchLead(
 
   const matches = scored.map(({ row, scored }) => serializeMatch(row, scored));
 
-  await sql.query(
-    `update leads
-     set matched_properties = $2::jsonb,
-         match_count = $3,
-         updated_at = current_timestamp
-     where id = $1`,
-    [
-      leadId,
-      JSON.stringify(matches.map((match) => ({
-        id: match.id,
-        slug: match.slug,
-        title: match.title,
-        score: match.score,
-        priceMatch: match.priceMatch,
-        amenityCoverage: match.amenityCoverage,
-        mode,
-        automatic: true,
-        updatedAt: match.updatedAt,
-      }))),
-      matches.length,
-    ],
-  );
-
-  await sql.query(
-    `insert into lead_activities
-      (lead_id, activity_type, title, note, metadata)
-     values ($1,'match',$2,$3,$4::jsonb)`,
-    [
-      leadId,
-      "پیشنهاد خودکار فایل‌ها انجام شد",
-      "موتور تطبیق هوشمند به‌صورت خودکار " + matches.length + " فایل برای این لید پیشنهاد کرد.",
-      JSON.stringify({
+  const saveResult = await saveAdminLeadMatchesWithActivity(sql, {
+    leadId,
+    matches: matches.map((match) => ({
+      id: match.id,
+      slug: match.slug,
+      title: match.title,
+      score: match.score,
+      priceMatch: match.priceMatch,
+      amenityCoverage: match.amenityCoverage,
+      mode,
+      automatic: true,
+      updatedAt: match.updatedAt,
+    })),
+    count: matches.length,
+    mode,
+    modeLabel: mode === "price" ? "قیمت حدودی"
+      : mode === "amenities" ? "امکانات"
+        : mode === "both" ? "قیمت و امکانات" : "تطبیق هوشمند",
+    activity: {
+      title: "پیشنهاد خودکار فایل‌ها انجام شد",
+      note: "موتور تطبیق هوشمند به‌صورت خودکار " + matches.length + " فایل برای این لید پیشنهاد کرد.",
+      metadata: {
         mode,
         automatic: true,
         count: matches.length,
         topScore: matches[0]?.score ?? null,
-      }),
-    ],
-  ).catch(() => {});
+      },
+    },
+  });
+  if (saveResult.kind === "not_found") return { count: 0, matches: [] };
 
   return { count: matches.length, matches };
 }
