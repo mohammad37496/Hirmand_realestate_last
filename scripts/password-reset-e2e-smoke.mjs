@@ -199,7 +199,8 @@ try {
           headers: { cookie: `${secondSessionTokenCookieBeforeReset.name}=${secondSessionTokenCookieBeforeReset.value}` },
         })
       : await page.request.get(new URL("/api/auth/get-session", baseUrl).toString());
-    assert.equal(session.status(), 200);
+    const sessionStatus = typeof session.status === "function" ? session.status() : session.status;
+    assert.equal(sessionStatus, 200);
     assert.equal((await session.json())?.user ?? null, null, "password reset must revoke every previous session");
   }
 

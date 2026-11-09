@@ -81,4 +81,6 @@ test("Verify runs a real recovery lifecycle against disposable PostgreSQL and a 
     "reset revocation must send the second browser's original cookie even if the server clears it in its response");
   assert.match(e2e, /headers:\s*\{\s*cookie:\s*`\$\{otherSessionTokenCookieBeforeChange\.name\}/,
     "password-change revocation must send the other browser's original cookie even if the server clears it in its response");
+  assert.match(e2e, /typeof session\.status === "function" \? session\.status\(\) : session\.status/,
+    "the smoke must read status consistently from Playwright and native Fetch responses");
 });
