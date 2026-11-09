@@ -22,6 +22,7 @@ type Group = {
 export function AdminLeadDedupe() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const { confirm, dialog } = useConfirmDialog();
 
@@ -36,9 +37,11 @@ export function AdminLeadDedupe() {
       const data = await response.json() as { groups?: Group[]; total?: number };
       if (!response.ok) throw new Error((data as { statusMessage?: string }).statusMessage || "موارد تکراری بارگذاری نشد.");
       setGroups(Array.isArray(data.groups) ? data.groups : []);
+      setLoadError(null);
     } catch (error) {
-      toast.error(adminErrorMessage(error, "بررسی لیدهای تکراری انجام نشد."));
-      setGroups([]);
+      const message = adminErrorMessage(error, "بررسی لیدهای تکراری انجام نشد.");
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -85,13 +88,13 @@ export function AdminLeadDedupe() {
   }[value] ?? value);
 
   return (
-    <details className="admin-panel" style={{ marginTop: 14 }} open={groups.length > 0}>
+    <details className="admin-panel" style={{ marginTop: 14 }} open={groups.length > 0 || Boolean(loadError)}>
       {dialog}
       <summary style={{ cursor: "pointer", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <ShieldCheck size={17} />
           پاک‌سازی لیدهای تکراری
-          <span className="admin-lead-status" style={{ marginInlineStart: 4 }}>{groups.length.toLocaleString("fa-IR")} مورد</span>
+          <span className="admin-lead-status" style={{ marginInlineStart: 4 }}>{loadError ? "خطا در بارگذاری" : groups.length.toLocaleString("fa-IR") + " مورد"}</span>
         </span>
         <button type="button" className="btn-ghost" onClick={(event) => { event.preventDefault(); void load(); }} disabled={loading}>
           <RefreshCw size={14} className={loading ? "admin-spin" : ""} />
@@ -100,7 +103,13 @@ export function AdminLeadDedupe() {
       </summary>
       <div style={{ display: "grid", gap: 9, marginTop: 14 }}>
         {loading ? <div className="admin-empty"><RefreshCw size={22} className="admin-spin" />در حال بررسی شماره‌های تکراری…</div> : null}
-        {!loading && !groups.length ? <div className="admin-empty"><UsersRound size={22} />مورد واضحی برای ادغام پیدا نشد.</div> : null}
+        {!loading && loadError ? (
+          <div className="admin-empty" role="alert">
+            <span>{loadError}؛ نتیجه خالی به معنی نبود لید تکراری نیست.</span>
+            <button type="button" className="btn-ghost" onClick={() => void load()}>تلاش مجدد</button>
+          </div>
+        ) : null}
+        {!loading && !loadError && !groups.length ? <div className="admin-empty"><UsersRound size={22} />مورد واضحی برای ادغام پیدا نشد.</div> : null}
         {groups.slice(0, 20).map((group) => (
           <div key={group.id} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
             <small style={{ color: "var(--subtle)", fontWeight: 800 }}>{group.reason}</small>
