@@ -7,6 +7,7 @@ import { allAreas, areaPath } from "../../src/lib/areas";
 import { TEAM } from "../../src/lib/site";
 import { canonicalSiteUrl } from "../../src/lib/site-url.mjs";
 import { propertyPath } from "../../src/lib/property-path";
+import { DEFAULT_GUIDES } from "../../src/lib/site-content-static";
 import { resolveDatabaseUrl } from "../../scripts/resolve-database-url.mjs";
 
 const FINANCE_TOOL_PATHS = [
@@ -93,6 +94,43 @@ async function loadPropertyUrls(): Promise<{ loc: string; lastmod?: string; imag
   }
 }
 
+async function loadGuideUrls(): Promise<{ loc: string; lastmod?: string }[]> {
+  const databaseUrl = resolveDatabaseUrl().url;
+  if (!databaseUrl) {
+    return DEFAULT_GUIDES.map((guide) => ({ loc: `${SITE}/guides/${encodeURIComponent(guide.id)}` }));
+  }
+
+  try {
+    const { Pool } = await import("pg");
+    const pool = new Pool({ connectionString: databaseUrl, max: 1, idleTimeoutMillis: 3000, connectionTimeoutMillis: 3000 });
+    try {
+      const res = await pool.query<{ id: string; updated_at: Date | string | null }>(
+        `select id, updated_at from site_content_items
+         where kind = 'guide' and active = true and id ~* '^[a-z0-9-]{2,80}$'
+         order by sort_order asc, updated_at desc limit 1000`,
+      );
+      if (!res.rows.length) {
+        const existing = await pool.query<{ has_content: boolean }>(
+          "select exists(select 1 from site_content_items) as has_content",
+        );
+        if (!existing.rows[0]?.has_content) {
+          return DEFAULT_GUIDES.map((guide) => ({ loc: `${SITE}/guides/${encodeURIComponent(guide.id)}` }));
+        }
+        return [];
+      }
+      return res.rows.map((row) => ({
+        loc: `${SITE}/guides/${encodeURIComponent(String(row.id))}`,
+        lastmod: row.updated_at != null ? new Date(row.updated_at).toISOString().slice(0, 10) : undefined,
+      }));
+    } finally {
+      await pool.end().catch(() => undefined);
+    }
+  } catch (err) {
+    console.error("[sitemap] guide query failed", err);
+    return DEFAULT_GUIDES.map((guide) => ({ loc: `${SITE}/guides/${encodeURIComponent(guide.id)}` }));
+  }
+}
+
 export default defineEventHandler(async (event) => {
   const today = new Date().toISOString().slice(0, 10);
   const entries: string[] = [];
@@ -102,6 +140,7 @@ export default defineEventHandler(async (event) => {
   entries.push(urlEntry(`${SITE}/tools`, "monthly", "0.7", today));
   entries.push(urlEntry(`${SITE}/consultants`, "weekly", "0.7", today));
   entries.push(urlEntry(`${SITE}/budget-match`, "daily", "0.8", today));
+  entries.push(urlEntry(`${SITE}/guides`, "weekly", "0.7", today));
 
   for (const path of FINANCE_TOOL_PATHS) {
     entries.push(urlEntry(`${SITE}${path}`, "monthly", "0.6", today));
@@ -118,6 +157,11 @@ export default defineEventHandler(async (event) => {
   const properties = await loadPropertyUrls();
   for (const item of properties) {
     entries.push(urlEntry(item.loc, "weekly", "0.8", item.lastmod ?? today, item.images));
+  }
+
+  const guides = await loadGuideUrls();
+  for (const item of guides) {
+    entries.push(urlEntry(item.loc, "monthly", "0.6", item.lastmod ?? today));
   }
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${entries.join("\n")}\n</urlset>\n`;
