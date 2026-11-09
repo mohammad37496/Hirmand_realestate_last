@@ -24,6 +24,7 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import { mediaSourceCandidates } from "@/lib/media";
 import {
   countPublishedProperties,
+  isFeaturedActive,
   listPublishedPropertyCards,
   type PropertySort,
   type PropertyTransaction,
@@ -1973,7 +1974,7 @@ function PropertiesIndexPage() {
                             <span className="pf-map-item-media">
                               {property.image ? <img src={mediaSourceCandidates(property.image)[0] ?? property.image} alt="" loading="lazy" /> : <MapIcon size={20} />}
                               <span className="pf-map-item-badge">
-                                {property.featured ? "ویژه" : property.transactionType === "rent" ? "اجاره" : property.transactionType === "mortgage" ? "رهن کامل" : "فروش"}
+                                {isFeaturedActive(property) ? "ویژه" : property.transactionType === "rent" ? "اجاره" : property.transactionType === "mortgage" ? "رهن کامل" : "فروش"}
                               </span>
                             </span>
                             <span className="pf-map-item-copy">
