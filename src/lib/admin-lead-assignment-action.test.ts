@@ -4,6 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import type { Sql } from "./db.ts";
 import { assignAdminLeadToConsultant } from "./admin-lead-assignment-action.ts";
 import { saveAdminLeadMatchesWithActivity, updateAdminLeadWithActivity, type AdminLeadActivityMutation } from "./admin-lead-activity-action.ts";
+import { autoMatchLead } from "./lead-smart-matcher.server.ts";
 
 async function createFixture(options: { failActivity?: boolean } = {}) {
   const pg = new PGlite();
@@ -289,4 +290,162 @@ test("lead match save fails closed without transaction support", async () => {
     mode: "smart",
     modeLabel: "تطبیق هوشمند",
   }), /transaction support is required/);
+});
+
+test("automatic lead matching uses the transactional snapshot-and-timeline writer", async () => {
+  const calls: string[] = [];
+  const lead = {
+    id: "lead-1",
+    deal: "خرید",
+    property_type: "apartment",
+    neighborhood: "",
+    floor_preference: null,
+    requested_bedrooms: null,
+    requested_amenities: [],
+    budget_deposit: null,
+    budget_rent: null,
+    budget_purchase: 1_000_000_000,
+    budget_sale: null,
+    budget_deposit_min: null,
+    budget_deposit_max: null,
+    budget_rent_min: null,
+    budget_rent_max: null,
+    budget_purchase_min: null,
+    budget_purchase_max: null,
+    budget_sale_min: null,
+    budget_sale_max: null,
+  };
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string) => {
+      calls.push(text);
+      if (text.includes("from leads")) return [lead] as T[];
+      if (text.includes("from lead_activities")) return [] as T[];
+      if (text.includes("from properties")) return [] as T[];
+      throw new Error("unexpected non-transaction query");
+    },
+    transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) => callback({
+      query: async <R = Record<string, unknown>>(text: string) => {
+        calls.push(text);
+        if (text.startsWith("update leads")) return [{ id: "lead-1" }] as R[];
+        if (text.startsWith("insert into lead_activities")) throw new Error("activity storage unavailable");
+        throw new Error("unexpected transaction query");
+      },
+    } as Sql),
+  } as Sql;
+
+  await assert.rejects(autoMatchLead(sql, "lead-1"), /activity storage unavailable/);
+  assert.ok(calls.some((query) => query.startsWith("update leads")), "the match snapshot write must be attempted");
+  assert.ok(calls.some((query) => query.startsWith("insert into lead_activities")), "the CRM timeline write must be attempted");
+});
+
+test("automatic lead matching preserves the previous snapshot when timeline storage fails", async () => {
+  const pg = new PGlite();
+  await pg.exec(`
+    create table leads (
+      id text primary key,
+      deal text not null,
+      property_type text,
+      neighborhood text,
+      floor_preference text,
+      requested_bedrooms integer,
+      requested_amenities jsonb not null default '[]'::jsonb,
+      budget_deposit numeric,
+      budget_rent numeric,
+      budget_purchase numeric,
+      budget_sale numeric,
+      budget_deposit_min numeric,
+      budget_deposit_max numeric,
+      budget_rent_min numeric,
+      budget_rent_max numeric,
+      budget_purchase_min numeric,
+      budget_purchase_max numeric,
+      budget_sale_min numeric,
+      budget_sale_max numeric,
+      matched_properties jsonb not null default '[]'::jsonb,
+      match_count integer not null default 0,
+      updated_at timestamptz not null default current_timestamp
+    );
+    create table properties (
+      id text primary key,
+      slug text,
+      title text,
+      transaction_type text,
+      property_type text,
+      neighborhood text,
+      area_m2 integer,
+      bedrooms integer,
+      bathrooms integer,
+      floor integer,
+      floor_label text,
+      total_floors integer,
+      built_year integer,
+      parking boolean,
+      elevator boolean,
+      storage boolean,
+      painted boolean,
+      wallpaper boolean,
+      convertible boolean,
+      cabinet_type text,
+      flooring_type text,
+      cooling_system text,
+      heating_system text,
+      wall_closet_type text,
+      other_amenities jsonb not null default '[]'::jsonb,
+      price numeric,
+      deposit numeric,
+      rent numeric,
+      published_at timestamptz,
+      created_at timestamptz,
+      updated_at timestamptz,
+      price_drop_percent numeric,
+      featured boolean not null default false,
+      featured_until timestamptz,
+      status text not null default 'published'
+    );
+    create table lead_activities (
+      id bigserial primary key,
+      lead_id text not null references leads(id),
+      activity_type text not null,
+      title text not null,
+      note text not null,
+      metadata jsonb not null default '{}'::jsonb,
+      created_at timestamptz not null default current_timestamp
+    );
+    insert into leads(id, deal, property_type, budget_purchase, matched_properties, match_count)
+      values ('lead-1', 'خرید', 'apartment', 1000000000, '[{"id":"previous-match"}]'::jsonb, 1);
+    insert into properties(id, slug, title, transaction_type, property_type, area_m2, price)
+      values ('property-1', 'property-1', 'فایل آزمایشی', 'sell', 'apartment', 100, 1000000000);
+    create function reject_auto_match_activity() returns trigger language plpgsql as $$
+      begin raise exception 'activity storage unavailable'; end
+    $$;
+    create trigger reject_auto_match_activity before insert on lead_activities
+      for each row execute function reject_auto_match_activity();
+  `);
+
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+      (await pg.query(text, params)).rows as T[],
+    transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+      pg.transaction(async (tx) => callback({
+        query: async <R = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+          (await tx.query(text, params)).rows as R[],
+      } as Sql)),
+  } as Sql;
+
+  try {
+    await assert.rejects(autoMatchLead(sql, "lead-1"), /activity storage unavailable/);
+    assert.deepEqual(await sql.query("select matched_properties,match_count from leads where id='lead-1'"), [
+      { matched_properties: [{ id: "previous-match" }], match_count: 1 },
+    ]);
+    assert.deepEqual(await sql.query("select id from lead_activities"), []);
+
+    await pg.exec("delete from properties");
+    await assert.rejects(autoMatchLead(sql, "lead-1"), /activity storage unavailable/);
+    assert.deepEqual(await sql.query("select matched_properties,match_count from leads where id='lead-1'"), [
+      { matched_properties: [{ id: "previous-match" }], match_count: 1 },
+    ]);
+    assert.deepEqual(await sql.query("select id from lead_activities"), []);
+  } finally {
+    await pg.close();
+  }
 });
