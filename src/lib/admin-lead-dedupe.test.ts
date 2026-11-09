@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import pg from "pg";
-import { mergeAdminLeadDuplicate } from "./admin-lead-dedupe.ts";
+import { listAdminLeadDuplicateCandidates, mergeAdminLeadDuplicate } from "./admin-lead-dedupe.ts";
 import type { Sql } from "./db.ts";
 
 const { Pool } = pg;
@@ -52,6 +52,30 @@ async function createFixture() {
   } as Sql;
   return { pg, sql };
 }
+
+test("duplicate candidate listing propagates database query failures", async () => {
+  const pg = new PGlite();
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+      (await pg.query(text, params)).rows as T[],
+  } as Sql;
+  try {
+    await assert.rejects(listAdminLeadDuplicateCandidates(sql), /relation .*leads.* does not exist/i);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("duplicate candidate listing returns actual active duplicate pairs", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    const rows = await listAdminLeadDuplicateCandidates(sql);
+    assert.equal(rows.length, 3);
+    assert.ok(rows.every((row) => row.reason === "تلفن مشترک"));
+  } finally {
+    await pg.close();
+  }
+});
 
 function deferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -274,8 +298,15 @@ test("lead dedupe suggestions and preview exclude closed and spam leads", async 
     new URL("../../server/routes/api/admin-lead-dedupe.post.ts", import.meta.url),
     "utf8",
   );
-  assert.match(route, /from leads\s+where status not in \('closed','spam'\)/i);
+  const helper = await readFile(new URL("./admin-lead-dedupe.ts", import.meta.url), "utf8");
+  const component = await readFile(new URL("../components/hirmand/admin-lead-dedupe.tsx", import.meta.url), "utf8");
+  assert.match(route, /listAdminLeadDuplicateCandidates\(sql\)/);
+  assert.match(helper, /from leads\s+where status not in \('closed','spam'\)/i);
+  assert.doesNotMatch(helper, /\.catch\(/, "database failures must not be converted into an empty duplicate list");
   assert.match(route, /from leads where id = any\(\$1::text\[\]\) and status not in \('closed','spam'\)/i);
   assert.match(route, /mergeAdminLeadDuplicate\(sql, canonicalId, duplicateId\)/);
   assert.match(route, /statusCode: 409[\s\S]*?قبلاً بسته یا ادغام شده است/);
+  assert.match(component, /setLoadError\(message\)/);
+  assert.match(component, /role="alert"/);
+  assert.match(component, /!loading && !loadError && !groups\.length/);
 });
