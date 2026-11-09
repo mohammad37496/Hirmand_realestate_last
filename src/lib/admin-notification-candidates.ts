@@ -12,7 +12,7 @@ export async function loadAdminNotificationCandidates(sql: Sql) {
       "select lead_id,count(*)::int as unread_count,max(created_at) as latest from customer_messages where sender_type='customer' and read_by_admin_at is null group by lead_id order by max(created_at) desc limit 30",
     ),
     sql.query<Record<string, unknown>>(
-      "select id,title from properties where deleted_at is null and status='published' and coalesce(jsonb_array_length(images),0)=0 order by updated_at desc limit 20",
+      "select id,title from properties where deleted_at is null and status='published' and coalesce(case when jsonb_typeof(images)='array' then jsonb_array_length(images) else 0 end,0)=0 order by updated_at desc limit 20",
     ),
   ]);
   return { leads, visits, messages, staleProperties };

@@ -10,6 +10,7 @@ test("notification source query failures are visible and do not become an empty 
   assert.match(server, /loadAdminNotificationCandidates\(sql\)/);
   assert.doesNotMatch(server, /follow_up_at is not null[\s\S]*?\.catch\(\(\) => \[\]/);
   assert.doesNotMatch(helper, /\.catch\(/);
+  assert.match(helper, /jsonb_typeof\(images\)='array'/);
   assert.match(component, /setLoadError\(message\)/);
   assert.match(component, /role="alert"/);
   assert.match(component, /!loadError && !visible\.length/);
