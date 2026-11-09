@@ -1,5 +1,3 @@
-import { setResponseStatus, type H3Event } from "h3";
-
 export function customerWorkspaceStatusText(statusCode: number) {
   if (statusCode === 400) return "Bad Request";
   if (statusCode === 401) return "Unauthorized";
@@ -9,8 +7,16 @@ export function customerWorkspaceStatusText(statusCode: number) {
   return "Internal Server Error";
 }
 
-/** Preserve private response headers when H3 would otherwise replace an error response. */
-export function customerWorkspaceHttpError(event: H3Event, error: unknown) {
+/** Keep account data out of shared caches on both successful and error responses. */
+export function customerWorkspacePrivateHeaders() {
+  return new Headers({
+    "Cache-Control": "private, no-store, max-age=0",
+    Vary: "Cookie, Authorization",
+  });
+}
+
+/** Return a stable JSON error without relying on an H3 event context. */
+export function customerWorkspaceErrorResponse(error: unknown) {
   const requestedStatus =
     error && typeof error === "object" && "statusCode" in error
       ? Number(error.statusCode)
@@ -21,11 +27,14 @@ export function customerWorkspaceHttpError(event: H3Event, error: unknown) {
 
   const statusText = customerWorkspaceStatusText(statusCode);
   if (statusCode >= 500) console.error("[customer-workspace] request failed", error);
-  setResponseStatus(event, statusCode, statusText);
   const message = statusCode === 401 ? "Unauthorized"
     : statusCode === 403 ? "Forbidden"
       : statusCode === 409 ? "Workspace account changed"
         : statusCode === 400 ? "Invalid workspace request"
           : "Workspace service unavailable";
-  return { error: true, status: statusCode, statusText, message };
+  return Response.json({ error: true, status: statusCode, statusText, message }, {
+    status: statusCode,
+    statusText,
+    headers: customerWorkspacePrivateHeaders(),
+  });
 }

@@ -33,6 +33,7 @@ import { Route as SubmitPropertyRouteImport } from './routes/submit-property'
 import { Route as TrackingRouteImport } from './routes/tracking'
 import { Route as ValuationRouteImport } from './routes/valuation'
 import { Route as AdminMobileManagementEmployeeIdRouteImport } from './routes/admin-mobile-management.$employeeId'
+import { Route as ApiCustomerWorkspaceRouteImport } from './routes/api/customer-workspace'
 import { Route as AreasIndexRouteImport } from './routes/areas.index'
 import { Route as AreasSlugRouteImport } from './routes/areas.$slug'
 import { Route as ConsultantsIndexRouteImport } from './routes/consultants.index'
@@ -169,6 +170,11 @@ const AdminMobileManagementEmployeeIdRoute =
     path: '/$employeeId',
     getParentRoute: () => AdminMobileManagementRoute,
   } as any)
+const ApiCustomerWorkspaceRoute = ApiCustomerWorkspaceRouteImport.update({
+  id: '/api/customer-workspace',
+  path: '/api/customer-workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AreasIndexRoute = AreasIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -265,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/tracking': typeof TrackingRoute
   '/valuation': typeof ValuationRoute
   '/admin-mobile-management/$employeeId': typeof AdminMobileManagementEmployeeIdRoute
+  '/api/customer-workspace': typeof ApiCustomerWorkspaceRoute
   '/areas/$slug': typeof AreasSlugRoute
   '/consultants/$id': typeof ConsultantsIdRoute
   '/file/$id': typeof FileIdRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/tracking': typeof TrackingRoute
   '/valuation': typeof ValuationRoute
   '/admin-mobile-management/$employeeId': typeof AdminMobileManagementEmployeeIdRoute
+  '/api/customer-workspace': typeof ApiCustomerWorkspaceRoute
   '/areas/$slug': typeof AreasSlugRoute
   '/consultants/$id': typeof ConsultantsIdRoute
   '/file/$id': typeof FileIdRoute
@@ -343,6 +351,7 @@ export interface FileRoutesById {
   '/tracking': typeof TrackingRoute
   '/valuation': typeof ValuationRoute
   '/admin-mobile-management/$employeeId': typeof AdminMobileManagementEmployeeIdRoute
+  '/api/customer-workspace': typeof ApiCustomerWorkspaceRoute
   '/areas/$slug': typeof AreasSlugRoute
   '/consultants/$id': typeof ConsultantsIdRoute
   '/file/$id': typeof FileIdRoute
@@ -385,6 +394,7 @@ export interface FileRouteTypes {
     | '/tracking'
     | '/valuation'
     | '/admin-mobile-management/$employeeId'
+    | '/api/customer-workspace'
     | '/areas/$slug'
     | '/consultants/$id'
     | '/file/$id'
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/tracking'
     | '/valuation'
     | '/admin-mobile-management/$employeeId'
+    | '/api/customer-workspace'
     | '/areas/$slug'
     | '/consultants/$id'
     | '/file/$id'
@@ -462,6 +473,7 @@ export interface FileRouteTypes {
     | '/tracking'
     | '/valuation'
     | '/admin-mobile-management/$employeeId'
+    | '/api/customer-workspace'
     | '/areas/$slug'
     | '/consultants/$id'
     | '/file/$id'
@@ -502,6 +514,7 @@ export interface RootRouteChildren {
   SubmitPropertyRoute: typeof SubmitPropertyRoute
   TrackingRoute: typeof TrackingRoute
   ValuationRoute: typeof ValuationRoute
+  ApiCustomerWorkspaceRoute: typeof ApiCustomerWorkspaceRoute
   FileIdRoute: typeof FileIdRoute
   ToolsCommissionRoute: typeof ToolsCommissionRoute
   ToolsDepositRoute: typeof ToolsDepositRoute
@@ -682,6 +695,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMobileManagementEmployeeIdRouteImport
       parentRoute: typeof AdminMobileManagementRoute
     }
+    '/api/customer-workspace': {
+      id: '/api/customer-workspace'
+      path: '/api/customer-workspace'
+      fullPath: '/api/customer-workspace'
+      preLoaderRoute: typeof ApiCustomerWorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/areas/': {
       id: '/areas/'
       path: '/'
@@ -860,6 +880,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubmitPropertyRoute: SubmitPropertyRoute,
   TrackingRoute: TrackingRoute,
   ValuationRoute: ValuationRoute,
+  ApiCustomerWorkspaceRoute: ApiCustomerWorkspaceRoute,
   FileIdRoute: FileIdRoute,
   ToolsCommissionRoute: ToolsCommissionRoute,
   ToolsDepositRoute: ToolsDepositRoute,
