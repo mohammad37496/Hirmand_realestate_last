@@ -1,5 +1,46 @@
 import type { Sql } from "./db.ts";
 
+const DIGIT_TRANSLATION = "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩";
+
+/** Load active duplicate candidates; query failures must remain distinguishable from an empty result. */
+export async function listAdminLeadDuplicateCandidates(sql: Sql) {
+  return sql.query<Record<string, unknown>>(
+    `with base as (
+      select
+        id, name, phone, status, consultant, property_id, created_at,
+        regexp_replace(
+          translate(coalesce(phone,''), $1, '01234567890123456789'),
+          '[^0-9]', '', 'g'
+        ) as phone_key,
+        lower(regexp_replace(trim(coalesce(name,'')), '[[:space:]]+', '', 'g')) as name_key
+      from leads
+      where status not in ('closed','spam')
+    ),
+    pairs as (
+      select a.id as a_id, a.name as a_name, a.phone as a_phone, a.status as a_status, a.consultant as a_consultant, a.property_id as a_property_id, a.created_at as a_created_at,
+             b.id as b_id, b.name as b_name, b.phone as b_phone, b.status as b_status, b.consultant as b_consultant, b.property_id as b_property_id, b.created_at as b_created_at,
+             'تلفن مشترک'::text as reason
+      from base a
+      join base b on a.id < b.id and a.phone_key <> '' and a.phone_key = b.phone_key and length(a.phone_key) >= 8
+      union all
+      select a.id, a.name, a.phone, a.status, a.consultant, a.property_id, a.created_at,
+             b.id, b.name, b.phone, b.status, b.consultant, b.property_id, b.created_at,
+             'نام و فایل مشترک'::text
+      from base a
+      join base b on a.id < b.id
+        and a.property_id is not null
+        and trim(a.property_id) <> ''
+        and a.property_id = b.property_id
+        and a.name_key <> ''
+        and a.name_key = b.name_key
+    )
+    select * from pairs
+    order by greatest(a_created_at,b_created_at) desc
+    limit 60`,
+    [DIGIT_TRANSLATION],
+  );
+}
+
 export type AdminLeadMergeResult =
   | { kind: "merged"; movedActivities: number }
   | { kind: "not_found" }
