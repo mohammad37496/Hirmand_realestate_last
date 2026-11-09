@@ -52,7 +52,11 @@ async function expireUserSessionsInDisposableDatabase(userId, context) {
   const sessionTokenCookie = cookies.find((cookie) => cookie.name === "__Host-grok-auth.session_token");
   const sessionDataCookie = cookies.find((cookie) => cookie.name === "__Host-grok-auth.session_data");
   assert.ok(sessionTokenCookie, "the signed-in browser must have a Better Auth session token cookie");
-  assert.ok(sessionDataCookie, "the signed-in browser must retain its Better Auth cached session cookie");
+  assert.equal(
+    Boolean(sessionDataCookie),
+    false,
+    "the signed-in browser must not receive a cached session cookie when server-side revocation must be immediate",
+  );
 
   const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
   try {

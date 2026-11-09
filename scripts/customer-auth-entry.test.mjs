@@ -147,9 +147,12 @@ test("server-side session authorization bypasses Better Auth's cached session co
     "ordinary session reads must not accept a revoked session from the signed cookie cache");
 });
 
-test("expired-session smoke retains both cookies and uses the authoritative default session read", () => {
+test("expired-session smoke retains the token cookie without a cached snapshot and uses the default session read", () => {
   assert.match(workspaceE2e, /cookie\.name === "__Host-grok-auth\.session_token"/);
   assert.match(workspaceE2e, /cookie\.name === "__Host-grok-auth\.session_data"/);
+  assert.match(workspaceE2e, /assert\.ok\(sessionTokenCookie,/);
+  assert.match(workspaceE2e, /Boolean\(sessionDataCookie\)[\s\S]*?false/,
+    "the auth smoke must verify that disabled cookie caching does not issue a signed session snapshot");
   assert.doesNotMatch(workspaceE2e, /context\.clearCookies\(\)|context\.addCookies\(/,
     "the smoke must preserve the original browser cookies while expiring the database row");
   assert.match(workspaceE2e, /\/api\/auth\/get-session/);
