@@ -5,6 +5,7 @@
 import { defineEventHandler, setResponseHeader } from "h3";
 import { allAreas, areaPath } from "../../src/lib/areas";
 import { TEAM } from "../../src/lib/site";
+import { canonicalSiteUrl } from "../../src/lib/site-url.mjs";
 import { propertyPath } from "../../src/lib/property-path";
 import { resolveDatabaseUrl } from "../../scripts/resolve-database-url.mjs";
 
@@ -15,7 +16,7 @@ const FINANCE_TOOL_PATHS = [
   "/tools/loan",
 ] as const;
 
-const SITE = (process.env.VITE_SITE_URL || "https://www.hirmandrealestate.ir").replace(/\/$/, "");
+const SITE = canonicalSiteUrl(process.env.VITE_SITE_URL);
 
 function escapeXml(value: string) {
   return value

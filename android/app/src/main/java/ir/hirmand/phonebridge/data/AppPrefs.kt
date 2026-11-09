@@ -16,7 +16,7 @@ class AppPrefs(context: Context) {
     private val prefs = context.getSharedPreferences("phone_bridge", Context.MODE_PRIVATE)
 
     var endpoint: String
-        get() = prefs.getString("endpoint", "https://www.hirmandrealestate.ir/api/device-sync/v1") ?: ""
+        get() = prefs.getString("endpoint", "https://hirmandrealestate.ir/api/device-sync/v1") ?: ""
         set(value) = prefs.edit().putString("endpoint", value.trim()).apply()
 
     var token: String

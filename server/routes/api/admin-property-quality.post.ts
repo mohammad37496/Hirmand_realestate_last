@@ -25,7 +25,7 @@ function toPublicUrl(event: H3Event, value: string) {
   const trimmed = value.trim();
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   const proto = getHeader(event, "x-forwarded-proto")?.split(",")[0]?.trim() || "https";
-  const host = getHeader(event, "x-forwarded-host") || getHeader(event, "host") || "www.hirmandrealestate.ir";
+  const host = getHeader(event, "x-forwarded-host") || getHeader(event, "host") || "hirmandrealestate.ir";
   return new URL(trimmed, proto + "://" + host).toString();
 }
 

@@ -39,7 +39,7 @@ private val fallbackStaffMembers = listOf(
 )
 
 private const val AGREEMENT_VERSION = "1.1"
-private const val AGREEMENT_URL = "https://www.hirmandrealestate.ir/staff-agreement"
+private const val AGREEMENT_URL = "https://hirmandrealestate.ir/staff-agreement"
 private const val PREFS_NAME = "hirmand_staff"
 private const val PREF_AGREEMENT_VERSION = "accepted_agreement_version"
 private const val PREF_AGREEMENT_ACCEPTED_AT = "agreement_accepted_at"

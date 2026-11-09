@@ -5,10 +5,10 @@
       "has": [
         {
           "type": "host",
-          "value": "hirmandrealestate.ir"
+          "value": "www.hirmandrealestate.ir"
         }
       ],
-      "destination": "https://www.hirmandrealestate.ir/:path*",
+      "destination": "https://hirmandrealestate.ir/:path*",
       "permanent": true
     }
   ]

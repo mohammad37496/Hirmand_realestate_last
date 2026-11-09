@@ -1,12 +1,13 @@
 import divarNeighborhoodCatalog from "../../data/divar-isfahan-neighborhoods.json";
 import { mergeNeighborhoodGroups } from "@/lib/area-directory-core";
+import { canonicalSiteUrl } from "@/lib/site-url.mjs";
 
 export const SITE = {
   nameFa: "گروه مشاورین املاک هیرمند",
   shortName: "هیرمند",
   nameEn: "HIRMAND REAL ESTATE CONSULTANTS",
   title: "املاک هیرمند | خرید، فروش، رهن و اجاره ملک در اصفهان",
-  url: (typeof import.meta !== "undefined" && import.meta.env?.VITE_SITE_URL) || "https://www.hirmandrealestate.ir",
+  url: canonicalSiteUrl(typeof import.meta !== "undefined" ? import.meta.env?.VITE_SITE_URL : undefined),
   description:
     "گروه مشاورین املاک هیرمند در اصفهان؛ خرید، فروش، رهن و اجاره آپارتمان، ویلا، زمین، اداری و تجاری با مشاوره تخصصی و همراهی از انتخاب تا قرارداد.",
   sloganStrong: "خانه، فقط یک مکان نیست",

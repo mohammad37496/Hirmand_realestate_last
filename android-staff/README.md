@@ -27,7 +27,7 @@
 
 نشانی API:
 
-`https://www.hirmandrealestate.ir/api/mobile/staff-directory`
+`https://hirmandrealestate.ir/api/mobile/staff-directory`
 
 این endpoint به فهرست فعال مشاوران سایت متصل است. بنابراین وقتی کارمند جدید در پنل مدیریت، بخش مشاوران/کارکنان، با وضعیت فعال ثبت شود، پس از به‌روزرسانی فهرست در اپ نمایش داده می‌شود و نیاز به ساخت APK جدید نیست.
 
