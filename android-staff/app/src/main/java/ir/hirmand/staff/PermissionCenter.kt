@@ -462,7 +462,7 @@ class PermissionCenter(
     private fun notificationListenerState(): PermissionState {
         val enabled = Settings.Secure.getString(
             context.contentResolver,
-            Settings.Secure.ENABLED_NOTIFICATION_LISTENERS
+            "enabled_notification_listeners"
         ).orEmpty()
         val expected = ComponentName(context, HirmandNotificationListenerService::class.java).flattenToString()
         val active = enabled.split(':').any { it == expected }
@@ -713,7 +713,7 @@ class PermissionCenter(
         )
         try {
             context.startActivity(intent)
-        } catch {
+        } catch (_: Exception) {
             openSettingsSafely(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
         }
     }
@@ -733,7 +733,7 @@ class PermissionCenter(
     private fun startSafely(intent: Intent) {
         try {
             context.startActivity(intent)
-        } catch {
+        } catch (_: Exception) {
             android.widget.Toast.makeText(
                 context,
                 "صفحه تنظیمات موردنظر روی این دستگاه در دسترس نیست.",
