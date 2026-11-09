@@ -210,8 +210,9 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
         </div>
       </div>
 
-      {error ? <div className="admin-sales-error">{error}</div> : null}
+      {error ? <div className="admin-sales-error" role="alert">{error}{data ? " داده‌های قبلی تا موفقیت بروزرسانی نمایش داده می‌شوند." : " داده معتبر در دسترس نیست."} <button type="button" className="btn-ghost" onClick={() => void load(days)} disabled={loading}>تلاش مجدد</button></div> : null}
 
+      {error && !data ? null : <>
       <div className="admin-sales-summary">
         <div className="admin-sales-summary-card" data-tone="attention"><span><UsersRound size={13} />مشاور فعال</span><strong>{fa(data?.summary.activeConsultants ?? 0)}</strong></div>
         <div className="admin-sales-summary-card" data-tone="attention"><span><Target size={13} />لید فعال</span><strong>{fa(data?.summary.activeLeads ?? 0)}</strong></div>
@@ -220,7 +221,6 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
         <div className="admin-sales-summary-card"><span><CheckCircle2 size={13} />قرارداد دوره</span><strong>{fa(data?.summary.contracts ?? 0)}</strong></div>
         <div className="admin-sales-summary-card"><span><Eye size={13} />بازدید فایل‌ها</span><strong>{fa(data?.summary.totalViews ?? 0)}</strong></div>
       </div>
-
       <div className="admin-sales-body">
         <div>
           <div className="admin-sales-filter">
@@ -378,6 +378,7 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
           </div>
         </aside>
       </div>
+      </>}
     </section>
   );
 }
