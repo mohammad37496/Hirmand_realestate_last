@@ -152,10 +152,9 @@ test("consultant server functions enforce team.manage and keep inactive rows for
   const guardStart = source.indexOf("async function requireAdmin()");
   const guardEnd = source.indexOf("const selectColumns", guardStart);
   const guard = source.slice(guardStart, guardEnd);
-  assert.match(guard, /verifyAdminSessionToken\(session\)/);
-  assert.match(guard, /assertAdminServerFnOrigin\(\)/);
   assert.match(guard, /getAdminSessionClaims\(session\)/);
-  assert.match(guard, /hasAdminPermission\(normalizeAdminRole\(claims\?\.role\),\s*"team\.manage"\)/);
+  assert.match(guard, /assertAdminServerFnOrigin\(\)/);
+  assert.match(guard, /hasAdminPermission\(claims\.role,\s*"team\.manage"\)/);
   for (const operation of ["listAdminConsultants", "saveConsultant", "deleteConsultant"]) {
     const start = source.indexOf(`export const ${operation}`);
     const next = source.indexOf("export const ", start + 1);

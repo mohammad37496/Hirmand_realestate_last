@@ -2,9 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
+import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
-import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { hasAdminPermission } from "@/lib/admin-roles";
 import { mergePublicConsultantDirectory } from "@/lib/consultant-directory";
 import { TEAM } from "@/lib/site";
 
@@ -96,12 +96,12 @@ function staticConsultants(): Consultant[] {
 
 async function requireAdmin() {
   const session = getCookie(ADMIN_SESSION_COOKIE);
-  if (!(await verifyAdminSessionToken(session))) {
+  const claims = await getAdminSessionClaims(session);
+  if (!claims) {
     throw new Error("نشست مدیریت معتبر نیست. دوباره وارد پنل شوید.");
   }
   assertAdminServerFnOrigin();
-  const claims = await getAdminSessionClaims(session);
-  if (!hasAdminPermission(normalizeAdminRole(claims?.role), "team.manage")) {
+  if (!hasAdminPermission(claims.role, "team.manage")) {
     throw new Error("سطح دسترسی مدیریت اعضای تیم برای این حساب فعال نیست.");
   }
 }
