@@ -194,17 +194,14 @@ try {
 
   for (const context of [signupContext, secondSessionContext]) {
     const page = context === signupContext ? signupPage : secondSessionPage;
-    const session = await page.request.get(new URL("/api/auth/get-session", baseUrl).toString());
+    const session = context === secondSessionContext
+      ? await fetch(new URL("/api/auth/get-session", baseUrl), {
+          headers: { cookie: `${secondSessionTokenCookieBeforeReset.name}=${secondSessionTokenCookieBeforeReset.value}` },
+        })
+      : await page.request.get(new URL("/api/auth/get-session", baseUrl).toString());
     assert.equal(session.status(), 200);
     assert.equal((await session.json())?.user ?? null, null, "password reset must revoke every previous session");
   }
-  const secondSessionCookiesAfterReset = await secondSessionContext.cookies(baseUrl);
-  const secondSessionTokenCookieAfterReset = secondSessionCookiesAfterReset.find((cookie) => cookie.name.endsWith("session_token"));
-  assert.equal(
-    secondSessionTokenCookieAfterReset?.value,
-    secondSessionTokenCookieBeforeReset.value,
-    "the second browser must keep the same session cookie; rejection must come from authoritative session revocation, not cookie clearing",
-  );
 
   // The old password is invalid; the new password works. Respect the default
   // Better Auth sign-in limit between separate bursts.
@@ -242,15 +239,10 @@ try {
   const goodChange = await goodChangePromise;
   assert.equal(goodChange.status(), 200, "the current password should permit a password change");
   assert.match(await passwordChangePage.locator('.customer-password-panel [role="status"]').innerText(), /نشست‌های دیگر/);
-  const otherSession = await otherSessionPage.request.get(new URL("/api/auth/get-session", baseUrl).toString());
+  const otherSession = await fetch(new URL("/api/auth/get-session", baseUrl), {
+    headers: { cookie: `${otherSessionTokenCookieBeforeChange.name}=${otherSessionTokenCookieBeforeChange.value}` },
+  });
   assert.equal((await otherSession.json())?.user ?? null, null, "changePassword must revoke other active sessions");
-  const otherSessionCookiesAfterChange = await otherSessionContext.cookies(baseUrl);
-  const otherSessionTokenCookieAfterChange = otherSessionCookiesAfterChange.find((cookie) => cookie.name.endsWith("session_token"));
-  assert.equal(
-    otherSessionTokenCookieAfterChange?.value,
-    otherSessionTokenCookieBeforeChange.value,
-    "the other browser must retain the same session cookie; password-change revocation must invalidate its database session",
-  );
 
   await passwordChangePage.request.post(new URL("/api/auth/sign-out", baseUrl).toString(), { headers: { origin }, data: {} });
   // Better Auth's default sign-in guard is 3 attempts per 10 seconds.

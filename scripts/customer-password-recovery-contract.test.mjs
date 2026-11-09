@@ -77,4 +77,8 @@ test("Verify runs a real recovery lifecycle against disposable PostgreSQL and a 
   ]) assert.ok(e2e.includes(behavior), `E2E must cover: ${behavior}`);
   assert.doesNotMatch(e2e, /get-session\?disableCookieCache=true/,
     "cross-device revocation must be tested through the default session endpoint behavior");
+  assert.match(e2e, /headers:\s*\{\s*cookie:\s*`\$\{secondSessionTokenCookieBeforeReset\.name\}/,
+    "reset revocation must send the second browser's original cookie even if the server clears it in its response");
+  assert.match(e2e, /headers:\s*\{\s*cookie:\s*`\$\{otherSessionTokenCookieBeforeChange\.name\}/,
+    "password-change revocation must send the other browser's original cookie even if the server clears it in its response");
 });
