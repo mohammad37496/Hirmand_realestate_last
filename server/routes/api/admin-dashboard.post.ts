@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { loadAdminDashboardConsultantStats } from "@/lib/admin-dashboard-consultant-stats";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 
@@ -230,31 +231,7 @@ export default defineEventHandler(async (event) => {
       console.error("[admin-dashboard] follow-up stats unavailable", error);
       return [{}];
     }),
-    sql.query<Record<string, unknown>>(
-      `select
-        (select count(*)::int from consultants) as total,
-        (select count(*)::int from consultants where is_active = true) as active,
-        (
-          select count(*)::int
-          from (
-            select contact_name, contact_phone
-            from properties
-            where coalesce(trim(contact_name), '') <> ''
-            group by contact_name, contact_phone
-          ) assigned
-          inner join consultants c
-            on lower(c.name) = lower(assigned.contact_name)
-            and c.phone = assigned.contact_phone
-        ) as consultants_with_files,
-        (
-          select count(distinct lower(coalesce(consultant, '')))::int
-          from leads
-          where coalesce(trim(consultant), '') <> ''
-        ) as consultants_with_leads
-    `).catch((error) => {
-      console.error("[admin-dashboard] consultant stats unavailable", error);
-      return [{}];
-    }),
+    loadAdminDashboardConsultantStats(sql),
     sql.query<Record<string, unknown>>(
       `select
          count(*) filter (
