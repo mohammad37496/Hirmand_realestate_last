@@ -385,6 +385,27 @@ test("public listing order prioritizes active featured properties and determinis
   }
 });
 
+test("public listing area sort honors ascending and descending directions", async () => {
+  const db = await createFixtureDb();
+  try {
+    const orderBy = buildPublicPropertyOrderBySql("$1::text");
+    const params = (sort: string) => [sort, ["sale-a", "sale-b"]];
+    const ascending = await db.query<{ id: string }>(
+      `select id from properties where id=any($2::text[]) order by ${orderBy}`,
+      params("area_asc"),
+    );
+    const descending = await db.query<{ id: string }>(
+      `select id from properties where id=any($2::text[]) order by ${orderBy}`,
+      params("area_desc"),
+    );
+
+    assert.deepEqual(ascending.rows.map((row) => row.id), ["sale-b", "sale-a"]);
+    assert.deepEqual(descending.rows.map((row) => row.id), ["sale-a", "sale-b"]);
+  } finally {
+    await db.close();
+  }
+});
+
 
 test("public property SQL excludes unsupported legacy floor values", () => {
   assert.match(buildPublicPropertyWhereSql(), /floor is null or floor = -60 or floor between 0 and 20/);
