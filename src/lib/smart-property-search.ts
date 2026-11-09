@@ -1,5 +1,6 @@
 import type { PropertyFilters, PropertyTransaction, PropertyType } from "@/lib/properties";
 import { NEIGHBORHOOD_NAMES, PROPERTY_TYPES } from "@/lib/site";
+import { parsePersianNumberToken } from "@/lib/smart-property-search-core.mjs";
 
 export type SmartSearchResult = {
   filters: PropertyFilters;
@@ -62,8 +63,8 @@ function captureNumber(query: string, patterns: RegExp[]) {
   for (const pattern of patterns) {
     const match = query.match(pattern);
     if (match?.[1]) {
-      const n = Number(faToEn(match[1]).replace(/,/g, ""));
-      if (Number.isFinite(n)) return n;
+      const n = parsePersianNumberToken(match[1]);
+      if (n != null && Number.isFinite(n)) return n;
     }
   }
   return null;
@@ -94,8 +95,8 @@ export function parseSmartPropertySearch(input: string): SmartSearchResult {
   }
 
   const bedrooms = captureNumber(query, [
-    /(\d+)\s*(?:خوابه|خواب|اتاق خواب)/,
-    /(?:با|و)\s*(\d+)\s*(?:خواب|خوابه)/,
+    /(\d+|یک|یه|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)\s*(?:خوابه|خواب|اتاق خواب)/,
+    /(?:با|و)\s*(\d+|یک|یه|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)\s*(?:خواب|خوابه)/,
   ]);
   if (bedrooms != null) {
     filters.minBedrooms = Math.max(0, Math.floor(bedrooms));
@@ -116,6 +117,14 @@ export function parseSmartPropertySearch(input: string): SmartSearchResult {
     filters.maxArea = Math.max(0, Math.floor(areaMax));
     summary.push("تا " + areaMax.toLocaleString("fa-IR") + " متر");
   }
+  if (areaMin == null && areaMax == null) {
+    const exactArea = captureNumber(query, [/(\d+)\s*(?:مترمربع|متر|متری)/]);
+    if (exactArea != null) {
+      filters.minArea = Math.max(0, Math.floor(exactArea));
+      filters.maxArea = Math.max(0, Math.floor(exactArea));
+      summary.push("متراژ " + exactArea.toLocaleString("fa-IR") + " متر");
+    }
+  }
 
   if (query.includes("پارکینگ")) {
     filters.parkingOnly = true;
@@ -131,6 +140,7 @@ export function parseSmartPropertySearch(input: string): SmartSearchResult {
   }
   if (query.includes("موقعیت") || query.includes("نقشه")) {
     filters.hasLocationOnly = true;
+    summary.push("دارای موقعیت مکانی");
   }
 
   const billionMax = query.match(/(?:تا|زیر|کمتر از|حداکثر)\s*([\d۰-۹.,]+)\s*(میلیارد|ملیارد|b)/);
@@ -180,6 +190,9 @@ export function parseSmartPropertySearch(input: string): SmartSearchResult {
     }
   }
 
-  if (!summary.length) summary.push("عبارت جستجو");
+  if (!summary.length) {
+    filters.search = original.slice(0, 80);
+    summary.push("جستجوی متنی");
+  }
   return { filters, summary: [...new Set(summary)] };
 }
