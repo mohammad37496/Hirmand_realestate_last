@@ -625,7 +625,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
         ...navItems.filter((item) => item.view === "leads" || item.view === "matching" || item.view === "divar" || (item.view === "areaContent" && hasAdminPermission(adminRole, "area.manage"))),
       ];
     }
-    if (adminRole === "owner" || adminRole === "manager") return navItems;
+    if (hasAdminPermission(adminRole, "team.manage")) return navItems;
     if (adminRole === "sales") {
       const allowed = new Set<ViewMode>(["dashboard", "managementReport", "productivity", "list", "leads", "messages", "matching", "divar", "deals", "expiry", "commission", "consultantPerformance", "consultantTargets", "areaContent"]);
       return navItems.filter((item) => allowed.has(item.view));
@@ -643,7 +643,6 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
   const canPublishProperties = hasAdminPermission(adminRole, "property.publish");
   const canManageFinance = hasAdminPermission(adminRole, "finance.manage");
   const canManageContent = hasAdminPermission(adminRole, "content.manage");
-  const canManageTeam = adminRole === "owner" || adminRole === "manager";
 
   const [changeHistory, setChangeHistory] = useState<Array<{
     id: number;
