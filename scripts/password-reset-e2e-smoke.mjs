@@ -215,6 +215,14 @@ try {
   const otherSessionContext = await browser.newContext();
   const otherSessionPage = await openLogin(otherSessionContext);
   await signIn(otherSessionPage, resetPassword);
+  const otherSessionCookiesBeforeChange = await otherSessionContext.cookies(baseUrl);
+  const otherSessionTokenCookieBeforeChange = otherSessionCookiesBeforeChange.find((cookie) => cookie.name.endsWith("session_token"));
+  assert.ok(otherSessionTokenCookieBeforeChange, "the password-change browser must retain its original HttpOnly session token");
+  assert.equal(
+    otherSessionCookiesBeforeChange.some((cookie) => cookie.name.endsWith("session_data")),
+    false,
+    "password-change sessions must not receive a signed session snapshot cookie",
+  );
   const passwordChangePage = recoveryPage;
   await passwordChangePage.goto(new URL("/favorites", baseUrl).toString(), { waitUntil: "domcontentloaded" });
   await passwordChangePage.locator(".customer-password-panel").waitFor();
@@ -236,6 +244,13 @@ try {
   assert.match(await passwordChangePage.locator('.customer-password-panel [role="status"]').innerText(), /نشست‌های دیگر/);
   const otherSession = await otherSessionPage.request.get(new URL("/api/auth/get-session", baseUrl).toString());
   assert.equal((await otherSession.json())?.user ?? null, null, "changePassword must revoke other active sessions");
+  const otherSessionCookiesAfterChange = await otherSessionContext.cookies(baseUrl);
+  const otherSessionTokenCookieAfterChange = otherSessionCookiesAfterChange.find((cookie) => cookie.name.endsWith("session_token"));
+  assert.equal(
+    otherSessionTokenCookieAfterChange?.value,
+    otherSessionTokenCookieBeforeChange.value,
+    "the other browser must retain the same session cookie; password-change revocation must invalidate its database session",
+  );
 
   await passwordChangePage.request.post(new URL("/api/auth/sign-out", baseUrl).toString(), { headers: { origin }, data: {} });
   // Better Auth's default sign-in guard is 3 attempts per 10 seconds.
