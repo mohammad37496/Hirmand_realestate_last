@@ -117,8 +117,8 @@ npm run dev
 
 ### کارهای لازم برای Google
 
-1. دامنه `www.hirmandrealestate.ir` را به Vercel وصل کنید و `VITE_SITE_URL=https://www.hirmandrealestate.ir` تنظیم باشد.
-2. سایت را در Google Search Console تأیید کنید و `https://www.hirmandrealestate.ir/sitemap.xml` را Submit کنید.
+1. در تنظیمات دامنهٔ Liara، `hirmandrealestate.ir` را دامنهٔ اصلی قرار دهید و `www.hirmandrealestate.ir` را با ریدایرکت دائمی HTTPS به `https://hirmandrealestate.ir` منتقل کنید؛ `VITE_SITE_URL=https://hirmandrealestate.ir` باشد.
+2. سایت را در Google Search Console تأیید کنید و `https://hirmandrealestate.ir/sitemap.xml` را Submit کنید.
 3. برای صفحه اصلی و صفحات کلیدی Request Indexing بزنید.
 4. Google Business Profile / Google Maps را با نام، تلفن و آدرس واقعی کسب‌وکار تکمیل و تأیید کنید.
 5. محتوای واقعی و مفید برای محله‌ها و خدمات اضافه کنید و لینک‌های طبیعی و معتبر بسازید.
@@ -133,7 +133,7 @@ npm run dev
 
 امنیت API Phone Bridge علاوه بر توکن اختصاصی دستگاه، محدودسازی نرخ مشترک در PostgreSQL هم دارد: ثبت اولیهٔ دستگاه حداکثر ۵ تلاش در ۱۵ دقیقه، Sync حداکثر ۱۲۰ درخواست در ۱۰ دقیقه، Heartbeat حداکثر ۳۰ درخواست در ۱۰ دقیقه، آپلود فایل حداکثر ۴۰ درخواست در ۱۰ دقیقه و تست اتصال حداکثر ۶۰ درخواست در ۱۰ دقیقه. عبور از سقف باعث پاسخ HTTP 429 و محدودیت موقت همان درخواست‌کننده می‌شود.
 
-برای استقرار سمت سایت، متغیر `HIRMAND_PHONE_BRIDGE_TOKEN` را در Environment پروژه تنظیم کنید و همان مقدار را در اپ وارد کنید. برای شبکهٔ داخلی می‌توانید Endpoint اپ را به IP خصوصی سرور داخل LAN تغییر دهید؛ برای HTTPS عمومی Endpoint پیش‌فرض `https://www.hirmandrealestate.ir/api/device-sync/v1` است.
+برای استقرار سمت سایت، متغیر `HIRMAND_PHONE_BRIDGE_TOKEN` را در Environment پروژه تنظیم کنید و همان مقدار را در اپ وارد کنید. برای شبکهٔ داخلی می‌توانید Endpoint اپ را به IP خصوصی سرور داخل LAN تغییر دهید؛ برای HTTPS عمومی Endpoint پیش‌فرض `https://hirmandrealestate.ir/api/device-sync/v1` است.
 
 ## مسیرهای اصلی
 

@@ -23,7 +23,7 @@ const MEDIUM_OPTIONS = [
 
 function buildCampaignUrl(path: string, source: string, medium: string, campaign: string, content: string) {
   const normalizedPath = path.trim() || "/properties";
-  const baseUrl = typeof window === "undefined" ? "https://www.hirmandrealestate.ir" : window.location.origin;
+  const baseUrl = typeof window === "undefined" ? "https://hirmandrealestate.ir" : window.location.origin;
   const url = new URL(normalizedPath.startsWith("/") ? normalizedPath : "/" + normalizedPath, baseUrl);
   url.searchParams.set("utm_source", source);
   url.searchParams.set("utm_medium", medium);
