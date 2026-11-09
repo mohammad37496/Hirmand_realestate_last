@@ -39,6 +39,8 @@ import { Route as AreasSlugRouteImport } from './routes/areas.$slug'
 import { Route as ConsultantsIndexRouteImport } from './routes/consultants.index'
 import { Route as ConsultantsIdRouteImport } from './routes/consultants.$id'
 import { Route as FileIdRouteImport } from './routes/file.$id'
+import { Route as GuidesIndexRouteImport } from './routes/guides.index'
+import { Route as GuidesSlugRouteImport } from './routes/guides.$slug'
 import { Route as PropertiesIndexRouteImport } from './routes/properties.index'
 import { Route as PropertiesSlugRouteImport } from './routes/properties.$slug'
 import { Route as ToolsIndexRouteImport } from './routes/tools.index'
@@ -200,6 +202,16 @@ const FileIdRoute = FileIdRouteImport.update({
   path: '/file/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GuidesIndexRoute = GuidesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => GuidesRoute,
+} as any)
+const GuidesSlugRoute = GuidesSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => GuidesRoute,
+} as any)
 const PropertiesIndexRoute = PropertiesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -256,7 +268,7 @@ export interface FileRoutesByFullPath {
   '/consultants': typeof ConsultantsRouteWithChildren
   '/favorites': typeof FavoritesRoute
   '/file-code': typeof FileCodeRoute
-  '/guides': typeof GuidesRoute
+  '/guides': typeof GuidesRouteWithChildren
   '/login': typeof LoginRoute
   '/my-hirmand': typeof MyHirmandRoute
   '/nearby': typeof NearbyRoute
@@ -275,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/areas/$slug': typeof AreasSlugRoute
   '/consultants/$id': typeof ConsultantsIdRoute
   '/file/$id': typeof FileIdRoute
+  '/guides/$slug': typeof GuidesSlugRoute
   '/properties/$slug': typeof PropertiesSlugRoute
   '/tools/commission': typeof ToolsCommissionRoute
   '/tools/deposit': typeof ToolsDepositRoute
@@ -282,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/tools/rahn-rent': typeof ToolsRahnRentRoute
   '/areas/': typeof AreasIndexRoute
   '/consultants/': typeof ConsultantsIndexRoute
+  '/guides/': typeof GuidesIndexRoute
   '/properties/': typeof PropertiesIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -295,7 +309,6 @@ export interface FileRoutesByTo {
   '/compare': typeof CompareRoute
   '/favorites': typeof FavoritesRoute
   '/file-code': typeof FileCodeRoute
-  '/guides': typeof GuidesRoute
   '/login': typeof LoginRoute
   '/my-hirmand': typeof MyHirmandRoute
   '/nearby': typeof NearbyRoute
@@ -313,6 +326,7 @@ export interface FileRoutesByTo {
   '/areas/$slug': typeof AreasSlugRoute
   '/consultants/$id': typeof ConsultantsIdRoute
   '/file/$id': typeof FileIdRoute
+  '/guides/$slug': typeof GuidesSlugRoute
   '/properties/$slug': typeof PropertiesSlugRoute
   '/tools/commission': typeof ToolsCommissionRoute
   '/tools/deposit': typeof ToolsDepositRoute
@@ -320,6 +334,7 @@ export interface FileRoutesByTo {
   '/tools/rahn-rent': typeof ToolsRahnRentRoute
   '/areas': typeof AreasIndexRoute
   '/consultants': typeof ConsultantsIndexRoute
+  '/guides': typeof GuidesIndexRoute
   '/properties': typeof PropertiesIndexRoute
   '/tools': typeof ToolsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -336,7 +351,7 @@ export interface FileRoutesById {
   '/consultants': typeof ConsultantsRouteWithChildren
   '/favorites': typeof FavoritesRoute
   '/file-code': typeof FileCodeRoute
-  '/guides': typeof GuidesRoute
+  '/guides': typeof GuidesRouteWithChildren
   '/login': typeof LoginRoute
   '/my-hirmand': typeof MyHirmandRoute
   '/nearby': typeof NearbyRoute
@@ -355,6 +370,7 @@ export interface FileRoutesById {
   '/areas/$slug': typeof AreasSlugRoute
   '/consultants/$id': typeof ConsultantsIdRoute
   '/file/$id': typeof FileIdRoute
+  '/guides/$slug': typeof GuidesSlugRoute
   '/properties/$slug': typeof PropertiesSlugRoute
   '/tools/commission': typeof ToolsCommissionRoute
   '/tools/deposit': typeof ToolsDepositRoute
@@ -362,6 +378,7 @@ export interface FileRoutesById {
   '/tools/rahn-rent': typeof ToolsRahnRentRoute
   '/areas/': typeof AreasIndexRoute
   '/consultants/': typeof ConsultantsIndexRoute
+  '/guides/': typeof GuidesIndexRoute
   '/properties/': typeof PropertiesIndexRoute
   '/tools/': typeof ToolsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -398,6 +415,7 @@ export interface FileRouteTypes {
     | '/areas/$slug'
     | '/consultants/$id'
     | '/file/$id'
+    | '/guides/$slug'
     | '/properties/$slug'
     | '/tools/commission'
     | '/tools/deposit'
@@ -405,6 +423,7 @@ export interface FileRouteTypes {
     | '/tools/rahn-rent'
     | '/areas/'
     | '/consultants/'
+    | '/guides/'
     | '/properties/'
     | '/tools/'
     | '/api/auth/$'
@@ -418,7 +437,6 @@ export interface FileRouteTypes {
     | '/compare'
     | '/favorites'
     | '/file-code'
-    | '/guides'
     | '/login'
     | '/my-hirmand'
     | '/nearby'
@@ -436,6 +454,7 @@ export interface FileRouteTypes {
     | '/areas/$slug'
     | '/consultants/$id'
     | '/file/$id'
+    | '/guides/$slug'
     | '/properties/$slug'
     | '/tools/commission'
     | '/tools/deposit'
@@ -443,6 +462,7 @@ export interface FileRouteTypes {
     | '/tools/rahn-rent'
     | '/areas'
     | '/consultants'
+    | '/guides'
     | '/properties'
     | '/tools'
     | '/api/auth/$'
@@ -477,6 +497,7 @@ export interface FileRouteTypes {
     | '/areas/$slug'
     | '/consultants/$id'
     | '/file/$id'
+    | '/guides/$slug'
     | '/properties/$slug'
     | '/tools/commission'
     | '/tools/deposit'
@@ -484,6 +505,7 @@ export interface FileRouteTypes {
     | '/tools/rahn-rent'
     | '/areas/'
     | '/consultants/'
+    | '/guides/'
     | '/properties/'
     | '/tools/'
     | '/api/auth/$'
@@ -500,7 +522,7 @@ export interface RootRouteChildren {
   ConsultantsRoute: typeof ConsultantsRouteWithChildren
   FavoritesRoute: typeof FavoritesRoute
   FileCodeRoute: typeof FileCodeRoute
-  GuidesRoute: typeof GuidesRoute
+  GuidesRoute: typeof GuidesRouteWithChildren
   LoginRoute: typeof LoginRoute
   MyHirmandRoute: typeof MyHirmandRoute
   NearbyRoute: typeof NearbyRoute
@@ -737,6 +759,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/guides/': {
+      id: '/guides/'
+      path: '/'
+      fullPath: '/guides/'
+      preLoaderRoute: typeof GuidesIndexRouteImport
+      parentRoute: typeof GuidesRoute
+    }
+    '/guides/$slug': {
+      id: '/guides/$slug'
+      path: '/$slug'
+      fullPath: '/guides/$slug'
+      preLoaderRoute: typeof GuidesSlugRouteImport
+      parentRoute: typeof GuidesRoute
+    }
     '/properties/': {
       id: '/properties/'
       path: '/'
@@ -842,6 +878,19 @@ const ConsultantsRouteWithChildren = ConsultantsRoute._addFileChildren(
   ConsultantsRouteChildren,
 )
 
+interface GuidesRouteChildren {
+  GuidesSlugRoute: typeof GuidesSlugRoute
+  GuidesIndexRoute: typeof GuidesIndexRoute
+}
+
+const GuidesRouteChildren: GuidesRouteChildren = {
+  GuidesSlugRoute: GuidesSlugRoute,
+  GuidesIndexRoute: GuidesIndexRoute,
+}
+
+const GuidesRouteWithChildren =
+  GuidesRoute._addFileChildren(GuidesRouteChildren)
+
 interface PropertiesRouteChildren {
   PropertiesSlugRoute: typeof PropertiesSlugRoute
   PropertiesIndexRoute: typeof PropertiesIndexRoute
@@ -866,7 +915,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConsultantsRoute: ConsultantsRouteWithChildren,
   FavoritesRoute: FavoritesRoute,
   FileCodeRoute: FileCodeRoute,
-  GuidesRoute: GuidesRoute,
+  GuidesRoute: GuidesRouteWithChildren,
   LoginRoute: LoginRoute,
   MyHirmandRoute: MyHirmandRoute,
   NearbyRoute: NearbyRoute,
