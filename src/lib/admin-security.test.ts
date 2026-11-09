@@ -15,7 +15,7 @@ import {
   assertServerFnSameOrigin,
 } from "./admin-rate-limit.server.ts";
 import { contentMatchesDeclaredType, sniffMediaBytes } from "./file-signature.server.ts";
-import { canApproveCustomerPropertySubmission, hasAdminPermission, normalizeAdminRole } from "./admin-roles.ts";
+import { canApproveCustomerPropertySubmission, canManageTeam, hasAdminPermission, normalizeAdminRole } from "./admin-roles.ts";
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -111,6 +111,15 @@ test("customer-submission approval requires both property management and publish
   assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("content")), false);
   assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("staff")), false);
   assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("viewer")), false);
+});
+
+test("consultant management is restricted to owner and manager roles", () => {
+  assert.equal(canManageTeam(normalizeAdminRole("owner")), true);
+  assert.equal(canManageTeam(normalizeAdminRole("manager")), true);
+  for (const role of ["sales", "content", "staff", "viewer"] as const) {
+    assert.equal(canManageTeam(normalizeAdminRole(role)), false, `${role} must not manage consultant profiles`);
+  }
+  assert.equal(canManageTeam(normalizeAdminRole("admin")), true);
 });
 
 /* ------------------------------------------------------------------ */
