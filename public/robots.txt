@@ -5,4 +5,4 @@ Allow: /
 Disallow: /admin
 Disallow: /admin/
 
-Sitemap: https://www.hirmandrealestate.ir/sitemap.xml
+Sitemap: https://hirmandrealestate.ir/sitemap.xml

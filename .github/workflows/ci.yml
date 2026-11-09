@@ -74,5 +74,8 @@ jobs:
       - name: Production build
         run: npm run build --ignore-scripts
         env:
-          VITE_SITE_URL: https://www.hirmandrealestate.ir
+          VITE_SITE_URL: https://hirmandrealestate.ir
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_ci
+
+      - name: Canonical domain and sitemap URL contract
+        run: node --test scripts/site-url.test.mjs
