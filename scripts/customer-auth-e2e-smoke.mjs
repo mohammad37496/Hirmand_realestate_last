@@ -264,7 +264,7 @@ try {
 
   await expireUserSessionsInDisposableDatabase(firstSession.user.id, firstContext);
   const expiredSessionResponse = await firstPage.request.get(
-    new URL("/api/auth/get-session?disableCookieCache=true", baseUrl).toString(),
+    new URL("/api/auth/get-session", baseUrl).toString(),
   );
   assert.equal(expiredSessionResponse.status(), 200);
   const expiredSession = await expiredSessionResponse.json();
