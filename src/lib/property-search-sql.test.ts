@@ -419,6 +419,12 @@ test("malformed legacy other-amenities JSONB objects do not false-match spec fil
       update properties
          set other_amenities='["pool"]'::jsonb
        where id='rent-c';
+      update properties
+         set other_amenities=null
+       where id='land-d';
+      update properties
+         set other_amenities='null'::jsonb
+       where id='sell-f';
     `);
 
     assert.deepEqual(await searchIds(db, { specFilters: ["pool"] }), ["rent-c"]);
@@ -434,6 +440,8 @@ test("malformed legacy features JSONB values do not crash feature search", async
       update properties set features='{"unexpected":true}'::jsonb where id='sale-a';
       update properties set features='"legacy scalar"'::jsonb where id='sale-b';
       update properties set features='["بالکن"]'::jsonb where id='rent-c';
+      update properties set features=null where id='land-d';
+      update properties set features='null'::jsonb where id='sell-f';
     `);
 
     assert.deepEqual(await searchIds(db, { featureSearch: "بالکن" }), ["rent-c"]);
