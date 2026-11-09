@@ -71,3 +71,10 @@ test("stale load-more requests cannot clear a newer query loading state", async 
   assert.match(loadMore, /if \(requestId\.current === queryVersion\) setLoadingMore\(false\)/);
   assert.doesNotMatch(loadMore, /finally\s*\{\s*setLoadingMore\(false\)/);
 });
+
+test("map-list featured badge respects the same expiry rule as property cards", async () => {
+  const route = await readFile(new URL("../routes/properties.index.tsx", import.meta.url), "utf8");
+  assert.match(route, /import\s*\{[\s\S]*?isFeaturedActive[\s\S]*?\}\s*from "@\/lib\/properties"/);
+  assert.match(route, /isFeaturedActive\(property\)\s*\?\s*"ویژه"/);
+  assert.doesNotMatch(route, /property\.featured\s*\?\s*"ویژه"/);
+});

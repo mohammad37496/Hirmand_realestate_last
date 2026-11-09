@@ -571,7 +571,7 @@ export const listPublishedPropertiesByContact = createServerFn({ method: "GET" }
       `select ${DETAIL_COLUMNS}
        from properties
        where ${PUBLIC_PUBLICATION_WHERE} and contact_phone = $1
-       order by featured desc, published_at desc nulls last, created_at desc
+       order by ${buildPublicPropertyOrderBySql("'newest'")}
        limit 48`,
       [data.phone],
     );

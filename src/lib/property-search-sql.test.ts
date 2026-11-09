@@ -375,6 +375,11 @@ test("public listing order prioritizes active featured properties and determinis
 
     const source = await readFile(new URL("./properties.ts", import.meta.url), "utf8");
     assert.equal((source.match(/"order by " \+ buildPublicPropertyOrderBySql\(\)/g) ?? []).length, 2);
+    const byContactStart = source.indexOf("export const listPublishedPropertiesByContact");
+    const byContactEnd = source.indexOf("export const getPublishedPropertyByFileCode", byContactStart);
+    const byContact = source.slice(byContactStart, byContactEnd);
+    assert.match(byContact, /order by \$\{buildPublicPropertyOrderBySql\("'newest'"\)\}/);
+    assert.doesNotMatch(byContact, /order by featured desc/);
   } finally {
     await db.close();
   }
