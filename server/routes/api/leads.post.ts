@@ -7,6 +7,7 @@ import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
 import { createPropertyVisitRequest } from "@/lib/property-visit-request";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
+import { createPublicLeadIntake } from "@/lib/public-lead-intake";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -21,25 +22,6 @@ function createPublicTrackingToken() {
   const year = new Date().getFullYear().toString().slice(-2);
   const random = crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase();
   return `HIR-${year}-${random}`;
-}
-
-async function createAutomaticFollowUp(sql: Awaited<ReturnType<typeof getSql>>, input: {
-  leadId: string;
-  title: string;
-  description: string;
-  assignee?: string;
-  priority: "normal" | "high" | "urgent";
-  dueMinutes: number;
-}) {
-  try {
-    const dueAt = new Date(Date.now() + input.dueMinutes * 60_000).toISOString();
-    await sql.query(
-      "insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) values($1,$2,$3,'open',$4,$5,$6,'lead',$7)",
-      [crypto.randomUUID(), input.title, input.description, input.priority, dueAt, input.assignee?.trim() || "", input.leadId],
-    );
-  } catch (error) {
-    console.error("[leads] automatic follow-up creation failed", error);
-  }
 }
 
 const matchSchema = z.object({
@@ -322,7 +304,8 @@ export default defineEventHandler(async (event) => {
   if (parsed.data.callbackPreferredAt) {
     const callbackDate = new Date(parsed.data.callbackPreferredAt);
     const trackingToken = createPublicTrackingToken();
-    const rows = await sql.query<{ id: string }>(
+    const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
+      const rows = await transactionSql.query<{ id: string }>(
       "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,follow_up_at,callback_preferred_at,public_tracking_token) values ($1,$2,$3,$4,$5,'درخواست تماس',$6,$7,$8,$9,'website',$10,$11,$12) returning id",
       [
         crypto.randomUUID(), parsed.data.name, parsed.data.phone, parsed.data.peopleCount ?? null,
@@ -330,21 +313,21 @@ export default defineEventHandler(async (event) => {
         parsed.data.note.trim() || "درخواست تماس زمان‌بندی‌شده با مشاور هیرمند",
         callbackDate.toISOString(), callbackDate.toISOString(), trackingToken,
       ],
-    );
-    if (!rows[0]) throw createError({ statusCode: 500, statusMessage: "درخواست تماس ثبت نشد." });
-    await sql.query(
-      "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'follow_up',$2,$3,$4::jsonb)",
-      [rows[0].id, "درخواست تماس زمان‌بندی‌شده", "زمان پیشنهادی تماس: " + callbackDate.toLocaleString("fa-IR"), parsed.data.note.trim(), JSON.stringify({ callbackPreferredAt: callbackDate.toISOString() })],
-    ).catch(() => {});
-    await createAutomaticFollowUp(sql, {
-      leadId: rows[0].id,
+      );
+      return rows[0]?.id ?? null;
+    }, {
+      activityType: "follow_up",
+      title: "درخواست تماس زمان‌بندی‌شده",
+      note: "زمان پیشنهادی تماس: " + callbackDate.toLocaleString("fa-IR") + "\n" + parsed.data.note.trim(),
+      metadata: { callbackPreferredAt: callbackDate.toISOString() },
+    }, {
       title: "تماس زمان‌بندی‌شده با " + parsed.data.name,
       description: "مشتری درخواست کرده در زمان پیشنهادی با او تماس گرفته شود: " + callbackDate.toLocaleString("fa-IR"),
       assignee: parsed.data.consultant,
       priority: "high",
       dueMinutes: Math.max(30, Math.round((callbackDate.getTime() - Date.now()) / 60_000)),
     });
-    return { success: true, id: rows[0].id, callbackRequested: true, trackingToken };
+    return { success: true, id: leadId, callbackRequested: true, trackingToken };
   }
 
   if (parsed.data.deal === "درخواست تأیید اطلاعات فایل" && parsed.data.propertyId) {
@@ -364,42 +347,27 @@ export default defineEventHandler(async (event) => {
     }
     const trackingToken = createPublicTrackingToken();
     const requestNote = parsed.data.note.trim() || "درخواست بررسی و تأیید اطلاعات اصلی فایل";
-    const rows = await sql.query<{ id: string }>(
-      "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'درخواست تأیید اطلاعات فایل',$6,$7,$8,$9,'website',$10,current_timestamp + interval '2 hours',$11) returning id",
-      [
-        crypto.randomUUID(),
-        parsed.data.name,
-        parsed.data.phone,
-        parsed.data.peopleCount ?? null,
-        parsed.data.job,
-        property.property_type,
-        property.neighborhood,
-        property.contact_name || parsed.data.consultant,
-        "فایل: " + property.title + "\n" + requestNote,
-        property.id,
-        trackingToken,
-      ],
-    );
-    if (!rows[0]) throw createError({ statusCode: 500, statusMessage: "درخواست تأیید اطلاعات ثبت نشد." });
-    await sql.query(
-      "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'note',$2,$3,$4::jsonb)",
-      [
-        rows[0].id,
-        "درخواست تأیید اطلاعات فایل آنلاین ثبت شد",
-        "فایل: " + property.title,
-        requestNote,
-        JSON.stringify({ propertyId: property.id, requestType: "verification_information", checks: parsed.data.requestedAmenities }),
-      ],
-    ).catch(() => {});
-    await createAutomaticFollowUp(sql, {
-      leadId: rows[0].id,
+    const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
+      const rows = await transactionSql.query<{ id: string }>(
+        "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'درخواست تأیید اطلاعات فایل',$6,$7,$8,$9,'website',$10,current_timestamp + interval '2 hours',$11) returning id",
+        [crypto.randomUUID(), parsed.data.name, parsed.data.phone, parsed.data.peopleCount ?? null, parsed.data.job,
+          property.property_type, property.neighborhood, property.contact_name || parsed.data.consultant,
+          "فایل: " + property.title + "\n" + requestNote, property.id, trackingToken],
+      );
+      return rows[0]?.id ?? null;
+    }, {
+      activityType: "note",
+      title: "درخواست تأیید اطلاعات فایل آنلاین ثبت شد",
+      note: "فایل: " + property.title + "\n" + requestNote,
+      metadata: { propertyId: property.id, requestType: "verification_information", checks: parsed.data.requestedAmenities },
+    }, {
       title: "بررسی اطلاعات فایل: " + property.title,
       description: "مشتری درخواست بررسی و تأیید اطلاعات اصلی این فایل را ثبت کرده است.",
       assignee: property.contact_name || parsed.data.consultant,
       priority: "high",
       dueMinutes: 120,
     });
-    return { success: true, id: rows[0].id, verificationRequest: true, trackingToken };
+    return { success: true, id: leadId, verificationRequest: true, trackingToken };
   }
 
   if (parsed.data.propertyId && PROPERTY_SERVICE_REQUEST_DEALS.has(parsed.data.deal)) {
@@ -429,40 +397,20 @@ export default defineEventHandler(async (event) => {
           : "legal_review";
     const trackingToken = createPublicTrackingToken();
     const requestNote = parsed.data.note.trim() || parsed.data.deal;
-    const rows = await sql.query<{ id: string }>(
-      "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'website',$11,current_timestamp + interval '2 hours',$12) returning id",
-      [
-        crypto.randomUUID(),
-        parsed.data.name,
-        parsed.data.phone,
-        parsed.data.peopleCount ?? null,
-        parsed.data.job,
-        parsed.data.deal,
-        property.property_type,
-        property.neighborhood,
-        property.contact_name || parsed.data.consultant,
-        "فایل: " + property.title + "\n" + requestNote,
-        property.id,
-        trackingToken,
-      ],
-    );
-    if (!rows[0]) {
-      throw createError({ statusCode: 500, statusMessage: "درخواست تخصصی ثبت نشد." });
-    }
-
-    await sql.query(
-      "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'note',$2,$3,$4::jsonb)",
-      [
-        rows[0].id,
-        parsed.data.deal + " آنلاین ثبت شد",
-        "فایل: " + property.title,
-        requestNote,
-        JSON.stringify({ propertyId: property.id, requestType }),
-      ],
-    ).catch(() => {});
-
-    await createAutomaticFollowUp(sql, {
-      leadId: rows[0].id,
+    const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
+      const rows = await transactionSql.query<{ id: string }>(
+        "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'website',$11,current_timestamp + interval '2 hours',$12) returning id",
+        [crypto.randomUUID(), parsed.data.name, parsed.data.phone, parsed.data.peopleCount ?? null, parsed.data.job,
+          parsed.data.deal, property.property_type, property.neighborhood, property.contact_name || parsed.data.consultant,
+          "فایل: " + property.title + "\n" + requestNote, property.id, trackingToken],
+      );
+      return rows[0]?.id ?? null;
+    }, {
+      activityType: "note",
+      title: parsed.data.deal + " آنلاین ثبت شد",
+      note: "فایل: " + property.title + "\n" + requestNote,
+      metadata: { propertyId: property.id, requestType },
+    }, {
       title: "پیگیری " + parsed.data.deal + ": " + property.title,
       description: "مشتری برای این فایل یک سرویس تخصصی درخواست کرده است؛ جزئیات در یادداشت لید ثبت شده.",
       assignee: property.contact_name || parsed.data.consultant,
@@ -470,7 +418,7 @@ export default defineEventHandler(async (event) => {
       dueMinutes: 120,
     });
 
-    return { success: true, id: rows[0].id, expertServiceRequest: requestType, trackingToken };
+    return { success: true, id: leadId, expertServiceRequest: requestType, trackingToken };
   }
 
   if (parsed.data.deal === "پیشنهاد قیمت" && parsed.data.offerAmount != null && parsed.data.propertyId) {
@@ -481,29 +429,28 @@ export default defineEventHandler(async (event) => {
     const property = propertyRows[0];
     if (!property) throw createError({ statusCode: 404, statusMessage: "این فایل دیگر برای دریافت پیشنهاد در دسترس نیست." });
     const trackingToken = createPublicTrackingToken();
-    const rows = await sql.query<{ id: string }>(
-      "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,offer_amount,offer_conditions,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'پیشنهاد قیمت',$6,$7,$8,$9,'website',$10,$11,$12,current_timestamp + interval '2 hours',$13) returning id",
-      [
-        crypto.randomUUID(), parsed.data.name, parsed.data.phone, parsed.data.peopleCount ?? null, parsed.data.job,
-        property.property_type, property.neighborhood, property.contact_name || parsed.data.consultant,
-        "فایل: " + property.title + "\n" + (parsed.data.note.trim() || "پیشنهاد قیمت ثبت شد."),
-        property.id, parsed.data.offerAmount, parsed.data.offerConditions, trackingToken,
-      ],
-    );
-    if (!rows[0]) throw createError({ statusCode: 500, statusMessage: "پیشنهاد قیمت ثبت نشد." });
-    await sql.query(
-      "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'note',$2,$3,$4::jsonb)",
-      [rows[0].id, "پیشنهاد قیمت آنلاین ثبت شد", "مبلغ پیشنهاد: " + parsed.data.offerAmount.toLocaleString("fa-IR") + " تومان", parsed.data.offerConditions, JSON.stringify({ propertyId: property.id, offerAmount: parsed.data.offerAmount, propertyPrice: property.price })],
-    ).catch(() => {});
-    await createAutomaticFollowUp(sql, {
-      leadId: rows[0].id,
+    const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
+      const rows = await transactionSql.query<{ id: string }>(
+        "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,offer_amount,offer_conditions,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'پیشنهاد قیمت',$6,$7,$8,$9,'website',$10,$11,$12,current_timestamp + interval '2 hours',$13) returning id",
+        [crypto.randomUUID(), parsed.data.name, parsed.data.phone, parsed.data.peopleCount ?? null, parsed.data.job,
+          property.property_type, property.neighborhood, property.contact_name || parsed.data.consultant,
+          "فایل: " + property.title + "\n" + (parsed.data.note.trim() || "پیشنهاد قیمت ثبت شد."),
+          property.id, parsed.data.offerAmount, parsed.data.offerConditions, trackingToken],
+      );
+      return rows[0]?.id ?? null;
+    }, {
+      activityType: "note",
+      title: "پیشنهاد قیمت آنلاین ثبت شد",
+      note: "مبلغ پیشنهاد: " + parsed.data.offerAmount.toLocaleString("fa-IR") + " تومان\n" + parsed.data.offerConditions,
+      metadata: { propertyId: property.id, offerAmount: parsed.data.offerAmount, propertyPrice: property.price },
+    }, {
       title: "بررسی پیشنهاد قیمت: " + property.title,
       description: "پیشنهاد قیمت آنلاین مشتری را بررسی و نتیجه مذاکره را ثبت کنید.",
       assignee: property.contact_name || parsed.data.consultant,
       priority: "urgent",
       dueMinutes: 120,
     });
-    return { success: true, id: rows[0].id, offerSubmitted: true, trackingToken };
+    return { success: true, id: leadId, offerSubmitted: true, trackingToken };
   }
 
   if (parsed.data.propertyId && parsed.data.visitPreferredAt) {
@@ -520,6 +467,21 @@ export default defineEventHandler(async (event) => {
       floorPreference: parsed.data.floorPreference,
       consultant: parsed.data.consultant,
       note: parsed.data.note.trim() || "درخواست بازدید فایل",
+      intake: {
+        activity: (property) => ({
+          activityType: "visit",
+          title: "درخواست بازدید ثبت شد",
+          note: "فایل: " + property.title + "\n" + (parsed.data.note.trim() || "درخواست بازدید از فایل"),
+          metadata: { propertyId: property.id, visitPreferredAt: visitDate.toISOString() },
+        }),
+        followUp: (property) => ({
+          title: "پیگیری فوری درخواست بازدید: " + property.title,
+          description: "مشتری برای این فایل درخواست بازدید ثبت کرده است؛ زمان پیشنهادی: " + visitDate.toLocaleString("fa-IR"),
+          assignee: property.contact_name || parsed.data.consultant,
+          priority: "urgent",
+          dueMinutes: 60,
+        }),
+      },
     });
     if (visitResult.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "فایل موردنظر برای بازدید در دسترس نیست." });
     if (visitResult.kind === "conflict") {
@@ -529,27 +491,7 @@ export default defineEventHandler(async (event) => {
       });
     }
     if (visitResult.kind !== "created") throw createError({ statusCode: 500, statusMessage: "ثبت درخواست بازدید انجام نشد." });
-    const property = visitResult.property;
-    const rows = [{ id: visitResult.id }];
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'visit',$2,$3,$4::jsonb)",
-      [
-        rows[0].id,
-        "درخواست بازدید ثبت شد",
-        "فایل: " + property.title,
-        parsed.data.note.trim() || "درخواست بازدید از فایل",
-        JSON.stringify({ propertyId: property.id, visitPreferredAt: visitDate.toISOString() }),
-      ],
-    ).catch(() => {});
-    await createAutomaticFollowUp(sql, {
-      leadId: rows[0].id,
-      title: "پیگیری فوری درخواست بازدید: " + property.title,
-      description: "مشتری برای این فایل درخواست بازدید ثبت کرده است؛ زمان پیشنهادی: " + visitDate.toLocaleString("fa-IR"),
-      assignee: property.contact_name || parsed.data.consultant,
-      priority: "urgent",
-      dueMinutes: 60,
-    });
-    return { success: true, duplicate: false, id: rows[0].id, visitRequested: true, trackingToken };
+    return { success: true, duplicate: false, id: visitResult.id, visitRequested: true, trackingToken };
   }
   if (parsed.data.deal === "درخواست تأمین مالی" && parsed.data.propertyId) {
     const propertyRows = await sql.query<{
@@ -567,37 +509,20 @@ export default defineEventHandler(async (event) => {
     if (!property) throw createError({ statusCode: 404, statusMessage: "این فایل دیگر برای بررسی تأمین مالی در دسترس نیست." });
 
     const trackingToken = createPublicTrackingToken();
-    const rows = await sql.query<{ id: string }>(
-      "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'درخواست تأمین مالی',$6,$7,$8,$9,'website',$10,current_timestamp + interval '2 hours',$11) returning id",
-      [
-        crypto.randomUUID(),
-        parsed.data.name,
-        parsed.data.phone,
-        parsed.data.peopleCount ?? null,
-        parsed.data.job,
-        property.property_type,
-        property.neighborhood,
-        property.contact_name || parsed.data.consultant,
-        parsed.data.note.trim() || "درخواست بررسی تأمین مالی برای فایل",
-        property.id,
-        trackingToken,
-      ],
-    );
-    if (!rows[0]) throw createError({ statusCode: 500, statusMessage: "درخواست تأمین مالی ثبت نشد." });
-
-    await sql.query(
-      "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'note',$2,$3,$4::jsonb)",
-      [
-        rows[0].id,
-        "درخواست بررسی تأمین مالی آنلاین",
-        "فایل: " + property.title,
-        parsed.data.note.trim() || "درخواست بررسی سناریوی تأمین مالی",
-        JSON.stringify({ propertyId: property.id, requestType: "financing_review" }),
-      ],
-    ).catch(() => {});
-
-    await createAutomaticFollowUp(sql, {
-      leadId: rows[0].id,
+    const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
+      const rows = await transactionSql.query<{ id: string }>(
+        "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'درخواست تأمین مالی',$6,$7,$8,$9,'website',$10,current_timestamp + interval '2 hours',$11) returning id",
+        [crypto.randomUUID(), parsed.data.name, parsed.data.phone, parsed.data.peopleCount ?? null, parsed.data.job,
+          property.property_type, property.neighborhood, property.contact_name || parsed.data.consultant,
+          parsed.data.note.trim() || "درخواست بررسی تأمین مالی برای فایل", property.id, trackingToken],
+      );
+      return rows[0]?.id ?? null;
+    }, {
+      activityType: "note",
+      title: "درخواست بررسی تأمین مالی آنلاین",
+      note: "فایل: " + property.title + "\n" + (parsed.data.note.trim() || "درخواست بررسی سناریوی تأمین مالی"),
+      metadata: { propertyId: property.id, requestType: "financing_review" },
+    }, {
       title: "بررسی تأمین مالی: " + property.title,
       description: "مشتری برای این فایل درخواست بررسی سناریوی تأمین مالی ثبت کرده است.",
       assignee: property.contact_name || parsed.data.consultant,
@@ -605,7 +530,7 @@ export default defineEventHandler(async (event) => {
       dueMinutes: 120,
     });
 
-    return { success: true, id: rows[0].id, financingRequest: true, trackingToken };
+    return { success: true, id: leadId, financingRequest: true, trackingToken };
   }
 
   if (parsed.data.deal === "درخواست مدارک" && parsed.data.propertyId) {
@@ -624,37 +549,20 @@ export default defineEventHandler(async (event) => {
 
     const trackingToken = createPublicTrackingToken();
     const requestNote = parsed.data.note.trim() || "درخواست بررسی مدارک و شرایط معامله";
-    const rows = await sql.query<{ id: string }>(
-      "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'درخواست مدارک',$6,$7,$8,$9,'website',$10,current_timestamp + interval '2 hours',$11) returning id",
-      [
-        crypto.randomUUID(),
-        parsed.data.name,
-        parsed.data.phone,
-        parsed.data.peopleCount ?? null,
-        parsed.data.job,
-        property.property_type,
-        property.neighborhood,
-        property.contact_name || parsed.data.consultant,
-        requestNote,
-        property.id,
-        trackingToken,
-      ],
-    );
-    if (!rows[0]) throw createError({ statusCode: 500, statusMessage: "درخواست بررسی مدارک ثبت نشد." });
-
-    await sql.query(
-      "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'note',$2,$3,$4::jsonb)",
-      [
-        rows[0].id,
-        "درخواست بررسی مدارک آنلاین",
-        "فایل: " + property.title,
-        requestNote,
-        JSON.stringify({ propertyId: property.id, requestType: "document_review" }),
-      ],
-    ).catch(() => {});
-
-    await createAutomaticFollowUp(sql, {
-      leadId: rows[0].id,
+    const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
+      const rows = await transactionSql.query<{ id: string }>(
+        "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'درخواست مدارک',$6,$7,$8,$9,'website',$10,current_timestamp + interval '2 hours',$11) returning id",
+        [crypto.randomUUID(), parsed.data.name, parsed.data.phone, parsed.data.peopleCount ?? null, parsed.data.job,
+          property.property_type, property.neighborhood, property.contact_name || parsed.data.consultant,
+          requestNote, property.id, trackingToken],
+      );
+      return rows[0]?.id ?? null;
+    }, {
+      activityType: "note",
+      title: "درخواست بررسی مدارک آنلاین",
+      note: "فایل: " + property.title + "\n" + requestNote,
+      metadata: { propertyId: property.id, requestType: "document_review" },
+    }, {
       title: "بررسی مدارک: " + property.title,
       description: "مشتری درخواست بررسی مدارک و شرایط این فایل را ثبت کرده است؛ جزئیات درخواست در یادداشت لید موجود است.",
       assignee: property.contact_name || parsed.data.consultant,
@@ -662,11 +570,12 @@ export default defineEventHandler(async (event) => {
       dueMinutes: 120,
     });
 
-    return { success: true, id: rows[0].id, documentRequest: true, trackingToken };
+    return { success: true, id: leadId, documentRequest: true, trackingToken };
   }
 
   const trackingToken = createPublicTrackingToken();
-  const rows = await sql.query<{ id: string }>(
+  const createdLeadId = await createPublicLeadIntake(sql, async (transactionSql) => {
+    const rows = await transactionSql.query<{ id: string }>(
     `insert into leads (
       id, name, phone, people_count, job, deal, property_type, neighborhood, consultant, note, source,
       acquisition_source, acquisition_medium, acquisition_campaign, acquisition_referrer, acquisition_landing_path,
@@ -718,33 +627,31 @@ export default defineEventHandler(async (event) => {
       parsed.data.requestedBedrooms ?? null,
       trackingToken,
     ],
-  );
-  const createdLeadId = rows[0]?.id ?? null;
-  if (createdLeadId) {
-    if (parsed.data.deal === "خرید" || parsed.data.deal === "فروش" || parsed.data.deal === "رهن" || parsed.data.deal === "اجاره") {
-      try {
-        const automaticMatches = await autoMatchLead(sql, createdLeadId, { mode: "smart", limit: 8 });
-        if (automaticMatches.count > 0) {
-          console.info("[leads] automatic smart matching completed", { leadId: createdLeadId, count: automaticMatches.count });
-        }
-      } catch (error) {
-        console.error("[leads] automatic smart matching failed", error);
+    );
+    return rows[0]?.id ?? null;
+  }, {
+    activityType: "follow_up",
+    title: "لید جدید ثبت شد",
+    note: "پیگیری اولیه در مرکز مدیریت برای این درخواست ساخته شد.",
+    metadata: { source: parsed.data.source },
+  }, {
+    title: parsed.data.source === "budget_match" ? "پیگیری لید بودجه‌ای: " + parsed.data.name : "تماس اولیه با لید: " + parsed.data.name,
+    description: parsed.data.source === "budget_match"
+      ? "لید از جستجوی بودجه ثبت شده؛ فایل‌های پیشنهادی و بودجه مشتری را بررسی و تماس بگیرید."
+      : "لید جدید سایت است؛ اطلاعات درخواست را بررسی و تماس اولیه را انجام دهید.",
+    assignee: parsed.data.consultant,
+    priority: parsed.data.source === "budget_match" ? "high" : "normal",
+    dueMinutes: 24 * 60,
+  });
+  if (parsed.data.deal === "خرید" || parsed.data.deal === "فروش" || parsed.data.deal === "رهن" || parsed.data.deal === "اجاره") {
+    try {
+      const automaticMatches = await autoMatchLead(sql, createdLeadId, { mode: "smart", limit: 8 });
+      if (automaticMatches.count > 0) {
+        console.info("[leads] automatic smart matching completed", { leadId: createdLeadId, count: automaticMatches.count });
       }
+    } catch (error) {
+      console.error("[leads] automatic smart matching failed", error);
     }
-    await sql.query(
-      "insert into lead_activities (lead_id, activity_type, title, note, metadata) values ($1,'follow_up',$2,$3,$4::jsonb)",
-      [createdLeadId, "لید جدید ثبت شد", "پیگیری اولیه در مرکز مدیریت برای این درخواست ساخته شد.", JSON.stringify({ source: parsed.data.source })],
-    ).catch(() => {});
-    await createAutomaticFollowUp(sql, {
-      leadId: createdLeadId,
-      title: parsed.data.source === "budget_match" ? "پیگیری لید بودجه‌ای: " + parsed.data.name : "تماس اولیه با لید: " + parsed.data.name,
-      description: parsed.data.source === "budget_match"
-        ? "لید از جستجوی بودجه ثبت شده؛ فایل‌های پیشنهادی و بودجه مشتری را بررسی و تماس بگیرید."
-        : "لید جدید سایت است؛ اطلاعات درخواست را بررسی و تماس اولیه را انجام دهید.",
-      assignee: parsed.data.consultant,
-      priority: parsed.data.source === "budget_match" ? "high" : "normal",
-      dueMinutes: 24 * 60,
-    });
   }
   return { success: true, id: createdLeadId, duplicate: false, trackingToken };
 });

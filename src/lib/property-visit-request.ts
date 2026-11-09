@@ -1,5 +1,7 @@
 import type { Sql } from "./db";
 import { publicPropertyVisibilitySql } from "./public-property-visibility.ts";
+import type { PublicLeadActivity, PublicLeadFollowUp } from "./public-lead-intake.ts";
+import { recordPublicLeadIntake } from "./public-lead-intake.ts";
 
 type PropertyVisitRequestInput = {
   propertyId: string;
@@ -12,6 +14,10 @@ type PropertyVisitRequestInput = {
   floorPreference: string;
   consultant: string;
   note: string;
+  intake?: {
+    activity: PublicLeadActivity | ((property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string }) => PublicLeadActivity);
+    followUp: PublicLeadFollowUp | ((property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string }) => PublicLeadFollowUp);
+  };
 };
 
 type PropertyVisitRequestResult =
@@ -88,6 +94,15 @@ export async function createPropertyVisitRequest(
       ],
     );
     if (!rows[0]) return { kind: "failed" };
+    if (input.intake) {
+      const activity = typeof input.intake.activity === "function"
+        ? input.intake.activity(property)
+        : input.intake.activity;
+      const followUp = typeof input.intake.followUp === "function"
+        ? input.intake.followUp(property)
+        : input.intake.followUp;
+      await recordPublicLeadIntake(transactionSql, rows[0].id, activity, followUp);
+    }
     return { kind: "created", id: rows[0].id, property };
   });
 }
