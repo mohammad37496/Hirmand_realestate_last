@@ -36,7 +36,7 @@ test("Liara auth summary reports safe presence/validity without exposing secret 
     VITE_GROK_OAUTH_ENABLED: "disabled",
     GROK_AUTH_CLIENT_ID: "present",
     GROK_AUTH_CLIENT_SECRET: "present",
-    RESEND_API_KEY: "present",
+    RESEND_API_KEY: "valid format (re_ prefix)",
     RESEND_FROM_EMAIL: "valid (hirmandrealestate.ir)",
   });
   assert.doesNotMatch(JSON.stringify(summary), /private-secret|client-id-value|client-secret-value/);
@@ -130,6 +130,17 @@ test("missing Resend configuration warns without blocking unrelated application 
   assert.deepEqual(customerPasswordRecoveryEnvironmentWarnings(invalidSender), [
     "RESEND_FROM_EMAIL is missing or must use the verified hirmandrealestate.ir domain.",
   ]);
+});
+
+test("malformed Resend API keys are reported without exposing the configured value", () => {
+  const malformedKey = "not-a-resend-key-secret-value";
+  const env = ready.map((row) => row.key === "RESEND_API_KEY" ? { ...row, value: malformedKey } : row);
+  const summary = summarizeLiaraCustomerAuthEnvironment(env);
+  assert.equal(summary.RESEND_API_KEY, "invalid format (must start with re_)");
+  assert.deepEqual(customerPasswordRecoveryEnvironmentWarnings(env), [
+    "RESEND_API_KEY has an invalid format; a Resend API key must start with re_.",
+  ]);
+  assert.doesNotMatch(JSON.stringify(summary), /not-a-resend-key-secret-value/);
 });
 
 test("unexpected Liara payloads fail closed", () => {

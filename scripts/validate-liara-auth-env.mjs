@@ -55,7 +55,8 @@ export function summarizeLiaraCustomerAuthEnvironment(payload) {
   }
   const secretLength = env.get("BETTER_AUTH_SECRET")?.length ?? 0;
   const oauthFlag = env.get("VITE_GROK_OAUTH_ENABLED");
-  const resendApiKey = Boolean(env.get("RESEND_API_KEY"));
+  const resendApiKey = env.get("RESEND_API_KEY") ?? "";
+  const resendApiKeyValid = resendApiKey.startsWith("re_") && resendApiKey.length > 3;
   const resendSender = env.get("RESEND_FROM_EMAIL") ?? "";
   const senderEmail = resendSender.match(/<([^<>]+)>/)?.[1] ?? resendSender;
   const resendSenderValid = /^[^\s@]+@hirmandrealestate\.ir$/i.test(senderEmail);
@@ -68,7 +69,7 @@ export function summarizeLiaraCustomerAuthEnvironment(payload) {
     VITE_GROK_OAUTH_ENABLED: oauthFlag === "true" ? "enabled" : oauthFlag === "false" ? "disabled" : "missing",
     GROK_AUTH_CLIENT_ID: env.get("GROK_AUTH_CLIENT_ID") ? "present" : "missing",
     GROK_AUTH_CLIENT_SECRET: env.get("GROK_AUTH_CLIENT_SECRET") ? "present" : "missing",
-    RESEND_API_KEY: resendApiKey ? "present" : "missing",
+    RESEND_API_KEY: resendApiKeyValid ? "valid format (re_ prefix)" : resendApiKey ? "invalid format (must start with re_)" : "missing",
     RESEND_FROM_EMAIL: resendSenderValid ? "valid (hirmandrealestate.ir)" : resendSender ? "invalid (must use hirmandrealestate.ir)" : "missing",
   };
 }
@@ -116,7 +117,12 @@ export function validateLiaraCustomerAuthEnvironment(payload) {
 export function customerPasswordRecoveryEnvironmentWarnings(payload) {
   const env = liaraEnvironmentMap(payload);
   const warnings = [];
-  if (!env.get("RESEND_API_KEY")) warnings.push("RESEND_API_KEY is missing; customer password-recovery emails cannot be sent.");
+  const resendApiKey = env.get("RESEND_API_KEY") ?? "";
+  if (!resendApiKey) {
+    warnings.push("RESEND_API_KEY is missing; customer password-recovery emails cannot be sent.");
+  } else if (!resendApiKey.startsWith("re_") || resendApiKey.length <= 3) {
+    warnings.push("RESEND_API_KEY has an invalid format; a Resend API key must start with re_.");
+  }
   const sender = env.get("RESEND_FROM_EMAIL") ?? "";
   const senderEmail = sender.match(/<([^<>]+)>/)?.[1] ?? sender;
   if (!/^[^\s@]+@hirmandrealestate\.ir$/i.test(senderEmail)) {
