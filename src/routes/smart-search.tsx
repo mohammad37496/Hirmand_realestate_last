@@ -99,7 +99,7 @@ function SmartSearchPage() {
           <p>لازم نیست ده‌ها فیلتر را باز کنید؛ نیازتان را با زبان طبیعی بنویسید تا به فیلترهای واقعی سایت تبدیل شود.</p>
           <form className="smart-search-form" onSubmit={(event) => { event.preventDefault(); void runSearch(); }}>
             <Search size={20} aria-hidden="true" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="مثلاً آپارتمان دو خوابه تا ۸ میلیارد در مرداویج با آسانسور و پارکینگ" aria-label="جستجوی فارسی ملک" autoFocus />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="مثلاً آپارتمان دو خوابه تا ۸ میلیارد در مرداویج با آسانسور و پارکینگ" aria-label="جستجوی فارسی ملک" maxLength={80} autoFocus />
             <button type="submit" className="btn-gold" disabled={loading}>
               <Sparkles size={16} />
               {loading ? "در حال جستجو…" : "جستجوی هوشمند"}
