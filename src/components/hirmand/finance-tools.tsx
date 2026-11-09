@@ -20,6 +20,7 @@ import {
 } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { CommissionCalculator } from "./commission-calculator";
+import type { CommissionRateConfig } from "@/lib/commission";
 import { RahnRentConverter } from "./rahn-rent-converter";
 
 type ToolId = "rahn" | "commission" | "deposit" | "loan";
@@ -31,7 +32,7 @@ const TOOLS: { id: ToolId; title: string; text: string; icon: typeof Wallet }[] 
   { id: "loan", title: "اقساط وام", text: "سود و قسط ماهانه", icon: Landmark },
 ];
 
-export function FinanceTools() {
+export function FinanceTools({ commissionRates }: { commissionRates: CommissionRateConfig }) {
   const [tool, setTool] = useState<ToolId>("rahn");
   const activeTool = TOOLS.find((item) => item.id === tool) ?? TOOLS[0];
   const ActiveIcon = activeTool.icon;
@@ -127,7 +128,7 @@ export function FinanceTools() {
 
           <div className="tools-panel-body">
             {tool === "rahn" ? <RahnRentConverter /> : null}
-            {tool === "commission" ? <CommissionCalculator /> : null}
+            {tool === "commission" ? <CommissionCalculator rates={commissionRates} /> : null}
             {tool === "deposit" ? <DepositCalculator /> : null}
             {tool === "loan" ? <LoanCalculator /> : null}
           </div>

@@ -38,6 +38,8 @@ const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/prop
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
 const commissionCalculator = fs.readFileSync(new URL("../src/components/hirmand/commission-calculator.tsx", import.meta.url), "utf8");
+const commissionSettings = fs.readFileSync(new URL("../src/lib/site-settings.ts", import.meta.url), "utf8");
+const adminSiteSettings = fs.readFileSync(new URL("../src/components/hirmand/admin-site-settings.tsx", import.meta.url), "utf8");
 const deployWorkflow = fs.readFileSync(new URL("../.github/workflows/deploy-liara.yml", import.meta.url), "utf8");
 const liveDeploymentSmoke = fs.readFileSync(new URL("./verify-live-deployment.mjs", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
@@ -439,14 +441,16 @@ testRunner.test("property cards show construction year only when real data exist
   assert.match(propertyShowcase, /property\.builtYear != null && property\.builtYear > 0[\s\S]*?ساخت/);
 });
 
-testRunner.test("commission estimate uses the 1405 VAT rate and explains local tariff limits", () => {
-  assert.match(commissionLibrary, /export const VAT = 0\.10/);
-  assert.match(commissionLibrary, /مالیات ارزش افزوده \(۱۰٪\)/);
-  assert.match(commissionCalculator, /مالیات = ۱۰٪ از کمیسیون پایه/);
-  assert.match(commissionCalculator, /مالیات ارزش افزوده \(۱۰٪\)/);
-  assert.doesNotMatch(commissionCalculator, /مالیات ارزش افزوده \(۹٪\)/);
-  assert.match(commissionCalculator, /مالیات ۱۰٪ اضافه/);
-  assert.match(commissionCalculator, /ضریب[\s\S]*?ارزش معاملاتی و سقف مصوب هر شهرستان/);
+testRunner.test("commission estimate uses configurable unverified rates and explains local tariff limits", () => {
+  assert.match(commissionLibrary, /vatPercent: 10/);
+  assert.match(commissionLibrary, /verified: false/);
+  assert.match(commissionLibrary, /commissionRateStatus\(result\.rates\)/);
+  assert.match(commissionCalculator, /commissionRateStatus\(rates\)/);
+  assert.match(commissionCalculator, /مالیات ارزش افزوده \(\{percent\(result\.rates\.vatPercent\)\}\)/);
+  assert.match(commissionCalculator, /نرخ‌های پایه[\s\S]*?صرفاً برآورد/);
+  assert.match(commissionSettings, /commissionRatesSchema/);
+  assert.match(adminSiteSettings, /تأیید منبع و اعتبار نرخ‌ها/);
+  assert.match(adminSiteSettings, /با تغییر هر نرخ یا منبع، تأیید قبلی به‌صورت خودکار لغو می‌شود/);
 });
 
 

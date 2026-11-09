@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Globe2, Megaphone, Phone, Save, Search, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { DEFAULT_COMMISSION_RATES, commissionRateStatus, type CommissionRateConfig } from "@/lib/commission";
 import {
   getAdminSiteSettings,
   updateAdminSiteSettings,
@@ -24,17 +25,35 @@ const empty: SiteSettings = {
   address: "",
   officeHours: "",
   footerTagline: "",
+  commissionRates: { ...DEFAULT_COMMISSION_RATES },
   updatedAt: null,
 };
 
-function Field(props: { label: string; value: string; onChange: (value: string) => void; multiline?: boolean; hint?: string }) {
+function Field(props: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  multiline?: boolean;
+  hint?: string;
+  inputType?: "text" | "number" | "date" | "url";
+  step?: number;
+  min?: number;
+  max?: number;
+}) {
   return (
     <label className="admin-settings-field">
       <span>{props.label}</span>
       {props.multiline ? (
         <textarea rows={4} value={props.value} onChange={(event) => props.onChange(event.target.value)} />
       ) : (
-        <input value={props.value} onChange={(event) => props.onChange(event.target.value)} />
+        <input
+          type={props.inputType ?? "text"}
+          value={props.value}
+          onChange={(event) => props.onChange(event.target.value)}
+          step={props.step}
+          min={props.min}
+          max={props.max}
+        />
       )}
       {props.hint ? <small>{props.hint}</small> : null}
     </label>
@@ -63,6 +82,17 @@ export function AdminSiteSettings() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function setCommissionRate<K extends keyof CommissionRateConfig>(key: K, value: CommissionRateConfig[K]) {
+    setForm((current) => ({
+      ...current,
+      commissionRates: {
+        ...current.commissionRates,
+        [key]: value,
+        ...(key === "verified" ? {} : { verified: false }),
+      },
+    }));
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -84,6 +114,7 @@ export function AdminSiteSettings() {
           address: form.address,
           officeHours: form.officeHours,
           footerTagline: form.footerTagline,
+          commissionRates: form.commissionRates,
         },
       });
       setForm(result);
@@ -154,6 +185,32 @@ export function AdminSiteSettings() {
         <section className="admin-panel">
           <div className="admin-panel-head"><div><span className="kicker">فوتر</span><h2>متن معرفی پایین سایت</h2></div><ShieldCheck size={18} /></div>
           <Field label="شعار/توضیح کوتاه فوتر" value={form.footerTagline} onChange={(v) => set("footerTagline", v)} multiline />
+        </section>
+
+        <section className="admin-panel admin-settings-commission">
+          <div className="admin-panel-head"><div><span className="kicker">محاسبات مالی</span><h2>نرخ‌های قابل تنظیم کمیسیون</h2></div><ShieldCheck size={18} /></div>
+          <p>
+            نرخ‌های پایه تا زمان ثبت منبع معتبر و بازه اعتبار، فقط برای برآورد هستند و به‌عنوان تعرفه رسمی معرفی نمی‌شوند.
+            با تغییر هر نرخ یا منبع، تأیید قبلی به‌صورت خودکار لغو می‌شود.
+          </p>
+          <div className="admin-settings-fields">
+            <Field label="شهر / محدوده نرخ‌نامه" value={form.commissionRates.city} onChange={(v) => setCommissionRate("city", v)} />
+            <Field label="کمیسیون کل خرید و فروش دو طرف (درصد)" value={String(form.commissionRates.saleTotalPercent)} onChange={(v) => setCommissionRate("saleTotalPercent", Number(v))} inputType="number" step={0.01} min={0.001} max={5} />
+            <Field label="کمیسیون رهن هر طرف (درصد ودیعه)" value={String(form.commissionRates.rentDepositPercent)} onChange={(v) => setCommissionRate("rentDepositPercent", Number(v))} inputType="number" step={0.01} min={0} max={5} />
+            <Field label="کمیسیون اجاره هر طرف (درصد اجاره ماهانه)" value={String(form.commissionRates.rentMonthlyPercent)} onChange={(v) => setCommissionRate("rentMonthlyPercent", Number(v))} inputType="number" step={0.1} min={0.01} max={100} />
+            <Field label="مالیات ارزش افزوده (درصد)" value={String(form.commissionRates.vatPercent)} onChange={(v) => setCommissionRate("vatPercent", Number(v))} inputType="number" step={0.1} min={0} max={25} />
+            <Field label="عنوان منبع نرخ‌نامه" value={form.commissionRates.sourceLabel} onChange={(v) => setCommissionRate("sourceLabel", v)} hint="نام مرجع یا سندی که نرخ از آن استخراج شده است." />
+            <Field label="پیوند HTTPS منبع" value={form.commissionRates.sourceUrl} onChange={(v) => setCommissionRate("sourceUrl", v)} inputType="url" hint="پیوند باید امن و قابل بررسی باشد." />
+            <Field label="شروع اعتبار (میلادی)" value={form.commissionRates.effectiveFrom} onChange={(v) => setCommissionRate("effectiveFrom", v)} inputType="date" />
+            <Field label="پایان اعتبار (اختیاری)" value={form.commissionRates.effectiveTo} onChange={(v) => setCommissionRate("effectiveTo", v)} inputType="date" />
+          </div>
+          <label className="admin-settings-toggle">
+            <input type="checkbox" checked={form.commissionRates.verified} onChange={(event) => setCommissionRate("verified", event.target.checked)} />
+            <span><strong>تأیید منبع و اعتبار نرخ‌ها</strong><small>فقط پس از بررسی سند و تاریخ‌های اعتبار فعال شود.</small></span>
+          </label>
+          <div className="admin-settings-note">
+            وضعیت فعلی: {commissionRateStatus(form.commissionRates) === "verified" ? "تأییدشده و در بازه اعتبار" : commissionRateStatus(form.commissionRates) === "upcoming" ? "هنوز وارد بازه اعتبار نشده" : commissionRateStatus(form.commissionRates) === "expired" ? "اعتبار نرخ‌نامه پایان یافته" : "تأییدنشده؛ صرفاً برآورد"}
+          </div>
         </section>
       </div>
 

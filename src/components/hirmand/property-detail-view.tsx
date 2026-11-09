@@ -65,6 +65,7 @@ import {
 } from "lucide-react";
 import { breadcrumbJsonLd, propertyJsonLd, TX_LABEL, TYPE_LABEL } from "@/lib/seo";
 import type { Property } from "@/lib/properties";
+import type { CommissionRateConfig } from "@/lib/commission";
 import { PropertyConvertSlider } from "@/components/hirmand/property-convert-slider";
 import { toast } from "sonner";
 import { WhatsAppIcon } from "@/components/hirmand/social-icons";
@@ -1213,9 +1214,11 @@ function ConsultantCard({ property }: { property: Property }) {
 export function PropertyDetailView({
   property,
   related,
+  commissionRates,
 }: {
   property: Property | null;
   related: Property[];
+  commissionRates: CommissionRateConfig;
 }) {
   const viewedPropertySlug = property?.slug;
   const [priceHistory, setPriceHistory] = useState<PropertyPriceHistoryItem[]>([]);
@@ -2296,7 +2299,7 @@ export function PropertyDetailView({
                 <div className="property-tool-category-content">
                   <div className="property-tool-category-content-inner">
                     <div className="property-tool-category-stack">
-                      <PropertyDecisionTools property={property} />
+                      <PropertyDecisionTools property={property} commissionRates={commissionRates} />
                       <PropertyVisitChecklist property={property} />
                       <PropertyDecisionReadiness property={property} />
                       <PropertyScenarioAnalysis property={property} />

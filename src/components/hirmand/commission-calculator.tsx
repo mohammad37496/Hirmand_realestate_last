@@ -1,22 +1,32 @@
 import { useMemo, useState } from "react";
 import { Calculator, Copy } from "lucide-react";
 import { toast } from "sonner";
-import { calculateBuy, calculateRent, resultSummary } from "@/lib/commission";
+import { calculateBuy, calculateRent, commissionRateStatus, resultSummary, type CommissionRateConfig } from "@/lib/commission";
 import { formatGroupedInput, formatToman, parseAmount, tomanToWords } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 type DealKind = "buy" | "rent";
 
-export function CommissionCalculator() {
+export function CommissionCalculator({ rates }: { rates: CommissionRateConfig }) {
   const [kind, setKind] = useState<DealKind>("buy");
   const [price, setPrice] = useState("");
   const [rent, setRent] = useState("");
   const [deposit, setDeposit] = useState("");
 
   const result = useMemo(() => {
-    if (kind === "buy") return calculateBuy(parseAmount(price));
-    return calculateRent(parseAmount(rent), parseAmount(deposit));
-  }, [kind, price, rent, deposit]);
+    if (kind === "buy") return calculateBuy(parseAmount(price), rates);
+    return calculateRent(parseAmount(rent), parseAmount(deposit), rates);
+  }, [kind, price, rent, deposit, rates]);
+
+  const rateStatus = commissionRateStatus(rates);
+  const percent = (value: number) => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 }).format(value) + "٪";
+  const rateStatusText = rateStatus === "verified"
+    ? `مدیریت، منبع و بازه اعتبار نرخ ثبت‌شده برای ${rates.city} را تأیید کرده است.`
+    : rateStatus === "upcoming"
+      ? `این نرخ از ${rates.effectiveFrom} معتبر می‌شود؛ محاسبه فعلی صرفاً برآورد است.`
+      : rateStatus === "expired"
+        ? `اعتبار نرخ ثبت‌شده در ${rates.effectiveTo} پایان یافته؛ محاسبه فعلی صرفاً برآورد است.`
+        : `نرخ‌های پایه برای ${rates.city} هنوز با منبع و بازه اعتبار تأیید نشده‌اند؛ نتیجه صرفاً برآورد است.`;
 
   const priceWords = tomanToWords(parseAmount(price));
   const rentWords = tomanToWords(parseAmount(rent));
@@ -118,7 +128,7 @@ export function CommissionCalculator() {
                 <strong>{formatToman(result.base)} تومان</strong>
               </li>
               <li>
-                <span>مالیات ارزش افزوده (۱۰٪)</span>
+                <span>مالیات ارزش افزوده ({percent(result.rates.vatPercent)})</span>
                 <strong>{formatToman(result.vat)} تومان</strong>
               </li>
               <li className="is-total">
@@ -138,31 +148,32 @@ export function CommissionCalculator() {
               <Copy size={15} />
               کپی خلاصه محاسبه
             </button>
-            <p className="commission-disclaimer">
-              این محاسبه بر اساس نرخ‌های پایهٔ پیش‌فرض ابزار، صرفاً برآورد است. تعرفهٔ رسمی طبق ضریب
-              ارزش معاملاتی و سقف مصوب هر شهرستان تعیین می‌شود؛ مبلغ نهایی را با نرخنامهٔ جاری اصفهان
-              تطبیق دهید. نرخ مالیات ارزش افزوده در سال ۱۴۰۵ برابر ۱۰٪ است.
-            </p>
           </div>
         ) : (
           <p className="commission-hint">مبالغ را وارد کنید تا کمیسیون محاسبه شود.</p>
         )}
+        <p className="commission-disclaimer">
+          {rateStatusText} {rates.sourceLabel ? <>منبع ثبت‌شده: {rates.sourceUrl ? <a href={rates.sourceUrl} target="_blank" rel="noreferrer">{rates.sourceLabel}</a> : rates.sourceLabel}.</> : null}
+          {rates.effectiveFrom ? ` شروع اعتبار: ${rates.effectiveFrom}.` : null}
+          {rates.effectiveTo ? ` پایان اعتبار: ${rates.effectiveTo}.` : null}
+          {" "}مبنای قانونی و سقف نهایی ممکن است با مقررات و نرخنامه منطقه‌ای تغییر کند؛ مبلغ قطعی را پیش از قرارداد با مرجع صنفی مربوط تطبیق دهید.
+        </p>
       </div>
 
       <aside className="commission-guide">
         <h3>نحوه محاسبه</h3>
         {kind === "buy" ? (
           <ol>
-            <li>کمیسیون پایه = ۰٫۵٪ از مبلغ کل معامله</li>
-            <li>مالیات = ۱۰٪ از کمیسیون پایه</li>
-            <li>جمع کل بین خریدار و فروشنده نصف می‌شود (هر طرف ۰٫۲۵٪ + مالیات)</li>
+            <li>کمیسیون پایه کل = {percent(rates.saleTotalPercent)} از مبلغ معامله</li>
+            <li>مالیات ارزش افزوده = {percent(rates.vatPercent)} از کمیسیون پایه</li>
+            <li>جمع کل بین خریدار و فروشنده نصف می‌شود</li>
           </ol>
         ) : (
           <ol>
-            <li>هر ۱ میلیون تومان رهن ≈ ۳۰ هزار تومان اجاره ماهانه</li>
-            <li>اجاره معادل = اجاره ماهانه + معادل اجارهٔ رهن</li>
-            <li>کمیسیون پایه = ۲۵٪ از اجاره معادل</li>
-            <li>مالیات ۱۰٪ اضافه و مبلغ بین موجر و مستأجر نصف می‌شود</li>
+            <li>کمیسیون پایه هر طرف = {percent(rates.rentMonthlyPercent)} اجاره ماهانه + {percent(rates.rentDepositPercent)} مبلغ رهن</li>
+            <li>معادل اجارهٔ رهن بر اساس نسبت نرخ رهن به نرخ اجاره محاسبه می‌شود</li>
+            <li>مالیات ارزش افزوده = {percent(rates.vatPercent)} از کمیسیون پایه</li>
+            <li>جمع کمیسیون دو طرف بین موجر و مستأجر نصف می‌شود</li>
           </ol>
         )}
       </aside>
