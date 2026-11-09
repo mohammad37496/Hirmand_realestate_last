@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { liaraEnvironmentMap, summarizeLiaraCustomerAuthEnvironment, validateLiaraCustomerAuthEnvironment } from "./validate-liara-auth-env.mjs";
+import { customerPasswordRecoveryEnvironmentWarnings, liaraEnvironmentMap, summarizeLiaraCustomerAuthEnvironment, validateLiaraCustomerAuthEnvironment } from "./validate-liara-auth-env.mjs";
 import { normalizeBetterAuthOrigin } from "./auth-origin.mjs";
 
 const ready = [
@@ -9,6 +9,8 @@ const ready = [
   { key: "BETTER_AUTH_SECRET", value: "x".repeat(48) },
   { key: "VITE_AUTH_ENABLED", value: "true" },
   { key: "VITE_GROK_OAUTH_ENABLED", value: "false" },
+  { key: "RESEND_API_KEY", value: "re_test_key_value" },
+  { key: "RESEND_FROM_EMAIL", value: "Hirmand <accounts@hirmandrealestate.ir>" },
 ];
 
 test("Liara env listing accepts CLI JSON rows and does not expose values", () => {
@@ -34,6 +36,8 @@ test("Liara auth summary reports safe presence/validity without exposing secret 
     VITE_GROK_OAUTH_ENABLED: "disabled",
     GROK_AUTH_CLIENT_ID: "present",
     GROK_AUTH_CLIENT_SECRET: "present",
+    RESEND_API_KEY: "present",
+    RESEND_FROM_EMAIL: "valid (hirmandrealestate.ir)",
   });
   assert.doesNotMatch(JSON.stringify(summary), /private-secret|client-id-value|client-secret-value/);
 });
@@ -51,6 +55,8 @@ test("Liara auth summary distinguishes missing flags and invalid values", () => 
   assert.equal(summary.VITE_GROK_OAUTH_ENABLED, "missing");
   assert.equal(summary.GROK_AUTH_CLIENT_ID, "missing");
   assert.equal(summary.GROK_AUTH_CLIENT_SECRET, "missing");
+  assert.equal(summary.RESEND_API_KEY, "missing");
+  assert.equal(summary.RESEND_FROM_EMAIL, "missing");
 });
 
 test("nested Liara environment payloads are supported", () => {
@@ -84,6 +90,15 @@ test("Better Auth origin normalization rejects paths, queries, and fragments", (
   }
 });
 
+test("HTTP Better Auth origins are allowed only for explicit CI loopback previews", () => {
+  assert.equal(
+    normalizeBetterAuthOrigin("http://localhost:8081", { allowHttpLoopback: true }),
+    "http://localhost:8081",
+  );
+  assert.throws(() => normalizeBetterAuthOrigin("http://localhost:8081"));
+  assert.throws(() => normalizeBetterAuthOrigin("http://example.com", { allowHttpLoopback: true }));
+});
+
 test("invalid database URLs are rejected before deploy", () => {
   const env = ready.map((row) => row.key === "DATABASE_URL" ? { ...row, value: "not-a-postgres-url" } : row);
   assert.deepEqual(validateLiaraCustomerAuthEnvironment(env), [
@@ -100,6 +115,21 @@ test("production deployment is blocked when customer accounts are explicitly dis
 test("enabled Google/X OAuth requires its per-app broker credentials", () => {
   const env = ready.map((row) => row.key === "VITE_GROK_OAUTH_ENABLED" ? { ...row, value: "true" } : row);
   assert.deepEqual(validateLiaraCustomerAuthEnvironment(env), ["GROK_AUTH_CLIENT_ID", "GROK_AUTH_CLIENT_SECRET"]);
+});
+
+test("missing Resend configuration warns without blocking unrelated application deployment", () => {
+  const missingKey = ready.filter((row) => row.key !== "RESEND_API_KEY");
+  assert.deepEqual(validateLiaraCustomerAuthEnvironment(missingKey), []);
+  assert.deepEqual(customerPasswordRecoveryEnvironmentWarnings(missingKey), [
+    "RESEND_API_KEY is missing; customer password-recovery emails cannot be sent.",
+  ]);
+  const invalidSender = ready.map((row) => row.key === "RESEND_FROM_EMAIL"
+    ? { ...row, value: "Hirmand <accounts@example.com>" }
+    : row);
+  assert.deepEqual(validateLiaraCustomerAuthEnvironment(invalidSender), []);
+  assert.deepEqual(customerPasswordRecoveryEnvironmentWarnings(invalidSender), [
+    "RESEND_FROM_EMAIL is missing or must use the verified hirmandrealestate.ir domain.",
+  ]);
 });
 
 test("unexpected Liara payloads fail closed", () => {

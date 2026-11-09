@@ -55,6 +55,10 @@ export function summarizeLiaraCustomerAuthEnvironment(payload) {
   }
   const secretLength = env.get("BETTER_AUTH_SECRET")?.length ?? 0;
   const oauthFlag = env.get("VITE_GROK_OAUTH_ENABLED");
+  const resendApiKey = Boolean(env.get("RESEND_API_KEY"));
+  const resendSender = env.get("RESEND_FROM_EMAIL") ?? "";
+  const senderEmail = resendSender.match(/<([^<>]+)>/)?.[1] ?? resendSender;
+  const resendSenderValid = /^[^\s@]+@hirmandrealestate\.ir$/i.test(senderEmail);
 
   return {
     VITE_AUTH_ENABLED: authFlag === "true" ? "enabled" : authFlag === "false" ? "disabled" : "missing (application default: enabled)",
@@ -64,6 +68,8 @@ export function summarizeLiaraCustomerAuthEnvironment(payload) {
     VITE_GROK_OAUTH_ENABLED: oauthFlag === "true" ? "enabled" : oauthFlag === "false" ? "disabled" : "missing",
     GROK_AUTH_CLIENT_ID: env.get("GROK_AUTH_CLIENT_ID") ? "present" : "missing",
     GROK_AUTH_CLIENT_SECRET: env.get("GROK_AUTH_CLIENT_SECRET") ? "present" : "missing",
+    RESEND_API_KEY: resendApiKey ? "present" : "missing",
+    RESEND_FROM_EMAIL: resendSenderValid ? "valid (hirmandrealestate.ir)" : resendSender ? "invalid (must use hirmandrealestate.ir)" : "missing",
   };
 }
 
@@ -106,6 +112,19 @@ export function validateLiaraCustomerAuthEnvironment(payload) {
   return errors;
 }
 
+/** Password recovery is unavailable until Resend is configured, but its absence must not block unrelated app releases. */
+export function customerPasswordRecoveryEnvironmentWarnings(payload) {
+  const env = liaraEnvironmentMap(payload);
+  const warnings = [];
+  if (!env.get("RESEND_API_KEY")) warnings.push("RESEND_API_KEY is missing; customer password-recovery emails cannot be sent.");
+  const sender = env.get("RESEND_FROM_EMAIL") ?? "";
+  const senderEmail = sender.match(/<([^<>]+)>/)?.[1] ?? sender;
+  if (!/^[^\s@]+@hirmandrealestate\.ir$/i.test(senderEmail)) {
+    warnings.push("RESEND_FROM_EMAIL is missing or must use the verified hirmandrealestate.ir domain.");
+  }
+  return warnings;
+}
+
 function main() {
   const path = process.argv[2];
   if (!path) {
@@ -122,16 +141,22 @@ function main() {
   }
 
   let errors;
+  let warnings;
   let summary;
   try {
     summary = summarizeLiaraCustomerAuthEnvironment(payload);
     errors = validateLiaraCustomerAuthEnvironment(payload);
+    warnings = customerPasswordRecoveryEnvironmentWarnings(payload);
   } catch {
     console.error("[liara-auth-env] Liara returned an unexpected environment listing; values were not printed.");
     process.exit(2);
   }
   console.log("[liara-auth-env] Runtime configuration summary (values redacted):");
   for (const [key, status] of Object.entries(summary)) console.log(`- ${key}: ${status}`);
+  if (warnings.length) {
+    console.warn("[liara-auth-env] WARNING: password recovery is not ready:");
+    for (const warning of warnings) console.warn(`- ${warning}`);
+  }
   if (errors.length) {
     console.error("[liara-auth-env] Deployment blocked; missing required customer account settings:");
     for (const error of errors) console.error(`- ${error}`);
