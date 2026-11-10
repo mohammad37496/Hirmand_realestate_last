@@ -365,7 +365,13 @@ try {
         await neighborhoodPage.evaluate(() => window.scrollTo(0, 0));
         await neighborhoodPage.waitForFunction(() => {
           const panel = document.querySelector(".pf-sidebar");
-          return panel instanceof HTMLElement && getComputedStyle(panel).position === "fixed";
+          if (!(panel instanceof HTMLElement)) return false;
+          const style = getComputedStyle(panel);
+          // Several route stylesheets load independently. A later marketplace
+          // rule can make the rail fixed before the earlier base sheet supplies
+          // its bottom anchor, leaving the fixed element at its document static
+          // position. Wait for the complete viewport anchoring, not position alone.
+          return style.position === "fixed" && style.bottom !== "auto";
         }, null, { timeout: timeoutMs });
         await neighborhoodPage.locator(".pf-filter-btn").click();
       }
@@ -428,6 +434,11 @@ try {
               clientHeight: element.clientHeight,
               panel: { top: panel.top, bottom: panel.bottom },
               trigger: button ? { top: button.top, bottom: button.bottom } : null,
+              position: getComputedStyle(element).position,
+              topStyle: getComputedStyle(element).top,
+              bottomStyle: getComputedStyle(element).bottom,
+              windowScrollY: window.scrollY,
+              innerWidth: window.innerWidth,
             };
           });
           throw new Error(`neighborhood trigger could not be brought into the mobile filter sheet viewport at ${width}px: ${JSON.stringify(metrics)}`);

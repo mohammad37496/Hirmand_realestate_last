@@ -13,6 +13,8 @@ test("responsive browser smoke selects multiple neighborhoods and clears the can
   assert.match(browserSmoke, /getAll\("neighborhoods"\)/);
   assert.match(browserSmoke, /neighborhoodFilterCheck\.selected = state\.neighborhoods/);
   assert.match(browserSmoke, /multi-neighborhood filter browser smoke failed/);
+  assert.match(browserSmoke, /style\.position === "fixed" && style\.bottom !== "auto"/);
+  assert.match(browserSmoke, /bottomStyle: getComputedStyle\(element\)\.bottom/);
   assert.match(route, /writeNeighborhoodSelection\(params, selectedNeighborhoods\)/);
   assert.match(route, /setSelectedNeighborhoods\(\[\]\)/);
 });
