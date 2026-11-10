@@ -114,6 +114,15 @@ test("copied commission summaries carry the verification status and source inste
   assert.match(resultSummary(verified), /سقف مصوب شهرستان/);
   assert.match(resultSummary(verified), /برآورد نمونه کمیسیون/);
   assert.match(COMMISSION_LEGAL_BASIS_NOTICE, /سامانه ثبت الکترونیک اسناد/);
+  assert.match(COMMISSION_LEGAL_BASIS_NOTICE, /تبصره ماده ۸/);
+  assert.match(COMMISSION_LEGAL_BASIS_NOTICE, /کارت‌خوان‌های موجود/);
+  assert.match(resultSummary(verified), /مگر آنکه در قرارداد به نحو دیگری توافق شود/);
+});
+
+test("commission calculator discloses equal splitting as an estimate assumption, not an invariable legal rule", () => {
+  const calculator = readFileSync(new URL("../components/hirmand/commission-calculator.tsx", import.meta.url), "utf8");
+  assert.match(calculator, /سهم خریدار و فروشنده برابر فرض می‌شود؛ مگر آنکه در قرارداد به نحو دیگری توافق شود/);
+  assert.match(calculator, /سهم موجر و مستأجر برابر فرض می‌شود؛ مگر آنکه در قرارداد به نحو دیگری توافق شود/);
 });
 
 test("changing a rate, city, source or validity date invalidates prior management approval", () => {
