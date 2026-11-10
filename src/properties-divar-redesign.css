@@ -713,6 +713,21 @@
   background: rgb(177 139 69 / .10);
   font-weight: 900;
 }
+.pf-neighborhood-result-group > div > button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  background: #f4f4f1;
+}
+.pf-neighborhood-result-group > div > button:disabled:hover {
+  border-color: var(--hr-line);
+  background: #f4f4f1;
+}
+.pf-neighborhood-limit-note {
+  display: block;
+  margin: 0 20px 8px;
+  color: var(--hr-muted);
+  font-size: .72rem;
+}
 .pf-neighborhood-select-mark {
   flex: 0 0 auto;
   width: 14px;

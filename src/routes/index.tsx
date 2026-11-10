@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { SitePage } from "@/components/hirmand/site-page";
 import { getPublicFaqs } from "@/lib/site-content";
 import { buildFaqJsonLd } from "@/lib/site-content-static";
-import { enhancedOrganizationJsonLd, homeHead } from "@/lib/seo";
+import { enhancedOrganizationJsonLd, homeHead, serializeJsonLd } from "@/lib/seo";
 import { getPublicSiteSettings } from "@/lib/site-settings";
 
 // The marketing shell must render even when the optional property database is
@@ -22,13 +22,13 @@ function Home() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(enhancedOrganizationJsonLd(settings)) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(enhancedOrganizationJsonLd(settings)) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqJsonLd(faqs)) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildFaqJsonLd(faqs)) }}
       />
-      <SitePage initialProperties={[]} announcement={settings.announcementEnabled ? settings.announcementText : ""} faqItems={faqs.map((item) => ({ q: item.question, a: item.answer }))} />
+      <SitePage initialProperties={[]} announcement={settings.announcementEnabled ? settings.announcementText : ""} faqItems={faqs.map((item) => ({ q: item.question, a: item.answer }))} commissionRates={settings.commissionRates} />
     </>
   );
 }

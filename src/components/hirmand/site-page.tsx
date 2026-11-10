@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import {
   FAQS,
   mapLinks,
@@ -36,12 +37,15 @@ import { InquiryForm, type InquiryDraft } from "./inquiry-form";
 import { MapAppButtons, MapEmbed } from "./map-apps";
 import { PropertyShowcase } from "./property-showcase";
 import type { PropertyCardData } from "@/lib/properties";
+import type { CommissionRateConfig } from "@/lib/commission";
 import { Reveal } from "./reveal";
 import { scrollToId } from "./scroll";
 import { SiteChrome } from "./site-chrome";
 import { DEFAULT_GUIDES } from "@/lib/site-content-static";
 import { useConsultants } from "./consultants-context";
 import type { Consultant } from "@/lib/consultants";
+
+const siteOfficeTel = toIranianE164Phone(SITE.phone.office);
 import {
   EitaaIcon,
   InstagramIcon,
@@ -410,6 +414,7 @@ function Team() {
       <div className="team-grid">
         {consultants.map((person) => {
           const Icon = TEAM_ICONS[person.icon];
+          const phoneTel = toIranianE164Phone(person.phone);
           return (
             <article key={person.id} className="team-card">
               <div className="team-avatar" aria-hidden="true">
@@ -423,10 +428,10 @@ function Team() {
                 </p>
               </div>
               <div className="team-actions">
-                <a className="btn-gold" href={`tel:${person.phone}`}>
+                {phoneTel ? <a className="btn-gold" href={`tel:${phoneTel}`}>
                   <Phone size={16} />
                   تماس
-                </a>
+                </a> : null}
                 <CopyButton value={person.phone} label={`کپی شماره ${person.name}`} />
               </div>
               <Link className="team-profile-link" to="/consultants/$id" params={{ id: person.id }}>
@@ -566,7 +571,7 @@ function Process() {
   );
 }
 
-function Tools() {
+function Tools({ commissionRates }: { commissionRates: CommissionRateConfig }) {
   return (
     <Reveal as="section" className="section" id="tools">
       <SectionHead
@@ -574,7 +579,7 @@ function Tools() {
         title="تبدیل رهن به اجاره، کمیسیون و وام"
         text="نوار لغزنده رهن و اجاره را به چپ و راست بکشید. مبالغ به تومان است و اعداد جنبه راهنما دارند."
       />
-      <FinanceTools />
+      <FinanceTools commissionRates={commissionRates} />
     </Reveal>
   );
 }
@@ -737,9 +742,10 @@ function Contact() {
     <Reveal as="section" className="section" id="contact">
       <SectionHead kicker="ارتباط" title="تماس مستقیم با مشاورین هیرمند" />
       <div className="contact-grid contact-grid-people">
-        {consultants.map((person) => (
-          <div key={person.id} className="contact-wrap">
-            <a className="contact-card" href={`tel:${person.phone}`}>
+        {consultants.map((person) => {
+          const phoneTel = toIranianE164Phone(person.phone);
+          const contactCardContent = (
+            <>
               <div className="icon-box">
                 <Phone size={22} strokeWidth={1.8} />
               </div>
@@ -749,12 +755,17 @@ function Contact() {
                 </small>
                 <strong dir="ltr">{person.phoneDisplay}</strong>
               </span>
-            </a>
+            </>
+          );
+          return <div key={person.id} className="contact-wrap">
+            {phoneTel
+              ? <a className="contact-card" href={`tel:${phoneTel}`}>{contactCardContent}</a>
+              : <div className="contact-card">{contactCardContent}</div>}
             <CopyButton value={person.phone} label={`کپی شماره ${person.name}`} />
-          </div>
-        ))}
+          </div>;
+        })}
         <div className="contact-wrap">
-          <a className="contact-card" href={`tel:${SITE.phone.office}`}>
+          <a className="contact-card" href={siteOfficeTel ? `tel:${siteOfficeTel}` : undefined}>
             <div className="icon-box">
               <Building2 size={22} strokeWidth={1.8} />
             </div>
@@ -879,10 +890,12 @@ export function SitePage({
   initialProperties = [],
   announcement = "",
   faqItems = FAQS,
+  commissionRates,
 }: {
   initialProperties?: PropertyCardData[];
   announcement?: string;
   faqItems?: ReadonlyArray<{ q: string; a: string }>;
+  commissionRates: CommissionRateConfig;
 }) {
   const [draft, setDraft] = useState<InquiryDraft>({
     deal: "خرید",
@@ -952,7 +965,7 @@ export function SitePage({
             <Process />
             <Neighborhoods onPick={(name) => goInquiry({ neighborhood: name })} />
             <Team />
-            <Tools />
+      <Tools commissionRates={commissionRates} />
             <TrackingCta />
             <FAQ items={faqItems} />
             <Contact />

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { compactSearchText } from "./property-search-utils.ts";
 import { isAllowedPropertyFloorValue } from "./property-options.ts";
+import { MAX_SELECTED_NEIGHBORHOODS } from "./neighborhood-selection.ts";
 
 export const publicPropertyFiltersSchema = z.object({
   transactionType: z.enum(["buy", "sell", "rent", "mortgage"]).optional(),
@@ -8,6 +9,9 @@ export const publicPropertyFiltersSchema = z.object({
   neighborhood: z.string().trim().max(80).refine((value) => !value || compactSearchText(value).length > 0, {
     message: "نام محله نامعتبر است.",
   }).optional(),
+  neighborhoods: z.array(z.string().trim().min(2).max(80).refine((value) => compactSearchText(value).length > 0, {
+    message: "نام محله نامعتبر است.",
+  })).max(MAX_SELECTED_NEIGHBORHOODS).optional().default([]),
   mapBounds: z.tuple([
     z.number().min(-180).max(180),
     z.number().min(-90).max(90),
@@ -51,6 +55,10 @@ export const publicPropertyFiltersSchema = z.object({
   sort: z.enum(["newest", "price_asc", "price_desc", "area_asc", "area_desc"]).optional().default("newest"),
   offset: z.number().int().min(0).max(100000).optional().default(0),
 }).superRefine((data, ctx) => {
+  if (new Set(data.neighborhoods.map(compactSearchText)).size !== data.neighborhoods.length) {
+    ctx.addIssue({ code: "custom", path: ["neighborhoods"], message: "محله‌های تکراری را انتخاب نکنید." });
+  }
+
   const ranges = [
     ["minArea", "maxArea", "متراژ"],
     ["minPrice", "maxPrice", "قیمت"],

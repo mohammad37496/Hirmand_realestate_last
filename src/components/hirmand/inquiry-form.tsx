@@ -7,6 +7,7 @@ import { formatToman, parseAmount, tomanToWords } from "@/lib/money";
 import { PROPERTY_OTHER_AMENITY_OPTIONS } from "@/lib/property-options";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { formatPersianDate } from "@/lib/persian-date";
 import { PersianDatePicker } from "./persian-date-picker";
 import { useConsultants } from "./consultants-context";
@@ -384,6 +385,7 @@ export function InquiryForm({ draft }: { draft: InquiryDraft }) {
   }
 
   const waHref = `${selected?.whatsapp ?? SITE.whatsappDirect}?text=${encodeURIComponent(buildMessage())}`;
+  const selectedPhoneTel = toIranianE164Phone(selected?.phone ?? "");
 
   return (
     <form className="inquiry-form" onSubmit={onSubmit} noValidate>
@@ -785,14 +787,14 @@ export function InquiryForm({ draft }: { draft: InquiryDraft }) {
           <Send size={16} />
           ارسال در واتساپ
         </a>
-        <a
+        {selectedPhoneTel ? <a
           className="btn-ghost"
-          href={`tel:${selected.phone}`}
+          href={`tel:${selectedPhoneTel}`}
           onClick={() => trackAnalyticsEvent("call_click")}
         >
           <Phone size={16} />
           تماس با {selected.name}
-        </a>
+        </a> : null}
       </div>
     </form>
   );

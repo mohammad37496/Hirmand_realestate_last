@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Building2, Phone, Search, UserRound } from "lucide-react";
 import { propertyPath } from "@/lib/property-path";
 import { formatToman } from "@/lib/money";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 
 type OwnerFile = {
   id:string; slug:string; title:string; status:string; transactionType:string;
@@ -58,7 +59,7 @@ export function AdminOwnerManager(){
             <div className="admin-owner-top">
               <span className="admin-owner-avatar"><UserRound size={18}/></span>
               <div className="admin-owner-title"><strong>{owner.name}</strong><small>{owner.fileCount.toLocaleString("fa-IR")} فایل · {owner.publishedCount.toLocaleString("fa-IR")} منتشرشده</small></div>
-              {owner.phone?<a className="admin-owner-phone" href={"tel:"+owner.phone}><Phone size={14}/>{owner.phone}</a>:null}
+              {owner.phone ? (toIranianE164Phone(owner.phone) ? <a className="admin-owner-phone" href={`tel:${toIranianE164Phone(owner.phone)}`}><Phone size={14}/>{owner.phone}</a> : <span className="admin-owner-phone">{owner.phone}</span>) : null}
             </div>
             <div className="admin-owner-stats">
               <div><small>کل فایل</small><strong>{owner.fileCount.toLocaleString("fa-IR")}</strong></div>

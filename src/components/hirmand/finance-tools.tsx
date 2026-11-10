@@ -20,18 +20,19 @@ import {
 } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { CommissionCalculator } from "./commission-calculator";
+import type { CommissionRateConfig } from "@/lib/commission";
 import { RahnRentConverter } from "./rahn-rent-converter";
 
 type ToolId = "rahn" | "commission" | "deposit" | "loan";
 
 const TOOLS: { id: ToolId; title: string; text: string; icon: typeof Wallet }[] = [
   { id: "rahn", title: "رهن به اجاره", text: "نوار تبدیل", icon: ArrowLeftRight },
-  { id: "commission", title: "کمیسیون ملک", text: "تعرفه اتحادیه", icon: Wallet },
+  { id: "commission", title: "کمیسیون ملک", text: "برآورد نمونه", icon: Wallet },
   { id: "deposit", title: "سود سپرده", text: "محاسبه بانکی", icon: PiggyBank },
   { id: "loan", title: "اقساط وام", text: "سود و قسط ماهانه", icon: Landmark },
 ];
 
-export function FinanceTools() {
+export function FinanceTools({ commissionRates }: { commissionRates: CommissionRateConfig }) {
   const [tool, setTool] = useState<ToolId>("rahn");
   const activeTool = TOOLS.find((item) => item.id === tool) ?? TOOLS[0];
   const ActiveIcon = activeTool.icon;
@@ -127,7 +128,7 @@ export function FinanceTools() {
 
           <div className="tools-panel-body">
             {tool === "rahn" ? <RahnRentConverter /> : null}
-            {tool === "commission" ? <CommissionCalculator /> : null}
+            {tool === "commission" ? <CommissionCalculator rates={commissionRates} /> : null}
             {tool === "deposit" ? <DepositCalculator /> : null}
             {tool === "loan" ? <LoanCalculator /> : null}
           </div>

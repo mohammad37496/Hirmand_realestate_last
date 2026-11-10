@@ -37,6 +37,7 @@ import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
+import { sendPasswordResetEmail } from "./password-reset-email.server";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
@@ -105,7 +106,9 @@ const configuredBaseURL = env("BETTER_AUTH_URL");
 // Better Auth compares Origin headers exactly. Canonicalize a root trailing
 // slash so `https://example.com/` cannot become a trusted origin that browsers
 // never send (they send `https://example.com`).
-const explicitBaseURL = configuredBaseURL ? normalizeBetterAuthOrigin(configuredBaseURL) : undefined;
+const explicitBaseURL = configuredBaseURL
+  ? normalizeBetterAuthOrigin(configuredBaseURL, { allowHttpLoopback: process.env.CI === "true" })
+  : undefined;
 // Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
 // requires a mutable `allowedHosts: string[]`.
 const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];
@@ -222,14 +225,56 @@ export const auth = betterAuth({
     },
   },
 
-  // Cache the session in the short-lived signed `session_data` cookie so reads
-  // (incl. the client's `/get-session`) skip the DB — this shrinks the "loading"
-  // window and reduces auth flicker. See the `auth` skill for the full
-  // flicker-prevention guidance (gate on `isPending`; SSR the session).
-  session: { cookieCache: { enabled: true, maxAge: 300 } },
+  // Do not cache sessions in signed cookies. Better Auth can otherwise accept a
+  // revoked session from another device until cookieCache.maxAge expires, even
+  // after revokeSessionsOnPasswordReset has deleted its database row. Password
+  // resets and password changes must invalidate every previous session on the
+  // next request, so /get-session must always consult the authoritative store.
+  session: { cookieCache: { enabled: false } },
+
+  // Persist limits in Postgres so restarts and multiple app workers do not
+  // reset the password-recovery abuse controls. The migration creates the
+  // Better Auth `rateLimit` model. Recovery requests are limited to 3/minute;
+  // token redemption is limited separately to 5/minute.
+  rateLimit: {
+    storage: "database",
+    customRules: {
+      "/request-password-reset": { window: 60, max: 3 },
+      "/reset-password": { window: 60, max: 5 },
+    },
+  },
+  // Recovery tokens are bearer credentials. Hash only reset-password
+  // identifiers at rest while preserving the existing storage format for
+  // unrelated Better Auth verification flows.
+  verification: {
+    storeIdentifier: {
+      default: "plain",
+      overrides: {
+        "reset-password:": "hashed",
+      },
+    },
+  },
 
   // Local email/password — toggled only via `./email-password` (not a plugin).
-  ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),
+  ...(emailAndPasswordEnabled ? {
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 8,
+      maxPasswordLength: 128,
+      resetPasswordTokenExpiresIn: 60 * 60,
+      revokeSessionsOnPasswordReset: true,
+      // Do not await mail delivery here: Better Auth deliberately performs a
+      // dummy lookup for unknown addresses, and waiting for Resend only for
+      // known users would reintroduce an account-enumeration timing signal.
+      sendResetPassword: ({ user, url }: { user: { email: string; name: string }; url: string }) => {
+        void sendPasswordResetEmail({ email: user.email, name: user.name, url }).catch((error: unknown) => {
+          // Never log the address, reset URL, token, provider body or API key.
+          console.error("[auth] password reset email delivery failed", error instanceof Error ? error.name : "unknown error");
+        });
+        return Promise.resolve();
+      },
+    },
+  } : {}),
 
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
   // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a

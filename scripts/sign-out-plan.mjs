@@ -12,11 +12,10 @@
  *   IS being signed out, so the server call is best effort and a wedged request
  *   must never strand the button. This is where the hang actually happens.
  * - **Deployed** — the session rides an HttpOnly `__Host-` cookie that JS
- *   cannot delete. ONLY a completed sign-out response clears it, and
- *   `server.ts` enables `session.cookieCache` (maxAge 300), so `/get-session`
- *   would keep answering from the cached cookie for minutes afterwards.
- *   Redirecting on a timeout would show the visitor "signed out" while their
- *   session is still live — so here we fail loudly instead of pretending.
+ *   cannot delete. Only the server can clear it. Session cookie caching is
+ *   disabled so a revoked database session is rejected on the next request;
+ *   nevertheless, an unanswered sign-out leaves the client unable to know
+ *   whether the server processed the request, so here we fail loudly.
  */
 
 /**

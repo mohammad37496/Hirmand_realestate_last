@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import type { Sql } from "./db.ts";
 import { assignAdminLeadToConsultant } from "./admin-lead-assignment-action.ts";
 import { saveAdminLeadMatchesWithActivity, updateAdminLeadWithActivity, type AdminLeadActivityMutation } from "./admin-lead-activity-action.ts";
 import { autoMatchLead } from "./lead-smart-matcher.server.ts";
+import { matchablePropertyVisibilitySql } from "./property-matchability.ts";
 
 async function createFixture(options: { failActivity?: boolean } = {}) {
   const pg = new PGlite();
@@ -400,7 +402,11 @@ test("automatic lead matching preserves the previous snapshot when timeline stor
       price_drop_percent numeric,
       featured boolean not null default false,
       featured_until timestamptz,
-      status text not null default 'published'
+      status text not null default 'published',
+      publish_at timestamptz,
+      unpublish_at timestamptz,
+      deleted_at timestamptz,
+      availability_status text not null default 'available'
     );
     create table lead_activities (
       id bigserial primary key,
@@ -448,4 +454,64 @@ test("automatic lead matching preserves the previous snapshot when timeline stor
   } finally {
     await pg.close();
   }
+});
+
+test("CRM matching only recommends publicly visible, currently available properties", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table properties (
+        id text primary key,
+        status text not null,
+        publish_at timestamptz,
+        unpublish_at timestamptz,
+        deleted_at timestamptz,
+        availability_status text
+      );
+      insert into properties (id, status, availability_status) values
+        ('published-available', 'published', 'available'),
+        ('legacy-null-availability', 'published', null),
+        ('sold', 'published', 'sold'),
+        ('reserved', 'published', 'reserved'),
+        ('rented', 'published', 'rented'),
+        ('unavailable-other', 'published', 'under_offer');
+      insert into properties (id, status, deleted_at, availability_status)
+        values ('soft-deleted', 'published', current_timestamp, 'available');
+      insert into properties (id, status, unpublish_at, availability_status)
+        values ('expired', 'published', current_timestamp - interval '1 second', 'available');
+      insert into properties (id, status, publish_at, availability_status)
+        values
+          ('scheduled-future', 'draft', current_timestamp + interval '1 day', 'available'),
+          ('scheduled-due', 'draft', current_timestamp - interval '1 second', 'available');
+    `);
+
+    const result = await pg.query(
+      `select id from properties where ${matchablePropertyVisibilitySql()} order by id`,
+    );
+    assert.deepEqual(result.rows.map((row) => String((row as { id: string }).id)), [
+      "legacy-null-availability",
+      "published-available",
+      "scheduled-due",
+    ]);
+
+    const aliased = await pg.query(
+      `select p.id from properties p where ${matchablePropertyVisibilitySql("p")} order by p.id`,
+    );
+    assert.deepEqual(aliased.rows.map((row) => String((row as { id: string }).id)), [
+      "legacy-null-availability",
+      "published-available",
+      "scheduled-due",
+    ]);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("automatic and manual CRM matchers share the canonical matchability predicate", () => {
+  const automatic = readFileSync(new URL("./lead-smart-matcher.server.ts", import.meta.url), "utf8");
+  const manual = readFileSync(new URL("../../server/routes/api/admin-match.post.ts", import.meta.url), "utf8");
+  assert.match(automatic, /where \$\{matchablePropertyVisibilitySql\(\)\}/);
+  assert.match(manual, /where \$\{matchablePropertyVisibilitySql\(\)\}/);
+  assert.match(automatic, /from "\.\/property-matchability\.ts"/);
+  assert.match(manual, /from "@\/lib\/property-matchability"/);
 });

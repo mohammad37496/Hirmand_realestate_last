@@ -2,6 +2,7 @@ import type { getSql } from "./db.ts";
 import { DEFAULT_MATCH_RAHN_RATE } from "./budget-matching.ts";
 import { isAllowedPropertyFloorValue } from "./property-options.ts";
 import { saveAdminLeadMatchesWithActivity } from "./admin-lead-activity-action.ts";
+import { matchablePropertyVisibilitySql } from "./property-matchability.ts";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 type SqlClient = Awaited<ReturnType<typeof getSql>>;
@@ -389,7 +390,7 @@ export async function autoMatchLead(
   const candidateRows = await sql.query<Record<string, unknown>>(
     `select ${PROPERTY_COLUMNS}
      from properties
-     where status = 'published'
+     where ${matchablePropertyVisibilitySql()}
        and (floor is null or floor = -60 or floor between 0 and 20)
        and (
          $1::text = ''

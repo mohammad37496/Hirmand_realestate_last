@@ -172,8 +172,7 @@ export function renderWebManifest(hostHeader, { site = {} } = {}) {
     icons: [
       { src: "/pwa/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/pwa/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/pwa/icon-maskable.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },
-      { src: "/pwa/icon-monochrome.svg", sizes: "any", type: "image/svg+xml", purpose: "monochrome" }
+      { src: "/pwa/icon-maskable.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
       { name: "فایل‌های ملکی", short_name: "فایل‌ها", description: "مشاهده فایل‌های ملکی هیرمند", url: "/properties", icons: [{ src: "/pwa/shortcut-properties.svg", sizes: "any", type: "image/svg+xml" }] },

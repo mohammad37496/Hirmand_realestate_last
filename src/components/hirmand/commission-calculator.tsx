@@ -1,22 +1,32 @@
 import { useMemo, useState } from "react";
 import { Calculator, Copy } from "lucide-react";
 import { toast } from "sonner";
-import { calculateBuy, calculateRent, resultSummary } from "@/lib/commission";
+import { calculateBuy, calculateRent, commissionRateStatus, COMMISSION_LEGAL_BASIS_NOTICE, resultSummary, type CommissionRateConfig } from "@/lib/commission";
 import { formatGroupedInput, formatToman, parseAmount, tomanToWords } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 type DealKind = "buy" | "rent";
 
-export function CommissionCalculator() {
+export function CommissionCalculator({ rates }: { rates: CommissionRateConfig }) {
   const [kind, setKind] = useState<DealKind>("buy");
   const [price, setPrice] = useState("");
   const [rent, setRent] = useState("");
   const [deposit, setDeposit] = useState("");
 
   const result = useMemo(() => {
-    if (kind === "buy") return calculateBuy(parseAmount(price));
-    return calculateRent(parseAmount(rent), parseAmount(deposit));
-  }, [kind, price, rent, deposit]);
+    if (kind === "buy") return calculateBuy(parseAmount(price), rates);
+    return calculateRent(parseAmount(rent), parseAmount(deposit), rates);
+  }, [kind, price, rent, deposit, rates]);
+
+  const rateStatus = commissionRateStatus(rates);
+  const percent = (value: number) => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 }).format(value) + "٪";
+  const rateStatusText = rateStatus === "verified"
+    ? `منبع و بازه اعتبار نرخ ثبت‌شده برای ${rates.city} توسط مدیریت تأیید داخلی شده است؛ این تأیید رسمی یا قانونی نیست.`
+    : rateStatus === "upcoming"
+      ? `این نرخ از ${rates.effectiveFrom} معتبر می‌شود؛ محاسبه فعلی صرفاً برآورد است.`
+      : rateStatus === "expired"
+        ? `اعتبار نرخ ثبت‌شده در ${rates.effectiveTo} پایان یافته؛ محاسبه فعلی صرفاً برآورد است.`
+        : `نرخ‌های پایه برای ${rates.city} هنوز با منبع و بازه اعتبار تأیید نشده‌اند؛ نتیجه صرفاً برآورد است.`;
 
   const priceWords = tomanToWords(parseAmount(price));
   const rentWords = tomanToWords(parseAmount(rent));
@@ -98,7 +108,7 @@ export function CommissionCalculator() {
           <div className="commission-result" aria-live="polite">
             <div className="commission-result-head">
               <Calculator size={18} strokeWidth={1.8} />
-              <strong>نتیجه محاسبه</strong>
+              <strong>برآورد کمیسیون</strong>
             </div>
             <ul className="commission-rows">
               {result.kind === "rent" ? (
@@ -114,22 +124,22 @@ export function CommissionCalculator() {
                 </>
               ) : null}
               <li>
-                <span>کمیسیون پایه بنگاه</span>
+                    <span>کمیسیون پایه برآوردی بنگاه</span>
                 <strong>{formatToman(result.base)} تومان</strong>
               </li>
               <li>
-                <span>مالیات ارزش افزوده (۱۰٪)</span>
+                <span>برآورد مالیات ارزش افزوده ({percent(result.rates.vatPercent)})</span>
                 <strong>{formatToman(result.vat)} تومان</strong>
               </li>
               <li className="is-total">
-                <span>جمع کل کمیسیون بنگاه</span>
+                <span>جمع کل برآوردی بنگاه</span>
                 <strong>{formatToman(result.total)} تومان</strong>
               </li>
               <li>
                 <span>
                   {result.kind === "buy"
-                    ? "سهم هر طرف (خریدار / فروشنده)"
-                    : "سهم هر طرف (موجر / مستأجر)"}
+                    ? "سهم برآوردی هر طرف (خریدار / فروشنده)"
+                    : "سهم برآوردی هر طرف (موجر / مستأجر)"}
                 </span>
                 <strong>{formatToman(result.each)} تومان</strong>
               </li>
@@ -138,31 +148,33 @@ export function CommissionCalculator() {
               <Copy size={15} />
               کپی خلاصه محاسبه
             </button>
-            <p className="commission-disclaimer">
-              این محاسبه بر اساس نرخ‌های پایهٔ پیش‌فرض ابزار، صرفاً برآورد است. تعرفهٔ رسمی طبق ضریب
-              ارزش معاملاتی و سقف مصوب هر شهرستان تعیین می‌شود؛ مبلغ نهایی را با نرخنامهٔ جاری اصفهان
-              تطبیق دهید. نرخ مالیات ارزش افزوده در سال ۱۴۰۵ برابر ۱۰٪ است.
-            </p>
           </div>
         ) : (
           <p className="commission-hint">مبالغ را وارد کنید تا کمیسیون محاسبه شود.</p>
         )}
+        <p className="commission-disclaimer">
+          {rateStatusText} {rates.sourceLabel ? <>منبع ثبت‌شده: {rates.sourceUrl ? <a href={rates.sourceUrl} target="_blank" rel="noreferrer">{rates.sourceLabel}</a> : rates.sourceLabel}.</> : null}
+          {rates.effectiveFrom ? ` شروع اعتبار: ${rates.effectiveFrom}.` : null}
+          {rates.effectiveTo ? ` پایان اعتبار: ${rates.effectiveTo}.` : null}
+          {" "}تأیید داخلی مدیریت، حتی با وجود منبع و بازه اعتبار، به معنی تأیید رسمی تعرفه نیست.
+        </p>
+        <p className="commission-disclaimer commission-legal-basis-note" role="note">{COMMISSION_LEGAL_BASIS_NOTICE}</p>
       </div>
 
       <aside className="commission-guide">
-        <h3>نحوه محاسبه</h3>
+        <h3>نحوه برآورد نمونه</h3>
         {kind === "buy" ? (
           <ol>
-            <li>کمیسیون پایه = ۰٫۵٪ از مبلغ کل معامله</li>
-            <li>مالیات = ۱۰٪ از کمیسیون پایه</li>
-            <li>جمع کل بین خریدار و فروشنده نصف می‌شود (هر طرف ۰٫۲۵٪ + مالیات)</li>
+            <li>کمیسیون پایه برآوردی کل = {percent(rates.saleTotalPercent)} از مبلغ معامله</li>
+            <li>برآورد مالیات ارزش افزوده = {percent(rates.vatPercent)} از کمیسیون پایه</li>
+            <li>در این برآورد، سهم خریدار و فروشنده برابر فرض می‌شود؛ مگر آنکه در قرارداد به نحو دیگری توافق شود</li>
           </ol>
         ) : (
           <ol>
-            <li>هر ۱ میلیون تومان رهن ≈ ۳۰ هزار تومان اجاره ماهانه</li>
-            <li>اجاره معادل = اجاره ماهانه + معادل اجارهٔ رهن</li>
-            <li>کمیسیون پایه = ۲۵٪ از اجاره معادل</li>
-            <li>مالیات ۱۰٪ اضافه و مبلغ بین موجر و مستأجر نصف می‌شود</li>
+            <li>کمیسیون پایه برآوردی هر طرف = {percent(rates.rentMonthlyPercent)} اجاره ماهانه + {percent(rates.rentDepositPercent)} مبلغ رهن</li>
+            <li>معادل اجارهٔ رهن بر اساس نسبت نرخ رهن به نرخ اجاره محاسبه می‌شود</li>
+            <li>برآورد مالیات ارزش افزوده = {percent(rates.vatPercent)} از کمیسیون پایه</li>
+            <li>در این برآورد، سهم موجر و مستأجر برابر فرض می‌شود؛ مگر آنکه در قرارداد به نحو دیگری توافق شود</li>
           </ol>
         )}
       </aside>

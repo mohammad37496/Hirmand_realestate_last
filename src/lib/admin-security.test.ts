@@ -7,6 +7,7 @@
  * limiter is stateful but keyed, so each test uses its own key.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   clearAdminAttempts,
@@ -15,7 +16,8 @@ import {
   assertServerFnSameOrigin,
 } from "./admin-rate-limit.server.ts";
 import { contentMatchesDeclaredType, sniffMediaBytes } from "./file-signature.server.ts";
-import { canApproveCustomerPropertySubmission, hasAdminPermission, normalizeAdminRole } from "./admin-roles.ts";
+import { canApproveCustomerPropertySubmission, canManageTeam, hasAdminPermission, normalizeAdminRole } from "./admin-roles.ts";
+import { mergePublicConsultantDirectory } from "./consultant-directory.ts";
 
 /* ------------------------------------------------------------------ */
 /* helpers                                                             */
@@ -111,6 +113,67 @@ test("customer-submission approval requires both property management and publish
   assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("content")), false);
   assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("staff")), false);
   assert.equal(canApproveCustomerPropertySubmission(normalizeAdminRole("viewer")), false);
+});
+
+test("consultant management is restricted to owner and manager roles", () => {
+  assert.equal(canManageTeam(normalizeAdminRole("owner")), true);
+  assert.equal(canManageTeam(normalizeAdminRole("manager")), true);
+  for (const role of ["sales", "content", "staff", "viewer"] as const) {
+    assert.equal(canManageTeam(normalizeAdminRole(role)), false, `${role} must not manage consultant profiles`);
+  }
+  assert.equal(canManageTeam(normalizeAdminRole("admin")), true);
+});
+
+test("an explicitly inactive consultant is not restored by the bundled directory fallback", () => {
+  const bundled = [
+    { id: "sheikh", isActive: true, name: "مدیر اول" },
+    { id: "moradi", isActive: true, name: "مدیر دوم" },
+  ];
+  const database = [
+    { id: "sheikh", isActive: false, name: "مدیر اول غیرفعال" },
+    { id: "other", isActive: true, name: "مشاور دیگر" },
+  ];
+  assert.deepEqual(mergePublicConsultantDirectory(database, bundled).map((item) => item.id), ["other", "moradi"]);
+  assert.deepEqual(mergePublicConsultantDirectory(bundled.map((item) => ({ ...item, isActive: false })), bundled), []);
+});
+
+test("missing consultant rows receive a bundled fallback but inactive rows do not", () => {
+  const bundled = [
+    { id: "sheikh", isActive: true, name: "مدیر اول" },
+    { id: "moradi", isActive: true, name: "مدیر دوم" },
+  ];
+  const database = [{ id: "SHEIKH", isActive: false, name: "مدیر اول سفارشی" }];
+  assert.deepEqual(mergePublicConsultantDirectory(database, bundled).map((item) => item.id), ["moradi"]);
+  assert.deepEqual(mergePublicConsultantDirectory([], bundled), bundled);
+});
+
+test("consultant server functions enforce team.manage and keep inactive rows for fallback decisions", () => {
+  const source = readFileSync(new URL("./consultants.ts", import.meta.url), "utf8");
+  const guardStart = source.indexOf("async function requireAdmin()");
+  const guardEnd = source.indexOf("const selectColumns", guardStart);
+  const guard = source.slice(guardStart, guardEnd);
+  assert.match(guard, /getAdminSessionClaims\(session\)/);
+  assert.match(guard, /assertAdminServerFnOrigin\(\)/);
+  assert.match(guard, /hasAdminPermission\(claims\.role,\s*"team\.manage"\)/);
+  for (const operation of ["listAdminConsultants", "saveConsultant", "deleteConsultant"]) {
+    const start = source.indexOf(`export const ${operation}`);
+    const next = source.indexOf("export const ", start + 1);
+    assert.match(source.slice(start, next === -1 ? undefined : next), /await requireAdmin\(\)/);
+  }
+  const publicListStart = source.indexOf("export const listConsultants");
+  const publicListEnd = source.indexOf("const consultantInput", publicListStart);
+  const publicList = source.slice(publicListStart, publicListEnd);
+  assert.match(publicList, /from consultants\s+order by sort_order asc, name asc/);
+  assert.doesNotMatch(publicList, /where\s+is_active\s*=\s*true/i);
+  assert.match(publicList, /mergePublicConsultantDirectory\(databaseConsultants, staticConsultants\(\)\)/);
+});
+
+test("core consultant deletion is blocked on the server, not only in the admin UI", () => {
+  const source = readFileSync(new URL("./consultants.ts", import.meta.url), "utf8");
+  const start = source.indexOf("export const deleteConsultant");
+  assert.match(source.slice(start), /data\.id === "sheikh" \|\| data\.id === "moradi"/);
+  const adminUi = readFileSync(new URL("../components/hirmand/_admin_impl.tsx", import.meta.url), "utf8");
+  assert.match(adminUi, /if \(hasAdminPermission\(adminRole, "team\.manage"\)\) return navItems/);
 });
 
 /* ------------------------------------------------------------------ */

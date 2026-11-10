@@ -48,11 +48,11 @@ export default defineEventHandler(async (event) => {
   const [consultantRows, pipelineRows] = await Promise.all([
     sql.query<Record<string, unknown>>(
       `with file_stats as (
-         select lower(trim(contact_name)) as key,
+         select c.id as key,
                 count(*) filter (where status = 'published')::int as files
-         from properties
-         where coalesce(trim(contact_name), '') <> ''
-         group by lower(trim(contact_name))
+         from properties p
+         join consultants c on c.id = p.consultant_id
+         group by c.id
        ),
        lead_stats as (
          select
@@ -85,13 +85,13 @@ export default defineEventHandler(async (event) => {
        ),
        event_stats as (
          select
-           lower(trim(p.contact_name)) as key,
+           c.id as key,
            count(*) filter (where e.event_name = 'property_view')::int as views
          from properties p
+         join consultants c on c.id = p.consultant_id
          join site_events e on e.property_slug = p.slug
-         where coalesce(trim(p.contact_name), '') <> ''
-           and e.day >= (current_timestamp at time zone 'Asia/Tehran')::date - ${days - 1}
-         group by lower(trim(p.contact_name))
+         where e.day >= (current_timestamp at time zone 'Asia/Tehran')::date - ${days - 1}
+         group by c.id
        )
        select
          c.id,
@@ -110,9 +110,9 @@ export default defineEventHandler(async (event) => {
          coalesce(ls.period_contracts, 0)::int as period_contracts,
          coalesce(es.views, 0)::int as views
        from consultants c
-       left join file_stats fs on fs.key = lower(trim(c.name))
+       left join file_stats fs on fs.key = c.id
        left join lead_stats ls on ls.key = lower(trim(c.name))
-       left join event_stats es on es.key = lower(trim(c.name))
+       left join event_stats es on es.key = c.id
        order by overdue_leads desc, visit_requests desc, active_leads desc, period_contracts desc, c.name asc
       `,
     ).catch((error) => {
