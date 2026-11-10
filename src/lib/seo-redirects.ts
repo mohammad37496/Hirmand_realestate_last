@@ -1,9 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { verifyAdminSessionToken, ADMIN_SESSION_COOKIE } from "@/lib/admin-session.server";
+import { getAdminSessionClaims, ADMIN_SESSION_COOKIE } from "@/lib/admin-session.server";
 import { getCookie } from "@tanstack/react-start/server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { hasAdminPermission } from "@/lib/admin-roles";
 
 export type RedirectRow={id:number;sourcePath:string;targetPath:string;statusCode:301|302|307|308;active:boolean;hitCount:number;lastHitAt:string|null;createdAt:string;updatedAt:string};
 type NotFoundRow={id:number;path:string;hitCount:number;referrer:string;userAgent:string;firstSeenAt:string;lastSeenAt:string};
@@ -33,8 +34,12 @@ function map404(row:Record<string,unknown>):NotFoundRow{return{
 
 async function requireAdmin(){
   const token=getCookie(ADMIN_SESSION_COOKIE);
-  if(!(await verifyAdminSessionToken(token))) throw new Error("نشست مدیریت معتبر نیست.");
+  const claims = await getAdminSessionClaims(token);
+  if (!claims) throw new Error("نشست مدیریت معتبر نیست.");
   assertAdminServerFnOrigin();
+  if (!hasAdminPermission(claims.role, "team.manage")) {
+    throw new Error("سطح دسترسی مدیریت تنظیمات سایت برای این حساب فعال نیست.");
+  }
 }
 
 // A plain exported helper here used to keep this whole module — and with it

@@ -176,6 +176,54 @@ test("core consultant deletion is blocked on the server, not only in the admin U
   assert.match(adminUi, /if \(hasAdminPermission\(adminRole, "team\.manage"\)\) return navItems/);
 });
 
+test("sensitive admin server functions enforce team.manage on the server", () => {
+  const protectedModules = [
+    {
+      file: "./seo-redirects.ts",
+      operations: [
+        "listAdminRedirects",
+        "upsertAdminRedirect",
+        "deleteAdminRedirect",
+        "listAdmin404Logs",
+        "clearAdmin404Logs",
+      ],
+    },
+    {
+      file: "./admin-audit.ts",
+      operations: ["listAdminAuditLog", "clearAdminAuditLog"],
+    },
+    {
+      file: "./attendance.ts",
+      operations: ["listAttendance", "saveAttendance", "deleteAttendance"],
+    },
+  ] as const;
+
+  for (const { file, operations } of protectedModules) {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8");
+    const guard = source.match(/async function requireAdmin\(\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+    assert.match(guard, /getAdminSessionClaims\(/, `${file} must resolve the current role from the admin session`);
+    assert.match(guard, /assertAdminServerFnOrigin\(\)/, `${file} must keep the same-origin guard`);
+    assert.match(guard, /hasAdminPermission\(claims\.role,\s*"team\.manage"\)/, `${file} must require team.manage`);
+
+    for (const operation of operations) {
+      const start = source.indexOf(`export const ${operation}`);
+      const next = source.indexOf("export const ", start + 1);
+      assert.notEqual(start, -1, `${file} must export ${operation}`);
+      assert.match(
+        source.slice(start, next === -1 ? undefined : next),
+        /await requireAdmin\(\)/,
+        `${operation} must enforce its role guard before accessing data`,
+      );
+    }
+  }
+
+  assert.equal(hasAdminPermission(normalizeAdminRole("owner"), "team.manage"), true);
+  assert.equal(hasAdminPermission(normalizeAdminRole("manager"), "team.manage"), true);
+  for (const role of ["sales", "content", "staff", "viewer"] as const) {
+    assert.equal(hasAdminPermission(normalizeAdminRole(role), "team.manage"), false, `${role} must be denied`);
+  }
+});
+
 /* ------------------------------------------------------------------ */
 /* magic-byte sniffing                                                 */
 /* ------------------------------------------------------------------ */
