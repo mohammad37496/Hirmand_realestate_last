@@ -1847,6 +1847,58 @@
   }
 }
 
+/* Mobile list cards use one compact, fixed photo frame across every listing. */
+@media (max-width: 640px) {
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list {
+    grid-template-rows: 138px;
+    min-height: 138px;
+    height: 138px;
+    overflow: hidden;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
+    grid-template-columns: clamp(104px, 30vw, 124px) minmax(0, 1fr);
+    min-height: 0;
+    height: 138px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-image-link,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media picture,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media img {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    height: 138px;
+    max-height: 138px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-image-link {
+    width: clamp(104px, 30vw, 124px);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media img {
+    display: block;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-body {
+    min-height: 0;
+    height: 138px;
+    gap: 3px;
+    padding: 7px 8px;
+    overflow: hidden;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+}
+
 /* Related property cards share one grid row, so differences in optional
    details (price lines and feature chips) cannot change the card heights. */
 .property-detail-page .property-related .property-grid {
