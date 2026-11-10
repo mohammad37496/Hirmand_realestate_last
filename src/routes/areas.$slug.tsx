@@ -19,10 +19,13 @@ import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "
 import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas } from "@/lib/areas";
 import { breadcrumbJsonLd, serializeJsonLd } from "@/lib/seo";
 import { SITE } from "@/lib/site";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { getPublicAreaContent, type AreaContent } from "@/lib/area-content";
 import areaDetailCss from "../area-detail.css?url";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
+
+const siteMobileTel = toIranianE164Phone(SITE.phone.mobile);
 
 export const Route = createFileRoute("/areas/$slug")({
   loader: async ({ params }) => {
@@ -261,7 +264,7 @@ function AreaPage() {
             <span className="area-profile-section-kicker">مشاورهٔ محلی</span>
             <h2>برای انتخاب بهتر، مشورت کنید.</h2>
             <p>برای دریافت فایل‌های متناسب با بودجه و شرایطتان در {area.name} با مشاوران هیرمند صحبت کنید.</p>
-            <a href={"tel:" + SITE.phone.mobile} className="area-action area-action-primary">
+            <a href={siteMobileTel ? `tel:${siteMobileTel}` : undefined} className="area-action area-action-primary">
               <Phone size={16} aria-hidden="true" /> تماس با مشاور
             </a>
             <Link to="/" hash="inquiry" className="area-action area-action-secondary">
@@ -404,7 +407,7 @@ function AreaPage() {
               <span><Building2 size={23} aria-hidden="true" /></span>
               <h3>فعلاً فایل منتشرشده‌ای در این محله نداریم.</h3>
               <p>برای اطلاع از فایل‌های جدید یا معرفی گزینه‌های مشابه در محدوده‌های نزدیک، با مشاوران هیرمند تماس بگیرید.</p>
-              <a href={"tel:" + SITE.phone.mobile} className="area-action area-action-primary"><Phone size={16} aria-hidden="true" /> تماس با هیرمند</a>
+              <a href={siteMobileTel ? `tel:${siteMobileTel}` : undefined} className="area-action area-action-primary"><Phone size={16} aria-hidden="true" /> تماس با هیرمند</a>
             </div>
           )}
         </section>
@@ -438,7 +441,7 @@ function AreaPage() {
             <p>نیازها و بودجه‌تان را مطرح کنید تا برای بررسی فایل‌های مناسب راهنمایی بگیرید.</p>
           </div>
           <div className="area-profile-final-cta-actions">
-            <a href={"tel:" + SITE.phone.mobile} className="area-action area-action-primary"><Phone size={16} aria-hidden="true" /> تماس با دفتر</a>
+            <a href={siteMobileTel ? `tel:${siteMobileTel}` : undefined} className="area-action area-action-primary"><Phone size={16} aria-hidden="true" /> تماس با دفتر</a>
             <Link to="/" hash="inquiry" className="area-action area-action-secondary">ثبت درخواست <ArrowUpLeft size={15} aria-hidden="true" /></Link>
           </div>
         </section>
