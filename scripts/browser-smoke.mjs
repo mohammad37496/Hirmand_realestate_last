@@ -349,11 +349,28 @@ try {
     });
     if (!response || response.status() >= 400) throw new Error(`properties route returned ${response?.status() ?? 0}`);
     const trigger = neighborhoodPage.locator(".pf-neighborhood-trigger");
+    const sidebar = neighborhoodPage.locator(".pf-sidebar");
 
     for (const width of neighborhoodFilterCheck.widths) {
       await neighborhoodPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       if (width <= 979) await neighborhoodPage.locator(".pf-filter-btn").click();
       await trigger.waitFor({ state: "visible", timeout: timeoutMs });
+      if (width <= 979) {
+        // The mobile filter sheet is independently scrollable. The neighborhood
+        // control sits below the first viewport, so move the sheet (not the page)
+        // to it before exercising the real pointer click.
+        await sidebar.evaluate((element) => {
+          const target = element.querySelector(".pf-neighborhood-trigger");
+          if (!(target instanceof HTMLElement)) throw new Error("neighborhood trigger is missing from the filter sheet");
+          const panel = element.getBoundingClientRect();
+          const button = target.getBoundingClientRect();
+          element.scrollTop += button.top - panel.top - (panel.height - button.height) / 2;
+        });
+        const triggerBounds = await trigger.boundingBox();
+        if (!triggerBounds || triggerBounds.y < 0 || triggerBounds.y + triggerBounds.height > (width === 390 ? 844 : 900)) {
+          throw new Error(`neighborhood trigger could not be brought into the mobile filter sheet viewport at ${width}px`);
+        }
+      }
       await trigger.click();
       const dialog = neighborhoodPage.locator(".pf-neighborhood-dialog");
       await dialog.waitFor({ state: "visible", timeout: timeoutMs });
