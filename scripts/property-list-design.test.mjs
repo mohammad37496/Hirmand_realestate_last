@@ -47,6 +47,9 @@ test("mobile shared RTL list cards and explicit photo grid mode remain intact", 
   assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?inset-block-end:\s*0/);
   assert.match(propertyCardCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list\s*\{[^}]*display:block/);
   assert.match(marketplaceCss, /\.pf-grid\.is-grid-view \.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?inset-block-end:\s*0/);
+  const mobileActionDecision = marketplaceCss.slice(marketplaceCss.lastIndexOf("/* Keep mobile property cards focused"));
+  assert.match(mobileActionDecision, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{\s*display:\s*none !important;/);
+  assert.doesNotMatch(mobileActionDecision, /^\s*\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{\s*display:\s*none !important;/m);
 });
 
 test("shared mobile cards keep their actions in one horizontally scrollable row", () => {
@@ -167,7 +170,7 @@ test("homepage shared cards retain the compact RTL list and 44px image action ov
 
 test("mobile property cards hide the crowded action dock", () => {
   const mobileActionDecision = marketplaceCss.slice(marketplaceCss.lastIndexOf("/* Keep mobile property cards focused"));
-  assert.match(mobileActionDecision, /@media \(max-width:\s*720px\)[\s\S]*?\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{\s*display:\s*none !important;/);
+  assert.match(mobileActionDecision, /@media \(max-width:\s*720px\)[\s\S]*?\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{\s*display:\s*none !important;/);
 });
 
 test("map-side property cards use the canonical Hirmand navy, brass and paper palette", () => {

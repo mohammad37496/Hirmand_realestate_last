@@ -1842,7 +1842,7 @@
 /* Keep mobile property cards focused on the photo and listing details.
    The eight-button action dock consumes too much of the narrow image area. */
 @media (max-width: 720px) {
-  .pcard-mobile-list > .pcard-media > .pcard-actions {
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-actions {
     display: none !important;
   }
 }
