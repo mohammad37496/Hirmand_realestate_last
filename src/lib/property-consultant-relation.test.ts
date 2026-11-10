@@ -130,6 +130,7 @@ test("property profile and CRM assignment paths prefer stable consultant IDs wit
   assert.match(adminUi, /consultantId: form\.consultantId/);
   assert.match(adminUi, /consultantId: member\.id/);
   assert.match(submissionUi, /assignedConsultantId/);
+  assert.match(submissionUi, /submission\.assignedConsultantId \? \{/);
   assert.match(submissions, /assigned_consultant_id=\$2/);
   assert.match(submissions, /consultantId: consultant\.id/);
   assert.match(dashboard, /c\.id = p\.consultant_id/);
