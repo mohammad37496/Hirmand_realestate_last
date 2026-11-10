@@ -18,7 +18,7 @@ export function normalizeIranianPhoneForMatch(value: string): string {
 /** Return a validated Iranian E.164 number for tel: and structured contact links. */
 export function toIranianE164Phone(value: string): string | null {
   const national = normalizeIranianPhoneForMatch(value);
-  return /^0\d{10}$/.test(national) ? `+98${national.slice(1)}` : null;
+  return /^0[1-9]\d{9}$/.test(national) ? `+98${national.slice(1)}` : null;
 }
 
 /** WhatsApp expects the E.164 digits without the leading plus sign. */

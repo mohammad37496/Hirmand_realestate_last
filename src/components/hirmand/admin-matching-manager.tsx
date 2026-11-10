@@ -17,7 +17,7 @@ import { PROPERTY_OTHER_AMENITY_OPTIONS, labelForOption, PROPERTY_CABINET_OPTION
 import { formatToman } from "@/lib/money";
 import { propertyPath } from "@/lib/property-path";
 import { SITE } from "@/lib/site";
-import { toIranianE164Phone } from "@/lib/phone-normalization";
+import { toIranianE164Phone, toIranianWhatsAppNumber } from "@/lib/phone-normalization";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -257,6 +257,7 @@ export function AdminMatchingManager() {
   }, [leads, leadQuery]);
 
   const selectedLead = leads.find((lead) => lead.id === selectedLeadId) ?? null;
+  const selectedLeadWhatsappHref = selectedLead ? whatsappForLead(selectedLead, matches) : null;
 
   async function loadActivities(leadId: string) {
     try {
@@ -272,19 +273,9 @@ export function AdminMatchingManager() {
     }
   }
 
-  function phoneIntl(phone: string) {
-    const normalized = phone
-      .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
-      .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-      .replace(/[\s\-()]/g, "");
-    return normalized.startsWith("0098")
-      ? normalized.slice(2)
-      : normalized.startsWith("98")
-        ? normalized
-        : normalized.replace(/^0/, "98");
-  }
-
-  function whatsappForLead(lead: Lead, selectedMatches: MatchProperty[]) {
+  function whatsappForLead(lead: Lead, selectedMatches: MatchProperty[]): string | null {
+    const phone = toIranianWhatsAppNumber(lead.phone);
+    if (!phone) return null;
     const lines = [
       "سلام " + lead.name + "،",
       "فایل‌هایی که بر اساس درخواست شما در هیرمند پیشنهاد شده:",
@@ -294,7 +285,7 @@ export function AdminMatchingManager() {
       "",
       "برای هماهنگی بازدید با ما در تماس باشید.",
     ];
-    return "https://wa.me/" + phoneIntl(lead.phone) + "?text=" + encodeURIComponent(lines.join("\n"));
+    return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`;
   }
 
   async function submitFeedback(match: MatchProperty, feedback: "sent" | "liked" | "rejected" | "visited") {
@@ -497,8 +488,8 @@ export function AdminMatchingManager() {
                   </button>
                 </div>
                 <div className="admin-matching-send-all">
-                  {matches.length ? (
-                    <a className="btn-gold" href={whatsappForLead(selectedLead, matches)} target="_blank" rel="noopener noreferrer"
+                  {matches.length && selectedLeadWhatsappHref ? (
+                    <a className="btn-gold" href={selectedLeadWhatsappHref} target="_blank" rel="noopener noreferrer"
                       onClick={() => void Promise.all(matches.slice(0, 8).map((item) => submitFeedback(item, "sent")))}>
                       <Phone size={15} /> ارسال فایل‌های پیشنهادی در واتساپ
                     </a>

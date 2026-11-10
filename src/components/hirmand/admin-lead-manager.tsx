@@ -25,7 +25,7 @@ import {
 import { adminErrorMessage, fa, useConfirmDialog } from "@/components/hirmand/admin-ui-utils";
 import { PROPERTY_OTHER_AMENITY_OPTIONS } from "@/lib/property-options";
 import { daysUntilDateOnly, formatPersianDate } from "@/lib/persian-date";
-import { toIranianE164Phone } from "@/lib/phone-normalization";
+import { toIranianE164Phone, toIranianWhatsAppNumber } from "@/lib/phone-normalization";
 import { AdminLeadDedupe } from "@/components/hirmand/admin-lead-dedupe";
 import { AdminLeadAssignmentBalancer } from "@/components/hirmand/admin-lead-assignment-balancer";
 import { AdminLeadMessageTemplates } from "@/components/hirmand/admin-lead-message-templates";
@@ -348,11 +348,16 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
 
   const filteredLeads = leads;
 
+  function leadWhatsappHref(lead: Lead): string | null {
+    const phone = toIranianWhatsAppNumber(lead.phone);
+    return phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent("سلام، از دفتر هیرمند درباره درخواست شما تماس می‌گیریم.")}`
+      : null;
+  }
 
-  function budgetWhatsappHref(lead: Lead) {
-    const phone = lead.phone
-      .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
-      .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+  function budgetWhatsappHref(lead: Lead): string | null {
+    const phone = toIranianWhatsAppNumber(lead.phone);
+    if (!phone) return null;
     const lines = [
       "سلام " + lead.name + "،",
       "نتیجه بررسی بودجه شما از طرف هیرمند:",
@@ -384,12 +389,7 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
       "",
       "برای هماهنگی بازدید با ما در تماس باشید.",
     ].filter(Boolean);
-    return (
-      "https://wa.me/" +
-      (phone.startsWith("0098") ? phone.slice(2) : phone.startsWith("98") ? phone : phone.replace(/^0/, "98")) +
-      "?text=" +
-      encodeURIComponent(lines.join("\n"))
-    );
+    return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`;
   }
 
   async function createOverdueTasks() {
@@ -540,7 +540,12 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
           </div>
         ) : (
           <div className="admin-lead-list">
-            {filteredLeads.map((lead) => (
+            {filteredLeads.map((lead) => {
+              const whatsappHref = leadWhatsappHref(lead);
+              const budgetHref = lead.source === "budget_match" && lead.matchedProperties.length
+                ? budgetWhatsappHref(lead)
+                : null;
+              return (
               <article key={lead.id} className="admin-lead-card">
                 <div className="admin-lead-main">
                   <div className="admin-lead-title">
@@ -781,33 +786,15 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
                 ) : null}
 
                 <div className="admin-lead-actions">
-                  <a
-                    className="admin-icon-btn"
-                    href={
-                      "https://wa.me/" +
-                      (() => {
-                        const phone = lead.phone
-                          .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
-                          .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
-                        return phone.startsWith("0098")
-                          ? phone.slice(2)
-                          : phone.startsWith("98")
-                            ? phone
-                            : phone.replace(/^0/, "98");
-                      })() +
-                      "?text=" +
-                      encodeURIComponent("سلام، از دفتر هیرمند درباره درخواست شما تماس می‌گیریم.")
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="واتساپ"
-                  >
-                    <ExternalLink size={16} />
-                  </a>
-                  {lead.source === "budget_match" && lead.matchedProperties.length ? (
+                  {whatsappHref ? (
+                    <a className="admin-icon-btn" href={whatsappHref} target="_blank" rel="noopener noreferrer" title="واتساپ">
+                      <ExternalLink size={16} />
+                    </a>
+                  ) : null}
+                  {budgetHref ? (
                     <a
                       className="admin-icon-btn admin-budget-send"
-                      href={budgetWhatsappHref(lead)}
+                      href={budgetHref}
                       target="_blank"
                       rel="noopener noreferrer"
                       title="ارسال فایل‌های پیشنهادی"
@@ -879,7 +866,8 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
                   ) : null}
                 </div>
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
 

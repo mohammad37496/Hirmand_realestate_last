@@ -63,4 +63,14 @@ test("admin CRM and submission phone actions validate Iranian numbers before bui
   const messageTemplates = adminFiles.find(([name]) => name === "admin-lead-message-templates.tsx")[1];
   assert.match(messageTemplates, /toIranianWhatsAppNumber\(lead\.phone\)/);
   assert.doesNotMatch(messageTemplates, /normalizePhone\(lead\.phone\)/);
+
+  const leadManager = adminFiles.find(([name]) => name === "admin-lead-manager.tsx")[1];
+  const matchingManager = adminFiles.find(([name]) => name === "admin-matching-manager.tsx")[1];
+  assert.match(leadManager, /toIranianWhatsAppNumber\(lead\.phone\)/);
+  assert.match(leadManager, /whatsappHref \? \(/);
+  assert.match(leadManager, /budgetHref \? \(/);
+  assert.doesNotMatch(leadManager, /lead\.phone\s*\.replace\(/);
+  assert.match(matchingManager, /toIranianWhatsAppNumber\(lead\.phone\)/);
+  assert.match(matchingManager, /selectedLeadWhatsappHref \? \(/);
+  assert.doesNotMatch(matchingManager, /phoneIntl\(/);
 });
