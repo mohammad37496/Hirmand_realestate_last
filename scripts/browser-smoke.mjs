@@ -252,9 +252,15 @@ try {
       timeout: timeoutMs,
     });
     if (!response || response.status() >= 400) throw new Error(`smart search route returned ${response?.status() ?? 0}`);
+    await guidedSearchPage.waitForLoadState("load", { timeout: timeoutMs });
     const next = guidedSearchPage.locator(".guided-search-actions .btn-gold");
     const stepLabel = guidedSearchPage.locator(".guided-search-progress strong");
     const expectStep = async (label) => {
+      await guidedSearchPage.waitForFunction(
+        (expected) => document.querySelector(".guided-search-progress strong")?.textContent?.includes(expected) === true,
+        label,
+        { timeout: timeoutMs },
+      );
       const actual = await stepLabel.innerText();
       if (!actual.includes(label)) throw new Error(`expected guided step '${label}', got '${actual}'`);
       guidedSearchCheck.steps.push(label);
