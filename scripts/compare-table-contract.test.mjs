@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { resolveCompareLoad } from "../src/lib/compare-load-state.mjs";
 
 const compare = readFileSync(new URL("../src/routes/compare.tsx", import.meta.url), "utf8");
 const browserSmoke = readFileSync(new URL("./browser-smoke.mjs", import.meta.url), "utf8");
@@ -28,4 +29,20 @@ test("browser smoke verifies shared comparison precedence and responsive empty s
   assert.match(browserSmoke, /hirmand-compare-properties/);
   assert.match(browserSmoke, /hasSelectedPropertyLink/);
   assert.match(browserSmoke, /widths: \[390, 768, 1280\]/);
+});
+
+test("comparison load failures preserve selected slugs and expose a retry state", () => {
+  assert.match(compare, /const \[loadError, setLoadError\] = useState\(false\)/);
+  assert.match(compare, /const \[retryAttempt, setRetryAttempt\] = useState\(0\)/);
+  assert.match(compare, /result\.status === "error"/);
+  assert.match(compare, /role="alert"/);
+  assert.match(compare, /بارگذاری مقایسه ناموفق بود/);
+  assert.match(compare, /setRetryAttempt\(\(current\) => current \+ 1\)/);
+  assert.match(compare, /\}, \[retryAttempt\]\)/);
+  assert.match(compare, /resolveCompareLoad\(\(\) => listPublishedPropertiesBySlugs/);
+});
+
+test("comparison loader distinguishes an empty success from a failed query", async () => {
+  assert.deepEqual(await resolveCompareLoad(async () => []), { status: "success", rows: [] });
+  assert.deepEqual(await resolveCompareLoad(async () => { throw new Error("database unavailable"); }), { status: "error" });
 });
