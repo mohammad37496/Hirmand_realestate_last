@@ -3,6 +3,7 @@ import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import { readFile } from "node:fs/promises";
 import { buildPublicPropertyFilterParams, buildPublicPropertyOrderBySql, buildPublicPropertyWhereSql } from "./property-search-sql.ts";
+import { normalizeIranianPhoneForMatch, normalizedIranianPhoneSql } from "./phone-normalization.ts";
 
 type Fixture = {
   id: string;
@@ -530,4 +531,36 @@ test("malformed legacy features JSONB values do not crash feature search", async
 
 test("public property SQL excludes unsupported legacy floor values", () => {
   assert.match(buildPublicPropertyWhereSql(), /floor is null or floor = -60 or floor between 0 and 20/);
+});
+
+test("consultant property lookup matches legacy phone formats without changing stored values", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table contact_phone_samples (contact_phone text not null);
+      insert into contact_phone_samples (contact_phone) values
+        ('09131056029'),
+        ('+98 913 105 6029'),
+        ('+98 0913 105 6029'),
+        ('۰۰۹۸ ۹۱۳ ۱۰۵ ۶۰۲۹'),
+        ('۰۰۹۸ ۰۹۱۳ ۱۰۵ ۶۰۲۹'),
+        ('٠٩١٣١٠٥٦٠٢٩'),
+        ('09139999999');
+    `);
+    const normalizedSql = normalizedIranianPhoneSql("contact_phone");
+    const result = await db.query<{ contact_phone: string }>(
+      `select contact_phone from contact_phone_samples where ${normalizedSql} = $1 order by contact_phone`,
+      [normalizeIranianPhoneForMatch("+98 913 105 6029")],
+    );
+    assert.deepEqual(result.rows.map((row) => row.contact_phone).sort(), [
+      "+98 913 105 6029",
+      "+98 0913 105 6029",
+      "09131056029",
+      "٠٩١٣١٠٥٦٠٢٩",
+      "۰۰۹۸ ۹۱۳ ۱۰۵ ۶۰۲۹",
+      "۰۰۹۸ ۰۹۱۳ ۱۰۵ ۶۰۲۹",
+    ].sort());
+  } finally {
+    await db.close();
+  }
 });
