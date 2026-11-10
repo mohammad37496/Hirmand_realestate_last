@@ -9,6 +9,7 @@ import { SITE } from "@/lib/site";
 import { formatToman } from "@/lib/money";
 import { propertyPath } from "@/lib/property-path";
 import { resolveCompareSlugs, updateSharedCompareSearch } from "@/lib/compare-share.mjs";
+import { resolveCompareLoad } from "@/lib/compare-load-state.mjs";
 import "@/compare-export.css";
 
 const PROPERTY_ORIENTATION_LABELS: Record<NonNullable<Property["orientation"]>, string> = {
@@ -157,6 +158,8 @@ function valuePerM2(property: Property) {
 function ComparePage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   function removeFromCompare(slug: string) {
     const current = resolveCompareSlugs(window.location.search, readCompare());
@@ -172,15 +175,23 @@ function ComparePage() {
     const slugs = resolved.slugs;
     if (resolved.isShared) persistCompare(slugs);
     if (!slugs.length) {
+      setLoadError(false);
       setLoading(false);
       return () => {
         cancelled = true;
       };
     }
 
-    void listPublishedPropertiesBySlugs({ data: { slugs } })
-      .then((rows) => {
+    setLoading(true);
+    setLoadError(false);
+    void resolveCompareLoad(() => listPublishedPropertiesBySlugs({ data: { slugs } }))
+      .then((result) => {
         if (cancelled) return;
+        if (result.status === "error") {
+          setLoadError(true);
+          return;
+        }
+        const rows = result.rows;
         setProperties(rows);
         const valid = new Set(rows.map((property) => property.slug));
         const retained = slugs.filter((slug) => valid.has(slug));
@@ -189,9 +200,6 @@ function ComparePage() {
           if (resolved.isShared) syncSharedCompareUrl(retained);
         }
       })
-      .catch(() => {
-        if (!cancelled) setProperties([]);
-      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -199,7 +207,7 @@ function ComparePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retryAttempt]);
 
   function clearCompare() {
     try {
@@ -223,7 +231,15 @@ function ComparePage() {
           <ArrowLeftRight size={30} />
         </header>
 
-        {loading ? (
+        {loadError ? (
+          <section className="property-empty" role="alert">
+            <strong>بارگذاری مقایسه ناموفق بود.</strong>
+            <p>انتخاب‌های شما حفظ شده‌اند. اتصال را بررسی کنید و دوباره تلاش کنید.</p>
+            <button type="button" className="btn-gold" onClick={() => setRetryAttempt((current) => current + 1)}>
+              تلاش دوباره
+            </button>
+          </section>
+        ) : loading ? (
           <section className="property-empty">
             <strong>در حال آماده‌سازی مقایسه…</strong>
           </section>
