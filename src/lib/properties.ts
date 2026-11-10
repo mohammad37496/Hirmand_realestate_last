@@ -12,6 +12,7 @@ import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
 import { normalizeIranianPhoneForMatch, normalizedIranianPhoneSql } from "@/lib/phone-normalization";
+import { propertyContactChangedSql, propertyVerificationChangedSql } from "@/lib/property-verification-sql";
 import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type BudgetMatchDetails } from "@/lib/budget-matching";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { deleteStoredMedia } from "@/lib/media-store.server";
@@ -1370,13 +1371,17 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
       [data.ids],
     );
 
+    const contactChanged = propertyContactChangedSql("properties");
     const rows = await sql.query<Record<string, unknown>>(
       `update properties
        set contact_name = $1,
            contact_phone = $2,
+           last_verified_at = case when ${contactChanged} then null else properties.last_verified_at end,
+           last_verified_by = case when ${contactChanged} then null else properties.last_verified_by end,
            updated_at = current_timestamp
        where id = any($3::text[])
          and deleted_at is null
+         and ${contactChanged}
        returning id, contact_name, contact_phone`,
       [data.contactName, data.contactPhone, data.ids],
     );
@@ -1758,6 +1763,7 @@ export const saveProperty = createServerFn({ method: "POST" })
     const savedFloorLabel = data.floorLabel === "suite" ? "suite" : null;
     const savedConvertible =
       (data.transactionType === "rent" || data.transactionType === "mortgage") ? data.convertible : false;
+    const verificationChanged = propertyVerificationChangedSql("properties", "excluded");
 
     await sql.query(
       `insert into properties (
@@ -1910,6 +1916,8 @@ export const saveProperty = createServerFn({ method: "POST" })
         images = excluded.images,
         contact_name = excluded.contact_name,
         contact_phone = excluded.contact_phone,
+        last_verified_at = case when ${verificationChanged} then null else properties.last_verified_at end,
+        last_verified_by = case when ${verificationChanged} then null else properties.last_verified_by end,
         published_at = case
           when excluded.status = 'published' and properties.published_at is null then excluded.published_at
           when excluded.status <> 'published' then null
