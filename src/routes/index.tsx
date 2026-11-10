@@ -28,7 +28,7 @@ function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFaqJsonLd(faqs)) }}
       />
-      <SitePage initialProperties={[]} announcement={settings.announcementEnabled ? settings.announcementText : ""} faqItems={faqs.map((item) => ({ q: item.question, a: item.answer }))} />
+      <SitePage initialProperties={[]} announcement={settings.announcementEnabled ? settings.announcementText : ""} faqItems={faqs.map((item) => ({ q: item.question, a: item.answer }))} commissionRates={settings.commissionRates} />
     </>
   );
 }
