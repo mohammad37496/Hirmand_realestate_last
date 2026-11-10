@@ -354,6 +354,18 @@ try {
     for (const width of neighborhoodFilterCheck.widths) {
       await neighborhoodPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       if (width <= 979) await neighborhoodPage.locator(".pf-filter-btn").click();
+      if (width <= 979) {
+        // The drawer is opacity-hidden but still considered visible by Playwright
+        // while its translateY transition is running. Wait for the actual open
+        // state before measuring or scrolling its controls.
+        await neighborhoodPage.waitForFunction(() => {
+          const panel = document.querySelector(".pf-sidebar");
+          if (!(panel instanceof HTMLElement) || !panel.classList.contains("is-open")) return false;
+          const style = getComputedStyle(panel);
+          return style.opacity === "1" && style.pointerEvents !== "none" &&
+            (style.transform === "none" || style.transform === "matrix(1, 0, 0, 1, 0, 0)");
+        }, null, { timeout: timeoutMs });
+      }
       await trigger.waitFor({ state: "visible", timeout: timeoutMs });
       if (width <= 979) {
         // The mobile filter sheet is independently scrollable. The neighborhood
@@ -368,7 +380,19 @@ try {
         });
         const triggerBounds = await trigger.boundingBox();
         if (!triggerBounds || triggerBounds.y < 0 || triggerBounds.y + triggerBounds.height > (width === 390 ? 844 : 900)) {
-          throw new Error(`neighborhood trigger could not be brought into the mobile filter sheet viewport at ${width}px`);
+          const metrics = await sidebar.evaluate((element) => {
+            const target = element.querySelector(".pf-neighborhood-trigger");
+            const panel = element.getBoundingClientRect();
+            const button = target?.getBoundingClientRect();
+            return {
+              scrollTop: element.scrollTop,
+              scrollHeight: element.scrollHeight,
+              clientHeight: element.clientHeight,
+              panel: { top: panel.top, bottom: panel.bottom },
+              trigger: button ? { top: button.top, bottom: button.bottom } : null,
+            };
+          });
+          throw new Error(`neighborhood trigger could not be brought into the mobile filter sheet viewport at ${width}px: ${JSON.stringify(metrics)}`);
         }
       }
       await trigger.click();
