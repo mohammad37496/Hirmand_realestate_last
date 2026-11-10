@@ -13,6 +13,10 @@
  * the server module re-exports them for its own callers.
  */
 import { FAQS } from "@/lib/site";
+import type { GuideSection } from "@/lib/guide-sections";
+
+export { normalizeGuideSections } from "@/lib/guide-sections";
+export type { GuideSection } from "@/lib/guide-sections";
 
 export type GuideContent = {
   id: string;
@@ -20,6 +24,8 @@ export type GuideContent = {
   title: string;
   summary: string;
   points: string[];
+  /** Optional long-form body; absent on legacy guides which use `points`. */
+  sections?: GuideSection[];
   sortOrder: number;
   active: boolean;
 };
