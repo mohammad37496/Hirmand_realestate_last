@@ -176,10 +176,11 @@ test("core consultant deletion is blocked on the server, not only in the admin U
   assert.match(adminUi, /if \(hasAdminPermission\(adminRole, "team\.manage"\)\) return navItems/);
 });
 
-test("sensitive admin server functions enforce team.manage on the server", () => {
+test("sensitive admin server functions enforce their matching permission on the server", () => {
   const protectedModules = [
     {
       file: "./seo-redirects.ts",
+      permission: "team.manage",
       operations: [
         "listAdminRedirects",
         "upsertAdminRedirect",
@@ -190,20 +191,31 @@ test("sensitive admin server functions enforce team.manage on the server", () =>
     },
     {
       file: "./admin-audit.ts",
+      permission: "team.manage",
       operations: ["listAdminAuditLog", "clearAdminAuditLog"],
     },
     {
       file: "./attendance.ts",
+      permission: "team.manage",
       operations: ["listAttendance", "saveAttendance", "deleteAttendance"],
+    },
+    {
+      file: "./admin-media-health.ts",
+      permission: "content.manage",
+      operations: ["getAdminMediaHealth", "cleanupAdminMedia"],
     },
   ] as const;
 
-  for (const { file, operations } of protectedModules) {
+  for (const { file, permission, operations } of protectedModules) {
     const source = readFileSync(new URL(file, import.meta.url), "utf8");
     const guard = source.match(/async function requireAdmin\(\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
     assert.match(guard, /getAdminSessionClaims\(/, `${file} must resolve the current role from the admin session`);
     assert.match(guard, /assertAdminServerFnOrigin\(\)/, `${file} must keep the same-origin guard`);
-    assert.match(guard, /hasAdminPermission\(claims\.role,\s*"team\.manage"\)/, `${file} must require team.manage`);
+    assert.match(
+      guard,
+      new RegExp(`hasAdminPermission\\(claims\\.role,\\s*"${permission.replace(".", "\\.")}"\\)`),
+      `${file} must require ${permission}`,
+    );
 
     for (const operation of operations) {
       const start = source.indexOf(`export const ${operation}`);
@@ -221,6 +233,12 @@ test("sensitive admin server functions enforce team.manage on the server", () =>
   assert.equal(hasAdminPermission(normalizeAdminRole("manager"), "team.manage"), true);
   for (const role of ["sales", "content", "staff", "viewer"] as const) {
     assert.equal(hasAdminPermission(normalizeAdminRole(role), "team.manage"), false, `${role} must be denied`);
+  }
+  for (const role of ["owner", "manager", "content"] as const) {
+    assert.equal(hasAdminPermission(normalizeAdminRole(role), "content.manage"), true, `${role} may manage media`);
+  }
+  for (const role of ["sales", "staff", "viewer"] as const) {
+    assert.equal(hasAdminPermission(normalizeAdminRole(role), "content.manage"), false, `${role} must be denied media access`);
   }
 });
 
