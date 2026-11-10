@@ -253,6 +253,11 @@ try {
     });
     if (!response || response.status() >= 400) throw new Error(`smart search route returned ${response?.status() ?? 0}`);
     await guidedSearchPage.waitForLoadState("load", { timeout: timeoutMs });
+    await guidedSearchPage.waitForFunction(() => {
+      const button = document.querySelector(".guided-search-actions .btn-gold");
+      const reactPropsKey = button && Object.keys(button).find((key) => key.startsWith("__reactProps$"));
+      return Boolean(reactPropsKey && typeof button[reactPropsKey]?.onClick === "function");
+    }, null, { timeout: timeoutMs });
     const next = guidedSearchPage.locator(".guided-search-actions .btn-gold");
     const stepLabel = guidedSearchPage.locator(".guided-search-progress strong");
     const expectStep = async (label) => {
