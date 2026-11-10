@@ -33,6 +33,7 @@ import { AdminPropertyReports } from "@/components/hirmand/admin-property-report
 import { AdminPropertyQualityCenter } from "@/components/hirmand/admin-property-quality-center";
 import { fa, faBytes } from "@/components/hirmand/admin-ui-utils";
 import { hasAdminPermission, type AdminRole } from "@/lib/admin-roles";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { AdminSmartAlerts } from "@/components/hirmand/admin-smart-alerts";
 import { AdminNotificationCenter } from "@/components/hirmand/admin-notification-center";
 
@@ -958,9 +959,11 @@ export function AdminDashboard({
                     {" · " + formatDate(lead.createdAt)}
                   </small>
                 </div>
-                <a className="admin-icon-btn" href={"tel:" + lead.phone} title="تماس">
-                  <Phone size={16} />
-                </a>
+                {toIranianE164Phone(lead.phone) ? (
+                  <a className="admin-icon-btn" href={`tel:${toIranianE164Phone(lead.phone)}`} title="تماس">
+                    <Phone size={16} />
+                  </a>
+                ) : null}
               </article>
             ))}
           </div>
