@@ -275,6 +275,12 @@
 .guide-article-body { padding: clamp(22px, 5vw, 44px); }
 .guide-article-body > h2 { display: flex; align-items: center; gap: 9px; margin: 0 0 22px; color: #12293f; font-size: 1.12rem; font-weight: 850; }
 .guide-article-body > h2 svg { color: #8a5e14; }
+.guide-article-sections { display: grid; gap: 25px; }
+.guide-article-section { padding-bottom: 22px; border-bottom: 1px solid #eee8dc; }
+.guide-article-section:last-child { padding-bottom: 0; border-bottom: 0; }
+.guide-article-section h2 { margin: 0 0 12px; color: #12293f; font-size: 1.12rem; font-weight: 850; line-height: 1.9; }
+.guide-article-section p { margin: 0 0 12px; color: #354553; font-size: .92rem; line-height: 2.2; white-space: pre-line; }
+.guide-article-section p:last-child { margin-bottom: 0; }
 .guide-article-points { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; counter-reset: guide-point; }
 .guide-article-points li { display: grid; grid-template-columns: 36px minmax(0,1fr); align-items: start; gap: 13px; padding: 17px; border: 1px solid #eee8dc; border-radius: 15px; background: #fdfbf7; }
 .guide-article-points li > span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: #8a5e14; background: #f7edda; font-size: .82rem; font-weight: 850; }
@@ -300,6 +306,8 @@
   .guide-article-header h1 { font-size: 1.55rem; }
   .guide-article-header > p { font-size: .84rem; }
   .guide-article-body { padding: 21px 15px; }
+  .guide-article-section h2 { font-size: 1rem; }
+  .guide-article-section p { font-size: .81rem; line-height: 2.05; }
   .guide-article-points li { grid-template-columns: 29px minmax(0,1fr); gap: 9px; padding: 13px 11px; }
   .guide-article-points li > span { width: 28px; height: 28px; border-radius: 9px; }
   .guide-article-points p { font-size: .81rem; line-height: 2.05; }

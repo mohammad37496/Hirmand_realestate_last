@@ -28,7 +28,8 @@ export const Route = createFileRoute("/guides/$slug")({
       };
     }
     const title = `${guide.title} | راهنمای ملکی ${SITE.shortName}`;
-    const description = guide.summary || guide.points.slice(0, 2).join(" ").slice(0, 155);
+    const firstSectionText = guide.sections?.flatMap((section) => section.paragraphs).slice(0, 2).join(" ");
+    const description = guide.summary || firstSectionText || guide.points.slice(0, 2).join(" ").slice(0, 155);
     const url = absoluteUrl(`/guides/${encodeURIComponent(guide.id)}`);
     return {
       meta: [
@@ -52,7 +53,10 @@ function articleJsonLd(guide: GuideContent) {
     headline: guide.title,
     description: guide.summary,
     articleSection: guide.category,
-    articleBody: guide.points.join("\n\n"),
+    articleBody: [
+      ...(guide.points.length ? [guide.points.join("\n\n")] : []),
+      ...(guide.sections ?? []).map((section) => `${section.heading}\n${section.paragraphs.join("\n\n")}`),
+    ].join("\n\n"),
     inLanguage: "fa-IR",
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
     author: { "@type": "Organization", name: SITE.nameFa, url: SITE.url },
@@ -96,10 +100,18 @@ function GuideArticlePage() {
             <button type="button" className="guide-share" onClick={() => void shareGuide(guide)}><Share2 size={16} /> اشتراک‌گذاری راهنما</button>
           </header>
           <div className="guide-article-body">
-            <h2><CheckCircle2 size={19} aria-hidden="true" /> نکته‌هایی که بهتر است بدانید</h2>
-            <ol className="guide-article-points">
-              {guide.points.map((point, index) => <li key={`${guide.id}-${index}`}><span>{(index + 1).toLocaleString("fa-IR")}</span><p>{point}</p></li>)}
-            </ol>
+            {guide.points.length ? <>
+              <h2><CheckCircle2 size={19} aria-hidden="true" /> نکته‌های کلیدی</h2>
+              <ol className="guide-article-points">
+                {guide.points.map((point, index) => <li key={`${guide.id}-${index}`}><span>{(index + 1).toLocaleString("fa-IR")}</span><p>{point}</p></li>)}
+              </ol>
+            </> : null}
+            {guide.sections?.length ? <div className="guide-article-sections">
+              {guide.sections.map((section, index) => <section className="guide-article-section" key={`${guide.id}-section-${index}`}>
+                <h2>{section.heading}</h2>
+                {section.paragraphs.map((paragraph, paragraphIndex) => <p key={`${guide.id}-section-${index}-paragraph-${paragraphIndex}`}>{paragraph}</p>)}
+              </section>)}
+            </div> : null}
           </div>
           <footer className="guide-article-footer">
             <div><span className="guides-section-kicker">قدم بعدی</span><h2>حالا فایل‌های متناسب با معیارهایتان را بررسی کنید.</h2><p>از جستجوی هوشمند یا فهرست فایل‌های هیرمند کمک بگیرید.</p></div>

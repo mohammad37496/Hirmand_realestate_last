@@ -36,7 +36,8 @@ function GuidesPage() {
     const q = query.trim();
     return guides.filter((item) => {
       const matchesCategory = category === "همه" || item.category === category;
-      const haystack = [item.title, item.summary, item.category, ...item.points].join(" ");
+      const sectionText = (item.sections ?? []).flatMap((section) => [section.heading, ...section.paragraphs]);
+      const haystack = [item.title, item.summary, item.category, ...item.points, ...sectionText].join(" ");
       return matchesCategory && (!q || haystack.includes(q));
     });
   }, [guides, category, query]);
