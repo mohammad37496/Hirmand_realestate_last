@@ -15,6 +15,17 @@ export function normalizeIranianPhoneForMatch(value: string): string {
   return digits;
 }
 
+/** Return a validated Iranian E.164 number for tel: and structured contact links. */
+export function toIranianE164Phone(value: string): string | null {
+  const national = normalizeIranianPhoneForMatch(value);
+  return /^0\d{10}$/.test(national) ? `+98${national.slice(1)}` : null;
+}
+
+/** WhatsApp expects the E.164 digits without the leading plus sign. */
+export function toIranianWhatsAppNumber(value: string): string | null {
+  return toIranianE164Phone(value)?.slice(1) ?? null;
+}
+
 /** SQL equivalent for matching legacy rows stored with different digit scripts or punctuation. */
 export function normalizedIranianPhoneSql(columnSql: string): string {
   const digits = `regexp_replace(translate(coalesce(${columnSql}, ''), '۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789'), '[^0-9]', '', 'g')`;
