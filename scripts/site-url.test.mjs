@@ -40,3 +40,10 @@ test("the application, sitemap, robots, and CI use the non-www canonical origin"
   assert.match(read("../public/robots.txt"), /Sitemap: https:\/\/hirmandrealestate\.ir\/sitemap\.xml/);
   assert.match(read("../.github/workflows/ci.yml"), /VITE_SITE_URL: https:\/\/hirmandrealestate\.ir/);
 });
+
+test("the property sitemap shares public visibility and includes due scheduled drafts", () => {
+  const sitemap = readFileSync(new URL("../server/routes/sitemap.xml.ts", import.meta.url), "utf8");
+  assert.match(sitemap, /import \{ publicPropertyVisibilitySql \} from "\.\.\/\.\.\/src\/lib\/public-property-visibility"/);
+  assert.ok(sitemap.includes("where ${publicPropertyVisibilitySql()}"));
+  assert.doesNotMatch(sitemap, /status = 'published'/);
+});
