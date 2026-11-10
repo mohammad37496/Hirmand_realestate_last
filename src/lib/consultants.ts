@@ -7,6 +7,7 @@ import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { hasAdminPermission } from "@/lib/admin-roles";
 import { mergePublicConsultantDirectory } from "@/lib/consultant-directory";
 import { TEAM } from "@/lib/site";
+import { toIranianWhatsAppNumber } from "@/lib/phone-normalization";
 
 export type ConsultantIcon = "briefcase" | "handshake";
 
@@ -81,7 +82,9 @@ function staticConsultants(): Consultant[] {
     phoneDisplay: person.phoneDisplay,
     icon: person.icon,
     bio: "ارتباط مستقیم برای فایل‌ها و پیگیری درخواست‌های ملکی در هیرمند.",
-    whatsapp: `https://wa.me/${person.phone.replace(/^0/, "98")}`,
+    whatsapp: toIranianWhatsAppNumber(person.phone)
+      ? `https://wa.me/${toIranianWhatsAppNumber(person.phone)}`
+      : "",
     telegram: "https://t.me/Hirmand_realestate",
     eitaa: "https://eitaa.com/Hirmand_realestate",
     instagram: "https://ig.me/m/hirmand.realestate",

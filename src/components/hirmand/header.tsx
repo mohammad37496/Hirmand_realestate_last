@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { NAV, SITE } from "@/lib/site";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { cn } from "@/lib/utils";
 import { CallMenu } from "./call-menu";
 import { BrandLogo } from "./logo";
@@ -365,12 +366,13 @@ export function Header() {
 
         <div className="mobile-call-list">
           <div className="mobile-call-list-head"><span>تماس مستقیم</span><small>انتخاب مشاور برای تماس</small></div>
-          {consultants.map((person) => (
-            <a key={person.id} className="mobile-call" href={`tel:${person.phone}`} onClick={closeMenu}>
+          {consultants.map((person) => {
+            const phoneTel = toIranianE164Phone(person.phone);
+            return phoneTel ? <a key={person.id} className="mobile-call" href={`tel:${phoneTel}`} onClick={closeMenu}>
               <span className="mobile-call-icon" aria-hidden="true"><Phone size={17} /></span>
               <span className="mobile-call-copy"><strong>{person.name}</strong><small>{person.role} · <bdi dir="ltr">{person.phoneDisplay}</bdi></small></span>
-            </a>
-          ))}
+            </a> : null;
+          })}
         </div>
       </div>
     </header>
