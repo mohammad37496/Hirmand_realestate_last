@@ -482,6 +482,9 @@ try {
             failures.push("/properties @ 320px: first property image did not load successfully; state=" + JSON.stringify(imageState));
           }
 
+          await firstCard.scrollIntoViewIfNeeded();
+          await page.waitForTimeout(120);
+
           const geometry = await firstCard.evaluate((card) => {
             const imageLink = card.querySelector(".pcard-media > .pcard-image-link")?.getBoundingClientRect();
             const bodyElement = card.querySelector(".pcard-body");
