@@ -11,6 +11,7 @@ const commissionRoute = readFileSync(new URL("../src/routes/tools/commission.tsx
 const propertyRoute = readFileSync(new URL("../src/routes/properties.$slug.tsx", import.meta.url), "utf8");
 const homeRoute = readFileSync(new URL("../src/routes/index.tsx", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../migrations/0102_commission_rate_config.sql", import.meta.url), "utf8");
+const browserSmoke = readFileSync(new URL("./browser-smoke.mjs", import.meta.url), "utf8");
 
 test("commission rates are persisted in admin-controlled settings with source and validity metadata", () => {
   assert.match(settings, /commissionRatesSchema/);
@@ -42,4 +43,16 @@ test("public calculator and property decision tools use the same configured rate
   assert.match(commissionRoute, /commissionRates: settings\.commissionRates/);
   assert.match(propertyRoute, /commissionRates: settings\.commissionRates/);
   assert.match(homeRoute, /commissionRates=\{settings\.commissionRates\}/);
+  assert.match(calculator, /COMMISSION_LEGAL_BASIS_NOTICE/);
+  assert.match(calculator, /برآورد کمیسیون/);
+  assert.match(admin, /جایگزین ضریب ارزش معاملاتی و سقف مصوب شهرستان/);
+  assert.match(propertyTools, /COMMISSION_LEGAL_BASIS_NOTICE/);
+  assert.match(propertyTools, /سهم برآوردی کمیسیون خریدار/);
+});
+
+test("browser smoke checks the legal-basis notice and responsive commission estimate", () => {
+  assert.match(browserSmoke, /commissionCheck/);
+  assert.match(browserSmoke, /\.commission-legal-basis-note/);
+  assert.match(browserSmoke, /\.commission-fields input/);
+  assert.match(browserSmoke, /widths: \[390, 768, 1280\]/);
 });
