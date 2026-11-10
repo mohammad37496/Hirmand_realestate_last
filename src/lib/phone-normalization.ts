@@ -18,10 +18,10 @@ export function normalizeIranianPhoneForMatch(value: string): string {
 /** SQL equivalent for matching legacy rows stored with different digit scripts or punctuation. */
 export function normalizedIranianPhoneSql(columnSql: string): string {
   const digits = `regexp_replace(translate(coalesce(${columnSql}, ''), '۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩', '01234567890123456789'), '[^0-9]', '', 'g')`;
-  return `(case
-    when ${digits} like '0098%' then '0' || substring(${digits} from 5)
-    when ${digits} like '98%' then '0' || substring(${digits} from 3)
-    when length(${digits}) = 10 then '0' || ${digits}
+  const nationalDigits = `(case
+    when ${digits} like '0098%' then substring(${digits} from 5)
+    when ${digits} like '98%' then substring(${digits} from 3)
     else ${digits}
   end)`;
+  return `(case when length(${nationalDigits}) = 10 then '0' || ${nationalDigits} else ${nationalDigits} end)`;
 }

@@ -464,7 +464,9 @@ test("consultant property lookup matches legacy phone formats without changing s
       insert into contact_phone_samples (contact_phone) values
         ('09131056029'),
         ('+98 913 105 6029'),
+        ('+98 0913 105 6029'),
         ('۰۰۹۸ ۹۱۳ ۱۰۵ ۶۰۲۹'),
+        ('۰۰۹۸ ۰۹۱۳ ۱۰۵ ۶۰۲۹'),
         ('٠٩١٣١٠٥٦٠٢٩'),
         ('09139999999');
     `);
@@ -475,9 +477,11 @@ test("consultant property lookup matches legacy phone formats without changing s
     );
     assert.deepEqual(result.rows.map((row) => row.contact_phone).sort(), [
       "+98 913 105 6029",
+      "+98 0913 105 6029",
       "09131056029",
       "٠٩١٣١٠٥٦٠٢٩",
       "۰۰۹۸ ۹۱۳ ۱۰۵ ۶۰۲۹",
+      "۰۰۹۸ ۰۹۱۳ ۱۰۵ ۶۰۲۹",
     ].sort());
   } finally {
     await db.close();

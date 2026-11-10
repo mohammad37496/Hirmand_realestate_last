@@ -22,7 +22,9 @@ test("Iranian consultant phone matching canonicalizes country codes, punctuation
     canonical,
     "0913 105 6029",
     "+98 913 105 6029",
+    "+98 0913 105 6029",
     "0098 913 105 6029",
+    "0098 0913 105 6029",
     "۰۹۱۳۱۰۵۶۰۲۹",
     "٠٩١٣١٠٥٦٠٢٩",
   ]) {
