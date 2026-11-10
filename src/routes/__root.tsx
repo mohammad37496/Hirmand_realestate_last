@@ -60,7 +60,7 @@ export const Route = createRootRoute({
       { name: "apple-mobile-web-app-title", content: SITE.shortName },
     ],
     links: [
-      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "icon", type: "image/png", sizes: "96x96", href: "/favicon-96.png" },
       { rel: "apple-touch-icon", href: "/pwa/icon-180.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "stylesheet", href: appCss },
