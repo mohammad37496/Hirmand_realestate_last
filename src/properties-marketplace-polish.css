@@ -1915,3 +1915,34 @@
 .property-detail-page .property-related .pcard > .pcard-link {
   flex: 1 1 auto;
 }
+
+/* Mobile photo-grid actions stay inside the image frame and remain reachable. */
+@media (max-width: 720px) {
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-inline: 8px;
+    overflow: hidden;
+  }
+
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions .property-actions,
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions .property-actions-compact {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions .property-action {
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
+}

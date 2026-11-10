@@ -173,6 +173,14 @@ test("mobile property cards hide the crowded action dock", () => {
   assert.match(mobileActionDecision, /@media \(max-width:\s*720px\)[\s\S]*?\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{\s*display:\s*none !important;/);
 });
 
+test("mobile photo-grid action docks stay inside the card and keep scrollable 44px controls", () => {
+  const mobileGridActions = marketplaceCss.slice(marketplaceCss.lastIndexOf("/* Mobile photo-grid actions stay inside the image frame"));
+  assert.match(mobileGridActions, /@media \(max-width:\s*720px\)/);
+  assert.match(mobileGridActions, /\.pf-page \.pf-grid\.is-grid-view > \.pcard > \.pcard-media > \.pcard-actions\s*\{[^}]*width:\s*100%;[^}]*overflow:\s*hidden/);
+  assert.match(mobileGridActions, /\.pf-page \.pf-grid\.is-grid-view > \.pcard > \.pcard-media > \.pcard-actions \.property-actions(?:-compact)?\s*\{[^}]*flex:\s*1 1 100%;[^}]*width:\s*100%;[^}]*overflow-x:\s*auto/);
+  assert.match(mobileGridActions, /\.pf-page \.pf-grid\.is-grid-view > \.pcard > \.pcard-media > \.pcard-actions \.property-action\s*\{[^}]*flex:\s*0 0 44px;[^}]*width:\s*44px;[^}]*min-width:\s*44px/);
+});
+
 test("map-side property cards use the canonical Hirmand navy, brass and paper palette", () => {
   const mapBrandRules = responsiveHardeningCss.slice(
     responsiveHardeningCss.lastIndexOf("/* Map-side property cards use the canonical Hirmand Navy / Brass / Paper palette. */"),
