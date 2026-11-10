@@ -94,7 +94,30 @@ function GuidesPage() {
                 <span className="guide-card-action"><span>{open ? "بستن راهنما" : "مطالعه راهنما"}</span><ArrowLeft size={17} className="guide-card-arrow" aria-hidden="true" /></span>
               </button>
               <div className="guide-card-discover"><Link to="/guides/$slug" params={{ slug: guide.id }} className="guide-article-link">مطالعه صفحه کامل <ArrowLeft size={15} /></Link></div>
-              <div className="guide-card-body" id={panelId} hidden={!open}><div className="guide-body-heading"><span><CheckCircle2 size={17} /> نکته‌هایی که بهتر است بدانید</span><small>{guide.points.length.toLocaleString("fa-IR")} نکته</small></div><div className="guide-point-list">{guide.points.map((point, index) => <div key={point} className="guide-point"><span className="guide-point-index">{(index + 1).toLocaleString("fa-IR")}</span><p>{point}</p></div>)}</div><button type="button" className="guide-share" onClick={() => void shareGuide(guide)}><Share2 size={16} /> اشتراک‌گذاری این راهنما</button></div>
+              <div className="guide-card-body" id={panelId} hidden={!open}>
+                <div className="guide-body-heading">
+                  <span><CheckCircle2 size={17} /> نکته‌هایی که بهتر است بدانید</span>
+                  <small>{guide.points.length
+                    ? `${guide.points.length.toLocaleString("fa-IR")} نکته`
+                    : `${(guide.sections?.length ?? 0).toLocaleString("fa-IR")} بخش`}</small>
+                </div>
+                {guide.points.length ? (
+                  <div className="guide-point-list">
+                    {guide.points.map((point, index) => <div key={point} className="guide-point"><span className="guide-point-index">{(index + 1).toLocaleString("fa-IR")}</span><p>{point}</p></div>)}
+                  </div>
+                ) : guide.sections?.length ? (
+                  <div className="guide-accordion-sections">
+                    {guide.sections.slice(0, 2).map((section, index) => (
+                      <section className="guide-accordion-section" key={`${guide.id}-section-preview-${index}`}>
+                        <h3>{section.heading}</h3>
+                        {section.paragraphs.slice(0, 1).map((paragraph, paragraphIndex) => <p key={`${guide.id}-section-preview-${index}-${paragraphIndex}`}>{paragraph}</p>)}
+                      </section>
+                    ))}
+                    <p className="guide-accordion-more">برای مطالعه همه بخش‌ها، صفحه کامل این راهنما را باز کنید.</p>
+                  </div>
+                ) : null}
+                <button type="button" className="guide-share" onClick={() => void shareGuide(guide)}><Share2 size={16} /> اشتراک‌گذاری این راهنما</button>
+              </div>
             </article>;
           }) : <div className="guides-empty"><span className="guides-empty-icon"><Search size={23} /></span><strong>مطلبی با این مشخصات پیدا نشد.</strong><p>عبارت دیگری را امتحان کنید یا فیلتر موضوعی را تغییر دهید.</p><button type="button" onClick={() => { setQuery(""); setCategory("همه"); }}>نمایش همه راهنماها</button></div>}</div>
         </section>

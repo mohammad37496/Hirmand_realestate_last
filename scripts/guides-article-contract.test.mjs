@@ -38,6 +38,15 @@ test("guide library links and shares the stable article URL", () => {
   assert.ok(page.indexOf("className=\"guide-card-discover\"") < page.indexOf("className=\"guide-card-body\""));
 });
 
+test("long-form-only guides show a section preview in the expanded library card", () => {
+  const page = read("../src/routes/guides.index.tsx");
+  assert.match(page, /guide\.points\.length \?/);
+  assert.match(page, /guide\.sections\?\.length \?/);
+  assert.match(page, /guide\.sections\.slice\(0, 2\)/);
+  assert.match(page, /section\.paragraphs\.slice\(0, 1\)/);
+  assert.match(page, /guide-accordion-more/);
+});
+
 test("sitemap includes published guide detail URLs from the content table", () => {
   const sitemap = read("../server/routes/sitemap.xml.ts");
   assert.match(sitemap, /function loadGuideUrls/);
