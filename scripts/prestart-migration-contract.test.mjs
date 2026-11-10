@@ -17,6 +17,8 @@ test("migration success logs are bound to the stamped deployment commit", async 
   assert.match(source, /readDeploymentCommit\(\)/);
   assert.match(source, /deploymentLabel = deploymentCommit \? ` for deployment \$\{deploymentCommit\}` : ""/);
   assert.match(source, /customer-auth migrations verified\$\{deploymentLabel\}/);
+  assert.match(source, /PROPERTY_CONSULTANT_RELATION_MIGRATIONS/);
+  assert.match(source, /property consultant migrations verified\$\{deploymentLabel\}/);
   assert.match(source, /public\/deployment\.json/);
 });
 
@@ -39,6 +41,8 @@ test("Liara deploy polls for the exact migration verification line for this comm
   assert.match(workflow, /sleep 10/);
   assert.match(workflow, /customer-auth migrations verified for deployment \$\{EXPECTED_DEPLOYMENT_SHA\}/);
   assert.match(workflow, /0059_customer_workspace_revision\.sql/);
+  assert.match(workflow, /property consultant migrations verified for deployment \$\{EXPECTED_DEPLOYMENT_SHA\}/);
+  assert.match(workflow, /0103_property_consultant_relation\.sql/);
 });
 
 test("migration runner acquires its advisory lock before reading the migration ledger", async () => {
@@ -105,13 +109,14 @@ test("concurrent migration runners apply a pending migration only once", async (
 
     const poolFactory = () => ({ connect: async () => new FakeClient(), end: async () => {} });
     await Promise.all([
-      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false }),
-      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false }),
+      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false }),
+      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false }),
     ]);
 
     assert.equal(state.executions, 1);
     assert.deepEqual([...state.applied], ["0001_test.sql"]);
-    assert.deepEqual(state.ledgerClients, state.lockClients);
+    assert.deepEqual([...new Set(state.ledgerClients)], state.lockClients);
+    assert.equal(state.ledgerClients.length, state.lockClients.length * 2);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -64,6 +64,10 @@ export const CUSTOMER_AUTH_MIGRATIONS = Object.freeze([
   "0101_auth_rate_limit.sql",
 ]);
 
+export const PROPERTY_CONSULTANT_RELATION_MIGRATIONS = Object.freeze([
+  "0103_property_consultant_relation.sql",
+]);
+
 /**
  * Fail closed when an auth-enabled deployment is missing a required root migration.
  * @param {Iterable<string>} paths
