@@ -24,6 +24,7 @@ export function AdminNotificationCenter() {
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -31,8 +32,11 @@ export function AdminNotificationCenter() {
       const result = await listAdminNotifications({ data: { limit: 60 } });
       setItems(result.notifications);
       setUnread(result.unread);
+      setLoadError(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "اعلان‌ها دریافت نشدند.");
+      const message = error instanceof Error ? error.message : "اعلان‌ها دریافت نشدند.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -80,7 +84,8 @@ export function AdminNotificationCenter() {
           <button type="button" className="btn-ghost" onClick={() => void markAll()} disabled={busy || unread === 0}><CheckCheck size={14} /> خواندن همه</button>
         </div>
       </div>
-      {loading ? <div className="admin-empty">در حال دریافت اعلان‌ها…</div> : !visible.length ? (
+      {loadError ? <div className="admin-empty" role="alert">بارگذاری کامل صندوق اعلان‌ها ناموفق بود؛ صندوق خالی به معنی نبود اعلان نیست. <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>تلاش مجدد</button></div> : null}
+      {loading && !items.length ? <div className="admin-empty">در حال دریافت اعلان‌ها…</div> : !loadError && !visible.length ? (
         <div className="admin-empty"><CircleAlert size={24} /><strong>مورد جدیدی برای رسیدگی نیست.</strong></div>
       ) : (
         <div className="admin-notification-list">
