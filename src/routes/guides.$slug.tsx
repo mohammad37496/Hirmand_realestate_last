@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { getPublicGuides } from "@/lib/site-content";
 import { SITE } from "@/lib/site";
-import { absoluteUrl, breadcrumbJsonLd, socialMeta } from "@/lib/seo";
+import { absoluteUrl, breadcrumbJsonLd, serializeJsonLd, socialMeta } from "@/lib/seo";
 import type { GuideContent } from "@/lib/site-content-static";
 import "@/guides.css";
 
@@ -86,8 +86,8 @@ function GuideArticlePage() {
 
   return (
     <SiteChrome>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd(guide)) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(articleJsonLd(guide)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(crumbs) }} />
       <main className="guide-article-page">
         <nav className="guides-breadcrumb" aria-label="مسیر صفحه">
           <Link to="/">صفحه اصلی</Link><ArrowLeft size={13} aria-hidden="true" /><Link to="/guides">راهنمای ملکی</Link><ArrowLeft size={13} aria-hidden="true" /><span>{guide.category}</span>
