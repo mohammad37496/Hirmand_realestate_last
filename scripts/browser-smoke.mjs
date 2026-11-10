@@ -699,6 +699,35 @@ try {
     }
   }
 
+  const commissionCheck = { attempted: true, ok: false, error: null, widths: [390, 768, 1280] };
+  const commissionPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    const response = await commissionPage.goto(new URL("/tools/commission", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    if (!response || response.status() >= 400) throw new Error(`commission route returned ${response?.status() ?? 0}`);
+    const legalNote = commissionPage.locator(".commission-legal-basis-note");
+    await legalNote.waitFor({ state: "visible", timeout: timeoutMs });
+    const legalText = await legalNote.innerText();
+    if (!legalText.includes("ارزش معاملاتی") || !legalText.includes("سقف مصوب شهرستان")) {
+      throw new Error("commission page does not explain the statutory assessed-value and county-cap basis");
+    }
+    await commissionPage.getByLabel("مبلغ معامله (تومان)").fill("5000000000");
+    await commissionPage.getByText("برآورد کمیسیون", { exact: true }).waitFor({ state: "visible", timeout: timeoutMs });
+    for (const width of commissionCheck.widths) {
+      await commissionPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      const overflow = await commissionPage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+      if (overflow) throw new Error(`commission calculator overflows horizontally at ${width}px`);
+      if (!(await legalNote.isVisible())) throw new Error(`commission legal notice is not visible at ${width}px`);
+    }
+    commissionCheck.ok = true;
+  } catch (error) {
+    commissionCheck.error = String(error?.message || error);
+  } finally {
+    await commissionPage.close();
+  }
+
   const routeFailures = routeChecks.filter((item) => !item.ok);
   if (routeFailures.length) {
     viewports["desktop-1280"].pageErrors.push(
@@ -722,6 +751,9 @@ try {
   if (!compareShareCheck.ok) {
     viewports["desktop-1280"].pageErrors.push(`shared comparison browser smoke failed: ${compareShareCheck.error || "unknown"}`);
   }
+  if (!commissionCheck.ok) {
+    viewports["desktop-1280"].pageErrors.push(`commission calculator browser smoke failed: ${commissionCheck.error || "unknown"}`);
+  }
 
   const brandWarnings = computeBrandWarnings({
     hasCanvas: viewports["desktop-1280"].hasCanvas,
@@ -735,7 +767,7 @@ try {
       buildAuthEnabled: buildAuthEnabled(),
     }),
   );
-  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, compareShareCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
+  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, compareShareCheck, commissionCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
   if (baselineRequested) {
     const { divergesFromBaseline, reasons } = compareAgainstBaseline(verdict);
     verdict.divergesFromBaseline = divergesFromBaseline;
