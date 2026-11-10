@@ -3,6 +3,7 @@ import { ArrowDownCircle,ArrowUpCircle,Plus,RefreshCw,Trash2 } from "lucide-reac
 import { toast } from "sonner";
 import { formatTomanExact } from "@/lib/money";
 import { compareDecimalStrings } from "@/lib/decimal-money";
+import { getTehranDateOnly } from "@/lib/persian-date";
 
 type Kind="income"|"expense";
 type Tx={id:number;kind:Kind;title:string;amount:string;transactionDate:string;propertyId:string|null;leadId:string|null;consultant:string;category:string;note:string;createdAt:string};
@@ -15,7 +16,7 @@ export function AdminFinanceManager(){
   const [kind,setKind]=useState<Kind>("income");
   const [title,setTitle]=useState("");
   const [amount,setAmount]=useState("");
-  const [date,setDate]=useState(new Date().toISOString().slice(0,10));
+  const [date,setDate]=useState(getTehranDateOnly());
   const [consultant,setConsultant]=useState("");
   const [category,setCategory]=useState("");
   const [note,setNote]=useState("");

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Check, Clock3, Download, ExternalLink, X } from "lucide-react";
 import { trackAnalyticsEvent } from "@/lib/analytics";
-import { formatPersianDate } from "@/lib/persian-date";
+import { formatPersianDate, getTehranDateOnly } from "@/lib/persian-date";
 import { PersianDatePicker } from "./persian-date-picker";
 import type { PropertyAvailabilityStatus } from "@/lib/properties";
 import "@/property-viewing-request.css";
@@ -38,9 +38,7 @@ function faDigits(value: string) {
 }
 
 function todayIsoDate() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
-  return local.toISOString().slice(0, 10);
+  return getTehranDateOnly();
 }
 
 function toIranIso(date: string, time: string) {
