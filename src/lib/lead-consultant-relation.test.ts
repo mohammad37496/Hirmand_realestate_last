@@ -40,7 +40,9 @@ test("lead consultant migration backfills only unique normalized names and prese
         ('arabic-y','مشتری','09124444444','مشاور یکتا');
       insert into admin_consultant_targets(id,consultant,target_month) values
         ('target-unique','مشاور غیرفعال','2026-11-01'),
-        ('target-ambiguous','مشاور مشترک','2026-11-01');
+        ('target-ambiguous','مشاور مشترک','2026-11-01'),
+        ('target-collision-a','مشاور غیرفعال','2026-12-01'),
+        ('target-collision-b','  مشاور   غیرفعال  ','2026-12-01');
     `);
 
     await pg.exec(migration);
@@ -63,12 +65,14 @@ test("lead consultant migration backfills only unique normalized names and prese
     );
     assert.deepEqual(targets.rows, [
       { id: "target-ambiguous", consultant_id: null },
+      { id: "target-collision-a", consultant_id: null },
+      { id: "target-collision-b", consultant_id: null },
       { id: "target-unique", consultant_id: "inactive" },
     ]);
     await pg.query(
       "insert into admin_consultant_targets(id,consultant_id,consultant,target_month) values('same-target-a','same-a','مشاور مشترک','2026-12-01'),('same-target-b','same-b','مشاور مشترک','2026-12-01')",
     );
-    assert.equal((await pg.query("select id from admin_consultant_targets where target_month='2026-12-01'")).rows.length, 2,
+    assert.equal((await pg.query("select id from admin_consultant_targets where target_month='2026-12-01' and consultant_id is not null")).rows.length, 2,
       "two same-name consultants can own distinct targets in the same month");
     await pg.query(
       "insert into admin_consultant_targets(id,consultant_id,consultant,target_month,note) values('replacement-target','same-a','مشاور مشترک','2026-12-01','updated') on conflict(consultant_id,target_month) where consultant_id is not null do update set note=excluded.note",

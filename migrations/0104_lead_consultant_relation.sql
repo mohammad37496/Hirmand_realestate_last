@@ -151,13 +151,24 @@ with normalized_consultants as (
   from normalized_targets t
   join normalized_consultants c using (name_key)
   where t.name_key <> ''
-), unique_matches as (
+), unique_name_matches as (
   select target_id, consultant_id from candidates where candidate_count = 1
+), non_conflicting_matches as (
+  -- The legacy uniqueness key used the raw name. Two differently formatted
+  -- snapshots can therefore normalize to the same consultant and month.
+  -- Keep every row in that collision unresolved rather than making the new
+  -- consultant_id/month unique index fail or silently choosing one target.
+  select matches.target_id,
+         matches.consultant_id,
+         count(*) over (partition by matches.consultant_id, t.target_month) as identity_month_count
+  from unique_name_matches matches
+  join admin_consultant_targets t on t.id = matches.target_id
 )
 update admin_consultant_targets t
 set consultant_id = matches.consultant_id
-from unique_matches matches
-where matches.target_id = t.id;
+from non_conflicting_matches matches
+where matches.target_id = t.id
+  and matches.identity_month_count = 1;
 
 alter table admin_consultant_targets
   drop constraint if exists admin_consultant_targets_consultant_target_month_key;
