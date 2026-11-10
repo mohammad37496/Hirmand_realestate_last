@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { resolveCompareLoad } from "../src/lib/compare-load-state.mjs";
+import { readCompareSlugs, toggleCompareSlug } from "../src/lib/compare-storage.mjs";
 
 const compare = readFileSync(new URL("../src/routes/compare.tsx", import.meta.url), "utf8");
+const propertyActions = readFileSync(new URL("../src/components/hirmand/property-actions.tsx", import.meta.url), "utf8");
 const browserSmoke = readFileSync(new URL("./browser-smoke.mjs", import.meta.url), "utf8");
 
 test("property comparison renders every feature row once", () => {
@@ -51,4 +53,42 @@ test("comparison CSV reuses the spreadsheet-formula-safe cell encoder", () => {
 test("comparison loader distinguishes an empty success from a failed query", async () => {
   assert.deepEqual(await resolveCompareLoad(async () => []), { status: "success", rows: [] });
   assert.deepEqual(await resolveCompareLoad(async () => { throw new Error("database unavailable"); }), { status: "error" });
+});
+
+test("compare storage write failures preserve the existing selection and never report a successful toggle", () => {
+  let stored = JSON.stringify(["existing-property"]);
+  const storage = {
+    getItem: () => stored,
+    setItem: (_key, _value) => { throw new Error("storage quota exceeded"); },
+  };
+
+  assert.deepEqual(readCompareSlugs(storage, "compare", 3), {
+    status: "success",
+    slugs: ["existing-property"],
+  });
+  assert.deepEqual(toggleCompareSlug(storage, "compare", "new-property", 3), {
+    status: "error",
+    next: ["existing-property"],
+  });
+  assert.deepEqual(toggleCompareSlug(storage, "compare", "existing-property", 3), {
+    status: "error",
+    next: ["existing-property"],
+  });
+  assert.equal(stored, JSON.stringify(["existing-property"]), "failed writes must not mutate the persisted selection");
+
+  const handler = propertyActions.slice(propertyActions.indexOf("function onCompare("), propertyActions.indexOf("const qrTarget", propertyActions.indexOf("function onCompare(")));
+  assert.match(handler, /result\.status === "error"/);
+  assert.ok(handler.indexOf('result.status === "error"') < handler.indexOf("setCompared("));
+  assert.ok(handler.indexOf('result.status === "error"') < handler.indexOf("toast.success("));
+  assert.match(handler, /toast\.error\(/);
+});
+
+test("compare storage read failures are surfaced instead of being treated as an empty selection", () => {
+  const storage = {
+    getItem: () => { throw new Error("storage unavailable"); },
+    setItem: () => { throw new Error("storage unavailable"); },
+  };
+
+  assert.deepEqual(readCompareSlugs(storage, "compare", 3), { status: "error" });
+  assert.deepEqual(toggleCompareSlug(storage, "compare", "property", 3), { status: "error" });
 });
