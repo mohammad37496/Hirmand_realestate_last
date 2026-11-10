@@ -228,6 +228,8 @@ function FavoritesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [recentProperties, setRecentProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favoritesLoadError, setFavoritesLoadError] = useState("");
+  const [favoritesRetry, setFavoritesRetry] = useState(0);
   const [recentLoading, setRecentLoading] = useState(true);
   const [sharedFavorites, setSharedFavorites] = useState<string[]>([]);
   const [sharedTitle, setSharedTitle] = useState("");
@@ -421,6 +423,8 @@ function FavoritesPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setFavoritesLoadError("");
 
     async function loadFavorites() {
       const localFavoriteSlugs = readFavorites();
@@ -438,7 +442,10 @@ function FavoritesPage() {
           setSharedTitle(payload?.title ?? "سبد منتخب هیرمند");
           setSharedExpiresAt(payload?.expiresAt ?? "");
         } catch (error) {
-          if (!cancelled) toast.error(error instanceof Error ? error.message : "لینک اشتراکی در دسترس نیست.");
+          if (!cancelled) {
+            setFavoritesLoadError("دریافت فهرست اشتراکی ناموفق بود. برای دریافت دوباره تلاش کنید.");
+            toast.error(error instanceof Error ? error.message : "لینک اشتراکی در دسترس نیست.");
+          }
           shared = [];
         } finally {
           if (!cancelled) setSharedTokenLoading(false);
@@ -463,7 +470,9 @@ function FavoritesPage() {
           const retained = favoriteSlugs.filter((slug) => valid.has(slug));
           if (retained.length !== favoriteSlugs.length) persistSlugs(FAVORITES_KEY, retained);
         } catch {
-          if (!cancelled && favoriteRequestId === favoriteLoadVersion.current) setProperties([]);
+          if (!cancelled && favoriteRequestId === favoriteLoadVersion.current) {
+            setFavoritesLoadError("بارگذاری فایل‌های ذخیره‌شده ناموفق بود. فهرست شما پاک نشده است؛ دوباره تلاش کنید.");
+          }
         } finally {
           if (!cancelled && favoriteRequestId === favoriteLoadVersion.current) setLoading(false);
         }
@@ -495,7 +504,7 @@ function FavoritesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [favoritesRetry]);
 
   useEffect(() => subscribeToFavoriteWorkspaceSync({
     target: window,
@@ -512,12 +521,14 @@ function FavoritesPage() {
       if (Array.isArray(result)) {
         favoriteLoadVersion.current += 1;
         setProperties([]);
+        setFavoritesLoadError("");
         setLoading(false);
         return;
       }
       const snapshot = result as { rows: Property[]; requestId: number };
       if (snapshot.requestId !== favoriteLoadVersion.current) return;
       setProperties(snapshot.rows);
+      setFavoritesLoadError("");
       setLoading(false);
       const valid = new Set(snapshot.rows.map((property) => property.slug));
       const currentSlugs = readFavorites();
@@ -526,6 +537,7 @@ function FavoritesPage() {
     },
     onError: () => {
       setLoading(false);
+      setFavoritesLoadError("بارگذاری فایل‌های ذخیره‌شده ناموفق بود. فهرست شما پاک نشده است؛ دوباره تلاش کنید.");
       toast.error("بارگذاری فایل‌های ذخیره‌شده ناموفق بود؛ دوباره تلاش کنید.");
     },
   }), []);
@@ -679,6 +691,17 @@ function FavoritesPage() {
           </section>
         ) : null}
 
+        {favoritesLoadError ? (
+          <section className="property-empty favorites-load-error" role="alert">
+            <Heart size={26} />
+            <strong>بارگذاری فایل‌های ذخیره‌شده ناموفق بود</strong>
+            <p>فهرست ذخیره‌شده شما پاک نشده است. برای دریافت دوباره تلاش کنید.</p>
+            <button type="button" className="btn-gold" onClick={() => setFavoritesRetry((current) => current + 1)} disabled={loading}>
+              تلاش دوباره
+            </button>
+          </section>
+        ) : null}
+
         {loading ? (
           <section className="property-empty">
             <Loader2 size={26} className="admin-spin" />
@@ -775,7 +798,7 @@ function FavoritesPage() {
             </section>
           )}
           </>
-        ) : (
+        ) : favoritesLoadError ? null : (
           <section className="property-empty">
             <Heart size={26} />
             <strong>هنوز فایلی ذخیره نکرده‌اید</strong>

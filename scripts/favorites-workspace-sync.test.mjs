@@ -24,6 +24,22 @@ test("FavoritesPage wires workspace sync to the visible properties state", () =>
   assert.match(favoritesSource, /onLoaded:\s*setFavoriteMeta/);
 });
 
+test("initial favorites lookup failures preserve saved slugs and show an accessible retry instead of the empty state", () => {
+  const initialLoadCatch = favoritesSource.match(
+    /if \(favoriteSlugs\.length\) \{[\s\S]*?\} catch \{([\s\S]*?)\} finally \{/,
+  )?.[1] ?? "";
+
+  assert.match(favoritesSource, /const \[favoritesLoadError, setFavoritesLoadError\] = useState\(""\)/);
+  assert.match(favoritesSource, /const \[favoritesRetry, setFavoritesRetry\] = useState\(0\)/);
+  assert.match(favoritesSource, /\}, \[favoritesRetry\]\)/);
+  assert.match(initialLoadCatch, /setFavoritesLoadError\(/);
+  assert.doesNotMatch(initialLoadCatch, /setProperties\(\[\]\)|persistSlugs\(/);
+  assert.match(favoritesSource, /className="property-empty favorites-load-error" role="alert"/);
+  assert.match(favoritesSource, /setFavoritesLoadError\("دریافت فهرست اشتراکی ناموفق بود/);
+  assert.match(favoritesSource, /onClick=\{\(\) => setFavoritesRetry\(\(current\) => current \+ 1\)\}/);
+  assert.match(favoritesSource, /\) : favoritesLoadError \? null : \(/);
+});
+
 test("a mounted favorites view replaces account A metadata when account B syncs without reloading", () => {
   const target = new EventTarget();
   let storedMeta = {
