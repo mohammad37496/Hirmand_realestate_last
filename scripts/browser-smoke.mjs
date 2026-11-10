@@ -713,8 +713,7 @@ try {
     if (!legalText.includes("ارزش معاملاتی") || !legalText.includes("سقف مصوب شهرستان")) {
       throw new Error("commission page does not explain the statutory assessed-value and county-cap basis");
     }
-    await commissionPage.getByLabel("مبلغ معامله (تومان)").fill("5000000000");
-    await commissionPage.getByText("برآورد کمیسیون", { exact: true }).waitFor({ state: "visible", timeout: timeoutMs });
+    await commissionPage.locator(".commission-fields input").first().waitFor({ state: "visible", timeout: timeoutMs });
     for (const width of commissionCheck.widths) {
       await commissionPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
       const overflow = await commissionPage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);

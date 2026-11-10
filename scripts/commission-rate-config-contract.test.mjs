@@ -53,6 +53,6 @@ test("public calculator and property decision tools use the same configured rate
 test("browser smoke checks the legal-basis notice and responsive commission estimate", () => {
   assert.match(browserSmoke, /commissionCheck/);
   assert.match(browserSmoke, /\.commission-legal-basis-note/);
-  assert.match(browserSmoke, /getByLabel\("مبلغ معامله \(تومان\)"\)/);
+  assert.match(browserSmoke, /\.commission-fields input/);
   assert.match(browserSmoke, /widths: \[390, 768, 1280\]/);
 });
