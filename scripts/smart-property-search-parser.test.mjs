@@ -45,6 +45,37 @@ test("unrecognized natural-language input falls back to a bounded real text sear
   assert.equal(parseSmartPropertySearch("نزدیک پارک صفه").filters.search, "نزدیک پارک صفه");
 });
 
+test("mixed structured and free-text queries preserve the unrecognized place phrase", () => {
+  const apartment = parseSmartPropertySearch("آپارتمان نزدیک پارک صفه");
+  assert.equal(apartment.filters.propertyType, "apartment");
+  assert.equal(apartment.filters.search, "پارک صفه");
+  assert.ok(apartment.summary.includes("عبارت متنی: پارک صفه"));
+
+  const neighborhood = parseSmartPropertySearch("آپارتمان در مرداویج نزدیک پارک صفه");
+  assert.equal(neighborhood.filters.neighborhood, "مرداویج");
+  assert.equal(neighborhood.filters.search, "پارک صفه");
+
+  const area = parseSmartPropertySearch("آپارتمان ۹۰ متری نزدیک پارک صفه");
+  assert.equal(area.filters.minArea, 90);
+  assert.equal(area.filters.maxArea, 90);
+  assert.equal(area.filters.search, "پارک صفه");
+
+  const budget = parseSmartPropertySearch("آپارتمان بودجه ۸ میلیارد نزدیک پارک صفه");
+  assert.equal(budget.filters.maxPrice, 8_000_000_000);
+  assert.equal(budget.filters.search, "پارک صفه");
+});
+
+test("fully recognized structured queries do not add a redundant text filter", () => {
+  const parsed = parseSmartPropertySearch("آپارتمان دو خوابه تا ۸ میلیارد در مرداویج با آسانسور و پارکینگ");
+  assert.equal(parsed.filters.search, undefined);
+});
+
+test("property-type words are not misread as transaction verbs", () => {
+  const parsed = parseSmartPropertySearch("فروشگاه تجاری در مرداویج");
+  assert.equal(parsed.filters.propertyType, "commercial");
+  assert.equal(parsed.filters.transactionType, undefined);
+});
+
 test("the four advertised smart-search examples apply their stated bedroom, area and budget constraints", () => {
   const first = parseSmartPropertySearch("آپارتمان دو خوابه تا ۸ میلیارد در مرداویج با آسانسور و پارکینگ");
   assert.equal(first.filters.minBedrooms, 2);
