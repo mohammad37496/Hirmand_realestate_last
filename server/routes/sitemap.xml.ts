@@ -9,6 +9,7 @@ import { canonicalSiteUrl } from "../../src/lib/site-url.mjs";
 import { propertyPath } from "../../src/lib/property-path";
 import { DEFAULT_GUIDES } from "../../src/lib/site-content-static";
 import { resolveDatabaseUrl } from "../../scripts/resolve-database-url.mjs";
+import { publicPropertyVisibilitySql } from "../../src/lib/public-property-visibility";
 
 const FINANCE_TOOL_PATHS = [
   "/tools/rahn-rent",
@@ -54,9 +55,7 @@ async function loadPropertyUrls(): Promise<{ loc: string; lastmod?: string; imag
     try {
       const res = await pool.query<{ id: string; slug: string; updated_at: Date | string | null; images: unknown }>(
         `select id, slug, updated_at, images from properties
-         where deleted_at is null
-           and status = 'published'
-           and (unpublish_at is null or unpublish_at > current_timestamp)
+         where ${publicPropertyVisibilitySql()}
          order by published_at desc nulls last, created_at desc
          limit 49000`,
       );
