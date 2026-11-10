@@ -358,13 +358,28 @@ try {
         // The drawer is opacity-hidden but still considered visible by Playwright
         // while its translateY transition is running. Wait for the actual open
         // state before measuring or scrolling its controls.
-        await neighborhoodPage.waitForFunction(() => {
-          const panel = document.querySelector(".pf-sidebar");
-          if (!(panel instanceof HTMLElement) || !panel.classList.contains("is-open")) return false;
-          const style = getComputedStyle(panel);
-          return style.opacity === "1" && style.pointerEvents !== "none" &&
-            (style.transform === "none" || style.transform === "matrix(1, 0, 0, 1, 0, 0)");
-        }, null, { timeout: timeoutMs });
+        try {
+          await neighborhoodPage.waitForFunction(() => {
+            const button = document.querySelector(".pf-filter-btn");
+            const panel = document.querySelector(".pf-sidebar");
+            return button?.getAttribute("aria-expanded") === "true" &&
+              panel?.classList.contains("is-open");
+          }, null, { timeout: timeoutMs });
+        } catch (error) {
+          const state = await neighborhoodPage.evaluate(() => {
+            const button = document.querySelector(".pf-filter-btn");
+            const panel = document.querySelector(".pf-sidebar");
+            const style = panel ? getComputedStyle(panel) : null;
+            return {
+              expanded: button?.getAttribute("aria-expanded") ?? null,
+              panelClass: panel?.className ?? null,
+              opacity: style?.opacity ?? null,
+              pointerEvents: style?.pointerEvents ?? null,
+              transform: style?.transform ?? null,
+            };
+          });
+          throw new Error(`mobile filter drawer did not open at ${width}px: ${JSON.stringify(state)}; ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
       await trigger.waitFor({ state: "visible", timeout: timeoutMs });
       if (width <= 979) {
