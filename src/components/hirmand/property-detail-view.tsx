@@ -686,6 +686,11 @@ function ResilientImage({
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
   const [legacyMode, setLegacyMode] = useState(false);
+  useEffect(() => {
+    setAttempt(0);
+    setFailed(false);
+    setLegacyMode(false);
+  }, [src, fallback]);
   const current = candidates[Math.min(attempt, Math.max(0, candidates.length - 1))] ?? fallback;
   const sourceLegacyFallback = current.startsWith("/images/fallback/")
     ? current.replace(/\.(?:jpe?g|webp|avif)$/i, ".svg")
