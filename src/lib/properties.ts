@@ -6,7 +6,8 @@ import { dbSource, getSql } from "@/lib/db";
 import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
 import { buildPublicPropertyFilterParams, buildPublicPropertyOrderBySql, buildPublicPropertyWhereSql } from "@/lib/property-search-sql";
 import { publicPropertyFiltersSchema } from "@/lib/property-search-contract";
-import { compactSearchText } from "@/lib/property-search-utils";
+import { buildSmartPropertyMatchScoreSql } from "@/lib/smart-property-match-sql";
+import { matchablePropertyVisibilitySql } from "@/lib/property-matchability";
 import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
@@ -309,6 +310,35 @@ const budgetMatchSchema = z
     message: "حداقل یکی از مبالغ بودجه باید بیشتر از صفر باشد.",
   });
 
+const smartPropertyMatchSchema = z.object({
+  transactionType: z.literal("sell"),
+  propertyType: z.enum(["apartment", "villa", "office", "heritage", "land", "commercial"]),
+  minPrice: z.number().int().min(1).max(999999999999999).optional(),
+  maxPrice: z.number().int().min(1).max(999999999999999).optional(),
+  neighborhoods: z.array(z.string().trim().min(2).max(80)).max(12).refine((items) => new Set(items).size === items.length, "محدوده تکراری انتخاب شده است.").default([]),
+  minArea: z.number().int().min(1).max(100000).optional(),
+  maxArea: z.number().int().min(1).max(100000).optional(),
+  exactBedrooms: z.number().int().min(0).max(30).optional(),
+  minBedrooms: z.number().int().min(0).max(30).optional(),
+  amenities: z.array(z.enum(["parking", "elevator", "storage"])).max(3).refine((items) => new Set(items).size === items.length, "امکان تکراری انتخاب شده است.").default([]),
+  limit: z.number().int().min(1).max(24).default(12),
+}).superRefine((data, ctx) => {
+  if (data.minPrice !== undefined && data.maxPrice !== undefined && data.minPrice > data.maxPrice) {
+    ctx.addIssue({ code: "custom", path: ["maxPrice"], message: "حداکثر بودجه باید بزرگ‌تر یا مساوی حداقل باشد." });
+  }
+  if (data.minArea !== undefined && data.maxArea !== undefined && data.minArea > data.maxArea) {
+    ctx.addIssue({ code: "custom", path: ["maxArea"], message: "حداکثر متراژ باید بزرگ‌تر یا مساوی حداقل باشد." });
+  }
+  if (data.exactBedrooms !== undefined && data.minBedrooms !== undefined) {
+    ctx.addIssue({ code: "custom", path: ["exactBedrooms"], message: "تعداد خواب دقیق و حداقل تعداد خواب را هم‌زمان انتخاب نکنید." });
+  }
+  if (data.minPrice === undefined && data.maxPrice === undefined && !data.neighborhoods.length
+    && data.minArea === undefined && data.maxArea === undefined && data.minBedrooms === undefined
+    && data.exactBedrooms === undefined && !data.amenities.length) {
+    ctx.addIssue({ code: "custom", path: ["maxPrice"], message: "حداقل یک معیار برای رتبه‌بندی انتخاب کنید." });
+  }
+});
+
 const adminKeySchema = z.object({});
 
 const idSchema = z.object({
@@ -499,6 +529,7 @@ const DETAIL_COLUMNS = `
 `;
 
 const PUBLIC_PUBLICATION_WHERE = publicPropertyVisibilitySql();
+const MATCHABLE_PUBLIC_PROPERTY_WHERE = matchablePropertyVisibilitySql();
 
 export const listPublishedPropertyCards = createServerFn({ method: "GET" })
   .validator(publicPropertyFiltersSchema)
@@ -521,6 +552,55 @@ export const listPublishedPropertyCards = createServerFn({ method: "GET" })
           [...params, data.sort],
         );
         return rows.map(mapPropertyCard);
+      },
+    );
+  });
+
+export type PropertySmartMatch = {
+  property: PropertyCardData;
+  score: number;
+};
+
+export const matchPublishedPropertiesBySmartSearch = createServerFn({ method: "GET" })
+  .validator(smartPropertyMatchSchema)
+  .handler(async ({ data }): Promise<PropertySmartMatch[]> => {
+    if (dbSource === "unconfigured") throw new Error("جستجوی تطبیقی تا زمان اتصال پایگاه داده در دسترس نیست.");
+    setResponseHeader("cache-control", "public, max-age=10, s-maxage=30, stale-while-revalidate=120");
+    return cachedPropertyRead(
+      `property-smart-match:${JSON.stringify(data)}`,
+      10_000,
+      async () => {
+        const sql = await getSql();
+        const rows = await sql.query<Record<string, unknown>>(
+          `select ${CARD_COLUMNS}, ${buildSmartPropertyMatchScoreSql()} as match_score
+           from properties
+           where ${MATCHABLE_PUBLIC_PROPERTY_WHERE}
+             and transaction_type = $1
+             and property_type = $2
+           order by match_score desc,
+             case when featured and (featured_until is null or featured_until >= current_timestamp) then 0 else 1 end,
+             published_at desc nulls last, created_at desc nulls last, id desc
+           limit $11`,
+          [
+            data.transactionType,
+            data.propertyType,
+            data.minPrice ?? null,
+            data.maxPrice ?? null,
+            data.neighborhoods,
+            data.minArea ?? null,
+            data.maxArea ?? null,
+            data.minBedrooms ?? null,
+            data.exactBedrooms ?? null,
+            data.amenities,
+            data.limit,
+          ],
+        );
+        return rows
+          .map((row) => ({
+            property: mapPropertyCard(row),
+            score: Math.max(0, Math.min(100, Number(row.match_score) || 0)),
+          }))
+          .filter((match) => match.score > 0);
       },
     );
   });
