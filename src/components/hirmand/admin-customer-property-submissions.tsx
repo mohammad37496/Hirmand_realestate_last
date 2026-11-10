@@ -378,6 +378,11 @@ export function AdminCustomerPropertySubmissions() {
   async function act(action: "approve" | "reject", submission: Submission) {
     if (busyId) return;
     const assigned = TEAM.find((person) => person.id === submission.assignedConsultantId)
+      ?? (submission.assignedConsultantId ? {
+        id: submission.assignedConsultantId,
+        name: submission.assignedConsultantName ?? "مشاور انتخاب‌شده",
+        phone: submission.assignedConsultantPhone ?? "",
+      } : null)
       ?? TEAM.find((person) => person.name === submission.assignedConsultantName && person.phone === submission.assignedConsultantPhone);
     const effectiveConsultant = assigned ?? consultant;
     if (action === "approve") {
