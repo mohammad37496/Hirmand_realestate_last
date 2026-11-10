@@ -11,6 +11,7 @@ import { propertyPath } from "@/lib/property-path";
 import { csvCell as escapeCsvCell } from "@/lib/property-export";
 import { resolveCompareSlugs, updateSharedCompareSearch } from "@/lib/compare-share.mjs";
 import { resolveCompareLoad } from "@/lib/compare-load-state.mjs";
+import { clearCompareSlugs, readCompareSlugs, writeCompareSlugs } from "@/lib/compare-storage.mjs";
 import "@/compare-export.css";
 
 const PROPERTY_ORIENTATION_LABELS: Record<NonNullable<Property["orientation"]>, string> = {
@@ -31,28 +32,8 @@ const PROPERTY_ORIENTATION_LABELS: Record<NonNullable<Property["orientation"]>, 
 const COMPARE_KEY = "hirmand-compare-properties";
 const MAX_COMPARE = 3;
 
-function readCompare(): string[] {
-  try {
-    const raw = localStorage.getItem(COMPARE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) return [];
-    return Array.from(new Set(
-      parsed.filter(
-        (item): item is string =>
-          typeof item === "string" && item.trim().length > 0 && item.length <= 220,
-      ).map((item) => item.trim()),
-    )).slice(0, MAX_COMPARE);
-  } catch {
-    return [];
-  }
-}
-
-function persistCompare(slugs: string[]) {
-  try {
-    localStorage.setItem(COMPARE_KEY, JSON.stringify(slugs));
-  } catch {
-    // Ignore storage failures.
-  }
+function persistCompare(slugs: string[]): boolean {
+  return writeCompareSlugs(localStorage, COMPARE_KEY, slugs).status === "success";
 }
 
 function syncSharedCompareUrl(slugs: string[]) {
@@ -163,18 +144,42 @@ function ComparePage() {
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   function removeFromCompare(slug: string) {
-    const current = resolveCompareSlugs(window.location.search, readCompare());
+    const storedCompare = readCompareSlugs(localStorage, COMPARE_KEY, MAX_COMPARE);
+    const current = resolveCompareSlugs(
+      window.location.search,
+      storedCompare.status === "success" ? storedCompare.slugs : [],
+    );
+    if (storedCompare.status === "error" && !current.isShared) {
+      toast.error("خواندن فهرست مقایسه در این مرورگر ممکن نشد؛ انتخاب قبلی حفظ شد.");
+      return;
+    }
     const next = current.slugs.filter((item) => item !== slug);
-    persistCompare(next);
+    if (!persistCompare(next)) {
+      toast.error("ذخیره تغییرات مقایسه ممکن نشد؛ انتخاب قبلی حفظ شد.");
+      return;
+    }
     if (current.isShared) syncSharedCompareUrl(next);
     setProperties((current) => current.filter((property) => property.slug !== slug));
   }
 
   useEffect(() => {
     let cancelled = false;
-    const resolved = resolveCompareSlugs(window.location.search, readCompare());
+    const storedCompare = readCompareSlugs(localStorage, COMPARE_KEY, MAX_COMPARE);
+    const resolved = resolveCompareSlugs(
+      window.location.search,
+      storedCompare.status === "success" ? storedCompare.slugs : [],
+    );
     const slugs = resolved.slugs;
-    if (resolved.isShared) persistCompare(slugs);
+    if (!resolved.isShared && storedCompare.status === "error") {
+      setLoadError(true);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (resolved.isShared && !persistCompare(slugs)) {
+      toast.error("ذخیره فهرست مقایسه در این مرورگر ممکن نشد؛ لینک اشتراکی همچنان قابل استفاده است.");
+    }
     if (!slugs.length) {
       setLoadError(false);
       setLoading(false);
@@ -197,7 +202,9 @@ function ComparePage() {
         const valid = new Set(rows.map((property) => property.slug));
         const retained = slugs.filter((slug) => valid.has(slug));
         if (retained.length !== slugs.length) {
-          persistCompare(retained);
+          if (!persistCompare(retained)) {
+            toast.error("ذخیره فهرست مقایسه در این مرورگر ممکن نشد.");
+          }
           if (resolved.isShared) syncSharedCompareUrl(retained);
         }
       })
@@ -211,10 +218,9 @@ function ComparePage() {
   }, [retryAttempt]);
 
   function clearCompare() {
-    try {
-      localStorage.removeItem(COMPARE_KEY);
-    } catch {
-      // Ignore storage failures.
+    if (clearCompareSlugs(localStorage, COMPARE_KEY).status === "error") {
+      toast.error("پاک‌کردن فهرست مقایسه در این مرورگر ممکن نشد؛ انتخاب‌های قبلی حفظ شدند.");
+      return;
     }
     syncSharedCompareUrl([]);
     setProperties([]);
