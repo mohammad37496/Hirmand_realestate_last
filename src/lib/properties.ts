@@ -1438,16 +1438,6 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
     );
 
     if (rows.length) {
-      const beforePayload = JSON.stringify(
-        beforeRows.map((row) => ({
-          id: String(row.id),
-          before_state: {
-            consultantId: row.consultant_id == null ? null : String(row.consultant_id),
-            contactName: row.contact_name == null ? null : String(row.contact_name),
-            contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
-          },
-        })),
-      );
       const afterById = new Map(
         rows.map((row) => [
           String(row.id),
