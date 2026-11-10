@@ -167,14 +167,14 @@ export function CommissionCalculator({ rates }: { rates: CommissionRateConfig })
           <ol>
             <li>کمیسیون پایه برآوردی کل = {percent(rates.saleTotalPercent)} از مبلغ معامله</li>
             <li>برآورد مالیات ارزش افزوده = {percent(rates.vatPercent)} از کمیسیون پایه</li>
-            <li>جمع کل بین خریدار و فروشنده نصف می‌شود</li>
+            <li>در این برآورد، سهم خریدار و فروشنده برابر فرض می‌شود؛ مگر آنکه در قرارداد به نحو دیگری توافق شود</li>
           </ol>
         ) : (
           <ol>
             <li>کمیسیون پایه برآوردی هر طرف = {percent(rates.rentMonthlyPercent)} اجاره ماهانه + {percent(rates.rentDepositPercent)} مبلغ رهن</li>
             <li>معادل اجارهٔ رهن بر اساس نسبت نرخ رهن به نرخ اجاره محاسبه می‌شود</li>
             <li>برآورد مالیات ارزش افزوده = {percent(rates.vatPercent)} از کمیسیون پایه</li>
-            <li>جمع کمیسیون دو طرف بین موجر و مستأجر نصف می‌شود</li>
+            <li>در این برآورد، سهم موجر و مستأجر برابر فرض می‌شود؛ مگر آنکه در قرارداد به نحو دیگری توافق شود</li>
           </ol>
         )}
       </aside>

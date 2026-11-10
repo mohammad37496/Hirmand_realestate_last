@@ -27,7 +27,7 @@ type ToolId = "rahn" | "commission" | "deposit" | "loan";
 
 const TOOLS: { id: ToolId; title: string; text: string; icon: typeof Wallet }[] = [
   { id: "rahn", title: "رهن به اجاره", text: "نوار تبدیل", icon: ArrowLeftRight },
-  { id: "commission", title: "کمیسیون ملک", text: "تعرفه اتحادیه", icon: Wallet },
+  { id: "commission", title: "کمیسیون ملک", text: "برآورد نمونه", icon: Wallet },
   { id: "deposit", title: "سود سپرده", text: "محاسبه بانکی", icon: PiggyBank },
   { id: "loan", title: "اقساط وام", text: "سود و قسط ماهانه", icon: Landmark },
 ];

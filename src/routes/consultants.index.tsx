@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { listConsultants, type Consultant } from "@/lib/consultants";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
+import { loadConsultantDirectoryWithFailureState } from "@/lib/consultant-directory-load";
 
 export const Route = createFileRoute("/consultants/")({
   head: () => {
@@ -31,12 +32,19 @@ function ConsultantsPage() {
   const [consultants, setConsultants] = useState<Consultant[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryVersion, setRetryVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    void listConsultants()
-      .then((items) => {
-        if (!cancelled) setConsultants(items);
+    setLoading(true);
+    setLoadError(false);
+    void loadConsultantDirectoryWithFailureState(() => listConsultants())
+      .then((result) => {
+        if (!cancelled) {
+          setConsultants(result.consultants);
+          setLoadError(result.failed);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -44,7 +52,7 @@ function ConsultantsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retryVersion]);
 
   const filtered = useMemo(() => {
     const q = query.trim();
@@ -66,7 +74,7 @@ function ConsultantsPage() {
             </p>
           </div>
           <div className="consultants-directory-count">
-            <strong>{consultants.length.toLocaleString("fa-IR")}</strong>
+            <strong>{loading || loadError ? "—" : consultants.length.toLocaleString("fa-IR")}</strong>
             <span>عضو فعال</span>
           </div>
         </header>
@@ -89,6 +97,14 @@ function ConsultantsPage() {
         {loading ? (
           <section className="consultants-empty">
             <strong>در حال دریافت فهرست مشاورین…</strong>
+          </section>
+        ) : loadError ? (
+          <section className="consultants-empty" role="alert">
+            <strong>بارگذاری فهرست مشاورین ناموفق بود.</strong>
+            <p>ارتباط با سرویس دریافت اطلاعات برقرار نشد. دوباره تلاش کنید.</p>
+            <button type="button" className="btn-gold" onClick={() => setRetryVersion((version) => version + 1)}>
+              تلاش دوباره
+            </button>
           </section>
         ) : filtered.length ? (
           <section className="consultants-grid" aria-label="فهرست مشاورین">

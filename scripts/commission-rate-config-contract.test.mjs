@@ -6,6 +6,7 @@ import { pendingMigrations } from "./migration-plan.mjs";
 const settings = readFileSync(new URL("../src/lib/site-settings.ts", import.meta.url), "utf8");
 const admin = readFileSync(new URL("../src/components/hirmand/admin-site-settings.tsx", import.meta.url), "utf8");
 const calculator = readFileSync(new URL("../src/components/hirmand/commission-calculator.tsx", import.meta.url), "utf8");
+const financeTools = readFileSync(new URL("../src/components/hirmand/finance-tools.tsx", import.meta.url), "utf8");
 const propertyTools = readFileSync(new URL("../src/components/hirmand/property-decision-tools.tsx", import.meta.url), "utf8");
 const commissionRoute = readFileSync(new URL("../src/routes/tools/commission.tsx", import.meta.url), "utf8");
 const propertyRoute = readFileSync(new URL("../src/routes/properties.$slug.tsx", import.meta.url), "utf8");
@@ -48,6 +49,11 @@ test("public calculator and property decision tools use the same configured rate
   assert.match(admin, /جایگزین ضریب ارزش معاملاتی و سقف مصوب شهرستان/);
   assert.match(propertyTools, /COMMISSION_LEGAL_BASIS_NOTICE/);
   assert.match(propertyTools, /سهم برآوردی کمیسیون خریدار/);
+});
+
+test("finance hub labels the percentage calculator as an estimate, not an official union tariff", () => {
+  assert.ok(financeTools.includes('title: "کمیسیون ملک", text: "برآورد نمونه"'));
+  assert.equal(financeTools.includes("تعرفه اتحادیه"), false);
 });
 
 test("browser smoke checks the legal-basis notice and responsive commission estimate", () => {
