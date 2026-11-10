@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowUpLeft, BookOpen, CheckCircle2, Search, Share2, Sparkle
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
+import { getGuideAccordionContent } from "@/lib/guide-accordion.mjs";
 import { SITE } from "@/lib/site";
 import { getPublicGuides, type GuideContent } from "@/lib/site-content";
 import "@/guides.css";
@@ -87,6 +88,7 @@ function GuidesPage() {
             const open = openId === guide.id;
             const guideIndex = guides.indexOf(guide) + 1;
             const panelId = `guide-content-${guide.id}`;
+            const content = getGuideAccordionContent(guide);
             return <article key={guide.id} className={`guide-card${open ? " is-open" : ""}`}>
               <button type="button" className="guide-card-trigger" onClick={() => setOpenId(open ? "" : guide.id)} aria-expanded={open} aria-controls={panelId}>
                 <span className="guide-card-number">{String(guideIndex).padStart(2, "0")}</span>
@@ -94,7 +96,42 @@ function GuidesPage() {
                 <span className="guide-card-action"><span>{open ? "بستن راهنما" : "مطالعه راهنما"}</span><ArrowLeft size={17} className="guide-card-arrow" aria-hidden="true" /></span>
               </button>
               <div className="guide-card-discover"><Link to="/guides/$slug" params={{ slug: guide.id }} className="guide-article-link">مطالعه صفحه کامل <ArrowLeft size={15} /></Link></div>
-              <div className="guide-card-body" id={panelId} hidden={!open}><div className="guide-body-heading"><span><CheckCircle2 size={17} /> نکته‌هایی که بهتر است بدانید</span><small>{guide.points.length.toLocaleString("fa-IR")} نکته</small></div><div className="guide-point-list">{guide.points.map((point, index) => <div key={point} className="guide-point"><span className="guide-point-index">{(index + 1).toLocaleString("fa-IR")}</span><p>{point}</p></div>)}</div><button type="button" className="guide-share" onClick={() => void shareGuide(guide)}><Share2 size={16} /> اشتراک‌گذاری این راهنما</button></div>
+              <div className="guide-card-body" id={panelId} hidden={!open}>
+                <div className="guide-body-heading">
+                  <span><CheckCircle2 size={17} aria-hidden="true" /> محتوای راهنما</span>
+                  <small>
+                    {content.sectionCount
+                      ? `${content.sectionCount.toLocaleString("fa-IR")} بخش`
+                      : `${content.pointCount.toLocaleString("fa-IR")} نکته`}
+                    {content.sectionCount && content.pointCount
+                      ? ` · ${content.pointCount.toLocaleString("fa-IR")} نکته`
+                      : ""}
+                  </small>
+                </div>
+                {content.sections.length ? (
+                  <div className="guide-card-sections">
+                    {content.sections.map((section, index) => (
+                      <section className="guide-card-section" key={`${guide.id}-section-${index}`}>
+                        <h3>{section.heading}</h3>
+                        {section.paragraphs.map((paragraph, paragraphIndex) => (
+                          <p key={`${guide.id}-section-${index}-paragraph-${paragraphIndex}`}>{paragraph}</p>
+                        ))}
+                      </section>
+                    ))}
+                  </div>
+                ) : null}
+                {content.points.length ? (
+                  <div className="guide-point-list">
+                    {content.points.map((point, index) => (
+                      <div key={`${guide.id}-point-${index}`} className="guide-point">
+                        <span className="guide-point-index">{(index + 1).toLocaleString("fa-IR")}</span>
+                        <p>{point}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <button type="button" className="guide-share" onClick={() => void shareGuide(guide)}><Share2 size={16} /> اشتراک‌گذاری این راهنما</button>
+              </div>
             </article>;
           }) : <div className="guides-empty"><span className="guides-empty-icon"><Search size={23} /></span><strong>مطلبی با این مشخصات پیدا نشد.</strong><p>عبارت دیگری را امتحان کنید یا فیلتر موضوعی را تغییر دهید.</p><button type="button" onClick={() => { setQuery(""); setCategory("همه"); }}>نمایش همه راهنماها</button></div>}</div>
         </section>
