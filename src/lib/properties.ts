@@ -10,6 +10,7 @@ import { compactSearchText } from "@/lib/property-search-utils";
 import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
+import { normalizeIranianPhoneForMatch, normalizedIranianPhoneSql } from "@/lib/phone-normalization";
 import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type BudgetMatchDetails } from "@/lib/budget-matching";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { deleteStoredMedia } from "@/lib/media-store.server";
@@ -566,14 +567,16 @@ export const listPublishedPropertiesByContact = createServerFn({ method: "GET" }
   .validator(z.object({ phone: z.string().trim().min(8).max(30) }))
   .handler(async ({ data }) => {
     if (dbSource === "unconfigured") return [];
+    const phone = normalizeIranianPhoneForMatch(data.phone);
+    if (phone.length < 8 || phone.length > 13) return [];
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select ${DETAIL_COLUMNS}
        from properties
-       where ${PUBLIC_PUBLICATION_WHERE} and contact_phone = $1
+       where ${PUBLIC_PUBLICATION_WHERE} and ${normalizedIranianPhoneSql("contact_phone")} = $1
        order by ${buildPublicPropertyOrderBySql("'newest'")}
        limit 48`,
-      [data.phone],
+      [phone],
     );
     return rows.map((row) => mapProperty(row));
   });
