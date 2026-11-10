@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const page = readFileSync(new URL("../src/routes/guides.tsx", import.meta.url), "utf8");
+const page = readFileSync(new URL("../src/routes/guides.index.tsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../src/guides.css", import.meta.url), "utf8");
 
 test("guides page uses the Hirmand visual system and readable Persian typography", () => {

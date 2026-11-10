@@ -8,6 +8,9 @@ import { listPublishedPropertiesBySlugs, type Property } from "@/lib/properties"
 import { SITE } from "@/lib/site";
 import { formatToman } from "@/lib/money";
 import { propertyPath } from "@/lib/property-path";
+import { csvCell as escapeCsvCell } from "@/lib/property-export";
+import { resolveCompareSlugs, updateSharedCompareSearch } from "@/lib/compare-share.mjs";
+import { resolveCompareLoad } from "@/lib/compare-load-state.mjs";
 import "@/compare-export.css";
 
 const PROPERTY_ORIENTATION_LABELS: Record<NonNullable<Property["orientation"]>, string> = {
@@ -44,16 +47,18 @@ function readCompare(): string[] {
   }
 }
 
-function readSharedCompare(): string[] {
+function persistCompare(slugs: string[]) {
   try {
-    const value = new URLSearchParams(window.location.search).get("share");
-    if (!value) return [];
-    return Array.from(new Set(
-      value.split(",").filter((item) => item.trim().length > 0).map((item) => item.trim()),
-    )).slice(0, MAX_COMPARE);
+    localStorage.setItem(COMPARE_KEY, JSON.stringify(slugs));
   } catch {
-    return [];
+    // Ignore storage failures.
   }
+}
+
+function syncSharedCompareUrl(slugs: string[]) {
+  const search = updateSharedCompareSearch(window.location.search, slugs);
+  if (search === null) return;
+  window.history.replaceState(window.history.state, "", `${window.location.pathname}${search}${window.location.hash}`);
 }
 
 async function shareCompare(slugs: string[]) {
@@ -109,7 +114,7 @@ function valueMoney(value: string | null) {
 }
 function csvCell(value: string | number | null | undefined) {
   const text = String(value ?? "").replace(/\r?\n|\r/g, " ").trim();
-  return /[",]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+  return escapeCsvCell(text);
 }
 
 function exportCompareCsv(properties: Property[]) {
@@ -154,51 +159,47 @@ function valuePerM2(property: Property) {
 function ComparePage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   function removeFromCompare(slug: string) {
-    const next = readCompare().filter((item) => item !== slug);
-    try {
-      localStorage.setItem(COMPARE_KEY, JSON.stringify(next));
-    } catch {
-      // Ignore storage failures.
-    }
+    const current = resolveCompareSlugs(window.location.search, readCompare());
+    const next = current.slugs.filter((item) => item !== slug);
+    persistCompare(next);
+    if (current.isShared) syncSharedCompareUrl(next);
     setProperties((current) => current.filter((property) => property.slug !== slug));
   }
 
   useEffect(() => {
     let cancelled = false;
-    const shared = readSharedCompare();
-    const slugs = Array.from(new Set([...shared, ...readCompare()])).slice(0, MAX_COMPARE);
-    if (shared.length) {
-      try {
-        localStorage.setItem(COMPARE_KEY, JSON.stringify(slugs));
-      } catch {
-        // Ignore storage failures.
-      }
-    }
+    const resolved = resolveCompareSlugs(window.location.search, readCompare());
+    const slugs = resolved.slugs;
+    if (resolved.isShared) persistCompare(slugs);
     if (!slugs.length) {
+      setLoadError(false);
       setLoading(false);
       return () => {
         cancelled = true;
       };
     }
 
-    void listPublishedPropertiesBySlugs({ data: { slugs } })
-      .then((rows) => {
+    setLoading(true);
+    setLoadError(false);
+    void resolveCompareLoad(() => listPublishedPropertiesBySlugs({ data: { slugs } }))
+      .then((result) => {
         if (cancelled) return;
+        if (result.status === "error") {
+          setLoadError(true);
+          return;
+        }
+        const rows = result.rows;
         setProperties(rows);
         const valid = new Set(rows.map((property) => property.slug));
         const retained = slugs.filter((slug) => valid.has(slug));
         if (retained.length !== slugs.length) {
-          try {
-            localStorage.setItem(COMPARE_KEY, JSON.stringify(retained));
-          } catch {
-            // Ignore storage failures; the fetched rows remain usable.
-          }
+          persistCompare(retained);
+          if (resolved.isShared) syncSharedCompareUrl(retained);
         }
-      })
-      .catch(() => {
-        if (!cancelled) setProperties([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -207,7 +208,7 @@ function ComparePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retryAttempt]);
 
   function clearCompare() {
     try {
@@ -215,6 +216,7 @@ function ComparePage() {
     } catch {
       // Ignore storage failures.
     }
+    syncSharedCompareUrl([]);
     setProperties([]);
   }
 
@@ -230,7 +232,15 @@ function ComparePage() {
           <ArrowLeftRight size={30} />
         </header>
 
-        {loading ? (
+        {loadError ? (
+          <section className="property-empty" role="alert">
+            <strong>بارگذاری مقایسه ناموفق بود.</strong>
+            <p>انتخاب‌های شما حفظ شده‌اند. اتصال را بررسی کنید و دوباره تلاش کنید.</p>
+            <button type="button" className="btn-gold" onClick={() => setRetryAttempt((current) => current + 1)}>
+              تلاش دوباره
+            </button>
+          </section>
+        ) : loading ? (
           <section className="property-empty">
             <strong>در حال آماده‌سازی مقایسه…</strong>
           </section>

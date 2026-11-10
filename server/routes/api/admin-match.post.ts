@@ -6,6 +6,7 @@ import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { DEFAULT_MATCH_RAHN_RATE } from "@/lib/budget-matching";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { saveAdminLeadMatchesWithActivity } from "@/lib/admin-lead-activity-action";
+import { matchablePropertyVisibilitySql } from "@/lib/property-matchability";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -337,7 +338,7 @@ export default defineEventHandler(async (event) => {
   const candidateRows = await sql.query<Record<string, unknown>>(
     `select ${PROPERTY_COLUMNS}
      from properties
-     where status = 'published'
+     where ${matchablePropertyVisibilitySql()}
        and (
          $1::text = ''
          or property_type = $1

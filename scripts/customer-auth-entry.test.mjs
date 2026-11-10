@@ -143,16 +143,20 @@ test("server-side session authorization bypasses Better Auth's cached session co
     assert.match(options, /headers/);
     assert.match(options, /query:\s*\{\s*disableCookieCache:\s*true\s*\}/);
   }
-  assert.match(server, /cookieCache:\s*\{\s*enabled:\s*true/,
-    "the ordinary Better Auth client session cache remains enabled");
+  assert.match(server, /cookieCache:\s*\{\s*enabled:\s*false\s*\}/,
+    "ordinary session reads must not accept a revoked session from the signed cookie cache");
 });
 
-test("expired-session smoke retains both cookies and explicitly bypasses the cache", () => {
+test("expired-session smoke retains the token cookie without a cached snapshot and uses the default session read", () => {
   assert.match(workspaceE2e, /cookie\.name === "__Host-grok-auth\.session_token"/);
   assert.match(workspaceE2e, /cookie\.name === "__Host-grok-auth\.session_data"/);
+  assert.match(workspaceE2e, /assert\.ok\(sessionTokenCookie,/);
+  assert.match(workspaceE2e, /Boolean\(sessionDataCookie\)[\s\S]*?false/,
+    "the auth smoke must verify that disabled cookie caching does not issue a signed session snapshot");
   assert.doesNotMatch(workspaceE2e, /context\.clearCookies\(\)|context\.addCookies\(/,
     "the smoke must preserve the original browser cookies while expiring the database row");
-  assert.match(workspaceE2e, /\/api\/auth\/get-session\?disableCookieCache=true/);
+  assert.match(workspaceE2e, /\/api\/auth\/get-session/);
+  assert.doesNotMatch(workspaceE2e, /get-session\?disableCookieCache=true/);
   assert.match(workspaceE2e, /expiredSession\?\.user \?\? null, null/);
   assert.match(workspaceE2e, /expiredWorkspaceResponse\.status\(\), 401/);
   assert.match(workspaceE2e, /expiredWorkspaceResponse\.headers\(\)\["cache-control"\]/);

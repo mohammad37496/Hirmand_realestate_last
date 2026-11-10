@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Download, ExternalLink, Eye, Film, History, ImageIcon, ListChecks, MapPin, Phone, Pencil, RefreshCw, Save, Search, Star, Timer, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { TEAM } from "@/lib/site";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { formatToman } from "@/lib/money";
 import { isVideoUrl, mediaPreviewSource } from "@/lib/media";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
@@ -26,6 +27,7 @@ type Submission = {
   ageHours?: number;
   assignedConsultantName?: string | null;
   assignedConsultantPhone?: string | null;
+  assignedConsultantId?: string | null;
 };
 
 function faDate(value: string) {
@@ -91,6 +93,7 @@ export function AdminCustomerPropertySubmissions() {
   const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
   const [queueFilter, setQueueFilter] = useState<"all"|"overdue"|"unassigned"|"high">("all");
   const [queueStats, setQueueStats] = useState({ overdue: 0, highPriority: 0, unassigned: 0, averageAgeHours: 0, consultants: [] as Array<{name:string;phone:string;count:number}> });
+  const [queueStatsError, setQueueStatsError] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Record<string, unknown> | null>(null);
   const [savingDraft, setSavingDraft] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -122,8 +125,11 @@ export function AdminCustomerPropertySubmissions() {
         averageAgeHours: Number(data?.queueStats?.averageAgeHours) || 0,
         consultants: Array.isArray(data?.queueStats?.consultants) ? data.queueStats!.consultants : [],
       });
+      setQueueStatsError(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "بارگذاری درخواست‌ها انجام نشد.");
+      const message = error instanceof Error ? error.message : "بارگذاری درخواست‌ها انجام نشد.";
+      setQueueStatsError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -250,16 +256,16 @@ export function AdminCustomerPropertySubmissions() {
   }
 
   async function assignConsultant(submission: Submission, value: string) {
-    const found = TEAM.find((person) => person.phone === value);
+    const found = TEAM.find((person) => person.id === value);
     try {
       const response = await fetch("/api/admin-customer-property-submissions", {
         method:"POST",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({ action:"assign_consultant", id:submission.id, assignedConsultantName:found?.name ?? "", assignedConsultantPhone:found?.phone ?? "" }),
+        body:JSON.stringify({ action:"assign_consultant", id:submission.id, assignedConsultantId:found?.id ?? "", assignedConsultantName:found?.name ?? "", assignedConsultantPhone:found?.phone ?? "" }),
       });
-      const data = await response.json().catch(() => null) as { success?:boolean; assignedConsultantName?:string|null; assignedConsultantPhone?:string|null; statusMessage?:string } | null;
+      const data = await response.json().catch(() => null) as { success?:boolean; assignedConsultantId?:string|null; assignedConsultantName?:string|null; assignedConsultantPhone?:string|null; statusMessage?:string } | null;
       if (!response.ok || !data?.success) throw new Error(data?.statusMessage || "تخصیص مشاور انجام نشد.");
-      setSubmissions((items) => items.map((item) => item.id === submission.id ? { ...item, assignedConsultantName:data.assignedConsultantName ?? null, assignedConsultantPhone:data.assignedConsultantPhone ?? null } : item));
+      setSubmissions((items) => items.map((item) => item.id === submission.id ? { ...item, assignedConsultantId:data.assignedConsultantId ?? null, assignedConsultantName:data.assignedConsultantName ?? null, assignedConsultantPhone:data.assignedConsultantPhone ?? null } : item));
       toast.success(found ? "مشاور پرونده مشخص شد." : "مسئول پرونده برداشته شد.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تخصیص مشاور انجام نشد.");
@@ -371,7 +377,13 @@ export function AdminCustomerPropertySubmissions() {
 
   async function act(action: "approve" | "reject", submission: Submission) {
     if (busyId) return;
-    const assigned = TEAM.find((person) => person.name === submission.assignedConsultantName && person.phone === submission.assignedConsultantPhone);
+    const assigned = TEAM.find((person) => person.id === submission.assignedConsultantId)
+      ?? (submission.assignedConsultantId ? {
+        id: submission.assignedConsultantId,
+        name: submission.assignedConsultantName ?? "مشاور انتخاب‌شده",
+        phone: submission.assignedConsultantPhone ?? "",
+      } : null)
+      ?? TEAM.find((person) => person.name === submission.assignedConsultantName && person.phone === submission.assignedConsultantPhone);
     const effectiveConsultant = assigned ?? consultant;
     if (action === "approve") {
       const ok = window.confirm("این ملک با مشاور «" + effectiveConsultant.name + "» منتشر شود؟ پس از تأیید وارد فایل‌های عمومی خواهد شد.");
@@ -385,7 +397,7 @@ export function AdminCustomerPropertySubmissions() {
       const response = await fetch("/api/admin-customer-property-submissions", {
         method:"POST",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({ action, id:submission.id, consultantName:effectiveConsultant.name, consultantPhone:effectiveConsultant.phone, reviewNote:reviewNote.trim() }),
+        body:JSON.stringify({ action, id:submission.id, consultantId:effectiveConsultant.id, consultantName:effectiveConsultant.name, consultantPhone:effectiveConsultant.phone, reviewNote:reviewNote.trim() }),
       });
       const data = await response.json().catch(() => null) as { success?:boolean; slug?:string; statusMessage?:string } | null;
       if (!response.ok || !data?.success) throw new Error(data?.statusMessage || "عملیات انجام نشد.");
@@ -426,6 +438,10 @@ export function AdminCustomerPropertySubmissions() {
         <div><span>نرخ تأیید</span><strong>{(counts.approved + counts.rejected) ? ((counts.approved / (counts.approved + counts.rejected)) * 100).toFixed(0) + "٪" : "—"}</strong></div>
       </div>
 
+      {queueStatsError ? <div className="admin-empty" role="alert" style={{ marginBlock: 12 }}>
+        آمار SLA و بار کاری صف بارگذاری نشد؛ مقادیر صفر به معنی نبود پرونده نیست.
+        <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>تلاش مجدد</button>
+      </div> : <>
       <div className="admin-customer-queue-stats">
         <button type="button" className={"admin-customer-queue-stat" + (queueFilter==="overdue" ? " is-active" : "")} onClick={()=>{setStatusFilter("pending");setQueueFilter("overdue");setPage(1);setSelectedIds(new Set());}}><Timer size={15}/><span><small>overdue +۲۴ساعت</small><strong>{queueStats.overdue.toLocaleString("fa-IR")}</strong></span></button>
         <button type="button" className={"admin-customer-queue-stat" + (queueFilter==="high" ? " is-active" : "")} onClick={()=>{setStatusFilter("pending");setQueueFilter("high");setPage(1);setSelectedIds(new Set());}}><Star size={15}/><span><small>فوری</small><strong>{queueStats.highPriority.toLocaleString("fa-IR")}</strong></span></button>
@@ -438,6 +454,7 @@ export function AdminCustomerPropertySubmissions() {
         <span className="admin-customer-consultant-workload-label">بار کاری در صف:</span>
         {queueStats.consultants.map((person)=><span key={person.phone} className="admin-customer-consultant-workload-item"><span>{person.name}</span><strong>{person.count.toLocaleString("fa-IR")}</strong></span>)}
       </div>
+      </>}
 
       <div className="admin-customer-submissions-status-tabs">
         {([
@@ -500,6 +517,7 @@ export function AdminCustomerPropertySubmissions() {
           const data = submission.propertyData;
           const media = mediaItems(data);
           const firstImage = media.find((src) => !isVideoUrl(src)) || "";
+          const ownerPhoneTel = toIranianE164Phone(submission.ownerPhone);
           const selectedOpen = selected?.id === submission.id;
           return (
             <article key={submission.id} className={"admin-customer-submission-card" + (selectedOpen ? " is-open" : "") + (selectedIds.has(submission.id) ? " is-selected" : "")}>
@@ -517,11 +535,11 @@ export function AdminCustomerPropertySubmissions() {
                     <small>{faDate(submission.createdAt)}</small>
                   </div>
                   <p>{String(data.neighborhood ?? "—")} · {String(data.areaM2 ?? "—")} متر · {priceText(data)}</p>
-                  <div className="admin-customer-submission-owner"><strong>{submission.ownerName}</strong><a href={"tel:"+submission.ownerPhone}><Phone size={14}/>{submission.ownerPhone}</a><span dir="ltr">{submission.trackingToken}</span>{submission.possibleDuplicate?<span className="admin-customer-duplicate-badge">احتمال تکراری</span>:null}{submission.status==="pending"&&submission.ageHours!=null?<span className={"admin-customer-age-badge"+(submission.ageHours>=24?" is-overdue":"")}><Timer size={12}/>{ageLabel(submission.ageHours)}</span>:null}</div>
+                  <div className="admin-customer-submission-owner"><strong>{submission.ownerName}</strong>{ownerPhoneTel?<a href={`tel:${ownerPhoneTel}`}><Phone size={14}/>{submission.ownerPhone}</a>:<span dir="ltr">{submission.ownerPhone}</span>}<span dir="ltr">{submission.trackingToken}</span>{submission.possibleDuplicate?<span className="admin-customer-duplicate-badge">احتمال تکراری</span>:null}{submission.status==="pending"&&submission.ageHours!=null?<span className={"admin-customer-age-badge"+(submission.ageHours>=24?" is-overdue":"")}><Timer size={12}/>{ageLabel(submission.ageHours)}</span>:null}</div>
                   {submission.status === "pending" ? <div className="admin-customer-queue-controls">
-                     <label><span>مسئول</span><select value={submission.assignedConsultantPhone ?? ""} onChange={(e)=>void assignConsultant(submission,e.target.value)}>
+                     <label><span>مسئول</span><select value={submission.assignedConsultantId ?? ""} onChange={(e)=>void assignConsultant(submission,e.target.value)}>
                        <option value="">بدون مسئول</option>
-                       {TEAM.map((person) => <option key={person.phone} value={person.phone}>{person.name} · {person.role}</option>)}
+                       {TEAM.map((person) => <option key={person.id} value={person.id}>{person.name} · {person.role}</option>)}
                      </select></label>
                     <label><span>اولویت</span><select value={submission.priority || "normal"} onChange={(e)=>void setPriority(submission,e.target.value as "low"|"normal"|"high")}><option value="high">فوری</option><option value="normal">عادی</option><option value="low">کم</option></select></label>
                     <span className={"admin-customer-priority-badge priority-"+(submission.priority || "normal")}>{priorityLabel(submission.priority)}</span>

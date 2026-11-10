@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Copy, MessageCircle, Phone, Plus, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { toIranianE164Phone, toIranianWhatsAppNumber } from "@/lib/phone-normalization";
 
 type Lead = { id: string; name: string; phone: string; deal: string; neighborhood: string; requestedBedrooms: number | null; consultant: string };
 type Template = { id: string; title: string; body: string; channel: "whatsapp" | "sms" | "internal"; active: boolean; updatedAt: string | null };
 const blank: Template = { id: "", title: "قالب جدید", body: "سلام {{نام}}، درباره درخواست {{معامله}} در {{محله}} با شما تماس گرفتم.", channel: "whatsapp", active: true, updatedAt: null };
 
-const normalizePhone = (value: string) => {
-  const p = value.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d))).replace(/\D/g, "");
-  return p.startsWith("0098") ? p.slice(2) : p.startsWith("98") ? p : p.replace(/^0/, "98");
-};
 function fill(body: string, lead: Lead) {
   return body.replaceAll("{{نام}}", lead.name || "مشتری").replaceAll("{{محله}}", lead.neighborhood || "درخواستی شما").replaceAll("{{معامله}}", lead.deal || "ملک").replaceAll("{{خواب}}", lead.requestedBedrooms == null ? "" : String(lead.requestedBedrooms)).replaceAll("{{مشاور}}", lead.consultant || "هیرمند");
 }
@@ -40,7 +37,9 @@ export function AdminLeadMessageTemplates({ leads }: { leads: Lead[] }) {
 
   const lead = useMemo(() => leads.find((item) => item.id === leadId), [leads, leadId]);
   const message = lead ? fill(draft.body, lead) : draft.body;
-  const whatsapp = lead && draft.channel === "whatsapp" ? "https://wa.me/" + normalizePhone(lead.phone) + "?text=" + encodeURIComponent(message) : "";
+  const leadPhoneTel = lead ? toIranianE164Phone(lead.phone) : null;
+  const whatsappNumber = lead ? toIranianWhatsAppNumber(lead.phone) : null;
+  const whatsapp = lead && whatsappNumber && draft.channel === "whatsapp" ? "https://wa.me/" + whatsappNumber + "?text=" + encodeURIComponent(message) : "";
 
   function selectTemplate(id: string) {
     const item = templates.find((template) => template.id === id);
@@ -114,7 +113,7 @@ export function AdminLeadMessageTemplates({ leads }: { leads: Lead[] }) {
         <div className="admin-message-actions">
           <button className="btn-gold" type="button" onClick={() => void copy()}><Copy size={15} /> کپی متن</button>
           {whatsapp ? <a className="btn-ghost" href={whatsapp} target="_blank" rel="noreferrer"><MessageCircle size={15} /> باز کردن واتساپ</a> : null}
-          {lead ? <a className="btn-ghost" href={"tel:" + lead.phone}><Phone size={15} /> تماس</a> : null}
+          {lead && leadPhoneTel ? <a className="btn-ghost" href={`tel:${leadPhoneTel}`}><Phone size={15} /> تماس</a> : null}
         </div>
       </div>
     </section>

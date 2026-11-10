@@ -1,5 +1,6 @@
 import type { PropertyFilters, PropertyTransaction, PropertyType } from "@/lib/properties";
 import { NEIGHBORHOOD_NAMES, PROPERTY_TYPES } from "@/lib/site";
+import { parsePersianNumberToken } from "@/lib/smart-property-search-core.mjs";
 
 export type SmartSearchResult = {
   filters: PropertyFilters;
@@ -48,6 +49,11 @@ function findPropertyType(query: string): { value: PropertyType; label: string }
   return null;
 }
 
+function containsPhrase(query: string, phrase: string) {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[\\s،,؛])${escaped}(?=$|[\\s،,؛])`, "u").test(query);
+}
+
 function findTransaction(query: string): { value: PropertyTransaction; label: string } | null {
   const candidates: Array<{ value: PropertyTransaction; label: string; words: string[] }> = [
     { value: "buy", label: "خرید", words: ["خرید", "بخر", "خریدنی"] },
@@ -55,15 +61,50 @@ function findTransaction(query: string): { value: PropertyTransaction; label: st
     { value: "rent", label: "اجاره", words: ["اجاره", "اجاره‌ای", "کرایه"] },
     { value: "mortgage", label: "رهن", words: ["رهن", "رهن کامل"] },
   ];
-  return candidates.find((item) => item.words.some((word) => query.includes(word))) ?? null;
+  return candidates.find((item) => item.words.some((word) => containsPhrase(query, word))) ?? null;
+}
+
+const RESIDUAL_STOP_WORDS = new Set([
+  "در", "نزدیک", "به", "با", "و", "یا", "برای", "از", "تا", "حداقل", "حداکثر", "زیر", "بالای",
+  "بیشتر", "کمتر", "حدود", "تقریبا", "تقریباً", "تومان", "مبلغ", "قیمت", "بودجه", "میلیارد", "ملیارد", "میلیون",
+]);
+
+function extractResidualSearchText(input: string, neighborhood: string) {
+  let residual = input;
+  if (neighborhood) {
+    const escaped = neighborhood.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    residual = residual.replace(new RegExp(escaped, "gu"), " ");
+  }
+
+  const recognizedPatterns = [
+    /رهن\s+کامل|آپارتمان|واحد|خانه\s+ویلایی|ویلا|خانه|دفتر|اداری|آفیس|کلنگی|قدیمی|میراثی|زمین|باغ|تجاری|مغازه|فروشگاه/giu,
+    /خریدنی|خرید|بخر|فروختن|فروش|اجاره‌ای|اجاره|کرایه|رهن/giu,
+    /(?:\d+|یک|یه|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)\s*(?:خوابه|خواب|اتاق\s+خواب)/giu,
+    /(?:حداقل|بالای|بیشتر\s+از)\s*[\d.]+\s*(?:مترمربع|متری|متر)/giu,
+    /(?:تا|حداکثر|زیر|کمتر\s+از)\s*[\d.]+\s*(?:مترمربع|متری|متر)/giu,
+    /[\d.]+\s*(?:مترمربع|متری|متر)/giu,
+    /(?:تا|زیر|کمتر\s+از|حداکثر|از|بالای|بیشتر\s+از)\s*[\d.,]+\s*(?:میلیارد|ملیارد|میلیون|m|b)/giu,
+    /(?:بودجه|قیمت)\s*(?:تا)?\s*[\d.,]+\s*(?:میلیارد|ملیارد|میلیون|m|b)/giu,
+    /[\d.,]+\s*(?:میلیارد|ملیارد|میلیون|m|b)/giu,
+    /(?:اجاره|ماهانه)\s*(?:تا|زیر|حداکثر)?\s*[\d.,]+\s*(?:میلیون|m)/giu,
+    /پارکینگ|آسانسور|انباری|موقعیت|نقشه/gu,
+  ];
+  for (const pattern of recognizedPatterns) residual = residual.replace(pattern, " ");
+
+  return residual
+    .replace(/[،,؛;:!?؟()[\]{}]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token && !RESIDUAL_STOP_WORDS.has(token))
+    .join(" ")
+    .slice(0, 80);
 }
 
 function captureNumber(query: string, patterns: RegExp[]) {
   for (const pattern of patterns) {
     const match = query.match(pattern);
     if (match?.[1]) {
-      const n = Number(faToEn(match[1]).replace(/,/g, ""));
-      if (Number.isFinite(n)) return n;
+      const n = parsePersianNumberToken(match[1]);
+      if (n != null && Number.isFinite(n)) return n;
     }
   }
   return null;
@@ -94,8 +135,8 @@ export function parseSmartPropertySearch(input: string): SmartSearchResult {
   }
 
   const bedrooms = captureNumber(query, [
-    /(\d+)\s*(?:خوابه|خواب|اتاق خواب)/,
-    /(?:با|و)\s*(\d+)\s*(?:خواب|خوابه)/,
+    /(\d+|یک|یه|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)\s*(?:خوابه|خواب|اتاق خواب)/,
+    /(?:با|و)\s*(\d+|یک|یه|دو|سه|چهار|پنج|شش|هفت|هشت|نه|ده)\s*(?:خواب|خوابه)/,
   ]);
   if (bedrooms != null) {
     filters.minBedrooms = Math.max(0, Math.floor(bedrooms));
@@ -116,6 +157,14 @@ export function parseSmartPropertySearch(input: string): SmartSearchResult {
     filters.maxArea = Math.max(0, Math.floor(areaMax));
     summary.push("تا " + areaMax.toLocaleString("fa-IR") + " متر");
   }
+  if (areaMin == null && areaMax == null) {
+    const exactArea = captureNumber(query, [/(\d+)\s*(?:مترمربع|متر|متری)/]);
+    if (exactArea != null) {
+      filters.minArea = Math.max(0, Math.floor(exactArea));
+      filters.maxArea = Math.max(0, Math.floor(exactArea));
+      summary.push("متراژ " + exactArea.toLocaleString("fa-IR") + " متر");
+    }
+  }
 
   if (query.includes("پارکینگ")) {
     filters.parkingOnly = true;
@@ -131,6 +180,7 @@ export function parseSmartPropertySearch(input: string): SmartSearchResult {
   }
   if (query.includes("موقعیت") || query.includes("نقشه")) {
     filters.hasLocationOnly = true;
+    summary.push("دارای موقعیت مکانی");
   }
 
   const billionMax = query.match(/(?:تا|زیر|کمتر از|حداکثر)\s*([\d۰-۹.,]+)\s*(میلیارد|ملیارد|b)/);
@@ -180,6 +230,15 @@ export function parseSmartPropertySearch(input: string): SmartSearchResult {
     }
   }
 
-  if (!summary.length) summary.push("عبارت جستجو");
+  if (!summary.length) {
+    filters.search = original.slice(0, 80);
+    summary.push("جستجوی متنی");
+  } else {
+    const residualSearch = extractResidualSearchText(original, neighborhood);
+    if (residualSearch) {
+      filters.search = residualSearch;
+      summary.push("عبارت متنی: " + residualSearch);
+    }
+  }
   return { filters, summary: [...new Set(summary)] };
 }

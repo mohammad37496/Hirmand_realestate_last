@@ -466,14 +466,16 @@ test("property save SQL assigns every INSERT placeholder and types floor_label",
 
   assert.deepEqual(
     uniquePlaceholders,
-    Array.from({ length: 49 }, (_, index) => index + 1),
-    "property INSERT placeholders must be contiguous from $1 through $49",
+    Array.from({ length: 50 }, (_, index) => index + 1),
+    "property INSERT placeholders must be contiguous from $1 through $50",
   );
   assert.match(
     valuesSql,
     /\$35::double precision,\s*\$36::double precision,\s*\$37::text,\s*\$38::text,\s*\$39::boolean/,
     "latitude, longitude, virtual tour, floor label, and painted values must map to their respective typed parameters",
   );
+  assert.match(valuesSql, /\$50::text/, "consultant ID must be the final nullable insert value");
+  assert.match(propertyStore, /consultant_id = case when \$51::boolean then excluded\.consultant_id else properties\.consultant_id end/);
 });
 
 const mediaProtocol = await readFile(

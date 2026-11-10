@@ -9,6 +9,7 @@ import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import {
   DEFAULT_FAQS,
   DEFAULT_GUIDES,
+  normalizeGuideSections,
   type FaqContent,
   type GuideContent,
 } from "@/lib/site-content-static";
@@ -31,7 +32,7 @@ function text(value:unknown){return String(value??"").trim();}
 function bodyRecord(value:unknown):Record<string,unknown>{return value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};}
 function mapGuide(row:Record<string,unknown>):GuideContent{
   const body=bodyRecord(row.body); const raw=Array.isArray(body.points)?body.points:[];
-  return {id:text(row.id),category:text(row.category),title:text(row.title),summary:text(row.summary),points:raw.map(text).filter(Boolean),sortOrder:Number(row.sort_order)||0,active:row.active==null?true:Boolean(row.active)};
+  return {id:text(row.id),category:text(row.category),title:text(row.title),summary:text(row.summary),points:raw.map(text).filter(Boolean),sections:normalizeGuideSections(body.sections),sortOrder:Number(row.sort_order)||0,active:row.active==null?true:Boolean(row.active)};
 }
 function mapFaq(row:Record<string,unknown>):FaqContent{
   const body=bodyRecord(row.body);
@@ -62,7 +63,7 @@ export const getPublicGuides=createServerFn({method:"GET"}).handler(async()=>{
     await ensureSeeded(); const sql=await getSql();
     const rows=await sql.query<Record<string,unknown>>(
       "select id,category,title,summary,body,sort_order,active from site_content_items where kind='guide' and active=true order by sort_order asc,updated_at desc");
-    const items=rows.map(mapGuide).filter(item=>item.id&&item.title&&item.points.length);
+    const items=rows.map(mapGuide).filter(item=>item.id&&item.title&&(item.points.length||item.sections?.length));
     return items;
   }catch{return DEFAULT_GUIDES;}
 });
@@ -102,14 +103,18 @@ export const upsertAdminSiteContent=createServerFn({method:"POST"}).validator(z.
   summary:z.string().trim().max(500).default(""),
   answer:z.string().trim().max(4000).default(""),
   points:z.array(z.string().trim().min(1).max(700)).max(12).default([]),
+  sections:z.array(z.object({
+    heading:z.string().trim().min(2).max(120),
+    paragraphs:z.array(z.string().trim().min(1).max(1600)).min(1).max(8),
+  })).max(12).default([]),
   sortOrder:z.number().int().min(-10000).max(10000).default(0),
   active:z.boolean().default(true),
 })).handler(async({data})=>{
   await requireAdmin(); if(dbSource==="unconfigured") throw new Error("پایگاه داده تنظیم نشده است.");
   const id=data.id??`${data.kind}-${Date.now().toString(36)}`;
-  if(data.kind==="guide" && !data.points.length) throw new Error("راهنما حداقل باید یک نکته داشته باشد.");
+  if(data.kind==="guide" && !data.points.length && !data.sections.length) throw new Error("راهنما حداقل باید یک نکته یا یک بخش مقاله داشته باشد.");
   if(data.kind==="faq" && !data.answer) throw new Error("پاسخ پرسش را وارد کنید.");
-  const body=data.kind==="guide"?JSON.stringify({points:data.points}):JSON.stringify({answer:data.answer});
+  const body=data.kind==="guide"?JSON.stringify({points:data.points,sections:data.sections}):JSON.stringify({answer:data.answer});
   const sql=await getSql();
   const rows=await sql.query<Record<string,unknown>>(
     `insert into site_content_items(id,kind,category,title,summary,body,sort_order,active,updated_at)

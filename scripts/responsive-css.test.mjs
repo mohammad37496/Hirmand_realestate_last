@@ -6,6 +6,8 @@ const mobileFixes = fs.readFileSync(new URL("../src/mobile-device-fixes.css", im
 const homepagePolishCss = fs.readFileSync(new URL("../src/components/hirmand/homepage-polish.css", import.meta.url), "utf8");
 const uiClarityCss = fs.readFileSync(new URL("../src/ui-clarity.css", import.meta.url), "utf8");
 const themeProCss = fs.readFileSync(new URL("../src/theme-pro.css", import.meta.url), "utf8");
+const themeProPagesCss = fs.readFileSync(new URL("../src/theme-pro-pages.css", import.meta.url), "utf8");
+const mobileCss = fs.readFileSync(new URL("../src/mobile.css", import.meta.url), "utf8");
 const propertyDetailCss = fs.readFileSync(new URL("../src/property-detail-pro.css", import.meta.url), "utf8");
 const propertyDetailRedesignCss = fs.readFileSync(new URL("../src/property-detail-redesign.css", import.meta.url), "utf8");
 const propertyDetailLightCss = fs.readFileSync(new URL("../src/property-detail-light-theme.css", import.meta.url), "utf8");
@@ -38,6 +40,8 @@ const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/prop
 const propertyLibrary = fs.readFileSync(new URL("../src/lib/properties.ts", import.meta.url), "utf8");
 const commissionLibrary = fs.readFileSync(new URL("../src/lib/commission.ts", import.meta.url), "utf8");
 const commissionCalculator = fs.readFileSync(new URL("../src/components/hirmand/commission-calculator.tsx", import.meta.url), "utf8");
+const commissionSettings = fs.readFileSync(new URL("../src/lib/site-settings.ts", import.meta.url), "utf8");
+const adminSiteSettings = fs.readFileSync(new URL("../src/components/hirmand/admin-site-settings.tsx", import.meta.url), "utf8");
 const deployWorkflow = fs.readFileSync(new URL("../.github/workflows/deploy-liara.yml", import.meta.url), "utf8");
 const liveDeploymentSmoke = fs.readFileSync(new URL("./verify-live-deployment.mjs", import.meta.url), "utf8");
 const dealRoomCss = fs.readFileSync(new URL("../src/property-deal-room.css", import.meta.url), "utf8");
@@ -439,14 +443,16 @@ testRunner.test("property cards show construction year only when real data exist
   assert.match(propertyShowcase, /property\.builtYear != null && property\.builtYear > 0[\s\S]*?ساخت/);
 });
 
-testRunner.test("commission estimate uses the 1405 VAT rate and explains local tariff limits", () => {
-  assert.match(commissionLibrary, /export const VAT = 0\.10/);
-  assert.match(commissionLibrary, /مالیات ارزش افزوده \(۱۰٪\)/);
-  assert.match(commissionCalculator, /مالیات = ۱۰٪ از کمیسیون پایه/);
-  assert.match(commissionCalculator, /مالیات ارزش افزوده \(۱۰٪\)/);
-  assert.doesNotMatch(commissionCalculator, /مالیات ارزش افزوده \(۹٪\)/);
-  assert.match(commissionCalculator, /مالیات ۱۰٪ اضافه/);
-  assert.match(commissionCalculator, /ضریب[\s\S]*?ارزش معاملاتی و سقف مصوب هر شهرستان/);
+testRunner.test("commission estimate uses configurable unverified rates and explains local tariff limits", () => {
+  assert.match(commissionLibrary, /vatPercent: 10/);
+  assert.match(commissionLibrary, /verified: false/);
+  assert.match(commissionLibrary, /commissionRateStatus\(result\.rates\)/);
+  assert.match(commissionCalculator, /commissionRateStatus\(rates\)/);
+  assert.match(commissionCalculator, /مالیات ارزش افزوده \(\{percent\(result\.rates\.vatPercent\)\}\)/);
+  assert.match(commissionCalculator, /نرخ‌های پایه[\s\S]*?صرفاً برآورد/);
+  assert.match(commissionSettings, /commissionRatesSchema/);
+  assert.match(adminSiteSettings, /تأیید مدیریتی منبع و بازه اعتبار نرخ‌ها/);
+  assert.match(adminSiteSettings, /با تغییر هر نرخ یا منبع، تأیید قبلی به‌صورت خودکار لغو می‌شود/);
 });
 
 
@@ -510,6 +516,15 @@ testRunner.test("Liara incident gallery object is verified directly through the 
   assert.ok(liaraGallerySmoke.includes("response.status"));
   assert.ok(liaraGallerySmoke.includes("response.url"));
   assert.ok(liaraGallerySmoke.includes("validWebp"));
+});
+
+testRunner.test("quick-action labels remain visible below their icons on narrow and landscape phones", () => {
+  assert.match(themeProCss, /\.quick-action\s*\{[^}]*flex-direction:\s*column/is,
+    "quick actions should stack each label below its icon");
+  assert.doesNotMatch(themeProPagesCss, /\.quick-action\s+span\s*\{[^}]*display:\s*none/is,
+    "the narrow-phone breakpoint must not hide quick-action labels");
+  assert.doesNotMatch(mobileCss, /\.quick-action\s+span\s*\{[^}]*display:\s*none/is,
+    "the landscape-phone breakpoint must keep quick-action labels visible");
 });
 
 testRunner.test("photo-note issue flag button has a 44px touch target", () => {

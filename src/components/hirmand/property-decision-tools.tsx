@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Calculator, Gauge, Handshake, ShieldCheck, TrendingUp, Wallet } from "lucide-react";
 import { calculateLoan } from "@/lib/finance";
-import { calculateBuy } from "@/lib/commission";
+import { calculateBuy, commissionRateStatus, COMMISSION_LEGAL_BASIS_NOTICE, type CommissionRateConfig } from "@/lib/commission";
 import { formatToman } from "@/lib/money";
 import type { Property } from "@/lib/properties";
 import "@/property-decision-tools.css";
@@ -37,7 +37,7 @@ function completeness(property: Property) {
   return { score, completed: checks.filter(Boolean).length, total: checks.length };
 }
 
-export function PropertyDecisionTools({ property }: { property: Property }) {
+export function PropertyDecisionTools({ property, commissionRates }: { property: Property; commissionRates: CommissionRateConfig }) {
   const [downPaymentPercent, setDownPaymentPercent] = useState(30);
   const [annualRate, setAnnualRate] = useState(20.5);
   const [months, setMonths] = useState(60);
@@ -62,7 +62,8 @@ export function PropertyDecisionTools({ property }: { property: Property }) {
   const netAnnualCashflow = annualRent - vacancyLoss - maintenanceCost - annualDebtService;
   const netMonthlyCashflow = netAnnualCashflow / 12;
   const info = completeness(property);
-  const purchaseCommission = propertyPrice > 0 ? calculateBuy(propertyPrice) : null;
+  const purchaseCommission = propertyPrice > 0 ? calculateBuy(propertyPrice, commissionRates) : null;
+  const commissionStatus = commissionRateStatus(commissionRates);
   const otherCostsAmount = propertyPrice * otherPurchaseCosts / 100;
   const totalPurchaseBudget = downPayment + (purchaseCommission?.each ?? 0) + otherCostsAmount + renovationBudget;
   const negotiatedPrice = propertyPrice * (1 - discountPercent / 100);
@@ -183,11 +184,13 @@ export function PropertyDecisionTools({ property }: { property: Property }) {
                 </label>
               </div>
               <div className="property-decision-metrics">
-                <div><span>سهم کمیسیون خریدار</span><strong>{money(purchaseCommission?.each ?? 0)}</strong></div>
+                <div><span>سهم برآوردی کمیسیون خریدار</span><strong>{money(purchaseCommission?.each ?? 0)}</strong></div>
                 <div><span>سایر هزینه‌ها</span><strong>{money(otherCostsAmount)}</strong></div>
-                <div className="is-highlight"><span>بودجه شروع معامله</span><strong>{money(totalPurchaseBudget)}</strong></div>
+                <div className="is-highlight"><span>بودجه برآوردی شروع معامله</span><strong>{money(totalPurchaseBudget)}</strong></div>
               </div>
-              <small className="property-decision-note">کمیسیون با نرخ پیش‌فرض ابزار سایت محاسبه شده و «سایر هزینه‌ها» فقط سناریوی قابل‌تنظیم شماست؛ مالیات‌ها و هزینه‌های حقوقی خارج از این دو مورد هستند مگر خودتان در سناریو واردشان کنید.</small>
+              <small className="property-decision-note">
+                کمیسیون با نرخ درصدی ثبت‌شده برای {commissionRates.city} فقط به‌صورت برآورد نمونه محاسبه شده است؛ {commissionStatus === "verified" ? <>منبع و بازه اعتبار صرفاً در سطح داخلی مدیریت تأیید شده است (نه تأیید رسمی/قانونی): <a href={commissionRates.sourceUrl} target="_blank" rel="noreferrer">{commissionRates.sourceLabel}</a> ({commissionRates.effectiveFrom} تا {commissionRates.effectiveTo || "بدون تاریخ پایان ثبت‌شده"}).</> : "این نرخ تأیید رسمی نشده است"} «سایر هزینه‌ها» فقط سناریوی قابل‌تنظیم شماست. {COMMISSION_LEGAL_BASIS_NOTICE}
+              </small>
             </>
           ) : (
             <p className="property-decision-empty">برای برآورد بودجه نهایی، قیمت فروش عددی لازم است.</p>

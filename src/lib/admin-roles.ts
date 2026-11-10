@@ -15,7 +15,8 @@ export type AdminPermission =
   | "accounts.manage"
   | "reports.view"
   | "deal.manage"
-  | "commission.manage";
+  | "commission.manage"
+  | "team.manage";
 
 export const ADMIN_ROLE_LABELS: Record<AdminRole, string> = {
   owner: "مالک سیستم",
@@ -43,6 +44,7 @@ export const ADMIN_ROLE_PERMISSIONS: Record<AdminRole, readonly AdminPermission[
     "reports.view",
     "deal.manage",
     "commission.manage",
+    "team.manage",
   ],
   manager: [
     "property.manage",
@@ -59,6 +61,7 @@ export const ADMIN_ROLE_PERMISSIONS: Record<AdminRole, readonly AdminPermission[
     "reports.view",
     "deal.manage",
     "commission.manage",
+    "team.manage",
   ],
   sales: [
     "property.manage",
@@ -94,6 +97,11 @@ export function normalizeAdminRole(value: unknown): AdminRole {
 
 export function hasAdminPermission(role: AdminRole, permission: AdminPermission) {
   return ADMIN_ROLE_PERMISSIONS[role].includes(permission);
+}
+
+/** Consultant profiles are sensitive team records; only owners and managers may administer them. */
+export function canManageTeam(role: AdminRole) {
+  return hasAdminPermission(role, "team.manage");
 }
 
 /** Customer-submission approval creates and publishes a public property. */

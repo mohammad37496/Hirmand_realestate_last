@@ -381,6 +381,9 @@ try {
           await neighborhoodOption.waitFor({ state: "visible", timeout: 5_000 });
           const selectedNeighborhood = (await neighborhoodOption.innerText()).trim();
           await neighborhoodOption.click();
+          // Neighborhood choices are drafts until the user confirms them.
+          // Apply the selection before asserting the URL-backed filter state.
+          await neighborhoodDialog.getByRole("button", { name: "اعمال انتخاب‌ها" }).click();
           await page.waitForFunction((name) => new URLSearchParams(location.search).get("neighborhood") === name, selectedNeighborhood);
 
           await page.getByLabel("جست‌وجوی فایل").fill("آپارتمان");

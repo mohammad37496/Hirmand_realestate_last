@@ -15,6 +15,7 @@ import { getDivarAgencyReason } from "./divar-agency-filter";
 export { getDivarAgencyReason } from "./divar-agency-filter";
 import { findDivarCoordinates } from "./divar-coordinate-utils";
 import { DIVAR_MAX_PUBLISHED_IMAGES } from "./divar-status";
+import { divarPropertyFactsChangedSql } from "./property-verification-sql";
 
 export const DIVAR_API = "https://api.divar.ir/v8";
 const DIVAR_WEB = "https://divar.ir";
@@ -1499,6 +1500,8 @@ export const importDivarFile = createServerFn({ method: "POST" })
                floor = $5::smallint,
                floor_label = $6::text,
                orientation = $7::text,
+               last_verified_at = case when ${divarPropertyFactsChangedSql("properties")} then null else properties.last_verified_at end,
+               last_verified_by = case when ${divarPropertyFactsChangedSql("properties")} then null else properties.last_verified_by end,
                updated_at = current_timestamp
            where id = $1`,
           [
@@ -1549,13 +1552,13 @@ export const importDivarFile = createServerFn({ method: "POST" })
         id, slug, status, featured, title, transaction_type, property_type, city,
         neighborhood, address, area_m2, bedrooms, bathrooms, floor, total_floors,
         built_year, parking, elevator, storage, price, deposit, rent, description,
-        features, images, contact_name, contact_phone, latitude, longitude, floor_label, orientation, published_at
+        features, images, contact_name, contact_phone, latitude, longitude, floor_label, orientation, published_at, consultant_id
       ) values (
         $1,$2,$28,false,$3,$4,$5,'اصفهان',
         $6,null,$7::integer,$8::smallint,$9::smallint,$10::smallint,$11::smallint,
         $12::smallint,$13,$14,$15,$16::numeric(20,0),$17::numeric(20,0),$18::numeric(20,0),$19,
         $20::jsonb,$21::jsonb,$22,$23,$24::double precision,$25::double precision,$26::text,$27::text,
-        case when $28 = 'published' then current_timestamp else null end
+        case when $28 = 'published' then current_timestamp else null end, $29::text
       )`,
       [
         id,
@@ -1586,6 +1589,7 @@ export const importDivarFile = createServerFn({ method: "POST" })
         row.floor_label === "suite" ? "suite" : null,
         row.orientation == null ? null : String(row.orientation),
         staffImport ? "draft" : "published",
+        TEAM[0]?.id ?? null,
       ],
     );
 

@@ -8,6 +8,8 @@ import {
   getPropertyFallbackLegacyImage,
 } from "@/lib/property-fallback-images";
 import { formatToman } from "@/lib/money";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
+export { serializeJsonLd } from "./json-ld.ts";
 
 const TX_LABEL: Record<string, string> = {
   buy: "خرید",
@@ -217,6 +219,7 @@ export function trackingHead() {
 export function propertyJsonLd(property: Property) {
   const url = absoluteUrl(propertyPath(property));
   const image = property.images.map(shareableImageUrl).filter(Boolean);
+  const sellerTelephone = toIranianE164Phone(property.contactPhone);
   const availabilityByStatus: Record<Property["availabilityStatus"], string> = {
     available: "https://schema.org/InStock",
     reserved: "https://schema.org/LimitedAvailability",
@@ -232,7 +235,7 @@ export function propertyJsonLd(property: Property) {
     seller: {
       "@type": "RealEstateAgent",
       name: SITE.nameFa,
-      telephone: property.contactPhone.replace(/^0/, "+98"),
+      ...(sellerTelephone ? { telephone: sellerTelephone } : {}),
     },
   };
 
@@ -339,11 +342,9 @@ export function enhancedOrganizationJsonLd(settings?: SiteSettings) {
         logo: absoluteUrl("/images/hirmand-logo.png"),
         image: [absoluteUrl("/images/hirmand-logo.png"), ogImageUrl()],
         founder: { "@type": "Person", name: "آقای شیخ" },
-        telephone: [
-          `+98${mobile.replace(/^0/, "")}`,
-          `+98${office.replace(/^0/, "")}`,
-          "+989183576883",
-        ],
+        telephone: [mobile, office, "09183576883"]
+          .map(toIranianE164Phone)
+          .filter((phone): phone is string => Boolean(phone)),
         description,
         slogan: `${SITE.sloganStrong} ${SITE.sloganRest}`,
         address: {
@@ -373,12 +374,15 @@ export function enhancedOrganizationJsonLd(settings?: SiteSettings) {
             availableLanguage: ["fa"],
           },
         ],
-        employee: TEAM.map((person) => ({
-          "@type": "Person",
-          name: person.name,
-          jobTitle: person.role,
-          telephone: `+98${person.phone.slice(1)}`,
-        })),
+        employee: TEAM.map((person) => {
+          const telephone = toIranianE164Phone(person.phone);
+          return {
+            "@type": "Person",
+            name: person.name,
+            jobTitle: person.role,
+            ...(telephone ? { telephone } : {}),
+          };
+        }),
         sameAs,
       },
       {

@@ -19,6 +19,8 @@ import { listPublishedPropertiesBySlugs, type Property } from "@/lib/properties"
 import { subscribeToFavoriteMetaWorkspaceSync, subscribeToFavoriteWorkspaceSync } from "@/lib/favorites-workspace-sync.mjs";
 import { SITE } from "@/lib/site";
 import { toast } from "sonner";
+import { authClient, authEnabled } from "@/lib/auth/client";
+import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import "@/favorites-personal.css";
 import "@/favorites-change-tracker.css";
 import "@/favorite-budget-dashboard.css";
@@ -31,6 +33,7 @@ import "@/workspace-backup.css";
 import "@/favorites-route-planner.css";
 import "@/favorite-weighted-matrix.css";
 import "@/favorites-redesign.css";
+import "@/customer-password.css";
 
 const FAVORITES_KEY = "hirmand-favorite-properties";
 const RECENT_PROPERTIES_KEY = "hirmand-recent-properties";
@@ -38,6 +41,69 @@ const FAVORITE_META_KEY = "hirmand-favorite-meta-v1";
 type FavoriteTag = "بازدید" | "پیگیری" | "مناسب بودجه" | "مقایسه";
 type FavoriteMeta = { tag?: FavoriteTag; note?: string };
 type FavoriteMetaMap = Record<string, FavoriteMeta>;
+
+function CustomerPasswordSettings() {
+  const { user, isPending } = useCurrentUserState();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  if (!authEnabled || isPending || !user) return null;
+
+  async function updatePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setMessage("");
+    if (newPassword !== confirmPassword) {
+      setError("تکرار رمز عبور با رمز جدید یکسان نیست.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await authClient.changePassword({
+        currentPassword,
+        newPassword,
+        revokeOtherSessions: true,
+      });
+      if (result.error) {
+        if (result.error.code === "INVALID_PASSWORD") throw new Error("رمز عبور فعلی درست نیست.");
+        if (result.error.code === "PASSWORD_TOO_SHORT") throw new Error("رمز جدید باید حداقل ۸ نویسه داشته باشد.");
+        if (result.error.code === "PASSWORD_TOO_LONG") throw new Error("رمز جدید نباید بیشتر از ۱۲۸ نویسه باشد.");
+        throw new Error("تغییر رمز انجام نشد. دوباره تلاش کنید.");
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setMessage("رمز عبور با موفقیت تغییر کرد. نشست‌های دیگر حساب نیز بسته شدند.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "تغییر رمز عبور انجام نشد. دوباره تلاش کنید.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="customer-password-panel" aria-labelledby="customer-password-title">
+      <div>
+        <span className="kicker">امنیت حساب</span>
+        <h2 id="customer-password-title">تغییر رمز عبور</h2>
+        <p>برای امنیت حساب، رمز فعلی را تأیید کنید. پس از تغییر، نشست‌های دیگر حساب بسته می‌شوند.</p>
+      </div>
+      <form onSubmit={(event) => void updatePassword(event)}>
+        <label><span>رمز عبور فعلی</span><input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" minLength={8} maxLength={128} required dir="ltr" /></label>
+        <label><span>رمز عبور جدید</span><input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" minLength={8} maxLength={128} required dir="ltr" /></label>
+        <label><span>تکرار رمز جدید</span><input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} maxLength={128} required dir="ltr" /></label>
+        {error ? <p className="customer-password-error" role="alert">{error}</p> : null}
+        {message ? <p className="customer-password-success" role="status">{message}</p> : null}
+        <button type="submit" disabled={busy}>{busy ? "در حال تغییر…" : "ذخیره رمز جدید"}</button>
+      </form>
+      <small>اگر حساب شما فقط با Google یا X ساخته شده و هنوز رمز محلی ندارد، از بخش «فراموشی رمز» در صفحه ورود برای تعیین رمز هیرمند استفاده کنید.</small>
+    </section>
+  );
+}
 
 function cleanSlugs(value: unknown, limit: number): string[] {
   if (!Array.isArray(value)) return [];
@@ -532,6 +598,7 @@ function FavoritesPage() {
         </header>
 
         <CustomerWorkspaceSyncStatus />
+        <CustomerPasswordSettings />
 
         {planOpen ? (
           <div className="favorites-plan-backdrop" role="presentation" onMouseDown={(event) => {

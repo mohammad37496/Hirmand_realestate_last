@@ -6,6 +6,7 @@ import {
   assertRequiredMigrationFiles,
   assertRequiredMigrationLedger,
   CUSTOMER_AUTH_MIGRATIONS,
+  PROPERTY_CONSULTANT_RELATION_MIGRATIONS,
   pendingMigrations,
 } from "../scripts/migration-plan.mjs";
 import { resolveMigrationDatabaseUrl, sanitizePostgresConnectionString } from "./resolve-database-url.mjs";
@@ -35,8 +36,10 @@ export async function runMigrations({
   migrationsDir = MIGRATIONS_DIR,
   poolFactory = (options) => new pg.Pool(options),
   verifyCustomerAuth = process.env.VITE_AUTH_ENABLED !== "false",
+  verifyPropertyConsultantMigration = true,
 }) {
   const entries = await readdir(migrationsDir);
+  if (verifyPropertyConsultantMigration) assertRequiredMigrationFiles(entries, PROPERTY_CONSULTANT_RELATION_MIGRATIONS);
   if (verifyCustomerAuth) assertRequiredMigrationFiles(entries);
   const pool = poolFactory({
     connectionString,
@@ -79,11 +82,16 @@ export async function runMigrations({
         throw error;
       }
     }
+    const { rows } = await client.query("SELECT name FROM _migrations");
+    const appliedNames = rows.map((row) => String(row.name));
+    const deploymentCommit = await readDeploymentCommit();
+    const deploymentLabel = deploymentCommit ? ` for deployment ${deploymentCommit}` : "";
+    if (verifyPropertyConsultantMigration) {
+      assertRequiredMigrationLedger(appliedNames, PROPERTY_CONSULTANT_RELATION_MIGRATIONS);
+      console.log(`[migrate] property consultant migrations verified${deploymentLabel}: ${PROPERTY_CONSULTANT_RELATION_MIGRATIONS.join(", ")}`);
+    }
     if (verifyCustomerAuth) {
-      const { rows } = await client.query("SELECT name FROM _migrations");
-      assertRequiredMigrationLedger(rows.map((row) => String(row.name)));
-      const deploymentCommit = await readDeploymentCommit();
-      const deploymentLabel = deploymentCommit ? ` for deployment ${deploymentCommit}` : "";
+      assertRequiredMigrationLedger(appliedNames);
       console.log(`[migrate] customer-auth migrations verified${deploymentLabel}: ${CUSTOMER_AUTH_MIGRATIONS.join(", ")}`);
     } else {
       console.log("[migrate] database is up to date.");
