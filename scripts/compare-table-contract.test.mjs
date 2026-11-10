@@ -2,10 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { resolveCompareLoad } from "../src/lib/compare-load-state.mjs";
-import { readCompareSlugs, toggleCompareSlug } from "../src/lib/compare-storage.mjs";
+import { clearCompareSlugs, readCompareSlugs, toggleCompareSlug, writeCompareSlugs } from "../src/lib/compare-storage.mjs";
 
 const compare = readFileSync(new URL("../src/routes/compare.tsx", import.meta.url), "utf8");
 const propertyActions = readFileSync(new URL("../src/components/hirmand/property-actions.tsx", import.meta.url), "utf8");
+const comparePage = readFileSync(new URL("../src/routes/compare.tsx", import.meta.url), "utf8");
 const browserSmoke = readFileSync(new URL("./browser-smoke.mjs", import.meta.url), "utf8");
 
 test("property comparison renders every feature row once", () => {
@@ -18,8 +19,9 @@ test("property comparison renders every feature row once", () => {
 });
 
 test("shared comparison import, removal and clearing stay synchronized with the URL", () => {
-  assert.match(compare, /resolveCompareSlugs\(window\.location\.search, readCompare\(\)\)/);
-  assert.match(compare, /if \(resolved\.isShared\) persistCompare\(slugs\)/);
+  assert.match(compare, /const storedCompare = readCompareSlugs\(localStorage, COMPARE_KEY, MAX_COMPARE\)/);
+  assert.match(compare, /storedCompare\.status === "success" \? storedCompare\.slugs : \[\]/);
+  assert.match(compare, /if \(resolved\.isShared && !persistCompare\(slugs\)\)/);
   assert.match(compare, /if \(current\.isShared\) syncSharedCompareUrl\(next\)/);
   assert.match(compare, /syncSharedCompareUrl\(\[\]\)/);
   assert.match(compare, /if \(resolved\.isShared\) syncSharedCompareUrl\(retained\)/);
@@ -91,4 +93,23 @@ test("compare storage read failures are surfaced instead of being treated as an 
 
   assert.deepEqual(readCompareSlugs(storage, "compare", 3), { status: "error" });
   assert.deepEqual(toggleCompareSlug(storage, "compare", "property", 3), { status: "error" });
+});
+
+test("compare page remove and clear actions keep the visible selection when storage writes fail", () => {
+  const removeHandler = comparePage.slice(comparePage.indexOf("function removeFromCompare("), comparePage.indexOf("useEffect(() =>", comparePage.indexOf("function removeFromCompare(")));
+  const clearHandler = comparePage.slice(comparePage.indexOf("function clearCompare("), comparePage.indexOf("return (", comparePage.indexOf("function clearCompare(")));
+  const writeFailureStorage = {
+    setItem: () => { throw new Error("storage quota exceeded"); },
+    removeItem: () => { throw new Error("storage unavailable"); },
+  };
+
+  assert.deepEqual(writeCompareSlugs(writeFailureStorage, "compare", ["kept"]), { status: "error" });
+  assert.deepEqual(clearCompareSlugs(writeFailureStorage, "compare"), { status: "error" });
+  assert.match(removeHandler, /if \(!persistCompare\(next\)\)/);
+  assert.ok(removeHandler.indexOf("toast.error(") < removeHandler.indexOf("setProperties("));
+  assert.match(clearHandler, /clearCompareSlugs\(localStorage, COMPARE_KEY\)\.status === "error"/);
+  assert.ok(clearHandler.indexOf("toast.error(") < clearHandler.indexOf("setProperties("));
+  assert.match(removeHandler, /storedCompare\.status === "error" && !current\.isShared/);
+  assert.match(comparePage, /if \(!resolved\.isShared && storedCompare\.status === "error"\)/);
+  assert.match(comparePage, /setLoadError\(true\)/);
 });

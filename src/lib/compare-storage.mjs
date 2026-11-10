@@ -23,6 +23,35 @@ export function readCompareSlugs(storage, key, limit) {
 }
 
 /**
+ * @param {Pick<Storage, "setItem">} storage
+ * @param {string} key
+ * @param {string[]} slugs
+ * @returns {{ status: "success" } | { status: "error" }}
+ */
+export function writeCompareSlugs(storage, key, slugs) {
+  try {
+    storage.setItem(key, JSON.stringify(slugs));
+    return { status: "success" };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+/**
+ * @param {Pick<Storage, "removeItem">} storage
+ * @param {string} key
+ * @returns {{ status: "success" } | { status: "error" }}
+ */
+export function clearCompareSlugs(storage, key) {
+  try {
+    storage.removeItem(key);
+    return { status: "success" };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+/**
  * @param {Pick<Storage, "getItem" | "setItem">} storage
  * @param {string} key
  * @param {string} slug
@@ -36,20 +65,14 @@ export function toggleCompareSlug(storage, key, slug, limit) {
 
   if (current.includes(slug)) {
     const next = current.filter((item) => item !== slug);
-    try {
-      storage.setItem(key, JSON.stringify(next));
-      return { status: "removed", next };
-    } catch {
-      return { status: "error", next: current };
-    }
+    return writeCompareSlugs(storage, key, next).status === "success"
+      ? { status: "removed", next }
+      : { status: "error", next: current };
   }
 
   if (current.length >= limit) return { status: "limit", next: current };
   const next = [...current, slug];
-  try {
-    storage.setItem(key, JSON.stringify(next));
-    return { status: "added", next };
-  } catch {
-    return { status: "error", next: current };
-  }
+  return writeCompareSlugs(storage, key, next).status === "success"
+    ? { status: "added", next }
+    : { status: "error", next: current };
 }
