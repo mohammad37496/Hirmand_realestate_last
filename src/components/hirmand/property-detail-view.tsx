@@ -156,6 +156,7 @@ import "@/property-deal-room.css";
 import { formatToman } from "@/lib/money";
 import { formatPersianDate } from "@/lib/persian-date";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { shouldHandleGalleryArrowKey } from "@/lib/gallery-keyboard.mjs";
 import { isVideoUrl, mediaPreviewSource, mediaSourceCandidates } from "@/lib/media";
 import { isPermanentlyWatermarkedMediaUrl } from "@/lib/property-watermark";
 import { getPropertyFallbackImage, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
@@ -828,8 +829,10 @@ function Gallery({
     const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeLightbox();
-      if (event.key === "ArrowLeft") goTo(activeRef.current - 1);
-      if (event.key === "ArrowRight") goTo(activeRef.current + 1);
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        if (!shouldHandleGalleryArrowKey(event.target, event.defaultPrevented)) return;
+        goTo(activeRef.current + (event.key === "ArrowLeft" ? -1 : 1));
+      }
       if (event.key === "0") setZoomScale(1);
       if (event.key === "Tab") {
         const focusable = Array.from(
