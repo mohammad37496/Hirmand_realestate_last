@@ -2,15 +2,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
+import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { hasAdminPermission } from "@/lib/admin-roles";
 
 async function requireAdmin() {
-  if (await verifyAdminSessionToken(getCookie(ADMIN_SESSION_COOKIE))) {
-    assertAdminServerFnOrigin();
-    return;
+  const claims = await getAdminSessionClaims(getCookie(ADMIN_SESSION_COOKIE));
+  if (!claims) {
+    throw new Error("نشست مدیریت معتبر نیست.");
   }
-  throw new Error("نشست مدیریت معتبر نیست.");
+  assertAdminServerFnOrigin();
+  if (!hasAdminPermission(claims.role, "team.manage")) {
+    throw new Error("سطح دسترسی مشاهده و مدیریت گزارش‌های مدیریتی برای این حساب فعال نیست.");
+  }
 }
 
 // `writeAdminAuditLog` now lives in `./admin-audit-log.server` so that this

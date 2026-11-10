@@ -2,8 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
+import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { hasAdminPermission } from "@/lib/admin-roles";
 
 export type AttendanceSession = {
   clockIn: string;
@@ -34,11 +35,14 @@ type AttendanceRow = {
 
 async function requireAdmin() {
   const session = getCookie(ADMIN_SESSION_COOKIE);
-  if (await verifyAdminSessionToken(session)) {
-    assertAdminServerFnOrigin();
-    return;
+  const claims = await getAdminSessionClaims(session);
+  if (!claims) {
+    throw new Error("نشست مدیریت معتبر نیست. دوباره وارد پنل شوید.");
   }
-  throw new Error("نشست مدیریت معتبر نیست. دوباره وارد پنل شوید.");
+  assertAdminServerFnOrigin();
+  if (!hasAdminPermission(claims.role, "team.manage")) {
+    throw new Error("سطح دسترسی مدیریت حضور و غیاب برای این حساب فعال نیست.");
+  }
 }
 
 function normalizeSessions(value: AttendanceRow["sessions"]): AttendanceSession[] {
