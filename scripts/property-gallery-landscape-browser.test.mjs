@@ -17,7 +17,9 @@ const dbDir = await mkdtemp(join(tmpdir(), "hirmand-gallery-landscape-"));
 const screenshotDir = process.env.GALLERY_SCREENSHOT_DIR?.trim()
   ? resolve(process.env.GALLERY_SCREENSHOT_DIR)
   : join(root, "screenshots", "mobile-device-audit", "gallery-landscape-main-20261103");
-const imageUrls = Array.from({ length: 8 }, (_, index) => `/images/isfahan-hero.jpg?qa-gallery=${index + 1}`);
+const imageUrls = Array.from({ length: 8 }, (_, index) => index === 7
+  ? "/images/qa-gallery-intentionally-missing.jpg?qa-gallery=8"
+  : `/images/isfahan-hero.jpg?qa-gallery=${index + 1}`);
 const devices = [
   { name: "Galaxy J7 Pro", width: 640, height: 360, dpr: 3, ua: "Mozilla/5.0 (Linux; Android 8.1.0; SM-J701F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" },
   { name: "Xiaomi Redmi Note 10", width: 915, height: 412, dpr: 2.75, ua: "Mozilla/5.0 (Linux; Android 13; Redmi Note 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" },
@@ -250,29 +252,31 @@ try {
       await thumbs.nth(7).click();
     } else {
       const nextImage = page.getByRole("button", { name: "تصویر بعدی" });
-      for (let step = 0; step < imageUrls.length - 2; step += 1) {
-        await nextImage.click();
-      }
+      for (let step = 0; step < imageUrls.length - 2; step += 1) await nextImage.click();
     }
+    await page.locator(".property-gallery-main .property-image-fallback").waitFor({ state: "visible", timeout: 5_000 });
+    await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۸"));
+
+    await page.locator(".property-gallery-nav.property-gallery-prev").click();
     await page.waitForFunction(() => {
       const active = document.querySelector('.property-gallery-thumb[aria-current="true"]');
       const image = document.querySelector(".property-gallery-main img[itemprop='image']");
-      return document.querySelectorAll('.property-gallery-thumb[aria-current="true"]').length === 1
-        && active?.getAttribute("aria-label")?.includes("۸")
-        && image?.complete === true
-        && image.naturalWidth > 0;
+      return active?.getAttribute("aria-label")?.includes("۷") && image?.complete === true && image.naturalWidth > 0;
     });
-    const lastImage = await page.locator(".property-gallery-main img[itemprop='image']").getAttribute("src");
-    assert.ok(lastImage?.includes("qa-gallery=8"), `${device.name}: selecting the final scrolled thumbnail must change the main image; got ${lastImage}`);
-
+    assert.ok((await page.locator(".property-gallery-main img[itemprop='image']").getAttribute("src"))?.includes("qa-gallery=7"), `${device.name}: previous-image control must recover from the failed image`);
+    await page.locator(".property-gallery-nav.property-gallery-next").click();
+    await page.locator(".property-gallery-main .property-image-fallback").waitFor({ state: "visible", timeout: 5_000 });
+    await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۸"));
+    await thumbs.nth(1).click();
+    await page.waitForFunction(() => {
+      const active = document.querySelector('.property-gallery-thumb[aria-current="true"]');
+      const image = document.querySelector(".property-gallery-main img[itemprop='image']");
+      return active?.getAttribute("aria-label")?.includes("۲") && image?.complete === true && image.naturalWidth > 0;
+    });
+    const recoveredImage = await page.locator(".property-gallery-main img[itemprop='image']").getAttribute("src");
+    assert.ok(recoveredImage?.includes("qa-gallery=2"), `${device.name}: selecting a valid image after a failed image must restore the gallery; got ${recoveredImage}`);
     const imageState = await page.locator(".property-gallery-main img[itemprop='image']").evaluate((image) => ({ complete: image.complete, naturalWidth: image.naturalWidth, currentSrc: image.currentSrc }));
     assert.ok(imageState.complete && imageState.naturalWidth > 0, `${device.name}: selected gallery image must load successfully`);
-
-    await page.locator(".property-gallery-nav.property-gallery-prev").click();
-    await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۷"));
-    assert.ok((await page.locator(".property-gallery-main img[itemprop='image']").getAttribute("src"))?.includes("qa-gallery=7"), `${device.name}: previous-image control must move back one image`);
-    await page.locator(".property-gallery-nav.property-gallery-next").click();
-    await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۸"));
 
     await thumbs.nth(0).click();
     await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۱"));
