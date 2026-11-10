@@ -12,6 +12,7 @@ import {
   Target,
   UsersRound,
 } from "lucide-react";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 
 type ConsultantRow = {
   id: string;
@@ -293,7 +294,7 @@ export function AdminSalesControlCenter({ onOpenLeads, onOpenProperties }: Props
                           <span className="admin-sales-action">
                             <button type="button" className="text-link" onClick={onOpenLeads}>لیدها <ArrowLeft size={12} /></button>
                             <button type="button" className="text-link" onClick={onOpenProperties}>فایل‌ها <BriefcaseBusiness size={12} /></button>
-                            {item.phone ? <a className="text-link" href={"tel:" + item.phone}>تماس <Phone size={12} /></a> : null}
+                            {toIranianE164Phone(item.phone) ? <a className="text-link" href={`tel:${toIranianE164Phone(item.phone)}`}>تماس <Phone size={12} /></a> : null}
                           </span>
                         </td>
                       </tr>
