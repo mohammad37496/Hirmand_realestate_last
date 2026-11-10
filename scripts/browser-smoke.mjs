@@ -660,6 +660,45 @@ try {
     await propertyPage.close();
   }
 
+  const compareShareCheck = { attempted: false, ok: true, error: null, widths: [390, 768, 1280] };
+  if (propertyNavigationCheck.hrefDecodedSlug) {
+    compareShareCheck.attempted = true;
+    const comparePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    try {
+      await comparePage.addInitScript(({ key, slug }) => {
+        localStorage.setItem(key, JSON.stringify([slug]));
+      }, { key: "hirmand-compare-properties", slug: propertyNavigationCheck.hrefDecodedSlug });
+      const response = await comparePage.goto(
+        new URL("/compare?share=__hirmand_compare_smoke_missing__", url).toString(),
+        { waitUntil: "domcontentloaded", timeout: timeoutMs },
+      );
+      if (!response || response.status() >= 400) {
+        throw new Error(`shared compare route returned ${response?.status() ?? 0}`);
+      }
+      await comparePage.waitForFunction(() =>
+        document.querySelector(".compare-page .property-empty strong")?.textContent?.includes("برای مقایسه حداقل ۲ فایل انتخاب کنید.") === true,
+      null, { timeout: timeoutMs });
+      const state = await comparePage.evaluate(() => ({
+        stored: JSON.parse(localStorage.getItem("hirmand-compare-properties") || "[]"),
+        hasShare: new URL(window.location.href).searchParams.has("share"),
+        hasSelectedPropertyLink: Boolean(document.querySelector('.compare-page .properties-empty-actions a[href^="/properties/"]')),
+      }));
+      if (state.stored.length || state.hasShare || state.hasSelectedPropertyLink) {
+        throw new Error("shared compare merged recipient local properties or failed to discard unavailable shared slugs");
+      }
+      for (const width of compareShareCheck.widths) {
+        await comparePage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+        const overflow = await comparePage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+        if (overflow) throw new Error(`compare empty state overflows horizontally at ${width}px`);
+      }
+    } catch (error) {
+      compareShareCheck.ok = false;
+      compareShareCheck.error = String(error?.message || error);
+    } finally {
+      await comparePage.close();
+    }
+  }
+
   const routeFailures = routeChecks.filter((item) => !item.ok);
   if (routeFailures.length) {
     viewports["desktop-1280"].pageErrors.push(
@@ -680,6 +719,9 @@ try {
         : `property detail navigation smoke skipped: ${propertyNavigationCheck.error || "no published property card is available in this environment"}`,
     );
   }
+  if (!compareShareCheck.ok) {
+    viewports["desktop-1280"].pageErrors.push(`shared comparison browser smoke failed: ${compareShareCheck.error || "unknown"}`);
+  }
 
   const brandWarnings = computeBrandWarnings({
     hasCanvas: viewports["desktop-1280"].hasCanvas,
@@ -693,7 +735,7 @@ try {
       buildAuthEnabled: buildAuthEnabled(),
     }),
   );
-  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
+  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, compareShareCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
   if (baselineRequested) {
     const { divergesFromBaseline, reasons } = compareAgainstBaseline(verdict);
     verdict.divergesFromBaseline = divergesFromBaseline;
