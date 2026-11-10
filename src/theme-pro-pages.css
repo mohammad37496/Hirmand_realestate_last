@@ -1522,9 +1522,6 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .quick-action span {
-    display: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
