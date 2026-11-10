@@ -56,6 +56,9 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
         summary?: { urgent?: number; high?: number; total?: number };
         items?: ActionItem[];
       };
+      if (!result || !result.summary || !Array.isArray(result.items)) {
+        throw new Error("action center response was incomplete");
+      }
       setSummary({
         urgent: Number(result.summary?.urgent) || 0,
         high: Number(result.summary?.high) || 0,

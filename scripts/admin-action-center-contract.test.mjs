@@ -14,6 +14,7 @@ test("admin action-center query failures do not masquerade as an empty queue", (
 
   assert.match(component, /const \[loadError, setLoadError\] = useState\(""\)/);
   assert.match(load, /setLoadError\(""\)/);
+  assert.match(load, /!result\.summary \|\| !Array\.isArray\(result\.items\)/);
   assert.match(load, /setLoadError\("بارگذاری مرکز اقدام امروز ناموفق بود/);
   assert.doesNotMatch(load, /setItems\(\[\]\)/);
   assert.match(component, /className="admin-empty admin-action-center-error" role="alert"/);
