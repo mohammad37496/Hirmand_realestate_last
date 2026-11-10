@@ -184,6 +184,12 @@
 .guide-point { display: grid; grid-template-columns: 25px minmax(0,1fr); align-items: start; gap: 10px; }
 .guide-point-index { display: grid; place-items: center; width: 24px; height: 24px; margin-top: 1px; border-radius: 8px; color: #57646e; background: #f7edda; font-size: .68rem; font-weight: 800; }
 .guide-point p { margin: 0; color: #57646e; font-size: .84rem; line-height: 2.05; }
+.guide-card-sections { display: grid; gap: 13px; }
+.guide-card-section { padding-bottom: 12px; border-bottom: 1px solid #eee8dc; }
+.guide-card-section:last-child { padding-bottom: 0; border-bottom: 0; }
+.guide-card-section h3 { margin: 0 0 7px; color: #12293f; font-size: .9rem; font-weight: 800; line-height: 1.9; }
+.guide-card-section p { margin: 0 0 8px; color: #57646e; font-size: .82rem; line-height: 2.05; white-space: pre-line; }
+.guide-card-section p:last-child { margin-bottom: 0; }
 .guide-share { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; margin-top: 17px; padding: 8px 13px; border: 1px solid #e4dccc; border-radius: 10px; color: #8a5e14; background: #fbf8f2; font-size: .74rem; font-weight: 700; cursor: pointer; transition: background .2s ease, border-color .2s ease; }
 .guide-share:hover { border-color: #d3c8b4; background: #f7edda; }
 .guides-empty { display: grid; justify-items: center; padding: 54px 20px; border: 1px dashed #e4dccc; border-radius: 18px; text-align: center; background: #fff; }

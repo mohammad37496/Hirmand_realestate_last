@@ -32,6 +32,16 @@ test("public guide search indexes section headings and paragraph text", () => {
   assert.match(library, /\.\.\.sectionText/);
 });
 
+test("guide index accordion renders long-form sections while preserving legacy points", () => {
+  assert.match(library, /guide\.sections\?\.length/);
+  assert.match(library, /guide-card-sections/);
+  assert.match(library, /section\.heading/);
+  assert.match(library, /section\.paragraphs\.map/);
+  assert.match(library, /guide\.points\.map/);
+  assert.match(styles, /\.guide-card-section h3/);
+  assert.match(styles, /\.guide-card-section p/);
+});
+
 test("article page renders structured sections and preserves legacy points plus JSON-LD", () => {
   assert.match(article, /guide\.sections\?\.length/);
   assert.match(article, /guide-article-section/);
