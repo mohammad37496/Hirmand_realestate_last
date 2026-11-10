@@ -16,6 +16,9 @@ test("responsive browser smoke selects multiple neighborhoods and clears the can
   assert.match(browserSmoke, /multi-neighborhood filter browser smoke failed/);
   assert.match(browserSmoke, /style\.position === "fixed" && style\.bottom !== "auto"/);
   assert.match(browserSmoke, /bottomStyle: getComputedStyle\(element\)\.bottom/);
+  assert.match(browserSmoke, /!panel\.getAnimations\(\)\.some\(\(animation\) => animation\.playState === "running"\)/);
+  assert.match(browserSmoke, /Math\.abs\(translateY\) < 0\.5/);
+  assert.match(browserSmoke, /runningAnimations:/);
   assert.match(responsiveCss, /@media \(min-width: 981px\)\s*\{\s*\.pf-page \.pf-sidebar\s*\{\s*position: sticky;\s*top: 82px;/);
   assert.match(route, /writeNeighborhoodSelection\(params, selectedNeighborhoods\)/);
   assert.match(route, /setSelectedNeighborhoods\(\[\]\)/);

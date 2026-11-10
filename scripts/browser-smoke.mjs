@@ -383,8 +383,20 @@ try {
           await neighborhoodPage.waitForFunction(() => {
             const button = document.querySelector(".pf-filter-btn");
             const panel = document.querySelector(".pf-sidebar");
-            return button?.getAttribute("aria-expanded") === "true" &&
-              panel?.classList.contains("is-open");
+            if (button?.getAttribute("aria-expanded") !== "true" ||
+                !(panel instanceof HTMLElement) || !panel.classList.contains("is-open")) {
+              return false;
+            }
+            const style = getComputedStyle(panel);
+            const translateY = style.transform === "none"
+              ? 0
+              : new DOMMatrixReadOnly(style.transform).m42;
+            // The class and aria state change before the CSS drawer transition
+            // finishes. Measuring/scrolling during translateY(115% → 0) sees
+            // the panel below the viewport even though it is already is-open.
+            return style.opacity === "1" &&
+              !panel.getAnimations().some((animation) => animation.playState === "running") &&
+              Math.abs(translateY) < 0.5;
           }, null, { timeout: timeoutMs });
           // Opening the fixed sheet must not leave the document scrolled to a
           // stale control position from the page's previous viewport layout.
@@ -403,6 +415,9 @@ try {
               top: style?.top ?? null,
               bottom: style?.bottom ?? null,
               transform: style?.transform ?? null,
+              runningAnimations: panel instanceof HTMLElement
+                ? panel.getAnimations().filter((animation) => animation.playState === "running").length
+                : null,
               windowScrollY: window.scrollY,
               innerWidth: window.innerWidth,
             };
