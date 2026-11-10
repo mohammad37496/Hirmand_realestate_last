@@ -64,7 +64,7 @@ import {
   X,
 } from "lucide-react";
 import { breadcrumbJsonLd, propertyJsonLd, serializeJsonLd, TX_LABEL, TYPE_LABEL } from "@/lib/seo";
-import { normalizeIranianPhoneForMatch, normalizePhoneDigits } from "@/lib/phone-normalization";
+import { normalizeIranianPhoneForMatch, toIranianE164Phone, toIranianWhatsAppNumber } from "@/lib/phone-normalization";
 import type { Property } from "@/lib/properties";
 import type { CommissionRateConfig } from "@/lib/commission";
 import { PropertyConvertSlider } from "@/components/hirmand/property-convert-slider";
@@ -430,15 +430,9 @@ function osmEmbedUrl(latitude: number, longitude: number) {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${latitude}%2C${longitude}`;
 }
 
-function whatsappLink(phone: string, title: string) {
-  const digits = normalizePhoneDigits(phone);
-  const intl = digits.startsWith("0098")
-    ? digits.slice(2)
-    : digits.startsWith("98")
-      ? digits
-      : digits.startsWith("0")
-        ? "98" + digits.slice(1)
-        : digits;
+function whatsappLink(phone: string, title: string): string | null {
+  const intl = toIranianWhatsAppNumber(phone);
+  if (!intl) return null;
   const text = encodeURIComponent(`سلام، درباره فایل «${title}» از سایت هیرمند پیام می‌دهم.`);
   return `https://wa.me/${intl}?text=${text}`;
 }
@@ -1151,6 +1145,7 @@ function Gallery({
 function ConsultantCard({ property }: { property: Property }) {
   const consultants = useConsultants();
   const propertyPhone = normalizeIranianPhoneForMatch(property.contactPhone);
+  const phoneTel = toIranianE164Phone(property.contactPhone);
   const person = consultants.find((item) =>
     (propertyPhone && normalizeIranianPhoneForMatch(item.phone) === propertyPhone) || item.name === property.contactName,
   );
@@ -1174,25 +1169,25 @@ function ConsultantCard({ property }: { property: Property }) {
         </div>
       </div>
 
-      <a href={`tel:${property.contactPhone}`} dir="ltr" className="property-contact-phone">
+      {phoneTel ? <a href={`tel:${phoneTel}`} dir="ltr" className="property-contact-phone">
         <Phone size={16} aria-hidden="true" />
         <span>{property.contactPhone}</span>
-      </a>
+      </a> : <span dir="ltr" className="property-contact-phone"><Phone size={16} aria-hidden="true" /> <span>{property.contactPhone}</span></span>}
 
       <p className="property-contact-note">
         برای هماهنگی بازدید، دریافت اطلاعات تکمیلی و بررسی شرایط معامله با این مشاور در تماس باشید.
       </p>
 
-      <div className="property-contact-actions">
+      {phoneTel ? <div className="property-contact-actions">
         <a
-          href={`tel:${property.contactPhone}`}
+          href={`tel:${phoneTel}`}
           className="btn-gold"
           onClick={() => trackAnalyticsEvent("call_click", property.slug)}
         >
           <Phone size={16} aria-hidden="true" />
           تماس مستقیم
         </a>
-      </div>
+      </div> : null}
 
       {person ? (
         <Link
@@ -1355,6 +1350,8 @@ export function PropertyDetailView({
     );
   }
 
+  const propertyTel = toIranianE164Phone(property.contactPhone);
+  const propertyWhatsappHref = whatsappLink(property.contactPhone, property.title);
   const area = areaSlug(property.neighborhood);
   const featuredActive = isFeaturedActive(property);
   const canRequestViewing =
@@ -1609,24 +1606,24 @@ export function PropertyDetailView({
 
                 <div className="property-primary-contact" aria-label="تماس سریع با مشاور">
                   <PropertyCallbackRequest propertyType={TYPE_LABEL[property.propertyType]} neighborhood={property.neighborhood} context={"فایل «" + property.title + "»"} />
-                  <a
+                  {propertyTel ? <a
                     className="property-primary-contact-call"
-                    href={`tel:${property.contactPhone}`}
+                    href={`tel:${propertyTel}`}
                     onClick={() => trackAnalyticsEvent("call_click", property.slug)}
                   >
                     <Phone size={18} aria-hidden="true" />
                     <span>تماس سریع</span>
-                  </a>
-                  <a
+                  </a> : null}
+                  {propertyWhatsappHref ? <a
                     className="property-primary-contact-whatsapp"
-                    href={whatsappLink(property.contactPhone, property.title)}
+                    href={propertyWhatsappHref}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => trackAnalyticsEvent("whatsapp_click", property.slug)}
                   >
                     <WhatsAppIcon size={18} aria-hidden="true" />
                     <span>واتساپ</span>
-                  </a>
+                  </a> : null}
                 </div>
 
                 <details className="property-summary-utilities">
@@ -2165,16 +2162,16 @@ export function PropertyDetailView({
                 </p>
               </div>
               <div className="property-final-cta-actions">
-                <a
-                  href={`tel:${property.contactPhone}`}
+                {propertyTel ? <a
+                  href={`tel:${propertyTel}`}
                   onClick={() => trackAnalyticsEvent("call_click", property.slug)}
                   className="btn-gold"
                 >
                   <Phone size={17} aria-hidden="true" />
                   تماس تلفنی
-                </a>
-                <a
-                  href={whatsappLink(property.contactPhone, property.title)}
+                </a> : null}
+                {propertyWhatsappHref ? <a
+                  href={propertyWhatsappHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => trackAnalyticsEvent("whatsapp_click", property.slug)}
@@ -2182,7 +2179,7 @@ export function PropertyDetailView({
                 >
                   <WhatsAppIcon size={17} aria-hidden="true" />
                   واتساپ
-                </a>
+                </a> : null}
                 {canRequestViewing ? (
                   <PropertyViewingRequest
                     property={{
@@ -2440,16 +2437,16 @@ export function PropertyDetailView({
         </section>
 
         <div className="property-mobile-actions" role="group" aria-label="اقدام‌های سریع فایل">
-          <a
-            href={`tel:${property.contactPhone}`}
+          {propertyTel ? <a
+            href={`tel:${propertyTel}`}
             className="property-mobile-action property-mobile-action-call"
             onClick={() => trackAnalyticsEvent("call_click", property.slug)}
           >
             <Phone size={18} aria-hidden="true" />
             <span>تماس</span>
-          </a>
-          <a
-            href={whatsappLink(property.contactPhone, property.title)}
+          </a> : null}
+          {propertyWhatsappHref ? <a
+            href={propertyWhatsappHref}
             target="_blank"
             rel="noopener noreferrer"
             className="property-mobile-action"
@@ -2457,7 +2454,7 @@ export function PropertyDetailView({
           >
             <WhatsAppIcon size={18} aria-hidden="true" />
             <span>واتساپ</span>
-          </a>
+          </a> : null}
           <a
             href="#property-final-cta"
             className="property-mobile-action"

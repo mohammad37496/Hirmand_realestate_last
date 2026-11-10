@@ -5,6 +5,7 @@ import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { listConsultants, type Consultant } from "@/lib/consultants";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { loadConsultantDirectoryWithFailureState } from "@/lib/consultant-directory-load";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 
 export const Route = createFileRoute("/consultants/")({
   head: () => {
@@ -110,6 +111,7 @@ function ConsultantsPage() {
           <section className="consultants-grid" aria-label="فهرست مشاورین">
             {filtered.map((person) => {
               const Icon = consultantIcon(person);
+              const phoneTel = toIranianE164Phone(person.phone);
               return (
                 <article key={person.id} className="consultant-directory-card">
                   <div className="consultant-directory-top">
@@ -127,10 +129,10 @@ function ConsultantsPage() {
                   </p>
 
                   <div className="consultant-directory-contact">
-                    <a href={`tel:${person.phone}`} dir="ltr">
+                    {phoneTel ? <a href={`tel:${phoneTel}`} dir="ltr">
                       <Phone size={16} />
                       <bdi>{person.phoneDisplay}</bdi>
-                    </a>
+                    </a> : <span dir="ltr"><Phone size={16} /> <bdi>{person.phoneDisplay}</bdi></span>}
                   </div>
 
                   <div className="consultant-directory-actions">
@@ -142,9 +144,7 @@ function ConsultantsPage() {
                       مشاهده پروفایل
                       <ArrowLeft size={16} />
                     </Link>
-                    <a href={`tel:${person.phone}`} className="btn-ghost">
-                      تماس
-                    </a>
+                    {phoneTel ? <a href={`tel:${phoneTel}`} className="btn-ghost">تماس</a> : null}
                   </div>
                 </article>
               );
