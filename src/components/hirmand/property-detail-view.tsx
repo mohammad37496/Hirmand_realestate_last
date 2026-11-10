@@ -63,7 +63,7 @@ import {
   Zap,
   X,
 } from "lucide-react";
-import { breadcrumbJsonLd, propertyJsonLd, TX_LABEL, TYPE_LABEL } from "@/lib/seo";
+import { breadcrumbJsonLd, propertyJsonLd, serializeJsonLd, TX_LABEL, TYPE_LABEL } from "@/lib/seo";
 import type { Property } from "@/lib/properties";
 import type { CommissionRateConfig } from "@/lib/commission";
 import { PropertyConvertSlider } from "@/components/hirmand/property-convert-slider";
@@ -1520,11 +1520,11 @@ export function PropertyDetailView({
     <SiteChrome>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(propertyJsonLd(property)) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(propertyJsonLd(property)) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd(crumbs)) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd(crumbs)) }}
       />
 
       <main className="property-detail-page">

@@ -16,6 +16,21 @@ test("published guides have dedicated indexable article pages with canonical met
   assert.match(route, /if \(!guide\) throw notFound\(\)/);
 });
 
+test("all public JSON-LD scripts use the HTML-safe serializer", () => {
+  const files = [
+    "../src/routes/guides.$slug.tsx",
+    "../src/components/hirmand/property-detail-view.tsx",
+    "../src/routes/areas.$slug.tsx",
+    "../src/routes/index.tsx",
+  ];
+  for (const file of files) {
+    const source = read(file);
+    assert.match(source, /type="application\/ld\+json"/u);
+    assert.match(source, /serializeJsonLd\(/u);
+    assert.doesNotMatch(source, /dangerouslySetInnerHTML=\{\{\s*__html:\s*JSON\.stringify/u);
+  }
+});
+
 test("guide library links and shares the stable article URL", () => {
   const page = read("../src/routes/guides.index.tsx");
   assert.match(page, /to="\/guides\/\$slug"/);
