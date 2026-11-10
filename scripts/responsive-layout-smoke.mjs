@@ -500,6 +500,21 @@ try {
           });
           if (!geometry.imageOnRight) failures.push("/properties @ 320px: property image is not on the right of the details");
           if (!geometry.bodyContentVisible) failures.push("/properties @ 320px: property details are covered or not visible beside the image");
+          const compactFrames = await page.locator(".pf-grid.is-list-view > .pcard.pcard-mobile-list").evaluateAll((cards) =>
+            cards.map((card) => {
+              const cardRect = card.getBoundingClientRect();
+              const imageRect = card.querySelector(".pcard-media > .pcard-image-link")?.getBoundingClientRect();
+              return {
+                height: Math.round(cardRect.height),
+                imageWidth: imageRect ? Math.round(imageRect.width) : 0,
+                imageHeight: imageRect ? Math.round(imageRect.height) : 0,
+              };
+            }),
+          );
+          if (compactFrames.length && compactFrames.some((frame) =>
+            frame.height !== 138 || frame.imageWidth !== 104 || frame.imageHeight !== 138)) {
+            failures.push("/properties @ 320px: list cards must share a 138px card and image frame with a 104px photo; frames=" + JSON.stringify(compactFrames));
+          }
           if (await firstCard.locator(".pcard-actions .property-action").count()) {
             failures.push("/properties @ 320px: compact property actions should be hidden in list view");
           }

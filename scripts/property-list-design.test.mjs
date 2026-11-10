@@ -65,9 +65,9 @@ test("property photo actions use a floating glass dock with clear button states"
 });
 
 test("phone list cards keep a readable image, key facts and a single swipeable action row", () => {
-  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[\s\S]*?margin-inline-start:\s*clamp\(120px,\s*40vw,\s*170px\)/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[\s\S]*?margin-inline-start:\s*clamp\(104px,\s*30vw,\s*124px\)/);
   const finalPhoneLayout = marketplaceCss.slice(marketplaceCss.lastIndexOf(".pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {"));
-  assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*grid-template-columns:\s*clamp\(104px,\s*30vw,\s*124px\)[^}]*height:\s*138px/);
+  assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*display:\s*flex;[^}]*width:\s*calc\(100% - clamp\(104px,\s*30vw,\s*124px\)\);[^}]*margin-inline-start:\s*clamp\(104px,\s*30vw,\s*124px\);[^}]*height:\s*138px/);
   assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-body\s*\{[^}]*height:\s*138px/);
   const gridModeStart = marketplaceCss.indexOf("/* Premium photo-first cards");
   const phoneCardStackingStart = marketplaceCss.lastIndexOf("  .pcard-mobile-list > .pcard-media {", gridModeStart);
@@ -152,7 +152,7 @@ test("mobile list cards keep every property photo in the same compact frame", ()
   );
   assert.match(compactMobileList, /@media \(max-width:\s*640px\)/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*grid-template-rows:\s*138px;[^}]*height:\s*138px/);
-  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*grid-template-columns:\s*clamp\(104px,\s*30vw,\s*124px\)/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*width:\s*calc\(100% - clamp\(104px,\s*30vw,\s*124px\)\);[^}]*margin-inline-start:\s*clamp\(104px,\s*30vw,\s*124px\)/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media,[\s\S]*?height:\s*138px;[\s\S]*?max-height:\s*138px/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media img\s*\{[^}]*object-fit:\s*cover/);
 });

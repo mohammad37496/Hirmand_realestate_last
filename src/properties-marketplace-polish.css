@@ -1857,7 +1857,9 @@
   }
 
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
-    grid-template-columns: clamp(104px, 30vw, 124px) minmax(0, 1fr);
+    display: flex;
+    width: calc(100% - clamp(104px, 30vw, 124px));
+    margin-inline-start: clamp(104px, 30vw, 124px);
     min-height: 0;
     height: 138px;
   }
