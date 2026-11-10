@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CommissionCalculator } from "@/components/hirmand/commission-calculator";
 import { FinanceToolPage } from "@/components/hirmand/finance-tool-page";
 import { SITE } from "@/lib/site";
+import { getPublicSiteSettings } from "@/lib/site-settings";
 
 export const Route = createFileRoute("/tools/commission")({
   head: () => ({
@@ -13,13 +14,18 @@ export const Route = createFileRoute("/tools/commission")({
       },
     ],
   }),
+  loader: async () => {
+    const settings = await getPublicSiteSettings();
+    return { commissionRates: settings.commissionRates };
+  },
   component: CommissionPage,
 });
 
 function CommissionPage() {
+  const { commissionRates } = Route.useLoaderData();
   return (
     <FinanceToolPage tool="commission">
-      <CommissionCalculator />
+      <CommissionCalculator rates={commissionRates} />
     </FinanceToolPage>
   );
 }

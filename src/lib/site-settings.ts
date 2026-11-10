@@ -6,6 +6,7 @@ import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-sessi
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { DEFAULT_COMMISSION_RATES, normalizeCommissionRates, type CommissionRateConfig } from "@/lib/commission";
 
 export type SiteSettings = {
   siteTitle: string;
@@ -24,6 +25,7 @@ export type SiteSettings = {
   address: string;
   officeHours: string;
   footerTagline: string;
+  commissionRates: CommissionRateConfig;
   updatedAt: string | null;
 };
 
@@ -44,8 +46,43 @@ const DEFAULT_SETTINGS: SiteSettings = {
   address: "اصفهان، سه راه سیمین، خیابان جانبازان، بلوار شهید بخشی",
   officeHours: "",
   footerTagline: "همراه شما برای انتخاب خانه‌ای بهتر",
+  commissionRates: { ...DEFAULT_COMMISSION_RATES },
   updatedAt: null,
 };
+
+function isIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+const commissionRatesSchema = z.object({
+  city: z.string().trim().min(2).max(80),
+  saleTotalPercent: z.number().min(0.001).max(5),
+  rentDepositPercent: z.number().min(0).max(5),
+  rentMonthlyPercent: z.number().min(0.01).max(100),
+  vatPercent: z.number().min(0).max(25),
+  sourceLabel: z.string().trim().max(200),
+  sourceUrl: z.string().trim().max(500).refine((value) => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  }, "پیوند منبع باید HTTPS معتبر باشد."),
+  effectiveFrom: z.string().trim().refine((value) => !value || isIsoDate(value), "تاریخ شروع اعتبار معتبر نیست."),
+  effectiveTo: z.string().trim().refine((value) => !value || isIsoDate(value), "تاریخ پایان اعتبار معتبر نیست."),
+  verified: z.boolean(),
+}).superRefine((value, context) => {
+  if (value.effectiveFrom && value.effectiveTo && value.effectiveTo < value.effectiveFrom) {
+    context.addIssue({ code: "custom", path: ["effectiveTo"], message: "تاریخ پایان باید بعد از تاریخ شروع باشد." });
+  }
+  if (value.verified && (!value.sourceLabel || !value.sourceUrl || !value.effectiveFrom)) {
+    context.addIssue({ code: "custom", path: ["verified"], message: "برای تأیید نرخ، عنوان منبع، پیوند HTTPS و تاریخ شروع اعتبار الزامی است." });
+  }
+});
 
 async function requireAdminAsync() {
   const token = getCookie(ADMIN_SESSION_COOKIE);
@@ -75,6 +112,7 @@ function mapRow(row: Record<string, unknown>): SiteSettings {
     address: String(row.address ?? ""),
     officeHours: String(row.office_hours ?? ""),
     footerTagline: String(row.footer_tagline ?? ""),
+    commissionRates: normalizeCommissionRates(row.commission_rates),
     updatedAt: row.updated_at ? new Date(String(row.updated_at)).toISOString() : null,
   };
 }
@@ -130,6 +168,7 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
       address: z.string().trim().max(500),
       officeHours: z.string().trim().max(300),
       footerTagline: z.string().trim().max(300),
+      commissionRates: commissionRatesSchema,
     }),
   )
   .handler(async ({ data }) => {
@@ -141,12 +180,12 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
         id, site_title, site_description, seo_keywords, google_site_verification,
         noindex, announcement_enabled, announcement_text,
         phone_mobile, phone_office, whatsapp_url, instagram_url, telegram_url, eitaa_url,
-        address, office_hours, footer_tagline, updated_at
+        address, office_hours, footer_tagline, commission_rates, updated_at
       ) values (
         1, $1, $2, $3, $4,
         $5, $6, $7,
         $8, $9, $10, $11, $12, $13,
-        $14, $15, $16, current_timestamp
+        $14, $15, $16, $17::jsonb, current_timestamp
       )
       on conflict (id) do update set
         site_title = excluded.site_title,
@@ -165,6 +204,7 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
         address = excluded.address,
         office_hours = excluded.office_hours,
         footer_tagline = excluded.footer_tagline,
+        commission_rates = excluded.commission_rates,
         updated_at = current_timestamp
       returning *`,
       [
@@ -184,6 +224,7 @@ export const updateAdminSiteSettings = createServerFn({ method: "POST" })
         data.address,
         data.officeHours,
         data.footerTagline,
+        JSON.stringify(data.commissionRates),
       ],
     );
     return mapRow(rows[0]);

@@ -3,6 +3,7 @@ import { getPublishedProperty, listRelatedProperties } from "@/lib/properties";
 import { isCanonicalSlug } from "@/lib/property-slug";
 import { propertyHead } from "@/lib/seo";
 import { PropertyDetailView } from "@/components/hirmand/property-detail-view";
+import { getPublicSiteSettings } from "@/lib/site-settings";
 
 export const Route = createFileRoute("/properties/$slug")({
   loader: async ({ params }) => {
@@ -40,7 +41,8 @@ export const Route = createFileRoute("/properties/$slug")({
       console.error("[property-detail] related properties loader failed", error);
     }
 
-    return { property, related };
+    const settings = await getPublicSiteSettings();
+    return { property, related, commissionRates: settings.commissionRates };
   },
   head: ({ loaderData, params }) =>
     propertyHead(loaderData?.property ?? null, params.slug),
@@ -81,5 +83,5 @@ function PropertyDetailPending() {
 
 function PropertyPropertiesPage() {
   const data = Route.useLoaderData();
-  return <PropertyDetailView property={data.property} related={data.related} />;
+  return <PropertyDetailView property={data.property} related={data.related} commissionRates={data.commissionRates} />;
 }

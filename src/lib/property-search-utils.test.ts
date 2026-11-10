@@ -7,12 +7,50 @@ import {
   parseIntegerFilter,
   validatePropertySearchNumbers,
 } from "./property-search-utils.ts";
+import { normalizeIranianPhoneForMatch, normalizePhoneDigits, toIranianE164Phone, toIranianWhatsAppNumber } from "./phone-normalization.ts";
 
 test("normalizes Persian, Arabic and English digits and grouping separators", () => {
   assert.equal(parseIntegerFilter("۱٬۲۳۴٬۵۶۷").value, 1234567);
   assert.equal(parseIntegerFilter("١،٢٣٤،٥٦٧").value, 1234567);
   assert.equal(parseIntegerFilter("1,234,567").value, 1234567);
   assert.equal(parseIntegerFilter(" ۱۲۳ ۴۵۶ ").value, 123456);
+});
+
+test("Iranian consultant phone matching canonicalizes country codes, punctuation and digit scripts", () => {
+  const canonical = "09131056029";
+  for (const input of [
+    canonical,
+    "0913 105 6029",
+    "+98 913 105 6029",
+    "+98 0913 105 6029",
+    "0098 913 105 6029",
+    "0098 0913 105 6029",
+    "۰۹۱۳۱۰۵۶۰۲۹",
+    "٠٩١٣١٠٥٦٠٢٩",
+  ]) {
+    assert.equal(normalizeIranianPhoneForMatch(input), canonical, input);
+  }
+  assert.equal(normalizeIranianPhoneForMatch("+98 31 37850615"), "03137850615");
+  assert.equal(normalizePhoneDigits("+۹۸ (۹۱۳) ۱۰۵-۶۰۲۹"), "989131056029");
+  assert.equal(normalizeIranianPhoneForMatch("letters only"), "");
+});
+
+test("builds valid Iranian E.164 telephone and WhatsApp targets from legacy phone formats", () => {
+  for (const input of [
+    "09131056029",
+    "+98 913 105 6029",
+    "+98 0913 105 6029",
+    "0098 913 105 6029",
+    "۰۰۹۸ ۹۱۳ ۱۰۵ ۶۰۲۹",
+    "٠٩١٣١٠٥٦٠٢٩",
+  ]) {
+    assert.equal(toIranianE164Phone(input), "+989131056029", input);
+    assert.equal(toIranianWhatsAppNumber(input), "989131056029", input);
+  }
+  assert.equal(toIranianE164Phone("+98 31 37850615"), "+983137850615");
+  assert.equal(toIranianE164Phone("+1 202 555 0147"), null);
+  assert.equal(toIranianE164Phone("091310560"), null);
+  assert.equal(toIranianWhatsAppNumber("not a phone"), null);
 });
 
 test("canonicalizes Persian/Arabic letter variants, diacritics and ZWNJ", () => {

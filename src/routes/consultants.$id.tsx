@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Briefcase, Check, Handshake, Phone, ArrowRight } from "lucide-react";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
@@ -12,10 +12,12 @@ import {
   IGAPPIcon,
   SoroushIcon,
 } from "@/components/hirmand/social-icons";
-import { listPublishedPropertiesByContact } from "@/lib/properties";
+import { listPublishedPropertiesByConsultant } from "@/lib/properties";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import { listConsultants } from "@/lib/consultants";
+import { loadConsultantPropertiesWithFailureState } from "@/lib/consultant-profile-load";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 
 const ICONS = {
   briefcase: Briefcase,
@@ -28,13 +30,10 @@ export const Route = createFileRoute("/consultants/$id")({
     const people = await listConsultants();
     const person = people.find((item) => item.id.trim().toLowerCase() === requestedId) ?? null;
     if (!person) return { person: null, properties: [] };
-    try {
-      const properties = await listPublishedPropertiesByContact({ data: { phone: person.phone } });
-      return { person, properties };
-    } catch (error) {
-      console.error("[consultant-profile] listings loader failed", error);
-      return { person, properties: [] };
-    }
+    const result = await loadConsultantPropertiesWithFailureState(() =>
+      listPublishedPropertiesByConsultant({ data: { consultantId: person.id, consultantName: person.name, phone: person.phone } }),
+    );
+    return { person, properties: result.properties, propertiesLoadFailed: result.failed };
   },
   head: ({ loaderData }) => {
     const person = loaderData?.person;
@@ -63,6 +62,7 @@ export const Route = createFileRoute("/consultants/$id")({
 
 function ConsultantProfilePage() {
   const data = Route.useLoaderData();
+  const router = useRouter();
   if (!data.person) {
     return (
       <SiteChrome>
@@ -79,6 +79,7 @@ function ConsultantProfilePage() {
 
   const person = data.person;
   const Icon = ICONS[person.icon];
+  const phoneTel = toIranianE164Phone(person.phone);
 
   const socials = [
     { href: person.whatsapp, label: "واتساپ", icon: <WhatsAppIcon size={19} /> },
@@ -106,17 +107,17 @@ function ConsultantProfilePage() {
           <div>
             <span className="consultant-profile-role">{person.role}</span>
             <h1>{person.name}</h1>
-            <a className="consultant-profile-phone" href={`tel:${person.phone}`} dir="ltr">
+            {phoneTel ? <a className="consultant-profile-phone" href={`tel:${phoneTel}`} dir="ltr">
               <bdi>{person.phoneDisplay.replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])}</bdi>
-            </a>
+            </a> : <span className="consultant-profile-phone" dir="ltr"><bdi>{person.phoneDisplay}</bdi></span>}
             <p className="consultant-profile-description">
               ارتباط مستقیم برای فایل‌ها و پیگیری درخواست‌های ملکی در هیرمند.
             </p>
-            <div className="consultant-profile-actions">
-              <a className="btn-gold" href={`tel:${person.phone}`}>
+            {phoneTel ? <div className="consultant-profile-actions">
+              <a className="btn-gold" href={`tel:${phoneTel}`}>
                 <Phone size={16} /> تماس مستقیم
               </a>
-            </div>
+            </div> : null}
           </div>
         </section>
 
@@ -135,7 +136,15 @@ function ConsultantProfilePage() {
             <h2>فایل‌های مرتبط با {person.name}</h2>
             <p>فایل‌های منتشرشده‌ای که برای تماس، این مشاور به‌عنوان مسئول فایل ثبت شده است.</p>
           </div>
-          {data.properties.length ? (
+          {data.propertiesLoadFailed ? (
+            <div className="property-empty" role="alert">
+              <strong>بارگذاری فایل‌های مرتبط ناموفق بود.</strong>
+              <p>برای دریافت دوبارهٔ فایل‌های این مشاور تلاش کنید.</p>
+              <button type="button" className="btn-gold" onClick={() => void router.invalidate()}>
+                تلاش دوباره
+              </button>
+            </div>
+          ) : data.properties.length ? (
             <div className="property-grid">
               {data.properties.map((property) => <PropertyCard key={property.id} property={property} />)}
             </div>

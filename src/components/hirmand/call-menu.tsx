@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, Phone } from "lucide-react";
 import { SITE } from "@/lib/site";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { cn } from "@/lib/utils";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { useConsultants } from "./consultants-context";
@@ -53,22 +54,23 @@ export function CallMenu({
       </button>
       {open ? (
         <div id={menuId} role="menu" className={cn("action-menu-panel", align === "end" && "is-end")}>
-          {consultants.map((person) => (
-            <a key={person.id} role="menuitem" href={`tel:${person.phone}`} onClick={() => { trackAnalyticsEvent("call_click"); setOpen(false); }}>
+          {consultants.map((person) => {
+            const phoneTel = toIranianE164Phone(person.phone);
+            return phoneTel ? <a key={person.id} role="menuitem" href={`tel:${phoneTel}`} onClick={() => { trackAnalyticsEvent("call_click"); setOpen(false); }}>
               <span>
                 <strong>{person.name}</strong>
                 <small>{person.role}</small>
               </span>
               <em dir="ltr">{person.phoneDisplay}</em>
-            </a>
-          ))}
-          <a role="menuitem" href={`tel:${SITE.phone.office}`} onClick={() => setOpen(false)}>
+            </a> : null;
+          })}
+          {toIranianE164Phone(SITE.phone.office) ? <a role="menuitem" href={`tel:${toIranianE164Phone(SITE.phone.office)}`} onClick={() => setOpen(false)}>
             <span>
               <strong>تلفن دفتر</strong>
               <small>پاسخگویی با هماهنگی</small>
             </span>
             <em dir="ltr">{SITE.phone.officeDisplay}</em>
-          </a>
+          </a> : null}
         </div>
       ) : null}
     </div>

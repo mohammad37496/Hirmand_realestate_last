@@ -6,10 +6,13 @@ import { dbSource, getSql } from "@/lib/db";
 import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
 import { buildPublicPropertyFilterParams, buildPublicPropertyOrderBySql, buildPublicPropertyWhereSql } from "@/lib/property-search-sql";
 import { publicPropertyFiltersSchema } from "@/lib/property-search-contract";
-import { compactSearchText } from "@/lib/property-search-utils";
+import { buildSmartPropertyMatchScoreSql } from "@/lib/smart-property-match-sql";
+import { matchablePropertyVisibilitySql } from "@/lib/property-matchability";
 import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
+import { normalizeIranianPhoneForMatch, normalizedIranianPhoneSql } from "@/lib/phone-normalization";
+import { propertyContactChangedSql, propertyVerificationChangedSql } from "@/lib/property-verification-sql";
 import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type BudgetMatchDetails } from "@/lib/budget-matching";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { deleteStoredMedia } from "@/lib/media-store.server";
@@ -89,6 +92,7 @@ export type Property = {
   images: string[];
   contactName: string;
   contactPhone: string;
+  consultantId?: string | null;
   ownerName?: string;
   ownerPhone?: string;
   ownerInfo?: string;
@@ -160,6 +164,7 @@ export type PropertyFilters = {
   transactionType?: PropertyTransaction;
   propertyType?: PropertyType;
   neighborhood?: string;
+  neighborhoods?: string[];
   mapBounds?: [number, number, number, number];
   featuredOnly?: boolean;
   search?: string;
@@ -272,6 +277,7 @@ export const propertyInputSchema = z.object({
     ),
   contactName: z.string().trim().min(2).max(80),
   contactPhone: z.string().trim().min(8).max(30),
+  consultantId: z.string().trim().min(2).max(80).nullable().optional(),
   ownerName: z.string().trim().max(100).optional().default(""),
   ownerPhone: z.string().trim().max(30).optional().default(""),
   ownerInfo: z.string().trim().max(2000).optional().default(""),
@@ -307,6 +313,35 @@ const budgetMatchSchema = z
   .refine((value) => value.depositBudget > 0 || value.rentBudget > 0, {
     message: "حداقل یکی از مبالغ بودجه باید بیشتر از صفر باشد.",
   });
+
+const smartPropertyMatchSchema = z.object({
+  transactionType: z.literal("sell"),
+  propertyType: z.enum(["apartment", "villa", "office", "heritage", "land", "commercial"]),
+  minPrice: z.number().int().min(1).max(999999999999999).optional(),
+  maxPrice: z.number().int().min(1).max(999999999999999).optional(),
+  neighborhoods: z.array(z.string().trim().min(2).max(80)).max(12).refine((items) => new Set(items).size === items.length, "محدوده تکراری انتخاب شده است.").default([]),
+  minArea: z.number().int().min(1).max(100000).optional(),
+  maxArea: z.number().int().min(1).max(100000).optional(),
+  exactBedrooms: z.number().int().min(0).max(30).optional(),
+  minBedrooms: z.number().int().min(0).max(30).optional(),
+  amenities: z.array(z.enum(["parking", "elevator", "storage"])).max(3).refine((items) => new Set(items).size === items.length, "امکان تکراری انتخاب شده است.").default([]),
+  limit: z.number().int().min(1).max(24).default(12),
+}).superRefine((data, ctx) => {
+  if (data.minPrice !== undefined && data.maxPrice !== undefined && data.minPrice > data.maxPrice) {
+    ctx.addIssue({ code: "custom", path: ["maxPrice"], message: "حداکثر بودجه باید بزرگ‌تر یا مساوی حداقل باشد." });
+  }
+  if (data.minArea !== undefined && data.maxArea !== undefined && data.minArea > data.maxArea) {
+    ctx.addIssue({ code: "custom", path: ["maxArea"], message: "حداکثر متراژ باید بزرگ‌تر یا مساوی حداقل باشد." });
+  }
+  if (data.exactBedrooms !== undefined && data.minBedrooms !== undefined) {
+    ctx.addIssue({ code: "custom", path: ["exactBedrooms"], message: "تعداد خواب دقیق و حداقل تعداد خواب را هم‌زمان انتخاب نکنید." });
+  }
+  if (data.minPrice === undefined && data.maxPrice === undefined && !data.neighborhoods.length
+    && data.minArea === undefined && data.maxArea === undefined && data.minBedrooms === undefined
+    && data.exactBedrooms === undefined && !data.amenities.length) {
+    ctx.addIssue({ code: "custom", path: ["maxPrice"], message: "حداقل یک معیار برای رتبه‌بندی انتخاب کنید." });
+  }
+});
 
 const adminKeySchema = z.object({});
 
@@ -398,6 +433,7 @@ function mapProperty(row: Record<string, unknown>, options: { admin?: boolean } 
     images: parseJsonArray(row.images),
     contactName: String(row.contact_name),
     contactPhone: String(row.contact_phone),
+    consultantId: row.consultant_id == null ? null : String(row.consultant_id),
     ...(isAdmin ? {
       ownerName: row.owner_name == null ? "" : String(row.owner_name),
       ownerPhone: row.owner_phone == null ? "" : String(row.owner_phone),
@@ -437,7 +473,7 @@ const LIST_COLUMNS = `
   neighborhood, address, area_m2, bedrooms, bathrooms, floor, total_floors,
   built_year, parking, elevator, storage, painted, wallpaper, convertible, cabinet_type, flooring_type, cooling_system,
   heating_system, wall_closet_type, other_amenities, price, deposit, rent,
-  features, images, contact_name, contact_phone, published_at, created_at, updated_at,
+  features, images, contact_name, contact_phone, consultant_id, published_at, created_at, updated_at,
   latitude, longitude, price_drop_percent, virtual_tour_url, floor_plan_url, floor_label, orientation,
   owner_name, owner_phone, owner_info, internal_priority, internal_note,
   publish_at, unpublish_at, deleted_at, deleted_from_status,
@@ -490,7 +526,7 @@ const DETAIL_COLUMNS = `
   neighborhood, address, area_m2, bedrooms, bathrooms, floor, total_floors,
   built_year, parking, elevator, storage, painted, wallpaper, convertible, cabinet_type, flooring_type, cooling_system,
   heating_system, wall_closet_type, other_amenities, price, deposit, rent, description,
-  features, images, contact_name, contact_phone, published_at, created_at, updated_at,
+  features, images, contact_name, contact_phone, consultant_id, published_at, created_at, updated_at,
   latitude, longitude, price_drop_percent, virtual_tour_url, floor_plan_url, floor_label, orientation,
   owner_name, owner_phone, owner_info, internal_priority, internal_note,
   publish_at, unpublish_at, deleted_at, deleted_from_status,
@@ -498,6 +534,7 @@ const DETAIL_COLUMNS = `
 `;
 
 const PUBLIC_PUBLICATION_WHERE = publicPropertyVisibilitySql();
+const MATCHABLE_PUBLIC_PROPERTY_WHERE = matchablePropertyVisibilitySql();
 
 export const listPublishedPropertyCards = createServerFn({ method: "GET" })
   .validator(publicPropertyFiltersSchema)
@@ -515,11 +552,60 @@ export const listPublishedPropertyCards = createServerFn({ method: "GET" })
             "select " + CARD_COLUMNS,
             "from properties where " + buildPublicPropertyWhereSql(),
             "order by " + buildPublicPropertyOrderBySql(),
-            "limit 48 offset $37",
+            "limit 48 offset $38",
           ].join(" "),
           [...params, data.sort],
         );
         return rows.map(mapPropertyCard);
+      },
+    );
+  });
+
+export type PropertySmartMatch = {
+  property: PropertyCardData;
+  score: number;
+};
+
+export const matchPublishedPropertiesBySmartSearch = createServerFn({ method: "GET" })
+  .validator(smartPropertyMatchSchema)
+  .handler(async ({ data }): Promise<PropertySmartMatch[]> => {
+    if (dbSource === "unconfigured") throw new Error("جستجوی تطبیقی تا زمان اتصال پایگاه داده در دسترس نیست.");
+    setResponseHeader("cache-control", "public, max-age=10, s-maxage=30, stale-while-revalidate=120");
+    return cachedPropertyRead(
+      `property-smart-match:${JSON.stringify(data)}`,
+      10_000,
+      async () => {
+        const sql = await getSql();
+        const rows = await sql.query<Record<string, unknown>>(
+          `select ${CARD_COLUMNS}, ${buildSmartPropertyMatchScoreSql()} as match_score
+           from properties
+           where ${MATCHABLE_PUBLIC_PROPERTY_WHERE}
+             and transaction_type = $1
+             and property_type = $2
+           order by match_score desc,
+             case when featured and (featured_until is null or featured_until >= current_timestamp) then 0 else 1 end,
+             published_at desc nulls last, created_at desc nulls last, id desc
+           limit $11`,
+          [
+            data.transactionType,
+            data.propertyType,
+            data.minPrice ?? null,
+            data.maxPrice ?? null,
+            data.neighborhoods,
+            data.minArea ?? null,
+            data.maxArea ?? null,
+            data.minBedrooms ?? null,
+            data.exactBedrooms ?? null,
+            data.amenities,
+            data.limit,
+          ],
+        );
+        return rows
+          .map((row) => ({
+            property: mapPropertyCard(row),
+            score: Math.max(0, Math.min(100, Number(row.match_score) || 0)),
+          }))
+          .filter((match) => match.score > 0);
       },
     );
   });
@@ -535,7 +621,7 @@ export const listPublishedProperties = createServerFn({ method: "GET" })
         "select " + LIST_COLUMNS,
         "from properties where " + buildPublicPropertyWhereSql(),
         "order by " + buildPublicPropertyOrderBySql(),
-        "limit 48 offset $37",
+        "limit 48 offset $38",
       ].join(" "),
       [...params, data.sort],
     );
@@ -552,7 +638,7 @@ export const countPublishedProperties = createServerFn({ method: "GET" })
       20_000,
       async () => {
         const sql = await getSql();
-        const params = buildPublicPropertyFilterParams(data).slice(0, 36);
+        const params = buildPublicPropertyFilterParams(data).slice(0, 37);
         const rows = await sql.query<{ count: number }>(
           "select count(*)::int as count from properties where " + buildPublicPropertyWhereSql(),
           params,
@@ -566,14 +652,53 @@ export const listPublishedPropertiesByContact = createServerFn({ method: "GET" }
   .validator(z.object({ phone: z.string().trim().min(8).max(30) }))
   .handler(async ({ data }) => {
     if (dbSource === "unconfigured") return [];
+    const phone = normalizeIranianPhoneForMatch(data.phone);
+    if (phone.length < 8 || phone.length > 13) return [];
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select ${DETAIL_COLUMNS}
        from properties
-       where ${PUBLIC_PUBLICATION_WHERE} and contact_phone = $1
+       where ${PUBLIC_PUBLICATION_WHERE} and ${normalizedIranianPhoneSql("contact_phone")} = $1
        order by ${buildPublicPropertyOrderBySql("'newest'")}
        limit 48`,
-      [data.phone],
+      [phone],
+    );
+    return rows.map((row) => mapProperty(row));
+  });
+
+export const listPublishedPropertiesByConsultant = createServerFn({ method: "GET" })
+  .validator(z.object({
+    consultantId: z.string().trim().min(2).max(80),
+    consultantName: z.string().trim().max(80).optional().default(""),
+    phone: z.string().trim().max(30).optional().default(""),
+  }))
+  .handler(async ({ data }) => {
+    if (dbSource === "unconfigured") return [];
+    const phone = normalizeIranianPhoneForMatch(data.phone);
+    const legacyPhone = phone.length >= 8 && phone.length <= 13 ? phone : "";
+    const sql = await getSql();
+    const rows = await sql.query<Record<string, unknown>>(
+      `select ${DETAIL_COLUMNS}
+       from properties
+       where ${PUBLIC_PUBLICATION_WHERE}
+         and (
+           consultant_id = $1
+           or (
+             consultant_id is null
+             and $2 <> ''
+             and lower(regexp_replace(translate(trim(contact_name), 'كي', 'کی'), '[[:space:]]+', ' ', 'g')) = lower(regexp_replace(translate(trim($3), 'كي', 'کی'), '[[:space:]]+', ' ', 'g'))
+             and ${normalizedIranianPhoneSql("contact_phone")} = $2
+             and (
+               select count(*)
+               from consultants legacy_consultant
+               where lower(regexp_replace(translate(trim(legacy_consultant.name), 'كي', 'کی'), '[[:space:]]+', ' ', 'g')) = lower(regexp_replace(translate(trim($3), 'كي', 'کی'), '[[:space:]]+', ' ', 'g'))
+                 and ${normalizedIranianPhoneSql("legacy_consultant.phone")} = $2
+             ) = 1
+           )
+         )
+       order by ${buildPublicPropertyOrderBySql("'newest'")}
+       limit 48`,
+      [data.consultantId, legacyPhone, data.consultantName],
     );
     return rows.map((row) => mapProperty(row));
   });
@@ -955,6 +1080,7 @@ const adminBulkFeaturedSchema = adminBulkSchema.extend({
 });
 
 const adminBulkConsultantSchema = adminBulkSchema.extend({
+  consultantId: z.string().trim().min(2).max(80),
   contactName: z.string().trim().min(2).max(80),
   contactPhone: z.string().trim().min(8).max(30),
 });
@@ -1279,38 +1405,44 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
     await requireAdminPermission("property.manage");
     const sql = await getSql();
 
+    const consultantRows = await sql.query<{ id: string; name: string; phone: string }>(
+      "select id, name, phone from consultants where id = $1 limit 1",
+      [data.consultantId],
+    );
+    const consultant = consultantRows[0];
+    if (!consultant || consultant.name !== data.contactName || consultant.phone !== data.contactPhone) {
+      throw new Error("مشاور انتخاب‌شده معتبر نیست؛ فهرست مشاوران را تازه‌سازی کنید.");
+    }
+
     const beforeRows = await sql.query<Record<string, unknown>>(
-      `select id, contact_name, contact_phone
+      `select id, consultant_id, contact_name, contact_phone
        from properties
        where id = any($1::text[])`,
       [data.ids],
     );
 
+    const contactChanged = propertyContactChangedSql("properties", "$2::text", "$3::text");
     const rows = await sql.query<Record<string, unknown>>(
       `update properties
-       set contact_name = $1,
-           contact_phone = $2,
+       set consultant_id = $1,
+           contact_name = $2,
+           contact_phone = $3,
+           last_verified_at = case when ${contactChanged} then null else properties.last_verified_at end,
+           last_verified_by = case when ${contactChanged} then null else properties.last_verified_by end,
            updated_at = current_timestamp
-       where id = any($3::text[])
+       where id = any($4::text[])
          and deleted_at is null
-       returning id, contact_name, contact_phone`,
-      [data.contactName, data.contactPhone, data.ids],
+         and (consultant_id is distinct from $1 or contact_name is distinct from $2 or contact_phone is distinct from $3)
+       returning id, consultant_id, contact_name, contact_phone`,
+      [data.consultantId, data.contactName, data.contactPhone, data.ids],
     );
 
     if (rows.length) {
-      const beforePayload = JSON.stringify(
-        beforeRows.map((row) => ({
-          id: String(row.id),
-          before_state: {
-            contactName: row.contact_name == null ? null : String(row.contact_name),
-            contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
-          },
-        })),
-      );
       const afterById = new Map(
         rows.map((row) => [
           String(row.id),
           {
+            consultantId: row.consultant_id == null ? null : String(row.consultant_id),
             contactName: row.contact_name == null ? null : String(row.contact_name),
             contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
           },
@@ -1324,13 +1456,14 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
           return { id, before_state: JSON.parse(JSON.stringify(
             beforeRows.find((item) => String(item.id) === id)
               ? {
+                  consultantId: row.consultant_id == null ? null : String(row.consultant_id),
                   contactName: row.contact_name == null ? null : String(row.contact_name),
                   contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
                 }
               : null,
           )), after_state: after };
         })
-        .filter((row): row is { id: string; before_state: { contactName: string | null; contactPhone: string | null }; after_state: { contactName: string | null; contactPhone: string | null } } => Boolean(row));
+        .filter((row): row is { id: string; before_state: { consultantId: string | null; contactName: string | null; contactPhone: string | null }; after_state: { consultantId: string | null; contactName: string | null; contactPhone: string | null } } => Boolean(row));
       if (auditRows.length) {
         await sql.query(
           `with audit as (
@@ -1674,6 +1807,25 @@ export const saveProperty = createServerFn({ method: "POST" })
     const savedFloorLabel = data.floorLabel === "suite" ? "suite" : null;
     const savedConvertible =
       (data.transactionType === "rent" || data.transactionType === "mortgage") ? data.convertible : false;
+    const hasConsultantId = Object.prototype.hasOwnProperty.call(data, "consultantId");
+
+    const preservesExistingConsultantSnapshot = Boolean(
+      existing &&
+      String(existing.consultant_id ?? "") === data.consultantId &&
+      String(existing.contact_name ?? "") === data.contactName &&
+      String(existing.contact_phone ?? "") === data.contactPhone,
+    );
+    if (data.consultantId && !preservesExistingConsultantSnapshot) {
+      const consultantRows = await sql.query<{ id: string; name: string; phone: string }>(
+        "select id, name, phone from consultants where id = $1 limit 1",
+        [data.consultantId],
+      );
+      const consultant = consultantRows[0];
+      if (!consultant || consultant.name !== data.contactName || consultant.phone !== data.contactPhone) {
+        throw new Error("مشاور انتخاب‌شده با اطلاعات تماس فایل هم‌خوانی ندارد؛ مشاور را دوباره انتخاب کنید.");
+      }
+    }
+    const verificationChanged = propertyVerificationChangedSql("properties", "excluded");
 
     await sql.query(
       `insert into properties (
@@ -1683,7 +1835,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         heating_system, wall_closet_type, other_amenities, price, deposit, rent, description,
         features, images, contact_name, contact_phone, published_at, featured_until,
         latitude, longitude, virtual_tour_url, floor_label, painted, wallpaper, convertible, orientation,
-        owner_name, owner_phone, owner_info, availability_status, internal_priority, internal_note, floor_plan_url
+        owner_name, owner_phone, owner_info, availability_status, internal_priority, internal_note, floor_plan_url, consultant_id
       ) values (
         $1, $2, $3, $4, $5, $6, $7, 'اصفهان',
         $8, $9, $10::integer, $11::smallint, $12::smallint, $13::smallint, $14::smallint,
@@ -1691,7 +1843,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         $22::text, $23::text, $24::jsonb, $25::numeric, $26::numeric, $27::numeric, $28::text,
         $29::jsonb, $30::jsonb, $31::text, $32::text, $33::timestamptz, $34::timestamptz,
         $35::double precision, $36::double precision, $37::text, $38::text, $39::boolean, $40::boolean, $41::boolean, $42::text,
-        $43::text, $44::text, $45::text, $46::text, $47::text, $48::text, $49::text
+        $43::text, $44::text, $45::text, $46::text, $47::text, $48::text, $49::text, $50::text
       )
       on conflict (id) do update set
         slug = excluded.slug,
@@ -1736,6 +1888,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         internal_priority = excluded.internal_priority,
         internal_note = excluded.internal_note,
         floor_plan_url = excluded.floor_plan_url,
+        consultant_id = case when $51::boolean then excluded.consultant_id else properties.consultant_id end,
         previous_price = properties.price,
         previous_deposit = properties.deposit,
         previous_rent = properties.rent,
@@ -1826,6 +1979,8 @@ export const saveProperty = createServerFn({ method: "POST" })
         images = excluded.images,
         contact_name = excluded.contact_name,
         contact_phone = excluded.contact_phone,
+        last_verified_at = case when ${verificationChanged} then null else properties.last_verified_at end,
+        last_verified_by = case when ${verificationChanged} then null else properties.last_verified_by end,
         published_at = case
           when excluded.status = 'published' and properties.published_at is null then excluded.published_at
           when excluded.status <> 'published' then null
@@ -1887,6 +2042,8 @@ export const saveProperty = createServerFn({ method: "POST" })
         data.internalPriority,
         data.internalNote,
         data.floorPlanUrl.trim(),
+        data.consultantId ?? null,
+        hasConsultantId,
       ],
     );
 

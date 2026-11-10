@@ -16,7 +16,10 @@ import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { NEIGHBORHOOD_GROUPS, SITE } from "@/lib/site";
 import { allAreas } from "@/lib/areas";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import areasDirectoryCss from "../areas-directory.css?url";
+
+const siteMobileTel = toIranianE164Phone(SITE.phone.mobile);
 
 export const Route = createFileRoute("/areas/")({
   loader: async () => {
@@ -313,7 +316,7 @@ function AreasDirectoryPage() {
           </div>
           <div className="areas-cta-actions">
             <Link to="/" hash="inquiry">درخواست مشاوره <ArrowUpLeft size={16} /></Link>
-            <a href={`tel:${SITE.phone.mobile}`}>تماس با دفتر</a>
+            <a href={siteMobileTel ? `tel:${siteMobileTel}` : undefined}>تماس با دفتر</a>
           </div>
         </section>
       </main>
