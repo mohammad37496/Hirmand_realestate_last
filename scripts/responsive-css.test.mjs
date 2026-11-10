@@ -6,6 +6,8 @@ const mobileFixes = fs.readFileSync(new URL("../src/mobile-device-fixes.css", im
 const homepagePolishCss = fs.readFileSync(new URL("../src/components/hirmand/homepage-polish.css", import.meta.url), "utf8");
 const uiClarityCss = fs.readFileSync(new URL("../src/ui-clarity.css", import.meta.url), "utf8");
 const themeProCss = fs.readFileSync(new URL("../src/theme-pro.css", import.meta.url), "utf8");
+const themeProPagesCss = fs.readFileSync(new URL("../src/theme-pro-pages.css", import.meta.url), "utf8");
+const mobileCss = fs.readFileSync(new URL("../src/mobile.css", import.meta.url), "utf8");
 const propertyDetailCss = fs.readFileSync(new URL("../src/property-detail-pro.css", import.meta.url), "utf8");
 const propertyDetailRedesignCss = fs.readFileSync(new URL("../src/property-detail-redesign.css", import.meta.url), "utf8");
 const propertyDetailLightCss = fs.readFileSync(new URL("../src/property-detail-light-theme.css", import.meta.url), "utf8");
@@ -514,6 +516,15 @@ testRunner.test("Liara incident gallery object is verified directly through the 
   assert.ok(liaraGallerySmoke.includes("response.status"));
   assert.ok(liaraGallerySmoke.includes("response.url"));
   assert.ok(liaraGallerySmoke.includes("validWebp"));
+});
+
+testRunner.test("quick-action labels remain visible below their icons on narrow and landscape phones", () => {
+  assert.match(themeProCss, /\.quick-action\s*\{[^}]*flex-direction:\s*column/is,
+    "quick actions should stack each label below its icon");
+  assert.doesNotMatch(themeProPagesCss, /\.quick-action\s+span\s*\{[^}]*display:\s*none/is,
+    "the narrow-phone breakpoint must not hide quick-action labels");
+  assert.doesNotMatch(mobileCss, /\.quick-action\s+span\s*\{[^}]*display:\s*none/is,
+    "the landscape-phone breakpoint must keep quick-action labels visible");
 });
 
 testRunner.test("photo-note issue flag button has a 44px touch target", () => {
