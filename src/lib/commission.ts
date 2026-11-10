@@ -14,6 +14,10 @@ export type CommissionRateConfig = {
   verified: boolean;
 };
 
+/** The percentage calculator is an estimate, not the statutory county tariff model. */
+export const COMMISSION_LEGAL_BASIS_NOTICE =
+  "طبق آیین‌نامه اجرایی تبصره ۱ ماده ۳ قانون الزام به ثبت رسمی معاملات اموال غیرمنقول (مصوب ۱۴۰۴/۰۷/۰۲)، تعرفه رسمی بر پایه ضریب ارزش معاملاتی ملک موضوع ماده ۶۴ و سقف مصوب شهرستان تعیین می‌شود و باید در سامانه ثبت الکترونیک اسناد محاسبه شود. این ابزار فعلاً نرخ‌های درصدی مدیریتی را برای برآورد ساده روی مبلغ معامله، اجاره یا رهن اعمال می‌کند؛ تا اتصال به ضریب، ارزش معاملاتی و سقف معتبر شهرستان، خروجی تعرفه رسمی یا مبلغ قابل مطالبه نیست.";
+
 /** Illustrative defaults only. They are not presented as an official Isfahan tariff. */
 export const DEFAULT_COMMISSION_RATES: CommissionRateConfig = {
   city: "اصفهان",
@@ -178,35 +182,37 @@ export function calculateRent(rent: number, deposit: number, inputRates: Commiss
 }
 
 export function resultSummary(result: CommissionResult): string {
-  const vatLabel = `مالیات ارزش افزوده (${percentLabel(result.rates.vatPercent)}): ${formatToman(result.vat)} تومان`;
+  const vatLabel = `برآورد مالیات ارزش افزوده (${percentLabel(result.rates.vatPercent)}): ${formatToman(result.vat)} تومان`;
   const status = commissionRateStatus(result.rates);
   const rateNote = status === "verified"
     ? `وضعیت نرخ: تأیید داخلی مدیریت (نه تأیید رسمی/قانونی) | منبع: ${result.rates.sourceLabel} | ${result.rates.sourceUrl} | اعتبار: ${result.rates.effectiveFrom} تا ${result.rates.effectiveTo || "بدون تاریخ پایان ثبت‌شده"}`
     : `وضعیت نرخ: تأییدنشده و صرفاً برآورد برای ${result.rates.city}`;
   if (result.kind === "buy") {
     return [
-      "محاسبه کمیسیون خرید و فروش — گروه مشاورین املاک هیرمند",
+      "برآورد نمونه کمیسیون خرید و فروش — گروه مشاورین املاک هیرمند",
       `شهر مبنا: ${result.rates.city}`,
       rateNote,
+      COMMISSION_LEGAL_BASIS_NOTICE,
       `مبلغ معامله: ${formatToman(result.amount)} تومان`,
-      `کمیسیون پایه کل (${percentLabel(result.rates.saleTotalPercent)}): ${formatToman(result.base)} تومان`,
+      `کمیسیون پایه برآوردی کل (${percentLabel(result.rates.saleTotalPercent)}): ${formatToman(result.base)} تومان`,
       vatLabel,
-      `جمع کل کمیسیون بنگاه: ${formatToman(result.total)} تومان`,
-      `سهم هر طرف: ${formatToman(result.each)} تومان`,
+      `جمع کل برآوردی بنگاه: ${formatToman(result.total)} تومان`,
+      `سهم برآوردی هر طرف: ${formatToman(result.each)} تومان`,
     ].join("\n");
   }
   return [
-    "محاسبه کمیسیون رهن و اجاره — گروه مشاورین املاک هیرمند",
+    "برآورد نمونه کمیسیون رهن و اجاره — گروه مشاورین املاک هیرمند",
     `شهر مبنا: ${result.rates.city}`,
     rateNote,
+    COMMISSION_LEGAL_BASIS_NOTICE,
     `اجاره ماهانه: ${formatToman(result.rent)} تومان`,
     `مبلغ رهن: ${formatToman(result.deposit)} تومان`,
     `معادل اجارهٔ رهن: ${formatToman(result.rentFromDeposit)} تومان`,
     `اجاره ماهانه معادل: ${formatToman(result.monthlyEq)} تومان`,
-    `کمیسیون پایه هر طرف: ${percentLabel(result.rates.rentMonthlyPercent)} اجاره + ${percentLabel(result.rates.rentDepositPercent)} رهن`,
-    `جمع کمیسیون پایه دو طرف: ${formatToman(result.base)} تومان`,
+    `کمیسیون پایه برآوردی هر طرف: ${percentLabel(result.rates.rentMonthlyPercent)} اجاره + ${percentLabel(result.rates.rentDepositPercent)} رهن`,
+    `جمع کمیسیون پایه برآوردی دو طرف: ${formatToman(result.base)} تومان`,
     vatLabel,
-    `جمع کل کمیسیون بنگاه: ${formatToman(result.total)} تومان`,
-    `سهم هر طرف: ${formatToman(result.each)} تومان`,
+    `جمع کل برآوردی بنگاه: ${formatToman(result.total)} تومان`,
+    `سهم برآوردی هر طرف: ${formatToman(result.each)} تومان`,
   ].join("\n");
 }
