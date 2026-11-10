@@ -340,6 +340,67 @@ try {
     await guidedSearchPage.close();
   }
 
+  const neighborhoodFilterCheck = { attempted: true, ok: false, error: null, widths: [390, 768, 1280], selected: [] };
+  const neighborhoodPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    const response = await neighborhoodPage.goto(new URL("/properties", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    if (!response || response.status() >= 400) throw new Error(`properties route returned ${response?.status() ?? 0}`);
+    const trigger = neighborhoodPage.locator(".pf-neighborhood-trigger");
+
+    for (const width of neighborhoodFilterCheck.widths) {
+      await neighborhoodPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      if (width <= 979) await neighborhoodPage.locator(".pf-filter-btn").click();
+      await trigger.waitFor({ state: "visible", timeout: timeoutMs });
+      await trigger.click();
+      const dialog = neighborhoodPage.locator(".pf-neighborhood-dialog");
+      await dialog.waitFor({ state: "visible", timeout: timeoutMs });
+      const bounds = await dialog.boundingBox();
+      if (!bounds || bounds.x < -1 || bounds.x + bounds.width > width + 1) {
+        throw new Error(`neighborhood picker is outside the viewport at ${width}px`);
+      }
+      const overflow = await neighborhoodPage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+      if (overflow) throw new Error(`neighborhood picker overflows horizontally at ${width}px`);
+
+      if (width === 390) {
+        await dialog.getByRole("button", { name: "جلفا", exact: true }).click();
+        await dialog.getByRole("button", { name: "مرداویج", exact: true }).click();
+        await dialog.getByRole("button", { name: "اعمال انتخاب‌ها" }).click();
+        await neighborhoodPage.waitForFunction(() => {
+          const params = new URLSearchParams(window.location.search);
+          return params.getAll("neighborhoods").length === 2 && !params.has("neighborhood");
+        }, null, { timeout: timeoutMs });
+        const state = await neighborhoodPage.evaluate(() => {
+          const params = new URLSearchParams(window.location.search);
+          return {
+            neighborhoods: params.getAll("neighborhoods"),
+            staleMapState: params.has("map_place_hash") || params.has("bbox") || params.has("map_bbox"),
+          };
+        });
+        neighborhoodFilterCheck.selected = state.neighborhoods;
+        if (!state.neighborhoods.includes("جلفا") || !state.neighborhoods.includes("مرداویج") || state.staleMapState) {
+          throw new Error("multi-neighborhood selection was not serialized canonically or retained stale map bounds");
+        }
+      } else {
+        await dialog.getByRole("button", { name: "بستن انتخاب محله" }).click();
+        if (width <= 979) await neighborhoodPage.locator(".pf-close").click();
+      }
+    }
+
+    await neighborhoodPage.locator(".pf-neighborhood-clear").click();
+    await neighborhoodPage.waitForFunction(() => {
+      const params = new URLSearchParams(window.location.search);
+      return !params.has("neighborhood") && !params.has("neighborhoods");
+    }, null, { timeout: timeoutMs });
+    neighborhoodFilterCheck.ok = true;
+  } catch (error) {
+    neighborhoodFilterCheck.error = String(error?.message || error);
+  } finally {
+    await neighborhoodPage.close();
+  }
+
   const apiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   let musicApiCheck;
   try {
@@ -850,6 +911,9 @@ try {
   if (!guidedSearchCheck.ok) {
     viewports["desktop-1280"].pageErrors.push(`guided smart search browser smoke failed: ${guidedSearchCheck.error || "unknown"}`);
   }
+  if (!neighborhoodFilterCheck.ok) {
+    viewports["desktop-1280"].pageErrors.push(`multi-neighborhood filter browser smoke failed: ${neighborhoodFilterCheck.error || "unknown"}`);
+  }
   if (!commissionCheck.ok) {
     viewports["desktop-1280"].pageErrors.push(`commission calculator browser smoke failed: ${commissionCheck.error || "unknown"}`);
   }
@@ -866,7 +930,7 @@ try {
       buildAuthEnabled: buildAuthEnabled(),
     }),
   );
-  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, compareShareCheck, guidedSearchCheck, commissionCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
+  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, compareShareCheck, guidedSearchCheck, neighborhoodFilterCheck, commissionCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
   if (baselineRequested) {
     const { divergesFromBaseline, reasons } = compareAgainstBaseline(verdict);
     verdict.divergesFromBaseline = divergesFromBaseline;

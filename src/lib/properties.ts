@@ -161,6 +161,7 @@ export type PropertyFilters = {
   transactionType?: PropertyTransaction;
   propertyType?: PropertyType;
   neighborhood?: string;
+  neighborhoods?: string[];
   mapBounds?: [number, number, number, number];
   featuredOnly?: boolean;
   search?: string;
@@ -546,7 +547,7 @@ export const listPublishedPropertyCards = createServerFn({ method: "GET" })
             "select " + CARD_COLUMNS,
             "from properties where " + buildPublicPropertyWhereSql(),
             "order by " + buildPublicPropertyOrderBySql(),
-            "limit 48 offset $37",
+            "limit 48 offset $38",
           ].join(" "),
           [...params, data.sort],
         );
@@ -615,7 +616,7 @@ export const listPublishedProperties = createServerFn({ method: "GET" })
         "select " + LIST_COLUMNS,
         "from properties where " + buildPublicPropertyWhereSql(),
         "order by " + buildPublicPropertyOrderBySql(),
-        "limit 48 offset $37",
+        "limit 48 offset $38",
       ].join(" "),
       [...params, data.sort],
     );
@@ -632,7 +633,7 @@ export const countPublishedProperties = createServerFn({ method: "GET" })
       20_000,
       async () => {
         const sql = await getSql();
-        const params = buildPublicPropertyFilterParams(data).slice(0, 36);
+        const params = buildPublicPropertyFilterParams(data).slice(0, 37);
         const rows = await sql.query<{ count: number }>(
           "select count(*)::int as count from properties where " + buildPublicPropertyWhereSql(),
           params,

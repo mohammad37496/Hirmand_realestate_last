@@ -211,7 +211,7 @@ async function searchIds(db: PGlite, filters: Record<string, unknown>, order = "
   const params = buildPublicPropertyFilterParams(filters as Parameters<typeof buildPublicPropertyFilterParams>[0]);
   const result = await db.query<{ id: string }>(
     `select id from properties where ${buildPublicPropertyWhereSql()} order by ${order}`,
-    params.slice(0, 36),
+    params.slice(0, 37),
   );
   return result.rows.map((row) => row.id);
 }
@@ -298,6 +298,83 @@ test("controlled fixture: deposit and monthly rent are independent inclusive fil
   }
 });
 
+test("selected neighborhoods use OR semantics while remaining ANDed with other filters", async () => {
+  const db = await createFixtureDb();
+  try {
+    assert.deepEqual(await searchIds(db, {
+      transactionType: "buy",
+      propertyType: "apartment",
+      neighborhoods: ["شهرک ولی‌عصر", "جلفا"],
+    }), ["sale-a", "sale-b"]);
+
+    assert.deepEqual(await searchIds(db, {
+      transactionType: "buy",
+      propertyType: "apartment",
+      minPrice: 1_500_000_000,
+      neighborhoods: ["شهرک ولی‌عصر", "جلفا"],
+    }), ["sale-a"]);
+
+    // Legacy callers can continue sending the single-neighborhood field.
+    assert.deepEqual(await searchIds(db, { neighborhood: "جلفا" }), ["mortgage-e", "rent-c"]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("multi-neighborhood count, sort and pagination share the OR filter and exclude hidden rows", async () => {
+  const db = await createFixtureDb();
+  try {
+    await db.exec(`
+      update properties set status='draft' where id='sale-b';
+      update properties set transaction_type='buy', price=1000000000 where id='rent-c';
+    `);
+    const filters = {
+      transactionType: "buy",
+      propertyType: "apartment",
+      neighborhoods: ["شهرک ولیعصر", "جلفا"],
+      offset: 0,
+    };
+    const firstParams = buildPublicPropertyFilterParams({ ...filters, offset: 0 });
+    const secondParams = buildPublicPropertyFilterParams({ ...filters, offset: 1 });
+    const where = buildPublicPropertyWhereSql();
+    const count = await db.query<{ count: number }>(
+      `select count(*)::int as count from properties where ${where}`,
+      firstParams.slice(0, 37),
+    );
+    const orderBy = buildPublicPropertyOrderBySql();
+    const firstPage = await db.query<{ id: string }>(
+      `select id from properties where ${where} order by ${orderBy} limit 1 offset $38`,
+      [...firstParams, "price_asc"],
+    );
+    const secondPage = await db.query<{ id: string }>(
+      `select id from properties where ${where} order by ${orderBy} limit 1 offset $38`,
+      [...secondParams, "price_asc"],
+    );
+
+    assert.equal(count.rows[0]?.count, 2);
+    assert.deepEqual(firstPage.rows.map((row) => row.id), ["rent-c"]);
+    assert.deepEqual(secondPage.rows.map((row) => row.id), ["sale-a"]);
+  } finally {
+    await db.close();
+  }
+});
+
+test("multi-neighborhood parameters are authoritative while legacy single-neighborhood callers remain compatible", () => {
+  const params = buildPublicPropertyFilterParams({
+    neighborhood: "legacy stale value",
+    neighborhoods: ["مرداویج", "جلفا", "جلفا"],
+    offset: 48,
+  });
+  assert.equal(params[2], null);
+  assert.deepEqual(params[36], ["مرداویج", "جلفا"]);
+  assert.equal(params[37], 48);
+  assert.match(buildPublicPropertyOrderBySql(), /\$39::text/);
+
+  const legacyParams = buildPublicPropertyFilterParams({ neighborhood: "جلفا" });
+  assert.equal(legacyParams[2], "جلفا");
+  assert.deepEqual(legacyParams[36], []);
+});
+
 test("controlled fixture: map bounds combine with price and transaction filters", async () => {
   const db = await createFixtureDb();
   try {
@@ -337,11 +414,11 @@ test("controlled fixture: result count and pagination use the same WHERE contrac
     const where = buildPublicPropertyWhereSql();
     const count = await db.query<{ count: number }>(
       `select count(*)::int as count from properties where ${where}`,
-      params.slice(0, 36),
+      params.slice(0, 37),
     );
     const page = await db.query<{ id: string }>(
       `select id from properties where ${where} order by price asc nulls last limit 1 offset 1`,
-      params.slice(0, 36),
+      params.slice(0, 37),
     );
     assert.equal(count.rows[0]?.count, 3);
     assert.deepEqual(page.rows.map((row) => row.id), ["sale-b"]);
