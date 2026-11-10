@@ -17,6 +17,7 @@ import { PROPERTY_OTHER_AMENITY_OPTIONS, labelForOption, PROPERTY_CABINET_OPTION
 import { formatToman } from "@/lib/money";
 import { propertyPath } from "@/lib/property-path";
 import { SITE } from "@/lib/site";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 
 type MatchMode = "price" | "amenities" | "both" | "smart";
 
@@ -433,7 +434,7 @@ export function AdminMatchingManager() {
                 </div>
 
                 <div className="admin-matching-request-grid">
-                  <div><small>تلفن</small><a href={"tel:" + selectedLead.phone}><Phone size={14} />{selectedLead.phone}</a></div>
+                  <div><small>تلفن</small>{toIranianE164Phone(selectedLead.phone) ? <a href={`tel:${toIranianE164Phone(selectedLead.phone)}`}><Phone size={14} />{selectedLead.phone}</a> : <span>{selectedLead.phone}</span>}</div>
                   <div><small>معامله</small><strong>{selectedLead.deal || "—"}</strong></div>
                   <div><small>نوع ملک</small><strong>{selectedLead.propertyTypeLabel || selectedLead.propertyType || "—"}</strong></div>
                   <div><small>محله</small><strong>{selectedLead.neighborhood || "—"}</strong></div>
@@ -593,7 +594,7 @@ export function AdminMatchingManager() {
                                 <span>توضیحات</span>
                                 <p>{match.description || "توضیحی ثبت نشده است."}</p>
                               </div>
-                              <div className="admin-matching-contact"><Phone size={15} /> مشاور فایل: <strong>{match.contactName}</strong> · <a href={"tel:" + match.contactPhone}>{match.contactPhone}</a></div>
+                              <div className="admin-matching-contact"><Phone size={15} /> مشاور فایل: <strong>{match.contactName}</strong> · {toIranianE164Phone(match.contactPhone) ? <a href={`tel:${toIranianE164Phone(match.contactPhone)}`}>{match.contactPhone}</a> : <span>{match.contactPhone}</span>}</div>
                             </div>
                           ) : null}
                         </article>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Download, ExternalLink, Eye, Film, History, ImageIcon, ListChecks, MapPin, Phone, Pencil, RefreshCw, Save, Search, Star, Timer, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { TEAM } from "@/lib/site";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { formatToman } from "@/lib/money";
 import { isVideoUrl, mediaPreviewSource } from "@/lib/media";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
@@ -509,6 +510,7 @@ export function AdminCustomerPropertySubmissions() {
           const data = submission.propertyData;
           const media = mediaItems(data);
           const firstImage = media.find((src) => !isVideoUrl(src)) || "";
+          const ownerPhoneTel = toIranianE164Phone(submission.ownerPhone);
           const selectedOpen = selected?.id === submission.id;
           return (
             <article key={submission.id} className={"admin-customer-submission-card" + (selectedOpen ? " is-open" : "") + (selectedIds.has(submission.id) ? " is-selected" : "")}>
@@ -526,7 +528,7 @@ export function AdminCustomerPropertySubmissions() {
                     <small>{faDate(submission.createdAt)}</small>
                   </div>
                   <p>{String(data.neighborhood ?? "—")} · {String(data.areaM2 ?? "—")} متر · {priceText(data)}</p>
-                  <div className="admin-customer-submission-owner"><strong>{submission.ownerName}</strong><a href={"tel:"+submission.ownerPhone}><Phone size={14}/>{submission.ownerPhone}</a><span dir="ltr">{submission.trackingToken}</span>{submission.possibleDuplicate?<span className="admin-customer-duplicate-badge">احتمال تکراری</span>:null}{submission.status==="pending"&&submission.ageHours!=null?<span className={"admin-customer-age-badge"+(submission.ageHours>=24?" is-overdue":"")}><Timer size={12}/>{ageLabel(submission.ageHours)}</span>:null}</div>
+                  <div className="admin-customer-submission-owner"><strong>{submission.ownerName}</strong>{ownerPhoneTel?<a href={`tel:${ownerPhoneTel}`}><Phone size={14}/>{submission.ownerPhone}</a>:<span dir="ltr">{submission.ownerPhone}</span>}<span dir="ltr">{submission.trackingToken}</span>{submission.possibleDuplicate?<span className="admin-customer-duplicate-badge">احتمال تکراری</span>:null}{submission.status==="pending"&&submission.ageHours!=null?<span className={"admin-customer-age-badge"+(submission.ageHours>=24?" is-overdue":"")}><Timer size={12}/>{ageLabel(submission.ageHours)}</span>:null}</div>
                   {submission.status === "pending" ? <div className="admin-customer-queue-controls">
                      <label><span>مسئول</span><select value={submission.assignedConsultantPhone ?? ""} onChange={(e)=>void assignConsultant(submission,e.target.value)}>
                        <option value="">بدون مسئول</option>

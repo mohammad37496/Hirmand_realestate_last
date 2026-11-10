@@ -25,6 +25,7 @@ import {
 import { adminErrorMessage, fa, useConfirmDialog } from "@/components/hirmand/admin-ui-utils";
 import { PROPERTY_OTHER_AMENITY_OPTIONS } from "@/lib/property-options";
 import { daysUntilDateOnly, formatPersianDate } from "@/lib/persian-date";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { AdminLeadDedupe } from "@/components/hirmand/admin-lead-dedupe";
 import { AdminLeadAssignmentBalancer } from "@/components/hirmand/admin-lead-assignment-balancer";
 import { AdminLeadMessageTemplates } from "@/components/hirmand/admin-lead-message-templates";
@@ -555,9 +556,11 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
                       <span className="admin-lead-budget-badge">{VISIT_STATUS_LABEL[lead.visitStatus]}</span>
                     ) : null}
                   </div>
-                  <a className="admin-lead-phone" href={"tel:" + lead.phone}>
-                    <Phone size={15} /> {lead.phone}
-                  </a>
+                  {toIranianE164Phone(lead.phone) ? (
+                    <a className="admin-lead-phone" href={`tel:${toIranianE164Phone(lead.phone)}`}>
+                      <Phone size={15} /> {lead.phone}
+                    </a>
+                  ) : <span className="admin-lead-phone">{lead.phone}</span>}
                   <p>
                     {lead.peopleCount ? "تعداد نفرات: " + lead.peopleCount.toLocaleString("fa-IR") + " · " : ""}
                     {lead.job ? "شغل: " + lead.job + " · " : ""}

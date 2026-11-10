@@ -42,3 +42,25 @@ test("fallback WhatsApp and JSON-LD telephone values share the validated phone n
   assert.match(seo, /sellerTelephone/);
   assert.doesNotMatch(seo, /property\.contactPhone\.replace\(\/\^0\//);
 });
+
+test("admin CRM and submission phone actions validate Iranian numbers before building tel or WhatsApp links", () => {
+  const adminFiles = [
+    "admin-agenda.tsx",
+    "admin-customer-property-submissions.tsx",
+    "admin-dashboard.tsx",
+    "admin-lead-manager.tsx",
+    "admin-lead-message-templates.tsx",
+    "admin-matching-manager.tsx",
+    "admin-owner-manager.tsx",
+    "admin-sales-control-center.tsx",
+  ].map((name) => [name, read(`../src/components/hirmand/${name}`)]);
+
+  for (const [name, source] of adminFiles) {
+    assert.match(source, /toIranianE164Phone/, `${name} must use the validated E.164 normalizer`);
+    assert.doesNotMatch(source, /href=\{\s*["']tel:/, `${name} must not concatenate raw phone values into tel links`);
+  }
+
+  const messageTemplates = adminFiles.find(([name]) => name === "admin-lead-message-templates.tsx")[1];
+  assert.match(messageTemplates, /toIranianWhatsAppNumber\(lead\.phone\)/);
+  assert.doesNotMatch(messageTemplates, /normalizePhone\(lead\.phone\)/);
+});
