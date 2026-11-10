@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, CircleDollarSign, Clock3, Plus, Trash2 } from "lucide-react";
 import type { Property } from "@/lib/properties";
 import { formatToman } from "@/lib/money";
-import { formatPersianDate } from "@/lib/persian-date";
+import { formatPersianDate, getTehranDateOnly } from "@/lib/persian-date";
 import { PersianDatePicker } from "./persian-date-picker";
 import "@/property-negotiation-log.css";
 
@@ -43,7 +43,7 @@ export function PropertyNegotiationLog({ property }: { property: Property }) {
   const [savedEntriesLoaded, setSavedEntriesLoaded] = useState(false);
   const [offer, setOffer] = useState("");
   const [status, setStatus] = useState<(typeof STATUS)[number]>("پیشنهاد اولیه");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(getTehranDateOnly());
   const [note, setNote] = useState("");
 
   useEffect(() => {
