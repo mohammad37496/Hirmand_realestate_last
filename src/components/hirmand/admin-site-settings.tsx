@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Globe2, Megaphone, Phone, Save, Search, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { DEFAULT_COMMISSION_RATES, commissionRateStatus, type CommissionRateConfig } from "@/lib/commission";
+import { DEFAULT_COMMISSION_RATES, commissionRateStatus, updateCommissionRateConfig, type CommissionRateConfig } from "@/lib/commission";
 import {
   getAdminSiteSettings,
   updateAdminSiteSettings,
@@ -85,11 +85,7 @@ export function AdminSiteSettings() {
   function setCommissionRate<K extends keyof CommissionRateConfig>(key: K, value: CommissionRateConfig[K]) {
     setForm((current) => ({
       ...current,
-      commissionRates: {
-        ...current.commissionRates,
-        [key]: value,
-        ...(key === "verified" ? {} : { verified: false }),
-      },
+      commissionRates: updateCommissionRateConfig(current.commissionRates, key, value),
     }));
   }
 
@@ -206,7 +202,7 @@ export function AdminSiteSettings() {
           </div>
           <label className="admin-settings-toggle">
             <input type="checkbox" checked={form.commissionRates.verified} onChange={(event) => setCommissionRate("verified", event.target.checked)} />
-            <span><strong>تأیید منبع و اعتبار نرخ‌ها</strong><small>فقط پس از بررسی سند و تاریخ‌های اعتبار فعال شود.</small></span>
+            <span><strong>تأیید مدیریتی منبع و بازه اعتبار نرخ‌ها</strong><small>این وضعیت فقط تأیید داخلی مدیریت است و به معنی تأیید رسمی یا قانونی تعرفه نیست.</small></span>
           </label>
           <div className="admin-settings-note">
             وضعیت فعلی: {commissionRateStatus(form.commissionRates) === "verified" ? "تأییدشده و در بازه اعتبار" : commissionRateStatus(form.commissionRates) === "upcoming" ? "هنوز وارد بازه اعتبار نشده" : commissionRateStatus(form.commissionRates) === "expired" ? "اعتبار نرخ‌نامه پایان یافته" : "تأییدنشده؛ صرفاً برآورد"}

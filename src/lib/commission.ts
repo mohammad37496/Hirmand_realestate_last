@@ -28,6 +28,19 @@ export const DEFAULT_COMMISSION_RATES: CommissionRateConfig = {
   verified: false,
 };
 
+/** Any edit to a rate, city, source or validity window revokes prior approval. */
+export function updateCommissionRateConfig<K extends keyof CommissionRateConfig>(
+  current: CommissionRateConfig,
+  key: K,
+  value: CommissionRateConfig[K],
+): CommissionRateConfig {
+  return {
+    ...current,
+    [key]: value,
+    ...(key === "verified" ? {} : { verified: false }),
+  };
+}
+
 function safeDate(value: unknown) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
   const parsed = new Date(`${value}T00:00:00.000Z`);
@@ -168,7 +181,7 @@ export function resultSummary(result: CommissionResult): string {
   const vatLabel = `مالیات ارزش افزوده (${percentLabel(result.rates.vatPercent)}): ${formatToman(result.vat)} تومان`;
   const status = commissionRateStatus(result.rates);
   const rateNote = status === "verified"
-    ? `وضعیت نرخ: تأییدشده توسط مدیریت | منبع: ${result.rates.sourceLabel} | ${result.rates.sourceUrl} | اعتبار: ${result.rates.effectiveFrom} تا ${result.rates.effectiveTo || "بدون تاریخ پایان ثبت‌شده"}`
+    ? `وضعیت نرخ: تأیید داخلی مدیریت (نه تأیید رسمی/قانونی) | منبع: ${result.rates.sourceLabel} | ${result.rates.sourceUrl} | اعتبار: ${result.rates.effectiveFrom} تا ${result.rates.effectiveTo || "بدون تاریخ پایان ثبت‌شده"}`
     : `وضعیت نرخ: تأییدنشده و صرفاً برآورد برای ${result.rates.city}`;
   if (result.kind === "buy") {
     return [

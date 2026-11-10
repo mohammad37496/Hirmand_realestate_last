@@ -189,7 +189,7 @@ export function PropertyDecisionTools({ property, commissionRates }: { property:
                 <div className="is-highlight"><span>بودجه شروع معامله</span><strong>{money(totalPurchaseBudget)}</strong></div>
               </div>
               <small className="property-decision-note">
-                کمیسیون با نرخ ثبت‌شده برای {commissionRates.city} محاسبه شده است؛ {commissionStatus === "verified" ? <>منبع و بازه اعتبار توسط مدیریت تأیید شده: <a href={commissionRates.sourceUrl} target="_blank" rel="noreferrer">{commissionRates.sourceLabel}</a> ({commissionRates.effectiveFrom} تا {commissionRates.effectiveTo || "بدون تاریخ پایان ثبت‌شده"}).</> : "این نرخ تأیید رسمی نشده و صرفاً برآورد است"} «سایر هزینه‌ها» فقط سناریوی قابل‌تنظیم شماست.
+                کمیسیون با نرخ ثبت‌شده برای {commissionRates.city} محاسبه شده است؛ {commissionStatus === "verified" ? <>منبع و بازه اعتبار صرفاً در سطح داخلی مدیریت تأیید شده است (نه تأیید رسمی/قانونی): <a href={commissionRates.sourceUrl} target="_blank" rel="noreferrer">{commissionRates.sourceLabel}</a> ({commissionRates.effectiveFrom} تا {commissionRates.effectiveTo || "بدون تاریخ پایان ثبت‌شده"}).</> : "این نرخ تأیید رسمی نشده و صرفاً برآورد است"} «سایر هزینه‌ها» فقط سناریوی قابل‌تنظیم شماست.
               </small>
             </>
           ) : (

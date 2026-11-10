@@ -21,7 +21,7 @@ export function CommissionCalculator({ rates }: { rates: CommissionRateConfig })
   const rateStatus = commissionRateStatus(rates);
   const percent = (value: number) => new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 }).format(value) + "٪";
   const rateStatusText = rateStatus === "verified"
-    ? `مدیریت، منبع و بازه اعتبار نرخ ثبت‌شده برای ${rates.city} را تأیید کرده است.`
+    ? `منبع و بازه اعتبار نرخ ثبت‌شده برای ${rates.city} توسط مدیریت تأیید داخلی شده است؛ این تأیید رسمی یا قانونی نیست.`
     : rateStatus === "upcoming"
       ? `این نرخ از ${rates.effectiveFrom} معتبر می‌شود؛ محاسبه فعلی صرفاً برآورد است.`
       : rateStatus === "expired"

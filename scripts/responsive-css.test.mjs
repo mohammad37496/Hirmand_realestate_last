@@ -449,7 +449,7 @@ testRunner.test("commission estimate uses configurable unverified rates and expl
   assert.match(commissionCalculator, /مالیات ارزش افزوده \(\{percent\(result\.rates\.vatPercent\)\}\)/);
   assert.match(commissionCalculator, /نرخ‌های پایه[\s\S]*?صرفاً برآورد/);
   assert.match(commissionSettings, /commissionRatesSchema/);
-  assert.match(adminSiteSettings, /تأیید منبع و اعتبار نرخ‌ها/);
+  assert.match(adminSiteSettings, /تأیید مدیریتی منبع و بازه اعتبار نرخ‌ها/);
   assert.match(adminSiteSettings, /با تغییر هر نرخ یا منبع، تأیید قبلی به‌صورت خودکار لغو می‌شود/);
 });
 
