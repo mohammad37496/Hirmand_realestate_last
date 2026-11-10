@@ -1839,6 +1839,14 @@
   .pf-page .pf-grid.is-grid-view > .pcard:focus-within { transform: none; }
 }
 
+/* Keep mobile property cards focused on the photo and listing details.
+   The eight-button action dock consumes too much of the narrow image area. */
+@media (max-width: 720px) {
+  .pf-page .pf-grid.is-list-view .pcard-mobile-list > .pcard-media > .pcard-actions {
+    display: none !important;
+  }
+}
+
 /* Related property cards share one grid row, so differences in optional
    details (price lines and feature chips) cannot change the card heights. */
 .property-detail-page .property-related .property-grid {
