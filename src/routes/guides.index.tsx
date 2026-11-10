@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowUpLeft, BookOpen, CheckCircle2, Search, Share2, Sparkle
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
+import { getGuideAccordionContent } from "@/lib/guide-accordion.mjs";
 import { SITE } from "@/lib/site";
 import { getPublicGuides, type GuideContent } from "@/lib/site-content";
 import "@/guides.css";
@@ -87,6 +88,7 @@ function GuidesPage() {
             const open = openId === guide.id;
             const guideIndex = guides.indexOf(guide) + 1;
             const panelId = `guide-content-${guide.id}`;
+            const content = getGuideAccordionContent(guide);
             return <article key={guide.id} className={`guide-card${open ? " is-open" : ""}`}>
               <button type="button" className="guide-card-trigger" onClick={() => setOpenId(open ? "" : guide.id)} aria-expanded={open} aria-controls={panelId}>
                 <span className="guide-card-number">{String(guideIndex).padStart(2, "0")}</span>
@@ -98,17 +100,17 @@ function GuidesPage() {
                 <div className="guide-body-heading">
                   <span><CheckCircle2 size={17} aria-hidden="true" /> محتوای راهنما</span>
                   <small>
-                    {guide.sections?.length
-                      ? `${guide.sections.length.toLocaleString("fa-IR")} بخش`
-                      : `${guide.points.length.toLocaleString("fa-IR")} نکته`}
-                    {guide.sections?.length && guide.points.length
-                      ? ` · ${guide.points.length.toLocaleString("fa-IR")} نکته`
+                    {content.sectionCount
+                      ? `${content.sectionCount.toLocaleString("fa-IR")} بخش`
+                      : `${content.pointCount.toLocaleString("fa-IR")} نکته`}
+                    {content.sectionCount && content.pointCount
+                      ? ` · ${content.pointCount.toLocaleString("fa-IR")} نکته`
                       : ""}
                   </small>
                 </div>
-                {guide.sections?.length ? (
+                {content.sections.length ? (
                   <div className="guide-card-sections">
-                    {guide.sections.map((section, index) => (
+                    {content.sections.map((section, index) => (
                       <section className="guide-card-section" key={`${guide.id}-section-${index}`}>
                         <h3>{section.heading}</h3>
                         {section.paragraphs.map((paragraph, paragraphIndex) => (
@@ -118,9 +120,9 @@ function GuidesPage() {
                     ))}
                   </div>
                 ) : null}
-                {guide.points.length ? (
+                {content.points.length ? (
                   <div className="guide-point-list">
-                    {guide.points.map((point, index) => (
+                    {content.points.map((point, index) => (
                       <div key={`${guide.id}-point-${index}`} className="guide-point">
                         <span className="guide-point-index">{(index + 1).toLocaleString("fa-IR")}</span>
                         <p>{point}</p>

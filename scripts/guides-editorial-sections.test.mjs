@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { getGuideAccordionContent } from "../src/lib/guide-accordion.mjs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const content = read("../src/lib/site-content.ts");
@@ -33,13 +34,30 @@ test("public guide search indexes section headings and paragraph text", () => {
 });
 
 test("guide index accordion renders long-form sections while preserving legacy points", () => {
-  assert.match(library, /guide\.sections\?\.length/);
+  assert.match(library, /getGuideAccordionContent\(guide\)/);
+  assert.match(library, /content\.sectionCount/);
+  assert.match(library, /content\.pointCount/);
   assert.match(library, /guide-card-sections/);
   assert.match(library, /section\.heading/);
   assert.match(library, /section\.paragraphs\.map/);
-  assert.match(library, /guide\.points\.map/);
+  assert.match(library, /content\.points\.map/);
   assert.match(styles, /\.guide-card-section h3/);
   assert.match(styles, /\.guide-card-section p/);
+});
+
+test("guide accordion content keeps sections-only, points-only and mixed guides", () => {
+  const section = { heading: "راهنمای نمونه", paragraphs: ["پاراگراف اول", "پاراگراف دوم"] };
+  const point = "نکته قدیمی";
+
+  assert.deepEqual(getGuideAccordionContent({ sections: [section], points: [] }), {
+    sections: [section], points: [], sectionCount: 1, pointCount: 0,
+  });
+  assert.deepEqual(getGuideAccordionContent({ sections: [], points: [point] }), {
+    sections: [], points: [point], sectionCount: 0, pointCount: 1,
+  });
+  assert.deepEqual(getGuideAccordionContent({ sections: [section], points: [point] }), {
+    sections: [section], points: [point], sectionCount: 1, pointCount: 1,
+  });
 });
 
 test("article page renders structured sections and preserves legacy points plus JSON-LD", () => {
