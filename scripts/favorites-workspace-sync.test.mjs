@@ -35,6 +35,7 @@ test("initial favorites lookup failures preserve saved slugs and show an accessi
   assert.match(initialLoadCatch, /setFavoritesLoadError\(/);
   assert.doesNotMatch(initialLoadCatch, /setProperties\(\[\]\)|persistSlugs\(/);
   assert.match(favoritesSource, /className="property-empty favorites-load-error" role="alert"/);
+  assert.match(favoritesSource, /setFavoritesLoadError\("دریافت فهرست اشتراکی ناموفق بود/);
   assert.match(favoritesSource, /onClick=\{\(\) => setFavoritesRetry\(\(current\) => current \+ 1\)\}/);
   assert.match(favoritesSource, /\) : favoritesLoadError \? null : \(/);
 });

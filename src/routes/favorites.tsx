@@ -442,7 +442,10 @@ function FavoritesPage() {
           setSharedTitle(payload?.title ?? "سبد منتخب هیرمند");
           setSharedExpiresAt(payload?.expiresAt ?? "");
         } catch (error) {
-          if (!cancelled) toast.error(error instanceof Error ? error.message : "لینک اشتراکی در دسترس نیست.");
+          if (!cancelled) {
+            setFavoritesLoadError("دریافت فهرست اشتراکی ناموفق بود. برای دریافت دوباره تلاش کنید.");
+            toast.error(error instanceof Error ? error.message : "لینک اشتراکی در دسترس نیست.");
+          }
           shared = [];
         } finally {
           if (!cancelled) setSharedTokenLoading(false);
