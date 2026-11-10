@@ -8,6 +8,11 @@ const component = await readFile(
 );
 
 test("viewing request shows an error and blocks submission until availability is verified", () => {
+  const timeLabelIndex = component.indexOf('<label htmlFor="property-viewing-time">');
+  const timeFieldStart = component.lastIndexOf('<div className="field">', timeLabelIndex);
+  const timeFieldEnd = component.indexOf('<label className="field property-viewing-note">', timeLabelIndex);
+  assert.ok(timeFieldStart >= 0 && timeFieldEnd > timeFieldStart);
+  const timeField = component.slice(timeFieldStart, timeFieldEnd);
   assert.match(component, /const \[verifiedSlotsKey, setVerifiedSlotsKey\] = useState\(""\)/);
   assert.match(component, /const slotsVerified = verifiedSlotsKey === property\.id \+ ":" \+ date/);
   assert.match(component, /const \[slotsError, setSlotsError\] = useState\(""\)/);
@@ -16,5 +21,8 @@ test("viewing request shows an error and blocks submission until availability is
   assert.match(component, /role=\{slotsError \? "alert" : undefined\}/);
   assert.match(component, /setSlotsRetry\(\(value\) => value \+ 1\)/);
   assert.match(component, /if \(!slotsVerified \|\| loadingSlots\)/);
+  assert.match(timeField, /<label htmlFor="property-viewing-time">/);
+  assert.match(timeField, /property-viewing-retry/);
+  assert.doesNotMatch(timeField, /<label className="field">/);
   assert.doesNotMatch(component, /catch\(\(\) => \{\s*if \(!cancelled\) setOccupiedTimes\(\[\]\);\s*\}\)/);
 });

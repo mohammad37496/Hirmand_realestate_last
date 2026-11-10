@@ -368,9 +368,9 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
                       hint="تاریخ را با تقویم شمسی انتخاب کنید."
                     />
                   </label>
-                  <label className="field">
-                    <span>ساعت پیشنهادی</span>
-                    <select value={time} onChange={(e) => setTime(e.target.value)} dir="ltr" disabled={loadingSlots || !slotsVerified}>
+                  <div className="field">
+                    <label htmlFor="property-viewing-time">ساعت پیشنهادی</label>
+                    <select id="property-viewing-time" value={time} onChange={(e) => setTime(e.target.value)} dir="ltr" disabled={loadingSlots || !slotsVerified}>
                       {!time ? <option value="" disabled>زمان خالی موجود نیست</option> : null}
                       {TIMES.map((item) => <option key={item} value={item} disabled={occupiedTimes.includes(item)}>{item}{occupiedTimes.includes(item) ? " · پر" : ""}</option>)}
                     </select>
@@ -384,7 +384,7 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
                         </button>
                       ) : null}
                     </div>
-                  </label>
+                  </div>
                   <label className="field property-viewing-note">
                     <span>توضیح کوتاه (اختیاری)</span>
                     <textarea
