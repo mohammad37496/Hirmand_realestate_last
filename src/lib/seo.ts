@@ -8,6 +8,7 @@ import {
   getPropertyFallbackLegacyImage,
 } from "@/lib/property-fallback-images";
 import { formatToman } from "@/lib/money";
+export { serializeJsonLd } from "./json-ld.ts";
 
 const TX_LABEL: Record<string, string> = {
   buy: "خرید",
