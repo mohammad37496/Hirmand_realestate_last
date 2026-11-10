@@ -64,6 +64,7 @@ import {
   X,
 } from "lucide-react";
 import { breadcrumbJsonLd, propertyJsonLd, serializeJsonLd, TX_LABEL, TYPE_LABEL } from "@/lib/seo";
+import { normalizeIranianPhoneForMatch, normalizePhoneDigits } from "@/lib/phone-normalization";
 import type { Property } from "@/lib/properties";
 import type { CommissionRateConfig } from "@/lib/commission";
 import { PropertyConvertSlider } from "@/components/hirmand/property-convert-slider";
@@ -427,13 +428,6 @@ function osmEmbedUrl(latitude: number, longitude: number) {
     latitude + delta,
   ].join(",");
   return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${latitude}%2C${longitude}`;
-}
-
-function normalizePhoneDigits(value: string) {
-  return value
-    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
-    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-    .replace(/\D/g, "");
 }
 
 function whatsappLink(phone: string, title: string) {
@@ -1156,7 +1150,10 @@ function Gallery({
 
 function ConsultantCard({ property }: { property: Property }) {
   const consultants = useConsultants();
-  const person = consultants.find((item) => item.phone === property.contactPhone || item.name === property.contactName);
+  const propertyPhone = normalizeIranianPhoneForMatch(property.contactPhone);
+  const person = consultants.find((item) =>
+    (propertyPhone && normalizeIranianPhoneForMatch(item.phone) === propertyPhone) || item.name === property.contactName,
+  );
   const displayName = property.contactName || person?.name || "مشاور هیرمند";
   const role = person?.role ?? "مشاور املاک";
   const ConsultantIcon = person?.icon === "handshake" ? Handshake : Briefcase;
