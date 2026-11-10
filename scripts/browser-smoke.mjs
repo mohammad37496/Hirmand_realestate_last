@@ -261,6 +261,12 @@ try {
     };
 
     await expectStep("نوع ملک");
+    const propertyTypes = guidedSearchPage.locator(".guided-search-choice-grid button");
+    if (!(await propertyTypes.count())) throw new Error("guided search has no selectable property types");
+    await propertyTypes.first().click();
+    if ((await propertyTypes.first().getAttribute("aria-pressed")) !== "true") {
+      throw new Error("guided search did not retain the selected property type");
+    }
     await next.click();
     await expectStep("بودجه");
     await guidedSearchPage.locator('input[aria-label="حداقل بودجه"]').fill("۱۰ میلیارد");
