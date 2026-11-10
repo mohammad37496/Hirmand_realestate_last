@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { BellRing, CalendarClock, Check, Download, RotateCcw } from "lucide-react";
 import type { Property } from "@/lib/properties";
 import { propertyPath } from "@/lib/property-path";
-import { formatPersianDate } from "@/lib/persian-date";
+import { addDateOnlyDays, formatPersianDate, getTehranDateOnly } from "@/lib/persian-date";
 import { PersianDatePicker } from "./persian-date-picker";
 import "@/property-review-tools.css";
 
 type ReminderData = { date: string; time: string; action: string; note: string; done: boolean };
 const KEY = "hirmand-property-reminder-v1:";
 const DEFAULT: ReminderData = { date: "", time: "17:00", action: "تماس با مشاور", note: "", done: false };
-function futureDefault() { const now = new Date(); now.setDate(now.getDate() + 1); return now.toISOString().slice(0, 10); }
+function futureDefault() { return addDateOnlyDays(getTehranDateOnly(), 1); }
 function escapeIcs(value: string) { return value.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/;/g, "\\;").replace(/,/g, "\\,"); }
 export function PropertyFollowUpReminder({ property }: { property: Property }) {
   const [data, setData] = useState<ReminderData>({ ...DEFAULT, date: futureDefault() });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ClipboardCheck, FileCheck2, FlagTriangleRight, ListChecks, Plus, Printer, Trash2, UserRound } from "lucide-react";
 import type { Property } from "@/lib/properties";
+import { getTehranDateOnly } from "@/lib/persian-date";
 import "@/property-deal-room.css";
 import { PersianDatePicker } from "./persian-date-picker";
 
@@ -39,7 +40,7 @@ function read(idv:string):State{if(typeof window==="undefined")return defaults()
 function legacy(idv:string){try{const p=JSON.parse(localStorage.getItem(LEGACY+idv)||"null");return Array.isArray(p)?{done:p.filter(Boolean).length,total:p.length}:{done:0,total:0};}catch{return{done:0,total:0};}}
 function pay(idv:string){try{const p=JSON.parse(localStorage.getItem(PAY+idv)||"null");return{a:typeof p?.firstPaymentDate==="string"?p.firstPaymentDate:"",b:typeof p?.handoverDate==="string"?p.handoverDate:""};}catch{return{a:"",b:""};}}
 function neg(idv:string){try{const p=JSON.parse(localStorage.getItem(NEG+idv)||"null");return Array.isArray(p)?p.length:0;}catch{return 0;}}
-function today(){return new Date().toISOString().slice(0,10);}
+function today(){return getTehranDateOnly();}
 
 export function PropertyDealRoom({property}:{property:Property}){
  const [s,setS]=useState<State>(()=>read(property.id)),[old,setOld]=useState(()=>legacy(property.id)),[payment,setPayment]=useState(()=>pay(property.id)),[negCount,setNegCount]=useState(()=>neg(property.id));
