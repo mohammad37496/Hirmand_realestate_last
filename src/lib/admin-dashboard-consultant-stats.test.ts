@@ -55,6 +55,32 @@ test("dashboard consultant aggregates use stable property IDs and return real va
   }
 });
 
+test("a successful empty consultant dataset remains a valid zero/empty result", async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create table consultants (id text primary key, name text not null, phone text not null, is_active boolean not null);
+      create table properties (id text primary key, consultant_id text, status text not null, slug text not null);
+      create table leads (id text primary key, consultant text, status text not null, created_at timestamptz not null);
+      create table site_events (id text primary key, property_slug text not null, event_name text not null, day date not null);
+    `);
+    const sql = {
+      query: async <T = Record<string, unknown>>(query: string, params: unknown[] = []) =>
+        (await db.query<T>(query, params)).rows,
+    } as unknown as Sql;
+
+    assert.deepEqual(await loadAdminDashboardConsultantStats(sql), [{
+      total: 0,
+      active: 0,
+      consultants_with_files: 0,
+      consultants_with_leads: 0,
+    }]);
+    assert.deepEqual(await loadAdminDashboardConsultantPerformance(sql), []);
+  } finally {
+    await db.close();
+  }
+});
+
 test("dashboard consultant aggregate failures propagate instead of becoming zero or empty results", async () => {
   const sql = {
     query: <T = Record<string, unknown>>() =>
