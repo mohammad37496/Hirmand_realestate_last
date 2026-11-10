@@ -503,6 +503,69 @@ body {
   line-height: 1.9;
 }
 
+.rent-renewal {
+  margin-top: 28px;
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+}
+
+.rent-renewal-heading h2 {
+  margin: 5px 0 7px;
+  color: var(--navy-900);
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+}
+
+.rent-renewal-heading p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: .85rem;
+  line-height: 1.9;
+}
+
+.rent-renewal-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.rent-renewal-presets .preset-chip {
+  min-height: 42px;
+  padding: 8px 12px;
+}
+
+.rent-renewal-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rent-renewal-results article {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--card);
+}
+
+.rent-renewal-results small,
+.rent-renewal-results span {
+  color: var(--muted);
+  font-size: .8rem;
+}
+
+.rent-renewal-results strong {
+  color: var(--navy-900);
+  font-size: clamp(1rem, 2.2vw, 1.3rem);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .rent-renewal-results { grid-template-columns: 1fr; }
+}
+
 .preset-grid {
   gap: 10px;
 }
