@@ -42,4 +42,9 @@ test("public calculator and property decision tools use the same configured rate
   assert.match(commissionRoute, /commissionRates: settings\.commissionRates/);
   assert.match(propertyRoute, /commissionRates: settings\.commissionRates/);
   assert.match(homeRoute, /commissionRates=\{settings\.commissionRates\}/);
+  assert.match(calculator, /COMMISSION_LEGAL_BASIS_NOTICE/);
+  assert.match(calculator, /برآورد کمیسیون/);
+  assert.match(admin, /جایگزین ضریب ارزش معاملاتی و سقف مصوب شهرستان/);
+  assert.match(propertyTools, /COMMISSION_LEGAL_BASIS_NOTICE/);
+  assert.match(propertyTools, /سهم برآوردی کمیسیون خریدار/);
 });

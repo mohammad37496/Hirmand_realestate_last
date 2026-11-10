@@ -186,8 +186,8 @@ export function AdminSiteSettings() {
         <section className="admin-panel admin-settings-commission">
           <div className="admin-panel-head"><div><span className="kicker">محاسبات مالی</span><h2>نرخ‌های قابل تنظیم کمیسیون</h2></div><ShieldCheck size={18} /></div>
           <p>
-            نرخ‌های پایه تا زمان ثبت منبع معتبر و بازه اعتبار، فقط برای برآورد هستند و به‌عنوان تعرفه رسمی معرفی نمی‌شوند.
-            با تغییر هر نرخ یا منبع، تأیید قبلی به‌صورت خودکار لغو می‌شود.
+            نرخ‌های درصدی این فرم فقط مدل برآورد نمونه‌اند و جایگزین ضریب ارزش معاملاتی و سقف مصوب شهرستان در آیین‌نامه اجرایی ۱۴۰۴ نیستند.
+            ثبت منبع و بازه اعتبار، تأیید داخلی مدیریت است نه تأیید قانونی. با تغییر هر نرخ یا منبع، تأیید قبلی به‌صورت خودکار لغو می‌شود.
           </p>
           <div className="admin-settings-fields">
             <Field label="شهر / محدوده نرخ‌نامه" value={form.commissionRates.city} onChange={(v) => setCommissionRate("city", v)} />
