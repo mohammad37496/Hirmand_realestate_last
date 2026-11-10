@@ -12,6 +12,7 @@ import { requireAdminPermission } from "@/lib/admin-role.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { decodeSlugCandidates, legacyIdFragments } from "@/lib/property-slug";
 import { normalizeIranianPhoneForMatch, normalizedIranianPhoneSql } from "@/lib/phone-normalization";
+import { propertyContactChangedSql, propertyVerificationChangedSql } from "@/lib/property-verification-sql";
 import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type BudgetMatchDetails } from "@/lib/budget-matching";
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { deleteStoredMedia } from "@/lib/media-store.server";
@@ -1420,11 +1421,14 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
       [data.ids],
     );
 
+    const contactChanged = propertyContactChangedSql("properties", "$2::text", "$3::text");
     const rows = await sql.query<Record<string, unknown>>(
       `update properties
        set consultant_id = $1,
            contact_name = $2,
            contact_phone = $3,
+           last_verified_at = case when ${contactChanged} then null else properties.last_verified_at end,
+           last_verified_by = case when ${contactChanged} then null else properties.last_verified_by end,
            updated_at = current_timestamp
        where id = any($4::text[])
          and deleted_at is null
@@ -1831,6 +1835,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         throw new Error("مشاور انتخاب‌شده با اطلاعات تماس فایل هم‌خوانی ندارد؛ مشاور را دوباره انتخاب کنید.");
       }
     }
+    const verificationChanged = propertyVerificationChangedSql("properties", "excluded");
 
     await sql.query(
       `insert into properties (
@@ -1984,6 +1989,8 @@ export const saveProperty = createServerFn({ method: "POST" })
         images = excluded.images,
         contact_name = excluded.contact_name,
         contact_phone = excluded.contact_phone,
+        last_verified_at = case when ${verificationChanged} then null else properties.last_verified_at end,
+        last_verified_by = case when ${verificationChanged} then null else properties.last_verified_by end,
         published_at = case
           when excluded.status = 'published' and properties.published_at is null then excluded.published_at
           when excluded.status <> 'published' then null

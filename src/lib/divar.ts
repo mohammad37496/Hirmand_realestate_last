@@ -15,6 +15,7 @@ import { getDivarAgencyReason } from "./divar-agency-filter";
 export { getDivarAgencyReason } from "./divar-agency-filter";
 import { findDivarCoordinates } from "./divar-coordinate-utils";
 import { DIVAR_MAX_PUBLISHED_IMAGES } from "./divar-status";
+import { divarPropertyFactsChangedSql } from "./property-verification-sql";
 
 export const DIVAR_API = "https://api.divar.ir/v8";
 const DIVAR_WEB = "https://divar.ir";
@@ -1499,6 +1500,8 @@ export const importDivarFile = createServerFn({ method: "POST" })
                floor = $5::smallint,
                floor_label = $6::text,
                orientation = $7::text,
+               last_verified_at = case when ${divarPropertyFactsChangedSql("properties")} then null else properties.last_verified_at end,
+               last_verified_by = case when ${divarPropertyFactsChangedSql("properties")} then null else properties.last_verified_by end,
                updated_at = current_timestamp
            where id = $1`,
           [
