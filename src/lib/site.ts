@@ -1,6 +1,7 @@
 import divarNeighborhoodCatalog from "../../data/divar-isfahan-neighborhoods.json";
 import { mergeNeighborhoodGroups } from "@/lib/area-directory-core";
 import { canonicalSiteUrl } from "@/lib/site-url.mjs";
+import { toIranianE164Phone, toIranianWhatsAppNumber } from "@/lib/phone-normalization";
 
 export const SITE = {
   nameFa: "گروه مشاورین املاک هیرمند",
@@ -59,18 +60,19 @@ export const TEAM = [
 export type TeamMember = (typeof TEAM)[number];
 
 export function intlPhone(phone: string) {
-  return phone.replace(/^0/, "98");
+  return toIranianWhatsAppNumber(phone) ?? "";
 }
 
 export function personChat(person: TeamMember, extra = "") {
   const intl = intlPhone(person.phone);
+  const e164 = toIranianE164Phone(person.phone);
   const text = encodeURIComponent(
     [`سلام ${person.name}، از وب‌سایت ${SITE.nameFa} پیام می‌دهم.`, extra].filter(Boolean).join("\n"),
   );
   return {
-    tel: `tel:${person.phone}`,
-    whatsapp: `https://wa.me/${intl}?text=${text}`,
-    telegram: `tg://resolve?phone=${intl}`,
+    tel: e164 ? `tel:${e164}` : "",
+    whatsapp: intl ? `https://wa.me/${intl}?text=${text}` : "",
+    telegram: intl ? `tg://resolve?phone=${intl}` : "",
     telegramWeb: SITE.telegram,
     eitaa: SITE.eitaa,
     instagram: SITE.instagramDm,

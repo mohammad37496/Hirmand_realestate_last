@@ -17,6 +17,7 @@ import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import { listConsultants } from "@/lib/consultants";
 import { loadConsultantPropertiesWithFailureState } from "@/lib/consultant-profile-load";
+import { toIranianE164Phone } from "@/lib/phone-normalization";
 
 const ICONS = {
   briefcase: Briefcase,
@@ -78,6 +79,7 @@ function ConsultantProfilePage() {
 
   const person = data.person;
   const Icon = ICONS[person.icon];
+  const phoneTel = toIranianE164Phone(person.phone);
 
   const socials = [
     { href: person.whatsapp, label: "واتساپ", icon: <WhatsAppIcon size={19} /> },
@@ -105,17 +107,17 @@ function ConsultantProfilePage() {
           <div>
             <span className="consultant-profile-role">{person.role}</span>
             <h1>{person.name}</h1>
-            <a className="consultant-profile-phone" href={`tel:${person.phone}`} dir="ltr">
+            {phoneTel ? <a className="consultant-profile-phone" href={`tel:${phoneTel}`} dir="ltr">
               <bdi>{person.phoneDisplay.replace(/[0-9]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)])}</bdi>
-            </a>
+            </a> : <span className="consultant-profile-phone" dir="ltr"><bdi>{person.phoneDisplay}</bdi></span>}
             <p className="consultant-profile-description">
               ارتباط مستقیم برای فایل‌ها و پیگیری درخواست‌های ملکی در هیرمند.
             </p>
-            <div className="consultant-profile-actions">
-              <a className="btn-gold" href={`tel:${person.phone}`}>
+            {phoneTel ? <div className="consultant-profile-actions">
+              <a className="btn-gold" href={`tel:${phoneTel}`}>
                 <Phone size={16} /> تماس مستقیم
               </a>
-            </div>
+            </div> : null}
           </div>
         </section>
 
