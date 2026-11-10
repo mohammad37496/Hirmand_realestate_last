@@ -348,6 +348,14 @@ try {
       timeout: timeoutMs,
     });
     if (!response || response.status() >= 400) throw new Error(`properties route returned ${response?.status() ?? 0}`);
+    // SSR markup is present before React attaches the filter button handler.
+    // Wait for the hydrated onClick instead of clicking a visually-ready but
+    // still inert server-rendered button.
+    await neighborhoodPage.waitForFunction(() => {
+      const button = document.querySelector(".pf-filter-btn");
+      const reactPropsKey = button && Object.keys(button).find((key) => key.startsWith("__reactProps$"));
+      return Boolean(reactPropsKey && typeof button[reactPropsKey]?.onClick === "function");
+    }, null, { timeout: timeoutMs });
     const trigger = neighborhoodPage.locator(".pf-neighborhood-trigger");
     const sidebar = neighborhoodPage.locator(".pf-sidebar");
 
