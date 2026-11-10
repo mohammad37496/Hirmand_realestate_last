@@ -1,0 +1,20 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const component = await readFile(
+  new URL("../src/components/hirmand/property-viewing-request.tsx", import.meta.url),
+  "utf8",
+);
+
+test("viewing request shows an error and blocks submission until availability is verified", () => {
+  assert.match(component, /const \[verifiedSlotsKey, setVerifiedSlotsKey\] = useState\(""\)/);
+  assert.match(component, /const slotsVerified = verifiedSlotsKey === property\.id \+ ":" \+ date/);
+  assert.match(component, /const \[slotsError, setSlotsError\] = useState\(""\)/);
+  assert.match(component, /disabled=\{loadingSlots \|\| !slotsVerified\}/);
+  assert.match(component, /disabled=\{busy \|\| loadingSlots \|\| !slotsVerified \|\| !time\}/);
+  assert.match(component, /role=\{slotsError \? "alert" : undefined\}/);
+  assert.match(component, /setSlotsRetry\(\(value\) => value \+ 1\)/);
+  assert.match(component, /if \(!slotsVerified \|\| loadingSlots\)/);
+  assert.doesNotMatch(component, /catch\(\(\) => \{\s*if \(!cancelled\) setOccupiedTimes\(\[\]\);\s*\}\)/);
+});
