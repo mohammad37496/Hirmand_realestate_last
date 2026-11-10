@@ -42,6 +42,12 @@ test("comparison load failures preserve selected slugs and expose a retry state"
   assert.match(compare, /resolveCompareLoad\(\(\) => listPublishedPropertiesBySlugs/);
 });
 
+test("comparison CSV reuses the spreadsheet-formula-safe cell encoder", () => {
+  assert.match(compare, /import \{ csvCell as escapeCsvCell \} from "@\/lib\/property-export"/);
+  assert.match(compare, /return escapeCsvCell\(text\)/);
+  assert.doesNotMatch(compare, /return \/\[",\]\/\.test\(text\)/);
+});
+
 test("comparison loader distinguishes an empty success from a failed query", async () => {
   assert.deepEqual(await resolveCompareLoad(async () => []), { status: "success", rows: [] });
   assert.deepEqual(await resolveCompareLoad(async () => { throw new Error("database unavailable"); }), { status: "error" });
