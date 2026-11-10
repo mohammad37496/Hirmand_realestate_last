@@ -1849,11 +1849,17 @@
 
 /* Mobile list cards use one compact, fixed photo frame across every listing. */
 @media (max-width: 640px) {
+  /* Keep the final list rows scrollable above the fixed quick-action dock. */
+  .pf-page {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+  }
+
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list {
     grid-template-rows: 138px;
     min-height: 138px;
     height: 138px;
     overflow: hidden;
+    scroll-margin-block-end: calc(80px + env(safe-area-inset-bottom));
   }
 
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
