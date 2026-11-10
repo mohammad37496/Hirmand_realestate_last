@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { CalendarClock, Check, Phone, X } from "lucide-react";
-import { formatPersianDate } from "@/lib/persian-date";
+import { formatPersianDate, getTehranDateOnly } from "@/lib/persian-date";
 import { PersianDatePicker } from "./persian-date-picker";
 import "@/property-callback-request.css";
 
@@ -9,10 +9,7 @@ type Props={propertyType?:string;neighborhood?:string;context?:string};
 function digits(value:string){
   return value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
 }
-function today(){
-  const now=new Date(); const local=new Date(now.getTime()-now.getTimezoneOffset()*60000);
-  return local.toISOString().slice(0,10);
-}
+function today(){return getTehranDateOnly();}
 function toIranIso(date:string,time:string){return new Date(date+"T"+time+":00+03:30").toISOString();}
 const TIMES=Array.from({length:19},(_,i)=>9*60+i*30).map(v=>String(Math.floor(v/60)).padStart(2,"0")+":"+String(v%60));
 

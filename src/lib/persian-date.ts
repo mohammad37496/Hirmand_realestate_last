@@ -20,7 +20,7 @@ export function localDateToDateOnly(value: Date | undefined): string {
   return year + "-" + month + "-" + day;
 }
 
-function tehranDateKey(value: Date) {
+function tehranDateParts(value: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Tehran",
     year: "numeric",
@@ -30,6 +30,25 @@ function tehranDateKey(value: Date) {
   const year = Number(parts.find((part) => part.type === "year")?.value);
   const month = Number(parts.find((part) => part.type === "month")?.value);
   const day = Number(parts.find((part) => part.type === "day")?.value);
+  return { year, month, day };
+}
+
+export function getTehranDateOnly(value = new Date()) {
+  const { year, month, day } = tehranDateParts(value);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function addDateOnlyDays(value: string, days: number) {
+  const parts = dateParts(value);
+  if (!parts || !Number.isInteger(days)) return "";
+  const base = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  if (base.getUTCFullYear() !== parts.year || base.getUTCMonth() !== parts.month - 1 || base.getUTCDate() !== parts.day) return "";
+  const date = new Date(base.getTime() + days * 86_400_000);
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function tehranDateKey(value: Date) {
+  const { year, month, day } = tehranDateParts(value);
   return Date.UTC(year, month - 1, day);
 }
 
