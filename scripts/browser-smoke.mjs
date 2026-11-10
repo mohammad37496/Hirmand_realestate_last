@@ -193,6 +193,7 @@ try {
     "/tracking",
     "/consultants",
     "/budget-match",
+    "/smart-search",
     "/tools",
     "/tools/commission",
     "/tools/deposit",
@@ -241,6 +242,85 @@ try {
         !routeHorizontalOverflow &&
         routeErrors.length === 0,
     });
+  }
+
+  const guidedSearchCheck = { attempted: true, ok: false, steps: [], error: null };
+  const guidedSearchPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    const response = await guidedSearchPage.goto(new URL("/smart-search", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    if (!response || response.status() >= 400) throw new Error(`smart search route returned ${response?.status() ?? 0}`);
+    const next = guidedSearchPage.locator(".guided-search-actions .btn-gold");
+    const stepLabel = guidedSearchPage.locator(".guided-search-progress strong");
+    const expectStep = async (label) => {
+      const actual = await stepLabel.innerText();
+      if (!actual.includes(label)) throw new Error(`expected guided step '${label}', got '${actual}'`);
+      guidedSearchCheck.steps.push(label);
+    };
+
+    await expectStep("نوع ملک");
+    await next.click();
+    await expectStep("بودجه");
+    await guidedSearchPage.locator('input[aria-label="حداقل بودجه"]').fill("۱۰ میلیارد");
+    await guidedSearchPage.locator('input[aria-label="حداکثر بودجه"]').fill("۸ میلیارد");
+    await next.click();
+    await expectStep("بودجه");
+    await guidedSearchPage.locator('input[aria-label="حداقل بودجه"]').fill("۵ میلیارد");
+    await guidedSearchPage.locator('input[aria-label="حداکثر بودجه"]').fill("۸ میلیارد");
+    await next.click();
+    await expectStep("محدوده‌ها");
+
+    const neighborhoodOptions = guidedSearchPage.locator(".guided-search-neighborhood-grid button");
+    if (!(await neighborhoodOptions.count())) throw new Error("guided search has no selectable neighborhood options");
+    await neighborhoodOptions.first().click();
+    if (!(await guidedSearchPage.locator(".guided-search-selected-neighborhoods button").count())) {
+      throw new Error("guided search did not retain the selected neighborhood");
+    }
+    await next.click();
+    await expectStep("متراژ");
+    await guidedSearchPage.locator('input[aria-label="حداقل متراژ"]').fill("۹۰");
+    await guidedSearchPage.locator('input[aria-label="حداکثر متراژ"]').fill("۱۵۰");
+    await next.click();
+    await expectStep("تعداد خواب");
+    await guidedSearchPage.locator(".guided-search-bedroom-grid button").filter({ hasText: "۲ خواب" }).click();
+    await next.click();
+    await expectStep("امکانات");
+    await guidedSearchPage.locator(".guided-search-amenities button").filter({ hasText: "پارکینگ" }).click();
+    if (!(await guidedSearchPage.locator(".guided-search-amenities button.is-selected").count())) {
+      throw new Error("guided search did not retain the selected amenity");
+    }
+    const mobileOverflow = await guidedSearchPage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+    if (mobileOverflow) throw new Error("guided search overflows horizontally at 390px");
+
+    await guidedSearchPage.getByRole("button", { name: "مشاهده بهترین تطابق‌ها" }).click();
+    const results = guidedSearchPage.locator(".guided-search-results");
+    await results.waitFor({ state: "visible", timeout: timeoutMs });
+    if (!(await results.locator(".guided-search-result, .property-empty").count())) {
+      throw new Error("guided search completed without rendering results or an explicit empty state");
+    }
+    guidedSearchCheck.steps.push("نتایج رتبه‌بندی‌شده");
+    const mobileResultsOverflow = await guidedSearchPage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+    if (mobileResultsOverflow) throw new Error("guided search results overflow horizontally at 390px");
+
+    for (const width of [768, 1280]) {
+      await guidedSearchPage.setViewportSize({ width, height: width === 768 ? 900 : 800 });
+      const overflow = await guidedSearchPage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+      if (overflow) throw new Error(`guided search overflows horizontally at ${width}px`);
+      if (!(await results.isVisible())) throw new Error(`guided search results are not visible at ${width}px`);
+    }
+    await guidedSearchPage.setViewportSize({ width: 390, height: 844 });
+
+    await guidedSearchPage.getByRole("tab", { name: "جستجوی متنی فارسی" }).click();
+    if (!(await guidedSearchPage.locator(".smart-tool-hero").isVisible())) {
+      throw new Error("legacy natural-language search is not available from the mode tabs");
+    }
+    guidedSearchCheck.ok = true;
+  } catch (error) {
+    guidedSearchCheck.error = String(error?.message || error);
+  } finally {
+    await guidedSearchPage.close();
   }
 
   const apiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
@@ -680,6 +760,9 @@ try {
         : `property detail navigation smoke skipped: ${propertyNavigationCheck.error || "no published property card is available in this environment"}`,
     );
   }
+  if (!guidedSearchCheck.ok) {
+    viewports["desktop-1280"].pageErrors.push(`guided search browser smoke failed: ${guidedSearchCheck.error || "unknown"}`);
+  }
 
   const brandWarnings = computeBrandWarnings({
     hasCanvas: viewports["desktop-1280"].hasCanvas,
@@ -693,7 +776,7 @@ try {
       buildAuthEnabled: buildAuthEnabled(),
     }),
   );
-  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
+  const verdict = { url, viewports, routeChecks, guidedSearchCheck, propertyNavigationCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
   if (baselineRequested) {
     const { divergesFromBaseline, reasons } = compareAgainstBaseline(verdict);
     verdict.divergesFromBaseline = divergesFromBaseline;
