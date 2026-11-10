@@ -4,22 +4,11 @@ import { listConsultants, type Consultant } from "@/lib/consultants";
 import { TEAM } from "@/lib/site";
 
 type Props = {
-  contactName: string;
-  contactPhone: string;
+  consultantId: string | null;
   onSelect: (member: Consultant) => void;
 };
 
-function normalizePhone(value: string) {
-  return value
-    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
-    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-    .replace(/[\s\-()]/g, "")
-    .replace(/^(?:\+98|0098|98)/, "0");
-}
-
-export function AdminConsultantPicker({ contactName, contactPhone, onSelect }: Props) {
-  const phoneNorm = normalizePhone(contactPhone || "");
-  const nameTrim = (contactName || "").trim();
+export function AdminConsultantPicker({ consultantId, onSelect }: Props) {
   const [consultants, setConsultants] = useState<Consultant[]>(
     TEAM.map((person) => ({
       id: person.id,
@@ -57,10 +46,7 @@ export function AdminConsultantPicker({ contactName, contactPhone, onSelect }: P
       <p className="admin-consultant-hint">مشاور مسئول این فایل را انتخاب کنید:</p>
       <div className="admin-consultant-grid" role="listbox" aria-label="انتخاب مشاور مسئول">
         {consultants.map((person) => {
-          const active =
-            normalizePhone(person.phone) === phoneNorm ||
-            person.name === nameTrim ||
-            person.id === nameTrim;
+          const active = person.id === consultantId;
           const Icon = person.icon === "handshake" ? Handshake : Briefcase;
           return (
             <button
@@ -91,12 +77,7 @@ export function AdminConsultantPicker({ contactName, contactPhone, onSelect }: P
       <label className="field admin-consultant-select">
         <span className="sr-only">انتخاب سریع مشاور</span>
         <select
-          value={
-            consultants.find(
-              (p) =>
-                normalizePhone(p.phone) === phoneNorm || p.name === nameTrim,
-            )?.id ?? ""
-          }
+          value={consultantId ?? ""}
           onChange={(e) => {
             const member = consultants.find((p) => p.id === e.target.value);
             if (member) onSelect(member);

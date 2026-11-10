@@ -458,6 +458,14 @@ test("public listing order prioritizes active featured properties and determinis
     const byContact = source.slice(byContactStart, byContactEnd);
     assert.match(byContact, /order by \$\{buildPublicPropertyOrderBySql\("'newest'"\)\}/);
     assert.doesNotMatch(byContact, /order by featured desc/);
+    const byConsultantStart = source.indexOf("export const listPublishedPropertiesByConsultant");
+    const byConsultantEnd = source.indexOf("export const getPublishedPropertyByFileCode", byConsultantStart);
+    const byConsultant = source.slice(byConsultantStart, byConsultantEnd);
+    assert.match(byConsultant, /consultant_id = \$1/);
+    assert.match(byConsultant, /consultant_id is null/);
+    assert.match(byConsultant, /select count\(\*\)[\s\S]*?from consultants legacy_consultant/);
+    const consultantProfile = await readFile(new URL("../routes/consultants.$id.tsx", import.meta.url), "utf8");
+    assert.match(consultantProfile, /consultantId: person\.id, consultantName: person\.name, phone: person\.phone/);
   } finally {
     await db.close();
   }

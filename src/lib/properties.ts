@@ -91,6 +91,7 @@ export type Property = {
   images: string[];
   contactName: string;
   contactPhone: string;
+  consultantId?: string | null;
   ownerName?: string;
   ownerPhone?: string;
   ownerInfo?: string;
@@ -275,6 +276,7 @@ export const propertyInputSchema = z.object({
     ),
   contactName: z.string().trim().min(2).max(80),
   contactPhone: z.string().trim().min(8).max(30),
+  consultantId: z.string().trim().min(2).max(80).nullable().optional(),
   ownerName: z.string().trim().max(100).optional().default(""),
   ownerPhone: z.string().trim().max(30).optional().default(""),
   ownerInfo: z.string().trim().max(2000).optional().default(""),
@@ -430,6 +432,7 @@ function mapProperty(row: Record<string, unknown>, options: { admin?: boolean } 
     images: parseJsonArray(row.images),
     contactName: String(row.contact_name),
     contactPhone: String(row.contact_phone),
+    consultantId: row.consultant_id == null ? null : String(row.consultant_id),
     ...(isAdmin ? {
       ownerName: row.owner_name == null ? "" : String(row.owner_name),
       ownerPhone: row.owner_phone == null ? "" : String(row.owner_phone),
@@ -469,7 +472,7 @@ const LIST_COLUMNS = `
   neighborhood, address, area_m2, bedrooms, bathrooms, floor, total_floors,
   built_year, parking, elevator, storage, painted, wallpaper, convertible, cabinet_type, flooring_type, cooling_system,
   heating_system, wall_closet_type, other_amenities, price, deposit, rent,
-  features, images, contact_name, contact_phone, published_at, created_at, updated_at,
+  features, images, contact_name, contact_phone, consultant_id, published_at, created_at, updated_at,
   latitude, longitude, price_drop_percent, virtual_tour_url, floor_plan_url, floor_label, orientation,
   owner_name, owner_phone, owner_info, internal_priority, internal_note,
   publish_at, unpublish_at, deleted_at, deleted_from_status,
@@ -522,7 +525,7 @@ const DETAIL_COLUMNS = `
   neighborhood, address, area_m2, bedrooms, bathrooms, floor, total_floors,
   built_year, parking, elevator, storage, painted, wallpaper, convertible, cabinet_type, flooring_type, cooling_system,
   heating_system, wall_closet_type, other_amenities, price, deposit, rent, description,
-  features, images, contact_name, contact_phone, published_at, created_at, updated_at,
+  features, images, contact_name, contact_phone, consultant_id, published_at, created_at, updated_at,
   latitude, longitude, price_drop_percent, virtual_tour_url, floor_plan_url, floor_label, orientation,
   owner_name, owner_phone, owner_info, internal_priority, internal_note,
   publish_at, unpublish_at, deleted_at, deleted_from_status,
@@ -658,6 +661,43 @@ export const listPublishedPropertiesByContact = createServerFn({ method: "GET" }
        order by ${buildPublicPropertyOrderBySql("'newest'")}
        limit 48`,
       [phone],
+    );
+    return rows.map((row) => mapProperty(row));
+  });
+
+export const listPublishedPropertiesByConsultant = createServerFn({ method: "GET" })
+  .validator(z.object({
+    consultantId: z.string().trim().min(2).max(80),
+    consultantName: z.string().trim().max(80).optional().default(""),
+    phone: z.string().trim().max(30).optional().default(""),
+  }))
+  .handler(async ({ data }) => {
+    if (dbSource === "unconfigured") return [];
+    const phone = normalizeIranianPhoneForMatch(data.phone);
+    const legacyPhone = phone.length >= 8 && phone.length <= 13 ? phone : "";
+    const sql = await getSql();
+    const rows = await sql.query<Record<string, unknown>>(
+      `select ${DETAIL_COLUMNS}
+       from properties
+       where ${PUBLIC_PUBLICATION_WHERE}
+         and (
+           consultant_id = $1
+           or (
+             consultant_id is null
+             and $2 <> ''
+             and lower(regexp_replace(translate(trim(contact_name), 'كي', 'کی'), '[[:space:]]+', ' ', 'g')) = lower(regexp_replace(translate(trim($3), 'كي', 'کی'), '[[:space:]]+', ' ', 'g'))
+             and ${normalizedIranianPhoneSql("contact_phone")} = $2
+             and (
+               select count(*)
+               from consultants legacy_consultant
+               where lower(regexp_replace(translate(trim(legacy_consultant.name), 'كي', 'کی'), '[[:space:]]+', ' ', 'g')) = lower(regexp_replace(translate(trim($3), 'كي', 'کی'), '[[:space:]]+', ' ', 'g'))
+                 and ${normalizedIranianPhoneSql("legacy_consultant.phone")} = $2
+             ) = 1
+           )
+         )
+       order by ${buildPublicPropertyOrderBySql("'newest'")}
+       limit 48`,
+      [data.consultantId, legacyPhone, data.consultantName],
     );
     return rows.map((row) => mapProperty(row));
   });
@@ -1039,6 +1079,7 @@ const adminBulkFeaturedSchema = adminBulkSchema.extend({
 });
 
 const adminBulkConsultantSchema = adminBulkSchema.extend({
+  consultantId: z.string().trim().min(2).max(80),
   contactName: z.string().trim().min(2).max(80),
   contactPhone: z.string().trim().min(8).max(30),
 });
@@ -1363,8 +1404,17 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
     await requireAdminPermission("property.manage");
     const sql = await getSql();
 
+    const consultantRows = await sql.query<{ id: string; name: string; phone: string }>(
+      "select id, name, phone from consultants where id = $1 limit 1",
+      [data.consultantId],
+    );
+    const consultant = consultantRows[0];
+    if (!consultant || consultant.name !== data.contactName || consultant.phone !== data.contactPhone) {
+      throw new Error("مشاور انتخاب‌شده معتبر نیست؛ فهرست مشاوران را تازه‌سازی کنید.");
+    }
+
     const beforeRows = await sql.query<Record<string, unknown>>(
-      `select id, contact_name, contact_phone
+      `select id, consultant_id, contact_name, contact_phone
        from properties
        where id = any($1::text[])`,
       [data.ids],
@@ -1372,13 +1422,15 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
 
     const rows = await sql.query<Record<string, unknown>>(
       `update properties
-       set contact_name = $1,
-           contact_phone = $2,
+       set consultant_id = $1,
+           contact_name = $2,
+           contact_phone = $3,
            updated_at = current_timestamp
-       where id = any($3::text[])
+       where id = any($4::text[])
          and deleted_at is null
-       returning id, contact_name, contact_phone`,
-      [data.contactName, data.contactPhone, data.ids],
+         and (consultant_id is distinct from $1 or contact_name is distinct from $2 or contact_phone is distinct from $3)
+       returning id, consultant_id, contact_name, contact_phone`,
+      [data.consultantId, data.contactName, data.contactPhone, data.ids],
     );
 
     if (rows.length) {
@@ -1386,6 +1438,7 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
         beforeRows.map((row) => ({
           id: String(row.id),
           before_state: {
+            consultantId: row.consultant_id == null ? null : String(row.consultant_id),
             contactName: row.contact_name == null ? null : String(row.contact_name),
             contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
           },
@@ -1395,6 +1448,7 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
         rows.map((row) => [
           String(row.id),
           {
+            consultantId: row.consultant_id == null ? null : String(row.consultant_id),
             contactName: row.contact_name == null ? null : String(row.contact_name),
             contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
           },
@@ -1408,13 +1462,14 @@ export const bulkAssignPropertyConsultant = createServerFn({ method: "POST" })
           return { id, before_state: JSON.parse(JSON.stringify(
             beforeRows.find((item) => String(item.id) === id)
               ? {
+                  consultantId: row.consultant_id == null ? null : String(row.consultant_id),
                   contactName: row.contact_name == null ? null : String(row.contact_name),
                   contactPhone: row.contact_phone == null ? null : String(row.contact_phone),
                 }
               : null,
           )), after_state: after };
         })
-        .filter((row): row is { id: string; before_state: { contactName: string | null; contactPhone: string | null }; after_state: { contactName: string | null; contactPhone: string | null } } => Boolean(row));
+        .filter((row): row is { id: string; before_state: { consultantId: string | null; contactName: string | null; contactPhone: string | null }; after_state: { consultantId: string | null; contactName: string | null; contactPhone: string | null } } => Boolean(row));
       if (auditRows.length) {
         await sql.query(
           `with audit as (
@@ -1758,6 +1813,24 @@ export const saveProperty = createServerFn({ method: "POST" })
     const savedFloorLabel = data.floorLabel === "suite" ? "suite" : null;
     const savedConvertible =
       (data.transactionType === "rent" || data.transactionType === "mortgage") ? data.convertible : false;
+    const hasConsultantId = Object.prototype.hasOwnProperty.call(data, "consultantId");
+
+    const preservesExistingConsultantSnapshot = Boolean(
+      existing &&
+      String(existing.consultant_id ?? "") === data.consultantId &&
+      String(existing.contact_name ?? "") === data.contactName &&
+      String(existing.contact_phone ?? "") === data.contactPhone,
+    );
+    if (data.consultantId && !preservesExistingConsultantSnapshot) {
+      const consultantRows = await sql.query<{ id: string; name: string; phone: string }>(
+        "select id, name, phone from consultants where id = $1 limit 1",
+        [data.consultantId],
+      );
+      const consultant = consultantRows[0];
+      if (!consultant || consultant.name !== data.contactName || consultant.phone !== data.contactPhone) {
+        throw new Error("مشاور انتخاب‌شده با اطلاعات تماس فایل هم‌خوانی ندارد؛ مشاور را دوباره انتخاب کنید.");
+      }
+    }
 
     await sql.query(
       `insert into properties (
@@ -1767,7 +1840,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         heating_system, wall_closet_type, other_amenities, price, deposit, rent, description,
         features, images, contact_name, contact_phone, published_at, featured_until,
         latitude, longitude, virtual_tour_url, floor_label, painted, wallpaper, convertible, orientation,
-        owner_name, owner_phone, owner_info, availability_status, internal_priority, internal_note, floor_plan_url
+        owner_name, owner_phone, owner_info, availability_status, internal_priority, internal_note, floor_plan_url, consultant_id
       ) values (
         $1, $2, $3, $4, $5, $6, $7, 'اصفهان',
         $8, $9, $10::integer, $11::smallint, $12::smallint, $13::smallint, $14::smallint,
@@ -1775,7 +1848,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         $22::text, $23::text, $24::jsonb, $25::numeric, $26::numeric, $27::numeric, $28::text,
         $29::jsonb, $30::jsonb, $31::text, $32::text, $33::timestamptz, $34::timestamptz,
         $35::double precision, $36::double precision, $37::text, $38::text, $39::boolean, $40::boolean, $41::boolean, $42::text,
-        $43::text, $44::text, $45::text, $46::text, $47::text, $48::text, $49::text
+        $43::text, $44::text, $45::text, $46::text, $47::text, $48::text, $49::text, $50::text
       )
       on conflict (id) do update set
         slug = excluded.slug,
@@ -1820,6 +1893,7 @@ export const saveProperty = createServerFn({ method: "POST" })
         internal_priority = excluded.internal_priority,
         internal_note = excluded.internal_note,
         floor_plan_url = excluded.floor_plan_url,
+        consultant_id = case when $51::boolean then excluded.consultant_id else properties.consultant_id end,
         previous_price = properties.price,
         previous_deposit = properties.deposit,
         previous_rent = properties.rent,
@@ -1971,6 +2045,8 @@ export const saveProperty = createServerFn({ method: "POST" })
         data.internalPriority,
         data.internalNote,
         data.floorPlanUrl.trim(),
+        data.consultantId ?? null,
+        hasConsultantId,
       ],
     );
 

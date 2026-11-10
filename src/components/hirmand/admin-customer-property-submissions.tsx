@@ -27,6 +27,7 @@ type Submission = {
   ageHours?: number;
   assignedConsultantName?: string | null;
   assignedConsultantPhone?: string | null;
+  assignedConsultantId?: string | null;
 };
 
 function faDate(value: string) {
@@ -255,16 +256,16 @@ export function AdminCustomerPropertySubmissions() {
   }
 
   async function assignConsultant(submission: Submission, value: string) {
-    const found = TEAM.find((person) => person.phone === value);
+    const found = TEAM.find((person) => person.id === value);
     try {
       const response = await fetch("/api/admin-customer-property-submissions", {
         method:"POST",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({ action:"assign_consultant", id:submission.id, assignedConsultantName:found?.name ?? "", assignedConsultantPhone:found?.phone ?? "" }),
+        body:JSON.stringify({ action:"assign_consultant", id:submission.id, assignedConsultantId:found?.id ?? "", assignedConsultantName:found?.name ?? "", assignedConsultantPhone:found?.phone ?? "" }),
       });
-      const data = await response.json().catch(() => null) as { success?:boolean; assignedConsultantName?:string|null; assignedConsultantPhone?:string|null; statusMessage?:string } | null;
+      const data = await response.json().catch(() => null) as { success?:boolean; assignedConsultantId?:string|null; assignedConsultantName?:string|null; assignedConsultantPhone?:string|null; statusMessage?:string } | null;
       if (!response.ok || !data?.success) throw new Error(data?.statusMessage || "تخصیص مشاور انجام نشد.");
-      setSubmissions((items) => items.map((item) => item.id === submission.id ? { ...item, assignedConsultantName:data.assignedConsultantName ?? null, assignedConsultantPhone:data.assignedConsultantPhone ?? null } : item));
+      setSubmissions((items) => items.map((item) => item.id === submission.id ? { ...item, assignedConsultantId:data.assignedConsultantId ?? null, assignedConsultantName:data.assignedConsultantName ?? null, assignedConsultantPhone:data.assignedConsultantPhone ?? null } : item));
       toast.success(found ? "مشاور پرونده مشخص شد." : "مسئول پرونده برداشته شد.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "تخصیص مشاور انجام نشد.");
@@ -376,7 +377,8 @@ export function AdminCustomerPropertySubmissions() {
 
   async function act(action: "approve" | "reject", submission: Submission) {
     if (busyId) return;
-    const assigned = TEAM.find((person) => person.name === submission.assignedConsultantName && person.phone === submission.assignedConsultantPhone);
+    const assigned = TEAM.find((person) => person.id === submission.assignedConsultantId)
+      ?? TEAM.find((person) => person.name === submission.assignedConsultantName && person.phone === submission.assignedConsultantPhone);
     const effectiveConsultant = assigned ?? consultant;
     if (action === "approve") {
       const ok = window.confirm("این ملک با مشاور «" + effectiveConsultant.name + "» منتشر شود؟ پس از تأیید وارد فایل‌های عمومی خواهد شد.");
@@ -390,7 +392,7 @@ export function AdminCustomerPropertySubmissions() {
       const response = await fetch("/api/admin-customer-property-submissions", {
         method:"POST",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({ action, id:submission.id, consultantName:effectiveConsultant.name, consultantPhone:effectiveConsultant.phone, reviewNote:reviewNote.trim() }),
+        body:JSON.stringify({ action, id:submission.id, consultantId:effectiveConsultant.id, consultantName:effectiveConsultant.name, consultantPhone:effectiveConsultant.phone, reviewNote:reviewNote.trim() }),
       });
       const data = await response.json().catch(() => null) as { success?:boolean; slug?:string; statusMessage?:string } | null;
       if (!response.ok || !data?.success) throw new Error(data?.statusMessage || "عملیات انجام نشد.");
@@ -530,9 +532,9 @@ export function AdminCustomerPropertySubmissions() {
                   <p>{String(data.neighborhood ?? "—")} · {String(data.areaM2 ?? "—")} متر · {priceText(data)}</p>
                   <div className="admin-customer-submission-owner"><strong>{submission.ownerName}</strong>{ownerPhoneTel?<a href={`tel:${ownerPhoneTel}`}><Phone size={14}/>{submission.ownerPhone}</a>:<span dir="ltr">{submission.ownerPhone}</span>}<span dir="ltr">{submission.trackingToken}</span>{submission.possibleDuplicate?<span className="admin-customer-duplicate-badge">احتمال تکراری</span>:null}{submission.status==="pending"&&submission.ageHours!=null?<span className={"admin-customer-age-badge"+(submission.ageHours>=24?" is-overdue":"")}><Timer size={12}/>{ageLabel(submission.ageHours)}</span>:null}</div>
                   {submission.status === "pending" ? <div className="admin-customer-queue-controls">
-                     <label><span>مسئول</span><select value={submission.assignedConsultantPhone ?? ""} onChange={(e)=>void assignConsultant(submission,e.target.value)}>
+                     <label><span>مسئول</span><select value={submission.assignedConsultantId ?? ""} onChange={(e)=>void assignConsultant(submission,e.target.value)}>
                        <option value="">بدون مسئول</option>
-                       {TEAM.map((person) => <option key={person.phone} value={person.phone}>{person.name} · {person.role}</option>)}
+                       {TEAM.map((person) => <option key={person.id} value={person.id}>{person.name} · {person.role}</option>)}
                      </select></label>
                     <label><span>اولویت</span><select value={submission.priority || "normal"} onChange={(e)=>void setPriority(submission,e.target.value as "low"|"normal"|"high")}><option value="high">فوری</option><option value="normal">عادی</option><option value="low">کم</option></select></label>
                     <span className={"admin-customer-priority-badge priority-"+(submission.priority || "normal")}>{priorityLabel(submission.priority)}</span>

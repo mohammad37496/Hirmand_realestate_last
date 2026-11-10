@@ -12,7 +12,7 @@ import {
   IGAPPIcon,
   SoroushIcon,
 } from "@/components/hirmand/social-icons";
-import { listPublishedPropertiesByContact } from "@/lib/properties";
+import { listPublishedPropertiesByConsultant } from "@/lib/properties";
 import { absoluteUrl, socialMeta } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import { listConsultants } from "@/lib/consultants";
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/consultants/$id")({
     const person = people.find((item) => item.id.trim().toLowerCase() === requestedId) ?? null;
     if (!person) return { person: null, properties: [] };
     const result = await loadConsultantPropertiesWithFailureState(() =>
-      listPublishedPropertiesByContact({ data: { phone: person.phone } }),
+      listPublishedPropertiesByConsultant({ data: { consultantId: person.id, consultantName: person.name, phone: person.phone } }),
     );
     return { person, properties: result.properties, propertiesLoadFailed: result.failed };
   },

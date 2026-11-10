@@ -1149,9 +1149,14 @@ function ConsultantCard({ property }: { property: Property }) {
   const consultants = useConsultants();
   const propertyPhone = normalizeIranianPhoneForMatch(property.contactPhone);
   const phoneTel = toIranianE164Phone(property.contactPhone);
-  const person = consultants.find((item) =>
-    (propertyPhone && normalizeIranianPhoneForMatch(item.phone) === propertyPhone) || item.name === property.contactName,
+  const legacyMatches = property.consultantId ? [] : consultants.filter((item) =>
+    propertyPhone &&
+    normalizeIranianPhoneForMatch(item.phone) === propertyPhone &&
+    item.name.trim().toLowerCase() === property.contactName.trim().toLowerCase(),
   );
+  const person = property.consultantId
+    ? consultants.find((item) => item.id === property.consultantId)
+    : legacyMatches.length === 1 ? legacyMatches[0] : undefined;
   const displayName = property.contactName || person?.name || "مشاور هیرمند";
   const role = person?.role ?? "مشاور املاک";
   const ConsultantIcon = person?.icon === "handshake" ? Handshake : Briefcase;

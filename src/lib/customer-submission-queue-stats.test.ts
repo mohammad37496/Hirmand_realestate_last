@@ -5,8 +5,8 @@ import { loadCustomerSubmissionQueueStats } from "./customer-submission-queue-st
 import type { Sql } from "./db.ts";
 
 const team = [
-  { name: "Consultant A", phone: "09120000001" },
-  { name: "Consultant B", phone: "09120000002" },
+  { id: "c1", name: "Consultant A", phone: "09129999999" },
+  { id: "c2", name: "Consultant B", phone: "09120000002" },
 ];
 
 async function createFixture() {
@@ -16,14 +16,15 @@ async function createFixture() {
       id text primary key,
       status text not null,
       priority text not null default 'normal',
+      assigned_consultant_id text,
       assigned_consultant_phone text,
       created_at timestamptz not null,
       queue_started_at timestamptz
     );
     insert into customer_property_submissions values
-      ('old-high','pending','high','09120000001',current_timestamp - interval '30 hours',null),
-      ('new-unassigned','pending','normal',null,current_timestamp - interval '2 hours',null),
-      ('done','approved','high','09120000002',current_timestamp - interval '40 hours',null);
+      ('old-high','pending','high','c1','09120000001',current_timestamp - interval '30 hours',null),
+      ('new-unassigned','pending','normal',null,null,current_timestamp - interval '2 hours',null),
+      ('done','approved','high','c2','09120000002',current_timestamp - interval '40 hours',null);
   `);
   const sql = {
     query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
@@ -41,15 +42,15 @@ test("queue stats return real SLA and consultant workload values", async () => {
     assert.equal(stats.unassigned, 1);
     assert.ok(Number.isFinite(stats.averageAgeHours) && stats.averageAgeHours >= 0);
     assert.deepEqual(stats.consultants, [
-      { name: "Consultant A", phone: "09120000001", count: 1 },
-      { name: "Consultant B", phone: "09120000002", count: 0 },
+      { id: "c1", name: "Consultant A", phone: "09129999999", count: 1 },
+      { id: "c2", name: "Consultant B", phone: "09120000002", count: 0 },
     ]);
   } finally {
     await pg.close();
   }
 });
 
-for (const failingQuery of ["group by assigned_consultant_phone", "as average_age_hours"]) {
+for (const failingQuery of ["group by assigned_consultant_id", "as average_age_hours"]) {
   test(`queue stats propagate ${failingQuery} database failures`, async () => {
     const { pg, sql } = await createFixture();
     const injected = {
