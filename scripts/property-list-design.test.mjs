@@ -154,6 +154,11 @@ test("homepage shared cards retain the compact RTL list and 44px image action ov
   assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions \.property-action\s*\{[\s\S]*?width:\s*44px;[\s\S]*?min-height:\s*44px/);
 });
 
+test("mobile property cards hide the crowded action dock", () => {
+  const mobileActionDecision = marketplaceCss.slice(marketplaceCss.lastIndexOf("/* Keep mobile property cards focused"));
+  assert.match(mobileActionDecision, /@media \(max-width:\s*720px\)[\s\S]*?\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{\s*display:\s*none !important;/);
+});
+
 test("map-side property cards use the canonical Hirmand navy, brass and paper palette", () => {
   const mapBrandRules = responsiveHardeningCss.slice(
     responsiveHardeningCss.lastIndexOf("/* Map-side property cards use the canonical Hirmand Navy / Brass / Paper palette. */"),
