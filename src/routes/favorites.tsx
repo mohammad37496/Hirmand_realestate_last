@@ -17,6 +17,7 @@ import { CustomerWorkspaceSyncStatus } from "@/components/hirmand/customer-works
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { listPublishedPropertiesBySlugs, type Property } from "@/lib/properties";
 import { subscribeToFavoriteMetaWorkspaceSync, subscribeToFavoriteWorkspaceSync } from "@/lib/favorites-workspace-sync.mjs";
+import { getTehranDateOnly } from "@/lib/persian-date";
 import { SITE } from "@/lib/site";
 import { toast } from "sonner";
 import { authClient, authEnabled } from "@/lib/auth/client";
@@ -236,7 +237,7 @@ function FavoritesPage() {
   const [planSlugs, setPlanSlugs] = useState<string[]>([]);
   const [planName, setPlanName] = useState("");
   const [planPhone, setPlanPhone] = useState("");
-  const [planDate, setPlanDate] = useState(new Date().toISOString().slice(0, 10));
+  const [planDate, setPlanDate] = useState(getTehranDateOnly());
   const [planTime, setPlanTime] = useState("17:00");
   const [planNote, setPlanNote] = useState("");
   const [planBusy, setPlanBusy] = useState(false);
@@ -647,7 +648,7 @@ function FavoritesPage() {
                   <div className="favorites-plan-grid">
                     <label className="field"><span>نام و نام خانوادگی</span><input value={planName} onChange={(event) => setPlanName(event.target.value)} autoComplete="name" /></label>
                     <label className="field"><span>شماره موبایل</span><input value={planPhone} onChange={(event) => setPlanPhone(event.target.value)} inputMode="tel" dir="ltr" autoComplete="tel" /></label>
-                    <label className="field"><span>روز پیشنهادی</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={planDate} onChange={(event) => setPlanDate(event.target.value)} dir="ltr" /></label>
+                    <label className="field"><span>روز پیشنهادی</span><input type="date" min={getTehranDateOnly()} value={planDate} onChange={(event) => setPlanDate(event.target.value)} dir="ltr" /></label>
                     <label className="field"><span>ساعت پیشنهادی</span><select value={planTime} onChange={(event) => setPlanTime(event.target.value)} dir="ltr">{["09:00","10:00","11:00","12:00","15:00","16:00","17:00","18:00","19:00","20:00"].map((time) => <option key={time}>{time}</option>)}</select></label>
                     <label className="field favorites-plan-note"><span>یادداشت (اختیاری)</span><textarea rows={3} value={planNote} onChange={(event) => setPlanNote(event.target.value)} placeholder="مثلاً دو نفر هستیم یا ترجیح می‌دهیم فایل‌ها پشت سر هم دیده شوند..." /></label>
                   </div>

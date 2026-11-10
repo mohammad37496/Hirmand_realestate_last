@@ -1842,8 +1842,62 @@
 /* Keep mobile property cards focused on the photo and listing details.
    The eight-button action dock consumes too much of the narrow image area. */
 @media (max-width: 720px) {
-  .pf-page .pf-grid.is-list-view .pcard-mobile-list > .pcard-media > .pcard-actions {
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-actions {
     display: none !important;
+  }
+}
+
+/* Mobile list cards use one compact, fixed photo frame across every listing. */
+@media (max-width: 640px) {
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list {
+    grid-template-rows: 138px;
+    min-height: 138px;
+    height: 138px;
+    overflow: hidden;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {
+    display: flex;
+    width: calc(100% - clamp(104px, 30vw, 124px));
+    margin-inline-start: clamp(104px, 30vw, 124px);
+    min-height: 0;
+    height: 138px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-image-link,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media picture,
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media img {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    height: 138px;
+    max-height: 138px;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media > .pcard-image-link {
+    width: clamp(104px, 30vw, 124px);
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-media img {
+    display: block;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-body {
+    min-height: 0;
+    height: 138px;
+    gap: 3px;
+    padding: 7px 8px;
+    overflow: hidden;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
   }
 }
 
@@ -1860,4 +1914,35 @@
 
 .property-detail-page .property-related .pcard > .pcard-link {
   flex: 1 1 auto;
+}
+
+/* Mobile photo-grid actions stay inside the image frame and remain reachable. */
+@media (max-width: 720px) {
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding-inline: 8px;
+    overflow: hidden;
+  }
+
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions .property-actions,
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions .property-actions-compact {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .pf-page .pf-grid.is-grid-view > .pcard > .pcard-media > .pcard-actions .property-action {
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+  }
 }
