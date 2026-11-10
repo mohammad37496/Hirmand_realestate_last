@@ -596,8 +596,6 @@ svg {
   margin-top: 14px;
 }
 .pf-page .pf-sidebar {
-  position: sticky;
-  top: 82px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -613,6 +611,12 @@ svg {
   border-radius: 15px;
   background: #fff;
   box-shadow: 0 5px 20px rgb(11 26 43 / 4%);
+}
+@media (min-width: 981px) {
+  .pf-page .pf-sidebar {
+    position: sticky;
+    top: 82px;
+  }
 }
 .pf-page .pf-sidebar::-webkit-scrollbar { width: 5px; }
 .pf-page .pf-sidebar::-webkit-scrollbar-thumb {

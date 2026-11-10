@@ -340,6 +340,172 @@ try {
     await guidedSearchPage.close();
   }
 
+  const neighborhoodFilterCheck = { attempted: true, ok: false, error: null, widths: [390, 768, 1280], selected: [] };
+  const neighborhoodPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    const response = await neighborhoodPage.goto(new URL("/properties", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: timeoutMs,
+    });
+    if (!response || response.status() >= 400) throw new Error(`properties route returned ${response?.status() ?? 0}`);
+    // SSR markup is present before React attaches the filter button handler.
+    // Wait for the hydrated onClick instead of clicking a visually-ready but
+    // still inert server-rendered button.
+    await neighborhoodPage.waitForFunction(() => {
+      const button = document.querySelector(".pf-filter-btn");
+      const reactPropsKey = button && Object.keys(button).find((key) => key.startsWith("__reactProps$"));
+      return Boolean(reactPropsKey && typeof button[reactPropsKey]?.onClick === "function");
+    }, null, { timeout: timeoutMs });
+    const trigger = neighborhoodPage.locator(".pf-neighborhood-trigger");
+    const sidebar = neighborhoodPage.locator(".pf-sidebar");
+
+    for (const width of neighborhoodFilterCheck.widths) {
+      await neighborhoodPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      if (width <= 979) {
+        await neighborhoodPage.evaluate(() => window.scrollTo(0, 0));
+        await neighborhoodPage.waitForFunction(() => {
+          const panel = document.querySelector(".pf-sidebar");
+          if (!(panel instanceof HTMLElement)) return false;
+          const style = getComputedStyle(panel);
+          // Several route stylesheets load independently. A later marketplace
+          // rule can make the rail fixed before the earlier base sheet supplies
+          // its bottom anchor, leaving the fixed element at its document static
+          // position. Wait for the complete viewport anchoring, not position alone.
+          return style.position === "fixed" && style.bottom !== "auto";
+        }, null, { timeout: timeoutMs });
+        await neighborhoodPage.locator(".pf-filter-btn").click();
+      }
+      if (width <= 979) {
+        // The drawer is opacity-hidden but still considered visible by Playwright
+        // while its translateY transition is running. Wait for the actual open
+        // state before measuring or scrolling its controls.
+        try {
+          await neighborhoodPage.waitForFunction(() => {
+            const button = document.querySelector(".pf-filter-btn");
+            const panel = document.querySelector(".pf-sidebar");
+            if (button?.getAttribute("aria-expanded") !== "true" ||
+                !(panel instanceof HTMLElement) || !panel.classList.contains("is-open")) {
+              return false;
+            }
+            const style = getComputedStyle(panel);
+            const translateY = style.transform === "none"
+              ? 0
+              : new DOMMatrixReadOnly(style.transform).m42;
+            // The class and aria state change before the CSS drawer transition
+            // finishes. Measuring/scrolling during translateY(115% → 0) sees
+            // the panel below the viewport even though it is already is-open.
+            return style.opacity === "1" &&
+              !panel.getAnimations().some((animation) => animation.playState === "running") &&
+              Math.abs(translateY) < 0.5;
+          }, null, { timeout: timeoutMs });
+          // Opening the fixed sheet must not leave the document scrolled to a
+          // stale control position from the page's previous viewport layout.
+          await neighborhoodPage.evaluate(() => window.scrollTo(0, 0));
+        } catch (error) {
+          const state = await neighborhoodPage.evaluate(() => {
+            const button = document.querySelector(".pf-filter-btn");
+            const panel = document.querySelector(".pf-sidebar");
+            const style = panel ? getComputedStyle(panel) : null;
+            return {
+              expanded: button?.getAttribute("aria-expanded") ?? null,
+              panelClass: panel?.className ?? null,
+              opacity: style?.opacity ?? null,
+              pointerEvents: style?.pointerEvents ?? null,
+              position: style?.position ?? null,
+              top: style?.top ?? null,
+              bottom: style?.bottom ?? null,
+              transform: style?.transform ?? null,
+              runningAnimations: panel instanceof HTMLElement
+                ? panel.getAnimations().filter((animation) => animation.playState === "running").length
+                : null,
+              windowScrollY: window.scrollY,
+              innerWidth: window.innerWidth,
+            };
+          });
+          throw new Error(`mobile filter drawer did not open at ${width}px: ${JSON.stringify(state)}; ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      await trigger.waitFor({ state: "visible", timeout: timeoutMs });
+      if (width <= 979) {
+        // The mobile filter sheet is independently scrollable. The neighborhood
+        // control sits below the first viewport, so move the sheet (not the page)
+        // to it before exercising the real pointer click.
+        await sidebar.evaluate((element) => {
+          const target = element.querySelector(".pf-neighborhood-trigger");
+          if (!(target instanceof HTMLElement)) throw new Error("neighborhood trigger is missing from the filter sheet");
+          const panel = element.getBoundingClientRect();
+          const button = target.getBoundingClientRect();
+          element.scrollTop += button.top - panel.top - (panel.height - button.height) / 2;
+        });
+        const triggerBounds = await trigger.boundingBox();
+        if (!triggerBounds || triggerBounds.y < 0 || triggerBounds.y + triggerBounds.height > (width === 390 ? 844 : 900)) {
+          const metrics = await sidebar.evaluate((element) => {
+            const target = element.querySelector(".pf-neighborhood-trigger");
+            const panel = element.getBoundingClientRect();
+            const button = target?.getBoundingClientRect();
+            return {
+              scrollTop: element.scrollTop,
+              scrollHeight: element.scrollHeight,
+              clientHeight: element.clientHeight,
+              panel: { top: panel.top, bottom: panel.bottom },
+              trigger: button ? { top: button.top, bottom: button.bottom } : null,
+              position: getComputedStyle(element).position,
+              topStyle: getComputedStyle(element).top,
+              bottomStyle: getComputedStyle(element).bottom,
+              windowScrollY: window.scrollY,
+              innerWidth: window.innerWidth,
+            };
+          });
+          throw new Error(`neighborhood trigger could not be brought into the mobile filter sheet viewport at ${width}px: ${JSON.stringify(metrics)}`);
+        }
+      }
+      await trigger.click();
+      const dialog = neighborhoodPage.locator(".pf-neighborhood-dialog");
+      await dialog.waitFor({ state: "visible", timeout: timeoutMs });
+      const bounds = await dialog.boundingBox();
+      if (!bounds || bounds.x < -1 || bounds.x + bounds.width > width + 1) {
+        throw new Error(`neighborhood picker is outside the viewport at ${width}px`);
+      }
+      const overflow = await neighborhoodPage.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+      if (overflow) throw new Error(`neighborhood picker overflows horizontally at ${width}px`);
+
+      if (width === 390) {
+        await dialog.getByRole("button", { name: "جلفا", exact: true }).click();
+        await dialog.getByRole("button", { name: "مرداویج", exact: true }).click();
+        await dialog.getByRole("button", { name: "اعمال انتخاب‌ها" }).click();
+        await neighborhoodPage.waitForFunction(() => {
+          const params = new URLSearchParams(window.location.search);
+          return params.getAll("neighborhoods").length === 2 && !params.has("neighborhood");
+        }, null, { timeout: timeoutMs });
+        const state = await neighborhoodPage.evaluate(() => {
+          const params = new URLSearchParams(window.location.search);
+          return {
+            neighborhoods: params.getAll("neighborhoods"),
+            staleMapState: params.has("map_place_hash") || params.has("bbox") || params.has("map_bbox"),
+          };
+        });
+        neighborhoodFilterCheck.selected = state.neighborhoods;
+        if (!state.neighborhoods.includes("جلفا") || !state.neighborhoods.includes("مرداویج") || state.staleMapState) {
+          throw new Error("multi-neighborhood selection was not serialized canonically or retained stale map bounds");
+        }
+      } else {
+        await dialog.getByRole("button", { name: "بستن انتخاب محله" }).click();
+        if (width <= 979) await neighborhoodPage.locator(".pf-close").click();
+      }
+    }
+
+    await neighborhoodPage.locator(".pf-neighborhood-clear").click();
+    await neighborhoodPage.waitForFunction(() => {
+      const params = new URLSearchParams(window.location.search);
+      return !params.has("neighborhood") && !params.has("neighborhoods");
+    }, null, { timeout: timeoutMs });
+    neighborhoodFilterCheck.ok = true;
+  } catch (error) {
+    neighborhoodFilterCheck.error = String(error?.message || error);
+  } finally {
+    await neighborhoodPage.close();
+  }
+
   const apiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   let musicApiCheck;
   try {
@@ -850,6 +1016,9 @@ try {
   if (!guidedSearchCheck.ok) {
     viewports["desktop-1280"].pageErrors.push(`guided smart search browser smoke failed: ${guidedSearchCheck.error || "unknown"}`);
   }
+  if (!neighborhoodFilterCheck.ok) {
+    viewports["desktop-1280"].pageErrors.push(`multi-neighborhood filter browser smoke failed: ${neighborhoodFilterCheck.error || "unknown"}`);
+  }
   if (!commissionCheck.ok) {
     viewports["desktop-1280"].pageErrors.push(`commission calculator browser smoke failed: ${commissionCheck.error || "unknown"}`);
   }
@@ -866,7 +1035,7 @@ try {
       buildAuthEnabled: buildAuthEnabled(),
     }),
   );
-  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, compareShareCheck, guidedSearchCheck, commissionCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
+  const verdict = { url, viewports, routeChecks, propertyNavigationCheck, compareShareCheck, guidedSearchCheck, neighborhoodFilterCheck, commissionCheck, musicApiCheck, authRouteCheck, brandWarnings, authWarnings, verdictFile: outJson };
   if (baselineRequested) {
     const { divergesFromBaseline, reasons } = compareAgainstBaseline(verdict);
     verdict.divergesFromBaseline = divergesFromBaseline;

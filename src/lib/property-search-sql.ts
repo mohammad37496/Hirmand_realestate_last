@@ -1,9 +1,11 @@
 import { compactSearchText, normalizeSearchText } from "./property-search-utils.ts";
+import { MAX_SELECTED_NEIGHBORHOODS, normalizeNeighborhoodSelection } from "./neighborhood-selection.ts";
 
 export type PublicPropertySearchFilterInput = {
   transactionType?: string;
   propertyType?: string;
   neighborhood?: string;
+  neighborhoods?: string[];
   featuredOnly?: boolean;
   search?: string;
   minArea?: number;
@@ -41,7 +43,7 @@ export const PRICE_EXPR =
   "when transaction_type = 'mortgage' then deposit else price end";
 
 /** Shared deterministic ordering for public search cards and area listings. */
-export function buildPublicPropertyOrderBySql(sortParameter = "$38::text"): string {
+export function buildPublicPropertyOrderBySql(sortParameter = "$39::text"): string {
   return [
     `case when ${sortParameter} = 'newest' then case when featured and (featured_until is null or featured_until >= current_timestamp) then 0 else 1 end else 0 end,`,
     `case when ${sortParameter} = 'price_asc' then ${PRICE_EXPR} end asc nulls last,`,
@@ -90,6 +92,7 @@ export function buildPublicPropertyWhereSql(): string {
     "and ($1::text is null or transaction_type = $1)",
     "and ($2::text is null or property_type = $2)",
     `and ($3::text is null or ($5::boolean is true and ${normalizedTextSql("neighborhood")} = ${normalizedTextSql("$3::text")}) or ($5::boolean is false and strpos(${normalizedTextSql("neighborhood")}, ${normalizedTextSql("$3::text")}) > 0))`,
+    `and (cardinality($37::text[]) = 0 or exists (select 1 from unnest($37::text[]) as selected_neighborhood(value) where ${normalizedTextSql("neighborhood")} = ${normalizedTextSql("selected_neighborhood.value")}))`,
     "and ($4::boolean is false or (featured = true and (featured_until is null or featured_until >= current_timestamp)))",
     `and ($6::text is null or (select bool_and(strpos(${normalizedTextSql("concat_ws(' ', title, city, neighborhood, address, description, features::text)")}, ${normalizedTextSql("search_term")}) > 0) from unnest(regexp_split_to_array(trim($6::text), '[[:space:]]+')) as terms(search_term) where ${normalizedTextSql("search_term")} <> ''))`,
     "and ($7::int is null or area_m2 >= $7)",
@@ -127,7 +130,10 @@ export function buildPublicPropertyWhereSql(): string {
 
 /** Keep positional parameter order in one tested place for list/count endpoints. */
 export function buildPublicPropertyFilterParams(data: PublicPropertySearchFilterInput): unknown[] {
-  const neighborhood = data.neighborhood?.trim() || null;
+  const neighborhoods = normalizeNeighborhoodSelection(data.neighborhoods ?? []).slice(0, MAX_SELECTED_NEIGHBORHOODS);
+  // The repeated multi-value field is authoritative when present. Do not AND
+  // a stale legacy single-neighborhood value with an otherwise valid OR set.
+  const neighborhood = neighborhoods.length ? null : data.neighborhood?.trim() || null;
   const exactNeighborhood = Boolean(
     neighborhood && compactSearchText(neighborhood).length >= 2 && !neighborhood.includes("%"),
   );
@@ -165,6 +171,7 @@ export function buildPublicPropertyFilterParams(data: PublicPropertySearchFilter
     data.maxDeposit ?? null,
     data.minRent ?? null,
     data.maxRent ?? null,
+    neighborhoods,
     data.offset ?? 0,
   ];
 }

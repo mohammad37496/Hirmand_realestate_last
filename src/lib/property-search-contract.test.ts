@@ -18,6 +18,16 @@ test("public filter contract accepts supported transaction types and money range
   assert.equal(parsed.offset, 0);
 });
 
+test("public filter contract accepts up to 12 distinct neighborhoods", () => {
+  const neighborhoods = ["مرداویج", "جلفا", "خانه اصفهان"];
+  const parsed = publicPropertyFiltersSchema.parse({ neighborhoods });
+  assert.deepEqual(parsed.neighborhoods, neighborhoods);
+  assert.equal(publicPropertyFiltersSchema.safeParse({ neighborhoods: Array.from({ length: 13 }, (_, index) => `محله ${index}`) }).success, false);
+  assert.equal(publicPropertyFiltersSchema.safeParse({ neighborhoods: ["جلفا", "جلفا"] }).success, false);
+  assert.equal(publicPropertyFiltersSchema.safeParse({ neighborhoods: ["جلفا", "جِلفا"] }).success, false);
+  assert.equal(publicPropertyFiltersSchema.safeParse({ neighborhoods: [" "] }).success, false);
+});
+
 test("public filter contract rejects unsupported transaction and property types", () => {
   assert.equal(publicPropertyFiltersSchema.safeParse({ transactionType: "lease" }).success, false);
   assert.equal(publicPropertyFiltersSchema.safeParse({ propertyType: "garage" }).success, false);
