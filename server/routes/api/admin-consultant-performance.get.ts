@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   const [leads, deals, settlements] = await Promise.all([
     sql.query<Record<string, unknown>>(
-      "select consultant,count(*)::int as lead_count,count(*) filter(where status='contract')::int as contracted_leads,count(*) filter(where status not in ('closed','spam'))::int as open_leads from leads where created_at >= current_timestamp - ($1::int * interval '1 day') group by consultant",
+      "select c.id as consultant_id,c.name as consultant,count(*)::int as lead_count,count(*) filter(where l.status='contract')::int as contracted_leads,count(*) filter(where l.status not in ('closed','spam'))::int as open_leads from leads l join consultants c on c.id=l.consultant_id where l.created_at >= current_timestamp - ($1::int * interval '1 day') group by c.id,c.name",
       [days],
     ),
     canViewDeals
@@ -56,35 +56,38 @@ export default defineEventHandler(async (event) => {
       : Promise.resolve([] as Record<string, unknown>[]),
   ]);
 
-  type Row = { name: string; leads: number; contractedLeads: number; openLeads: number; deals: number; completedDeals: number; volume: string | null; commissions: string | null; paid: string | null; due: string | null };
+  type Row = { id: string; name: string; leads: number; contractedLeads: number; openLeads: number; deals: number; completedDeals: number; volume: string | null; commissions: string | null; paid: string | null; due: string | null };
   const map = new Map<string, Row>();
-  const ensure = (value: unknown) => {
-    const name = String(value ?? "").trim() || "بدون مشاور";
-    if (!map.has(name)) map.set(name, { name, leads: 0, contractedLeads: 0, openLeads: 0, deals: 0, completedDeals: 0, volume: canViewDeals ? "0" : null, commissions: canViewCommissions ? "0" : null, paid: canViewCommissions ? "0" : null, due: canViewCommissions ? "0" : null });
-    return map.get(name)!;
+  const ensure = (key: string, value: unknown, historical = false) => {
+    const rawName = String(value ?? "").trim() || "بدون مشاور";
+    const name = historical ? `${rawName} · سوابق نام‌محور` : rawName;
+    if (!map.has(key)) map.set(key, { id: key, name, leads: 0, contractedLeads: 0, openLeads: 0, deals: 0, completedDeals: 0, volume: canViewDeals ? "0" : null, commissions: canViewCommissions ? "0" : null, paid: canViewCommissions ? "0" : null, due: canViewCommissions ? "0" : null });
+    return map.get(key)!;
   };
   for (const row of leads) {
-    const item = ensure(row.consultant);
+    const item = ensure(String(row.consultant_id), row.consultant);
     item.leads = number(row.lead_count);
     item.contractedLeads = number(row.contracted_leads);
     item.openLeads = number(row.open_leads);
   }
   for (const row of deals) {
-    const item = ensure(row.consultant);
+    const name = String(row.consultant ?? "").trim();
+    const item = ensure(`historical-deal:${name}`, name, true);
     item.deals = number(row.deal_count);
     item.completedDeals = number(row.completed_deals);
     item.volume = canViewDeals ? String(row.volume ?? "0") : null;
     item.commissions = canViewCommissions ? String(row.commissions ?? "0") : null;
   }
   for (const row of settlements) {
-    const item = ensure(row.consultant);
+    const name = String(row.consultant ?? "").trim();
+    const item = ensure(`historical-deal:${name}`, name, true);
     item.paid = canViewCommissions ? String(row.paid ?? "0") : null;
     item.due = canViewCommissions ? String(row.due ?? "0") : null;
   }
 
   const rows = [...map.values()].map((item) => ({
     ...item,
-    conversionRate: item.leads > 0 ? Math.round((item.deals / item.leads) * 1000) / 10 : 0,
+    conversionRate: item.id.startsWith("historical-deal:") ? null : item.leads > 0 ? Math.round((item.deals / item.leads) * 1000) / 10 : 0,
   })).sort((a, b) => b.deals - a.deals || compareDecimalStrings(b.volume ?? "0", a.volume ?? "0") || a.name.localeCompare(b.name, "fa"));
 
   return { days, access: { deals: canViewDeals, commissions: canViewCommissions }, consultants: rows };

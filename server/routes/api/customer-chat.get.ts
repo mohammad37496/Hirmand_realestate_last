@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
 
   const sql = await getSql();
   const leadRows = await sql.query<{ id:string; name:string; consultant:string; deal:string }>(
-    "select id,name,consultant,deal from leads where upper(tracking_token) = upper($1) limit 1",
+    "select l.id,l.name,coalesce(c.name,l.consultant) as consultant,l.deal from leads l left join consultants c on c.id=l.consultant_id where upper(l.tracking_token) = upper($1) limit 1",
     [trackingCode.data],
   );
   const lead = leadRows[0];

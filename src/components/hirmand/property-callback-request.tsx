@@ -4,7 +4,7 @@ import { formatPersianDate } from "@/lib/persian-date";
 import { PersianDatePicker } from "./persian-date-picker";
 import "@/property-callback-request.css";
 
-type Props={propertyType?:string;neighborhood?:string;context?:string};
+type Props={propertyId?:string;propertyType?:string;neighborhood?:string;context?:string};
 
 function digits(value:string){
   return value.replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).replace(/[٠-٩]/g,d=>String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
@@ -16,7 +16,7 @@ function today(){
 function toIranIso(date:string,time:string){return new Date(date+"T"+time+":00+03:30").toISOString();}
 const TIMES=Array.from({length:19},(_,i)=>9*60+i*30).map(v=>String(Math.floor(v/60)).padStart(2,"0")+":"+String(v%60));
 
-export function PropertyCallbackRequest({propertyType="",neighborhood="",context=""}:Props){
+export function PropertyCallbackRequest({propertyId,propertyType="",neighborhood="",context=""}:Props){
   const [open,setOpen]=useState(false),[name,setName]=useState(""),[phone,setPhone]=useState("");
   const [date,setDate]=useState(today()),[time,setTime]=useState("17:00"),[note,setNote]=useState("");
   const [busy,setBusy]=useState(false),[done,setDone]=useState(""),[error,setError]=useState("");
@@ -32,7 +32,7 @@ export function PropertyCallbackRequest({propertyType="",neighborhood="",context
     setBusy(true);setError("");
     try{
       const response=await fetch("/api/leads",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
-        name:name.trim(),phone:mobile,peopleCount:1,job:"",deal:"درخواست تماس",propertyType,neighborhood,consultant:"",
+        name:name.trim(),phone:mobile,peopleCount:1,job:"",deal:"درخواست تماس",propertyId,propertyType,neighborhood,consultant:"",
         note:[context,note.trim()].filter(Boolean).join("\n"),source:"website",callbackPreferredAt:at,matches:[]
       })});
       const payload=await response.json().catch(()=>null);

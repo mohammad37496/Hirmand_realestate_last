@@ -105,7 +105,7 @@ test("every public lead branch uses the canonical property visibility predicate"
   assert.match(leadsRoute, /import \{ publicPropertyVisibilitySql \} from "@\/lib\/public-property-visibility"/);
   assert.equal((leadsRoute.match(/\$\{publicPropertyVisibilitySql\(\)\}/g) ?? []).length, 5);
   assert.doesNotMatch(leadsRoute, /from properties where id::text=\$1 and status='published'/);
-  assert.match(propertyVisitRequest, /\$\{publicPropertyVisibilitySql\(\)\}/);
+  assert.match(propertyVisitRequest, /\$\{publicPropertyVisibilitySql\("p"\)\}/);
   assert.doesNotMatch(propertyVisitRequest, /where id::text=\$1 and status='published'/);
 });
 

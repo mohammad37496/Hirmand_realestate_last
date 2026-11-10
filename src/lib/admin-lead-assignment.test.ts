@@ -28,7 +28,7 @@ describe("admin lead assignment data loading", () => {
   });
 
   it("propagates unassigned-lead database errors instead of reporting an empty inbox", async () => {
-    const { sql, calls } = createSql([[{ name: "مشاور فعال", phone: "09120000000" }], new Error("lead query unavailable")]);
+    const { sql, calls } = createSql([[{ id: "consultant-1", name: "مشاور فعال", phone: "09120000000" }], new Error("lead query unavailable")]);
 
     await assert.rejects(
       loadAdminLeadAssignmentRows(sql, "recommend"),
@@ -38,7 +38,7 @@ describe("admin lead assignment data loading", () => {
   });
 
   it("loads consultants for an assignment without running the recommendations query", async () => {
-    const consultant = { name: "مشاور فعال", phone: "09120000000" };
+    const consultant = { id: "consultant-1", name: "مشاور فعال", phone: "09120000000" };
     const { sql, calls } = createSql([[consultant]]);
 
     const result = await loadAdminLeadAssignmentRows(sql, "assign");
@@ -48,7 +48,7 @@ describe("admin lead assignment data loading", () => {
   });
 
   it("returns both datasets when every query succeeds", async () => {
-    const consultant = { name: "مشاور فعال", phone: "09120000000" };
+    const consultant = { id: "consultant-1", name: "مشاور فعال", phone: "09120000000" };
     const lead = { id: "lead-1", name: "مشتری", phone: "09121111111" };
     const { sql, calls } = createSql([[consultant], [lead]]);
 

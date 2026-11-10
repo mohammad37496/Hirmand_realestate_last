@@ -33,7 +33,7 @@ export default defineEventHandler(async event=>{
   if(action==="list"){
     const [deals,leads,properties,stats]=await Promise.all([
       sql.query<Record<string,unknown>>("select d.id,d.lead_id,d.property_id,d.title,d.deal_type,d.status,d.customer_name,d.customer_phone,d.consultant,d.amount,d.commission,d.contract_number,d.contract_date,d.closing_date,d.notes,d.created_at,d.updated_at,p.title as property_title from admin_deals d left join properties p on p.id=d.property_id order by d.updated_at desc limit 100"),
-      sql.query<Record<string,unknown>>("select id,name,phone,consultant,status from leads order by created_at desc limit 100"),
+      sql.query<Record<string,unknown>>("select l.id,l.name,l.phone,coalesce(c.name,l.consultant) as consultant,l.status from leads l left join consultants c on c.id=l.consultant_id order by l.created_at desc limit 100"),
       sql.query<Record<string,unknown>>("select id,title,neighborhood from properties where deleted_at is null order by updated_at desc limit 100"),
       sql.query<Record<string,unknown>>("select count(*)::int as total,count(*) filter(where status='negotiation')::int as negotiation,count(*) filter(where status='contracted')::int as contracted,count(*) filter(where status='completed')::int as completed,coalesce(sum(amount) filter(where status not in ('cancelled')),0)::numeric as volume,coalesce(sum(commission) filter(where status in ('contracted','completed')),0)::numeric as commissions from admin_deals")
     ]);
