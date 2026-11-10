@@ -9,11 +9,14 @@ import {
   rentFromRahn,
   splitRahnRent,
 } from "@/lib/finance";
+import { calculateRentRenewal } from "@/lib/rent-renewal";
 import {
   formatFaNumber,
   formatGroupedInput,
+  formatRateInput,
   formatToman,
   parseAmount,
+  parseDecimal,
   tomanToWords,
 } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -22,6 +25,10 @@ export function RahnRentConverter() {
   const [amount, setAmount] = useState("۵۰۰٬۰۰۰٬۰۰۰");
   const [rate, setRate] = useState(DEFAULT_RAHN_RATE);
   const [share, setShare] = useState(35);
+  const [previousRahn, setPreviousRahn] = useState("");
+  const [previousRent, setPreviousRent] = useState("");
+  const [rahnIncrease, setRahnIncrease] = useState("30");
+  const [rentIncrease, setRentIncrease] = useState("30");
 
   const totalRahn = parseAmount(amount);
   const result = useMemo(
@@ -31,6 +38,12 @@ export function RahnRentConverter() {
   const amountWords = tomanToWords(totalRahn);
   const fullRent = rentFromRahn(totalRahn, rate);
   const fullRahnFromRent = rahnFromRent(fullRent, rate);
+  const oldRahnValue = parseAmount(previousRahn);
+  const oldRentValue = parseAmount(previousRent);
+  const rahnRateValue = Math.min(1000, parseDecimal(rahnIncrease));
+  const rentRateValue = Math.min(1000, parseDecimal(rentIncrease));
+  const rahnRenewal = calculateRentRenewal(oldRahnValue, rahnRateValue);
+  const rentRenewal = calculateRentRenewal(oldRentValue, rentRateValue);
 
   async function copyResult() {
     if (!result) return;
@@ -139,6 +152,65 @@ export function RahnRentConverter() {
         ) : (
           <p className="commission-hint">ارزش کل را وارد کنید تا تبدیل محاسبه شود.</p>
         )}
+
+        <section className="rent-renewal" aria-labelledby="rent-renewal-title">
+          <div className="rent-renewal-heading">
+            <span className="kicker">ویژه تمدید قرارداد</span>
+            <h2 id="rent-renewal-title">محاسبه رهن و اجاره سال جدید</h2>
+            <p>مبلغ قرارداد پارسال و درصد افزایش پیشنهادی را وارد کنید تا مبلغ جدید تمدید را ببینید.</p>
+          </div>
+          <div className="commission-fields">
+            <label className="field">
+              <span className="field-label">رهن پارسال (تومان)</span>
+              <input inputMode="numeric" placeholder="مثلاً ۵۰۰٬۰۰۰٬۰۰۰" value={previousRahn}
+                onChange={(event) => setPreviousRahn(formatGroupedInput(event.target.value))} />
+            </label>
+            <label className="field">
+              <span className="field-label">اجاره ماهانه پارسال (تومان)</span>
+              <input inputMode="numeric" placeholder="مثلاً ۱۰٬۰۰۰٬۰۰۰" value={previousRent}
+                onChange={(event) => setPreviousRent(formatGroupedInput(event.target.value))} />
+            </label>
+            <label className="field">
+              <span className="field-label">درصد افزایش رهن (٪)</span>
+              <input inputMode="decimal" dir="ltr" value={rahnIncrease}
+                onChange={(event) => setRahnIncrease(formatRateInput(event.target.value))} />
+            </label>
+            <label className="field">
+              <span className="field-label">درصد افزایش اجاره (٪)</span>
+              <input inputMode="decimal" dir="ltr" value={rentIncrease}
+                onChange={(event) => setRentIncrease(formatRateInput(event.target.value))} />
+            </label>
+          </div>
+          <div className="rent-renewal-presets" aria-label="درصدهای پیشنهادی افزایش">
+            {[20, 25, 30].map((value) => (
+              <button key={value} type="button" className="preset-chip"
+                onClick={() => { setRahnIncrease(String(value)); setRentIncrease(String(value)); }}>
+                افزایش {formatFaNumber(value)}٪ هر دو مبلغ
+              </button>
+            ))}
+          </div>
+          {(oldRahnValue > 0 || oldRentValue > 0) ? (
+            <div className="commission-result" aria-live="polite">
+              <div className="commission-result-head">
+                <ArrowLeftRight size={18} strokeWidth={1.8} />
+                <strong>مبالغ پیشنهادی برای تمدید</strong>
+              </div>
+              <div className="rent-renewal-results">
+                {rahnRenewal ? <article>
+                  <small>رهن جدید</small>
+                  <strong>{formatToman(rahnRenewal.renewedAmount)} تومان</strong>
+                  <span>افزایش {formatToman(rahnRenewal.increaseAmount)} تومان ({formatFaNumber(rahnRenewal.increasePercent)}٪)</span>
+                </article> : null}
+                {rentRenewal ? <article>
+                  <small>اجاره ماهانه جدید</small>
+                  <strong>{formatToman(rentRenewal.renewedAmount)} تومان</strong>
+                  <span>افزایش {formatToman(rentRenewal.increaseAmount)} تومان ({formatFaNumber(rentRenewal.increasePercent)}٪)</span>
+                </article> : null}
+              </div>
+              <p className="commission-disclaimer">این محاسبه صرفاً بر اساس درصدی است که وارد کرده‌اید. سقف مجاز افزایش اجاره‌بها و شرایط قانونی هر سال و هر شهر را جداگانه بررسی کنید.</p>
+            </div>
+          ) : <p className="commission-hint">برای مشاهده نتیجه، مبلغ رهن یا اجاره پارسال را وارد کنید.</p>}
+        </section>
       </div>
 
       <aside className="commission-guide">
