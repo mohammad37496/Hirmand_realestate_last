@@ -482,7 +482,11 @@ try {
             failures.push("/properties @ 320px: first property image did not load successfully; state=" + JSON.stringify(imageState));
           }
 
-          await firstCard.scrollIntoViewIfNeeded();
+          await firstCard.evaluate((card) => card.scrollIntoView({
+            block: "center",
+            inline: "nearest",
+            behavior: "instant",
+          }));
           await page.waitForTimeout(120);
 
           const geometry = await firstCard.evaluate((card) => {
