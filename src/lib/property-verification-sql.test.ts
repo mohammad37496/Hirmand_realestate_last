@@ -36,6 +36,7 @@ const schema = `
   set time zone 'UTC';
   create table properties (
     id text primary key,
+    consultant_id text,
     status text,
     featured boolean,
     published_at timestamptz,
@@ -151,17 +152,18 @@ test("saveProperty public-fact comparison is null-safe, preserves no-ops and exc
 test("bulk consultant assignment invalidates only changed contact values and skips no-op updates", async () => {
   const pg = await createDatabase();
   try {
-    const changed = propertyContactChangedSql("p");
+    const changed = propertyContactChangedSql("p", "$2::text", "$3::text");
     await stamp(pg);
     const noop = await pg.query(
       `update properties as p
-       set contact_name=$1, contact_phone=$2,
+       set consultant_id=$1, contact_name=$2, contact_phone=$3,
            last_verified_at=case when ${changed} then null else p.last_verified_at end,
            last_verified_by=case when ${changed} then null else p.last_verified_by end,
            updated_at=current_timestamp
-       where p.id=$3 and p.deleted_at is null and ${changed}
+       where p.id=$4 and p.deleted_at is null
+         and (p.consultant_id is distinct from $1 or ${changed})
        returning id`,
-      ["مشاور", "09123456789", "p1"],
+      [null, "مشاور", "09123456789", "p1"],
     );
     assert.equal(noop.rows.length, 0);
     assert.deepEqual(await readStamp(pg), {
@@ -171,12 +173,13 @@ test("bulk consultant assignment invalidates only changed contact values and ski
 
     const changedName = await pg.query(
       `update properties as p
-       set contact_name=$1, contact_phone=$2,
+       set consultant_id=$1, contact_name=$2, contact_phone=$3,
            last_verified_at=case when ${changed} then null else p.last_verified_at end,
            last_verified_by=case when ${changed} then null else p.last_verified_by end
-       where p.id=$3 and p.deleted_at is null and ${changed}
+       where p.id=$4 and p.deleted_at is null
+         and (p.consultant_id is distinct from $1 or ${changed})
        returning id`,
-      ["مشاور جدید", "09123456789", "p1"],
+      ["c1", "مشاور جدید", "09123456789", "p1"],
     );
     assert.equal(changedName.rows.length, 1);
     assert.deepEqual(await readStamp(pg), { last_verified_at: null, last_verified_by: null });
@@ -184,11 +187,12 @@ test("bulk consultant assignment invalidates only changed contact values and ski
     await stamp(pg);
     await pg.query(
       `update properties as p
-       set contact_name=$1, contact_phone=$2,
+       set consultant_id=$1, contact_name=$2, contact_phone=$3,
            last_verified_at=case when ${changed} then null else p.last_verified_at end,
            last_verified_by=case when ${changed} then null else p.last_verified_by end
-       where p.id=$3 and p.deleted_at is null and ${changed}`,
-      ["مشاور جدید", "09111111111", "p1"],
+       where p.id=$4 and p.deleted_at is null
+         and (p.consultant_id is distinct from $1 or ${changed})`,
+      ["c1", "مشاور جدید", "09111111111", "p1"],
     );
     assert.deepEqual(await readStamp(pg), { last_verified_at: null, last_verified_by: null }, "phone-only change");
   } finally {
@@ -246,8 +250,9 @@ test("all property mutation paths wire the shared verification predicates into t
   assert.match(properties, /propertyVerificationChangedSql\("properties", "excluded"\)/);
   assert.match(properties, /last_verified_at = case when \$\{verificationChanged\} then null else properties\.last_verified_at end/);
   assert.match(properties, /last_verified_by = case when \$\{verificationChanged\} then null else properties\.last_verified_by end/);
-  assert.match(properties, /const contactChanged = propertyContactChangedSql\("properties"\)/);
-  assert.match(properties, /and \$\{contactChanged\}\s+returning id, contact_name, contact_phone/);
+  assert.match(properties, /const contactChanged = propertyContactChangedSql\("properties", "\$2::text", "\$3::text"\)/);
+  assert.match(properties, /last_verified_at = case when \$\{contactChanged\} then null else properties\.last_verified_at end/);
+  assert.match(properties, /and \(consultant_id is distinct from \$1 or contact_name is distinct from \$2 or contact_phone is distinct from \$3\)\s+returning id, consultant_id, contact_name, contact_phone/);
   assert.match(divar, /divarPropertyFactsChangedSql\("properties"\)/);
   assert.match(divar, /last_verified_at = case when \$\{divarPropertyFactsChangedSql\("properties"\)\} then null/);
   assert.match(divar, /last_verified_by = case when \$\{divarPropertyFactsChangedSql\("properties"\)\} then null/);

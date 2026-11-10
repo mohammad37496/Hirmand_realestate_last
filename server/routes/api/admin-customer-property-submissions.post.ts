@@ -58,6 +58,7 @@ export default defineEventHandler(async (event) => {
     reviewNote?: string;
     consultantName?: string;
     consultantPhone?: string;
+    consultantId?: string;
     query?: string;
     patch?: Record<string, unknown>;
     priority?: "low" | "normal" | "high";
@@ -68,6 +69,7 @@ export default defineEventHandler(async (event) => {
     toDate?: string;
     assignedConsultantName?: string;
     assignedConsultantPhone?: string;
+    assignedConsultantId?: string;
     queueFilter?: "all" | "overdue" | "unassigned" | "high";
   };
   const action = body.action ?? "list";
@@ -89,7 +91,7 @@ export default defineEventHandler(async (event) => {
     const pageSize = [10, 20, 40].includes(requestedPageSize) ? requestedPageSize : 20;
     const offset = (page - 1) * pageSize;
     const rows = await sql.query<Record<string, unknown>>(
-      `select s.id,s.lead_id,s.public_tracking_token,s.status,s.owner_name,s.owner_phone,s.property_data,s.review_note,s.property_id,s.created_at,s.reviewed_at,s.priority,s.updated_at,s.queue_started_at,s.assigned_consultant_name,s.assigned_consultant_phone,
+      `select s.id,s.lead_id,s.public_tracking_token,s.status,s.owner_name,s.owner_phone,s.property_data,s.review_note,s.property_id,s.created_at,s.reviewed_at,s.priority,s.updated_at,s.queue_started_at,s.assigned_consultant_id,s.assigned_consultant_name,s.assigned_consultant_phone,
         (
           exists(select 1 from customer_property_submissions d where d.id<>s.id and d.status in ('pending','approved') and (
             d.owner_phone=s.owner_phone
@@ -105,7 +107,7 @@ export default defineEventHandler(async (event) => {
         and ($2='' or s.owner_name ilike $3 or s.owner_phone ilike $3 or s.public_tracking_token ilike $3 or coalesce(s.property_data->>'title','') ilike $3 or coalesce(s.property_data->>'neighborhood','') ilike $3)
         and ($4='' or s.created_at >= $4::date)
         and ($5='' or s.created_at < ($5::date + interval '1 day'))
-        and ($6='all' or ($6='overdue' and coalesce(s.queue_started_at,s.created_at) < current_timestamp - interval '24 hours') or ($6='unassigned' and coalesce(s.assigned_consultant_phone,'')='') or ($6='high' and s.priority='high'))
+        and ($6='all' or ($6='overdue' and coalesce(s.queue_started_at,s.created_at) < current_timestamp - interval '24 hours') or ($6='unassigned' and s.assigned_consultant_id is null and coalesce(s.assigned_consultant_phone,'')='') or ($6='high' and s.priority='high'))
       order by case s.priority when 'high' then 0 when 'normal' then 1 else 2 end, coalesce(s.queue_started_at,s.created_at) asc
       limit $7 offset $8`,
       [status, query, pattern, fromDate, toDate, queueFilter, pageSize, offset],
@@ -117,7 +119,7 @@ export default defineEventHandler(async (event) => {
          and ($2='' or s.owner_name ilike $3 or s.owner_phone ilike $3 or s.public_tracking_token ilike $3 or coalesce(s.property_data->>'title','') ilike $3 or coalesce(s.property_data->>'neighborhood','') ilike $3)
          and ($4='' or s.created_at >= $4::date)
          and ($5='' or s.created_at < ($5::date + interval '1 day'))
-         and ($6='all' or ($6='overdue' and coalesce(s.queue_started_at,s.created_at) < current_timestamp - interval '24 hours') or ($6='unassigned' and coalesce(s.assigned_consultant_phone,'')='') or ($6='high' and s.priority='high'))`,
+         and ($6='all' or ($6='overdue' and coalesce(s.queue_started_at,s.created_at) < current_timestamp - interval '24 hours') or ($6='unassigned' and s.assigned_consultant_id is null and coalesce(s.assigned_consultant_phone,'')='') or ($6='high' and s.priority='high'))`,
       [status, query, pattern, fromDate, toDate, queueFilter],
     );
     const countRows = await sql.query<{ status: string; count: number }>(
@@ -153,6 +155,7 @@ export default defineEventHandler(async (event) => {
         possibleDuplicate: Boolean(row.possible_duplicate),
         assignedConsultantName: row.assigned_consultant_name == null ? null : String(row.assigned_consultant_name),
         assignedConsultantPhone: row.assigned_consultant_phone == null ? null : String(row.assigned_consultant_phone),
+        assignedConsultantId: row.assigned_consultant_id == null ? null : String(row.assigned_consultant_id),
       })),
     };
   }
@@ -161,23 +164,30 @@ export default defineEventHandler(async (event) => {
     if (!body.id) throw createError({ statusCode: 400, statusMessage: "شناسه درخواست مشخص نیست." });
     const name = typeof body.assignedConsultantName === "string" ? body.assignedConsultantName.trim() : "";
     const phone = typeof body.assignedConsultantPhone === "string" ? body.assignedConsultantPhone.trim() : "";
-    const consultant = name && phone ? TEAM.find((person) => person.name === name && person.phone === phone) : null;
-    if (name || phone) {
-      if (!consultant) throw createError({ statusCode: 422, statusMessage: "مشاور انتخاب‌شده معتبر نیست." });
+    const requestedConsultantId = typeof body.assignedConsultantId === "string" ? body.assignedConsultantId.trim() : "";
+    const consultantRows = requestedConsultantId
+      ? await sql.query<{ id: string; name: string; phone: string }>("select id,name,phone from consultants where id=$1 limit 2", [requestedConsultantId])
+      : name && phone
+        ? await sql.query<{ id: string; name: string; phone: string }>("select id,name,phone from consultants where name=$1 and phone=$2 and is_active=true limit 2", [name, phone])
+        : [];
+    const consultant = consultantRows.length === 1 ? consultantRows[0] : null;
+    if ((requestedConsultantId || name || phone) && !consultant) {
+      throw createError({ statusCode: 422, statusMessage: "مشاور انتخاب‌شده معتبر نیست." });
     }
     const rows = await sql.query<{ id: string; status: string }>("select id,status from customer_property_submissions where id=$1 limit 1",[body.id]);
     if (!rows[0]) throw createError({ statusCode: 404, statusMessage: "درخواست ثبت ملک پیدا نشد." });
     if (rows[0].status !== "pending") throw createError({ statusCode: 409, statusMessage: "تخصیص مشاور فقط برای پرونده‌های در انتظار بررسی انجام می‌شود." });
     const updated = await sql.query<{ id: string }>(
-      "update customer_property_submissions set assigned_consultant_name=$2,assigned_consultant_phone=$3,assigned_at=clock_timestamp(),updated_at=greatest(clock_timestamp(),updated_at + interval '1 microsecond') where id=$1 and status='pending' returning id",
-      [body.id, consultant?.name ?? null, consultant?.phone ?? null],
+      "update customer_property_submissions set assigned_consultant_id=$2,assigned_consultant_name=$3,assigned_consultant_phone=$4,assigned_at=clock_timestamp(),updated_at=greatest(clock_timestamp(),updated_at + interval '1 microsecond') where id=$1 and status='pending' returning id",
+      [body.id, consultant?.id ?? null, consultant?.name ?? null, consultant?.phone ?? null],
     );
     if (!updated[0]) throw createError({ statusCode: 409, statusMessage: "وضعیت پرونده تغییر کرده است؛ فهرست را تازه‌سازی کنید." });
     await logReviewEvent(sql, body.id, "assign", consultant ? "پرونده به " + consultant.name + " تخصیص یافت." : "مسئول پرونده برداشته شد.", {
       consultantName: consultant?.name ?? null,
       consultantPhone: consultant?.phone ?? null,
+      consultantId: consultant?.id ?? null,
     });
-    return { success: true, assignedConsultantName: consultant?.name ?? null, assignedConsultantPhone: consultant?.phone ?? null };
+    return { success: true, assignedConsultantId: consultant?.id ?? null, assignedConsultantName: consultant?.name ?? null, assignedConsultantPhone: consultant?.phone ?? null };
   }
 
   if (action === "bulk_set_priority" || action === "bulk_reject") {
@@ -230,7 +240,7 @@ export default defineEventHandler(async (event) => {
          and ($2='' or s.owner_name ilike $3 or s.owner_phone ilike $3 or s.public_tracking_token ilike $3 or coalesce(s.property_data->>'title','') ilike $3 or coalesce(s.property_data->>'neighborhood','') ilike $3)
          and ($4='' or s.created_at >= $4::date)
          and ($5='' or s.created_at < ($5::date + interval '1 day'))
-         and ($6='all' or ($6='overdue' and coalesce(s.queue_started_at,s.created_at) < current_timestamp - interval '24 hours') or ($6='unassigned' and coalesce(s.assigned_consultant_phone,'')='') or ($6='high' and s.priority='high'))
+         and ($6='all' or ($6='overdue' and coalesce(s.queue_started_at,s.created_at) < current_timestamp - interval '24 hours') or ($6='unassigned' and s.assigned_consultant_id is null and coalesce(s.assigned_consultant_phone,'')='') or ($6='high' and s.priority='high'))
        order by s.created_at desc`,
       [status, query, pattern, fromDate, toDate, queueFilter],
     );
@@ -424,6 +434,9 @@ export default defineEventHandler(async (event) => {
         priority: String(submission.priority ?? "normal"),
         updatedAt: new Date().toISOString(),
         ageHours: Math.max(0, (Date.now() - new Date(String(submission.queue_started_at ?? submission.created_at)).getTime()) / 3600000),
+        assignedConsultantId: submission.assigned_consultant_id == null ? null : String(submission.assigned_consultant_id),
+        assignedConsultantName: submission.assigned_consultant_name == null ? null : String(submission.assigned_consultant_name),
+        assignedConsultantPhone: submission.assigned_consultant_phone == null ? null : String(submission.assigned_consultant_phone),
       },
     };
   }
@@ -465,7 +478,14 @@ export default defineEventHandler(async (event) => {
     const consultantPhone = typeof body.consultantPhone === "string" ? body.consultantPhone.trim() : "";
     const assignedName = String(submission.assigned_consultant_name ?? "").trim();
     const assignedPhone = String(submission.assigned_consultant_phone ?? "").trim();
-    const consultant = TEAM.find((person) => person.name === (assignedName || consultantName) && person.phone === (assignedPhone || consultantPhone));
+    const requestedConsultantId = String(submission.assigned_consultant_id ?? body.consultantId ?? "").trim();
+    const consultantRows = requestedConsultantId
+      ? await sql.query<{ id: string; name: string; phone: string }>("select id,name,phone from consultants where id=$1 limit 2", [requestedConsultantId])
+      : await sql.query<{ id: string; name: string; phone: string }>(
+          "select id,name,phone from consultants where name=$1 and phone=$2 limit 2",
+          [assignedName || consultantName, assignedPhone || consultantPhone],
+        );
+    const consultant = consultantRows.length === 1 ? consultantRows[0] : null;
     if (!consultant) throw createError({ statusCode: 400, statusMessage: "برای انتشار این پرونده یک مشاور معتبر انتخاب یا تخصیص دهید." });
 
     const data = (submission.property_data && typeof submission.property_data === "object"
@@ -511,6 +531,7 @@ export default defineEventHandler(async (event) => {
       images: media,
       contactName: consultant.name,
       contactPhone: consultant.phone,
+      consultantId: consultant.id,
       ownerName: String(submission.owner_name ?? data.ownerName ?? ""),
       ownerPhone: String(submission.owner_phone ?? data.ownerPhone ?? ""),
       ownerInfo: "ارسال‌شده از فرم ثبت ملک مشتری — نیازمند نگهداری داخلی اطلاعات مالک.",
@@ -565,7 +586,7 @@ export default defineEventHandler(async (event) => {
       if (!updated) throw createError({ statusCode: 409, statusMessage: "پرونده هم‌زمان تغییر کرده است؛ فهرست را تازه‌سازی کنید." });
 
       await transactionSql.query(
-        "insert into properties (id,slug,status,featured,title,transaction_type,property_type,city,neighborhood,address,area_m2,bedrooms,bathrooms,floor,total_floors,built_year,parking,elevator,storage,cabinet_type,flooring_type,cooling_system,heating_system,wall_closet_type,other_amenities,price,deposit,rent,description,features,images,contact_name,contact_phone,published_at,featured_until,latitude,longitude,floor_label,painted,wallpaper,convertible,orientation,owner_name,owner_phone,owner_info,availability_status,internal_priority,internal_note) values ($1,$2,'published',false,$3,$4,$5,'اصفهان',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26,$27::jsonb,$28::jsonb,$29,$30,current_timestamp,null,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,'available','normal',$41)",
+        "insert into properties (id,slug,status,featured,title,transaction_type,property_type,city,neighborhood,address,area_m2,bedrooms,bathrooms,floor,total_floors,built_year,parking,elevator,storage,cabinet_type,flooring_type,cooling_system,heating_system,wall_closet_type,other_amenities,price,deposit,rent,description,features,images,contact_name,contact_phone,published_at,featured_until,latitude,longitude,floor_label,painted,wallpaper,convertible,orientation,owner_name,owner_phone,owner_info,availability_status,internal_priority,internal_note,consultant_id) values ($1,$2,'published',false,$3,$4,$5,'اصفهان',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22::jsonb,$23,$24,$25,$26,$27::jsonb,$28::jsonb,$29,$30,current_timestamp,null,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,'available','normal',$41,$42)",
         [
           d.id, slug, d.title, d.transactionType, d.propertyType, d.neighborhood, d.address || null,
           d.areaM2 ?? null, d.bedrooms ?? null, d.bathrooms ?? null, savedFloor, d.totalFloors ?? null, d.builtYear ?? null,
@@ -574,6 +595,7 @@ export default defineEventHandler(async (event) => {
           d.contactName, d.contactPhone, d.latitude ?? null, d.longitude ?? null, d.floorLabel === "suite" ? "suite" : null,
           d.painted, d.wallpaper, d.convertible, d.orientation, d.ownerName ?? "", d.ownerPhone ?? "", d.ownerInfo ?? "",
           d.internalNote,
+          d.consultantId,
         ],
       );
 

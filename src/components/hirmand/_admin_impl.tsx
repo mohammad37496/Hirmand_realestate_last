@@ -258,6 +258,7 @@ type FormState = {
   floorPlanUrl: string;
   contactName: string;
   contactPhone: string;
+  consultantId: string | null;
   ownerName: string;
   ownerPhone: string;
   ownerInfo: string;
@@ -321,6 +322,7 @@ function emptyForm(): FormState {
     floorPlanUrl: "",
     contactName: TEAM[0]?.name ?? "مشاور هیرمند",
     contactPhone: TEAM[0]?.phone ?? SITE.phone.mobile,
+    consultantId: TEAM[0]?.id ?? null,
     ownerName: "",
     ownerPhone: "",
     ownerInfo: "",
@@ -501,6 +503,7 @@ function propertyToForm(property: Property): FormState {
     floorPlanUrl: property.floorPlanUrl ?? "",
     contactName: property.contactName,
     contactPhone: property.contactPhone,
+    consultantId: property.consultantId ?? null,
     ownerName: property.ownerName ?? "",
     ownerPhone: property.ownerPhone ?? "",
     ownerInfo: property.ownerInfo ?? "",
@@ -1255,7 +1258,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
     }
   }
 
-  async function bulkAssignConsultant(member: { name: string; phone: string }) {
+  async function bulkAssignConsultant(member: Consultant) {
     if (!canManageProperties) {
       toast.error("دسترسی تخصیص فایل به مشاور برای این حساب فعال نیست.");
       return;
@@ -1275,7 +1278,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
     setBulkBusy(true);
     try {
       const result = await bulkAssignPropertyConsultant({
-        data: { ids, contactName: member.name, contactPhone: member.phone },
+        data: { ids, consultantId: member.id, contactName: member.name, contactPhone: member.phone },
       });
       setSelectedIds([]);
       await refresh();
@@ -1530,6 +1533,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
           floorPlanUrl: form.floorPlanUrl.trim(),
           contactName: form.contactName.trim(),
           contactPhone: form.contactPhone.trim(),
+          consultantId: form.consultantId,
           ownerName: staffMode ? "" : form.ownerName.trim(),
           ownerPhone: staffMode ? "" : form.ownerPhone.trim(),
           ownerInfo: staffMode ? "" : form.ownerInfo.trim(),
@@ -2443,14 +2447,14 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                         defaultValue=""
                         aria-label="تخصیص مشاور به فایل‌های انتخاب‌شده"
                         onChange={(e) => {
-                          const member = assignmentConsultants.find((item) => item.phone === e.target.value);
+                          const member = assignmentConsultants.find((item) => item.id === e.target.value);
                           if (member) void bulkAssignConsultant(member);
                           e.currentTarget.value = "";
                         }}
                       >
                         <option value="">تخصیص مشاور…</option>
                         {assignmentConsultants.filter((member) => member.isActive).map((member) => (
-                          <option key={member.phone} value={member.phone}>{member.name}</option>
+                          <option key={member.id} value={member.id}>{member.name}</option>
                         ))}
                       </select>
                     ) : null}
@@ -3096,11 +3100,11 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                 <fieldset className="admin-section" id="section-publish">
                   <legend>مشاور و وضعیت انتشار</legend>
                   <AdminConsultantPicker
-                    contactName={form.contactName}
-                    contactPhone={form.contactPhone}
+                    consultantId={form.consultantId}
                     onSelect={(member) => {
                       patchForm((prev) => ({
                         ...prev,
+                        consultantId: member.id,
                         contactName: member.name,
                         contactPhone: member.phone,
                       }));
@@ -3128,7 +3132,10 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                       <span>نام مشاور</span>
                       <input
                         value={form.contactName}
-                        onChange={(e) => update("contactName", e.target.value)}
+                        onChange={(e) => {
+                          update("contactName", e.target.value);
+                          update("consultantId", null);
+                        }}
                       />
                     </label>
                     <label className="field">
@@ -3136,7 +3143,10 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                       <input
                         dir="ltr"
                         value={form.contactPhone}
-                        onChange={(e) => update("contactPhone", e.target.value)}
+                        onChange={(e) => {
+                          update("contactPhone", e.target.value);
+                          update("consultantId", null);
+                        }}
                       />
                     </label>
 {!staffMode ? (
