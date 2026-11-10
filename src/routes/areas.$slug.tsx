@@ -17,7 +17,7 @@ import {
 import { listPublishedProperties } from "@/lib/properties";
 import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "@/lib/neighborhood-market";
 import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas } from "@/lib/areas";
-import { breadcrumbJsonLd } from "@/lib/seo";
+import { breadcrumbJsonLd, serializeJsonLd } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import { getPublicAreaContent, type AreaContent } from "@/lib/area-content";
 import areaDetailCss from "../area-detail.css?url";
@@ -143,11 +143,11 @@ function AreaPage() {
     <SiteChrome className="area-profile-shell">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(areaJsonLd(area)) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(areaJsonLd(area)) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(crumbs) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(crumbs) }}
       />
 
       <main className="area-profile-page">
