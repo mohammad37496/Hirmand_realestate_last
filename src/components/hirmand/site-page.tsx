@@ -36,6 +36,7 @@ import { InquiryForm, type InquiryDraft } from "./inquiry-form";
 import { MapAppButtons, MapEmbed } from "./map-apps";
 import { PropertyShowcase } from "./property-showcase";
 import type { PropertyCardData } from "@/lib/properties";
+import type { CommissionRateConfig } from "@/lib/commission";
 import { Reveal } from "./reveal";
 import { scrollToId } from "./scroll";
 import { SiteChrome } from "./site-chrome";
@@ -566,7 +567,7 @@ function Process() {
   );
 }
 
-function Tools() {
+function Tools({ commissionRates }: { commissionRates: CommissionRateConfig }) {
   return (
     <Reveal as="section" className="section" id="tools">
       <SectionHead
@@ -574,7 +575,7 @@ function Tools() {
         title="تبدیل رهن به اجاره، کمیسیون و وام"
         text="نوار لغزنده رهن و اجاره را به چپ و راست بکشید. مبالغ به تومان است و اعداد جنبه راهنما دارند."
       />
-      <FinanceTools />
+      <FinanceTools commissionRates={commissionRates} />
     </Reveal>
   );
 }
@@ -879,10 +880,12 @@ export function SitePage({
   initialProperties = [],
   announcement = "",
   faqItems = FAQS,
+  commissionRates,
 }: {
   initialProperties?: PropertyCardData[];
   announcement?: string;
   faqItems?: ReadonlyArray<{ q: string; a: string }>;
+  commissionRates: CommissionRateConfig;
 }) {
   const [draft, setDraft] = useState<InquiryDraft>({
     deal: "خرید",
@@ -952,7 +955,7 @@ export function SitePage({
             <Process />
             <Neighborhoods onPick={(name) => goInquiry({ neighborhood: name })} />
             <Team />
-            <Tools />
+      <Tools commissionRates={commissionRates} />
             <TrackingCta />
             <FAQ items={faqItems} />
             <Contact />
