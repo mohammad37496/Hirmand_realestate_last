@@ -12,3 +12,11 @@ test("property comparison renders every feature row once", () => {
   assert.ok(labels.includes("کاغذ دیواری"));
   assert.ok(labels.includes("انباری"));
 });
+
+test("shared comparison import, removal and clearing stay synchronized with the URL", () => {
+  assert.match(compare, /resolveCompareSlugs\(window\.location\.search, readCompare\(\)\)/);
+  assert.match(compare, /if \(resolved\.isShared\) persistCompare\(slugs\)/);
+  assert.match(compare, /if \(current\.isShared\) syncSharedCompareUrl\(next\)/);
+  assert.match(compare, /syncSharedCompareUrl\(\[\]\)/);
+  assert.match(compare, /if \(resolved\.isShared\) syncSharedCompareUrl\(retained\)/);
+});
