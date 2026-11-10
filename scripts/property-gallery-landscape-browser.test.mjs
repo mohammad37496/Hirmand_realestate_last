@@ -14,7 +14,9 @@ import { mergeAppEnv, readAppEnv } from "./with-app-env.mjs";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const dbDir = await mkdtemp(join(tmpdir(), "hirmand-gallery-landscape-"));
-const screenshotDir = join(root, "screenshots", "mobile-device-audit", "gallery-landscape-main-20261103");
+const screenshotDir = process.env.GALLERY_SCREENSHOT_DIR?.trim()
+  ? resolve(process.env.GALLERY_SCREENSHOT_DIR)
+  : join(root, "screenshots", "mobile-device-audit", "gallery-landscape-main-20261103");
 const imageUrls = Array.from({ length: 8 }, (_, index) => `/images/isfahan-hero.jpg?qa-gallery=${index + 1}`);
 const devices = [
   { name: "Galaxy J7 Pro", width: 640, height: 360, dpr: 3, ua: "Mozilla/5.0 (Linux; Android 8.1.0; SM-J701F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36" },
