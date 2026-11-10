@@ -8,6 +8,7 @@ import { listPublishedPropertiesBySlugs, type Property } from "@/lib/properties"
 import { SITE } from "@/lib/site";
 import { formatToman } from "@/lib/money";
 import { propertyPath } from "@/lib/property-path";
+import { csvCell as escapeCsvCell } from "@/lib/property-export";
 import { resolveCompareSlugs, updateSharedCompareSearch } from "@/lib/compare-share.mjs";
 import { resolveCompareLoad } from "@/lib/compare-load-state.mjs";
 import "@/compare-export.css";
@@ -113,7 +114,7 @@ function valueMoney(value: string | null) {
 }
 function csvCell(value: string | number | null | undefined) {
   const text = String(value ?? "").replace(/\r?\n|\r/g, " ").trim();
-  return /[",]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+  return escapeCsvCell(text);
 }
 
 function exportCompareCsv(properties: Property[]) {
