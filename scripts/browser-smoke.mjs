@@ -361,7 +361,14 @@ try {
 
     for (const width of neighborhoodFilterCheck.widths) {
       await neighborhoodPage.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-      if (width <= 979) await neighborhoodPage.locator(".pf-filter-btn").click();
+      if (width <= 979) {
+        await neighborhoodPage.evaluate(() => window.scrollTo(0, 0));
+        await neighborhoodPage.waitForFunction(() => {
+          const panel = document.querySelector(".pf-sidebar");
+          return panel instanceof HTMLElement && getComputedStyle(panel).position === "fixed";
+        }, null, { timeout: timeoutMs });
+        await neighborhoodPage.locator(".pf-filter-btn").click();
+      }
       if (width <= 979) {
         // The drawer is opacity-hidden but still considered visible by Playwright
         // while its translateY transition is running. Wait for the actual open
@@ -373,6 +380,9 @@ try {
             return button?.getAttribute("aria-expanded") === "true" &&
               panel?.classList.contains("is-open");
           }, null, { timeout: timeoutMs });
+          // Opening the fixed sheet must not leave the document scrolled to a
+          // stale control position from the page's previous viewport layout.
+          await neighborhoodPage.evaluate(() => window.scrollTo(0, 0));
         } catch (error) {
           const state = await neighborhoodPage.evaluate(() => {
             const button = document.querySelector(".pf-filter-btn");
@@ -383,7 +393,12 @@ try {
               panelClass: panel?.className ?? null,
               opacity: style?.opacity ?? null,
               pointerEvents: style?.pointerEvents ?? null,
+              position: style?.position ?? null,
+              top: style?.top ?? null,
+              bottom: style?.bottom ?? null,
               transform: style?.transform ?? null,
+              windowScrollY: window.scrollY,
+              innerWidth: window.innerWidth,
             };
           });
           throw new Error(`mobile filter drawer did not open at ${width}px: ${JSON.stringify(state)}; ${error instanceof Error ? error.message : String(error)}`);
