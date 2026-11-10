@@ -109,7 +109,7 @@ test("consultant relation migration backfills only unique normalized name and ph
 });
 
 test("property profile and CRM assignment paths prefer stable consultant IDs with legacy-only fallback", async () => {
-  const [properties, profile, detailView, adminUi, submissionUi, submissions, dashboard, sales, divar] = await Promise.all([
+  const [properties, profile, detailView, adminUi, submissionUi, submissions, dashboard, sales, divar, migrationPlan, prestart] = await Promise.all([
     readFile(new URL("./properties.ts", import.meta.url), "utf8"),
     readFile(new URL("../routes/consultants.$id.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/hirmand/property-detail-view.tsx", import.meta.url), "utf8"),
@@ -119,6 +119,8 @@ test("property profile and CRM assignment paths prefer stable consultant IDs wit
     readFile(new URL("../../server/routes/api/admin-dashboard.post.ts", import.meta.url), "utf8"),
     readFile(new URL("../../server/routes/api/admin-sales-control-center.post.ts", import.meta.url), "utf8"),
     readFile(new URL("./divar.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../scripts/migration-plan.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../../scripts/prestart-migrate.mjs", import.meta.url), "utf8"),
   ]);
   assert.match(properties, /consultant_id = \$1[\s\S]*?consultant_id is null[\s\S]*?legacy_consultant/);
   assert.match(properties, /select count\(\*\)[\s\S]*?from consultants legacy_consultant/);
@@ -136,4 +138,6 @@ test("property profile and CRM assignment paths prefer stable consultant IDs wit
   assert.match(dashboard, /c\.id = p\.consultant_id/);
   assert.match(sales, /c\.id = p\.consultant_id/);
   assert.match(divar, /consultant_id/);
+  assert.match(migrationPlan, /PROPERTY_CONSULTANT_RELATION_MIGRATIONS[\s\S]*?0103_property_consultant_relation\.sql/);
+  assert.match(prestart, /property consultant migrations verified/);
 });
