@@ -28,3 +28,20 @@ test("responsive smoke applies the draft neighborhood before asserting URL state
   assert.match(responsiveSmoke, /neighborhoodDialog\.getByRole\("button", \{ name: "اعمال انتخاب‌ها" \}\)\.click\(\)/);
   assert.match(responsiveSmoke, /new URLSearchParams\(location\.search\)\.get\("neighborhood"\) === name/);
 });
+
+test("property-list query failures show a retryable error instead of the successful empty state", () => {
+  const readyGuard = route.indexOf("if (!urlReady) return;");
+  const effectStart = route.lastIndexOf("useEffect(() => {", readyGuard);
+  const effectEnd = route.indexOf("const loadMore = useCallback", readyGuard);
+  const searchEffect = route.slice(effectStart, effectEnd);
+
+  assert.match(route, /const \[loadError, setLoadError\] = useState\(""\)/);
+  assert.match(route, /const \[retryVersion, setRetryVersion\] = useState\(0\)/);
+  assert.match(searchEffect, /setLoadError\(""\)/);
+  assert.match(searchEffect, /setLoadError\("دریافت فایل‌های ملکی انجام نشد/);
+  assert.match(searchEffect, /retryVersion/);
+  assert.match(route, /className="pf-empty pf-load-error" role="alert"/);
+  assert.match(route, /onClick=\{\(\) => setRetryVersion\(\(current\) => current \+ 1\)\}/);
+  assert.match(route, /: loadError \? null : \(/);
+  assert.match(route, /className="pf-empty pf-loading" role="status" aria-live="polite"/);
+});
