@@ -6,6 +6,7 @@ import {
   calculateBuy,
   calculateRent,
   commissionRateStatus,
+  COMMISSION_LEGAL_BASIS_NOTICE,
   DEFAULT_COMMISSION_RATES,
   normalizeCommissionRates,
   resultSummary,
@@ -109,6 +110,10 @@ test("copied commission summaries carry the verification status and source inste
   assert.ok(verified);
   assert.match(resultSummary(verified), /https:\/\/example\.org\/rates/);
   assert.match(resultSummary(verified), /تأیید داخلی مدیریت \(نه تأیید رسمی\/قانونی\)/);
+  assert.match(resultSummary(verified), /ارزش معاملاتی/);
+  assert.match(resultSummary(verified), /سقف مصوب شهرستان/);
+  assert.match(resultSummary(verified), /برآورد نمونه کمیسیون/);
+  assert.match(COMMISSION_LEGAL_BASIS_NOTICE, /سامانه ثبت الکترونیک اسناد/);
 });
 
 test("changing a rate, city, source or validity date invalidates prior management approval", () => {
