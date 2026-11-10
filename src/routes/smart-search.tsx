@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { Search, Sparkles, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
+import { GuidedSmartSearch } from "@/components/hirmand/guided-smart-search";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
 import { listPublishedPropertyCards, type PropertyCardData } from "@/lib/properties";
 import { parseSmartPropertySearch, type SmartSearchResult } from "@/lib/smart-property-search";
@@ -34,6 +35,7 @@ const EXAMPLES = [
 const SMART_SEARCH_PAGE_SIZE = 48;
 
 function SmartSearchPage() {
+  const [mode, setMode] = useState<"guided" | "text">("guided");
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<SmartSearchResult | null>(null);
   const [properties, setProperties] = useState<PropertyCardData[]>([]);
@@ -93,6 +95,11 @@ function SmartSearchPage() {
   return (
     <SiteChrome className="property-detail-shell">
       <main className="smart-tool-page">
+        <div className="smart-search-mode-tabs" role="tablist" aria-label="روش جستجوی ملک">
+          <button type="button" role="tab" aria-selected={mode === "guided"} className={mode === "guided" ? "is-active" : ""} onClick={() => setMode("guided")}>جستجوی مرحله‌ای و رتبه‌بندی</button>
+          <button type="button" role="tab" aria-selected={mode === "text"} className={mode === "text" ? "is-active" : ""} onClick={() => setMode("text")}>جستجوی متنی فارسی</button>
+        </div>
+        {mode === "guided" ? <GuidedSmartSearch/> : <>
         <section className="smart-tool-hero">
           <span className="kicker">هوشمند، فارسی، سریع</span>
           <h1>ملک را مثل یک پیام برایمان جستجو کن.</h1>
@@ -137,6 +144,7 @@ function SmartSearchPage() {
             {hasMore ? <div className="smart-search-load-more"><button type="button" className="btn-ghost" onClick={() => void loadMore()} disabled={loadingMore || loading}>{loadingMore ? "در حال دریافت فایل‌ها…" : "نمایش فایل‌های بیشتر"}</button></div> : null}
           </section>
         ) : null}
+        </>}
       </main>
     </SiteChrome>
   );
