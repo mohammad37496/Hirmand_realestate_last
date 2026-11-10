@@ -164,28 +164,62 @@ try {
     const geometry = await page.locator(".property-gallery").evaluate((gallery) => {
       const main = gallery.querySelector(".property-gallery-main");
       const rail = gallery.querySelector(".property-gallery-rail");
+      const railStyle = getComputedStyle(rail);
+      const thumbElements = [...rail.querySelectorAll(".property-gallery-thumb")];
       const rect = (element) => {
         const box = element.getBoundingClientRect();
         return { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom };
       };
       return {
         gridColumns: getComputedStyle(gallery).gridTemplateColumns,
-        railDirection: getComputedStyle(rail).flexDirection,
-        railOverflowY: getComputedStyle(rail).overflowY,
+        railDisplay: railStyle.display,
+        railDirection: railStyle.flexDirection,
+        railFlexWrap: railStyle.flexWrap,
+        railWritingDirection: railStyle.direction,
+        railOverflowX: railStyle.overflowX,
+        railOverflowY: railStyle.overflowY,
+        railGridAutoFlow: railStyle.gridAutoFlow,
+        railGridTemplateRows: railStyle.gridTemplateRows,
         gallery: rect(gallery),
         main: rect(main),
         rail: rect(rail),
-        thumbCount: rail.querySelectorAll(".property-gallery-thumb").length,
+        thumbCount: thumbElements.length,
+        visibleThumbCount: thumbElements.filter((thumb) => getComputedStyle(thumb).display !== "none").length,
+        thumbRects: thumbElements.map(rect),
+        railClientWidth: rail.clientWidth,
+        railScrollWidth: rail.scrollWidth,
         rootScrollWidth: document.documentElement.scrollWidth,
         viewportWidth: document.documentElement.clientWidth,
       };
     });
-
     assert.equal(geometry.thumbCount, imageUrls.length, `${device.name}: all eight image choices must be rendered`);
-    assert.equal(geometry.railDirection, "column", `${device.name}: landscape thumbnails must form a vertical rail`);
-    assert.ok(geometry.rail.width >= 68 && geometry.rail.width <= 76, `${device.name}: thumbnail rail width should remain 72px; got ${geometry.rail.width}`);
-    assert.ok(geometry.main.width > device.width - 130, `${device.name}: main image should retain most of the viewport width; got ${geometry.main.width}px`);
-    assert.ok(geometry.rail.height >= 130 && geometry.rail.height <= 172, `${device.name}: gallery rail should fit the short viewport; got ${geometry.rail.height}`);
+    if (device.width <= 720) {
+      assert.equal(geometry.railDisplay, "flex", `${device.name}: phone thumbnails must use the horizontal flex rail`);
+      assert.equal(geometry.railDirection, "row", `${device.name}: phone thumbnails must flow horizontally`);
+      assert.equal(geometry.railFlexWrap, "nowrap", `${device.name}: phone thumbnails must stay on one swipeable row`);
+      assert.equal(geometry.railWritingDirection, "rtl", `${device.name}: phone thumbnails must preserve RTL reading order`);
+      assert.equal(geometry.railOverflowX, "auto", `${device.name}: phone rail must expose horizontal scrolling`);
+      assert.equal(geometry.railOverflowY, "hidden", `${device.name}: phone rail must not scroll vertically`);
+      assert.equal(geometry.visibleThumbCount, imageUrls.length, `${device.name}: all eight phone thumbnails must be visible in the horizontal rail`);
+      assert.ok(geometry.rail.width >= device.width - 30, `${device.name}: horizontal rail should span the gallery width; got ${geometry.rail.width}px`);
+      assert.ok(Math.abs(geometry.thumbRects[0].width - 68) <= 1 && Math.abs(geometry.thumbRects[0].height - 54) <= 1, `${device.name}: phone thumbnails should remain 68×54px; got ${geometry.thumbRects[0].width}×${geometry.thumbRects[0].height}`);
+      assert.ok(geometry.railScrollWidth >= geometry.railClientWidth, `${device.name}: horizontal rail must preserve its scrollable content width`);
+      assert.ok(geometry.thumbRects[7].x < geometry.thumbRects[0].x, `${device.name}: the last thumbnail must follow the first from right to left`);
+      assert.ok(geometry.main.width > device.width - 40, `${device.name}: phone main image should use the available gallery width; got ${geometry.main.width}px`);
+    } else {
+      assert.equal(geometry.railDisplay, "grid", `${device.name}: tablet thumbnails must use the vertical CSS grid rail`);
+      assert.equal(geometry.railGridAutoFlow, "row", `${device.name}: tablet thumbnails must flow down the vertical grid`);
+      assert.equal(geometry.railGridTemplateRows.split(" ").length, imageUrls.length, `${device.name}: tablet rail must expose one vertical grid row per thumbnail`);
+      assert.equal(geometry.visibleThumbCount, imageUrls.length, `${device.name}: all eight tablet thumbnails must be visible in the vertical rail`);
+      assert.ok(geometry.rail.width >= 94 && geometry.rail.width <= 102, `${device.name}: tablet rail width should remain 98px; got ${geometry.rail.width}`);
+      assert.equal(geometry.railOverflowY, "hidden", `${device.name}: all tablet thumbnails must fit without a clipped vertical scroller`);
+      assert.ok(geometry.rail.height >= imageUrls.length * 54 && geometry.rail.height <= geometry.main.height + 24, `${device.name}: vertical rail must fit all eight 68×54px thumbnails beside the main image; got ${geometry.rail.height}px`);
+      const visibleThumbs = geometry.thumbRects;
+      assert.ok(visibleThumbs.every((thumb) => Math.abs(thumb.x - visibleThumbs[0].x) <= 1), `${device.name}: visible tablet thumbnails must share one vertical column`);
+      assert.ok(visibleThumbs.every((thumb, index) => index === 0 || thumb.y > visibleThumbs[index - 1].y), `${device.name}: visible tablet thumbnails must progress down the rail`);
+      assert.ok(visibleThumbs.every((thumb) => Math.abs(thumb.width - 68) <= 1 && Math.abs(thumb.height - 54) <= 1), `${device.name}: tablet thumbnails should remain 68×54px`);
+      assert.ok(geometry.main.width > device.width * 0.38, `${device.name}: main image should retain a substantial share of the tablet gallery; got ${geometry.main.width}px`);
+    }
     assert.ok(geometry.rootScrollWidth <= geometry.viewportWidth + 1, `${device.name}: page must not overflow horizontally (${geometry.rootScrollWidth} > ${geometry.viewportWidth})`);
 
     const thumbs = page.locator(".property-gallery-thumb");
@@ -200,8 +234,15 @@ try {
     const secondImage = await page.locator(".property-gallery-main img[itemprop='image']").getAttribute("src");
     assert.ok(secondImage?.includes("qa-gallery=2"), `${device.name}: selecting thumbnail two must change the main image; got ${secondImage}`);
 
-    await thumbs.nth(7).scrollIntoViewIfNeeded();
-    await thumbs.nth(7).click();
+    if (device.width <= 720) {
+      await thumbs.nth(7).scrollIntoViewIfNeeded();
+      await thumbs.nth(7).click();
+    } else {
+      const nextImage = page.getByRole("button", { name: "تصویر بعدی" });
+      for (let step = 0; step < imageUrls.length - 2; step += 1) {
+        await nextImage.click();
+      }
+    }
     await page.waitForFunction(() => document.querySelectorAll('.property-gallery-thumb[aria-current="true"]').length === 1 && document.querySelectorAll('.property-gallery-thumb[aria-current="true"]')[0]?.getAttribute("aria-label")?.includes("۸"));
     const lastImage = await page.locator(".property-gallery-main img[itemprop='image']").getAttribute("src");
     assert.ok(lastImage?.includes("qa-gallery=8"), `${device.name}: selecting the final scrolled thumbnail must change the main image; got ${lastImage}`);
@@ -223,10 +264,11 @@ try {
     await shareButton.click();
     await page.waitForFunction(() => window.__qaShareCalls?.length === 3);
     assert.equal(await page.evaluate(() => window.__qaClipboardWrites.length), 1, `${device.name}: cancelling the native share sheet must not trigger a clipboard fallback`);
+    await page.getByText("لینک فایل کپی شد.").waitFor({ state: "hidden", timeout: 5_000 });
     const finalScroll = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth, scrollX: window.scrollX }));
     assert.ok(finalScroll.scrollWidth <= finalScroll.clientWidth + 1 && Math.abs(finalScroll.scrollX) <= 1, `${device.name}: interactions must not introduce horizontal page scrolling`);
 
-    await page.screenshot({ path: join(screenshotDir, `${device.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-landscape.png`), fullPage: false });
+    await page.screenshot({ path: join(screenshotDir, `${device.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-landscape.png`), fullPage: false, scale: "css" });
     console.log(`[gallery-landscape] PASS ${device.name} ${device.width}x${device.height}: rail=${geometry.rail.width}x${geometry.rail.height}, main=${geometry.main.width}x${geometry.main.height}, all 8 thumbnails, image switching and no horizontal overflow`);
     await context.close();
   }
