@@ -7,9 +7,13 @@ import {
   writeNeighborhoodSelection,
 } from "./neighborhood-selection.ts";
 
-test("selection reads repeated values and the legacy single-neighborhood alias", () => {
-  const params = new URLSearchParams("neighborhoods=%D8%AC%D9%84%D9%81%D8%A7&neighborhoods=%D9%85%D8%B1%D8%AF%D8%A7%D9%88%DB%8C%D8%AC&neighborhood=%D8%AC%D9%84%D9%81%D8%A7");
+test("repeated neighborhood values take precedence over a stale legacy alias", () => {
+  const params = new URLSearchParams("neighborhoods=%D8%AC%D9%84%D9%81%D8%A7&neighborhoods=%D9%85%D8%B1%D8%AF%D8%A7%D9%88%DB%8C%D8%AC&neighborhood=%DA%A9%D8%A7%D8%B4%D8%A7%D9%86%DB%8C");
   assert.deepEqual(readNeighborhoodSelection(params), ["جلفا", "مرداویج"]);
+});
+
+test("legacy single-neighborhood URLs remain supported when no repeated values exist", () => {
+  assert.deepEqual(readNeighborhoodSelection(new URLSearchParams("neighborhood=%D8%AC%D9%84%D9%81%D8%A7")), ["جلفا"]);
 });
 
 test("selection trims and de-duplicates Persian and Arabic spelling variants", () => {

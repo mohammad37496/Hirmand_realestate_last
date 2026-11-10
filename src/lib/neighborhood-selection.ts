@@ -20,10 +20,10 @@ export function normalizeNeighborhoodSelection(values: readonly unknown[]): stri
 
 /** Read the repeated multi-value parameter and the legacy single-value alias. */
 export function readNeighborhoodSelection(params: URLSearchParams): string[] {
-  return normalizeNeighborhoodSelection([
-    ...params.getAll("neighborhoods"),
-    params.get("neighborhood") ?? "",
-  ]);
+  const repeated = params.getAll("neighborhoods");
+  // When both formats are present, the newer multi-value selection is
+  // authoritative. Do not silently widen it with a stale legacy value.
+  return normalizeNeighborhoodSelection(repeated.length ? repeated : [params.get("neighborhood") ?? ""]);
 }
 
 /** Write a canonical selection while preserving the legacy single-neighborhood URL. */
