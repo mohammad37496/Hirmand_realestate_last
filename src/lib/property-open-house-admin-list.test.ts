@@ -218,7 +218,8 @@ test("PGlite serializes concurrent visit creation and rescheduling on the proper
         deal text, property_type text, neighborhood text, consultant text, note text,
         source text, follow_up_at timestamptz, floor_preference text, property_id text,
         visit_preferred_at timestamptz, visit_requested_at timestamptz, visit_status text,
-        public_tracking_token text, updated_at timestamptz default current_timestamp
+        public_tracking_token text, created_at timestamptz default current_timestamp,
+        updated_at timestamptz default current_timestamp
       );
       insert into properties(id,title,property_type,neighborhood,contact_name,status,availability_status)
         values ('property-1','Sample','apartment','Center','Agent','published','available');

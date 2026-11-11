@@ -76,7 +76,7 @@ export async function createPropertyVisitRequest(
     if (!property) return { kind: "not_found" };
 
     const duplicateRows = await transactionSql.query<{ id: string; public_tracking_token: string | null }>(
-      "select id, public_tracking_token from leads where property_id::text=$1 and phone=$2 and visit_status in ('requested','confirmed') and visit_preferred_at=$3::timestamptz limit 1",
+      "select id, public_tracking_token from leads where property_id::text=$1 and phone=$2 and visit_status in ('requested','confirmed') and visit_preferred_at=$3::timestamptz order by created_at desc limit 1",
       [property.id, input.phone, input.visitAt],
     );
     if (duplicateRows[0]) {
