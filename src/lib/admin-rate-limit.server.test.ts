@@ -28,3 +28,25 @@ test("rate-limit identity prefers the rightmost reverse-proxy IP", () => {
   assert.equal(resolveClientIp(undefined, "10.0.0.4"), "10.0.0.4");
   assert.equal(resolveClientIp(undefined, undefined), "unknown");
 });
+
+test("a configured Redis outage fails closed instead of falling back to per-instance memory", async () => {
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const previousFetch = globalThis.fetch;
+  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test";
+  process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+  globalThis.fetch = async () => new Response("unavailable", { status: 503 });
+  try {
+    const isolated = await import(`./admin-rate-limit.server.ts?redis-failure=${crypto.randomUUID()}`);
+    await assert.rejects(
+      isolated.consumeAdminAttempt("redis-outage:" + crypto.randomUUID()),
+      /Redis responded 503/,
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
+});

@@ -82,7 +82,6 @@ function pruneMemory(store: Map<string, Bucket>, now: number) {
 
 const globalRef = globalThis as typeof globalThis & {
   __adminRateLimits__?: Map<string, Bucket>;
-  __adminThrottleStoreBroken?: boolean;
 };
 
 function memoryStore(): ThrottleStore {
@@ -178,36 +177,10 @@ function redisStore(): ThrottleStore {
   };
 }
 
-/**
- * Picks the store and swallows Redis outages.
- *
- * A throttling layer that throws takes the login page down with it, which is a
- * worse failure than the one it prevents — so a Redis error degrades to the
- * local Map and says so once, rather than blocking every admin request.
- */
+/** A configured shared limiter must fail closed when Redis is unavailable. */
 function store(): ThrottleStore {
   if (!REST_URL || !REST_TOKEN) return memoryStore();
-  const shared = redisStore();
-  const fallback = memoryStore();
-  return {
-    consume: (key, input) => shared.consume(key, input).catch((error) => {
-      warnOnce(error);
-      return fallback.consume(key, input);
-    }),
-    delete: (key) => shared.delete(key).catch((error) => {
-      warnOnce(error);
-      return fallback.delete(key);
-    }),
-  };
-}
-
-function warnOnce(error: unknown) {
-  if (globalRef.__adminThrottleStoreBroken) return;
-  globalRef.__adminThrottleStoreBroken = true;
-  console.error(
-    "[admin-rate-limit] Redis store unavailable, falling back to the in-process counter:",
-    error instanceof Error ? error.message : error,
-  );
+  return redisStore();
 }
 
 /** Stable rate-limit identity. User-Agent is caller-controlled and must not split a caller's bucket. */
