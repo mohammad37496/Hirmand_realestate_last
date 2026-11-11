@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 
 async function requireAdmin(event: H3Event) {
   const token = getCookie(event, ADMIN_SESSION_COOKIE);
@@ -24,7 +25,7 @@ export default defineEventHandler(async (event) => {
     action?: "list" | "createTasks";
   };
 
-  if (dbSource === "unconfigured") return { items: [], createdTasks: 0 };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده برای بررسی چرخه عمر فایل‌ها آماده نیست.");
 
   const sql = await getSql();
   const staleDays = 14;

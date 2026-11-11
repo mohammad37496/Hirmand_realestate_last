@@ -4,6 +4,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { getAdminSessionClaims, ADMIN_SESSION_COOKIE } from "@/lib/admin-session.server";
 import { getCookie } from "@tanstack/react-start/server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { hasAdminPermission } from "@/lib/admin-roles";
 
 export type RedirectRow={id:number;sourcePath:string;targetPath:string;statusCode:301|302|307|308;active:boolean;hitCount:number;lastHitAt:string|null;createdAt:string;updatedAt:string};
@@ -48,7 +49,7 @@ async function requireAdmin(){
 // again it belongs in a `.server` module like `admin-audit-log.server`.
 
 export const listAdminRedirects=createServerFn({method:"POST"}).validator(z.object({limit:z.number().int().min(1).max(200).default(100)})).handler(async({data})=>{
-  await requireAdmin(); if(dbSource==="unconfigured") return [];
+  await requireAdmin(); assertAdminDatabaseConfigured(dbSource,"فهرست ریدایرکت‌ها در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
   const sql=await getSql(); const rows=await sql.query<Record<string,unknown>>(
     `select id,source_path,target_path,status_code,active,hit_count,last_hit_at,created_at,updated_at
      from site_redirects order by updated_at desc,id desc limit $1`,[data.limit]);
@@ -59,7 +60,7 @@ export const upsertAdminRedirect=createServerFn({method:"POST"}).validator(z.obj
   id:z.number().int().positive().optional(),sourcePath:z.string().min(1).max(500),targetPath:z.string().min(1).max(1000),
   statusCode:statusSchema,active:z.boolean()
 })).handler(async({data})=>{
-  await requireAdmin(); if(dbSource==="unconfigured") throw new Error("پایگاه داده تنظیم نشده است.");
+  await requireAdmin(); assertAdminDatabaseConfigured(dbSource,"ذخیره ریدایرکت در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
   const source=cleanSource(data.sourcePath), target=cleanTarget(data.targetPath);
   if(source===target) throw new Error("مبدأ و مقصد ریدایرکت نباید یکسان باشند.");
   const sql=await getSql();
@@ -83,12 +84,12 @@ export const upsertAdminRedirect=createServerFn({method:"POST"}).validator(z.obj
 });
 
 export const deleteAdminRedirect=createServerFn({method:"POST"}).validator(z.object({id:z.number().int().positive()})).handler(async({data})=>{
-  await requireAdmin(); if(dbSource==="unconfigured") return {success:true};
+  await requireAdmin(); assertAdminDatabaseConfigured(dbSource,"حذف ریدایرکت در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
   const sql=await getSql(); await sql.query("delete from site_redirects where id=$1",[data.id]); return {success:true};
 });
 
 export const listAdmin404Logs=createServerFn({method:"POST"}).validator(z.object({limit:z.number().int().min(1).max(200).default(100)})).handler(async({data})=>{
-  await requireAdmin(); if(dbSource==="unconfigured") return [];
+  await requireAdmin(); assertAdminDatabaseConfigured(dbSource,"گزارش خطاهای ۴۰۴ در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
   const sql=await getSql(); const rows=await sql.query<Record<string,unknown>>(
     `select id,path,hit_count,referrer,user_agent,first_seen_at,last_seen_at
      from site_404_logs order by hit_count desc,last_seen_at desc limit $1`,[data.limit]);
@@ -96,7 +97,7 @@ export const listAdmin404Logs=createServerFn({method:"POST"}).validator(z.object
 });
 
 export const clearAdmin404Logs=createServerFn({method:"POST"}).validator(z.object({beforeDays:z.number().int().min(1).max(3650).default(30)})).handler(async({data})=>{
-  await requireAdmin(); if(dbSource==="unconfigured") return {deleted:0};
+  await requireAdmin(); assertAdminDatabaseConfigured(dbSource,"پاک‌سازی گزارش خطاهای ۴۰۴ در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
   const sql=await getSql(); const rows=await sql.query("delete from site_404_logs where last_seen_at < current_timestamp - ($1::text || ' days')::interval returning id",[String(data.beforeDays)]);
   return {deleted:rows.length};
 });

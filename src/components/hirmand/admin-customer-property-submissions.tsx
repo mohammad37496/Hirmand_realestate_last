@@ -415,7 +415,7 @@ export function AdminCustomerPropertySubmissions() {
     }
   }
 
-  const pendingLabel = useMemo(() => counts.pending.toLocaleString("fa-IR") + " در انتظار بررسی", [counts.pending]);
+  const pendingLabel = useMemo(() => queueStatsError ? "اطلاعات صف در دسترس نیست" : counts.pending.toLocaleString("fa-IR") + " در انتظار بررسی", [counts.pending, queueStatsError]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const allCurrentPageSelected = submissions.length > 0 && submissions.every((item) => selectedIds.has(item.id));
   const quickFilterLabel = queueFilter === "overdue" ? "فقط overdue" : queueFilter === "unassigned" ? "بدون مسئول" : queueFilter === "high" ? "فقط فوری" : "همه پرونده‌ها";
@@ -433,13 +433,13 @@ export function AdminCustomerPropertySubmissions() {
         </button>
       </div>
 
-      <div className="admin-customer-submission-summary">
+      {!queueStatsError ? <div className="admin-customer-submission-summary">
         <div><span>کل ورودی</span><strong>{(counts.pending + counts.approved + counts.rejected).toLocaleString("fa-IR")}</strong></div>
         <div><span>در صف</span><strong>{counts.pending.toLocaleString("fa-IR")}</strong></div>
         <div><span>تأیید شده</span><strong>{counts.approved.toLocaleString("fa-IR")}</strong></div>
         <div><span>رد شده</span><strong>{counts.rejected.toLocaleString("fa-IR")}</strong></div>
         <div><span>نرخ تأیید</span><strong>{(counts.approved + counts.rejected) ? ((counts.approved / (counts.approved + counts.rejected)) * 100).toFixed(0) + "٪" : "—"}</strong></div>
-      </div>
+      </div> : null}
 
       {queueStatsError ? <div className="admin-empty" role="alert" style={{ marginBlock: 12 }}>
         آمار SLA و بار کاری صف بارگذاری نشد؛ مقادیر صفر به معنی نبود پرونده نیست.
@@ -513,7 +513,7 @@ export function AdminCustomerPropertySubmissions() {
         </div>
       </div>
 
-      {loading && !submissions.length ? <div className="admin-customer-submissions-empty">در حال دریافت درخواست‌های مشتری…</div> :
+      {queueStatsError ? <div className="admin-customer-submissions-empty" role="alert">اطلاعات ثبت‌های مشتری در دسترس نیست؛ صف بررسی را خالی فرض نکنید.</div> : loading && !submissions.length ? <div className="admin-customer-submissions-empty">در حال دریافت درخواست‌های مشتری…</div> :
        !submissions.length ? <div className="admin-customer-submissions-empty"><CheckCircle2 size={22}/><strong>صف بررسی خالی است.</strong><span>فعلاً ثبت ملک جدیدی منتظر تأیید نیست.</span></div> :
        <div className="admin-customer-submissions-list">
         {submissions.map((submission) => {
