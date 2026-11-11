@@ -19,6 +19,7 @@ import { deleteStoredMedia } from "@/lib/media-store.server";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
+import { mapPropertyScheduleFields } from "@/lib/property-schedule-fields";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 import {
   PROPERTY_CABINET_OPTIONS,
@@ -445,8 +446,7 @@ function mapProperty(row: Record<string, unknown>, options: { admin?: boolean } 
       internalNote: row.internal_note == null ? "" : String(row.internal_note),
     } : {}),
     publishedAt: row.published_at ? new Date(String(row.published_at)).toISOString() : null,
-    scheduledPublishAt: row.publish_at ? new Date(String(row.publish_at)).toISOString() : null,
-    scheduledUnpublishAt: row.unpublish_at ? new Date(String(row.unpublish_at)).toISOString() : null,
+    ...mapPropertyScheduleFields(row, isAdmin),
     deletedAt: row.deleted_at ? new Date(String(row.deleted_at)).toISOString() : null,
     deletedFromStatus:
       row.deleted_from_status === "draft" || row.deleted_from_status === "published" || row.deleted_from_status === "archived"
