@@ -11,9 +11,12 @@ import {
   ADMIN_SESSION_COOKIE,
   ADMIN_SESSION_MAX_AGE,
   createAdminSessionToken,
+  getAdminSessionIdFromToken,
   getAdminSessionClaims,
   isAdminKeyValid,
+  revokeAdminSession,
 } from "@/lib/admin-session.server";
+import { completeAdminSessionLogout } from "@/lib/admin-session-logout";
 import { verifyAdminPassword } from "@/lib/admin-password.server";
 import { normalizeAdminRole } from "@/lib/admin-roles";
 import { dbSource, getSql } from "@/lib/db";
@@ -42,13 +45,14 @@ export default defineEventHandler(async (event) => {
   assertSameOrigin(event);
 
   if (action === "logout") {
-    const claims = await getAdminSessionClaims(getCookie(event, ADMIN_SESSION_COOKIE));
-    if (claims?.sessionId && dbSource !== "unconfigured") {
-      const sql = await getSql();
-      await sql.query(
-        "update admin_sessions set revoked_at = current_timestamp where id = $1 and revoked_at is null",
-        [claims.sessionId],
-      ).catch(() => {});
+    const sessionId = await getAdminSessionIdFromToken(getCookie(event, ADMIN_SESSION_COOKIE));
+    const logoutCompleted = await completeAdminSessionLogout(
+      sessionId,
+      dbSource !== "unconfigured",
+      revokeAdminSession,
+    );
+    if (!logoutCompleted) {
+      throw createError({ statusCode: 503, statusMessage: "خروج امن از نشست مدیریت انجام نشد. دوباره تلاش کنید." });
     }
     setCookie(event, ADMIN_SESSION_COOKIE, "", {
       httpOnly: true,
