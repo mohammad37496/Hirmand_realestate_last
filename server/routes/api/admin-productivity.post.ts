@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { hasCompleteAdminProductivitySummary, isAdminProductivityTimeoutError, loadAdminProductivitySystemCounts } from "@/lib/admin-productivity-health";
 
 type TaskStatus = "open" | "done" | "cancelled";
 type Priority = "low" | "normal" | "high" | "urgent";
@@ -104,13 +105,7 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
       "union all select 'task'::text, id::text, status::text, nullif(trim(title),'')::text, updated_at from admin_tasks" +
       ") activity order by created_at desc limit 36"
     ),
-    Promise.all([
-      sql.query("select count(*)::int as count from properties").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from leads").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from consultants").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from media_objects").catch(() => [{ count: null }]),
-      sql.query("select count(*)::int as count from admin_tasks").catch(() => [{ count: null }]),
-    ]),
+    loadAdminProductivitySystemCounts(sql),
   ]);
 
   const taskStats = results[0];
@@ -121,8 +116,11 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
   const expiredFeatured = results[5];
   const recentActivity = results[6];
   const tableHealth = results[7];
-  const p = propertyStats[0] ?? {};
-  const t = taskStats[0] ?? {};
+  if (!hasCompleteAdminProductivitySummary(taskStats, propertyStats, duplicateOwnerGroups.concat(duplicateTitleGroups))) {
+    throw createError({ statusCode: 503, statusMessage: "داده‌های مرکز بهره‌وری ناقص است؛ دوباره تلاش کنید." });
+  }
+  const p = propertyStats[0];
+  const t = taskStats[0];
 
   function normalizeDuplicate(rows: Record<string, unknown>[], kind: "owner" | "title") {
     return rows.map((row) => ({
@@ -168,15 +166,7 @@ async function loadSummary(sql: Awaited<ReturnType<typeof getSql>>) {
       title: String(row.title ?? ""), createdAt: new Date(String(row.created_at)).toISOString(),
     })),
     system: {
-      database: "connected",
-      counts: {
-        properties: Number(tableHealth[0]?.[0]?.count) || 0,
-        leads: Number(tableHealth[1]?.[0]?.count) || 0,
-        consultants: Number(tableHealth[2]?.[0]?.count) || 0,
-        media: Number(tableHealth[3]?.[0]?.count) || 0,
-        tasks: Number(tableHealth[4]?.[0]?.count) || 0,
-      },
-      generatedAt: new Date().toISOString(),
+      ...tableHealth,
     },
   };
 }
@@ -199,12 +189,7 @@ export default defineEventHandler(async (event) => {
   };
 
   if (dbSource === "unconfigured") {
-    return {
-      tasks: { open: 0, overdue: 0, today: 0, next7: 0, items: [] },
-      propertyHealth: { total: 0, published: 0, withoutImages: 0, incomplete: 0, stale: 0, expiredFeatured: 0 },
-      staleProperties: [], expiredFeatured: [], duplicateGroups: [], recentActivity: [],
-      system: { database: "unconfigured", counts: {}, generatedAt: new Date().toISOString() },
-    };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای مرکز بهره‌وری پیکربندی نشده است." });
   }
 
   const sql = await getSql();
@@ -263,5 +248,12 @@ export default defineEventHandler(async (event) => {
     return { tasks: rows.map(serializeTask) };
   }
 
-  return loadSummary(sql);
+  try {
+    return await loadSummary(sql);
+  } catch (error) {
+    if (isAdminProductivityTimeoutError(error)) {
+      throw createError({ statusCode: 504, statusMessage: "مهلت دریافت اطلاعات مرکز بهره‌وری تمام شد؛ دوباره تلاش کنید." });
+    }
+    throw error;
+  }
 });
