@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { setResponseHeader } from "@tanstack/react-start/server";
+import { createError } from "h3";
 import { cachedPropertyRead, clearPropertyReadCache } from "@/lib/property-read-cache.server";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
@@ -1641,7 +1642,9 @@ export const listAdminPropertySchedules = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(200).optional().default(100) }))
   .handler(async ({ data }) => {
     await requireAdminPermission("property.manage");
-    if (dbSource === "unconfigured") return [];
+    if (dbSource === "unconfigured") {
+      throw createError({ statusCode: 503, statusMessage: "زمان‌بندی فایل‌ها موقتاً در دسترس نیست." });
+    }
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select id, title, status, publish_at, unpublish_at, published_at, updated_at
