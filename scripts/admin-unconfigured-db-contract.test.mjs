@@ -11,6 +11,7 @@ const routePaths = [
   "admin-agenda.post.ts",
   "admin-action-center.post.ts",
   "admin-customer-property-submissions.post.ts",
+  "leads-admin.post.ts",
 ];
 const routes = await Promise.all(routePaths.map((name) =>
   readFile(new URL(`../server/routes/api/${name}`, import.meta.url), "utf8"),
@@ -36,6 +37,7 @@ const componentPaths = [
   "admin-property-lifecycle-panel.tsx",
   "admin-action-center.tsx",
   "admin-customer-property-submissions.tsx",
+  "admin-lead-manager.tsx",
 ];
 const components = await Promise.all(componentPaths.map((name) =>
   readFile(new URL(`../src/components/hirmand/${name}`, import.meta.url), "utf8"),
@@ -50,4 +52,6 @@ test("admin workspaces show unavailable state instead of empty or zero data", ()
   assert.match(components[6], /!loadError\s*\?\s*<div className=["']admin-dashboard-mini-grid/);
   assert.match(components[7], /queueStatsError/);
   assert.match(components[7], /اطلاعات ثبت‌های مشتری در دسترس نیست/);
+  assert.match(components[8], /loadError/);
+  assert.match(components[8], /AdminErrorBanner/);
 });
