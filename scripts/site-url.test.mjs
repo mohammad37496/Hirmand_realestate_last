@@ -47,3 +47,11 @@ test("the property sitemap shares public visibility and includes due scheduled d
   assert.ok(sitemap.includes("where ${publicPropertyVisibilitySql()}"));
   assert.doesNotMatch(sitemap, /status = 'published'/);
 });
+
+test("the sitemap fails closed and is not cacheable when its database is unavailable", () => {
+  const sitemap = readFileSync(new URL("../server/routes/sitemap.xml.ts", import.meta.url), "utf8");
+  assert.match(sitemap, /if \(!databaseUrl\) throw new Error\("Sitemap database is not configured"\)/);
+  assert.match(sitemap, /catch \(err\) \{[\s\S]*?createError\(\{[\s\S]*?statusCode: 503,[\s\S]*?headers: \{ "cache-control": "no-store" \}/);
+  assert.doesNotMatch(sitemap, /property query failed[\s\S]*?return \[\]/);
+  assert.doesNotMatch(sitemap, /guide query failed[\s\S]*?return DEFAULT_GUIDES/);
+});
