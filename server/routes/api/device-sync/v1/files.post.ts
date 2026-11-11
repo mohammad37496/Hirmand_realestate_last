@@ -5,13 +5,12 @@ import {
   getHeader,
   readRawBody,
   setResponseHeader,
-  type H3Event,
 } from "h3";
 import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
 import { recordPhoneBridgeEvent } from "@/lib/phone-bridge-events.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 function safeName(value: string) {
@@ -41,6 +40,8 @@ export default defineEventHandler(async (event) => {
   if (dbSource === "unconfigured") {
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای دریافت فایل در دسترس نیست." });
   }
+  const rateLimitConfig = { windowMs: 10 * 60 * 1000, maxHits: 40, blockMs: 10 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "files", rateLimitConfig);
 
   const deviceId = getHeader(event, "x-hirmand-device-id")?.trim().slice(0, 120) ?? "";
   const declaredSha = getHeader(event, "x-hirmand-file-sha256")?.trim().toLowerCase() ?? "";
@@ -49,24 +50,9 @@ export default defineEventHandler(async (event) => {
   const name = decodeName(getHeader(event, "x-hirmand-file-name"));
 
   if (!deviceId) throw createError({ statusCode: 400, statusMessage: "شناسهٔ دستگاه ارسال نشده است." });
-  await enforcePhoneBridgeRateLimit(event, "files", deviceId, {
-    windowMs: 10 * 60 * 1000,
-    maxHits: 40,
-    blockMs: 10 * 60 * 1000,
-  });
-
-  const raw = await readRawBody(event);
-  const content = Buffer.isBuffer(raw) ? raw : Buffer.from(raw ?? "");
-  if (content.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: "محتوای فایل ارسال نشده است." });
-  }
-
   let authPolicy: Awaited<ReturnType<typeof authenticateDevice>>;
   try {
     authPolicy = await authenticateDevice(event, deviceId);
-    if (authPolicy.mode === "device") {
-      await requirePhoneBridgeSignedRequest(event, deviceId, content);
-    }
   } catch (error) {
     await recordPhoneBridgeEvent({
       deviceId,
@@ -77,6 +63,15 @@ export default defineEventHandler(async (event) => {
     }).catch(() => undefined);
     throw error;
   }
+  await enforcePhoneBridgeRateLimit(event, "files", phoneBridgeRateLimitSubject(authPolicy), rateLimitConfig);
+
+  const raw = await readRawBody(event);
+  const content = Buffer.isBuffer(raw) ? raw : Buffer.from(raw ?? "");
+  if (content.length === 0) {
+    throw createError({ statusCode: 400, statusMessage: "محتوای فایل ارسال نشده است." });
+  }
+
+  if (authPolicy.mode === "device") await requirePhoneBridgeSignedRequest(event, deviceId, content);
   if (authPolicy.allowedModules.selectedFiles === false) {
     throw createError({ statusCode: 403, statusMessage: "ارسال فایل برای این دستگاه توسط سیاست سرور غیرفعال است." });
   }
