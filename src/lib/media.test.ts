@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import {
@@ -22,7 +23,9 @@ import {
   createLiaraVideoResponse,
   liaraMediaCacheControl,
   shouldUseLegacyBlobFallback,
+  withLiaraStreamIdleTimeout,
 } from "./liara-media-access.server.ts";
+import { exactMediaRangeBytes } from "./media-range-bytes.ts";
 import {
   createRangeNotSatisfiableResponse,
   liaraRangeNotSatisfiableResponse,
@@ -190,6 +193,75 @@ test("Liara fetch timeout still aborts requests that never receive response head
     /aborted/,
   );
   assert.equal(signals[0]?.aborted, true);
+});
+
+test("Liara media streams may run longer than the idle timeout while bytes keep arriving", async () => {
+  const encoder = new TextEncoder();
+  const source = new ReadableStream<Uint8Array>({
+    start(controller) {
+      setTimeout(() => controller.enqueue(encoder.encode("one")), 0);
+      setTimeout(() => controller.enqueue(encoder.encode("two")), 10);
+      setTimeout(() => controller.enqueue(encoder.encode("three")), 20);
+      setTimeout(() => controller.close(), 30);
+    },
+  });
+
+  const response = createLiaraVideoResponse(
+    new Response(source, { headers: { "content-type": "video/mp4" } }),
+    "properties/uploads/published/clip.mp4",
+    "private, no-store",
+    15,
+  );
+  assert.ok(response);
+  assert.equal(await response.text(), "onetwothree");
+});
+
+test("Liara media stream idle timeout cancels the upstream body", async () => {
+  let upstreamCancelled = false;
+  const source = new ReadableStream<Uint8Array>({
+    cancel() {
+      upstreamCancelled = true;
+    },
+  });
+
+  const stream = withLiaraStreamIdleTimeout(source, 10);
+  assert.ok(stream);
+  await assert.rejects(new Response(stream).text(), /Upstream Liara media stream stalled/);
+  assert.equal(upstreamCancelled, true);
+});
+
+test("downstream cancellation is propagated to the Liara response body", async () => {
+  let cancelReason: unknown;
+  const source = new ReadableStream<Uint8Array>({
+    cancel(reason) {
+      cancelReason = reason;
+    },
+  });
+  const stream = withLiaraStreamIdleTimeout(source, 1_000);
+  assert.ok(stream);
+  await stream.cancel("client disconnected");
+  assert.equal(cancelReason, "client disconnected");
+});
+
+test("stored media ranges reject incomplete database byte slices", () => {
+  assert.deepEqual(exactMediaRangeBytes(new Uint8Array([1, 2, 3]), 3), new Uint8Array([1, 2, 3]));
+  assert.equal(exactMediaRangeBytes(new Uint8Array([1, 2]), 3), null);
+  assert.equal(exactMediaRangeBytes(undefined, 3), null);
+  assert.equal(exactMediaRangeBytes(new Uint8Array(), Number.NaN), null);
+
+  const mediaStore = readFileSync("src/lib/media-store.server.ts", "utf8");
+  assert.match(mediaStore, /exactMediaRangeBytes\(rows\[0\]\?\.data,\s*length\)/);
+  assert.match(mediaStore, /if \(!bytes\)\s*\{\s*throw new Error\("Stored media range was incomplete\."\)/);
+});
+
+test("Liara video and audio routes apply the shared upstream idle timeout", () => {
+  const mediaProxy = readFileSync("server/routes/api/media-proxy.get.ts", "utf8");
+  const musicRoute = readFileSync("server/routes/api/music/file/[id].get.ts", "utf8");
+  assert.match(
+    mediaProxy,
+    /const videoResponse = createLiaraVideoResponse\(\s*response,\s*liaraKey,\s*cacheControl,\s*LIARA_MEDIA_STREAM_IDLE_TIMEOUT_MS,\s*\)/,
+  );
+  assert.match(musicRoute, /new Response\(withLiaraStreamIdleTimeout\(upstream\.body\)/);
 });
 
 

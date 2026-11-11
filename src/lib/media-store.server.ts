@@ -9,6 +9,7 @@
 
 import { dbSource, getSql } from "@/lib/db";
 import { DB_MEDIA_PATH } from "@/lib/media";
+import { exactMediaRangeBytes } from "@/lib/media-range-bytes";
 import { shouldUseLegacyBlobFallback } from "@/lib/liara-media-access.server";
 import {
   deleteLiaraObject,
@@ -370,10 +371,13 @@ export async function readMediaRange(
     [id, safeStart + 1, length],
   );
 
-  const raw = rows[0]?.data;
+  const bytes = exactMediaRangeBytes(rows[0]?.data, length);
+  if (!bytes) {
+    throw new Error("Stored media range was incomplete.");
+  }
   return {
     // `pg` hands back a Buffer, PGlite a Uint8Array; both are byte containers.
-    bytes: raw ? (Buffer.isBuffer(raw) ? raw : Buffer.from(raw)) : Buffer.alloc(0),
+    bytes: Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes),
     size,
     contentType: meta.contentType,
   };
