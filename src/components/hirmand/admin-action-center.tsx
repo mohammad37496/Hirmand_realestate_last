@@ -127,11 +127,11 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
         </div>
       ) : null}
 
-      <div className="admin-dashboard-mini-grid">
+      {!loadError ? <div className="admin-dashboard-mini-grid">
         <div><span>فوری</span><strong>{summary.urgent.toLocaleString("fa-IR")}</strong></div>
         <div><span>مهم</span><strong>{summary.high.toLocaleString("fa-IR")}</strong></div>
         <div><span>کل صف</span><strong>{summary.total.toLocaleString("fa-IR")}</strong></div>
-      </div>
+      </div> : null}
 
       <div className="admin-breakdown">
         {loading && !items.length ? (

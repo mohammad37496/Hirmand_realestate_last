@@ -26,13 +26,17 @@ export function AdminAuditLog() {
   const [entityType, setEntityType] = useState("");
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   async function load() {
     setLoading(true);
+    setLoadError("");
     try {
       setItems(await listAdminAuditLog({ data: { limit: 150, entityType } }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "گزارش عملیات دریافت نشد.");
+      const message = error instanceof Error ? error.message : "گزارش عملیات دریافت نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -89,7 +93,7 @@ export function AdminAuditLog() {
           <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>
             <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> بروزرسانی
           </button>
-          <button type="button" className="btn-ghost danger" onClick={() => void cleanOld()} disabled={cleaning}>
+          <button type="button" className="btn-ghost danger" onClick={() => void cleanOld()} disabled={cleaning || loading || !!loadError}>
             <Trash2 size={15} /> {cleaning ? "در حال پاک‌سازی…" : "پاک‌سازی قدیمی‌تر از یک سال"}
           </button>
         </div>
@@ -107,9 +111,17 @@ export function AdminAuditLog() {
           </select>
         </div>
 
+        {loadError ? (
+          <div className="admin-error-banner" role="alert">
+            <ShieldAlert size={18} />
+            <span>{loadError}</span>
+            <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>تلاش دوباره</button>
+          </div>
+        ) : null}
+
         {loading ? (
           <div className="admin-empty">در حال دریافت لاگ عملیات…</div>
-        ) : !items.length ? (
+        ) : loadError && !items.length ? null : !items.length ? (
           <div className="admin-empty"><DatabaseZap size={22} /><span>هنوز رویداد مدیریتی ثبت نشده است.</span></div>
         ) : (
           <div className="admin-audit-list">

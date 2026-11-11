@@ -908,14 +908,20 @@ function CommandCenter({
 function AuditMiniPanel() {
   const [items, setItems] = useState<Array<Awaited<ReturnType<typeof listAdminAuditLog>>[number]>>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [retryVersion, setRetryVersion] = useState(0);
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setLoadError("");
     void listAdminAuditLog({ data: { limit: 12, entityType: "staff_mobile_device" } })
       .then((rows) => { if (!cancelled) setItems(rows); })
-      .catch(() => { if (!cancelled) setItems([]); })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : "گزارش عملیات در دسترس نیست.");
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [retryVersion]);
 
   return (
     <section className="admin-mobile-panel">
@@ -928,6 +934,12 @@ function AuditMiniPanel() {
       </div>
       {loading ? (
         <div className="admin-mobile-empty-state">در حال دریافت گزارش عملیات…</div>
+      ) : loadError ? (
+        <div className="admin-mobile-empty-state" role="alert">
+          <ShieldAlert size={21} />
+          <span>{loadError}</span>
+          <button type="button" className="admin-mobile-text-link" onClick={() => setRetryVersion((current) => current + 1)}>تلاش دوباره</button>
+        </div>
       ) : items.length ? (
         <div className="admin-mobile-audit-list">
           {items.map((item) => (

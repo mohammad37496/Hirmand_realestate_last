@@ -17,14 +17,18 @@ export function AdminPublicationQueue() {
   const [items, setItems] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const rows = await listPendingPublicationReviews({ data: { limit: 50 } });
       setItems(rows as Review[]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "صف تأیید انتشار دریافت نشد.");
+      const message = error instanceof Error ? error.message : "صف تأیید انتشار دریافت نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   }, []);
 
@@ -51,9 +55,10 @@ export function AdminPublicationQueue() {
           <h2 id="admin-publication-queue-title"><FileCheck2 size={19} /> صف تأیید انتشار</h2>
           <p className="admin-dashboard-summary">اعضای تیم می‌توانند فایل را برای انتشار درخواست کنند؛ فقط نقش‌های مجاز انتشار نهایی را تأیید می‌کنند.</p>
         </div>
-        <span className="admin-publication-count">{items.length.toLocaleString("fa-IR")} درخواست</span>
+        <span className="admin-publication-count">{loadError ? "نامشخص" : items.length.toLocaleString("fa-IR") + " درخواست"}</span>
       </div>
-      {loading ? <div className="admin-empty">در حال دریافت صف انتشار…</div> : !items.length ? (
+      {loadError ? <div className="admin-error-banner" role="alert">{loadError} <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>تلاش دوباره</button></div> : null}
+      {loading ? <div className="admin-empty">در حال دریافت صف انتشار…</div> : loadError ? null : !items.length ? (
         <div className="admin-empty"><Check size={23} /><strong>صف تأیید انتشار خالی است.</strong><p>فعلاً فایل معطل تأیید مدیر نیست.</p></div>
       ) : (
         <div className="admin-publication-list">
@@ -72,8 +77,8 @@ export function AdminPublicationQueue() {
               </div>
               <div className="admin-publication-actions">
                 <a className="btn-ghost" href={"/properties/" + encodeURIComponent(item.slug)} target="_blank" rel="noreferrer"><ExternalLink size={14} /> پیش‌نمایش</a>
-                <button type="button" className="btn-gold" disabled={busy === item.id} onClick={() => void review(item.id, "approve")}><Check size={14} /> تأیید</button>
-                <button type="button" className="btn-ghost" disabled={busy === item.id} onClick={() => void review(item.id, "reject")}><X size={14} /> رد</button>
+                <button type="button" className="btn-gold" disabled={busy === item.id || loading || !!loadError} onClick={() => void review(item.id, "approve")}><Check size={14} /> تأیید</button>
+                <button type="button" className="btn-ghost" disabled={busy === item.id || loading || !!loadError} onClick={() => void review(item.id, "reject")}><X size={14} /> رد</button>
               </div>
             </article>
           ))}
