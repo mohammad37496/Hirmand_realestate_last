@@ -11,6 +11,7 @@ const routePaths = [
   "admin-agenda.post.ts",
   "admin-action-center.post.ts",
   "admin-customer-property-submissions.post.ts",
+  "admin-phone-bridge.post.ts",
   "leads-admin.post.ts",
 ];
 const routes = await Promise.all(routePaths.map((name) =>
