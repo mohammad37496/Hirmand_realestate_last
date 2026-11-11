@@ -187,7 +187,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 502, statusMessage: "دریافت رسانه از فضای ذخیره‌سازی هیرمند ممکن نشد." });
     }
     if (video) {
-      const videoResponse = createLiaraVideoResponse(response, liaraKey, cacheControl);
+      const videoResponse = createLiaraVideoResponse(response, liaraKey, cacheControl, TIMEOUT_MS);
       if (videoResponse) return videoResponse;
       if (!response.ok) {
         throw createError({ statusCode: response.status === 404 ? 404 : 502, statusMessage: "دریافت ویدئو از فضای ذخیره‌سازی هیرمند ممکن نشد." });
