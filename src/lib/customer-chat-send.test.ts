@@ -9,7 +9,7 @@ async function createFixture() {
   await pg.exec(`
     create table leads (
       id text primary key,
-      tracking_token text not null unique
+      public_tracking_token text not null unique
     );
     create table customer_messages (
       id text primary key,
@@ -20,7 +20,7 @@ async function createFixture() {
       message text not null,
       created_at timestamptz not null default current_timestamp
     );
-    insert into leads(id, tracking_token) values ('lead-1', 'HIR-26-ABCDEF123456');
+    insert into leads(id, public_tracking_token) values ('lead-1', 'HIR-26-ABCDEF123456');
   `);
 
   const sql = {

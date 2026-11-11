@@ -7,17 +7,21 @@ const helper = await readFile(new URL("../src/lib/customer-chat-send.ts", import
 const verify = await readFile(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
 
 test("customer chat route delegates send/cooldown handling to the atomic helper", () => {
-  assert.match(route, /sendCustomerChatMessage\(sql/);
+  assert.match(route, /sendCustomerChatMessage\(await getSql\(\)/);
   assert.match(route, /result\.kind === "cooldown"/);
   assert.match(route, /result\.kind === "not_found"/);
   assert.match(route, /result\.kind === "unavailable"/);
   assert.doesNotMatch(route, /select created_at as "createdAt" from customer_messages/i);
+  assert.match(route, /isValidPublicTrackingToken/);
+  assert.match(route, /setResponseHeader\(event,\s*["']cache-control["'],\s*["']no-store["']\)/);
+  assert.match(route, /consumeAdminAttempt\(/);
+  assert.ok(route.indexOf("consumeAdminAttempt(") < route.indexOf("readBody(event)"));
 });
 
 test("customer chat cooldown is checked under a locked lead row in one transaction", () => {
   assert.match(helper, /sql\.transaction\(/);
   assert.match(helper, /for update/i);
-  assert.match(helper, /created_at > current_timestamp - interval '12 seconds'/i);
+  assert.match(helper, /created_at > clock_timestamp\(\) - interval '12 seconds'/i);
   assert.ok(helper.indexOf("for update") < helper.indexOf("from customer_messages"));
   assert.ok(helper.indexOf("from customer_messages") < helper.indexOf("insert into customer_messages"));
 });

@@ -1,10 +1,11 @@
-import { createError, defineEventHandler, getQuery, readBody, setResponseHeader } from "h3";
+import { createError, defineEventHandler, readBody, setResponseHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { cancelPropertyVisitRequest, reschedulePropertyVisitRequest } from "@/lib/property-visit-request";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 
-const tokenSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
+const tokenSchema = z.string().trim().toUpperCase().refine(isValidPublicTrackingToken);
 const bodySchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("reschedule"),

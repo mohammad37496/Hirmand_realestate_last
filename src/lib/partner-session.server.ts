@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomInt, scryptSync, timingSafeEqual } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 import { normalizeDigits } from "./partner-codes";
+import { generatePartnerTrackingCode } from "./tracking-token.server.ts";
 
 export { normalizeDigits, normalizePartnerCode } from "./partner-codes";
 
@@ -75,6 +76,5 @@ export function generatePartnerPin() {
 }
 
 export function generateTrackingCode() {
-  const yy = String(new Date().getFullYear()).slice(-2);
-  return "HIR-" + yy + "-" + randomBytes(4).toString("hex").toUpperCase();
+  return generatePartnerTrackingCode();
 }

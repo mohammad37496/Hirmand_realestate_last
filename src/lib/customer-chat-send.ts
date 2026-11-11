@@ -15,9 +15,9 @@ export async function sendCustomerChatMessage(
 
   return sql.transaction(async (transactionSql) => {
     const leads = await transactionSql.query<{ id: string; trackingToken: string }>(
-      `select id, tracking_token as "trackingToken"
+      `select id, public_tracking_token as "trackingToken"
        from leads
-       where upper(tracking_token)=upper($1)
+       where upper(public_tracking_token)=upper($1)
        limit 1
        for update`,
       [input.trackingCode],
@@ -29,7 +29,7 @@ export async function sendCustomerChatMessage(
       `select id
        from customer_messages
        where lead_id=$1
-         and created_at > current_timestamp - interval '12 seconds'
+         and created_at > clock_timestamp() - interval '12 seconds'
        limit 1`,
       [lead.id],
     );

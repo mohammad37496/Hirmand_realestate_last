@@ -81,7 +81,7 @@ test("concurrent customer chat sends serialize across independent PostgreSQL ses
     await pool.query(`
       create table leads (
         id text primary key,
-        tracking_token text not null unique
+        public_tracking_token text not null unique
       );
       create table customer_messages (
         id text primary key,
@@ -92,7 +92,7 @@ test("concurrent customer chat sends serialize across independent PostgreSQL ses
         message text not null,
         created_at timestamptz not null default current_timestamp
       );
-      insert into leads(id,tracking_token) values ('lead-1','HIR-26-ABCDEF123456');
+      insert into leads(id,public_tracking_token) values ('lead-1','HIR-26-ABCDEF123456');
     `);
 
     const backendPids = [];

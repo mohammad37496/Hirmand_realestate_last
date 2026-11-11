@@ -23,8 +23,10 @@ test("normalizes tracking-code punctuation and digits", () => {
 
 test("validates only the canonical tracking-code shape", () => {
   assert.equal(isValidTrackingCode("HIR-26-ABCD1234"), true);
+  assert.equal(isValidTrackingCode("HIR-26-0123456789ABCDEF0123456789ABCDEF"), true);
   assert.equal(isValidTrackingCode(" hir-۲۶-abcd۱۲۳۴ "), true);
   assert.equal(isValidTrackingCode("HIR-26-ABC123"), false);
+  assert.equal(isValidTrackingCode("HIR-26-ABCD12345"), false);
   assert.equal(isValidTrackingCode("HR-26-ABCD1234"), false);
   assert.equal(isValidTrackingCode("https://example.com/HIR-26-ABCD1234"), false);
 });

@@ -1,10 +1,11 @@
-import { createError, defineEventHandler, readBody } from "h3";
+import { createError, defineEventHandler, readBody, setResponseHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 import { sendCustomerChatMessage } from "@/lib/customer-chat-send";
 
-const codeSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
+const codeSchema = z.string().trim().toUpperCase().refine(isValidPublicTrackingToken);
 
 const schema = z.object({
   code: codeSchema,
@@ -13,7 +14,11 @@ const schema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
+  setResponseHeader(event, "cache-control", "no-store");
   assertSameOrigin(event);
+  const attempt = await consumeAdminAttempt("customer-chat-send:" + clientFingerprint(event));
+  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+
   const body = schema.safeParse(await readBody(event).catch(() => null));
   if (!body.success) {
     throw createError({ statusCode: 400, statusMessage: body.error.issues[0]?.message || "اطلاعات پیام نامعتبر است." });
@@ -22,8 +27,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده موقتاً در دسترس نیست." });
   }
 
-  const sql = await getSql();
-  const result = await sendCustomerChatMessage(sql, {
+  const result = await sendCustomerChatMessage(await getSql(), {
     trackingCode: body.data.code,
     senderName: body.data.name.trim(),
     message: body.data.message,

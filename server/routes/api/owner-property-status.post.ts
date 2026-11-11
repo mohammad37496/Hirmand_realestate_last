@@ -3,17 +3,18 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt } from "@/lib/admin-rate-limit.server";
 import { ownerStatusEventNote } from "@/lib/customer-property-owner-status";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 
-const schema=z.object({trackingToken:z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/)});
+const schema=z.object({trackingToken:z.string().trim().toUpperCase().refine(isValidPublicTrackingToken)});
 const STATUS_LABELS:Record<string,string>={pending:"در انتظار بررسی کارشناسی",approved:"تأیید شده و وارد مسیر انتشار",rejected:"نیازمند اصلاح اطلاعات"};
 const EVENT_LABELS:Record<string,string>={created:"ثبت ملک دریافت شد",assign:"پرونده به مشاور اختصاص یافت",approve:"ملک تأیید و برای انتشار آماده شد",reject:"کارشناس درخواست اصلاح را ثبت کرد",resubmit:"نسخه اصلاح‌شده دوباره ارسال شد"};
 
 export default defineEventHandler(async(event)=>{
  setResponseHeader(event,"cache-control","no-store");
- if(dbSource==="unconfigured")return {success:false,statusMessage:"سامانه ثبت ملک آنلاین فعال نیست."};
  assertSameOrigin(event);
  const throttle=await consumeAdminAttempt("owner-status:"+clientFingerprint(event));
  if(!throttle.allowed)throw createError({statusCode:429,statusMessage:"تعداد درخواست‌های پیگیری بیش از حد مجاز است. چند دقیقه دیگر دوباره تلاش کنید."});
+ if(dbSource==="unconfigured")throw createError({statusCode:503,statusMessage:"سامانه ثبت ملک آنلاین موقتاً در دسترس نیست."});
  const body=await readBody(event).catch(()=>({}));
  const parsed=schema.safeParse(body);
  if(!parsed.success)throw createError({statusCode:422,statusMessage:"کد رهگیری ثبت ملک معتبر نیست."});
