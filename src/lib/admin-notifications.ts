@@ -4,6 +4,7 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { loadAdminNotificationCandidates } from "@/lib/admin-notification-candidates";
 
 async function requireAdmin() {
@@ -107,7 +108,7 @@ export const listAdminNotifications = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(100).optional().default(50) }))
   .handler(async ({ data }) => {
     await requireAdmin();
-    if (dbSource === "unconfigured") return { notifications: [], unread: 0 };
+    assertAdminDatabaseConfigured(dbSource, "صندوق اعلان‌های مدیریت در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     await syncCandidates(sql);
     const rows = await sql.query<Record<string, unknown>>(
@@ -137,7 +138,7 @@ export const markAdminNotificationRead = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.number().int().positive() }))
   .handler(async ({ data }) => {
     await requireAdmin();
-    if (dbSource === "unconfigured") return { success: true };
+    assertAdminDatabaseConfigured(dbSource, "علامت‌گذاری اعلان در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     await sql.query("update admin_notifications set read_at=current_timestamp where id=$1", [data.id]);
     return { success: true };
@@ -147,7 +148,7 @@ export const markAllAdminNotificationsRead = createServerFn({ method: "POST" })
   .validator(z.object({}).optional())
   .handler(async () => {
     await requireAdmin();
-    if (dbSource === "unconfigured") return { success: true };
+    assertAdminDatabaseConfigured(dbSource, "علامت‌گذاری اعلان‌ها در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     await sql.query("update admin_notifications set read_at=current_timestamp where read_at is null");
     return { success: true };

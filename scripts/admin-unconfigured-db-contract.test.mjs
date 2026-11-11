@@ -23,6 +23,9 @@ const serverFunctionModules = [
     file: "admin-security.ts",
     operations: ["listAdminSecuritySessions", "revokeAdminSessionById", "revokeOtherAdminSessions", "purgeExpiredAdminSessions"],
   },
+  { file: "admin-notifications.ts", operations: ["listAdminNotifications", "markAdminNotificationRead", "markAllAdminNotificationsRead"] },
+  { file: "admin-publication.ts", operations: ["listPendingPublicationReviews", "requestPropertyPublication", "reviewPropertyPublication"] },
+  { file: "seo-redirects.ts", operations: ["listAdminRedirects", "upsertAdminRedirect", "deleteAdminRedirect", "listAdmin404Logs", "clearAdmin404Logs"] },
 ];
 const serverFunctions = await Promise.all(serverFunctionModules.map(({ file }) =>
   readFile(new URL(`../src/lib/${file}`, import.meta.url), "utf8"),
@@ -39,7 +42,7 @@ test("core admin APIs fail with 503 rather than returning empty or successful de
   }
 });
 
-test("admin audit and session-security server functions fail with 503 instead of empty or false-success results", () => {
+test("admin audit, session, notification, publication and SEO server functions fail closed when DB is unconfigured", () => {
   for (const [index, { file, operations }] of serverFunctionModules.entries()) {
     const source = serverFunctions[index];
     for (const operation of operations) {
@@ -54,6 +57,8 @@ test("admin audit and session-security server functions fail with 503 instead of
   }
   assert.doesNotMatch(serverFunctions[1], /return \{ success: true, revoked: changed \}/);
   assert.match(serverFunctions[1], /statusCode:\s*409,\s*statusMessage:\s*"نشست مورد نظر قبلاً بسته شده یا وجود ندارد\."/);
+  assert.doesNotMatch(serverFunctions[2], /if\s*\(dbSource\s*===\s*["']unconfigured["']\)\s*return/);
+  assert.doesNotMatch(serverFunctions[3], /if\s*\(dbSource\s*===\s*["']unconfigured["']\)\s*return/);
 });
 
 const componentPaths = [
@@ -84,21 +89,32 @@ test("admin workspaces show unavailable state instead of empty or zero data", ()
   assert.match(components[8], /AdminErrorBanner/);
 });
 
-const auditAndSecurityUi = await Promise.all([
+const adminFailClosedUi = await Promise.all([
   readFile(new URL("../src/components/hirmand/admin-audit-log.tsx", import.meta.url), "utf8"),
   readFile(new URL("../src/components/hirmand/admin-security-center.tsx", import.meta.url), "utf8"),
   readFile(new URL("../src/components/hirmand/admin-mobile-management.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../src/components/hirmand/admin-notification-center.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../src/components/hirmand/admin-publication-queue.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../src/components/hirmand/admin-seo-redirects.tsx", import.meta.url), "utf8"),
 ]);
 
-test("admin audit and session-security workspaces show retryable errors instead of empty or zero states", () => {
-  assert.match(auditAndSecurityUi[0], /loadError/);
-  assert.match(auditAndSecurityUi[0], /role=["']alert["']/);
-  assert.match(auditAndSecurityUi[0], /loadError\s*&&\s*!items\.length\s*\?\s*null/);
-  assert.match(auditAndSecurityUi[1], /loadError/);
-  assert.match(auditAndSecurityUi[1], /role=["']alert["']/);
-  assert.match(auditAndSecurityUi[1], /!loadError\s*&&\s*!loading/);
-  assert.match(auditAndSecurityUi[1], /!!busy\s*\|\|\s*loading\s*\|\|\s*!!loadError/);
-  assert.match(auditAndSecurityUi[2], /setLoadError\(error\s+instanceof\s+Error\s*\?\s*error\.message/);
-  assert.match(auditAndSecurityUi[2], /role=["']alert["']/);
-  assert.match(auditAndSecurityUi[2], /setRetryVersion\(\(current\)\s*=>\s*current\s*\+\s*1\)/);
+test("admin audit, session, notification, publication and SEO workspaces show retryable errors", () => {
+  assert.match(adminFailClosedUi[0], /loadError/);
+  assert.match(adminFailClosedUi[0], /role=["']alert["']/);
+  assert.match(adminFailClosedUi[0], /loadError\s*&&\s*!items\.length\s*\?\s*null/);
+  assert.match(adminFailClosedUi[1], /loadError/);
+  assert.match(adminFailClosedUi[1], /role=["']alert["']/);
+  assert.match(adminFailClosedUi[1], /!loadError\s*&&\s*!loading/);
+  assert.match(adminFailClosedUi[1], /!!busy\s*\|\|\s*loading\s*\|\|\s*!!loadError/);
+  assert.match(adminFailClosedUi[2], /setLoadError\(error\s+instanceof\s+Error\s*\?\s*error\.message/);
+  assert.match(adminFailClosedUi[2], /role=["']alert["']/);
+  assert.match(adminFailClosedUi[2], /setRetryVersion\(\(current\)\s*=>\s*current\s*\+\s*1\)/);
+  assert.match(adminFailClosedUi[3], /loadError/);
+  assert.match(adminFailClosedUi[3], /role=["']alert["']/);
+  assert.match(adminFailClosedUi[4], /loadError/);
+  assert.match(adminFailClosedUi[4], /role=["']alert["']/);
+  assert.match(adminFailClosedUi[4], /loadError\s*\?\s*null/);
+  assert.match(adminFailClosedUi[5], /loadError/);
+  assert.match(adminFailClosedUi[5], /role=["']alert["']/);
+  assert.match(adminFailClosedUi[5], /loadError\s*\?\s*null/);
 });
