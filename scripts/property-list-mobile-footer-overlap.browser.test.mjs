@@ -127,6 +127,13 @@ try {
       // assertion below compares real rendered rectangles; scrolling alone is
       // not considered a pass.
       const lastCard = cards.last();
+      // The assertion measures final layout, not the progress of CSS smooth
+      // scrolling. Disable smooth scrolling so a busy CI runner cannot leave
+      // scrollIntoView halfway through its animation when geometry is sampled.
+      await page.evaluate(() => {
+        document.documentElement.style.scrollBehavior = "auto";
+        document.body.style.scrollBehavior = "auto";
+      });
       await lastCard.evaluate((card) => card.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
       // Chromium can honor the page's smooth-scroll policy even when the
       // caller requests an instant scroll. Wait for the actual safe geometry

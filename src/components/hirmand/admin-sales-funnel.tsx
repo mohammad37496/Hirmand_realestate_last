@@ -16,6 +16,7 @@ export function AdminSalesFunnel() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -23,8 +24,11 @@ export function AdminSalesFunnel() {
       const payload = (await response.json()) as Data & { statusMessage?: string };
       if (!response.ok) throw new Error(payload.statusMessage || "قیف فروش بارگذاری نشد.");
       setData(payload);
+      setLoadError(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "قیف فروش بارگذاری نشد.");
+      const message = error instanceof Error ? error.message : "قیف فروش بارگذاری نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   }, [days]);
   useEffect(() => { void load(); }, [load]);
@@ -33,7 +37,8 @@ export function AdminSalesFunnel() {
     <div className="admin-panel-head"><div><span className="kicker">CRM و فروش</span><h2><BarChart3 size={18} /> قیف فروش و تبدیل لید</h2><p>ببینید چند درخواست وارد شده، در کدام مرحله مانده و چه مقدار به قرارداد رسیده است.</p></div>
       <select className="admin-lead-status-select" value={days} onChange={(e) => setDays(Number(e.target.value))}><option value={7}>۷ روز</option><option value={30}>۳۰ روز</option><option value={90}>۹۰ روز</option></select>
     </div>
-    {loading && !data ? <div className="admin-empty">در حال محاسبه…</div> : data ? <>
+    {loadError ? <div className="admin-empty" role="alert"><strong>{data ? "به‌روزرسانی قیف فروش ناموفق بود." : "قیف فروش دریافت نشد."}</strong><p>{loadError}</p><button className="btn-ghost" type="button" onClick={() => void load()} disabled={loading}>تلاش دوباره</button></div> : null}
+    {loading && !data ? <div className="admin-empty" role="status">در حال محاسبه…</div> : data ? <>
       <div className="admin-funnel-summary"><div><span>کل لید</span><strong>{fa(data.conversions.total)}</strong></div><div><span>تماس</span><strong>{fa(data.conversions.contacted)} · {fa(data.conversions.contactedRate)}٪</strong></div><div><span>بازدید</span><strong>{fa(data.conversions.visited)} · {fa(data.conversions.visitRate)}٪</strong></div><div><span>قرارداد</span><strong>{fa(data.conversions.contract)} · {fa(data.conversions.contractRate)}٪</strong></div></div>
       <div className="admin-funnel-layout"><div className="admin-funnel-chart">
         {data.statuses.map((item) => <div className="admin-funnel-row" key={item.key}><div><span>{item.label}</span><b>{fa(item.count)}</b></div><i style={{ width: Math.max(3, (item.count / maxStatus) * 100) + "%" }} /></div>)}
@@ -41,6 +46,6 @@ export function AdminSalesFunnel() {
         {data.aging.map((item) => <div key={item.key}><span>{agingLabels[item.key]}</span><b>{fa(item.count)}</b></div>)}
         <h3 className="admin-funnel-subhead">منبع جذب</h3>{data.sources.slice(0,6).map((item) => <div key={item.source}><span>{item.source}</span><b>{fa(item.count)}</b></div>)}
       </div></div>
-    </> : null}
+    </> : loadError ? null : !loading ? <div className="admin-empty">هنوز گزارش معتبری دریافت نشده است.</div> : null}
   </section>;
 }

@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
+import { createError } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
@@ -37,15 +38,7 @@ export const getAdminMediaHealth = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requireAdmin();
     if (dbSource === "unconfigured") {
-      return {
-        storedObjects: 0,
-        storedBytes: 0,
-        referencedDatabaseObjects: 0,
-        orphanObjects: 0,
-        staleUploadSessions: 0,
-        staleUploadChunks: 0,
-        scannedAt: new Date().toISOString(),
-      } satisfies MediaHealth;
+      throw createError({ statusCode: 503, statusMessage: "سلامت رسانه‌ها موقتاً در دسترس نیست." });
     }
 
     const sql = await getSql();
@@ -85,7 +78,9 @@ export const cleanupAdminMedia = createServerFn({ method: "POST" })
   .validator(z.object({ staleMinutes: z.number().int().min(30).max(1440).optional().default(120) }))
   .handler(async ({ data }) => {
     await requireAdmin();
-    if (dbSource === "unconfigured") return { orphanDeleted: 0, staleSessionsDeleted: 0, staleChunksDeleted: 0 };
+    if (dbSource === "unconfigured") {
+      throw createError({ statusCode: 503, statusMessage: "پاک‌سازی رسانه‌ها موقتاً در دسترس نیست." });
+    }
 
     const sql = await getSql();
 

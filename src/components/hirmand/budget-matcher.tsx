@@ -255,6 +255,7 @@ export function BudgetMatcher() {
           propertyType,
           neighborhood,
           consultant: selected.name,
+          consultantId: selected.id,
           source: "budget_match",
           budgetDeposit: Math.round(depositNumber),
           budgetRent: Math.round(rentNumber),
