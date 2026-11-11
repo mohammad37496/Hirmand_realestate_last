@@ -21,4 +21,20 @@ test("submitting an empty smart search invalidates pending search and pagination
   assert.match(emptyQueryBranch, /setLoading\(false\)/);
   assert.match(emptyQueryBranch, /setLoadingMore\(false\)/);
   assert.ok(emptyQueryBranch.indexOf("searchRequestId.current += 1") < emptyQueryBranch.indexOf("return;"));
+  assert.match(emptyQueryBranch, /setResult\(null\)/);
+  assert.match(emptyQueryBranch, /setProperties\(\[\]\)/);
+  assert.match(emptyQueryBranch, /setHasMore\(false\)/);
+  assert.match(emptyQueryBranch, /setSearchError\(""\)/);
+});
+
+test("a failed new smart search cannot leave previous-query cards visible and exposes retry", () => {
+  const runSearchStart = smartSearch.indexOf("async function runSearch(");
+  const loadMoreStart = smartSearch.indexOf("async function loadMore()", runSearchStart);
+  const runSearch = smartSearch.slice(runSearchStart, loadMoreStart);
+  assert.ok(runSearch.includes("setResult(null)"));
+  assert.ok(runSearch.includes("setProperties([])"));
+  assert.ok(runSearch.includes('setSearchError("")'));
+  assert.ok(runSearch.includes('setSearchError("جستجو انجام نشد'));
+  assert.match(smartSearch, /className="property-empty smart-search-error" role="alert"/);
+  assert.match(smartSearch, /onClick=\{\(\) => void runSearch\(query\)\}/);
 });

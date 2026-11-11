@@ -39,6 +39,7 @@ function SmartSearchPage() {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<SmartSearchResult | null>(null);
   const [properties, setProperties] = useState<PropertyCardData[]>([]);
+  const [searchError, setSearchError] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -51,6 +52,10 @@ function SmartSearchPage() {
       searchRequestId.current += 1;
       setLoading(false);
       setLoadingMore(false);
+      setHasMore(false);
+      setResult(null);
+      setProperties([]);
+      setSearchError("");
       toast.info("عبارت جستجو را وارد کنید.");
       return;
     }
@@ -58,6 +63,9 @@ function SmartSearchPage() {
     setLoading(true);
     setLoadingMore(false);
     setHasMore(false);
+    setResult(null);
+    setProperties([]);
+    setSearchError("");
     try {
       const parsed = parseSmartPropertySearch(text);
       const rows = await listPublishedPropertyCards({ data: { ...parsed.filters, offset: 0 } });
@@ -66,7 +74,10 @@ function SmartSearchPage() {
       setProperties(rows);
       setHasMore(rows.length === SMART_SEARCH_PAGE_SIZE);
     } catch {
-      if (requestId === searchRequestId.current) toast.error("جستجو انجام نشد؛ دوباره تلاش کنید.");
+      if (requestId === searchRequestId.current) {
+        setSearchError("جستجو انجام نشد؛ نتایج قبلی نمایش داده نمی‌شوند. دوباره تلاش کنید.");
+        toast.error("جستجو انجام نشد؛ دوباره تلاش کنید.");
+      }
     } finally {
       if (requestId === searchRequestId.current) setLoading(false);
     }
@@ -120,6 +131,17 @@ function SmartSearchPage() {
             ))}
           </div>
         </section>
+
+        {searchError ? (
+          <section className="property-empty smart-search-error" role="alert">
+            <Search size={28} />
+            <strong>جستجوی جدید انجام نشد</strong>
+            <p>{searchError}</p>
+            <button type="button" className="btn-gold" onClick={() => void runSearch(query)} disabled={loading}>
+              تلاش دوباره
+            </button>
+          </section>
+        ) : null}
 
         {result ? (
           <section className="smart-search-results" aria-live="polite">

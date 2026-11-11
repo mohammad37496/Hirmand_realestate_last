@@ -5,6 +5,7 @@ import type { PropertyCardData } from "@/lib/properties";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { propertyPath } from "@/lib/property-path";
 import { SITE } from "@/lib/site";
+import { readCompareSlugs, toggleCompareSlug } from "@/lib/compare-storage.mjs";
 
 /** Absolute URL for a property, safe during SSR (no `window`). */
 function absolutePropertyUrl(property: Pick<PropertyCardData, "id" | "slug">): string {
@@ -196,41 +197,12 @@ function copyPropertyAdText(property: PropertyShareCardData) {
 }
 
 function readCompare(): string[] {
-  try {
-    const raw = localStorage.getItem(COMPARE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) return [];
-    return Array.from(new Set(
-      parsed.filter(
-        (item): item is string =>
-          typeof item === "string" && item.trim().length > 0 && item.length <= 220,
-      ).map((item) => item.trim()),
-    )).slice(0, MAX_COMPARE);
-  } catch {
-    return [];
-  }
+  const result = readCompareSlugs(localStorage, COMPARE_KEY, MAX_COMPARE);
+  return result.status === "success" ? result.slugs : [];
 }
 
-function toggleCompare(slug: string): { added: boolean; next: string[] } {
-  const current = readCompare();
-  if (current.includes(slug)) {
-    const next = current.filter((item) => item !== slug);
-    try {
-      localStorage.setItem(COMPARE_KEY, JSON.stringify(next));
-    } catch {
-      // Ignore storage failures in private browsing contexts.
-    }
-    return { added: false, next };
-  }
-  if (current.length >= MAX_COMPARE) return { added: false, next: current };
-  const next = [...current, slug];
-  try {
-    localStorage.setItem(COMPARE_KEY, JSON.stringify(next));
-  } catch {
-    // Ignore storage failures in private browsing contexts.
-    return { added: false, next: current };
-  }
-  return { added: true, next };
+function toggleCompare(slug: string) {
+  return toggleCompareSlug(localStorage, COMPARE_KEY, slug, MAX_COMPARE);
 }
 
 function readFavorites(): string[] {
@@ -420,17 +392,20 @@ export function PropertyActions({
     event.preventDefault();
     event.stopPropagation();
 
-    const current = readCompare();
-    if (!compared && current.length >= MAX_COMPARE) {
+    const result = toggleCompare(property.slug);
+    if (result.status === "limit") {
       toast.info("برای مقایسه هم‌زمان حداکثر ۳ فایل انتخاب کنید.");
       return;
     }
+    if (result.status === "error") {
+      toast.error("ذخیره وضعیت مقایسه در این مرورگر ممکن نشد؛ تغییری اعمال نشد.");
+      return;
+    }
 
-    const result = toggleCompare(property.slug);
-    setCompared(result.added);
+    setCompared(result.status === "added");
     trackAnalyticsEvent("property_compare", property.slug);
     toast.success(
-      result.added
+      result.status === "added"
         ? "فایل به مقایسه اضافه شد."
         : "فایل از مقایسه حذف شد.",
     );

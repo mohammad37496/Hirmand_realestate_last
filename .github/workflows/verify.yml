@@ -171,6 +171,10 @@ jobs:
           done
 
           npx playwright install --with-deps chromium
+          # Run the isolated PGlite gallery fixture across real phone/tablet
+          # viewports. Keep its responsive screenshots with the other Verify
+          # artifacts instead of writing into the repository checkout.
+          GALLERY_SCREENSHOT_DIR=/workspace/screenshots/gallery-landscape node scripts/property-gallery-landscape-browser.test.mjs
           curl --silent --fail http://127.0.0.1:8081/ >/dev/null
           # Exercise real Better Auth sessions and per-account workspace
           # isolation against this job's disposable PostgreSQL service.
@@ -187,6 +191,9 @@ jobs:
           # Run the responsive matrix first so failures in unrelated route,
           # search, or admin smoke tests cannot prevent mobile diagnostics.
           node scripts/responsive-layout-smoke.mjs http://127.0.0.1:8081
+          # Assert equal compact list-card geometry and real non-overlap with
+          # the fixed mobile action dock at five narrow-phone viewports.
+          node scripts/property-list-mobile-footer-overlap.browser.test.mjs http://127.0.0.1:8081
           node scripts/browser-smoke.mjs http://127.0.0.1:8081/ /workspace/screenshots/hirmand-preview.png
           node scripts/property-search-browser-smoke.mjs http://127.0.0.1:8081
           node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081

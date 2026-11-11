@@ -39,10 +39,12 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
   const [items, setItems] = useState<ActionItem[]>([]);
   const [summary, setSummary] = useState({ urgent: 0, high: 0, total: 0 });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError("");
     try {
       const response = await fetch("/api/admin-action-center", {
         method: "POST",
@@ -54,6 +56,9 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
         summary?: { urgent?: number; high?: number; total?: number };
         items?: ActionItem[];
       };
+      if (!result || !result.summary || !Array.isArray(result.items)) {
+        throw new Error("action center response was incomplete");
+      }
       setSummary({
         urgent: Number(result.summary?.urgent) || 0,
         high: Number(result.summary?.high) || 0,
@@ -61,7 +66,7 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
       });
       setItems(Array.isArray(result.items) ? result.items : []);
     } catch {
-      setItems([]);
+      setLoadError("بارگذاری مرکز اقدام امروز ناموفق بود. برای دریافت دوباره تلاش کنید.");
     } finally {
       setLoading(false);
     }
@@ -110,6 +115,18 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
         </button>
       </div>
 
+      {loadError ? (
+        <div className="admin-empty admin-action-center-error" role="alert">
+          <AlertTriangle size={24} />
+          <strong>دریافت کارهای امروز انجام نشد</strong>
+          <p>{loadError}</p>
+          <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>
+            <RefreshCw size={14} />
+            تلاش دوباره
+          </button>
+        </div>
+      ) : null}
+
       <div className="admin-dashboard-mini-grid">
         <div><span>فوری</span><strong>{summary.urgent.toLocaleString("fa-IR")}</strong></div>
         <div><span>مهم</span><strong>{summary.high.toLocaleString("fa-IR")}</strong></div>
@@ -119,7 +136,7 @@ export function AdminActionCenter({ onOpenProperties, onOpenLeads, onOpenProduct
       <div className="admin-breakdown">
         {loading && !items.length ? (
           <div className="admin-empty"><Clock3 size={24} /><strong>در حال جمع‌کردن کارهای امروز…</strong></div>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && loadError ? null : items.length === 0 ? (
           <div className="admin-empty"><Check size={24} /><strong>فعلاً اقدام بحرانی در صف نیست.</strong></div>
         ) : (
           items.map((item) => (

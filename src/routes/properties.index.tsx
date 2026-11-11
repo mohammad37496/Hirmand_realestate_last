@@ -429,6 +429,8 @@ function PropertiesIndexPage() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [retryVersion, setRetryVersion] = useState(0);
   const [urlReady, setUrlReady] = useState(false);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchId, setSavedSearchId] = useState("");
@@ -682,6 +684,7 @@ function PropertiesIndexPage() {
     }
 
     if (searchValidationErrors.length) {
+      setLoadError("");
       setProperties([]);
       setTotal(0);
       setOffset(0);
@@ -691,6 +694,7 @@ function PropertiesIndexPage() {
     }
 
     setLoading(true);
+    setLoadError("");
     setProperties([]);
     setTotal(0);
     setOffset(0);
@@ -773,6 +777,7 @@ function PropertiesIndexPage() {
         if (requestId.current !== currentRequest) return;
         setProperties([]);
         setTotal(0);
+        setLoadError("دریافت فایل‌های ملکی انجام نشد. اتصال یا سرویس فایل‌ها را بررسی و دوباره تلاش کنید.");
         toast.error("جستجوی فایل‌ها انجام نشد. اتصال اینترنت یا سرویس فایل‌ها را بررسی کنید.");
       } finally {
         if (requestId.current === currentRequest) setLoading(false);
@@ -780,7 +785,7 @@ function PropertiesIndexPage() {
     }, 320);
 
     return () => window.clearTimeout(timer);
-  }, [urlReady, q, transactionType, propertyType, neighborhood, selectedNeighborhoods, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds, searchValidationErrors]);
+  }, [urlReady, q, transactionType, propertyType, neighborhood, selectedNeighborhoods, minArea, maxArea, minPrice, maxPrice, minDeposit, maxDeposit, minRent, maxRent, minBedrooms, minBathrooms, minFloor, maxFloor, floorType, orientation, minTotalFloors, maxTotalFloors, minBuiltYear, maxBuiltYear, parkingOnly, elevatorOnly, storageOnly, specFilters, featureSearch, featuredOnly, hasImagesOnly, hasLocationOnly, convertibleOnly, sort, mapBounds, searchValidationErrors, retryVersion]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || properties.length >= total) return;
@@ -1996,6 +2001,17 @@ function PropertiesIndexPage() {
               </Link>
             </div>
 
+            {loadError ? (
+              <section className="pf-empty pf-load-error" role="alert">
+                <Search size={26} />
+                <strong>بارگذاری فایل‌های ملکی ناموفق بود</strong>
+                <p>{loadError}</p>
+                <button type="button" className="btn-gold" onClick={() => setRetryVersion((current) => current + 1)} disabled={loading}>
+                  تلاش دوباره
+                </button>
+              </section>
+            ) : null}
+
             {properties.length || viewMode === "split" ? (
               <>
                 {viewMode === "split" ? (
@@ -2011,7 +2027,7 @@ function PropertiesIndexPage() {
                           <strong>در حال جست‌وجوی فایل‌های این محدوده…</strong>
                           <p>فایل‌های منتشرشده و مختصات آن‌ها در حال بررسی است.</p>
                         </div>
-                      ) : properties.length === 0 ? (
+                      ) : loadError ? null : properties.length === 0 ? (
                         <div className="pf-map-list-empty" role="status">
                           <MapPin size={22} />
                           <strong>در این محدوده فایلِ دارای مختصات ثبت‌شده پیدا نشد.</strong>
@@ -2099,7 +2115,13 @@ function PropertiesIndexPage() {
                   </div>
                 ) : null}
               </>
-            ) : (
+            ) : loading ? (
+              <div className="pf-empty pf-loading" role="status" aria-live="polite">
+                <Search size={26} />
+                <strong>در حال جست‌وجوی فایل‌ها…</strong>
+                <p>فایل‌های منطبق با فیلترهای انتخاب‌شده در حال دریافت هستند.</p>
+              </div>
+            ) : loadError ? null : (
               <div className="pf-empty">
                 <Search size={26} />
                 <strong>{mapBounds ? "در این محدوده فایلِ دارای مختصات ثبت‌شده پیدا نشد." : "فایلی با این معیارها پیدا نشد."}</strong>

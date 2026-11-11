@@ -17,6 +17,7 @@ import { CustomerWorkspaceSyncStatus } from "@/components/hirmand/customer-works
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { listPublishedPropertiesBySlugs, type Property } from "@/lib/properties";
 import { subscribeToFavoriteMetaWorkspaceSync, subscribeToFavoriteWorkspaceSync } from "@/lib/favorites-workspace-sync.mjs";
+import { getTehranDateOnly } from "@/lib/persian-date";
 import { SITE } from "@/lib/site";
 import { toast } from "sonner";
 import { authClient, authEnabled } from "@/lib/auth/client";
@@ -227,6 +228,8 @@ function FavoritesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [recentProperties, setRecentProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favoritesLoadError, setFavoritesLoadError] = useState("");
+  const [favoritesRetry, setFavoritesRetry] = useState(0);
   const [recentLoading, setRecentLoading] = useState(true);
   const [sharedFavorites, setSharedFavorites] = useState<string[]>([]);
   const [sharedTitle, setSharedTitle] = useState("");
@@ -236,7 +239,7 @@ function FavoritesPage() {
   const [planSlugs, setPlanSlugs] = useState<string[]>([]);
   const [planName, setPlanName] = useState("");
   const [planPhone, setPlanPhone] = useState("");
-  const [planDate, setPlanDate] = useState(new Date().toISOString().slice(0, 10));
+  const [planDate, setPlanDate] = useState(getTehranDateOnly());
   const [planTime, setPlanTime] = useState("17:00");
   const [planNote, setPlanNote] = useState("");
   const [planBusy, setPlanBusy] = useState(false);
@@ -420,6 +423,8 @@ function FavoritesPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setFavoritesLoadError("");
 
     async function loadFavorites() {
       const localFavoriteSlugs = readFavorites();
@@ -437,7 +442,10 @@ function FavoritesPage() {
           setSharedTitle(payload?.title ?? "سبد منتخب هیرمند");
           setSharedExpiresAt(payload?.expiresAt ?? "");
         } catch (error) {
-          if (!cancelled) toast.error(error instanceof Error ? error.message : "لینک اشتراکی در دسترس نیست.");
+          if (!cancelled) {
+            setFavoritesLoadError("دریافت فهرست اشتراکی ناموفق بود. برای دریافت دوباره تلاش کنید.");
+            toast.error(error instanceof Error ? error.message : "لینک اشتراکی در دسترس نیست.");
+          }
           shared = [];
         } finally {
           if (!cancelled) setSharedTokenLoading(false);
@@ -462,7 +470,9 @@ function FavoritesPage() {
           const retained = favoriteSlugs.filter((slug) => valid.has(slug));
           if (retained.length !== favoriteSlugs.length) persistSlugs(FAVORITES_KEY, retained);
         } catch {
-          if (!cancelled && favoriteRequestId === favoriteLoadVersion.current) setProperties([]);
+          if (!cancelled && favoriteRequestId === favoriteLoadVersion.current) {
+            setFavoritesLoadError("بارگذاری فایل‌های ذخیره‌شده ناموفق بود. فهرست شما پاک نشده است؛ دوباره تلاش کنید.");
+          }
         } finally {
           if (!cancelled && favoriteRequestId === favoriteLoadVersion.current) setLoading(false);
         }
@@ -494,7 +504,7 @@ function FavoritesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [favoritesRetry]);
 
   useEffect(() => subscribeToFavoriteWorkspaceSync({
     target: window,
@@ -511,12 +521,14 @@ function FavoritesPage() {
       if (Array.isArray(result)) {
         favoriteLoadVersion.current += 1;
         setProperties([]);
+        setFavoritesLoadError("");
         setLoading(false);
         return;
       }
       const snapshot = result as { rows: Property[]; requestId: number };
       if (snapshot.requestId !== favoriteLoadVersion.current) return;
       setProperties(snapshot.rows);
+      setFavoritesLoadError("");
       setLoading(false);
       const valid = new Set(snapshot.rows.map((property) => property.slug));
       const currentSlugs = readFavorites();
@@ -525,6 +537,7 @@ function FavoritesPage() {
     },
     onError: () => {
       setLoading(false);
+      setFavoritesLoadError("بارگذاری فایل‌های ذخیره‌شده ناموفق بود. فهرست شما پاک نشده است؛ دوباره تلاش کنید.");
       toast.error("بارگذاری فایل‌های ذخیره‌شده ناموفق بود؛ دوباره تلاش کنید.");
     },
   }), []);
@@ -647,7 +660,7 @@ function FavoritesPage() {
                   <div className="favorites-plan-grid">
                     <label className="field"><span>نام و نام خانوادگی</span><input value={planName} onChange={(event) => setPlanName(event.target.value)} autoComplete="name" /></label>
                     <label className="field"><span>شماره موبایل</span><input value={planPhone} onChange={(event) => setPlanPhone(event.target.value)} inputMode="tel" dir="ltr" autoComplete="tel" /></label>
-                    <label className="field"><span>روز پیشنهادی</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={planDate} onChange={(event) => setPlanDate(event.target.value)} dir="ltr" /></label>
+                    <label className="field"><span>روز پیشنهادی</span><input type="date" min={getTehranDateOnly()} value={planDate} onChange={(event) => setPlanDate(event.target.value)} dir="ltr" /></label>
                     <label className="field"><span>ساعت پیشنهادی</span><select value={planTime} onChange={(event) => setPlanTime(event.target.value)} dir="ltr">{["09:00","10:00","11:00","12:00","15:00","16:00","17:00","18:00","19:00","20:00"].map((time) => <option key={time}>{time}</option>)}</select></label>
                     <label className="field favorites-plan-note"><span>یادداشت (اختیاری)</span><textarea rows={3} value={planNote} onChange={(event) => setPlanNote(event.target.value)} placeholder="مثلاً دو نفر هستیم یا ترجیح می‌دهیم فایل‌ها پشت سر هم دیده شوند..." /></label>
                   </div>
@@ -675,6 +688,17 @@ function FavoritesPage() {
             <Link to="/properties" className="btn-ghost">
               <Link2 size={15} /> مشاهده همه فایل‌ها
             </Link>
+          </section>
+        ) : null}
+
+        {favoritesLoadError ? (
+          <section className="property-empty favorites-load-error" role="alert">
+            <Heart size={26} />
+            <strong>بارگذاری فایل‌های ذخیره‌شده ناموفق بود</strong>
+            <p>فهرست ذخیره‌شده شما پاک نشده است. برای دریافت دوباره تلاش کنید.</p>
+            <button type="button" className="btn-gold" onClick={() => setFavoritesRetry((current) => current + 1)} disabled={loading}>
+              تلاش دوباره
+            </button>
           </section>
         ) : null}
 
@@ -774,7 +798,7 @@ function FavoritesPage() {
             </section>
           )}
           </>
-        ) : (
+        ) : favoritesLoadError ? null : (
           <section className="property-empty">
             <Heart size={26} />
             <strong>هنوز فایلی ذخیره نکرده‌اید</strong>
