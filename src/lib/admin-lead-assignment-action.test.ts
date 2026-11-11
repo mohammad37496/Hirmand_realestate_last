@@ -11,7 +11,8 @@ import { matchablePropertyVisibilitySql } from "./property-matchability.ts";
 async function createFixture(options: { failActivity?: boolean } = {}) {
   const pg = new PGlite();
   await pg.exec(`
-    create table leads (id text primary key, consultant text, updated_at timestamptz not null default current_timestamp);
+    create table consultants (id text primary key, name text not null, is_active boolean not null default true);
+    create table leads (id text primary key, consultant text, consultant_id text, consultant_link_state text not null default 'legacy_unresolved', status text not null default 'new', updated_at timestamptz not null default current_timestamp);
     create table lead_activities (
       id bigserial primary key,
       lead_id text not null references leads(id) on delete cascade,
@@ -21,7 +22,8 @@ async function createFixture(options: { failActivity?: boolean } = {}) {
       metadata jsonb not null default '{}'::jsonb,
       created_at timestamptz not null default current_timestamp
     );
-    insert into leads(id, consultant) values ('lead-1', null);
+    insert into consultants(id,name,is_active) values ('consultant-1','مشاور فعال',true);
+    insert into leads(id, consultant, consultant_id, consultant_link_state) values ('lead-1', null, null, 'unassigned');
     ${options.failActivity ? `create function reject_lead_activity() returns trigger language plpgsql as $$ begin raise exception 'activity storage unavailable'; end $$;
       create trigger reject_lead_activity before insert on lead_activities for each row execute function reject_lead_activity();` : ""}
   `);
@@ -40,9 +42,9 @@ async function createFixture(options: { failActivity?: boolean } = {}) {
 test("lead assignment records the consultant change in the CRM timeline", async () => {
   const { pg, sql } = await createFixture();
   try {
-    assert.deepEqual(await assignAdminLeadToConsultant(sql, "lead-1", "مشاور فعال"), { kind: "assigned" });
-    assert.deepEqual(await sql.query("select consultant from leads where id='lead-1'"), [{ consultant: "مشاور فعال" }]);
-    const activities = await sql.query<{ activity_type: string; title: string; note: string; metadata: { consultant: string; source: string } }>(
+    assert.deepEqual(await assignAdminLeadToConsultant(sql, "lead-1", "consultant-1"), { kind: "assigned", consultantId: "consultant-1", consultant: "مشاور فعال" });
+    assert.deepEqual(await sql.query("select consultant,consultant_id,consultant_link_state from leads where id='lead-1'"), [{ consultant: "مشاور فعال", consultant_id: "consultant-1", consultant_link_state: "linked" }]);
+    const activities = await sql.query<{ activity_type: string; title: string; note: string; metadata: { consultant: string; consultantId: string; source: string } }>(
       "select activity_type,title,note,metadata from lead_activities where lead_id='lead-1'",
     );
     assert.equal(activities.length, 1);
@@ -50,6 +52,7 @@ test("lead assignment records the consultant change in the CRM timeline", async 
     assert.equal(activities[0]?.title, "تخصیص مشاور");
     assert.equal(activities[0]?.note, "مشاور «مشاور فعال» برای این لید ثبت شد.");
     assert.equal(activities[0]?.metadata.consultant, "مشاور فعال");
+    assert.equal(activities[0]?.metadata.consultantId, "consultant-1");
     assert.equal(activities[0]?.metadata.source, "assignment_balancer");
   } finally {
     await pg.close();
@@ -59,8 +62,8 @@ test("lead assignment records the consultant change in the CRM timeline", async 
 test("a failed activity insert rolls back the consultant assignment", async () => {
   const { pg, sql } = await createFixture({ failActivity: true });
   try {
-    await assert.rejects(assignAdminLeadToConsultant(sql, "lead-1", "مشاور فعال"), /activity storage unavailable/);
-    assert.deepEqual(await sql.query("select consultant from leads where id='lead-1'"), [{ consultant: null }]);
+    await assert.rejects(assignAdminLeadToConsultant(sql, "lead-1", "consultant-1"), /activity storage unavailable/);
+    assert.deepEqual(await sql.query("select consultant,consultant_id,consultant_link_state from leads where id='lead-1'"), [{ consultant: null, consultant_id: null, consultant_link_state: "unassigned" }]);
     assert.deepEqual(await sql.query("select id from lead_activities"), []);
   } finally {
     await pg.close();
@@ -70,7 +73,7 @@ test("a failed activity insert rolls back the consultant assignment", async () =
 test("a missing lead is not assigned and creates no timeline entry", async () => {
   const { pg, sql } = await createFixture();
   try {
-    assert.deepEqual(await assignAdminLeadToConsultant(sql, "missing", "مشاور فعال"), { kind: "not_found" });
+    assert.deepEqual(await assignAdminLeadToConsultant(sql, "missing", "consultant-1"), { kind: "not_found" });
     assert.deepEqual(await sql.query("select id from lead_activities"), []);
   } finally {
     await pg.close();
@@ -79,7 +82,59 @@ test("a missing lead is not assigned and creates no timeline entry", async () =>
 
 test("assignment fails closed when transaction support is unavailable", async () => {
   const sql = { query: async () => [] } as unknown as Sql;
-  await assert.rejects(assignAdminLeadToConsultant(sql, "lead-1", "مشاور فعال"), /transaction support is required/);
+  await assert.rejects(assignAdminLeadToConsultant(sql, "lead-1", "consultant-1"), /transaction support is required/);
+});
+
+test("admin assignment rejects stale or inactive consultant IDs without mutating the lead", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    await sql.query("update consultants set is_active=false where id='consultant-1'");
+    assert.deepEqual(await assignAdminLeadToConsultant(sql, "lead-1", "consultant-1"), { kind: "consultant_unavailable" });
+    assert.deepEqual(await assignAdminLeadToConsultant(sql, "lead-1", "missing"), { kind: "consultant_unavailable" });
+    assert.deepEqual(await sql.query("select consultant_id,consultant_link_state from leads where id='lead-1'"), [{ consultant_id: null, consultant_link_state: "unassigned" }]);
+    assert.deepEqual(await sql.query("select id from lead_activities"), []);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("admin assignment holds the active consultant row lock until the lead and timeline commit", async () => {
+  const { pg } = await createFixture();
+  let release!: () => void;
+  let signalLocked!: () => void;
+  const hold = new Promise<void>((resolve) => { release = resolve; });
+  const locked = new Promise<void>((resolve) => { signalLocked = resolve; });
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) => (await pg.query<T>(text, params)).rows,
+    transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) => pg.transaction(async (tx) => callback({
+      query: async <R = Record<string, unknown>>(text: string, params: unknown[] = []) => {
+        const rows = (await tx.query<R>(text, params)).rows;
+        if (/select id,name from consultants[\s\S]*for share/i.test(text)) {
+          signalLocked();
+          await hold;
+        }
+        return rows;
+      },
+    } as Sql)),
+  } as Sql;
+  try {
+    const assignment = assignAdminLeadToConsultant(sql, "lead-1", "consultant-1");
+    await locked;
+    let deactivationFinished = false;
+    const deactivation = pg.query("update consultants set is_active=false where id='consultant-1'").then(() => { deactivationFinished = true; });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(deactivationFinished, false);
+    release();
+    assert.deepEqual(await assignment, { kind: "assigned", consultantId: "consultant-1", consultant: "مشاور فعال" });
+    await deactivation;
+    assert.equal(deactivationFinished, true);
+    assert.deepEqual((await pg.query("select consultant_id,consultant_link_state from leads where id='lead-1'")).rows, [
+      { consultant_id: "consultant-1", consultant_link_state: "linked" },
+    ]);
+  } finally {
+    release();
+    await pg.close();
+  }
 });
 
 async function createLeadMutationFixture(options: { failActivity?: boolean } = {}) {

@@ -12,32 +12,32 @@ export async function loadAdminSalesControlCenterQueries(sql: Sql, days: 7 | 30 
        ),
        lead_stats as (
          select
-           lower(trim(consultant)) as key,
+           c.id as key,
            count(*)::int as leads,
-           count(*) filter (where created_at >= current_timestamp - interval '${days} days')::int as period_leads,
-           count(*) filter (where status in ('new','contacted','follow_up','visited'))::int as active_leads,
-           count(*) filter (where created_at >= current_timestamp - interval '7 days')::int as new_7d,
+           count(*) filter (where l.created_at >= current_timestamp - interval '${days} days')::int as period_leads,
+           count(*) filter (where l.status in ('new','contacted','follow_up','visited'))::int as active_leads,
+           count(*) filter (where l.created_at >= current_timestamp - interval '7 days')::int as new_7d,
            count(*) filter (
-             where status in ('new','contacted','follow_up')
-               and created_at < current_timestamp - interval '24 hours'
+             where l.status in ('new','contacted','follow_up')
+               and l.created_at < current_timestamp - interval '24 hours'
                and not exists (
                  select 1
                  from lead_activities a
-                 where a.lead_id = leads.id
+                 where a.lead_id = l.id
                    and a.activity_type in ('call','whatsapp','visit')
                )
            )::int as overdue_leads,
            count(*) filter (
-             where follow_up_at > current_timestamp
-               and follow_up_at <= current_timestamp + interval '7 days'
-               and status in ('new','contacted','follow_up','visited','contract')
+             where l.follow_up_at > current_timestamp
+               and l.follow_up_at <= current_timestamp + interval '7 days'
+               and l.status in ('new','contacted','follow_up','visited','contract')
            )::int as next_follow_ups,
-           count(*) filter (where visit_status = 'requested')::int as visit_requests,
-           count(*) filter (where status = 'contract')::int as contracts,
-           count(*) filter (where status = 'contract' and created_at >= current_timestamp - interval '${days} days')::int as period_contracts
-         from leads
-         where coalesce(trim(consultant), '') <> ''
-         group by lower(trim(consultant))
+           count(*) filter (where l.visit_status = 'requested')::int as visit_requests,
+           count(*) filter (where l.status = 'contract')::int as contracts,
+           count(*) filter (where l.status = 'contract' and l.created_at >= current_timestamp - interval '${days} days')::int as period_contracts
+         from leads l
+         join consultants c on c.id = l.consultant_id
+         group by c.id
        ),
        event_stats as (
          select
@@ -67,7 +67,7 @@ export async function loadAdminSalesControlCenterQueries(sql: Sql, days: 7 | 30 
          coalesce(es.views, 0)::int as views
        from consultants c
        left join file_stats fs on fs.key = c.id
-       left join lead_stats ls on ls.key = lower(trim(c.name))
+       left join lead_stats ls on ls.key = c.id
        left join event_stats es on es.key = c.id
        order by overdue_leads desc, visit_requests desc, active_leads desc, period_contracts desc, c.name asc`,
     ),

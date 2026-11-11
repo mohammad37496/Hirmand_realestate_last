@@ -6,6 +6,7 @@ import {
   assertRequiredMigrationFiles,
   assertRequiredMigrationLedger,
   CUSTOMER_AUTH_MIGRATIONS,
+  LEAD_CONSULTANT_RELATION_MIGRATIONS,
   PROPERTY_CONSULTANT_RELATION_MIGRATIONS,
   pendingMigrations,
 } from "../scripts/migration-plan.mjs";
@@ -37,9 +38,11 @@ export async function runMigrations({
   poolFactory = (options) => new pg.Pool(options),
   verifyCustomerAuth = process.env.VITE_AUTH_ENABLED !== "false",
   verifyPropertyConsultantMigration = true,
+  verifyLeadConsultantMigration = true,
 }) {
   const entries = await readdir(migrationsDir);
   if (verifyPropertyConsultantMigration) assertRequiredMigrationFiles(entries, PROPERTY_CONSULTANT_RELATION_MIGRATIONS);
+  if (verifyLeadConsultantMigration) assertRequiredMigrationFiles(entries, LEAD_CONSULTANT_RELATION_MIGRATIONS);
   if (verifyCustomerAuth) assertRequiredMigrationFiles(entries);
   const pool = poolFactory({
     connectionString,
@@ -89,6 +92,10 @@ export async function runMigrations({
     if (verifyPropertyConsultantMigration) {
       assertRequiredMigrationLedger(appliedNames, PROPERTY_CONSULTANT_RELATION_MIGRATIONS);
       console.log(`[migrate] property consultant migrations verified${deploymentLabel}: ${PROPERTY_CONSULTANT_RELATION_MIGRATIONS.join(", ")}`);
+    }
+    if (verifyLeadConsultantMigration) {
+      assertRequiredMigrationLedger(appliedNames, LEAD_CONSULTANT_RELATION_MIGRATIONS);
+      console.log(`[migrate] lead consultant migrations verified${deploymentLabel}: ${LEAD_CONSULTANT_RELATION_MIGRATIONS.join(", ")}`);
     }
     if (verifyCustomerAuth) {
       assertRequiredMigrationLedger(appliedNames);
