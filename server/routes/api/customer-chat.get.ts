@@ -3,6 +3,7 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { isValidPublicTrackingToken } from "@/lib/tracking-token";
+import { loadLatestCustomerChatMessages } from "@/lib/customer-chat-messages";
 
 const codeSchema = z.string().trim().toUpperCase().refine(isValidPublicTrackingToken);
 
@@ -29,35 +30,21 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "درخواستی با این کد رهگیری پیدا نشد." });
   }
 
-  const rows = await sql.query<{
-    id:string;
-    senderType:"customer"|"admin";
-    senderName:string;
-    message:string;
-    createdAt:string;
-  }>(
-    "select id,sender_type as \"senderType\",sender_name as \"senderName\",message,created_at as \"createdAt\" from customer_messages where lead_id=$1 order by created_at asc limit 100",
-    [lead.id],
-  );
-
-  const latest = rows.at(-1);
-  const unread = await sql.query<{ count:number }>(
-    "select count(*)::int as count from customer_messages where lead_id=$1 and sender_type='admin' and read_by_customer_at is null",
-    [lead.id],
-  );
+  const conversation = await loadLatestCustomerChatMessages(sql, lead.id);
+  const latest = conversation.messages.at(-1);
 
   return {
     trackingCode: trackingCode.data,
     consultant: String(lead.consultant ?? ""),
     deal: String(lead.deal ?? ""),
-    messages: rows.map((row) => ({
+    messages: conversation.messages.map((row) => ({
       id: row.id,
       senderType: row.senderType,
       senderName: row.senderName,
       message: row.message,
       createdAt: new Date(row.createdAt).toISOString(),
     })),
-    unreadCustomer: Number(unread[0]?.count) || 0,
+    unreadCustomer: conversation.unreadCount,
     lastMessageAt: latest ? new Date(latest.createdAt).toISOString() : null,
   };
 });
