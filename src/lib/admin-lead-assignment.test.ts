@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import type { Sql } from "./db.ts";
 import { loadAdminLeadAssignmentRows } from "./admin-lead-assignment.ts";
@@ -57,4 +58,19 @@ describe("admin lead assignment data loading", () => {
     assert.deepEqual(result, { consultants: [consultant], unassigned: [lead] });
     assert.equal(calls.length, 2);
   });
+});
+
+it("admin lead 360 fails closed and does not show an unavailable customer as unselected", async () => {
+  const route = await readFile(new URL("../../server/routes/api/admin-lead-360.post.ts", import.meta.url), "utf8");
+  const component = await readFile(new URL("../components/hirmand/admin-lead-360.tsx", import.meta.url), "utf8");
+  const guard = route.indexOf('dbSource === "unconfigured"');
+  assert.ok(guard >= 0);
+  assert.match(route, /dbSource === "unconfigured"\)\s*\{\s*throw createError\(\{ statusCode: 503/);
+  assert.ok(guard < route.indexOf("getSql()"));
+  assert.doesNotMatch(route, /return \{ customer: null, activities: \[\], deals: \[\], settlements: \[\], documents: \[\]/);
+  assert.match(component, /loadError/);
+  assert.match(component, /requestSequence/);
+  assert.match(component, /role="alert"/);
+  assert.match(component, /تلاش دوباره/);
+  assert.match(component, /پرونده این مشتری پیدا نشد/);
 });

@@ -9,6 +9,7 @@ import {
   normalizeStoredMediaUrl,
 } from "@/lib/music-library.server";
 import { isDatabaseMediaUrl } from "@/lib/media-store.server";
+import { withLiaraStreamIdleTimeout } from "@/lib/liara-media-access.server";
 import { liaraRangeNotSatisfiableResponse } from "@/lib/music-range-response";
 
 const CACHE_CONTROL =
@@ -117,7 +118,7 @@ export default defineEventHandler(async (event) => {
     copyHeader(upstream, headers, "content-range");
     copyHeader(upstream, headers, "etag");
 
-    return new Response(upstream.body, {
+    return new Response(withLiaraStreamIdleTimeout(upstream.body), {
       status: upstream.status,
       headers,
     });

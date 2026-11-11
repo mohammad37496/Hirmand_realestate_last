@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -111,6 +111,8 @@ type DashboardData = {
     campaign: string;
     visitors: number;
   }[];
+  unavailableSections?: string[];
+  timedOutSections?: string[];
   consultantPerformance: {
     id: string;
     name: string;
@@ -226,8 +228,10 @@ export function AdminDashboard({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const loadRequestId = useRef(0);
 
   const load = useCallback(async (silent = false) => {
+    const requestId = ++loadRequestId.current;
     if (!silent) setLoading(true);
     try {
       const response = await fetch("/api/admin-dashboard", {
@@ -241,20 +245,32 @@ export function AdminDashboard({
           | null;
         throw new Error(result?.statusMessage || result?.message || "بارگذاری داشبورد انجام نشد.");
       }
-      setData((await response.json()) as DashboardData);
+      const payload = await response.json() as Partial<DashboardData> | null;
+      if (requestId !== loadRequestId.current) return;
+      if (!payload?.properties || !payload.leads || !payload.consultants || !payload.music || !payload.visitors
+        || !payload.followUps || !payload.leadSla || !Array.isArray(payload.propertyTypes)
+        || !Array.isArray(payload.leadDays) || !Array.isArray(payload.visitorDays)
+        || !Array.isArray(payload.topPages) || !Array.isArray(payload.topProperties)
+        || !Array.isArray(payload.eventStats) || !Array.isArray(payload.visitorSources)
+        || !Array.isArray(payload.consultantPerformance) || !Array.isArray(payload.recentLeads)) {
+        throw new Error("پاسخ داشبورد ناقص است؛ داده‌های ناقص به‌عنوان آمار خالی نمایش داده نمی‌شوند.");
+      }
+      setData(payload as DashboardData);
       setLoadError(null);
       setLastUpdated(new Date());
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "بارگذاری داشبورد انجام نشد.");
+      if (requestId === loadRequestId.current) {
+        setLoadError(error instanceof Error ? error.message : "بارگذاری داشبورد انجام نشد.");
+      }
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestId.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => void load(true), 60_000);
-    return () => window.clearInterval(timer);
+    return () => { window.clearInterval(timer); loadRequestId.current += 1; };
   }, [load]);
 
   const maxLeadDay = useMemo(() => Math.max(1, ...(data?.leadDays.map((item) => item.count) ?? [0])), [data]);
@@ -296,6 +312,14 @@ export function AdminDashboard({
     };
   }, [data]);
 
+  const isUnavailable = (section: string) => data?.unavailableSections?.includes(section) ?? false;
+  const isTimedOut = (section: string) => data?.timedOutSections?.includes(section) ?? false;
+  const unavailableMessage = (section: string, fallback: string) => isTimedOut(section)
+    ? "مهلت دریافت این بخش تمام شد؛ برای تلاش دوباره داشبورد را تازه کنید."
+    : fallback;
+  const visitorStatsUnavailable = isUnavailable("visitorStats") || isUnavailable("activeVisitorStats");
+  const visitorStatsTimedOut = isTimedOut("visitorStats") || isTimedOut("activeVisitorStats");
+
 
   function downloadDailyReport() {
     if (!data) return;
@@ -314,12 +338,12 @@ export function AdminDashboard({
       ["لید", "قرارداد", String(data.leads.contract)],
       ["لید", "پیگیری عقب‌افتاده", String(data.leadSla.overdue)],
       ["لید", "جدید با تأخیر بیش از ۴ ساعت", String(data.leadSla.newOver4Hours)],
-      ["سایت", "بازدیدکننده امروز", String(data.visitors.today)],
-      ["سایت", "بازدیدکننده ۷ روز", String(data.visitors.last7)],
-      ["سایت", "بازدیدکننده ۳۰ روز", String(data.visitors.last30)],
-      ["سایت", "نمایش صفحه ۳۰ روز", String(data.visitors.pageviewsLast30)],
-      ["سایت", "کلیک تماس", String(conversion.calls)],
-      ["سایت", "کلیک واتساپ", String(conversion.whatsapp)],
+      ["سایت", "بازدیدکننده امروز", visitorStatsUnavailable ? "نامشخص" : String(data.visitors.today)],
+      ["سایت", "بازدیدکننده ۷ روز", visitorStatsUnavailable ? "نامشخص" : String(data.visitors.last7)],
+      ["سایت", "بازدیدکننده ۳۰ روز", visitorStatsUnavailable ? "نامشخص" : String(data.visitors.last30)],
+      ["سایت", "نمایش صفحه ۳۰ روز", visitorStatsUnavailable ? "نامشخص" : String(data.visitors.pageviewsLast30)],
+      ["سایت", "کلیک تماس", isUnavailable("eventStats") ? "نامشخص" : String(conversion.calls)],
+      ["سایت", "کلیک واتساپ", isUnavailable("eventStats") ? "نامشخص" : String(conversion.whatsapp)],
       ...data.consultantPerformance.map((item) => ["مشاور", item.name + " · لید", String(item.leads)]),
       ...data.consultantPerformance.map((item) => ["مشاور", item.name + " · قرارداد", String(item.contracts)]),
     ];
@@ -353,7 +377,7 @@ export function AdminDashboard({
     { label: "لید بدون تماس بیش از ۲۴ ساعت", value: data.leadSla.overdue, icon: Phone, tone: "red" },
     { label: "لید جدید بالای ۴ ساعت", value: data.leadSla.newOver4Hours, icon: Clock3, tone: "amber" },
     { label: "کل فایل‌ها", value: data.properties.total, icon: Building2, tone: "gold" },
-    { label: "بازدید امروز", value: data.visitors.today, icon: Eye, tone: "blue" },
+    { label: "بازدید امروز", value: visitorStatsUnavailable ? "نامشخص" : data.visitors.today, icon: Eye, tone: "blue" },
     { label: "فایل‌های منتشرشده", value: data.properties.published, icon: BarChart3, tone: "green" },
     { label: "درخواست‌های جدید", value: data.leads.new, icon: UsersRound, tone: "amber" },
     { label: "لید در ۳۰ روز", value: data.leads.last30, icon: UserRound, tone: "blue" },
@@ -430,7 +454,7 @@ export function AdminDashboard({
               <span className="admin-dashboard-stat-icon"><Icon size={19} /></span>
               <span>
                 <small>{label}</small>
-                <strong>{value.toLocaleString("fa-IR")}</strong>
+                <strong>{typeof value === "number" ? value.toLocaleString("fa-IR") : value}</strong>
               </span>
               {action ? <ArrowLeft size={16} /> : null}
             </button>
@@ -500,7 +524,7 @@ export function AdminDashboard({
           <span className="admin-dashboard-stat-icon"><Clock3 size={19} /></span>
           <span>
             <small>بازدید ۷ روز اخیر</small>
-            <strong>{fa(data.visitors.last7)}</strong>
+            <strong>{visitorStatsUnavailable ? "نامشخص" : fa(data.visitors.last7)}</strong>
           </span>
         </div>
       </section>
@@ -658,11 +682,13 @@ export function AdminDashboard({
             <h2>بازدیدکننده‌های سایت</h2>
           </div>
           <span className="admin-dashboard-summary">
-            امروز {data.visitors.today.toLocaleString("fa-IR")} نفر
+            امروز {visitorStatsUnavailable ? "نامشخص" : data.visitors.today.toLocaleString("fa-IR")} نفر
           </span>
         </div>
 
-        <div className="admin-dashboard-mini-grid">
+        {visitorStatsUnavailable ? (
+          <div className="admin-empty" role="status">{visitorStatsTimedOut ? "مهلت دریافت آمار بازدیدکنندگان تمام شد." : "داده‌های آمار بازدیدکنندگان در دسترس نیست."}</div>
+        ) : <div className="admin-dashboard-mini-grid">
           <div>
             <span>فعال در ۵ دقیقه اخیر</span>
             <strong>{data.visitors.activeNow.toLocaleString("fa-IR")}</strong>
@@ -679,9 +705,11 @@ export function AdminDashboard({
             <span>بازدیدکننده ۳۰ روز</span>
             <strong>{data.visitors.last30.toLocaleString("fa-IR")}</strong>
           </div>
-        </div>
+        </div>}
 
-        <div className="admin-dashboard-mini-grid">
+        {isUnavailable("eventStats") || visitorStatsUnavailable ? (
+          <div className="admin-empty" role="status">{isTimedOut("eventStats") || visitorStatsTimedOut ? "مهلت دریافت آمار رویدادها تمام شد." : "آمار رویدادها برای محاسبه نرخ تبدیل در دسترس نیست."}</div>
+        ) : <div className="admin-dashboard-mini-grid">
           <div>
             <span>نرخ تبدیل به درخواست</span>
             <strong>{conversion.rate.toFixed(1)}٪</strong>
@@ -694,9 +722,9 @@ export function AdminDashboard({
             <span>کلیک واتساپ</span>
             <strong>{conversion.whatsapp.toLocaleString("fa-IR")}</strong>
           </div>
-        </div>
+        </div>}
 
-        <div className="admin-dashboard-mini-grid">
+        {visitorStatsUnavailable ? null : <div className="admin-dashboard-mini-grid">
           <div>
             <span>نمایش صفحه امروز</span>
             <strong>{data.visitors.pageviewsToday.toLocaleString("fa-IR")}</strong>
@@ -709,9 +737,11 @@ export function AdminDashboard({
             <span>نمایش صفحه ۳۰ روز</span>
             <strong>{data.visitors.pageviewsLast30.toLocaleString("fa-IR")}</strong>
           </div>
-        </div>
+        </div>}
 
-        <div className="admin-lead-chart" aria-label="روند بازدیدکننده‌ها در ۱۴ روز اخیر">
+        {isUnavailable("visitorDays") ? (
+          <div className="admin-empty" role="status">{unavailableMessage("visitorDays", "روند بازدیدکنندگان در دسترس نیست.")}</div>
+        ) : <div className="admin-lead-chart" aria-label="روند بازدیدکننده‌ها در ۱۴ روز اخیر">
           {data.visitorDays.map((item) => (
             <div key={item.day} className="admin-lead-chart-col">
               <div className="admin-lead-chart-value">
@@ -731,10 +761,10 @@ export function AdminDashboard({
               <small>{formatDay(item.day)}</small>
             </div>
           ))}
-        </div>
+        </div>}
 
         <p className="admin-dashboard-summary">
-          میانگین نمایش صفحه برای هر بازدیدکننده در ۳۰ روز: {conversion.pagesPerVisitor.toFixed(1)} صفحه.
+          میانگین نمایش صفحه برای هر بازدیدکننده در ۳۰ روز: {visitorStatsUnavailable ? "نامشخص" : conversion.pagesPerVisitor.toFixed(1)} صفحه.
           «بازدیدکننده» بر اساس یک شناسه ناشناس در کوکی همان مرورگر محاسبه می‌شود؛ حذف کوکی یا تعویض مرورگر می‌تواند یک نفر را دوباره به‌عنوان بازدیدکننده جدید ثبت کند.
         </p>
       </section>
@@ -749,7 +779,9 @@ export function AdminDashboard({
             <span className="admin-dashboard-summary">۳۰ روز اخیر</span>
           </div>
           <div className="admin-breakdown">
-            {data.topProperties.length === 0 ? (
+            {isUnavailable("topProperties") ? (
+              <div className="admin-empty" role="status">{unavailableMessage("topProperties", "آمار بازدید فایل‌ها در دسترس نیست.")}</div>
+            ) : data.topProperties.length === 0 ? (
               <div className="admin-empty">
                 <Building2 size={24} />
                 <strong>هنوز بازدید فایل ثبت نشده</strong>
@@ -793,7 +825,9 @@ export function AdminDashboard({
             <span className="admin-dashboard-summary">۳۰ روز اخیر</span>
           </div>
           <div className="admin-breakdown">
-            {data.topPages.length === 0 ? (
+            {isUnavailable("topPages") ? (
+              <div className="admin-empty" role="status">{unavailableMessage("topPages", "آمار صفحات در دسترس نیست.")}</div>
+            ) : data.topPages.length === 0 ? (
               <div className="admin-empty">
                 <BarChart3 size={24} />
                 <strong>هنوز داده‌ای ثبت نشده</strong>
@@ -823,7 +857,9 @@ export function AdminDashboard({
             <span className="admin-dashboard-summary">۳۰ روز اخیر</span>
           </div>
           <div className="admin-breakdown">
-            {data.eventStats.length === 0 ? (
+            {isUnavailable("eventStats") ? (
+              <div className="admin-empty" role="status">{unavailableMessage("eventStats", "آمار رویدادها در دسترس نیست.")}</div>
+            ) : data.eventStats.length === 0 ? (
               <div className="admin-empty">
                 <UsersRound size={24} />
                 <strong>هنوز رویدادی ثبت نشده</strong>
@@ -885,7 +921,9 @@ export function AdminDashboard({
             <span className="admin-dashboard-summary">۳۰ روز اخیر</span>
           </div>
           <div className="admin-dashboard-source-list">
-            {data.visitorSources.length === 0 ? (
+            {isUnavailable("visitorSources") ? (
+              <div className="admin-empty" role="status">{unavailableMessage("visitorSources", "آمار منابع ورودی در دسترس نیست.")}</div>
+            ) : data.visitorSources.length === 0 ? (
               <div className="admin-empty"><Globe2 size={24} /><strong>هنوز منبع ورودی ثبت نشده</strong></div>
             ) : (
               data.visitorSources.slice(0, 6).map((item) => (
@@ -907,7 +945,7 @@ export function AdminDashboard({
               <span className="kicker">وضعیت سیستم</span>
               <h2>سلامت بخش‌های مدیریتی</h2>
             </div>
-            <span className="admin-system-status"><Activity size={13} /> فعال</span>
+            <span className="admin-system-status"><Activity size={13} />{data.timedOutSections?.length ? " مهلت بررسی تمام شد" : data.unavailableSections?.length ? " داده ناقص" : " فعال"}</span>
           </div>
           <div className="admin-system-grid">
             <div>
