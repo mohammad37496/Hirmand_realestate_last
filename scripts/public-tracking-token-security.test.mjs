@@ -50,6 +50,7 @@ test("customer chat lookups and sends are rate limited before token validation",
   assertThrottleBefore(customerChatGet, "codeSchema.safeParse(rawCode)");
   assert.match(customerChatGet, /public_tracking_token/);
   assert.match(customerChatPost, /assertSameOrigin\(event\)/);
+  assert.match(customerChatPost, /setResponseHeader\(event,\s*["']cache-control["'],\s*["']no-store["']\)/);
   assertThrottleBefore(customerChatPost, "schema.safeParse(");
   assert.match(customerChatPost, /public_tracking_token/);
 });

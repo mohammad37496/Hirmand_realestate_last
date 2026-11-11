@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, readBody } from "h3";
+import { createError, defineEventHandler, readBody, setResponseHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
@@ -13,6 +13,7 @@ const schema = z.object({
 });
 
 export default defineEventHandler(async (event) => {
+  setResponseHeader(event, "cache-control", "no-store");
   assertSameOrigin(event);
   const attempt = await consumeAdminAttempt("customer-chat-send:" + clientFingerprint(event));
   if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
