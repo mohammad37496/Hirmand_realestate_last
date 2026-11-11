@@ -10,7 +10,12 @@ import {
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission } from "@/lib/admin-roles";
-import { getMediaMeta, readMediaRange } from "@/lib/media-store.server";
+import {
+  getMediaMeta,
+  IncompleteMediaRangeError,
+  readMediaRange,
+} from "@/lib/media-store.server";
+import { parseMediaByteRange } from "@/lib/media-range-bytes";
 import { createRangeNotSatisfiableResponse } from "@/lib/music-range-response";
 import {
   databaseMediaVisibility,
@@ -27,32 +32,6 @@ import {
  * first-class HTTP resource: it answers `Range` requests (so the browser can
  * seek inside a song) and applies path-specific caching after access checks.
  */
-
-function parseRangeHeader(
-  header: string | undefined,
-  size: number,
-): { start: number; end: number } | null | "unsatisfiable" {
-  if (!header) return null;
-  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
-  if (!match) return null;
-
-  const [, rawStart, rawEnd] = match;
-  if (!rawStart && !rawEnd) return null;
-
-  if (!rawStart) {
-    // Suffix range: last N bytes.
-    const suffix = Number(rawEnd);
-    if (!Number.isFinite(suffix) || suffix <= 0) return "unsatisfiable";
-    const start = Math.max(0, size - suffix);
-    return { start, end: size - 1 };
-  }
-
-  const start = Number(rawStart);
-  if (!Number.isFinite(start) || start >= size) return "unsatisfiable";
-  const end = rawEnd ? Math.min(Number(rawEnd), size - 1) : size - 1;
-  if (!Number.isFinite(end) || end < start) return "unsatisfiable";
-  return { start, end };
-}
 
 const SAFE_INLINE_IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -139,7 +118,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const size = meta.sizeBytes;
-  const range = parseRangeHeader(getHeader(event, "range"), size);
+  const range = parseMediaByteRange(getHeader(event, "range"), size);
 
   if (range === "unsatisfiable") {
     return createRangeNotSatisfiableResponse(`bytes */${size}`);
@@ -147,7 +126,15 @@ export default defineEventHandler(async (event) => {
 
   const start = range ? range.start : 0;
   const end = range ? range.end : null;
-  const result = await readMediaRange(id, start, end);
+  let result: Awaited<ReturnType<typeof readMediaRange>>;
+  try {
+    result = await readMediaRange(id, start, end);
+  } catch (error) {
+    if (error instanceof IncompleteMediaRangeError) {
+      throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
+    }
+    throw error;
+  }
 
   if (!result) {
     throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });

@@ -12,6 +12,7 @@ import {
   verifyGateIdentityToken,
   type GateJwks,
 } from "./gate-identity.server.ts";
+import { prepareGateIdentitySession } from "./gate-session-lifecycle.ts";
 
 const ISSUER = "https://gate.app-builder-testing.com";
 const AUDIENCE = "app:proj-123";
@@ -48,7 +49,9 @@ async function signToken(
     .setAudience(options.audience ?? AUDIENCE)
     .setIssuedAt(options.issuedAt ?? now);
   if (!options.omitExp) {
-    jwt.setExpirationTime((options.issuedAt ?? now) + (options.expiresIn ?? 300));
+    jwt.setExpirationTime(
+      (options.issuedAt ?? now) + (options.expiresIn ?? 300),
+    );
   }
   return jwt.sign(key.privateKey);
 }
@@ -491,5 +494,176 @@ describe("sessionBoundToGateIdentity", () => {
       false,
     );
     assert.equal(sessionBoundToGateIdentity([], "user-1", provider), false);
+  });
+});
+
+describe("prepareGateIdentitySession", () => {
+  const existing = {
+    session: { token: "old-session" },
+    user: { id: "old-user" },
+  };
+
+  it("does not create a transition dependency when no session cookie exists", async () => {
+    let sessionReads = 0;
+    let replacements = 0;
+    const result = await prepareGateIdentitySession({
+      hasSessionCookie: false,
+      loadSession: async () => {
+        sessionReads += 1;
+        return existing;
+      },
+      loadAccounts: async () => [],
+      matchesIdentity: () => false,
+      revokeSession: async () => undefined,
+      createReplacementSession: async () => {
+        replacements += 1;
+        return "new-session";
+      },
+    });
+    assert.deepEqual(result, { status: "ready", replacement: "new-session" });
+    assert.equal(sessionReads, 0);
+    assert.equal(replacements, 1);
+  });
+
+  it("keeps an existing session already bound to the same gate identity", async () => {
+    let revocations = 0;
+    let replacements = 0;
+    const result = await prepareGateIdentitySession({
+      hasSessionCookie: true,
+      loadSession: async () => existing,
+      loadAccounts: async () => [
+        { providerId: "grok-gate", accountId: "viewer-1" },
+      ],
+      matchesIdentity: (accounts) =>
+        accounts.some((account) => account.accountId === "viewer-1"),
+      revokeSession: async () => {
+        revocations += 1;
+      },
+      createReplacementSession: async () => {
+        replacements += 1;
+        return "unexpected-replacement";
+      },
+    });
+    assert.deepEqual(result, { status: "same-identity" });
+    assert.equal(revocations, 0);
+    assert.equal(replacements, 0);
+  });
+
+  it("revokes a different session before allowing replacement creation", async () => {
+    const calls: string[] = [];
+    const result = await prepareGateIdentitySession({
+      hasSessionCookie: true,
+      loadSession: async () => existing,
+      loadAccounts: async () => [
+        { providerId: "credential", accountId: "old-user" },
+      ],
+      matchesIdentity: () => false,
+      revokeSession: async (token) => {
+        calls.push(`revoke:${token}`);
+      },
+      createReplacementSession: async () => {
+        calls.push("create");
+        return "new-session";
+      },
+    });
+    assert.deepEqual(result, { status: "ready", replacement: "new-session" });
+    assert.deepEqual(calls, ["revoke:old-session", "create"]);
+  });
+
+  it("stops when the existing session cannot be read", async () => {
+    let replacementAllowed = false;
+    const failure = new Error("session store unavailable");
+    const result = await prepareGateIdentitySession({
+      hasSessionCookie: true,
+      loadSession: async () => {
+        throw failure;
+      },
+      loadAccounts: async () => [],
+      matchesIdentity: () => false,
+      revokeSession: async () => undefined,
+      createReplacementSession: async () => {
+        replacementAllowed = true;
+        return "new-session";
+      },
+    });
+    assert.equal(result.status, "unavailable");
+    assert.equal(result.stage, "session-read");
+    assert.equal(result.error, failure);
+    assert.equal(replacementAllowed, false);
+  });
+
+  it("stops when linked accounts cannot be read", async () => {
+    const failure = new Error("account store unavailable");
+    let replacements = 0;
+    const result = await prepareGateIdentitySession({
+      hasSessionCookie: true,
+      loadSession: async () => existing,
+      loadAccounts: async () => {
+        throw failure;
+      },
+      matchesIdentity: () => false,
+      revokeSession: async () => undefined,
+      createReplacementSession: async () => {
+        replacements += 1;
+        return "unexpected-replacement";
+      },
+    });
+    assert.equal(result.status, "unavailable");
+    assert.equal(result.stage, "account-read");
+    assert.equal(result.error, failure);
+    assert.equal(replacements, 0);
+  });
+
+  it("stops when revocation fails instead of allowing a replacement", async () => {
+    let replacementAllowed = false;
+    const failure = new Error("session revoke failed");
+    const result = await prepareGateIdentitySession({
+      hasSessionCookie: true,
+      loadSession: async () => existing,
+      loadAccounts: async () => [
+        { providerId: "credential", accountId: "old-user" },
+      ],
+      matchesIdentity: () => false,
+      revokeSession: async () => {
+        throw failure;
+      },
+      createReplacementSession: async () => {
+        replacementAllowed = true;
+        return "new-session";
+      },
+    });
+    assert.equal(result.status, "unavailable");
+    assert.equal(result.stage, "session-revoke");
+    assert.equal(result.error, failure);
+    assert.equal(replacementAllowed, false);
+  });
+
+  it("creates a gate session when the stored cookie is expired or missing", async () => {
+    const result = await prepareGateIdentitySession({
+      hasSessionCookie: true,
+      loadSession: async () => null,
+      loadAccounts: async () => [],
+      matchesIdentity: () => false,
+      revokeSession: async () => undefined,
+      createReplacementSession: async () => "new-session",
+    });
+    assert.deepEqual(result, { status: "ready", replacement: "new-session" });
+  });
+
+  it("reports replacement creation failures without throwing past the hook", async () => {
+    const failure = new Error("gate account creation failed");
+    const result = await prepareGateIdentitySession({
+      hasSessionCookie: false,
+      loadSession: async () => null,
+      loadAccounts: async () => [],
+      matchesIdentity: () => false,
+      revokeSession: async () => undefined,
+      createReplacementSession: async () => {
+        throw failure;
+      },
+    });
+    assert.equal(result.status, "unavailable");
+    assert.equal(result.stage, "session-create");
+    assert.equal(result.error, failure);
   });
 });

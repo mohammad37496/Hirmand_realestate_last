@@ -1,4 +1,65 @@
 import type { Sql } from "./db";
+import { createError } from "h3";
+import { publicPropertyVisibilitySql } from "./public-property-visibility.ts";
+
+export type ResolvedLeadConsultant = { id: string | null; name: string };
+
+/** Resolve an explicitly selected public consultant while holding a row lock. */
+export async function resolveActivePublicLeadConsultant(
+  sql: Pick<Sql, "query">,
+  consultantId: string | null | undefined,
+): Promise<ResolvedLeadConsultant> {
+  if (!consultantId) return { id: null, name: "" };
+  const rows = await sql.query<{ id: string; name: string }>(
+    "select id,name from consultants where id=$1 and is_active=true limit 1 for share",
+    [consultantId],
+  );
+  if (!rows[0]) {
+    throw createError({ statusCode: 409, statusMessage: "مشاور انتخاب‌شده دیگر فعال یا معتبر نیست. صفحه را تازه‌سازی کنید." });
+  }
+  return { id: rows[0].id, name: rows[0].name };
+}
+
+/** Resolve a property's authoritative consultant relation under the property lock. */
+export async function resolvePropertyLeadConsultant(
+  sql: Pick<Sql, "query">,
+  propertyId: string,
+  fallbackSnapshot = "",
+): Promise<ResolvedLeadConsultant> {
+  // Lock order matters: consultant first, property second. ON DELETE SET NULL
+  // locks the consultant row before updating properties; reversing this order
+  // can deadlock with a concurrent consultant deletion.
+  const observed = await sql.query<{ consultant_id: string | null }>(
+    `select consultant_id from properties
+      where id::text=$1 and ${publicPropertyVisibilitySql()}
+        and availability_status not in ('sold','rented','unavailable')
+      limit 1`,
+    [propertyId],
+  );
+  if (!observed[0]) throw createError({ statusCode: 404, statusMessage: "فایل موردنظر دیگر در دسترس نیست." });
+  const observedConsultantId = observed[0].consultant_id;
+  const consultants = observedConsultantId
+    ? await sql.query<{ id: string; name: string }>(
+        "select id,name from consultants where id=$1 limit 1 for share",
+        [observedConsultantId],
+      )
+    : [];
+  const properties = await sql.query<{ consultant_id: string | null }>(
+    `select consultant_id from properties
+      where id::text=$1 and ${publicPropertyVisibilitySql()}
+        and availability_status not in ('sold','rented','unavailable')
+      limit 1 for update`,
+    [propertyId],
+  );
+  if (!properties[0]) throw createError({ statusCode: 404, statusMessage: "فایل موردنظر دیگر در دسترس نیست." });
+  if (properties[0].consultant_id !== observedConsultantId) {
+    throw createError({ statusCode: 409, statusMessage: "مشاور فایل هم‌زمان تغییر کرده است. دوباره تلاش کنید." });
+  }
+  if (observedConsultantId && !consultants[0]) {
+    throw createError({ statusCode: 409, statusMessage: "مشاور فایل دیگر در دسترس نیست. دوباره تلاش کنید." });
+  }
+  return { id: consultants[0]?.id ?? null, name: consultants[0]?.name ?? fallbackSnapshot };
+}
 
 export type PublicLeadActivity = {
   activityType: "follow_up" | "note" | "visit";

@@ -12,10 +12,12 @@ const { Pool } = pg;
 async function createFixture() {
   const pg = new PGlite();
   await pg.exec(`
+    create table consultants (id text primary key, name text not null);
+    insert into consultants(id,name) values ('consultant-2','مشاور دوم');
     create table leads (
       id text primary key, name text not null, phone text not null,
       people_count integer, job text, deal text, property_type text, neighborhood text,
-      consultant text, note text, status text not null, source text,
+      consultant text, consultant_id text, consultant_link_state text not null default 'legacy_unresolved', note text, status text not null, source text,
       acquisition_source text, acquisition_medium text, acquisition_campaign text,
       acquisition_referrer text, follow_up_at timestamptz, last_contacted_at timestamptz,
       property_id text, visit_preferred_at timestamptz, visit_requested_at timestamptz,
@@ -61,6 +63,36 @@ test("duplicate candidate listing propagates database query failures", async () 
   } as Sql;
   try {
     await assert.rejects(listAdminLeadDuplicateCandidates(sql), /relation .*leads.* does not exist/i);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("duplicate merge keeps the canonical consultant ID and does not attach a mismatched duplicate ID to a nonblank snapshot", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    await sql.query("update leads set consultant='Snapshot A',consultant_link_state='legacy_unresolved' where id='A'");
+    await sql.query("update leads set consultant='مشاور دوم',consultant_id='consultant-2',consultant_link_state='linked' where id='B'");
+    assert.deepEqual(await mergeAdminLeadDuplicate(sql, "A", "B"), { kind: "merged", movedActivities: 1 });
+    const row = await sql.query<{ consultant: string; consultant_id: string | null; consultant_link_state: string }>(
+      "select consultant,consultant_id,consultant_link_state from leads where id='A'",
+    );
+    assert.deepEqual(row[0], { consultant: "Snapshot A", consultant_id: null, consultant_link_state: "legacy_unresolved" });
+  } finally {
+    await pg.close();
+  }
+});
+
+test("duplicate merge copies a linked consultant only when the canonical snapshot is blank", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    await sql.query("update leads set consultant='',consultant_link_state='unassigned' where id='A'");
+    await sql.query("update leads set consultant='مشاور دوم',consultant_id='consultant-2',consultant_link_state='linked' where id='B'");
+    assert.deepEqual(await mergeAdminLeadDuplicate(sql, "A", "B"), { kind: "merged", movedActivities: 1 });
+    const row = await sql.query<{ consultant: string; consultant_id: string | null; consultant_link_state: string }>(
+      "select consultant,consultant_id,consultant_link_state from leads where id='A'",
+    );
+    assert.deepEqual(row[0], { consultant: "مشاور دوم", consultant_id: "consultant-2", consultant_link_state: "linked" });
   } finally {
     await pg.close();
   }
@@ -124,7 +156,7 @@ function createPostgresSql(pool: InstanceType<typeof Pool>, hooks: {
         const transactionSql = {
           query: async <R = Record<string, unknown>>(text: string, params: unknown[] = []) => {
             const rows = (await client.query(text, params)).rows as R[];
-            if (/select\s+id,status\s+from\s+leads[\s\S]*for update/i.test(text)) {
+            if (/select\s+id,status,consultant,consultant_id,consultant_link_state\s+from\s+leads[\s\S]*for update/i.test(text)) {
               await hooks.afterLeadLock?.(pid);
             }
             return rows;
@@ -212,10 +244,12 @@ test("two PostgreSQL sessions serialize competing merges of the same duplicate l
     await admin.query(`create schema "${schema}"`);
     pool = new Pool({ connectionString: databaseUrl, max: 4, options: `-c search_path=${schema},public` });
     await pool.query(`
+      create table consultants (id text primary key, name text not null);
+      insert into consultants(id,name) values ('consultant-2','مشاور دوم');
       create table leads (
         id text primary key, name text not null, phone text not null, status text not null,
         people_count integer, job text, deal text, property_type text, neighborhood text,
-        consultant text, note text, source text, acquisition_source text, acquisition_medium text,
+        consultant text, consultant_id text, consultant_link_state text not null default 'legacy_unresolved', note text, source text, acquisition_source text, acquisition_medium text,
         acquisition_campaign text, acquisition_referrer text, follow_up_at timestamptz,
         last_contacted_at timestamptz, property_id text, visit_preferred_at timestamptz,
         visit_requested_at timestamptz, visit_status text, lease_deadline timestamptz,
