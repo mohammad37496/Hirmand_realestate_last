@@ -5,6 +5,8 @@ import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { CustomerConversation } from "@/components/hirmand/customer-conversation";
 import { SITE } from "@/lib/site";
 import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
+import { compareDecimalStrings } from "@/lib/decimal-money";
+import { formatTomanExact } from "@/lib/money";
 import { isValidPublicTrackingToken, TRACKING_TOKEN_MAX_LENGTH } from "@/lib/tracking-token";
 import "@/request-tracking.css";
 
@@ -23,7 +25,7 @@ type TrackingResult = {
   visitRequestedAt?: string | null;
   visitPreferredAt: string | null;
   callbackPreferredAt?: string | null;
-  offerAmount?: number | null;
+  offerAmount?: string | null;
   offerConditions?: string;
   customerPropertySubmissionStatus?: "pending" | "approved" | "rejected" | null;
   customerPropertySubmissionReviewNote?: string;
@@ -296,9 +298,9 @@ function RequestTrackingPage() {
                   زمان تماس پیشنهادی: <strong>{new Date(result.callbackPreferredAt).toLocaleString("fa-IR")}</strong>
                 </div>
               ) : null}
-              {result.offerAmount ? (
+              {result.offerAmount != null && compareDecimalStrings(result.offerAmount, "0") > 0 ? (
                 <div className="request-tracking-notice">
-                  پیشنهاد قیمت ثبت‌شده: <strong>{Number(result.offerAmount).toLocaleString("fa-IR")} تومان</strong>
+                  پیشنهاد قیمت ثبت‌شده: <strong>{formatTomanExact(result.offerAmount)}</strong>
                   {result.offerConditions ? <span> · {result.offerConditions}</span> : null}
                 </div>
               ) : null}

@@ -10,6 +10,8 @@ export type PublicTrackingResult = {
   deal: string;
   propertyType: string;
   neighborhood: string;
+  offerAmount?: string | null;
+  offerConditions?: string;
   visitRequestedAt: string | null;
   visitPreferredAt: string | null;
   property: { title: string; slug: string } | null;

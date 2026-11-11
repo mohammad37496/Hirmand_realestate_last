@@ -23,7 +23,7 @@ test("returns successful tracking data without changing the response", async () 
   const data = {
     trackingCode: "HIR-26-" + "D".repeat(32), status: "new", statusLabel: "ثبت شد",
     visitStatus: "none", visitStatusLabel: "بدون بازدید", createdAt: null, updatedAt: null,
-    consultant: "", deal: "", propertyType: "", neighborhood: "", visitRequestedAt: null,
+    consultant: "", deal: "", propertyType: "", neighborhood: "", offerAmount: "90071992547409931234", visitRequestedAt: null,
     visitPreferredAt: null, property: null, timeline: [],
   };
   const result = await loadPublicTrackingResult(data.trackingCode, async () => response(200, data));
