@@ -11,9 +11,9 @@ export function loadAdminDashboardConsultantStats(sql: Sql) {
         inner join consultants c on c.id = p.consultant_id
       ) as consultants_with_files,
       (
-        select count(distinct lower(coalesce(consultant, '')))::int
+        select count(distinct consultant_id)::int
         from leads
-        where coalesce(trim(consultant), '') <> ''
+        where consultant_id is not null
       ) as consultants_with_leads`,
   );
 }
@@ -28,13 +28,13 @@ export function loadAdminDashboardConsultantPerformance(sql: Sql) {
        group by c.id
      ),
      lead_stats as (
-       select lower(trim(consultant)) as key,
+       select consultant_id as key,
               count(*)::int as leads,
               count(*) filter (where status = 'contract')::int as contracts
        from leads
-       where coalesce(trim(consultant), '') <> ''
+       where consultant_id is not null
          and created_at >= current_timestamp - interval '30 days'
-       group by lower(trim(consultant))
+       group by consultant_id
      ),
      event_stats as (
        select c.id as key,
@@ -56,12 +56,12 @@ export function loadAdminDashboardConsultantPerformance(sql: Sql) {
             coalesce(es.whatsapp, 0)::int as whatsapp
      from consultants c
      left join file_stats fs on fs.key = c.id
-     left join lead_stats ls on ls.key = lower(trim(c.name))
+     left join lead_stats ls on ls.key = c.id
      left join event_stats es on es.key = c.id
      where coalesce(fs.files, 0) > 0
         or coalesce(ls.leads, 0) > 0
         or coalesce(es.views, 0) > 0
-     order by leads desc, views desc, files desc, name asc
+     order by leads desc, views desc, files desc, name asc, c.id asc
      limit 12`,
   );
 }

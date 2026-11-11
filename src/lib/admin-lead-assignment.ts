@@ -7,6 +7,7 @@ export async function loadAdminLeadAssignmentRows(
 ) {
   const consultants = await sql.query<Record<string, unknown>>(
     `select
+       c.id,
        c.name,
        c.phone,
        count(l.id) filter (where l.status not in ('closed','spam'))::int as active_leads,
@@ -20,16 +21,16 @@ export async function loadAdminLeadAssignmentRows(
            and (l.visit_requested_at is not null or l.visit_status = 'requested')
        )::int as viewing_requests
      from consultants c
-     left join leads l on trim(coalesce(l.consultant,'')) = trim(c.name)
+     left join leads l on l.consultant_id = c.id
      where c.is_active = true
-     group by c.name, c.phone, c.sort_order
-     order by c.sort_order asc, c.name asc`,
+     group by c.id, c.name, c.phone, c.sort_order
+     order by c.sort_order asc, c.name asc, c.id asc`,
   );
 
   const unassigned = action === "assign"
     ? []
     : await sql.query<Record<string, unknown>>(
-      "select id,name,phone,deal,property_type,neighborhood,created_at from leads where trim(coalesce(consultant,''))='' and status not in ('closed','spam') order by created_at desc limit 24",
+      "select id,name,phone,deal,property_type,neighborhood,created_at from leads where consultant_id is null and status not in ('closed','spam') order by created_at desc limit 24",
     );
 
   return { consultants, unassigned };
