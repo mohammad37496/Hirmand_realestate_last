@@ -27,9 +27,11 @@ function faDate(value: string) {
 export function AdminVisitFeedback() {
   const [data, setData] = useState<{ total: number; average: number; interested: number; recent: Feedback[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-visit-feedback", {
         method: "POST",
@@ -39,7 +41,9 @@ export function AdminVisitFeedback() {
       if (!response.ok) throw new Error("بازخوردها دریافت نشد.");
       setData(await response.json() as { total: number; average: number; interested: number; recent: Feedback[] });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "بازخوردها دریافت نشد.");
+      const message = error instanceof Error ? error.message : "بازخوردها دریافت نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -59,17 +63,32 @@ export function AdminVisitFeedback() {
         </button>
       </div>
 
-      <div className="admin-dashboard-mini-grid">
-        <div><span>کل بازخورد</span><strong>{(data?.total ?? 0).toLocaleString("fa-IR")}</strong></div>
-        <div><span>میانگین امتیاز</span><strong>{(data?.average ?? 0).toLocaleString("fa-IR")} از ۵</strong></div>
-        <div><span>علاقه‌مند</span><strong>{(data?.interested ?? 0).toLocaleString("fa-IR")}</strong></div>
-      </div>
+      {data ? (
+        <div className="admin-dashboard-mini-grid">
+          <div><span>کل بازخورد</span><strong>{data.total.toLocaleString("fa-IR")}</strong></div>
+          <div><span>میانگین امتیاز</span><strong>{data.average.toLocaleString("fa-IR")} از ۵</strong></div>
+          <div><span>علاقه‌مند</span><strong>{data.interested.toLocaleString("fa-IR")}</strong></div>
+        </div>
+      ) : null}
 
       {loading && !data ? (
         <div className="admin-empty"><MessageSquareText size={24} /><strong>در حال دریافت بازخوردها…</strong></div>
-      ) : !data?.recent.length ? (
+      ) : null}
+
+      {loadError ? (
+        <div className="admin-empty" role="alert">
+          <MessageSquareText size={24} />
+          <strong>بارگذاری بازخوردها ناموفق بود.</strong>
+          <span>{loadError}</span>
+          <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>تلاش دوباره</button>
+        </div>
+      ) : null}
+
+      {!loading && !loadError && data && !data.recent.length ? (
         <div className="admin-empty"><MessageSquareText size={24} /><strong>هنوز بازخوردی ثبت نشده است.</strong></div>
-      ) : (
+      ) : null}
+
+      {data?.recent.length ? (
         <div className="admin-breakdown">
           {data.recent.map((item) => (
             <div key={item.id} className="admin-breakdown-row">
@@ -84,7 +103,7 @@ export function AdminVisitFeedback() {
             </div>
           ))}
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

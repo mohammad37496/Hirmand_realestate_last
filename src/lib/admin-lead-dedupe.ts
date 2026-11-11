@@ -45,7 +45,8 @@ export type AdminLeadMergeResult =
   | { kind: "merged"; movedActivities: number }
   | { kind: "not_found" }
   | { kind: "duplicate_inactive" }
-  | { kind: "canonical_inactive" };
+  | { kind: "canonical_inactive" }
+  | { kind: "consultant_changed" };
 
 /** Merge two active leads atomically; a closed/spam source can never be merged twice. */
 export async function mergeAdminLeadDuplicate(
@@ -57,8 +58,23 @@ export async function mergeAdminLeadDuplicate(
   if (!sql.transaction) throw new Error("Lead merge requires database transaction support.");
 
   return sql.transaction(async (transactionSql) => {
-    const locked = await transactionSql.query<{ id: string; status: string }>(
-      "select id,status from leads where id = any($1::text[]) order by id for update",
+    // Match the FK deletion lock order: consultant rows first, then lead rows.
+    // A snapshot read is followed by a locked re-check before any merge write.
+    const observed = await transactionSql.query<{ id: string; consultant_id: string | null }>(
+      "select id,consultant_id from leads where id = any($1::text[]) order by id",
+      [[canonicalId, duplicateId]],
+    );
+    if (observed.length !== 2) return { kind: "not_found" };
+    const observedConsultantIds = [...new Set(observed.map((row) => row.consultant_id).filter((id): id is string => Boolean(id)))].sort();
+    const lockedConsultants = observedConsultantIds.length
+      ? await transactionSql.query<{ id: string }>(
+          "select id from consultants where id = any($1::text[]) order by id for share",
+          [observedConsultantIds],
+        )
+      : [];
+    const consultantLocks = new Set(lockedConsultants.map((row) => row.id));
+    const locked = await transactionSql.query<{ id: string; status: string; consultant_id: string | null }>(
+      "select id,status,consultant,consultant_id,consultant_link_state from leads where id = any($1::text[]) order by id for update",
       [[canonicalId, duplicateId]],
     );
     const canonical = locked.find((row) => row.id === canonicalId);
@@ -69,6 +85,9 @@ export async function mergeAdminLeadDuplicate(
     }
     if (canonical.status === "closed" || canonical.status === "spam") {
       return { kind: "canonical_inactive" };
+    }
+    if (locked.some((row) => row.consultant_id && !consultantLocks.has(row.consultant_id))) {
+      return { kind: "consultant_changed" };
     }
 
     const rows = await transactionSql.query<{ canonical_id: string; moved_activities: number | string; duplicate_id: string }>(
@@ -86,6 +105,16 @@ export async function mergeAdminLeadDuplicate(
           property_type = case when trim(coalesce(l.property_type,'')) = '' then d.property_type else l.property_type end,
           neighborhood = case when trim(coalesce(l.neighborhood,'')) = '' then d.neighborhood else l.neighborhood end,
           consultant = case when trim(coalesce(l.consultant,'')) = '' then d.consultant else l.consultant end,
+          consultant_id = case
+            when l.consultant_id is not null then l.consultant_id
+            when trim(coalesce(l.consultant,'')) = '' then d.consultant_id
+            else null
+          end,
+          consultant_link_state = case
+            when l.consultant_id is not null then 'linked'
+            when trim(coalesce(l.consultant,'')) = '' then coalesce(d.consultant_link_state, 'legacy_unresolved')
+            else l.consultant_link_state
+          end,
           note = case when trim(coalesce(l.note,'')) = '' then d.note else l.note end,
           source = case when trim(coalesce(l.source,'')) = '' then d.source else l.source end,
           acquisition_source = coalesce(l.acquisition_source, d.acquisition_source),

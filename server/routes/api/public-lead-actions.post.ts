@@ -3,6 +3,7 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { cancelPropertyVisitRequest, reschedulePropertyVisitRequest } from "@/lib/property-visit-request";
+import { isDuplicatePublicLeadFeedbackError } from "@/lib/public-lead-feedback";
 
 const tokenSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
 const bodySchema = z.discriminatedUnion("action", [
@@ -112,10 +113,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: "بازخورد این بازدید قبلاً ثبت شده است." });
   }
 
-  await sql.query(
-    "insert into lead_visit_feedback(lead_id,tracking_token,rating,interest,note) values($1,$2,$3,$4,$5)",
-    [leadId, parsed.data.code, parsed.data.rating, parsed.data.interest, parsed.data.note],
-  );
+  try {
+    await sql.query(
+      "insert into lead_visit_feedback(lead_id,tracking_token,rating,interest,note) values($1,$2,$3,$4,$5)",
+      [leadId, parsed.data.code, parsed.data.rating, parsed.data.interest, parsed.data.note],
+    );
+  } catch (error) {
+    if (isDuplicatePublicLeadFeedbackError(error)) {
+      throw createError({ statusCode: 409, statusMessage: "بازخورد این بازدید قبلاً ثبت شده است." });
+    }
+    throw error;
+  }
 
   return { success: true, action: "feedback", message: "بازخورد شما با موفقیت ثبت شد. ممنون که به بهبود خدمات هیرمند کمک می‌کنید." };
 });
