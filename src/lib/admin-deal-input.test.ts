@@ -111,12 +111,19 @@ describe("commission settlement status validation", () => {
     const pg = new PGlite();
     try {
       await pg.exec(`
+        create table admin_deals (
+          id text primary key, status text not null, consultant text not null, commission numeric
+        );
         create table admin_commission_settlements (
-          id text primary key, status text not null, paid_at timestamptz,
+          id text primary key, deal_id text, status text not null, paid_at timestamptz,
           updated_at timestamptz not null default current_timestamp
         );
-        insert into admin_commission_settlements(id,status,paid_at,updated_at)
-          values ('settlement-1','paid','2026-11-01 09:30:00+00','2026-11-01 09:30:00+00');
+        insert into admin_deals(id,status,consultant,commission) values
+          ('deal-1','contracted','consultant',100),
+          ('deal-2','contracted','consultant',100);
+        insert into admin_commission_settlements(id,deal_id,status,paid_at,updated_at) values
+          ('settlement-1','deal-1','paid','2026-11-01 09:30:00+00','2026-11-01 09:30:00+00'),
+          ('pending-1','deal-2','pending',null,'2026-11-01 09:30:00+00');
       `);
       const before = await pg.query<{ status: string; paid_at: string; updated_at: string }>(
         "select status,paid_at::text,updated_at::text from admin_commission_settlements where id=$1",
@@ -125,6 +132,11 @@ describe("commission settlement status validation", () => {
       const sql = {
         query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
           (await pg.query(text, params)).rows as T[],
+        transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+          pg.transaction(async (tx) => callback({
+            query: async <R = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+              (await tx.query(text, params)).rows as R[],
+          } as Sql)),
       } as Sql;
 
       assert.deepEqual(await updateAdminCommissionStatus(sql, "settlement-1", "paidd"), { kind: "invalid_status" });
@@ -132,7 +144,8 @@ describe("commission settlement status validation", () => {
         await pg.query("select status,paid_at::text,updated_at::text from admin_commission_settlements where id=$1", ["settlement-1"]),
         before,
       );
-      assert.equal((await updateAdminCommissionStatus(sql, "settlement-1", "approved")).kind, "updated");
+      assert.deepEqual(await updateAdminCommissionStatus(sql, "settlement-1", "approved"), { kind: "invalid_transition" });
+      assert.deepEqual(await updateAdminCommissionStatus(sql, "pending-1", "approved"), { kind: "updated" });
       assert.equal((await updateAdminCommissionStatus(sql, "missing", "approved")).kind, "not_found");
     } finally {
       await pg.close();

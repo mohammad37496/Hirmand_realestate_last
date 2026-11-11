@@ -5,6 +5,7 @@ import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { adminDealCreateEnumsSchema, adminDealDocumentUpdateSchema, adminDealStatusUpdateSchema } from "@/lib/admin-deal-input";
 import { deleteAdminDeal } from "@/lib/admin-deal-lifecycle";
+import { updateAdminDealStatusWithSettlementGuard, type AdminDealStatus } from "@/lib/admin-deal-status-sql";
 
 type DealStatus = "prospect"|"negotiation"|"agreement"|"contracted"|"completed"|"cancelled";
 type DealType = "sale"|"rent"|"mortgage"|"buy";
@@ -28,8 +29,11 @@ function invalidDealEnum(message:string):never{throw createError({statusCode:400
 
 export default defineEventHandler(async event=>{
   setResponseHeader(event,"cache-control","no-store"); const claims=await requireDealsPermission(event);
-  if(dbSource==="unconfigured")return {deals:[],leads:[],properties:[],stats:{}};
-  const sql=await getSql(); const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>; const action=clean(body.action,30)||"list";
+ if(dbSource==="unconfigured")throw createError({statusCode:503,statusMessage:"پایگاه داده تنظیم نشده است."});
+ const sql=await getSql(); let rawBody:unknown;
+ try{rawBody=await readBody(event);}catch{throw createError({statusCode:400,statusMessage:"درخواست معاملات معتبر نیست."});}
+ if(!rawBody||typeof rawBody!=="object"||Array.isArray(rawBody))throw createError({statusCode:400,statusMessage:"درخواست معاملات معتبر نیست."});
+ const body=rawBody as Record<string,unknown>; const action=clean(body.action,30)||"list";
   if(action==="list"){
     const [deals,leads,properties,stats]=await Promise.all([
       sql.query<Record<string,unknown>>("select d.id,d.lead_id,d.property_id,d.title,d.deal_type,d.status,d.customer_name,d.customer_phone,d.consultant,d.amount,d.commission,d.contract_number,d.contract_date,d.closing_date,d.notes,d.created_at,d.updated_at,p.title as property_title from admin_deals d left join properties p on p.id=d.property_id order by d.updated_at desc limit 100"),
@@ -61,7 +65,10 @@ export default defineEventHandler(async event=>{
   if(action==="status"){
     const parsed=adminDealStatusUpdateSchema.safeParse({status:body.status});
     if(!parsed.success)invalidDealEnum("وضعیت معامله معتبر نیست.");
-    await sql.query("update admin_deals set status=$2,updated_at=current_timestamp where id=$1",[id,parsed.data.status]);return {success:true};
+    const result=await updateAdminDealStatusWithSettlementGuard(sql,id,parsed.data.status as AdminDealStatus);
+    if(result.kind==="missing")throw createError({statusCode:404,statusMessage:"معامله پیدا نشد؛ وضعیت تغییر نکرد."});
+    if(result.kind==="settlement_exists")throw createError({statusCode:409,statusMessage:"این معامله تسویه فعال دارد؛ ابتدا تسویه را لغو کنید یا وضعیت معامله را قراردادی/نهایی نگه دارید."});
+    return {success:true};
   }
   if(action==="delete"){
     const result=await deleteAdminDeal(sql,id);
