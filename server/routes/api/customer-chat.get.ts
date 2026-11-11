@@ -29,11 +29,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: "درخواستی با این کد رهگیری پیدا نشد." });
   }
 
-  await sql.query(
-    "update customer_messages set read_by_customer_at = current_timestamp where lead_id = $1 and sender_type = 'admin' and read_by_customer_at is null",
-    [lead.id],
-  );
-
   const rows = await sql.query<{
     id:string;
     senderType:"customer"|"admin";
