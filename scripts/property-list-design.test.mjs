@@ -5,6 +5,7 @@ import test from "node:test";
 const marketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
 const responsiveHardeningCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
+const appStyles = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const homePropertyCss = fs.readFileSync(new URL("../src/home-property-layout.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
@@ -97,6 +98,15 @@ test("explicit grid cards use a premium photo, action and information hierarchy"
   assert.match(gridPolish, /\.pf-page \.pf-grid\.is-grid-view > \.pcard \.pcard-specs\s*\{[^}]*background:\s*#faf8f4/);
   assert.match(gridPolish, /@media \(max-width:\s*720px\)[\s\S]*?\.pf-page \.pf-grid\.is-grid-view > \.pcard > \.pcard-media\s*\{[^}]*height:\s*clamp\(170px,\s*48vw,\s*210px\);[^}]*min-height:\s*clamp\(170px,\s*48vw,\s*210px\);/);
   assert.match(gridPolish, /@media \(prefers-reduced-motion:\s*reduce\)/);
+});
+
+test("property facts use a refined responsive chip treatment across card views", () => {
+  assert.match(propertyCardCss, /\.pcard-specs\s*\{[^}]*border-top:\s*1px solid #e9edf0;[^}]*background:\s*transparent/);
+  assert.match(propertyCardCss, /\.pcard-specs span svg\s*\{[^}]*background:\s*#f3ead8;[^}]*color:\s*#95691f/);
+  assert.doesNotMatch(appStyles, /\.pcard-specs\s*\{[^}]*background:\s*#F1EAE0\s*!important/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-grid-view > \.pcard \.pcard-specs\s*\{[^}]*border-top:\s*1px solid #e7ecef;[^}]*background:\s*transparent/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-grid-view > \.pcard \.pcard-specs span svg,[\s\S]*?background:\s*#f1e8d7;[\s\S]*?color:\s*#95691f/);
+  assert.match(marketplaceCss, /@media \(max-width:\s*720px\)[\s\S]*?\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-specs span\s*\{[^}]*min-height:\s*18px;[^}]*background:\s*#f7f9fa/);
 });
 
 test("property marketplace opens in a desktop grid and keeps the compact mobile default", () => {

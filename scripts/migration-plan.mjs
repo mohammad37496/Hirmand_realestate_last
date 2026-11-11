@@ -68,6 +68,10 @@ export const PROPERTY_CONSULTANT_RELATION_MIGRATIONS = Object.freeze([
   "0103_property_consultant_relation.sql",
 ]);
 
+export const LEAD_CONSULTANT_RELATION_MIGRATIONS = Object.freeze([
+  "0104_lead_consultant_relation.sql",
+]);
+
 /**
  * Fail closed when an auth-enabled deployment is missing a required root migration.
  * @param {Iterable<string>} paths

@@ -15,11 +15,14 @@ test("dashboard consultant aggregates use stable property IDs and return real va
     await db.exec(`
       create table consultants (id text primary key, name text not null, phone text not null, is_active boolean not null);
       create table properties (id text primary key, consultant_id text, status text not null, slug text not null, contact_name text, contact_phone text);
-      create table leads (id text primary key, consultant text, status text not null, created_at timestamptz not null);
+      create table leads (id text primary key, consultant text, consultant_id text, status text not null, created_at timestamptz not null);
       create table site_events (id text primary key, property_slug text not null, event_name text not null, day date not null);
       insert into consultants values ('consultant-1', 'نام جدید مشاور', '09130000000', true);
+      insert into consultants values ('consultant-2', 'نام جدید مشاور', '09131111111', true);
       insert into properties values ('property-1', 'consultant-1', 'published', 'property-one', 'نام قدیمی مشاور', '09139999999');
-      insert into leads values ('lead-1', 'نام جدید مشاور', 'contract', current_timestamp);
+      insert into leads values ('lead-1', 'نام قدیمی مشاور', 'consultant-1', 'contract', current_timestamp);
+      insert into leads values ('lead-2', 'نام جدید مشاور', 'consultant-2', 'new', current_timestamp);
+      insert into leads values ('legacy', 'نام جدید مشاور', null, 'contract', current_timestamp);
       insert into site_events values
         ('event-1', 'property-one', 'property_view', current_date),
         ('event-2', 'property-one', 'call_click', current_date),
@@ -33,10 +36,10 @@ test("dashboard consultant aggregates use stable property IDs and return real va
 
     const stats = await loadAdminDashboardConsultantStats(sql);
     assert.deepEqual(stats, [{
-      total: 1,
-      active: 1,
+      total: 2,
+      active: 2,
       consultants_with_files: 1,
-      consultants_with_leads: 1,
+      consultants_with_leads: 2,
     }]);
 
     const performance = await loadAdminDashboardConsultantPerformance(sql);
@@ -51,6 +54,17 @@ test("dashboard consultant aggregates use stable property IDs and return real va
       views: 1,
       calls: 1,
       whatsapp: 1,
+    }, {
+      id: "consultant-2",
+      name: "نام جدید مشاور",
+      phone: "09131111111",
+      is_active: true,
+      files: 0,
+      leads: 1,
+      contracts: 0,
+      views: 0,
+      calls: 0,
+      whatsapp: 0,
     }]);
   } finally {
     await db.close();
@@ -63,7 +77,7 @@ test("a successful empty consultant dataset remains a valid zero/empty result", 
     await db.exec(`
       create table consultants (id text primary key, name text not null, phone text not null, is_active boolean not null);
       create table properties (id text primary key, consultant_id text, status text not null, slug text not null);
-      create table leads (id text primary key, consultant text, status text not null, created_at timestamptz not null);
+      create table leads (id text primary key, consultant text, consultant_id text, status text not null, created_at timestamptz not null);
       create table site_events (id text primary key, property_slug text not null, event_name text not null, day date not null);
     `);
     const sql = {
