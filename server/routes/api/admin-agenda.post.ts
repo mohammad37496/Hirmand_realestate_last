@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
@@ -13,7 +14,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت پیگیری مشتریان برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { overdueFollowUps: [], upcomingVisits: [], upcomingCallbacks: [] };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده برای دریافت دستورکار مدیریت آماده نیست.");
   const sql = await getSql();
   const [followUps, visits, callbacks] = await Promise.all([
     sql.query<Record<string, unknown>>("select l.id,l.name,l.phone,l.deal,l.neighborhood,coalesce(c.name,l.consultant) as consultant,l.status,l.follow_up_at from leads l left join consultants c on c.id=l.consultant_id where l.status in ('new','contacted','follow_up','visited','contract') and l.follow_up_at is not null order by case when l.follow_up_at < current_timestamp then 0 else 1 end, l.follow_up_at asc limit 8"),

@@ -81,7 +81,7 @@ export function AdminNotificationCenter() {
         </div>
         <div className="admin-notification-actions">
           <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14} className={loading ? "admin-spin" : ""} /> تازه‌سازی</button>
-          <button type="button" className="btn-ghost" onClick={() => void markAll()} disabled={busy || unread === 0}><CheckCheck size={14} /> خواندن همه</button>
+          <button type="button" className="btn-ghost" onClick={() => void markAll()} disabled={busy || unread === 0 || !!loadError}><CheckCheck size={14} /> خواندن همه</button>
         </div>
       </div>
       {loadError ? <div className="admin-empty" role="alert">بارگذاری کامل صندوق اعلان‌ها ناموفق بود؛ صندوق خالی به معنی نبود اعلان نیست. <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>تلاش مجدد</button></div> : null}
@@ -96,7 +96,7 @@ export function AdminNotificationCenter() {
                 <div className="admin-notification-title"><strong>{item.title}</strong><small>{formatDate(item.createdAt)}</small></div>
                 <p>{item.body}</p>
               </div>
-              {!item.readAt ? <button type="button" className="btn-ghost" onClick={() => void markRead(item.id)}>خواندم</button> : <span className="admin-notification-read">خوانده‌شده</span>}
+              {!item.readAt ? <button type="button" className="btn-ghost" disabled={!!loadError} onClick={() => void markRead(item.id)}>خواندم</button> : <span className="admin-notification-read">خوانده‌شده</span>}
             </article>
           ))}
         </div>

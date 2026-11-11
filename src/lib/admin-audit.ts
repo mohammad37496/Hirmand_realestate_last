@@ -4,6 +4,7 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { hasAdminPermission } from "@/lib/admin-roles";
 
 async function requireAdmin() {
@@ -30,7 +31,7 @@ export const listAdminAuditLog = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     await requireAdmin();
-    if (dbSource === "unconfigured") return [];
+    assertAdminDatabaseConfigured(dbSource, "گزارش فعالیت مدیران در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select id, action, entity_type, entity_id, entity_title, actor, metadata, created_at
@@ -56,7 +57,7 @@ export const clearAdminAuditLog = createServerFn({ method: "POST" })
   .validator(z.object({ beforeDays: z.number().int().min(7).max(3650).optional().default(365) }))
   .handler(async ({ data }) => {
     await requireAdmin();
-    if (dbSource === "unconfigured") return { success: true, deleted: 0 };
+    assertAdminDatabaseConfigured(dbSource, "پاک‌سازی گزارش فعالیت مدیران در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     const rows = await sql.query<{ id: number }>(
       `delete from admin_audit_log
