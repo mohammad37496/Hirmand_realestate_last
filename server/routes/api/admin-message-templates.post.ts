@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 
 const DEFAULTS = [
   { id: "first", title: "اولین پیگیری", body: "سلام {{نام}}، درباره درخواست {{معامله}} در {{محله}} با شما تماس گرفتم. برای هماهنگی و معرفی فایل‌های مناسب هیرمند در خدمتم.", channel: "whatsapp" },
@@ -30,7 +31,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت CRM برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { templates: [] };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده برای مدیریت قالب‌های پیام آماده نیست.");
 
   const sql = await getSql();
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
