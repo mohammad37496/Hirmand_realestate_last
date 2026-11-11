@@ -5,6 +5,7 @@ import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { CustomerConversation } from "@/components/hirmand/customer-conversation";
 import { SITE } from "@/lib/site";
 import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
+import { isDuplicatePublicVisitFeedbackConflict } from "@/lib/public-visit-feedback";
 import "@/request-tracking.css";
 
 type TrackingResult = {
@@ -24,6 +25,7 @@ type TrackingResult = {
   callbackPreferredAt?: string | null;
   offerAmount?: number | null;
   offerConditions?: string;
+  feedbackSubmitted?: boolean;
   customerPropertySubmissionStatus?: "pending" | "approved" | "rejected" | null;
   customerPropertySubmissionReviewNote?: string;
   timeline?: Array<{ type: "created" | "status" | "visit"; label: string; note: string; at: string | null }>;
@@ -52,6 +54,13 @@ function statusStep(status: string) {
   return index >= 0 ? index : status === "closed" ? 4 : 0;
 }
 
+class TrackingActionError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "TrackingActionError";
+  }
+}
+
 export const Route = createFileRoute("/request-tracking")({
   component: RequestTrackingPage,
 });
@@ -73,6 +82,7 @@ function RequestTrackingPage() {
     if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(normalized)) {
       setMessage("کد رهگیری را به شکل HIR-26-XXXXXXXXXXXX وارد کنید.");
       setResult(null);
+      setFeedbackSubmitted(false);
       return;
     }
 
@@ -89,9 +99,11 @@ function RequestTrackingPage() {
       }
       setResult(data);
       setCode(data.trackingCode);
+      setFeedbackSubmitted(data.feedbackSubmitted === true);
       rememberCustomerTrackingCode(data.trackingCode);
     } catch (error) {
       setResult(null);
+      setFeedbackSubmitted(false);
       setMessage(error instanceof Error ? error.message : "پیگیری درخواست انجام نشد.");
     } finally {
       setBusy(false);
@@ -121,7 +133,7 @@ function RequestTrackingPage() {
     });
     const data = await response.json().catch(() => null) as { success?: boolean; message?: string; statusMessage?: string } | null;
     if (!response.ok || !data?.success) {
-      throw new Error(data?.statusMessage || data?.message || "عملیات انجام نشد.");
+      throw new TrackingActionError(response.status, data?.statusMessage || data?.message || "عملیات انجام نشد.");
     }
     return data;
   }
@@ -174,7 +186,13 @@ function RequestTrackingPage() {
       setMessage(data.message || "بازخورد ثبت شد.");
       setFeedbackNote("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "ثبت بازخورد انجام نشد.");
+      if (error instanceof TrackingActionError && isDuplicatePublicVisitFeedbackConflict(error.status, error.message)) {
+        setFeedbackSubmitted(true);
+        setFeedbackNote("");
+        setMessage("بازخورد این بازدید قبلاً ثبت شده است.");
+      } else {
+        setMessage(error instanceof Error ? error.message : "ثبت بازخورد انجام نشد.");
+      }
     } finally {
       setActionBusy(false);
     }
@@ -382,7 +400,7 @@ function RequestTrackingPage() {
                   {feedbackSubmitted ? (
                     <div className="request-tracking-feedback-success">
                       <CheckCircle2 size={20} />
-                      <strong>بازخورد شما ثبت شد. از همراهی‌تان ممنونیم.</strong>
+                      <strong>برای این بازدید بازخورد ثبت شده است. از همراهی‌تان ممنونیم.</strong>
                     </div>
                   ) : (
                     <>
