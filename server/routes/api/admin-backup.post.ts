@@ -3,7 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
-import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
+import { pruneAdminBackupHistory } from "@/lib/admin-backup-verification";
 
 type Body = { action?: "prune"; retentionDays?: number };
 
@@ -30,14 +30,6 @@ export default defineEventHandler(async (event) => {
   }
   const retentionDays = Math.min(3650, Math.max(30, Number(body.retentionDays) || 90));
   const sql = await getSql();
-  const rows = await sql.query<{ id: number }>(
-    "delete from admin_backup_log where created_at < current_timestamp - ($1::int * interval '1 day') returning id",
-    [retentionDays],
-  );
-  await writeAdminAuditLog({
-    action: "admin_backup_history_pruned",
-    entityType: "admin_backup",
-    metadata: { deleted: rows.length, retentionDays },
-  }).catch(() => {});
-  return { success: true, deleted: rows.length, retentionDays };
+  const deleted = await pruneAdminBackupHistory(sql, retentionDays);
+  return { success: true, deleted, retentionDays };
 });
