@@ -35,7 +35,7 @@ test("public lead tracking lookup is rate limited before validating the token", 
 test("owner status lookup preserves same-origin and pre-validation rate limiting", () => {
   assert.match(ownerStatus, /assertSameOrigin\(event\)/);
   assertThrottleBefore(ownerStatus, "schema.safeParse(body)");
-  assert.match(ownerStatus, /dbSource===\"unconfigured\"\)throw createError\(\{statusCode:503/);
+  assert.match(ownerStatus, /dbSource==="unconfigured"\)throw createError\(\{statusCode:503/);
   assert.doesNotMatch(ownerStatus, /return \{success:false,statusMessage:/);
 });
 
