@@ -168,6 +168,8 @@ const ALLOWED_VIDEO_TYPES = new Set([
   "video/quicktime",
 ]);
 
+export const LIARA_MEDIA_STREAM_IDLE_TIMEOUT_MS = 12_000;
+
 /** Preserve streaming/backpressure while cancelling an upstream body that stops producing bytes. */
 function withIdleTimeout(
   body: ReadableStream<Uint8Array>,
@@ -210,6 +212,13 @@ function withIdleTimeout(
   });
 }
 
+export function withLiaraStreamIdleTimeout(
+  body: ReadableStream<Uint8Array> | null,
+  timeoutMs = LIARA_MEDIA_STREAM_IDLE_TIMEOUT_MS,
+): ReadableStream<Uint8Array> | null {
+  return body ? withIdleTimeout(body, timeoutMs) : null;
+}
+
 function videoContentType(upstream: Response, key: string): string | null {
   const declared = (upstream.headers.get("content-type") || "")
     .split(";")[0]
@@ -232,7 +241,7 @@ export function createLiaraVideoResponse(
   upstream: Response,
   key: string,
   cacheControl: string,
-  idleTimeoutMs = 12_000,
+  idleTimeoutMs = LIARA_MEDIA_STREAM_IDLE_TIMEOUT_MS,
 ): Response | null {
   if (upstream.status === 416) {
     const headers = new Headers({
@@ -266,8 +275,8 @@ export function createLiaraVideoResponse(
   }
   if (upstream.status === 206) headers.set("vary", "Range");
 
-  return new Response(
-    upstream.body ? withIdleTimeout(upstream.body, idleTimeoutMs) : null,
-    { status: upstream.status, headers },
-  );
+  return new Response(withLiaraStreamIdleTimeout(upstream.body, idleTimeoutMs), {
+    status: upstream.status,
+    headers,
+  });
 }
