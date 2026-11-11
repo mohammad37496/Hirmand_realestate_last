@@ -105,6 +105,8 @@ test("creates one repeatable-read backup snapshot and records it in the same tra
     assert.equal(backup.scope.kind, "selected-business-data-export");
     assert.deepEqual(backup.scope.includedTables, [...ADMIN_BACKUP_TABLES]);
     assert.ok(backup.scope.excluded.some((item) => item.includes("Object Storage")));
+    assert.ok(backup.scope.excluded.some((item) => item.includes("Customer property submissions")));
+    assert.ok(backup.scope.excluded.some((item) => item.includes("commission settlements")));
     assert.equal(backup.integrity.kind, "selected-table-row-count");
     assert.equal(backup.integrity.totalRows, 11);
     assert.deepEqual(backup.integrity.tableCounts, {

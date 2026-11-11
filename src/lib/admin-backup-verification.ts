@@ -190,6 +190,10 @@ export async function createAdminBackupExport(sql: Sql, now: () => Date = () => 
         kind: "selected-business-data-export",
         includedTables: [...ADMIN_BACKUP_TABLES],
         excluded: [
+          "Customer property submissions, submission events and customer messages",
+          "Deal documents, deal lifecycle and commission settlements",
+          "Partner contracts, rewards and partner account records",
+          "Site settings and content-management records",
           "Authentication credentials and sessions",
           "Phone Bridge private device, location and command data",
           "Binary files stored in Liara Object Storage",

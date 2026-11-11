@@ -107,7 +107,7 @@ export function AdminBackupManager() {
         <div>
           <span className="kicker">امنیت و پشتیبان‌گیری</span>
           <h2>نسخه پشتیبان و تاریخچه خروجی‌ها</h2>
-          <p>ساختار جدول‌های عملیاتی منتخب را بررسی کنید و خروجی JSON بگیرید. این خروجی شامل اطلاعات احراز هویت، داده‌های خصوصی Phone Bridge یا فایل‌های باینری ذخیره‌شده در Object Storage نیست؛ برای بازیابی کامل زیرساخت، پشتیبان پایگاه داده و فضای ذخیره‌سازی نیز لازم است.</p>
+          <p>ساختار جدول‌های عملیاتی منتخب را بررسی کنید و خروجی JSON بگیرید. این خروجی شامل درخواست‌های ثبت ملک و پیام‌های مشتری، معاملات و تسویه‌ها، قراردادهای همکاران، تنظیمات و محتوای سایت، اطلاعات احراز هویت، داده‌های خصوصی Phone Bridge یا فایل‌های باینری Object Storage نیست؛ برای بازیابی کامل، پشتیبان کامل پایگاه داده و فضای ذخیره‌سازی لازم است.</p>
           <div className="admin-backup-summary-line"><span>آخرین خروجی: <strong>{latest ? formatDate(latest.createdAt) : "هنوز ثبت نشده"}</strong></span>{latest ? <span>{rowsCount(latest).toLocaleString("fa-IR")} رکورد در آخرین خروجی</span> : null}{lastSuccessfulAt ? <span>آخرین راستی‌آزمایی موفق در این مرورگر: <strong>{formatDate(lastSuccessfulAt)}</strong></span> : null}</div>
         </div>
         <div className="admin-backup-actions">
