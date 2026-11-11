@@ -4,6 +4,7 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { clearPropertyReadCache } from "@/lib/property-read-cache.server";
@@ -23,7 +24,7 @@ export const listPendingPublicationReviews = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(100).optional().default(50) }))
   .handler(async ({ data }) => {
     await requirePublicationPermission("property.manage");
-    if (dbSource === "unconfigured") return [];
+    assertAdminDatabaseConfigured(dbSource, "صف درخواست‌های انتشار در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select r.id,r.property_id,r.status,r.requested_by,r.request_note,r.requested_at,
@@ -58,7 +59,7 @@ export const requestPropertyPublication = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }) => {
     const claims = await requirePublicationPermission("property.manage");
-    if (dbSource === "unconfigured") throw new Error("پایگاه داده تنظیم نشده است.");
+    assertAdminDatabaseConfigured(dbSource, "ثبت درخواست انتشار در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select id,title,status,transaction_type,neighborhood,description,contact_name,contact_phone,
@@ -111,7 +112,7 @@ export const reviewPropertyPublication = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }) => {
     const claims = await requirePublicationPermission("property.publish");
-    if (dbSource === "unconfigured") throw new Error("پایگاه داده تنظیم نشده است.");
+    assertAdminDatabaseConfigured(dbSource, "بررسی درخواست انتشار در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     const reviewRows = await sql.query<Record<string, unknown>>(
       `select r.id,r.property_id,r.status,p.title,p.transaction_type,p.neighborhood,p.description,

@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 
 async function requireReportAccess(event: H3Event) {
   const token = getCookie(event, ADMIN_SESSION_COOKIE);
@@ -17,7 +18,7 @@ async function requireReportAccess(event: H3Event) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireReportAccess(event);
-  if (dbSource === "unconfigured") return { snapshots: [] };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده برای دریافت یا ثبت تاریخچه KPI آماده نیست.");
   const sql = await getSql();
   const query = getQuery(event) as Record<string, unknown>;
   const rows = await sql.query<Record<string, unknown>>(
