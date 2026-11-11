@@ -89,15 +89,27 @@ function toSql(run: Run, transaction?: Sql["transaction"]): Sql {
   return sql;
 }
 
+export function getConfiguredDbQueryTimeoutMs() {
+  const configured = Number(process.env.DB_QUERY_TIMEOUT_MS ?? 8_000);
+  if (!Number.isFinite(configured) || configured <= 0) return 8_000;
+  return Math.min(2_147_483_147, Math.max(1, Math.floor(configured)));
+}
+
 function createPostgresSql(): Promise<Sql> {
   globalRef.__pgSqlPromise__ ??= (async () => {
     const { Pool, types } = await import("pg");
     types.setTypeParser(OID_INT8, Number);
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
+    const queryTimeoutMs = getConfiguredDbQueryTimeoutMs();
     const pool = new Pool({
       connectionString: databaseUrl!,
-      query_timeout: Number(process.env.DB_QUERY_TIMEOUT_MS ?? 8_000),
+      // `query_timeout` is only a client-side watchdog in node-postgres. The
+      // server-side statement timeout cancels the SQL first (including queries
+      // issued through a checked-out transaction client); keep the client timer
+      // slightly later as a fallback for a stalled connection/network.
+      statement_timeout: Math.max(1, queryTimeoutMs - 250),
+      query_timeout: queryTimeoutMs + 500,
       max: Number(process.env.DB_POOL_MAX ?? 5),
       idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_MS ?? 10_000),
       connectionTimeoutMillis: Number(process.env.DB_POOL_CONNECT_MS ?? 8_000),

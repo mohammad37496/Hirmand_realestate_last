@@ -1,4 +1,4 @@
-import type { Sql } from "./db.ts";
+import { getConfiguredDbQueryTimeoutMs, type Sql } from "./db.ts";
 
 export const ADMIN_BACKUP_TABLES = [
   "properties",
@@ -116,7 +116,7 @@ export async function verifyAdminBackupTables(
 ): Promise<AdminBackupVerification> {
   const tables = options.tables ?? ADMIN_BACKUP_TABLES;
   const coreTables = options.coreTables ?? ADMIN_BACKUP_CORE_TABLES;
-  const timeoutMs = options.timeoutMs ?? 8_000;
+  const timeoutMs = options.timeoutMs ?? getConfiguredDbQueryTimeoutMs();
   const checked = await Promise.all(tables.map((table) => checkTable(sql, table, timeoutMs)));
   const hasTimeout = checked.some((item) => item.status === "timeout");
   const hasError = checked.some((item) => item.status === "error");
