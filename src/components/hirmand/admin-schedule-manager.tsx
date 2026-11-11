@@ -41,12 +41,16 @@ export function AdminScheduleManager() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   async function load() {
     setLoading(true);
     try {
       const rows = await listAdminPropertySchedules({ data: { limit: 120 } });
       setItems(rows);
+      setHasLoaded(true);
+      setLoadError(null);
       setDrafts(
         Object.fromEntries(
           rows.map((row) => [
@@ -59,7 +63,9 @@ export function AdminScheduleManager() {
         ),
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "زمان‌بندی فایل‌ها دریافت نشد.");
+      const message = error instanceof Error ? error.message : "زمان‌بندی فایل‌ها دریافت نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -117,7 +123,19 @@ export function AdminScheduleManager() {
         </button>
       </section>
 
-      <section className="admin-panel">
+      {loadError ? (
+        <div className="admin-panel" role="alert">
+          <strong>{hasLoaded ? "به‌روزرسانی زمان‌بندی‌ها ناموفق بود." : "زمان‌بندی فایل‌ها دریافت نشد."}</strong>
+          <p>{loadError}</p>
+          <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading || Boolean(busyId)}>
+            <RefreshCw size={14} /> تلاش دوباره
+          </button>
+        </div>
+      ) : null}
+
+      {!hasLoaded ? (
+        loading && !loadError ? <div className="admin-empty" role="status">در حال دریافت زمان‌بندی‌ها…</div> : null
+      ) : <section className="admin-panel">
         <div className="admin-panel-head admin-automation-toolbar">
           <div>
             <span className="kicker">تقویم فایل‌ها</span>
@@ -132,9 +150,7 @@ export function AdminScheduleManager() {
           />
         </div>
 
-        {loading && !items.length ? (
-          <div className="admin-empty">در حال دریافت زمان‌بندی‌ها…</div>
-        ) : !filtered.length ? (
+        {!filtered.length ? (
           <div className="admin-empty">فایلی مطابق جستجو پیدا نشد.</div>
         ) : (
           <div className="admin-schedule-list">
@@ -197,7 +213,7 @@ export function AdminScheduleManager() {
             })}
           </div>
         )}
-      </section>
+      </section>}
 
       <section className="admin-automation-note">
         <strong>نحوه‌ی کار</strong>
