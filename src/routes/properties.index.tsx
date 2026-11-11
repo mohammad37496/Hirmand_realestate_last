@@ -52,6 +52,7 @@ import { MAX_SELECTED_NEIGHBORHOODS, normalizeNeighborhoodSelection, readNeighbo
 import { getOrCreateInFlight } from "@/lib/in-flight-query";
 import { createSnapshotRefreshGate } from "@/lib/snapshot-refresh-gate";
 import { parseCoordinateBounds } from "@/lib/map-geometry";
+import { finishPropertyLoadMore, resetPropertySearchPaginationLock } from "@/lib/property-search-pagination";
 
 const PAGE_SIZE = 48;
 const SAVED_SEARCHES_KEY = "hirmand-saved-searches";
@@ -694,6 +695,9 @@ function PropertiesIndexPage() {
     }
 
     setLoading(true);
+    // A stale page request cannot release its lock after requestId changes.
+    // Reset it here so the new filter query can paginate when its first page arrives.
+    resetPropertySearchPaginationLock(setLoadingMore);
     setLoadError("");
     setProperties([]);
     setTotal(0);
@@ -855,7 +859,7 @@ function PropertiesIndexPage() {
       }
     } finally {
       // A stale request must not clear the loading state owned by a newer query.
-      if (requestId.current === queryVersion) setLoadingMore(false);
+      finishPropertyLoadMore(requestId, queryVersion, setLoadingMore);
     }
   }, [
     loading,

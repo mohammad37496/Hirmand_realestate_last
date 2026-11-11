@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { loadAdminSalesControlCenterQueries } from "./admin-sales-control-center.ts";
 import type { Sql } from "./db.ts";
@@ -33,3 +34,17 @@ for (const fragment of ["with file_stats", "from leads\n       where created_at"
     await assert.rejects(loadAdminSalesControlCenterQueries(sql, 30), /sales report database unavailable/);
   });
 }
+
+test("admin sales funnel fails closed instead of returning a malformed empty report", async () => {
+  const route = await readFile(new URL("../../server/routes/api/admin-sales-funnel.get.ts", import.meta.url), "utf8");
+  const component = await readFile(new URL("../components/hirmand/admin-sales-funnel.tsx", import.meta.url), "utf8");
+  const guard = route.indexOf('dbSource === "unconfigured"');
+  assert.ok(guard >= 0);
+  assert.match(route, /dbSource === "unconfigured"\)\s*\{\s*throw createError\(\{ statusCode: 503/);
+  assert.ok(guard < route.indexOf("getSql()"));
+  assert.doesNotMatch(route, /return \{ days: 30, statuses: \[\], sources: \[\], aging: \[\], conversions: \{\} \}/);
+  assert.match(component, /loadError/);
+  assert.match(component, /role="alert"/);
+  assert.match(component, /تلاش دوباره/);
+  assert.match(component, /data\s*\?\s*"به‌روزرسانی قیف فروش ناموفق بود\."/);
+});
