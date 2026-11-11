@@ -519,8 +519,8 @@ try {
             }),
           );
           if (compactFrames.length && compactFrames.some((frame) =>
-            frame.height !== 138 || frame.imageWidth !== 104 || frame.imageHeight !== 138)) {
-            failures.push("/properties @ 320px: list cards must share a 138px card and image frame with a 104px photo; frames=" + JSON.stringify(compactFrames));
+            frame.height !== 132 || frame.imageWidth !== 92 || frame.imageHeight !== 132)) {
+            failures.push("/properties @ 320px: list cards must share a 132px card and image frame with a 92px photo; frames=" + JSON.stringify(compactFrames));
           }
           if (await firstCard.locator(".pcard-actions .property-action").count()) {
             failures.push("/properties @ 320px: compact property actions should be hidden in list view");
