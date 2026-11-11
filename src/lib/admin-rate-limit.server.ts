@@ -178,7 +178,9 @@ function redisStore(): ThrottleStore {
 /** A configured shared limiter must fail closed when Redis is unavailable. */
 function store(): ThrottleStore {
   if (!REST_URL || !REST_TOKEN) {
-    if (process.env.NODE_ENV === "production") {
+    const allowInMemoryForVerify =
+      process.env.CI === "true" && process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT === "true";
+    if (process.env.NODE_ENV === "production" && !allowInMemoryForVerify) {
       throw createError({ statusCode: 503, statusMessage: "سرویس محدودسازی درخواست‌ها پیکربندی نشده است." });
     }
     return memoryStore();

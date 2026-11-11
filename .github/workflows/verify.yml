@@ -131,6 +131,7 @@ jobs:
           done
 
           BETTER_AUTH_URL=http://localhost:8081 \
+          HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT=true \
           RESEND_API_URL=http://127.0.0.1:4321/emails \
           RESEND_API_KEY=ci-password-reset-test-key \
           RESEND_FROM_EMAIL='Hirmand <accounts@hirmandrealestate.ir>' \
