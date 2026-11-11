@@ -855,7 +855,7 @@ export const getPublishedPropertyPriceHistory = createServerFn({ method: "GET" }
       "before_state->>'price' is distinct from after_state->>'price' " +
       "or before_state->>'deposit' is distinct from after_state->>'deposit' " +
       "or before_state->>'rent' is distinct from after_state->>'rent') " +
-      "order by changed_at desc limit 12"
+      "order by changed_at desc, id desc limit 12"
       , [propertyId],
     );
 
