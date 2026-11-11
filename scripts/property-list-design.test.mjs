@@ -8,6 +8,7 @@ const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", impo
 const homePropertyCss = fs.readFileSync(new URL("../src/home-property-layout.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
+const mobileFooterBrowserTest = fs.readFileSync(new URL("./property-list-mobile-footer-overlap.browser.test.mjs", import.meta.url), "utf8");
 
 test("desktop property list anchors actions to the lower edge of the property image", () => {
   const desktopListStart = marketplaceCss.indexOf("Professional desktop list cards");
@@ -171,6 +172,9 @@ test("mobile list cards can scroll fully clear of the fixed bottom action dock",
   );
   assert.match(compactMobileList, /\.pf-page\s*\{\s*padding-bottom:\s*calc\(96px \+ env\(safe-area-inset-bottom\)\) !important;/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*scroll-margin-block-end:\s*calc\(80px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(mobileFooterBrowserTest, /scrollingElement\.scrollTo\(\{\s*top:\s*scrollingElement\.scrollHeight,\s*behavior:\s*"instant"\s*\}\)/);
+  assert.match(mobileFooterBrowserTest, /scrollTop\s*\+\s*scrollingElement\.clientHeight\s*>=\s*scrollingElement\.scrollHeight\s*-\s*1/);
+  assert.match(mobileFooterBrowserTest, /bottomGeometry\.cardFooterGap\s*<\s*4/);
 });
 
 test("homepage shared cards retain the compact RTL list and 44px image action overlay on phones", () => {

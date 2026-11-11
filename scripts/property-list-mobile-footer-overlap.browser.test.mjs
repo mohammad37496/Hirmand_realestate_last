@@ -123,11 +123,18 @@ try {
         failures.push(`${viewport.width}x${viewport.height}: the fixed bottom action bar is not visibly rendered: ${JSON.stringify(footerState)}`);
       }
 
-      // Exercise the worst-case list-card position next to the fixed dock. The
-      // assertion below compares real rendered rectangles; scrolling alone is
-      // not considered a pass.
+      // Exercise the worst-case list-card position next to the fixed dock.
+      // scrollIntoView can be a no-op when the last card is already visible,
+      // so force the document to its actual maximum scroll position first.
       const lastCard = cards.last();
-      await lastCard.evaluate((card) => card.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
+      await page.evaluate(() => {
+        const scrollingElement = document.scrollingElement ?? document.documentElement;
+        scrollingElement.scrollTo({ top: scrollingElement.scrollHeight, behavior: "instant" });
+      });
+      await page.waitForFunction(() => {
+        const scrollingElement = document.scrollingElement ?? document.documentElement;
+        return scrollingElement.scrollTop + scrollingElement.clientHeight >= scrollingElement.scrollHeight - 1;
+      });
       await page.waitForTimeout(80);
       const bottomGeometry = await lastCard.evaluate((card) => {
         const footerElement = document.querySelector(".quick-actions");
@@ -141,6 +148,8 @@ try {
         const footerRect = rect(footerElement);
         const imageRect = rect(mediaElement);
         const bodyRect = rect(bodyElement);
+        const scrollingElement = document.scrollingElement ?? document.documentElement;
+        const pageElement = document.querySelector(".pf-page");
         const intersects = (a, b) => Boolean(a && b && a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1);
         return {
           cardRect,
@@ -153,6 +162,10 @@ try {
           cardFooterGap: footerRect && cardRect ? footerRect.top - cardRect.bottom : null,
           imageFooterGap: footerRect && imageRect ? footerRect.top - imageRect.bottom : null,
           bodyFooterGap: footerRect && bodyRect ? footerRect.top - bodyRect.bottom : null,
+          documentScrollTop: scrollingElement.scrollTop,
+          documentScrollHeight: scrollingElement.scrollHeight,
+          documentClientHeight: scrollingElement.clientHeight,
+          pagePaddingBottom: pageElement ? getComputedStyle(pageElement).paddingBottom : null,
         };
       });
       if (bottomGeometry.cardOverlapsFooter || bottomGeometry.imageOverlapsFooter || bottomGeometry.bodyOverlapsFooter || bottomGeometry.cardFooterGap < 4) {
