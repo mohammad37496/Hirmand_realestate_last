@@ -1227,6 +1227,10 @@ export function PropertyDetailView({
 }) {
   const viewedPropertySlug = property?.slug;
   const [priceHistory, setPriceHistory] = useState<PropertyPriceHistoryItem[]>([]);
+  const [priceHistoryError, setPriceHistoryError] = useState("");
+  const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
+  const [priceHistoryRetry, setPriceHistoryRetry] = useState(0);
+  const [priceHistoryResolvedSlug, setPriceHistoryResolvedSlug] = useState(viewedPropertySlug ?? "");
   const [priceWatchEnabled, setPriceWatchEnabled] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportType, setReportType] = useState("قیمت یا مشخصات نادرست");
@@ -1251,18 +1255,44 @@ export function PropertyDetailView({
   useEffect(() => {
     if (!viewedPropertySlug || typeof window === "undefined") {
       setPriceHistory([]);
-      setPriceWatchEnabled(false);
+      setPriceHistoryError("");
+      setPriceHistoryLoading(false);
+      setPriceHistoryResolvedSlug("");
       return;
     }
 
     let cancelled = false;
+    setPriceHistory([]);
+    setPriceHistoryError("");
+    setPriceHistoryLoading(true);
+    setPriceHistoryResolvedSlug("");
     void getPublishedPropertyPriceHistory({ data: { slug: viewedPropertySlug } })
       .then((items) => {
-        if (!cancelled) setPriceHistory(items);
+        if (!cancelled) {
+          setPriceHistory(items);
+          setPriceHistoryResolvedSlug(viewedPropertySlug);
+        }
       })
       .catch(() => {
-        if (!cancelled) setPriceHistory([]);
+        if (!cancelled) {
+          setPriceHistoryError("تاریخچه تغییرات قیمت این ملک موقتاً در دسترس نیست.");
+          setPriceHistoryResolvedSlug(viewedPropertySlug);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPriceHistoryLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewedPropertySlug, property?.price, property?.deposit, property?.rent, priceHistoryRetry]);
+
+  useEffect(() => {
+    if (!viewedPropertySlug || typeof window === "undefined") {
+      setPriceWatchEnabled(false);
+      return;
+    }
 
     let ignoreWatchSync = false;
     void fetch("/api/property-watch", {
@@ -1297,7 +1327,6 @@ export function PropertyDetailView({
       .catch(() => {});
 
     return () => {
-      cancelled = true;
       ignoreWatchSync = true;
     };
   }, [viewedPropertySlug, property?.price, property?.deposit, property?.rent]);
@@ -1985,7 +2014,19 @@ export function PropertyDetailView({
               <PropertyMarketComparison property={property} />
             </section>
 
-            {priceHistory.length ? (
+            {viewedPropertySlug && priceHistoryError && priceHistoryResolvedSlug === viewedPropertySlug ? (
+              <section id="property-price-history-section" className="property-price-history property-price-history-error" role="alert">
+                <strong>تاریخچه قیمت در دسترس نیست</strong>
+                <p>{priceHistoryError}</p>
+                <button type="button" className="btn-ghost" onClick={() => setPriceHistoryRetry((current) => current + 1)} disabled={priceHistoryLoading}>
+                  تلاش دوباره
+                </button>
+              </section>
+            ) : viewedPropertySlug && (priceHistoryLoading || priceHistoryResolvedSlug !== viewedPropertySlug) ? (
+              <section id="property-price-history-section" className="property-price-history property-price-history-loading" role="status" aria-live="polite">
+                در حال دریافت تاریخچه تغییرات قیمت…
+              </section>
+            ) : viewedPropertySlug && priceHistoryResolvedSlug === viewedPropertySlug && priceHistory.length ? (
               <section id="property-price-history-section" className="property-price-history" aria-labelledby="property-price-history-title">
                 <div className="property-section-heading">
                   <div>

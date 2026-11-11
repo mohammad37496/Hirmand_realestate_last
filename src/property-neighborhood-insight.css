@@ -9,5 +9,8 @@
 .property-neighborhood-insight-current{margin-top:11px;padding:10px 12px;border-radius:12px;background:#fffdf9;color:#4f5b66;font-size:.71rem;line-height:1.9}
 .property-neighborhood-insight-current strong{color:#8a5e14}
 .property-neighborhood-insight-loading{color:#68737e;font-size:.75rem;text-align:center;padding:12px}
+.property-neighborhood-insight-error{display:grid;justify-items:start;gap:9px;color:#344252;font-size:.76rem;line-height:1.9;padding:12px}
+.property-neighborhood-insight-error p{margin:0;color:#65717d}
+.property-neighborhood-insight-error button{min-height:40px}
 @media(max-width:800px){.property-neighborhood-insight-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.property-neighborhood-insight{padding:15px;border-radius:18px}.property-neighborhood-insight-grid{grid-template-columns:1fr 1fr;gap:8px}.property-neighborhood-insight-grid article{padding:10px}.property-neighborhood-insight-grid strong{font-size:.76rem}.property-neighborhood-insight-current{font-size:.67rem}}
