@@ -73,7 +73,7 @@ test("concurrent visit requests for one property and time cannot both reserve th
   const transactionSql = {
     query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> => {
       if (/from properties/i.test(text)) {
-        propertyLockQuery = text;
+        if (/for update/i.test(text)) propertyLockQuery = text;
         return [property] as T[];
       }
       if (/select id, public_tracking_token from leads where property_id/i.test(text)) {
@@ -210,12 +210,13 @@ test("PGlite serializes concurrent visit creation and rescheduling on the proper
     await pg.exec(`
       create table properties (
         id text primary key, title text, property_type text, neighborhood text,
-        contact_name text, status text, availability_status text, deleted_at timestamptz,
+        contact_name text, consultant_id text, status text, availability_status text, deleted_at timestamptz,
         publish_at timestamptz, unpublish_at timestamptz
       );
+      create table consultants (id text primary key, name text not null);
       create table leads (
         id text primary key, name text, phone text, people_count integer, job text,
-        deal text, property_type text, neighborhood text, consultant text, note text,
+        deal text, property_type text, neighborhood text, consultant text, consultant_id text, note text,
         source text, follow_up_at timestamptz, floor_preference text, property_id text,
         visit_preferred_at timestamptz, visit_requested_at timestamptz, visit_status text,
         public_tracking_token text, created_at timestamptz default current_timestamp,

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import { PGlite } from "@electric-sql/pglite";
 import type { Sql } from "./db.ts";
-import { createPublicLeadIntake } from "./public-lead-intake.ts";
+import { createPublicLeadIntake, resolveActivePublicLeadConsultant, resolvePropertyLeadConsultant } from "./public-lead-intake.ts";
 
 const branches = [
   "callback",
@@ -199,4 +199,67 @@ test("public lead intake fails closed without transaction support", async () => 
     ),
     /transaction support is required/,
   );
+});
+
+test("public consultant selection validates an active ID under a share lock", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec("create table consultants(id text primary key,name text not null,is_active boolean not null); insert into consultants values('active','مشاور فعال',true),('inactive','مشاور غیرفعال',false)");
+    const sql = { query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) => (await pg.query<T>(text, params)).rows } as unknown as Sql;
+    assert.deepEqual(await resolveActivePublicLeadConsultant(sql, "active"), { id: "active", name: "مشاور فعال" });
+    assert.deepEqual(await resolveActivePublicLeadConsultant(sql, undefined), { id: null, name: "" });
+    await assert.rejects(resolveActivePublicLeadConsultant(sql, "inactive"), /مشاور انتخاب‌شده/);
+    await assert.rejects(resolveActivePublicLeadConsultant(sql, "missing"), /مشاور انتخاب‌شده/);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("a concurrent consultant deactivation waits for an in-flight public lead ID resolution", async () => {
+  const pg = new PGlite();
+  let release!: () => void;
+  let signalLocked!: () => void;
+  const hold = new Promise<void>((resolve) => { release = resolve; });
+  const locked = new Promise<void>((resolve) => { signalLocked = resolve; });
+  try {
+    await pg.exec("create table consultants(id text primary key,name text not null,is_active boolean not null); insert into consultants values('active','مشاور فعال',true)");
+    const transaction = pg.transaction(async (tx) => {
+      const sql = { query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) => (await tx.query<T>(text, params)).rows } as unknown as Sql;
+      await resolveActivePublicLeadConsultant(sql, "active");
+      signalLocked();
+      await hold;
+    });
+    await locked;
+    let updateFinished = false;
+    const deactivation = pg.query("update consultants set is_active=false where id='active'").then(() => { updateFinished = true; });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(updateFinished, false, "FOR SHARE must prevent deactivation until the lead transaction commits");
+    release();
+    await transaction;
+    await deactivation;
+    assert.equal(updateFinished, true);
+  } finally {
+    release();
+    await pg.close();
+  }
+});
+
+test("property lead resolution prefers the locked property consultant ID over the legacy contact snapshot", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table consultants(id text primary key,name text not null);
+      create table properties(id text primary key,consultant_id text,contact_name text not null,deleted_at timestamptz,status text,publish_at timestamptz,unpublish_at timestamptz,availability_status text);
+      insert into consultants values('c1','نام فعلی');
+      insert into properties values
+        ('p1','c1','نام قدیمی',null,'published',null,null,'available'),
+        ('p2',null,'فقط snapshot',null,'published',null,null,'available');
+    `);
+    const sql = { query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) => (await pg.query<T>(text, params)).rows } as unknown as Sql;
+    assert.deepEqual(await resolvePropertyLeadConsultant(sql, "p1", "fallback"), { id: "c1", name: "نام فعلی" });
+    assert.deepEqual(await resolvePropertyLeadConsultant(sql, "p2", "fallback"), { id: null, name: "fallback" });
+    await assert.rejects(resolvePropertyLeadConsultant(sql, "missing", "fallback"), /فایل موردنظر/);
+  } finally {
+    await pg.close();
+  }
 });

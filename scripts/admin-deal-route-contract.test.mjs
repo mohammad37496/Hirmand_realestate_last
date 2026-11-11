@@ -168,8 +168,8 @@ test("deal, commission and consultant reports preserve PostgreSQL numeric values
 test("consultant targets preserve exact numeric strings from request through aggregates and display", () => {
   assert.match(targetsRoute, /normalizeConsultantTargetMoney\(body\.volumeTarget\)/);
   assert.match(targetsRoute, /normalizeConsultantTargetMoney\(body\.commissionTarget\)/);
-  assert.match(targetsRoute, /volumeTarget:normalizeConsultantTargetMoney\(t\?\.volume_target\)/);
-  assert.match(targetsRoute, /x\.volume=normalizeConsultantTargetMoney\(row\.volume\)/);
+  assert.match(targetsRoute, /volumeTarget:\s*normalizeConsultantTargetMoney\(target\?\.volume_target\)/);
+  assert.match(targetsRoute, /item\.volume\s*=\s*normalizeConsultantTargetMoney\(row\.volume\)/);
   assert.match(targetsRoute, /volume:string; commissions:string/);
   assert.doesNotMatch(targetsRoute, /function money\([^\n]*Number\(raw\)/);
   assert.match(targetsComponent, /volumeTarget: string; commissionTarget: string/);

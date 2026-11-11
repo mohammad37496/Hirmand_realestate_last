@@ -7,6 +7,7 @@ import { loadAdminLeadAssignmentRows } from "@/lib/admin-lead-assignment";
 import { assignAdminLeadToConsultant } from "@/lib/admin-lead-assignment-action";
 
 type ConsultantLoad = {
+  id: string;
   name: string;
   phone: string;
   activeLeads: number;
@@ -51,6 +52,7 @@ export default defineEventHandler(async (event) => {
 
   const loads: ConsultantLoad[] = rows.consultants.map((row) => {
     const base = {
+      id: String(row.id ?? ""),
       name: String(row.name ?? ""),
       phone: String(row.phone ?? ""),
       activeLeads: Number(row.active_leads) || 0,
@@ -62,15 +64,14 @@ export default defineEventHandler(async (event) => {
 
   if (action === "assign") {
     const leadId = typeof body.leadId === "string" ? body.leadId.trim() : "";
-    const consultant = typeof body.consultant === "string" ? body.consultant.trim() : "";
-    if (!leadId || !consultant) throw createError({ statusCode: 400, statusMessage: "لید و مشاور مشخص نیستند." });
-    const allowed = loads.find((item) => item.name === consultant);
-    if (!allowed) throw createError({ statusCode: 400, statusMessage: "مشاور فعال موردنظر پیدا نشد." });
+    const consultantId = typeof body.consultantId === "string" ? body.consultantId.trim() : "";
+    if (!leadId || !consultantId) throw createError({ statusCode: 400, statusMessage: "لید و شناسه مشاور مشخص نیستند." });
 
-    const assignment = await assignAdminLeadToConsultant(sql, leadId, consultant);
+    const assignment = await assignAdminLeadToConsultant(sql, leadId, consultantId);
     if (assignment.kind === "not_found") throw createError({ statusCode: 404, statusMessage: "لید پیدا نشد." });
+    if (assignment.kind === "consultant_unavailable") throw createError({ statusCode: 409, statusMessage: "مشاور انتخاب‌شده دیگر فعال یا معتبر نیست. فهرست را تازه‌سازی کنید." });
 
-    return { success: true, consultant };
+    return { success: true, consultantId: assignment.consultantId, consultant: assignment.consultant };
   }
 
   const sorted = [...loads].sort((a, b) => a.score - b.score || a.activeLeads - b.activeLeads || a.name.localeCompare(b.name, "fa"));
@@ -87,11 +88,13 @@ export default defineEventHandler(async (event) => {
         createdAt: new Date(String(lead.created_at)).toISOString(),
       },
       suggested: sorted[0] ? {
+        id: sorted[0].id,
         name: sorted[0].name,
         phone: sorted[0].phone,
         score: sorted[0].score,
       } : null,
       alternatives: sorted.slice(1, 3).map((item) => ({
+        id: item.id,
         name: item.name,
         phone: item.phone,
         score: item.score,

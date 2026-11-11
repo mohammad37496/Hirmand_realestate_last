@@ -1,7 +1,7 @@
 import type { Sql } from "./db";
 import { publicPropertyVisibilitySql } from "./public-property-visibility.ts";
 import type { PublicLeadActivity, PublicLeadFollowUp } from "./public-lead-intake.ts";
-import { recordPublicLeadIntake } from "./public-lead-intake.ts";
+import { recordPublicLeadIntake, resolvePropertyLeadConsultant } from "./public-lead-intake.ts";
 
 type PropertyVisitRequestInput = {
   propertyId: string;
@@ -15,8 +15,8 @@ type PropertyVisitRequestInput = {
   consultant: string;
   note: string;
   intake?: {
-    activity: PublicLeadActivity | ((property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string }) => PublicLeadActivity);
-    followUp: PublicLeadFollowUp | ((property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string }) => PublicLeadFollowUp);
+    activity: PublicLeadActivity | ((property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string; consultant_name?: string | null }) => PublicLeadActivity);
+    followUp: PublicLeadFollowUp | ((property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string; consultant_name?: string | null }) => PublicLeadFollowUp);
   };
 };
 
@@ -58,22 +58,41 @@ export async function createPropertyVisitRequest(
   }
 
   return sql.transaction(async (transactionSql) => {
-    const propertyRows = await transactionSql.query<{
+    const candidateRows = await transactionSql.query<{
       id: string;
       title: string;
       property_type: string;
       neighborhood: string;
       contact_name: string;
     }>(
-      `select id, title, property_type, neighborhood, contact_name
-         from properties
-        where id::text=$1 and ${publicPropertyVisibilitySql()}
-          and availability_status not in ('sold','rented','unavailable')
-        limit 1 for update`,
+      `select p.id, p.title, p.property_type, p.neighborhood, p.contact_name
+         from properties p
+        where p.id::text=$1 and ${publicPropertyVisibilitySql("p")}
+          and p.availability_status not in ('sold','rented','unavailable')
+        limit 1`,
       [input.propertyId],
     );
-    const property = propertyRows[0];
-    if (!property) return { kind: "not_found" };
+    if (!candidateRows[0]) return { kind: "not_found" };
+    const consultant = await resolvePropertyLeadConsultant(
+      transactionSql,
+      candidateRows[0].id,
+      candidateRows[0].contact_name || input.consultant,
+    );
+    // The resolver locks the consultant first, then the property. Re-read the
+    // public/availability predicates while holding the property lock.
+    const lockedRows = await transactionSql.query<{
+      id: string; title: string; property_type: string; neighborhood: string; contact_name: string;
+    }>(
+      `select p.id,p.title,p.property_type,p.neighborhood,p.contact_name
+         from properties p
+        where p.id::text=$1 and ${publicPropertyVisibilitySql("p")}
+          and p.availability_status not in ('sold','rented','unavailable')
+        limit 1`,
+      [candidateRows[0].id],
+    );
+    const lockedProperty = lockedRows[0];
+    if (!lockedProperty) return { kind: "not_found" };
+    const property = { ...lockedProperty, consultant_id: consultant.id, consultant_name: consultant.name };
 
     const duplicateRows = await transactionSql.query<{ id: string; public_tracking_token: string | null }>(
       "select id, public_tracking_token from leads where property_id::text=$1 and phone=$2 and visit_status in ('requested','confirmed') and visit_preferred_at=$3::timestamptz order by created_at desc limit 1",
@@ -97,7 +116,7 @@ export async function createPropertyVisitRequest(
     if (conflictRows[0]) return { kind: "conflict" };
 
     const rows = await transactionSql.query<{ id: string }>(
-      "insert into leads (id, name, phone, people_count, job, deal, property_type, neighborhood, consultant, note, source, follow_up_at, floor_preference, property_id, visit_preferred_at, visit_requested_at, visit_status, public_tracking_token) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'website',current_timestamp + interval '4 hours',$11,$12,$13,current_timestamp,'requested',$14) returning id",
+      "insert into leads (id, name, phone, people_count, job, deal, property_type, neighborhood, consultant, note, source, follow_up_at, floor_preference, property_id, visit_preferred_at, visit_requested_at, visit_status, public_tracking_token, consultant_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'website',current_timestamp + interval '4 hours',$11,$12,$13,current_timestamp,'requested',$14,$15) returning id",
       [
         crypto.randomUUID(),
         input.name,
@@ -107,12 +126,13 @@ export async function createPropertyVisitRequest(
         "بازدید",
         property.property_type,
         property.neighborhood,
-        property.contact_name || input.consultant,
+        property.consultant_name || property.contact_name || input.consultant,
         input.note,
         input.floorPreference,
         property.id,
         input.visitAt,
         input.trackingToken,
+        consultant.id,
       ],
     );
     if (!rows[0]) return { kind: "failed" };
