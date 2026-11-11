@@ -91,6 +91,7 @@ test("rate limiting uses atomic Redis EVAL and synchronous in-memory bucket cons
   assert.match(rateLimit, /createHash\("sha256"\)/);
   assert.doesNotMatch(rateLimit, /x-real-ip/i);
   assert.match(rateLimit, /resolveClientIp\(getHeader\(event, "x-forwarded-for"\), getRequestIP\(event\)\)/);
+  assert.match(rateLimit, /process\.env\.NODE_ENV === "production"[\s\S]*?statusCode:\s*503/);
 });
 
 test("legacy duplicate leads receive the actual atomically stored public tracking token", () => {
