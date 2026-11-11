@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { test } from "node:test";
 import type { Sql } from "./db.ts";
 import { createPublicLeadIntake } from "./public-lead-intake.ts";
-import { withPublicLeadPhoneDedupeLock } from "./public-lead-phone-dedupe.ts";
+import { findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "./public-lead-phone-dedupe.ts";
 
 function createSql(pg: PGlite) {
   let transactionCount = 0;
@@ -29,6 +29,8 @@ async function createFixture() {
       id text primary key,
       phone text not null,
       budget_amount integer,
+      callback_preferred_at timestamptz,
+      public_tracking_token text,
       created_at timestamptz not null default current_timestamp
     );
     create table lead_activities (
@@ -127,13 +129,53 @@ test("budget-match duplicate updates the existing lead while holding the same ph
   }
 });
 
+test("callback retries reuse only the same recent phone and scheduled time", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    const phone = "09123456789";
+    const callbackAt = new Date("2026-11-12T10:00:00.000Z");
+    const submit = (id: string, at: Date) => withPublicLeadPhoneDedupeLock(sql, phone, async (lockedSql) => {
+      const existing = await findRecentPublicCallbackLead(lockedSql, phone, at);
+      if (existing) return { kind: "duplicate", id: existing.id, trackingToken: existing.public_tracking_token } as const;
+      await lockedSql.query(
+        "insert into leads(id,phone,callback_preferred_at,public_tracking_token) values($1,$2,$3,$4)",
+        [id, phone, at.toISOString(), "token-" + id],
+      );
+      return { kind: "created", id, trackingToken: "token-" + id } as const;
+    });
+
+    const first = await submit("callback-first", callbackAt);
+    const replay = await submit("callback-retry", callbackAt);
+    assert.deepEqual(first, { kind: "created", id: "callback-first", trackingToken: "token-callback-first" });
+    assert.deepEqual(replay, { kind: "duplicate", id: "callback-first", trackingToken: first.trackingToken });
+    assert.deepEqual(
+      await submit("callback-different-time", new Date(callbackAt.getTime() + 30 * 60_000)),
+      { kind: "created", id: "callback-different-time", trackingToken: "token-callback-different-time" },
+    );
+
+    await sql.query("update leads set created_at=current_timestamp - interval '11 minutes' where id='callback-first'");
+    assert.deepEqual(await submit("callback-after-window", callbackAt), {
+      kind: "created",
+      id: "callback-after-window",
+      trackingToken: "token-callback-after-window",
+    });
+    assert.equal((await sql.query("select id from leads")).length, 3);
+  } finally {
+    await pg.close();
+  }
+});
+
 test("public lead route acquires the phone lock before checking the ten-minute dedupe window", async () => {
   const route = await readFile(new URL("../../server/routes/api/leads.post.ts", import.meta.url), "utf8");
   const lock = route.indexOf("withPublicLeadPhoneDedupeLock(databaseSql, parsed.data.phone");
   const lookup = route.indexOf("const existing = await sql.query");
+  const callbackLookup = route.indexOf("findRecentPublicCallbackLead(sql, parsed.data.phone, callbackDate)");
+  const callbackCreate = route.indexOf("const leadId = await createPublicLeadIntake(sql", callbackLookup);
   const create = route.indexOf("const createdLeadId = await createPublicLeadIntake(sql");
   assert.ok(lock >= 0, "route must use the transaction-scoped phone lock");
   assert.ok(lookup > lock, "the ten-minute dedupe lookup must run after acquiring the phone lock");
   assert.ok(create > lookup, "lead creation must remain inside the locked callback");
-  assert.match(route, /import \{ withPublicLeadPhoneDedupeLock \} from "@\/lib\/public-lead-phone-dedupe"/);
+  assert.ok(callbackLookup > lock, "callback replay lookup must run while holding the phone lock");
+  assert.ok(callbackCreate > callbackLookup, "callback creation must follow its replay lookup");
+  assert.match(route, /import \{[^}]*withPublicLeadPhoneDedupeLock[^}]*\} from "@\/lib\/public-lead-phone-dedupe"/);
 });

@@ -41,3 +41,15 @@ export async function withPublicLeadPhoneDedupeLock<T>(
     return callback(scopedSql);
   });
 }
+
+export async function findRecentPublicCallbackLead(
+  sql: Sql,
+  phone: string,
+  callbackAt: Date,
+): Promise<{ id: string; public_tracking_token: string | null } | null> {
+  const rows = await sql.query<{ id: string; public_tracking_token: string | null }>(
+    "select id, public_tracking_token from leads where phone=$1 and callback_preferred_at=$2::timestamptz and created_at > clock_timestamp() - interval '10 minutes' order by created_at desc limit 1",
+    [phone, callbackAt.toISOString()],
+  );
+  return rows[0] ?? null;
+}

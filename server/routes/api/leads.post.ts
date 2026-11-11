@@ -8,7 +8,7 @@ import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
 import { createPropertyVisitRequest } from "@/lib/property-visit-request";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 import { createPublicLeadIntake } from "@/lib/public-lead-intake";
-import { withPublicLeadPhoneDedupeLock } from "@/lib/public-lead-phone-dedupe";
+import { findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "@/lib/public-lead-phone-dedupe";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -305,6 +305,17 @@ export default defineEventHandler(async (event) => {
 
   if (parsed.data.callbackPreferredAt) {
     const callbackDate = new Date(parsed.data.callbackPreferredAt);
+    const existingCallback = await findRecentPublicCallbackLead(sql, parsed.data.phone, callbackDate);
+    if (existingCallback) {
+      const trackingToken = existingCallback.public_tracking_token || createPublicTrackingToken();
+      if (!existingCallback.public_tracking_token) {
+        await sql.query(
+          "update leads set public_tracking_token=$2 where id=$1",
+          [existingCallback.id, trackingToken],
+        );
+      }
+      return { success: true, duplicate: true, callbackRequested: true, id: existingCallback.id, trackingToken };
+    }
     const trackingToken = createPublicTrackingToken();
     const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
       const rows = await transactionSql.query<{ id: string }>(

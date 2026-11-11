@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import { test } from "node:test";
-import { withPublicLeadPhoneDedupeLock } from "../src/lib/public-lead-phone-dedupe.ts";
+import { findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "../src/lib/public-lead-phone-dedupe.ts";
 
 const { Pool } = pg;
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -56,6 +56,8 @@ test("same-phone public lead submissions serialize across independent PostgreSQL
         id text primary key,
         phone text not null,
         budget_amount integer,
+        callback_preferred_at timestamptz,
+        public_tracking_token text,
         created_at timestamptz not null default current_timestamp
       );
       create table "${schema}".lead_activities (id bigserial primary key, lead_id text not null references "${schema}".leads(id));
@@ -110,6 +112,36 @@ test("same-phone public lead submissions serialize across independent PostgreSQL
     const lead = await pool.query(`select id,budget_amount from "${schema}".leads`);
     assert.equal(lead.rows.length, 1);
     assert.equal(lead.rows[0].budget_amount, 250);
+
+    const callbackAt = new Date("2026-11-12T10:00:00.000Z");
+    const callbackBackendPids = [];
+    const submitCallback = (id) => withPublicLeadPhoneDedupeLock(sql, phone, async (lockedSql) => {
+      const backend = await lockedSql.query("select pg_backend_pid() as pid");
+      callbackBackendPids.push(Number(backend[0].pid));
+      await lockedSql.query("set search_path to \"" + schema + "\"");
+      const existing = await findRecentPublicCallbackLead(lockedSql, phone, callbackAt);
+      if (existing) return { kind: "duplicate", id: existing.id, trackingToken: existing.public_tracking_token };
+      await lockedSql.query(
+        "insert into leads(id,phone,callback_preferred_at,public_tracking_token) values($1,$2,$3,$4)",
+        [id, phone, callbackAt.toISOString(), "token-" + id],
+      );
+      await lockedSql.query("insert into lead_activities(lead_id) values($1)", [id]);
+      await lockedSql.query("insert into admin_tasks(id,lead_id) values($1,$2)", ["task-" + id, id]);
+      await delay(100);
+      return { kind: "created", id, trackingToken: "token-" + id };
+    });
+    const callbackResults = await Promise.all([submitCallback("callback-first"), submitCallback("callback-retry")]);
+    assert.equal(callbackResults.filter((result) => result.kind === "created").length, 1);
+    assert.equal(callbackResults.filter((result) => result.kind === "duplicate").length, 1);
+    assert.equal(callbackResults[0].trackingToken, callbackResults[1].trackingToken);
+    assert.equal(new Set(callbackBackendPids).size, 2, "callback retries must use independent PostgreSQL sessions");
+    const callbackCounts = await pool.query(`
+      select
+        (select count(*)::int from "${schema}".leads where callback_preferred_at is not null) as leads,
+        (select count(*)::int from "${schema}".lead_activities) as activities,
+        (select count(*)::int from "${schema}".admin_tasks) as tasks
+    `);
+    assert.deepEqual(callbackCounts.rows[0], { leads: 1, activities: 2, tasks: 2 });
 
     await assert.rejects(
       withPublicLeadPhoneDedupeLock(sql, "09123456780", async () => {
