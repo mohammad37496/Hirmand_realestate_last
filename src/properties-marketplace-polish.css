@@ -1952,3 +1952,66 @@
     min-height: 44px;
   }
 }
+
+/* Refined property facts: quiet surfaces, brass icon markers and stronger
+   spacing make the details easy to scan without competing with the price. */
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-specs {
+  gap: 7px;
+  padding: 10px 0 0;
+  border: 0;
+  border-top: 1px solid #e7ecef;
+  border-radius: 0;
+  background: transparent;
+}
+
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-specs span,
+.pf-page .pf-grid.is-list-view > .pcard .pcard-specs span {
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid #e5eaed;
+  border-radius: 9px;
+  background: #f7f9fa;
+  color: #455568;
+  font-size: .7rem;
+  font-weight: 650;
+  box-shadow: none;
+}
+
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-specs span svg,
+.pf-page .pf-grid.is-list-view > .pcard .pcard-specs span svg {
+  padding: 2px;
+  box-sizing: content-box;
+  border-radius: 6px;
+  background: #f1e8d7;
+  color: #95691f;
+}
+
+.pf-page .pf-grid.is-grid-view > .pcard .pcard-specs span:hover,
+.pf-page .pf-grid.is-list-view > .pcard .pcard-specs span:hover {
+  border-color: #d8c39b;
+  background: #fffdf8;
+}
+
+@media (max-width: 720px) {
+  .pf-page .pf-grid.is-grid-view > .pcard .pcard-specs {
+    gap: 6px;
+    padding: 9px 0 0;
+  }
+
+  .pf-page .pf-grid.is-grid-view > .pcard .pcard-specs span {
+    min-height: 30px;
+    padding: 4px 7px;
+    font-size: .67rem;
+  }
+
+  .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-specs span {
+    min-height: 18px;
+    padding: 1px 5px;
+    border-color: #e6ebee;
+    border-radius: 6px;
+    background: #f7f9fa;
+    color: #526273;
+    font-size: .56rem;
+    box-shadow: none;
+  }
+}
