@@ -175,6 +175,10 @@ jobs:
             sleep 1
           done
 
+          # Playwright installs Chromium's Linux dependencies through apt.
+          # Hosted-runner DNS can fail transiently; keep the full dependency
+          # install, but let apt retry failed index/package downloads.
+          echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-retries >/dev/null
           npx playwright install --with-deps chromium
           # Run the isolated PGlite gallery fixture across real phone/tablet
           # viewports. Keep its responsive screenshots with the other Verify
