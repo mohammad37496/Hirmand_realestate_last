@@ -18,11 +18,13 @@ test("lead assignment query failures are surfaced instead of masquerading as an 
   assert.match(route, /statusCode:\s*503/);
   assert.doesNotMatch(route, /\.catch\(\(\)\s*=>\s*\[\]\)/);
   assert.doesNotMatch(route, /return\s+\{\s*consultants:\s*\[\],\s*recommendations:\s*\[\]\s*\}/);
-  assert.match(route, /assignAdminLeadToConsultant\(sql,\s*leadId,\s*consultant\)/);
+  assert.match(route, /assignAdminLeadToConsultant\(sql,\s*leadId,\s*consultantId\)/);
+  assert.match(route, /body\.consultantId/);
   assert.doesNotMatch(route, /insert into lead_activities|update leads set consultant=/i);
 
   assert.match(action, /sql\.transaction\(async\s*\(tx\)/);
-  assert.match(action, /update leads set consultant=/i);
+  assert.match(action, /consultant_id=\$2, consultant=case when consultant_id is distinct from \$2/i);
+  assert.match(action, /is_active=true[\s\S]*for share/i);
   assert.match(action, /insert into lead_activities/i);
   assert.doesNotMatch(action, /\.catch\(\(\)\s*=>\s*\{\s*\}\)/);
 
