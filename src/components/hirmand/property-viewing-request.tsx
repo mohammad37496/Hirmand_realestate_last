@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Check, Clock3, Download, ExternalLink, X } from "lucide-react";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { formatPersianDate, getTehranDateOnly } from "@/lib/persian-date";
+import { fetchPropertyViewingSlots } from "@/lib/property-viewing-availability";
 import { PersianDatePicker } from "./persian-date-picker";
 import type { PropertyAvailabilityStatus } from "@/lib/properties";
 import "@/property-viewing-request.css";
@@ -142,39 +143,42 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
   const [trackingToken, setTrackingToken] = useState("");
   const [occupiedTimes, setOccupiedTimes] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [verifiedSlotsKey, setVerifiedSlotsKey] = useState("");
+  const [slotsError, setSlotsError] = useState("");
+  const [slotsRetry, setSlotsRetry] = useState(0);
 
   const visitAllowed = property.availabilityStatus === "available" || property.availabilityStatus === "reserved";
+  const slotsVerified = verifiedSlotsKey === property.id + ":" + date;
   const minimumDate = useMemo(() => todayIsoDate(), []);
 
   useEffect(() => {
     if (!open || !date || !property.id) return;
     let cancelled = false;
     setLoadingSlots(true);
-    void fetch("/api/property-viewing-slots?propertyId=" + encodeURIComponent(property.id) + "&date=" + encodeURIComponent(date), {
-      method: "GET",
-      credentials: "same-origin",
-      headers: { accept: "application/json" },
-    })
-      .then((response) => response.json().catch(() => ({})))
-      .then((payload) => {
+    setVerifiedSlotsKey("");
+    setSlotsError("");
+    setOccupiedTimes([]);
+    void fetchPropertyViewingSlots(property.id, date)
+      .then((next) => {
         if (cancelled) return;
-        const next = Array.isArray(payload?.occupiedTimes)
-          ? payload.occupiedTimes.filter((value: unknown): value is string => typeof value === "string")
-          : [];
         setOccupiedTimes(next);
-        if (next.includes(time)) {
-          const firstAvailable = TIMES.find((slot) => !next.includes(slot));
-          if (firstAvailable) setTime(firstAvailable);
-        }
+        setVerifiedSlotsKey(property.id + ":" + date);
+        setTime((currentTime) => next.includes(currentTime)
+          ? TIMES.find((slot) => !next.includes(slot)) || ""
+          : currentTime);
       })
       .catch(() => {
-        if (!cancelled) setOccupiedTimes([]);
+        if (!cancelled) {
+          setOccupiedTimes([]);
+          setVerifiedSlotsKey("");
+          setSlotsError("بررسی ظرفیت زمان‌های بازدید ممکن نیست. لطفاً دوباره تلاش کنید.");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingSlots(false);
       });
     return () => { cancelled = true; };
-  }, [open, date, property.id]);
+  }, [open, date, property.id, slotsRetry]);
 
   function close() {
     if (busy) return;
@@ -183,9 +187,19 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
     setError("");
     setTrackingToken("");
     setOccupiedTimes([]);
+    setVerifiedSlotsKey("");
+    setSlotsError("");
   }
 
   async function submit() {
+    if (!slotsVerified || loadingSlots) {
+      setError("تا زمانی که ظرفیت بازدید با موفقیت بررسی نشده، امکان ثبت درخواست وجود ندارد.");
+      return;
+    }
+    if (occupiedTimes.includes(time)) {
+      setError("این زمان دیگر در دسترس نیست. زمان دیگری انتخاب کنید.");
+      return;
+    }
     const normalizedPhone = faDigits(phone).replace(/\D/g, "");
     if (name.trim().length < 2) {
       setError("نام و نام خانوادگی را وارد کنید.");
@@ -354,13 +368,23 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
                       hint="تاریخ را با تقویم شمسی انتخاب کنید."
                     />
                   </label>
-                  <label className="field">
-                    <span>ساعت پیشنهادی</span>
-                    <select value={time} onChange={(e) => setTime(e.target.value)} dir="ltr" disabled={loadingSlots}>
+                  <div className="field">
+                    <label htmlFor="property-viewing-time">ساعت پیشنهادی</label>
+                    <select id="property-viewing-time" value={time} onChange={(e) => setTime(e.target.value)} dir="ltr" disabled={loadingSlots || !slotsVerified}>
+                      {!time ? <option value="" disabled>زمان خالی موجود نیست</option> : null}
                       {TIMES.map((item) => <option key={item} value={item} disabled={occupiedTimes.includes(item)}>{item}{occupiedTimes.includes(item) ? " · پر" : ""}</option>)}
                     </select>
-                    <small>{loadingSlots ? "در حال بررسی ظرفیت…" : occupiedTimes.length ? "زمان‌های «پر» قبلاً برای این فایل ثبت شده‌اند." : "ظرفیت این روز در لحظه بررسی شد."}</small>
-                  </label>
+                    <div className="property-viewing-slot-status">
+                      <small role={slotsError ? "alert" : undefined}>
+                        {loadingSlots ? "در حال بررسی ظرفیت…" : slotsError || (occupiedTimes.length ? "زمان‌های «پر» قبلاً برای این فایل ثبت شده‌اند." : slotsVerified ? "ظرفیت این روز در لحظه بررسی شد." : "ابتدا ظرفیت زمان‌های بازدید را بررسی کنید.")}
+                      </small>
+                      {slotsError ? (
+                        <button type="button" className="btn-ghost property-viewing-retry" onClick={() => setSlotsRetry((value) => value + 1)} disabled={loadingSlots}>
+                          تلاش دوباره
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
                   <label className="field property-viewing-note">
                     <span>توضیح کوتاه (اختیاری)</span>
                     <textarea
@@ -376,7 +400,7 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
 
                 <div className="property-viewing-actions">
                   <button type="button" className="btn-ghost" onClick={close} disabled={busy}>انصراف</button>
-                  <button type="button" className="btn-gold" onClick={submit} disabled={busy}>
+                  <button type="button" className="btn-gold" onClick={submit} disabled={busy || loadingSlots || !slotsVerified || !time}>
                     <CalendarDays size={17} />
                     {busy ? "در حال ثبت..." : "ثبت درخواست بازدید"}
                   </button>
