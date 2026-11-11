@@ -78,7 +78,7 @@ test("same-phone public lead submissions serialize across independent PostgreSQL
       );
       create table "${schema}".properties (
         id text primary key, title text not null, property_type text not null, neighborhood text not null,
-        contact_name text not null, deleted_at timestamptz, status text not null, publish_at timestamptz,
+        contact_name text not null, consultant_id text, deleted_at timestamptz, status text not null, publish_at timestamptz,
         unpublish_at timestamptz, availability_status text not null
       );
       insert into "${schema}".properties(id,title,property_type,neighborhood,contact_name,status,availability_status)
