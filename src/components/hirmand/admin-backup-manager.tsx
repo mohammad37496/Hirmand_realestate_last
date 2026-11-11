@@ -2,7 +2,7 @@ import { Database, Download, History, RefreshCw, ShieldCheck, Trash2 } from "luc
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-type Verification = { verifiedAt: string; coreReady: boolean; tables: Array<{ table: string; exists: boolean; count: number }> };
+type Verification = { checkedAt: string; lastSuccessfulAt: string | null; status: "healthy" | "degraded" | "error" | "timeout"; coreReady: boolean; complete: boolean; tables: Array<{ table: string; status: "available" | "missing" | "error" | "timeout"; exists: boolean | null; count: number | null }> };
 type BackupHistoryItem = { id: number; kind: string; createdAt: string; tableCounts: Record<string, unknown> };
 const TABLE_LABEL: Record<string, string> = { properties: "فایل‌ها", leads: "لیدها", leadActivities: "فعالیت‌های CRM", financeTransactions: "امور مالی", consultants: "مشاوران", attendance: "حضور و غیاب" };
 function formatDate(value: string) { return new Date(value).toLocaleString("fa-IR", { dateStyle: "medium", timeStyle: "short" }); }
@@ -13,31 +13,51 @@ export function AdminBackupManager() {
   const [verifying, setVerifying] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [history, setHistory] = useState<BackupHistoryItem[]>([]);
+  const [historyError, setHistoryError] = useState("");
   const [verification, setVerification] = useState<Verification | null>(null);
+  const [verificationError, setVerificationError] = useState("");
   const [retentionDays, setRetentionDays] = useState("90");
   const [pruning, setPruning] = useState(false);
 
   async function loadHistory() {
     setHistoryLoading(true);
+    setHistoryError("");
     try {
       const res = await fetch("/api/admin-backup?mode=history", { method: "GET", credentials: "same-origin", headers: { accept: "application/json" } });
       const data = await res.json().catch(() => ({})) as { backups?: BackupHistoryItem[]; statusMessage?: string };
       if (!res.ok) throw new Error(data.statusMessage || "تاریخچه پشتیبان دریافت نشد.");
-      setHistory(Array.isArray(data.backups) ? data.backups : []);
-    } catch (error) { toast.error(error instanceof Error ? error.message : "تاریخچه پشتیبان دریافت نشد."); }
+      if (!Array.isArray(data.backups)) throw new Error("پاسخ تاریخچه پشتیبان ناقص است.");
+      setHistory(data.backups);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "تاریخچه پشتیبان دریافت نشد.";
+      setHistoryError(message);
+      toast.error(message);
+      return false;
+    }
     finally { setHistoryLoading(false); }
   }
 
   useEffect(() => { void loadHistory(); }, []);
 
   async function verifyBackup() {
-    if (verifying) return; setVerifying(true);
+    if (verifying) return; setVerifying(true); setVerificationError("");
     try {
       const res = await fetch("/api/admin-backup?mode=verify", { method: "GET", credentials: "same-origin", headers: { accept: "application/json" } });
       const data = await res.json().catch(() => ({})) as Partial<Verification> & { statusMessage?: string };
       if (!res.ok) throw new Error(data?.statusMessage || "راستی‌آزمایی پشتیبان انجام نشد.");
-      setVerification(data as Verification); toast.success(data.coreReady ? "ساختار اصلی پایگاه داده آماده است." : "ساختار پایگاه داده کامل نیست.");
-    } catch (error) { toast.error(error instanceof Error ? error.message : "راستی‌آزمایی پشتیبان انجام نشد."); }
+      if (!data.checkedAt || !Array.isArray(data.tables) || !data.status) throw new Error("پاسخ راستی‌آزمایی ناقص است.");
+      const lastSuccessfulAt = data.status === "healthy"
+        ? data.checkedAt
+        : verification?.lastSuccessfulAt ?? (verification?.status === "healthy" ? verification.checkedAt : null);
+      setVerification({ ...(data as Verification), lastSuccessfulAt });
+      if (data.status === "healthy") toast.success("ساختار پایگاه داده کامل و در دسترس است.");
+      else toast.error(data.status === "timeout" ? "مهلت بررسی پایگاه داده تمام شد." : data.status === "error" ? "بررسی ساختار پایگاه داده با خطا مواجه شد." : "ساختار پایگاه داده کامل نیست.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "راستی‌آزمایی پشتیبان انجام نشد.";
+      setVerificationError(message);
+      toast.error(message);
+    }
     finally { setVerifying(false); }
   }
 
@@ -49,7 +69,8 @@ export function AdminBackupManager() {
       const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement("a");
       a.href = url; a.download = "hirmand-admin-backup-" + new Date().toISOString().slice(0, 10) + ".json";
       document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      await loadHistory(); toast.success("نسخه پشتیبان دانلود شد و در تاریخچه ثبت شد.");
+      const historyRefreshed = await loadHistory();
+      toast.success(historyRefreshed ? "نسخه پشتیبان دانلود و ثبت شد." : "نسخه پشتیبان دانلود شد؛ به‌روزرسانی تاریخچه قابل تأیید نیست.");
     } catch (error) { toast.error(error instanceof Error ? error.message : "ساخت نسخه پشتیبان انجام نشد."); }
     finally { setBusy(false); }
   }
@@ -60,7 +81,8 @@ export function AdminBackupManager() {
       const res = await fetch("/api/admin-backup", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "prune", retentionDays: Number(retentionDays) }) });
       const data = await res.json().catch(() => ({})) as { deleted?: number; statusMessage?: string; message?: string };
       if (!res.ok) throw new Error(data.statusMessage || data.message || "پاک‌سازی سوابق انجام نشد.");
-      await loadHistory(); toast.success((Number(data.deleted) || 0).toLocaleString("fa-IR") + " سابقه قدیمی پاک شد.");
+      const historyRefreshed = await loadHistory();
+      toast.success((Number(data.deleted) || 0).toLocaleString("fa-IR") + (historyRefreshed ? " سابقه قدیمی پاک شد." : " سابقه پاک شد؛ به‌روزرسانی تاریخچه قابل تأیید نیست."));
     } catch (error) { toast.error(error instanceof Error ? error.message : "پاک‌سازی سوابق انجام نشد."); }
     finally { setPruning(false); }
   }
@@ -85,7 +107,7 @@ export function AdminBackupManager() {
 
       <section className="admin-panel admin-backup-history">
         <div className="admin-panel-head"><div><span className="kicker">تاریخچه</span><h2><History size={18} /> خروجی‌های ثبت‌شده</h2></div><button className="btn-ghost" type="button" onClick={() => void loadHistory()} disabled={historyLoading}><RefreshCw size={14} className={historyLoading ? "admin-spin" : ""} /> تازه‌سازی</button></div>
-        {historyLoading ? <div className="admin-empty">در حال دریافت تاریخچه…</div> : !history.length ? <div className="admin-empty"><History size={24} /><strong>هنوز نسخه پشتیبانی ثبت نشده است.</strong><p>بعد از اولین خروجی، زمان و تعداد رکوردها اینجا نگهداری می‌شود.</p></div> :
+        {historyLoading ? <div className="admin-empty">در حال دریافت تاریخچه…</div> : historyError ? <div className="admin-empty" role="alert"><strong>بارگذاری تاریخچه ناموفق بود.</strong><p>{historyError}</p><button type="button" className="btn-ghost" onClick={() => void loadHistory()}>تلاش دوباره</button></div> : !history.length ? <div className="admin-empty"><History size={24} /><strong>هنوز نسخه پشتیبانی ثبت نشده است.</strong><p>بعد از اولین خروجی، زمان و تعداد رکوردها اینجا نگهداری می‌شود.</p></div> :
           <div className="admin-backup-history-list">{history.map((item) => <article key={item.id} className="admin-backup-history-row"><div className="admin-backup-history-icon"><Database size={17} /></div><div className="admin-backup-history-main"><strong>{item.kind === "json_export" ? "خروجی JSON" : item.kind}</strong><small>{formatDate(item.createdAt)}</small><p>{rowsCount(item).toLocaleString("fa-IR")} رکورد · {Object.entries(item.tableCounts).map(([key, value]) => key + ": " + (Number(value) || 0)).slice(0, 4).join(" · ")}</p></div></article>)}</div>
         }
       </section>
@@ -95,7 +117,8 @@ export function AdminBackupManager() {
         <div className="admin-backup-retention-controls"><label className="field"><span>حذف سوابق قدیمی‌تر از</span><select value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)}><option value="90">۹۰ روز</option><option value="180">۱۸۰ روز</option><option value="365">۳۶۵ روز</option></select></label><button type="button" className="btn-ghost" onClick={() => void pruneHistory()} disabled={pruning}><Trash2 size={15} />{pruning ? "در حال پاک‌سازی…" : "پاک‌سازی سوابق قدیمی"}</button></div>
       </section>
 
-      {verification ? <section className="admin-panel"><div className="admin-panel-head"><div><span className="kicker">سلامت داده</span><h2>{verification.coreReady ? "ساختار اصلی تأیید شد" : "هشدار ساختاری"}</h2></div><span className="admin-dashboard-summary">{formatDate(verification.verifiedAt)}</span></div><div className="admin-system-grid">{verification.tables.map((item) => <div key={item.table}><span><Database size={13} /> {TABLE_LABEL[item.table] ?? item.table}</span><strong>{item.exists ? item.count.toLocaleString("fa-IR") : "—"}</strong><small>{item.exists ? "جدول در دسترس است" : "جدول موجود نیست"}</small></div>)}</div></section> : null}
+      {verificationError ? <section className="admin-panel" role="alert"><strong>راستی‌آزمایی ناموفق بود.</strong><p>{verificationError}</p><button type="button" className="btn-ghost" onClick={() => void verifyBackup()}>تلاش دوباره</button></section> : null}
+      {verification ? <section className="admin-panel"><div className="admin-panel-head"><div><span className="kicker">سلامت داده</span><h2>{verification.status === "healthy" ? "ساختار کامل تأیید شد" : verification.status === "degraded" ? "ساختار پایگاه داده ناقص است" : verification.status === "timeout" ? "مهلت بررسی تمام شد" : "بررسی ساختار ناموفق بود"}</h2></div><span className="admin-dashboard-summary">زمان بررسی: {formatDate(verification.checkedAt)}{verification.lastSuccessfulAt ? " · آخرین بررسی موفق: " + formatDate(verification.lastSuccessfulAt) : " · بررسی موفقی ثبت نشده"}</span></div><div className="admin-system-grid">{verification.tables.map((item) => <div key={item.table}><span><Database size={13} /> {TABLE_LABEL[item.table] ?? item.table}</span><strong>{item.status === "available" && item.count != null ? item.count.toLocaleString("fa-IR") : "—"}</strong><small>{item.status === "available" ? "جدول در دسترس است" : item.status === "missing" ? "جدول موجود نیست" : item.status === "timeout" ? "مهلت بررسی تمام شد" : "بررسی جدول ناموفق بود"}</small></div>)}</div></section> : null}
     </div>
   );
 }
