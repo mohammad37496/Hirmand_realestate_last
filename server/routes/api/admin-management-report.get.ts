@@ -14,7 +14,9 @@ export default defineEventHandler(async (event) => {
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "reports.view")) throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش مدیریتی برای این حساب فعال نیست." });
-  if (dbSource === "unconfigured") return { days: 30, properties:{}, leads:{}, deals:{}, finance:null, topConsultants:[] };
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "گزارش مدیریتی موقتاً در دسترس نیست." });
+  }
   const query = getQuery(event); const rawDays=Number(query.days); const days=[7,30,90,365].includes(rawDays)?rawDays:30;
   const sql=await getSql();
   const [p,l,d,c,top]=await Promise.all([
