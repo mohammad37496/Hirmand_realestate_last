@@ -124,19 +124,25 @@ try {
       }
 
       // Exercise the worst-case list-card position next to the fixed dock.
-      // scrollIntoView can be a no-op when the last card is already visible,
-      // so force the document to its actual maximum scroll position first.
+      // scrollIntoView can be a no-op when the last card is already visible.
+      // Scroll only the distance needed to clear the dock: scrolling to the
+      // document bottom would trip the page's 420px infinite-load sentinel.
       const lastCard = cards.last();
-      await page.evaluate(() => {
+      const scrollPlan = await page.evaluate(() => {
+        const card = document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").item(
+          document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").length - 1,
+        );
+        const footer = document.querySelector(".quick-actions");
         const scrollingElement = document.scrollingElement ?? document.documentElement;
-        scrollingElement.scrollTo({ top: scrollingElement.scrollHeight, behavior: "instant" });
-      });
-      await page.waitForFunction(() => {
-        const scrollingElement = document.scrollingElement ?? document.documentElement;
-        return scrollingElement.scrollTop + scrollingElement.clientHeight >= scrollingElement.scrollHeight - 1;
+        const cardRect = card?.getBoundingClientRect();
+        const footerRect = footer?.getBoundingClientRect();
+        const requestedScroll = cardRect && footerRect ? Math.max(0, cardRect.bottom - footerRect.top + 4) : 0;
+        const beforeScrollTop = scrollingElement.scrollTop;
+        scrollingElement.scrollBy({ top: requestedScroll, behavior: "instant" });
+        return { requestedScroll, beforeScrollTop };
       });
       await page.waitForTimeout(80);
-      const bottomGeometry = await lastCard.evaluate((card) => {
+      const bottomGeometry = await lastCard.evaluate((card, plan) => {
         const footerElement = document.querySelector(".quick-actions");
         const mediaElement = card.querySelector(".pcard-media > .pcard-image-link");
         const bodyElement = card.querySelector(".pcard-body");
@@ -165,9 +171,11 @@ try {
           documentScrollTop: scrollingElement.scrollTop,
           documentScrollHeight: scrollingElement.scrollHeight,
           documentClientHeight: scrollingElement.clientHeight,
+          requestedScroll: plan.requestedScroll,
+          actualScroll: scrollingElement.scrollTop - plan.beforeScrollTop,
           pagePaddingBottom: pageElement ? getComputedStyle(pageElement).paddingBottom : null,
         };
-      });
+      }, scrollPlan);
       if (bottomGeometry.cardOverlapsFooter || bottomGeometry.imageOverlapsFooter || bottomGeometry.bodyOverlapsFooter || bottomGeometry.cardFooterGap < 4) {
         failures.push(`${viewport.width}x${viewport.height}: the fixed bottom action bar occludes the last list card, its image, or its details: ${JSON.stringify(bottomGeometry)}`);
       }

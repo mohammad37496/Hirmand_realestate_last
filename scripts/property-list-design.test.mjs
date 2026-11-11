@@ -172,8 +172,9 @@ test("mobile list cards can scroll fully clear of the fixed bottom action dock",
   );
   assert.match(compactMobileList, /\.pf-page\s*\{\s*padding-bottom:\s*calc\(96px \+ env\(safe-area-inset-bottom\)\) !important;/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*scroll-margin-block-end:\s*calc\(80px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(mobileFooterBrowserTest, /scrollingElement\.scrollTo\(\{\s*top:\s*scrollingElement\.scrollHeight,\s*behavior:\s*"instant"\s*\}\)/);
-  assert.match(mobileFooterBrowserTest, /scrollTop\s*\+\s*scrollingElement\.clientHeight\s*>=\s*scrollingElement\.scrollHeight\s*-\s*1/);
+  assert.match(mobileFooterBrowserTest, /const\s+requestedScroll\s*=\s*cardRect\s*&&\s*footerRect\s*\?\s*Math\.max\(0,\s*cardRect\.bottom\s*-\s*footerRect\.top\s*\+\s*4\)/);
+  assert.match(mobileFooterBrowserTest, /scrollingElement\.scrollBy\(\{\s*top:\s*requestedScroll,\s*behavior:\s*"instant"\s*\}\)/);
+  assert.match(mobileFooterBrowserTest, /actualScroll:\s*scrollingElement\.scrollTop\s*-\s*plan\.beforeScrollTop/);
   assert.match(mobileFooterBrowserTest, /bottomGeometry\.cardFooterGap\s*<\s*4/);
 });
 
