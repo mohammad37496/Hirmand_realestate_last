@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { adminErrorMessage } from "@/components/hirmand/admin-ui-utils";
 
 type ConsultantLoad = {
+  id: string;
   name: string;
   phone: string;
   activeLeads: number;
@@ -13,8 +14,8 @@ type ConsultantLoad = {
 };
 type Recommendation = {
   lead: { id: string; name: string; phone: string; deal: string; propertyType: string; neighborhood: string; createdAt: string };
-  suggested: { name: string; phone: string; score: number } | null;
-  alternatives: Array<{ name: string; phone: string; score: number }>;
+  suggested: { id: string; name: string; phone: string; score: number } | null;
+  alternatives: Array<{ id: string; name: string; phone: string; score: number }>;
 };
 
 export function AdminLeadAssignmentBalancer() {
@@ -50,14 +51,14 @@ export function AdminLeadAssignmentBalancer() {
 
   useEffect(() => { void load(); }, [load]);
 
-  async function assign(leadId: string, consultant: string) {
+  async function assign(leadId: string, consultantId: string, consultant: string) {
     if (busy) return;
     setBusy(leadId);
     try {
       const response = await fetch("/api/admin-lead-assignment", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "assign", leadId, consultant }),
+        body: JSON.stringify({ action: "assign", leadId, consultantId }),
       });
       const data = await response.json() as { statusMessage?: string };
       if (!response.ok) throw new Error(data.statusMessage || "تخصیص انجام نشد.");
@@ -89,7 +90,7 @@ export function AdminLeadAssignmentBalancer() {
         </div> : null}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
           {consultants.map((item) => (
-            <div key={item.phone || item.name} style={{ border: "1px solid var(--line)", borderRadius: 11, padding: 10, background: "var(--surface-2,#f7f5f0)" }}>
+            <div key={item.id} style={{ border: "1px solid var(--line)", borderRadius: 11, padding: 10, background: "var(--surface-2,#f7f5f0)" }}>
               <strong style={{ display: "block", fontSize: ".72rem" }}><UserRound size={13} style={{ verticalAlign: "middle", marginInlineEnd: 4 }} />{item.name}</strong>
               <small style={{ display: "block", marginTop: 5, color: "var(--muted)" }}>فعال {item.activeLeads.toLocaleString("fa-IR")} · عقب‌افتاده {item.overdue.toLocaleString("fa-IR")}</small>
               <small style={{ display: "block", marginTop: 3, color: "var(--subtle)" }}>بازدیدها {item.viewingRequests.toLocaleString("fa-IR")} · امتیاز بار {item.score.toLocaleString("fa-IR")}</small>
@@ -105,7 +106,7 @@ export function AdminLeadAssignmentBalancer() {
               <small style={{ display: "block", color: "var(--muted)", marginTop: 4 }}>{item.lead.deal} · {item.lead.propertyType || "نوع نامشخص"}{item.lead.neighborhood ? " · " + item.lead.neighborhood : ""}</small>
               <small style={{ display: "block", color: "var(--subtle)", marginTop: 3 }}>پیشنهاد: {item.suggested?.name || "مشاوری در دسترس نیست"}{item.alternatives.length ? " · جایگزین: " + item.alternatives.map((x) => x.name).join("، ") : ""}</small>
             </div>
-            {item.suggested ? <button type="button" className="btn-gold" onClick={() => void assign(item.lead.id, item.suggested!.name)} disabled={Boolean(loadError) || busy === item.lead.id}>
+            {item.suggested ? <button type="button" className="btn-gold" onClick={() => void assign(item.lead.id, item.suggested!.id, item.suggested!.name)} disabled={Boolean(loadError) || busy === item.lead.id}>
               {busy === item.lead.id ? "در حال ثبت…" : "تخصیص پیشنهادی"}
             </button> : null}
           </div>

@@ -41,14 +41,15 @@ for (const failure of ["activity", "task"] as const) {
     const pg = new PGlite();
     try {
       await pg.exec(`
+        create table consultants (id text primary key, name text not null);
         create table properties (
           id text primary key, title text not null, property_type text not null, neighborhood text not null,
-          contact_name text not null, deleted_at timestamptz, status text not null, publish_at timestamptz,
+          contact_name text not null, consultant_id text, deleted_at timestamptz, status text not null, publish_at timestamptz,
           unpublish_at timestamptz, availability_status text not null
         );
         create table leads (
           id text primary key, name text not null, phone text not null, people_count integer, job text not null,
-          deal text not null, property_type text not null, neighborhood text not null, consultant text not null,
+          deal text not null, property_type text not null, neighborhood text not null, consultant text not null, consultant_id text,
           note text not null, source text not null, follow_up_at timestamptz, floor_preference text not null,
           property_id text not null references properties(id), visit_preferred_at timestamptz not null,
           visit_requested_at timestamptz not null, visit_status text not null, public_tracking_token text not null
@@ -95,7 +96,8 @@ test("public visit intake still rejects hidden properties before creating a lead
   const pg = new PGlite();
   try {
     await pg.exec(`
-      create table properties (id text primary key, title text not null, property_type text not null, neighborhood text not null, contact_name text not null, deleted_at timestamptz, status text not null, publish_at timestamptz, unpublish_at timestamptz, availability_status text not null);
+      create table consultants (id text primary key, name text not null);
+      create table properties (id text primary key, title text not null, property_type text not null, neighborhood text not null, contact_name text not null, consultant_id text, deleted_at timestamptz, status text not null, publish_at timestamptz, unpublish_at timestamptz, availability_status text not null);
       create table leads (id text primary key, property_id text not null, visit_status text not null, visit_preferred_at timestamptz not null);
       insert into properties(id,title,property_type,neighborhood,contact_name,status,availability_status) values ('hidden','Hidden','apartment','center','Agent','draft','available');
     `);
