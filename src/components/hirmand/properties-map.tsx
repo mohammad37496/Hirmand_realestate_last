@@ -99,6 +99,7 @@ export function PropertiesMap({
   const mapRef = useRef<HTMLDivElement | null>(null);
   const dragOrigin = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const appliedViewportResetVersion = useRef(0);
+  const pendingUserViewportSync = useRef(false);
   const [view, setView] = useState<MapView>(DEFAULT_VIEW);
   const [size, setSize] = useState<MapSize>({ width: 920, height: 640 });
   const [dragOffset, setDragOffset] = useState<PixelPoint>({ x: 0, y: 0 });
@@ -106,7 +107,13 @@ export function PropertiesMap({
   const [failedTiles, setFailedTiles] = useState<Set<string>>(new Set());
   const [showNeighborhoodBounds, setShowNeighborhoodBounds] = useState(true);
   const [viewportReady, setViewportReady] = useState(false);
+  const [viewportSyncVersion, setViewportSyncVersion] = useState(0);
   const [popupDismissed, setPopupDismissed] = useState(false);
+
+  const markUserViewportChange = useCallback(() => {
+    pendingUserViewportSync.current = true;
+    setViewportSyncVersion((version) => version + 1);
+  }, []);
 
   useEffect(() => {
     setPopupDismissed(false);
@@ -153,12 +160,19 @@ export function PropertiesMap({
     if (!area?.divarBbox) return;
     const rect = mapRef.current?.getBoundingClientRect();
     const fitted = fitCoordinateBounds(area.divarBbox, rect?.width ?? 920, rect?.height ?? 640);
-    if (fitted) setView(fitted);
+    if (fitted) {
+      pendingUserViewportSync.current = false;
+      setView(fitted);
+    }
   }, [selectedNeighborhood, neighborhoods]);
 
   useEffect(() => {
     if (appliedViewportResetVersion.current === viewportResetVersion) return;
     appliedViewportResetVersion.current = viewportResetVersion;
+    // Parent-driven neighborhood/filter resets are not user map navigation.
+    // In particular, a multi-neighborhood selection intentionally clears the
+    // viewport filter and must not be repopulated by the default map view.
+    pendingUserViewportSync.current = false;
     if (!viewportResetBounds) {
       setView(DEFAULT_VIEW);
       return;
@@ -187,9 +201,10 @@ export function PropertiesMap({
   }, [centerWorld.x, centerWorld.y, size.width, size.height, view.zoom]);
 
   useEffect(() => {
-    if (!viewportReady) return;
+    if (!viewportReady || !pendingUserViewportSync.current) return;
+    pendingUserViewportSync.current = false;
     onViewportChange?.(viewportBounds);
-  }, [viewportReady, viewportBounds, onViewportChange]);
+  }, [viewportReady, viewportSyncVersion, viewportBounds, onViewportChange]);
 
   const tiles = useMemo<Tile[]>(() => {
     const totalTiles = 2 ** view.zoom;
@@ -312,20 +327,23 @@ export function PropertiesMap({
     dragOrigin.current = null;
     setDragging(false);
     if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      markUserViewportChange();
       const nextCenter = unproject({ x: centerWorld.x - deltaX, y: centerWorld.y - deltaY }, view.zoom);
       setView((current) => ({ ...current, ...nextCenter }));
     }
     setDragOffset({ x: 0, y: 0 });
-  }, [centerWorld.x, centerWorld.y, view.zoom]);
+  }, [centerWorld.x, centerWorld.y, view.zoom, markUserViewportChange]);
 
   const zoomBy = useCallback((amount: number) => {
+    markUserViewportChange();
     setView((current) => ({
       ...current,
       zoom: Math.max(10, Math.min(18, current.zoom + amount)),
     }));
-  }, []);
+  }, [markUserViewportChange]);
 
   const resetMap = useCallback(() => {
+    markUserViewportChange();
     const selected = neighborhoods.find((item) => item.name === selectedNeighborhood);
     if (selected?.divarBbox && isValidCoordinateBounds(selected.divarBbox)) {
       const rect = mapRef.current?.getBoundingClientRect();
@@ -336,7 +354,7 @@ export function PropertiesMap({
       }
     }
     setView(DEFAULT_VIEW);
-  }, [neighborhoods, selectedNeighborhood, size.width, size.height]);
+  }, [neighborhoods, selectedNeighborhood, size.width, size.height, markUserViewportChange]);
 
   const openCurrentMap = `https://www.openstreetmap.org/#map=${view.zoom}/${view.latitude.toFixed(6)}/${view.longitude.toFixed(6)}`;
 
