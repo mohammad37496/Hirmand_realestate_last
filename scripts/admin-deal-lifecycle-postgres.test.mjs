@@ -4,8 +4,13 @@ import pg from "pg";
 import test from "node:test";
 import {
   createAdminCommissionSettlement,
+  deleteAdminCommissionSettlement,
   deleteAdminDeal,
 } from "../src/lib/admin-deal-lifecycle.ts";
+import {
+  updateAdminDealStatusWithSettlementGuard,
+  updateCommissionSettlementStatusWithDealGuard,
+} from "../src/lib/admin-deal-status-sql.ts";
 
 const { Pool } = pg;
 const databaseUrl = process.env.TEST_DATABASE_URL?.trim();
@@ -54,7 +59,7 @@ function createTransactionalSql(pool, hooks = {}) {
         const transactionSql = {
           query: async (text, params = []) => {
             const rows = (await client.query(text, params)).rows;
-            if (/from\s+admin_deals\s+where\s+id=\$1\s+limit\s+1\s+for\s+(?:update|key share)/i.test(text)) {
+            if (/from\s+admin_deals\s+where\s+id=\$1(?:\s+limit\s+1)?\s+for\s+(?:update|key share)/i.test(text)) {
               await hooks.afterDealLock?.(pid, text);
             }
             return rows;
@@ -83,14 +88,20 @@ test("deal deletion and linked settlement creation serialize on the deal row in 
     await admin.query(`create schema "${schema}"`);
     pool = new Pool({ connectionString: databaseUrl, max: 4, options: `-c search_path=${schema},public` });
     await pool.query(`
-      create table admin_deals (id text primary key);
+      create table admin_deals (
+        id text primary key, status text not null default 'prospect',
+        consultant text not null default '', commission numeric,
+        updated_at timestamptz not null default current_timestamp
+      );
       create table admin_deal_documents (id text primary key, deal_id text not null);
       create table admin_commission_settlements (
         id text primary key, consultant text not null, deal_id text,
         commission_amount numeric not null, consultant_share numeric not null,
-        office_share numeric not null, status text not null, note text not null, created_by text not null
+        office_share numeric not null, status text not null, paid_at timestamptz,
+        note text not null, created_by text not null, updated_at timestamptz not null default current_timestamp
       );
-      insert into admin_deals(id) values ('settlement-first'),('delete-first');
+      insert into admin_deals(id,status,consultant,commission) values
+        ('settlement-first','contracted','consultant',1000),('delete-first','contracted','consultant',1000);
       insert into admin_deal_documents(id,deal_id) values ('doc-settlement-first','settlement-first'),('doc-delete-first','delete-first');
     `);
 
@@ -128,6 +139,125 @@ test("deal deletion and linked settlement creation serialize on the deal row in 
     assert.equal((await pool.query("select id from admin_deals where id='settlement-first'")).rows.length, 1);
     assert.equal((await pool.query("select id from admin_deal_documents where deal_id='settlement-first'")).rows.length, 1);
     assert.equal((await pool.query("select id from admin_commission_settlements where deal_id='settlement-first'")).rows.length, 1);
+
+    // Two concurrent creators serialize on the same deal row; only one active
+    // settlement can be inserted even when both requests start together.
+    await pool.query("insert into admin_deals(id,status,consultant,commission) values('duplicate-create','completed','consultant',1000)");
+    const duplicateHolder = deferred();
+    const releaseDuplicate = deferred();
+    const duplicateContenderPid = deferred();
+    const duplicatePids = [];
+    const duplicateSql = createTransactionalSql(pool, {
+      onBegin: async (pid) => {
+        duplicatePids.push(pid);
+        if (duplicatePids.length === 2) duplicateContenderPid.resolve(pid);
+      },
+      afterDealLock: async (pid) => {
+        if (duplicatePids.length === 1) {
+          duplicateHolder.resolve(pid);
+          await releaseDuplicate.promise;
+        }
+      },
+    });
+    const firstCreate = createAdminCommissionSettlement(duplicateSql, {
+      id: "duplicate-first", consultant: "consultant", dealId: "duplicate-create",
+      commission: "1000", consultantShare: "600", officeShare: "400", note: "", createdBy: "owner",
+    });
+    await waitForSignal(duplicateHolder.promise, "first duplicate settlement to lock its deal");
+    const secondCreate = createAdminCommissionSettlement(duplicateSql, {
+      id: "duplicate-second", consultant: "consultant", dealId: "duplicate-create",
+      commission: "1000", consultantShare: "600", officeShare: "400", note: "", createdBy: "owner",
+    });
+    const duplicateWaiterPid = await waitForSignal(duplicateContenderPid.promise, "second duplicate settlement backend");
+    try {
+      await waitForBlockedBackend(admin, duplicateWaiterPid);
+    } finally {
+      releaseDuplicate.resolve();
+    }
+    const duplicateResults = await Promise.all([firstCreate, secondCreate]);
+    assert.deepEqual(duplicateResults.map((result) => result.kind).sort(), ["created", "duplicate_active"]);
+    assert.equal((await pool.query("select count(*)::int as count from admin_commission_settlements where deal_id='duplicate-create' and status<>'cancelled'")).rows[0].count, 1);
+
+    // The same deal → settlement lock order serializes a downgrade against
+    // reactivation of a previously cancelled settlement in both race orders.
+    await pool.query(`
+      insert into admin_deals(id,status,consultant,commission) values
+        ('deal-downgrade-first','contracted','consultant',1000),
+        ('deal-reactivation-first','contracted','consultant',1000);
+      insert into admin_commission_settlements(id,consultant,deal_id,commission_amount,consultant_share,office_share,status,note,created_by) values
+        ('settlement-downgrade-first','consultant','deal-downgrade-first',1000,600,400,'cancelled','','owner'),
+        ('settlement-reactivation-first','consultant','deal-reactivation-first',1000,600,400,'cancelled','','owner');
+    `);
+
+    const downgradeHolder = deferred();
+    const releaseDowngrade = deferred();
+    const reactivationPid = deferred();
+    const downgradePids = [];
+    const downgradeSql = createTransactionalSql(pool, {
+      onBegin: async (pid) => {
+        downgradePids.push(pid);
+        if (downgradePids.length === 2) reactivationPid.resolve(pid);
+      },
+      afterDealLock: async () => {
+        if (downgradePids.length === 1) {
+          downgradeHolder.resolve();
+          await releaseDowngrade.promise;
+        }
+      },
+    });
+    const downgradeFirst = updateAdminDealStatusWithSettlementGuard(downgradeSql, "deal-downgrade-first", "cancelled");
+    await waitForSignal(downgradeHolder.promise, "deal downgrade to lock its deal");
+    const reactivationSecond = updateCommissionSettlementStatusWithDealGuard(downgradeSql, "settlement-downgrade-first", "pending");
+    const reactivationSecondPid = await waitForSignal(reactivationPid.promise, "settlement reactivation backend");
+    try {
+      await waitForBlockedBackend(admin, reactivationSecondPid);
+    } finally {
+      releaseDowngrade.resolve();
+    }
+    assert.deepEqual(await downgradeFirst, { kind: "updated" });
+    assert.deepEqual(await reactivationSecond, { kind: "deal_not_contractual" });
+
+    const reactivationHolder = deferred();
+    const releaseReactivation = deferred();
+    const downgradePid = deferred();
+    const reactivationPids = [];
+    const reactivationSql = createTransactionalSql(pool, {
+      onBegin: async (pid) => {
+        reactivationPids.push(pid);
+        if (reactivationPids.length === 2) downgradePid.resolve(pid);
+      },
+      afterDealLock: async () => {
+        if (reactivationPids.length === 1) {
+          reactivationHolder.resolve();
+          await releaseReactivation.promise;
+        }
+      },
+    });
+    const reactivationFirst = updateCommissionSettlementStatusWithDealGuard(reactivationSql, "settlement-reactivation-first", "pending");
+    await waitForSignal(reactivationHolder.promise, "settlement reactivation to lock its deal");
+    const downgradeSecond = updateAdminDealStatusWithSettlementGuard(reactivationSql, "deal-reactivation-first", "cancelled");
+    const downgradeSecondPid = await waitForSignal(downgradePid.promise, "deal downgrade backend");
+    try {
+      await waitForBlockedBackend(admin, downgradeSecondPid);
+    } finally {
+      releaseReactivation.resolve();
+    }
+    assert.deepEqual(await reactivationFirst, { kind: "updated" });
+    assert.deepEqual(await downgradeSecond, { kind: "settlement_exists" });
+
+    // Approved and paid accounting rows cannot be deleted; pending/cancelled
+    // rows can be removed after taking the linked deal lock first.
+    await pool.query(`
+      insert into admin_commission_settlements(id,consultant,deal_id,commission_amount,consultant_share,office_share,status,note,created_by) values
+        ('delete-pending','consultant','settlement-first',1000,600,400,'pending','','owner'),
+        ('delete-cancelled','consultant','settlement-first',1000,600,400,'cancelled','','owner'),
+        ('retain-approved','consultant','settlement-first',1000,600,400,'approved','','owner'),
+        ('retain-paid','consultant','settlement-first',1000,600,400,'paid','','owner');
+    `);
+    assert.deepEqual(await deleteAdminCommissionSettlement(sql, "delete-pending"), { kind: "deleted" });
+    assert.deepEqual(await deleteAdminCommissionSettlement(sql, "delete-cancelled"), { kind: "deleted" });
+    assert.deepEqual(await deleteAdminCommissionSettlement(sql, "retain-approved"), { kind: "not_deletable" });
+    assert.deepEqual(await deleteAdminCommissionSettlement(sql, "retain-paid"), { kind: "not_deletable" });
 
     const deleteHolder = deferred();
     const releaseDelete = deferred();

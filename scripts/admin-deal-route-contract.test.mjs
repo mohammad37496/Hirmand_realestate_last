@@ -4,6 +4,10 @@ import test from "node:test";
 
 const route = readFileSync(new URL("../server/routes/api/admin-deals.post.ts", import.meta.url), "utf8");
 const commissionRoute = readFileSync(new URL("../server/routes/api/admin-commission.post.ts", import.meta.url), "utf8");
+const lifecycle = readFileSync(new URL("../src/lib/admin-deal-lifecycle.ts", import.meta.url), "utf8");
+const statusLifecycle = readFileSync(new URL("../src/lib/admin-deal-status-sql.ts", import.meta.url), "utf8");
+const dealsComponent = readFileSync(new URL("../src/components/hirmand/admin-deals.tsx", import.meta.url), "utf8");
+const commissionComponent = readFileSync(new URL("../src/components/hirmand/admin-commission-settlement.tsx", import.meta.url), "utf8");
 const performanceRoute = readFileSync(new URL("../server/routes/api/admin-consultant-performance.get.ts", import.meta.url), "utf8");
 const lead360Route = readFileSync(new URL("../server/routes/api/admin-lead-360.post.ts", import.meta.url), "utf8");
 const targetsRoute = readFileSync(new URL("../server/routes/api/admin-consultant-targets.post.ts", import.meta.url), "utf8");
@@ -29,7 +33,8 @@ test("admin deal create, status and document mutations validate enums before SQL
 
   assert.match(status, /adminDealStatusUpdateSchema\.safeParse\(\{status:body\.status\}\)/);
   assert.match(status, /parsed\.data\.status/);
-  assert.ok(status.indexOf("adminDealStatusUpdateSchema.safeParse") < status.indexOf("update admin_deals"));
+  assert.match(status, /updateAdminDealStatusWithSettlementGuard\(sql,id,parsed\.data\.status/);
+  assert.doesNotMatch(status, /update admin_deals/);
 
   assert.match(document, /adminDealDocumentUpdateSchema\.safeParse\(\{documentStatus:body\.documentStatus\}\)/);
   assert.match(document, /const status=parsed\.data\.documentStatus/);
@@ -38,6 +43,109 @@ test("admin deal create, status and document mutations validate enums before SQL
   assert.doesNotMatch(create, /validType\(|validStatus\(/, "create mutations must use parsed enum values");
   assert.doesNotMatch(status, /validStatus\(/, "status mutations must reject invalid values instead of defaulting");
   assert.doesNotMatch(document, /\["pending","received","verified","rejected"\]\.includes/);
+  assert.match(route, /if\(dbSource==="unconfigured"\)throw createError\(\{statusCode:503/);
+  assert.doesNotMatch(route, /deals:\[\],leads:\[\],properties:\[\],stats:\{\}/);
+  assert.doesNotMatch(route, /readBody\(event\)\.catch/);
+  assert.match(route, /statusCode:400,statusMessage:/);
+});
+
+test("deal list and document query failures cannot appear as empty CRM records", () => {
+  assert.match(dealsComponent, /\[loaded,setLoaded\]=useState\(false\)/);
+  assert.match(dealsComponent, /\[loadError,setLoadError\]=useState\(""\)/);
+  assert.match(dealsComponent, /if\(!loaded&&loading\)/);
+  assert.match(dealsComponent, /if\(!loaded&&loadError\)/);
+  assert.match(dealsComponent, /!deals\.length&&loaded&&!loading&&!loadError/);
+  assert.match(dealsComponent, /\[docsError,setDocsError\]=useState\(""\)/);
+  assert.match(dealsComponent, /\[docsLoading,setDocsLoading\]=useState\(false\)/);
+  assert.match(dealsComponent, /if\(!docsBelongToSelected\|\|visibleDocsLoading\|\|visibleDocsError\)/);
+  assert.match(dealsComponent, /visibleDocsError\?<div className="admin-empty" role="alert"/);
+  assert.match(dealsComponent, /docsRequestId=useRef\(0\)/);
+  assert.match(dealsComponent, /requestId!==docsRequestId\.current/);
+  assert.match(dealsComponent, /await load\(\)/);
+});
+
+test("deal and document refreshes ignore stale responses and preserve the selected deal's previous rows", () => {
+  const listStart = dealsComponent.indexOf("const load=useCallback");
+  const docsStart = dealsComponent.indexOf("const loadDocs=useCallback", listStart);
+  const docsEnd = dealsComponent.indexOf("useEffect(()=>{void load();}", docsStart);
+  const listLoad = dealsComponent.slice(listStart, docsStart);
+  const docsLoad = dealsComponent.slice(docsStart, docsEnd);
+
+  assert.match(dealsComponent, /listRequestId=useRef\(0\),docsRequestId=useRef\(0\)/);
+  assert.match(listLoad, /const requestId=\+\+listRequestId\.current/);
+  assert.match(listLoad, /if\(requestId!==listRequestId\.current\)return false/);
+  assert.match(listLoad, /if\(requestId===listRequestId\.current\)setLoadError/);
+  assert.doesNotMatch(listLoad, /setDeals\(\[\]\)/);
+
+  assert.match(docsLoad, /const loadDocs=useCallback\(async\(id:string,clearPrevious=false\)/);
+  assert.match(docsLoad, /mustClearPrevious=clearPrevious\|\|docsForRef\.current!==id/);
+  assert.match(docsLoad, /if\(mustClearPrevious\)setDocs\(\[\]\)/);
+  assert.match(docsLoad, /docsForRef\.current=id/);
+  assert.match(docsLoad, /if\(requestId!==docsRequestId\.current\|\|selectedRef\.current!==id\)return false/);
+  assert.match(docsLoad, /if\(requestId===docsRequestId\.current&&selectedRef\.current===id\)setDocsError/);
+  assert.match(dealsComponent, /docsFor,setDocsFor/);
+  assert.match(dealsComponent, /docsBelongToSelected=selected!==null&&docsFor===selected/);
+  assert.match(dealsComponent, /visibleDocs=docsBelongToSelected\?docs:\[\]/);
+  assert.match(dealsComponent, /selectedRef=useRef\(selected\)/);
+  assert.match(dealsComponent, /if\(selectedRef\.current!==id\)return false/);
+  assert.match(dealsComponent, /requestId!==docsRequestId\.current\|\|selectedRef\.current!==id/);
+  assert.match(dealsComponent, /useEffect\(\(\)=>\(\)=>\{listRequestId\.current\+=1;docsRequestId\.current\+=1;\},\[\]\)/);
+  assert.match(dealsComponent, /if\(selected\)void loadDocs\(selected,true\)/);
+  assert.match(dealsComponent, /else\{docsRequestId\.current\+=1;setDocs\(\[\]\)/);
+  assert.match(dealsComponent, /در حال به‌روزرسانی مدارک؛ اطلاعات قبلی حفظ شده است/);
+  assert.match(dealsComponent, /visibleDocsError\?<div className="admin-empty" role="alert"/);
+  assert.match(dealsComponent, /!visibleDocs\.length&&!visibleDocsLoading&&!visibleDocsError/);
+  assert.match(dealsComponent, /disabled=\{!docsBelongToSelected\|\|visibleDocsLoading\|\|Boolean\(visibleDocsError\)\}/);
+  assert.match(dealsComponent, /visibleDocs\.map/);
+});
+
+test("linked settlement create/delete and deal/settlement transitions preserve accounting invariants", () => {
+  assert.match(lifecycle, /select id,status,consultant,commission::text as commission from admin_deals where id=\$1 for update/);
+  assert.match(lifecycle, /const dealId = input\.dealId;\s*if \(!dealId\) return \{ kind: "deal_required" \}/);
+  assert.match(lifecycle, /deal\.status !== "contracted" && deal\.status !== "completed"/);
+  assert.match(lifecycle, /consultant_mismatch/);
+  assert.match(lifecycle, /compareDecimalStrings\(dealCommission, input\.commission\)/);
+  assert.match(lifecycle, /!\/\^\\d\{1,20\}/);
+  assert.match(lifecycle, /status<>'cancelled' limit 1/);
+  assert.match(commissionRoute, /kind==="duplicate_active"\)throw createError\(\{statusCode:409/);
+  assert.match(commissionRoute, /if\(!dealId\) throw createError\(\{statusCode:400/);
+  assert.match(commissionRoute, /kind==="deal_required"\)throw createError\(\{statusCode:400/);
+  assert.match(commissionRoute, /deleteAdminCommissionSettlement\(sql,id\)/);
+  assert.match(commissionRoute, /kind==="not_deletable"\)throw createError\(\{statusCode:409/);
+  assert.match(statusLifecycle, /select id from admin_deals where id=\$1 for update/);
+  assert.match(statusLifecycle, /select status from admin_deals where id=\$1 for update/);
+  assert.match(statusLifecycle, /select deal_id from admin_commission_settlements where id=\$1 for update/);
+  assert.match(statusLifecycle, /status='pending' and \$2 in \('approved','cancelled'\)/);
+  assert.match(statusLifecycle, /status='approved' and \$2 in \('paid','cancelled'\)/);
+  assert.match(statusLifecycle, /status='cancelled' and \$2='pending'/);
+  assert.match(statusLifecycle, /id<>\$2 and status<>'cancelled'/);
+  assert.match(statusLifecycle, /if \(!dealId && nextStatus !== "cancelled"\) return \{ kind: "deal_required" as const \}/);
+  assert.match(commissionRoute, /kind==="deal_required"\) throw createError\(\{statusCode:409/);
+  assert.match(commissionRoute, /kind==="duplicate_active"\) throw createError\(\{statusCode:409/);
+  assert.match(statusLifecycle, /else null end,updated_at=current_timestamp/);
+  assert.ok(statusLifecycle.indexOf("select status from admin_deals where id=$1 for update") < statusLifecycle.indexOf("select deal_id from admin_commission_settlements where id=$1 for update"));
+  assert.match(dealsComponent, /if\(!r\.ok\|\|!isRecord\(x\)\|\|x\.success!==true\)/);
+  assert.match(commissionComponent, /const canMoveStatus =/);
+  assert.match(commissionComponent, /<option value="" disabled>/);
+  assert.match(commissionComponent, /disabled=\{!canMoveStatus\(row\.status, "paid"\)\}/);
+  assert.match(commissionComponent, /paidAt: value === "paid" \? new Date\(\)\.toISOString\(\) : null/);
+  assert.match(commissionComponent, /if \(!response\.ok \|\| !isRecord\(payload\)/);
+  assert.match(commissionComponent, /catch \(error\)/);
+});
+
+test("commission queue failures and unconfigured database never render as a confirmed empty queue", () => {
+  assert.match(commissionRoute, /if\(dbSource==="unconfigured"\) throw createError\(\{statusCode:503/);
+  assert.doesNotMatch(commissionRoute, /settlements:\[\],deals:\[\],summary:\{pending:0/);
+  assert.doesNotMatch(commissionRoute, /readBody\(event\)\.catch\(\(\)=>\(\{\}\)\)/);
+  assert.match(commissionRoute, /statusCode:400,statusMessage:/);
+  assert.match(commissionComponent, /const \[loadError, setLoadError\] = useState\(""\)/);
+  assert.match(commissionComponent, /if \(!loaded && loadError\)/);
+  assert.match(commissionComponent, /role="alert"/);
+  assert.match(commissionComponent, /if \(!loaded && loading\)/);
+  assert.match(commissionComponent, /if \(!isRecord\(payload\) \|\| !Array\.isArray\(payload\.settlements\)/);
+  assert.match(commissionComponent, /!isSummary\(payload\.summary\)/);
+  assert.match(commissionComponent, /!loadError \? <div className="admin-empty"/);
+  assert.match(commissionComponent, /await load\(\);/);
 });
 
 test("deal, commission and consultant reports preserve PostgreSQL numeric values as decimal strings", () => {

@@ -4,7 +4,7 @@ import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } 
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { compareDecimalStrings, subtractDecimalStrings } from "@/lib/decimal-money";
-import { createAdminCommissionSettlement } from "@/lib/admin-deal-lifecycle";
+import { createAdminCommissionSettlement, deleteAdminCommissionSettlement } from "@/lib/admin-deal-lifecycle";
 import { updateAdminCommissionStatus } from "@/lib/admin-commission-input";
 
 async function requireAdmin(event:H3Event){
@@ -22,9 +22,13 @@ const displayStatus=(v:unknown)=>["pending","approved","paid","cancelled"].inclu
 export default defineEventHandler(async event=>{
   setResponseHeader(event,"cache-control","no-store");
   const claims=await requireAdmin(event);
-  if(dbSource==="unconfigured") return {settlements:[],deals:[],summary:{pending:0,approved:0,paid:0,total:0,consultants:[]}};
+  if(dbSource==="unconfigured") throw createError({statusCode:503,statusMessage:"پایگاه داده تنظیم نشده است."});
   const sql=await getSql();
-  const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>;
+  let rawBody:unknown;
+  try { rawBody=await readBody(event); }
+  catch { throw createError({statusCode:400,statusMessage:"درخواست تسویه معتبر نیست."}); }
+  if(!rawBody||typeof rawBody!=="object"||Array.isArray(rawBody)) throw createError({statusCode:400,statusMessage:"درخواست تسویه معتبر نیست."});
+  const body=rawBody as Record<string,unknown>;
   const action=clean(body.action,30)||"list";
 
   if(action==="list"){
@@ -44,19 +48,26 @@ export default defineEventHandler(async event=>{
   if(action==="create"){
     const consultant=clean(body.consultant,120); const commission=money(body.commission); const consultantShare=money(body.consultantShare);
     if(!consultant||!commission||!consultantShare) throw createError({statusCode:400,statusMessage:"مشاور، کمیسیون و سهم مشاور الزامی است."});
+    const dealId=clean(body.dealId,120);
+    if(!dealId) throw createError({statusCode:400,statusMessage:"انتخاب یک معامله قراردادی یا نهایی‌شده الزامی است."});
     if(compareDecimalStrings(consultantShare,commission)>0) throw createError({statusCode:400,statusMessage:"سهم مشاور نمی‌تواند بیشتر از کمیسیون کل باشد."});
     const id=crypto.randomUUID();
     const result=await createAdminCommissionSettlement(sql,{
       id,
       consultant,
-      dealId:clean(body.dealId,120)||null,
+      dealId,
       commission,
       consultantShare,
       officeShare:subtractDecimalStrings(commission,consultantShare),
       note:clean(body.note,1200),
       createdBy:clean(claims?.displayName,120)||"مدیریت",
     });
+    if(result.kind==="deal_required")throw createError({statusCode:400,statusMessage:"انتخاب یک معامله قراردادی یا نهایی‌شده الزامی است."});
     if(result.kind==="deal_not_found")throw createError({statusCode:404,statusMessage:"معامله مرتبط پیدا نشد."});
+    if(result.kind==="deal_not_contractual")throw createError({statusCode:409,statusMessage:"برای ثبت تسویه، معامله باید قراردادی یا نهایی‌شده باشد."});
+    if(result.kind==="consultant_mismatch")throw createError({statusCode:409,statusMessage:"مشاور تسویه باید با مشاور ثبت‌شده در معامله یکسان باشد."});
+    if(result.kind==="commission_mismatch")throw createError({statusCode:409,statusMessage:"مبلغ کمیسیون تسویه باید با کمیسیون ثبت‌شده در معامله یکسان باشد."});
+    if(result.kind==="duplicate_active")throw createError({statusCode:409,statusMessage:"برای این معامله قبلاً تسویه فعال ثبت شده است."});
     if(result.kind!=="created")throw createError({statusCode:500,statusMessage:"ثبت تسویه کمیسیون انجام نشد."});
     return {success:true,id};
   }
@@ -66,10 +77,18 @@ export default defineEventHandler(async event=>{
     const result = await updateAdminCommissionStatus(sql, id, body.status);
     if(result.kind==="invalid_status") throw createError({statusCode:400,statusMessage:"وضعیت تسویه معتبر نیست."});
     if(result.kind==="not_found") throw createError({statusCode:404,statusMessage:"تسویه موردنظر پیدا نشد."});
+    if(result.kind==="deal_not_contractual") throw createError({statusCode:409,statusMessage:"برای فعال‌کردن تسویه، معامله باید قراردادی یا نهایی‌شده باشد."});
+    if(result.kind==="duplicate_active") throw createError({statusCode:409,statusMessage:"برای این معامله تسویه فعال دیگری وجود دارد؛ ابتدا آن را لغو کنید."});
+    if(result.kind==="invalid_transition") throw createError({statusCode:409,statusMessage:"تغییر وضعیت با گردش تأیید و پرداخت تسویه سازگار نیست."});
+    if(result.kind==="deal_required") throw createError({statusCode:409,statusMessage:"برای فعال‌کردن یا پرداخت تسویه، معامله قراردادی یا نهایی‌شده مرتبط لازم است."});
+    if(result.kind==="stale") throw createError({statusCode:409,statusMessage:"اطلاعات ارتباط تسویه تغییر کرده است؛ فهرست را تازه‌سازی کنید."});
     return {success:true};
   }
   if(action==="delete"){
-    await sql.query("delete from admin_commission_settlements where id=$1",[id]);
+    const result=await deleteAdminCommissionSettlement(sql,id);
+    if(result.kind==="not_found")throw createError({statusCode:404,statusMessage:"تسویه موردنظر پیدا نشد."});
+    if(result.kind==="not_deletable")throw createError({statusCode:409,statusMessage:"تسویه تأییدشده یا پرداخت‌شده قابل حذف نیست؛ سابقه حسابداری باید حفظ شود."});
+    if(result.kind==="stale")throw createError({statusCode:409,statusMessage:"اطلاعات ارتباط تسویه تغییر کرده است؛ دوباره تلاش کنید."});
     return {success:true};
   }
   throw createError({statusCode:400,statusMessage:"عملیات نامعتبر است."});
