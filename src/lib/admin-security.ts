@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
+import { createError } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import {
@@ -9,6 +10,7 @@ import {
   verifyAdminSessionToken,
 } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 
@@ -36,7 +38,7 @@ export const listAdminSecuritySessions = createServerFn({ method: "POST" })
   .validator(z.object({ limit: z.number().int().min(1).max(100).optional().default(50) }))
   .handler(async ({ data }) => {
     const current = await requireAdmin();
-    if (dbSource === "unconfigured") return { sessions: [], currentSessionId: current?.sessionId ?? null };
+    assertAdminDatabaseConfigured(dbSource, "فهرست نشست‌های مدیران در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
       `select id, created_at, expires_at, last_seen_at, revoked_at, client_hash, user_agent
@@ -67,22 +69,23 @@ export const revokeAdminSessionById = createServerFn({ method: "POST" })
     const current = await requireAdmin();
     if (!current?.sessionId) throw new Error("نشست فعلی قابل مدیریت نیست.");
     if (data.sessionId === current.sessionId) throw new Error("برای بستن نشست فعلی از گزینه خروج استفاده کنید.");
+    assertAdminDatabaseConfigured(dbSource, "مدیریت نشست‌های مدیران در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const changed = await revokeAdminSession(data.sessionId);
-    if (changed) {
-      await writeAdminAuditLog({
-        action: "admin_session_revoked",
-        entityType: "admin_session",
-        entityId: data.sessionId,
-      });
-    }
-    return { success: true, revoked: changed };
+    if (!changed) throw createError({ statusCode: 409, statusMessage: "نشست مورد نظر قبلاً بسته شده یا وجود ندارد." });
+    await writeAdminAuditLog({
+      action: "admin_session_revoked",
+      entityType: "admin_session",
+      entityId: data.sessionId,
+    });
+    return { success: true, revoked: true };
   });
 
 export const revokeOtherAdminSessions = createServerFn({ method: "POST" })
   .validator(z.object({}).optional())
   .handler(async () => {
     const current = await requireAdmin();
-    if (dbSource === "unconfigured" || !current?.sessionId) return { success: true, revoked: 0 };
+    assertAdminDatabaseConfigured(dbSource, "مدیریت نشست‌های مدیران در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
+    if (!current?.sessionId) throw createError({ statusCode: 409, statusMessage: "شناسه نشست فعلی در دسترس نیست؛ دوباره وارد شوید." });
     const sql = await getSql();
     const rows = await sql.query<{ id: string }>(
       `update admin_sessions
@@ -104,7 +107,7 @@ export const purgeExpiredAdminSessions = createServerFn({ method: "POST" })
   .validator(z.object({}).optional())
   .handler(async () => {
     await requireAdmin();
-    if (dbSource === "unconfigured") return { success: true, deleted: 0 };
+    assertAdminDatabaseConfigured(dbSource, "پاک‌سازی نشست‌های مدیران در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
     const rows = await sql.query<{ id: string }>(
       `delete from admin_sessions
