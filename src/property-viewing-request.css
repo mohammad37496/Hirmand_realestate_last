@@ -8,6 +8,7 @@
 .property-viewing-head p,.property-viewing-success p{margin:0;color:var(--muted,#6d675f);line-height:1.9}
 .property-viewing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .property-viewing-grid .field small{display:block;margin-top:5px;color:var(--muted,#6d675f);font-size:.72rem;line-height:1.7}.property-viewing-grid select:disabled{opacity:.7;cursor:wait}.property-viewing-note{grid-column:1/-1}
+.property-viewing-slot-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px}.property-viewing-slot-status small{margin:0}.property-viewing-retry{min-height:34px;padding:4px 10px}
 .property-viewing-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
 .property-viewing-actions button{min-height:46px}
 .property-viewing-error{margin:14px 0 0;padding:10px 12px;border-radius:12px;background:#fff0f0;color:#9e2c2c;border:1px solid rgba(158,44,44,.12)}
