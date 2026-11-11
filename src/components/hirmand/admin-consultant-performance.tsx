@@ -5,6 +5,7 @@ import { addDecimalStrings } from "@/lib/decimal-money";
 import { formatTomanExact } from "@/lib/money";
 
 type Row = {
+  id: string;
   name: string;
   leads: number;
   contractedLeads: number;
@@ -15,7 +16,7 @@ type Row = {
   commissions: string | null;
   paid: string | null;
   due: string | null;
-  conversionRate: number;
+  conversionRate: number | null;
 };
 
 const compact = (value: number) => value.toLocaleString("fa-IR");
@@ -82,12 +83,12 @@ export function AdminConsultantPerformance() {
               <thead><tr><th>مشاور</th><th>لید</th><th>معامله</th><th>تکمیل</th><th>نرخ تبدیل</th>{access.deals ? <th>حجم معامله</th> : null}{access.commissions ? <><th>کمیسیون</th><th>پرداخت‌شده</th><th>مانده</th></> : null}</tr></thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.name}>
+                  <tr key={row.id}>
                     <td><strong>{row.name}</strong><small>{compact(row.openLeads)} درخواست باز</small></td>
                     <td>{compact(row.leads)}</td>
                     <td>{compact(row.deals)}</td>
                     <td>{compact(row.completedDeals)}</td>
-                    <td><b>{row.conversionRate.toLocaleString("fa-IR")}%</b></td>
+                    <td><b>{row.conversionRate == null ? "—" : row.conversionRate.toLocaleString("fa-IR") + "%"}</b></td>
                     {access.deals ? <td>{money(row.volume)}</td> : null}{access.commissions ? <><td>{money(row.commissions)}</td><td>{money(row.paid)}</td><td>{money(row.due)}</td></> : null}
                   </tr>
                 ))}

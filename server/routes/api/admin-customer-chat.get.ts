@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
 
   if (code) {
     const rows = await sql.query(
-      "select m.id,m.tracking_token as \"trackingCode\",m.sender_type as \"senderType\",m.sender_name as \"senderName\",m.message,m.created_at as \"createdAt\",l.name as \"customerName\",l.phone as \"customerPhone\",l.consultant,l.deal from customer_messages m join leads l on l.id=m.lead_id where upper(m.tracking_token)=upper($1) order by m.created_at asc limit 200",
+      "select m.id,m.tracking_token as \"trackingCode\",m.sender_type as \"senderType\",m.sender_name as \"senderName\",m.message,m.created_at as \"createdAt\",l.name as \"customerName\",l.phone as \"customerPhone\",coalesce(c.name,l.consultant) as consultant,l.deal from customer_messages m join leads l on l.id=m.lead_id left join consultants c on c.id=l.consultant_id where upper(m.tracking_token)=upper($1) order by m.created_at asc limit 200",
       [code],
     );
     await sql.query(
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const conversations = await sql.query(
-    "select m.tracking_token as \"trackingCode\",max(m.created_at) as \"lastMessageAt\",count(*)::int as \"messageCount\",count(*) filter (where m.sender_type='customer' and m.read_by_admin_at is null)::int as \"unreadCount\",max(l.name) as \"customerName\",max(l.phone) as \"customerPhone\",max(l.consultant) as \"consultant\",max(l.deal) as \"deal\",(array_agg(m.message order by m.created_at desc))[1] as \"lastMessage\" from customer_messages m join leads l on l.id=m.lead_id group by m.tracking_token order by max(m.created_at) desc limit 100",
+    "select m.tracking_token as \"trackingCode\",max(m.created_at) as \"lastMessageAt\",count(*)::int as \"messageCount\",count(*) filter (where m.sender_type='customer' and m.read_by_admin_at is null)::int as \"unreadCount\",max(l.name) as \"customerName\",max(l.phone) as \"customerPhone\",max(coalesce(c.name,l.consultant)) as \"consultant\",max(l.deal) as \"deal\",(array_agg(m.message order by m.created_at desc))[1] as \"lastMessage\" from customer_messages m join leads l on l.id=m.lead_id left join consultants c on c.id=l.consultant_id group by m.tracking_token order by max(m.created_at) desc limit 100",
   );
   return {
     conversations: conversations.map((item) => item),

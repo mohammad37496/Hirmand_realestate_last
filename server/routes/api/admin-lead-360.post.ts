@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   const sql = await getSql();
   const [leadRows, activityRows, dealRows] = await Promise.all([
     sql.query<Record<string, unknown>>(
-      "select l.id,l.name,l.phone,l.job,l.deal,l.property_type,l.neighborhood,l.floor_preference,l.requested_bedrooms,l.requested_amenities,l.consultant,l.status,l.source,l.follow_up_at,l.last_contacted_at,l.note,l.lease_deadline,l.budget_deposit,l.budget_rent,l.budget_purchase,l.budget_sale,l.budget_deposit_min,l.budget_deposit_max,l.budget_rent_min,l.budget_rent_max,l.budget_purchase_min,l.budget_purchase_max,l.budget_sale_min,l.budget_sale_max,l.budget_equivalent,l.match_count,l.property_id,l.created_at,p.title as property_title,p.slug as property_slug from leads l left join properties p on p.id=l.property_id where l.id=$1 limit 1",
+      "select l.id,l.name,l.phone,l.job,l.deal,l.property_type,l.neighborhood,l.floor_preference,l.requested_bedrooms,l.requested_amenities,coalesce(c.name,l.consultant) as consultant,l.consultant as consultant_snapshot,l.consultant_id,l.status,l.source,l.follow_up_at,l.last_contacted_at,l.note,l.lease_deadline,l.budget_deposit,l.budget_rent,l.budget_purchase,l.budget_sale,l.budget_deposit_min,l.budget_deposit_max,l.budget_rent_min,l.budget_rent_max,l.budget_purchase_min,l.budget_purchase_max,l.budget_sale_min,l.budget_sale_max,l.budget_equivalent,l.match_count,l.property_id,l.created_at,p.title as property_title,p.slug as property_slug from leads l left join properties p on p.id=l.property_id left join consultants c on c.id=l.consultant_id where l.id=$1 limit 1",
       [leadId],
     ),
     sql.query<Record<string, unknown>>(

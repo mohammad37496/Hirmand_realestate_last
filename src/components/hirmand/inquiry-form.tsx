@@ -335,6 +335,7 @@ export function InquiryForm({ draft }: { draft: InquiryDraft }) {
       requestedBedrooms: requestedBedrooms ? Number(requestedBedrooms) : undefined,
       requestedAmenities,
       consultant: selected.name,
+      consultantId: selected.id,
       note: note.trim(),
     };
     try {
@@ -366,6 +367,7 @@ export function InquiryForm({ draft }: { draft: InquiryDraft }) {
           requestedBedrooms: payload.requestedBedrooms,
           requestedAmenities: payload.requestedAmenities,
           consultant: payload.consultant,
+          consultantId: payload.consultantId,
           note: payload.note,
         }),
       });
