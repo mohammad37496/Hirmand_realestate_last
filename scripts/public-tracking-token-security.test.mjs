@@ -44,6 +44,8 @@ test("partner lookup checks same-origin and rate limits before reading and valid
   assertThrottleBefore(partnerLookup, "readBody(event)");
   assert.match(partnerLookup, /tooManyAttemptsError\(attempt.retryAfterSeconds\)/);
   assert.match(partnerLookup, /code\.length > TRACKING_TOKEN_MAX_LENGTH/);
+  assert.match(partnerLookup, /dbSource === "unconfigured"[\s\S]*?statusCode:\s*503/);
+  assert.ok(partnerLookup.indexOf('dbSource === "unconfigured"') < partnerLookup.indexOf("lookupPartnerContract(code)"));
 });
 
 test("customer chat lookups and sends are rate limited before token validation", () => {
