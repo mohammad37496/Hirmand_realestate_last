@@ -175,7 +175,6 @@ try {
           cardFooterGap: footerRect && cardRect ? footerRect.top - cardRect.bottom : null,
           imageFooterGap: footerRect && imageRect ? footerRect.top - imageRect.bottom : null,
           bodyFooterGap: footerRect && bodyRect ? footerRect.top - bodyRect.bottom : null,
-<<<<<<< HEAD
           documentScrollTop: scrollingElement.scrollTop,
           documentScrollHeight: scrollingElement.scrollHeight,
           documentClientHeight: scrollingElement.clientHeight,
@@ -184,7 +183,6 @@ try {
           pagePaddingBottom: pageElement ? getComputedStyle(pageElement).paddingBottom : null,
           scrollY: window.scrollY,
           viewportHeight: window.innerHeight,
-          documentScrollHeight: document.documentElement.scrollHeight,
           scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
         };
       }, scrollPlan);
