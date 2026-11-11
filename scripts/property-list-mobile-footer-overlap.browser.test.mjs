@@ -81,12 +81,12 @@ try {
         continue;
       }
 
-      const expectedImageWidth = Math.min(124, Math.max(104, viewport.width * 0.3));
+      const expectedImageWidth = Math.min(112, Math.max(92, viewport.width * 0.28));
       const reference = cardMetrics[0];
       const invalidFrames = cardMetrics.filter((frame) =>
-        Math.abs(frame.height - 138) > 1 ||
-        Math.abs(frame.imageHeight - 138) > 1 ||
-        Math.abs(frame.bodyHeight - 138) > 1 ||
+        Math.abs(frame.height - 132) > 1 ||
+        Math.abs(frame.imageHeight - 132) > 1 ||
+        Math.abs(frame.bodyHeight - 132) > 1 ||
         Math.abs(frame.imageWidth - expectedImageWidth) > 1 ||
         Math.abs(frame.height - reference.height) > 0.5 ||
         Math.abs(frame.width - reference.width) > 0.5 ||
@@ -141,7 +141,14 @@ try {
         scrollingElement.scrollBy({ top: requestedScroll, behavior: "instant" });
         return { requestedScroll, beforeScrollTop };
       });
-      await page.waitForTimeout(80);
+      await page.waitForFunction(() => {
+        const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+        const footerElement = document.querySelector(".quick-actions");
+        if (!card || !footerElement) return false;
+        const cardRect = card.getBoundingClientRect();
+        const footerRect = footerElement.getBoundingClientRect();
+        return cardRect.bottom <= footerRect.top - 4;
+      }, null, { timeout: 3_000 });
       const bottomGeometry = await lastCard.evaluate((card, plan) => {
         const footerElement = document.querySelector(".quick-actions");
         const mediaElement = card.querySelector(".pcard-media > .pcard-image-link");
@@ -168,12 +175,17 @@ try {
           cardFooterGap: footerRect && cardRect ? footerRect.top - cardRect.bottom : null,
           imageFooterGap: footerRect && imageRect ? footerRect.top - imageRect.bottom : null,
           bodyFooterGap: footerRect && bodyRect ? footerRect.top - bodyRect.bottom : null,
+<<<<<<< HEAD
           documentScrollTop: scrollingElement.scrollTop,
           documentScrollHeight: scrollingElement.scrollHeight,
           documentClientHeight: scrollingElement.clientHeight,
           requestedScroll: plan.requestedScroll,
           actualScroll: scrollingElement.scrollTop - plan.beforeScrollTop,
           pagePaddingBottom: pageElement ? getComputedStyle(pageElement).paddingBottom : null,
+          scrollY: window.scrollY,
+          viewportHeight: window.innerHeight,
+          documentScrollHeight: document.documentElement.scrollHeight,
+          scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
         };
       }, scrollPlan);
       if (bottomGeometry.cardOverlapsFooter || bottomGeometry.imageOverlapsFooter || bottomGeometry.bodyOverlapsFooter || bottomGeometry.cardFooterGap < 4) {
