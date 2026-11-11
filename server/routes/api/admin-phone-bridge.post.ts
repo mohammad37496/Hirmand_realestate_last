@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import {
   ADMIN_SESSION_COOKIE,
   getAdminSessionClaims,
@@ -84,16 +85,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت و فرمان‌های Phone Bridge برای این حساب فعال نیست." });
   }
   assertSameOrigin(event);
+  assertAdminDatabaseConfigured(dbSource, "Phone Bridge در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
   const actorAccountId = typeof adminClaims?.options?.accountId === "string" ? adminClaims.options.accountId : null;
   if (input.action !== "list" && input.action !== "audit") {
     const throttle = await consumeAdminAttempt(`phone-bridge:${clientFingerprint(event)}`);
     if (!throttle.allowed) {
       throw createError({ statusCode: 429, statusMessage: "تعداد درخواست‌ها بیش از حد مجاز است." });
     }
-  }
-
-  if (dbSource === "unconfigured") {
-    return { ok: true, devices: [], commands: [], unconfigured: true };
   }
 
   const sql = await getSql();

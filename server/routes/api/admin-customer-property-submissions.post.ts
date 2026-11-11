@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { canApproveCustomerPropertySubmission, hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { TEAM } from "@/lib/site";
 import { isAllowedMediaRef, isVideoUrl, stripMediaUploadCapability } from "@/lib/media";
 import { propertyInputSchema } from "@/lib/properties";
@@ -50,7 +51,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(role, "property.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی بررسی و انتشار فایل‌های ارسالی مشتریان برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { submissions: [], total: 0, counts: { pending: 0, approved: 0, rejected: 0 } };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده برای بررسی و مدیریت ثبت ملک مشتری آماده نیست.");
 
   const body = (await readBody(event)) as {
     action?: Action;

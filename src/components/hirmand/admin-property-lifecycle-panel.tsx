@@ -19,9 +19,11 @@ export function AdminPropertyLifecyclePanel() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [createdTasks, setCreatedTasks] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-property-lifecycle", {
         method: "POST",
@@ -31,6 +33,8 @@ export function AdminPropertyLifecyclePanel() {
       if (!response.ok) throw new Error("lifecycle load failed");
       const result = (await response.json()) as { items?: LifecycleItem[] };
       setItems(result.items ?? []);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "چرخه عمر فایل‌ها بارگذاری نشد.");
     } finally {
       setLoading(false);
     }
@@ -52,6 +56,9 @@ export function AdminPropertyLifecyclePanel() {
       const result = (await response.json()) as { items?: LifecycleItem[]; createdTasks?: number };
       setCreatedTasks(result.createdTasks ?? 0);
       setItems(result.items ?? []);
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "ساخت پیگیری‌ها انجام نشد.");
     } finally {
       setCreating(false);
     }
@@ -73,14 +80,14 @@ export function AdminPropertyLifecyclePanel() {
         </button>
       </div>
 
-      <div className="admin-dashboard-mini-grid">
+      {loadError ? <div className="admin-empty" role="alert">{loadError}<button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>تلاش مجدد</button></div> : <div className="admin-dashboard-mini-grid">
         <div><span>نیاز فوری</span><strong>{urgent.toLocaleString("fa-IR")}</strong></div>
         <div><span>دارای نقص اطلاعات</span><strong>{withMissing.toLocaleString("fa-IR")}</strong></div>
         <div><span>کل صف</span><strong>{items.length.toLocaleString("fa-IR")}</strong></div>
-      </div>
+      </div>}
 
       <div className="admin-breakdown">
-        {items.length === 0 ? (
+        {loadError ? null : items.length === 0 ? (
           <div className="admin-empty">
             <CheckCircle2 size={24} />
             <strong>فایل بحرانی برای تازه‌سازی پیدا نشد</strong>
@@ -103,12 +110,14 @@ export function AdminPropertyLifecyclePanel() {
       </div>
 
       <div style={{ padding: "12px 20px 18px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <button type="button" className="btn-gold" onClick={() => void createTasks()} disabled={creating || items.every((item) => item.hasOpenTask)}>
+        <button type="button" className="btn-gold" onClick={() => void createTasks()} disabled={creating || loading || Boolean(loadError) || items.every((item) => item.hasOpenTask)}>
           <Clock3 size={16} />
           {creating ? "در حال ساخت پیگیری..." : "ساخت پیگیری برای فایل‌های قدیمی"}
         </button>
-        {createdTasks > 0 ? <span className="admin-dashboard-summary">{createdTasks.toLocaleString("fa-IR")} پیگیری ساخته شد.</span> : null}
-        {urgent > 0 ? <span className="admin-dashboard-summary"><AlertTriangle size={13} /> موارد فوری ابتدا بررسی شوند.</span> : null}
+        {!loadError ? <>
+          {createdTasks > 0 ? <span className="admin-dashboard-summary">{createdTasks.toLocaleString("fa-IR")} پیگیری ساخته شد.</span> : null}
+          {urgent > 0 ? <span className="admin-dashboard-summary"><AlertTriangle size={13} /> موارد فوری ابتدا بررسی شوند.</span> : null}
+        </> : null}
       </div>
     </section>
   );
