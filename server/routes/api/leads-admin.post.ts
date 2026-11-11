@@ -5,6 +5,7 @@ import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { updateAdminLeadWithActivity } from "@/lib/admin-lead-activity-action";
+import { createOverdueLeadTasks } from "@/lib/admin-overdue-lead-tasks";
 
 type Status = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 type VisitStatus = "none" | "requested" | "confirmed" | "completed" | "cancelled";
@@ -316,14 +317,10 @@ export default defineEventHandler(async (event) => {
   }
 
   if (body.action === "create_overdue_tasks") {
-    const overdue = await sql.query<Record<string, unknown>>("select id, name, deal, neighborhood from leads where status not in ('closed','spam') and follow_up_at is not null and follow_up_at <= current_timestamp order by follow_up_at asc limit 500");
-    let created = 0;
-    for (const row of overdue) {
-      const exists = await sql.query<{ id: string }>("select id from admin_tasks where entity_type='lead' and entity_id=$1 and status='open' limit 1",[String(row.id)]).catch(()=>[]);
-      if (exists.length) continue;
-      await sql.query("insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) values($1,$2,$3,'open','high',current_timestamp,'تیم هیرمند','lead',$4)",[crypto.randomUUID(),"پیگیری فوری لید: "+String(row.name||"مشتری"),"لید "+String(row.deal||"درخواست ملکی")+(row.neighborhood?" · "+String(row.neighborhood):"")+" از موعد پیگیری عبور کرده است.",String(row.id)]);
-      created++;
+    if (typeof sql.transaction !== "function") {
+      throw createError({ statusCode: 503, statusMessage: "ساخت وظایف پیگیری به تراکنش پایگاه داده نیاز دارد." });
     }
+    const created = await createOverdueLeadTasks(sql);
     return { success:true, created };
   }
 
