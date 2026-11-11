@@ -128,7 +128,17 @@ try {
       // not considered a pass.
       const lastCard = cards.last();
       await lastCard.evaluate((card) => card.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
-      await page.waitForTimeout(80);
+      // Chromium can honor the page's smooth-scroll policy even when the
+      // caller requests an instant scroll. Wait for the actual safe geometry
+      // instead of sampling a partially completed scroll after a fixed delay.
+      await page.waitForFunction(() => {
+        const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+        const footerElement = document.querySelector(".quick-actions");
+        if (!card || !footerElement) return false;
+        const cardRect = card.getBoundingClientRect();
+        const footerRect = footerElement.getBoundingClientRect();
+        return cardRect.bottom <= footerRect.top - 4;
+      }, null, { timeout: 3_000 });
       const bottomGeometry = await lastCard.evaluate((card) => {
         const footerElement = document.querySelector(".quick-actions");
         const mediaElement = card.querySelector(".pcard-media > .pcard-image-link");
@@ -153,6 +163,10 @@ try {
           cardFooterGap: footerRect && cardRect ? footerRect.top - cardRect.bottom : null,
           imageFooterGap: footerRect && imageRect ? footerRect.top - imageRect.bottom : null,
           bodyFooterGap: footerRect && bodyRect ? footerRect.top - bodyRect.bottom : null,
+          scrollY: window.scrollY,
+          viewportHeight: window.innerHeight,
+          documentScrollHeight: document.documentElement.scrollHeight,
+          scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
         };
       });
       if (bottomGeometry.cardOverlapsFooter || bottomGeometry.imageOverlapsFooter || bottomGeometry.bodyOverlapsFooter || bottomGeometry.cardFooterGap < 4) {
