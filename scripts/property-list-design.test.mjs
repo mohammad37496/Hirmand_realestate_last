@@ -68,10 +68,11 @@ test("property photo actions use a floating glass dock with clear button states"
 });
 
 test("phone list cards keep a readable image, key facts and a single swipeable action row", () => {
-  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[\s\S]*?margin-inline-start:\s*clamp\(104px,\s*30vw,\s*124px\)/);
-  const finalPhoneLayout = marketplaceCss.slice(marketplaceCss.lastIndexOf(".pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list > .pcard-link {"));
-  assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*display:\s*flex;[^}]*width:\s*calc\(100% - clamp\(104px,\s*30vw,\s*124px\)\);[^}]*margin-inline-start:\s*clamp\(104px,\s*30vw,\s*124px\);[^}]*height:\s*138px/);
-  assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-body\s*\{[^}]*height:\s*138px/);
+  const finalPhoneLayout = responsiveHardeningCss.slice(
+    responsiveHardeningCss.lastIndexOf("/* One fixed, compact geometry for every marketplace mobile list card."),
+  );
+  assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*display:\s*flex;[^}]*width:\s*calc\(100% - clamp\(92px,\s*28vw,\s*112px\)\);[^}]*height:\s*132px;[^}]*margin-inline-start:\s*clamp\(92px,\s*28vw,\s*112px\)/);
+  assert.match(finalPhoneLayout, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-body\s*\{[^}]*height:\s*132px/);
   const gridModeStart = marketplaceCss.indexOf("/* Premium photo-first cards");
   const phoneCardStackingStart = marketplaceCss.lastIndexOf("  .pcard-mobile-list > .pcard-media {", gridModeStart);
   const phoneCardStacking = marketplaceCss.slice(phoneCardStackingStart, gridModeStart);
