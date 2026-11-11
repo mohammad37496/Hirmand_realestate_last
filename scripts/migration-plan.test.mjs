@@ -14,6 +14,7 @@ import {
   assertRequiredMigrationFiles,
   assertRequiredMigrationLedger,
   CUSTOMER_AUTH_MIGRATIONS,
+  LEAD_CONSULTANT_RELATION_MIGRATIONS,
   PROPERTY_CONSULTANT_RELATION_MIGRATIONS,
   isMigrationFile,
   migrationName,
@@ -97,6 +98,14 @@ test("property-consultant relation migration is required in every production dep
   assert.doesNotThrow(() => assertRequiredMigrationLedger(PROPERTY_CONSULTANT_RELATION_MIGRATIONS, PROPERTY_CONSULTANT_RELATION_MIGRATIONS));
   assert.throws(() => assertRequiredMigrationFiles([], PROPERTY_CONSULTANT_RELATION_MIGRATIONS), /0103_property_consultant_relation\.sql/);
   assert.throws(() => assertRequiredMigrationLedger([], PROPERTY_CONSULTANT_RELATION_MIGRATIONS), /0103_property_consultant_relation\.sql/);
+});
+
+test("CRM lead-consultant relation migration is required in every production deploy ledger", () => {
+  assert.deepEqual(LEAD_CONSULTANT_RELATION_MIGRATIONS, ["0104_lead_consultant_relation.sql"]);
+  assert.doesNotThrow(() => assertRequiredMigrationFiles(LEAD_CONSULTANT_RELATION_MIGRATIONS, LEAD_CONSULTANT_RELATION_MIGRATIONS));
+  assert.doesNotThrow(() => assertRequiredMigrationLedger(LEAD_CONSULTANT_RELATION_MIGRATIONS, LEAD_CONSULTANT_RELATION_MIGRATIONS));
+  assert.throws(() => assertRequiredMigrationFiles([], LEAD_CONSULTANT_RELATION_MIGRATIONS), /0104_lead_consultant_relation\.sql/);
+  assert.throws(() => assertRequiredMigrationLedger([], LEAD_CONSULTANT_RELATION_MIGRATIONS), /0104_lead_consultant_relation\.sql/);
 });
 
 test("non-.sql entries are dropped (readdir also yields the auth/ directory)", () => {
