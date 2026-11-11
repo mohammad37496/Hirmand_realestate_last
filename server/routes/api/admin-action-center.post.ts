@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 
 type ActionItem = {
   id: string;
@@ -37,7 +38,7 @@ function iso(value: unknown) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { summary: { urgent: 0, high: 0, total: 0 }, items: [] as ActionItem[] };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده برای دریافت یا تکمیل کارهای امروز آماده نیست.");
 
   const body = (await readBody(event).catch(() => ({}))) as { action?: "list" | "completeTask"; id?: string };
   const sql = await getSql();

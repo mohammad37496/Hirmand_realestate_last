@@ -31,15 +31,19 @@ export function AdminSecurityCenter() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   async function load() {
     setLoading(true);
+    setLoadError("");
     try {
       const data = await listAdminSecuritySessions({ data: { limit: 50 } });
       setSessions(data.sessions);
       setCurrentSessionId(data.currentSessionId);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "فهرست نشست‌ها دریافت نشد.");
+      const message = error instanceof Error ? error.message : "فهرست نشست‌ها دریافت نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -102,23 +106,29 @@ export function AdminSecurityCenter() {
         </div>
         <div className="admin-security-actions">
           <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading || !!busy}><RefreshCw size={15} className={loading ? "admin-spin" : ""} /> تازه‌سازی</button>
-          <button type="button" className="btn-ghost" onClick={() => void purge()} disabled={!!busy}><ShieldAlert size={15} /> پاک‌سازی قدیمی</button>
-          <button type="button" className="btn-gold" onClick={() => void revokeOthers()} disabled={!!busy}><LogOut size={15} /> بستن نشست‌های دیگر</button>
+          <button type="button" className="btn-ghost" onClick={() => void purge()} disabled={!!busy || loading || !!loadError}><ShieldAlert size={15} /> پاک‌سازی قدیمی</button>
+          <button type="button" className="btn-gold" onClick={() => void revokeOthers()} disabled={!!busy || loading || !!loadError}><LogOut size={15} /> بستن نشست‌های دیگر</button>
         </div>
       </section>
 
-      <section className="admin-security-stats">
+      {!loadError && !loading ? <section className="admin-security-stats">
         <article><span>نشست فعال</span><strong>{active.length.toLocaleString("fa-IR")}</strong><small>در ۳۰ روز اخیر</small></article>
         <article><span>نشست بسته/منقضی</span><strong>{closed.length.toLocaleString("fa-IR")}</strong><small>سوابق نگهداری‌شده</small></article>
         <article><span>نشست فعلی</span><strong>{currentSessionId ? "فعال" : "قدیمی"}</strong><small>{currentSessionId ? "قابل شناسایی و مدیریت" : "ورود قبلی قبل از فعال‌سازی این قابلیت"}</small></article>
-      </section>
+      </section> : null}
 
       <section className="admin-panel admin-security-list">
         <div className="admin-panel-head">
           <div><span className="kicker">ردپای ورود</span><h2>دستگاه‌ها و مرورگرهای اخیر</h2></div>
           <span className="admin-dashboard-summary">{sessions.length.toLocaleString("fa-IR")} رکورد</span>
         </div>
-        {loading ? <div className="admin-security-empty">در حال دریافت نشست‌ها…</div> : !sessions.length ? (
+        {loading ? <div className="admin-security-empty">در حال دریافت نشست‌ها…</div> : loadError ? (
+          <div className="admin-error-banner" role="alert">
+            <ShieldAlert size={18} />
+            <span>{loadError}</span>
+            <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading || !!busy}>تلاش دوباره</button>
+          </div>
+        ) : !sessions.length ? (
           <div className="admin-security-empty">هنوز نشست ذخیره‌شده‌ای وجود ندارد. نشست بعدی هنگام ورود ثبت می‌شود.</div>
         ) : (
           <div className="admin-security-rows">
@@ -137,7 +147,7 @@ export function AdminSecurityCenter() {
                     <small>ایجاد: {formatDate(item.createdAt)} · آخرین فعالیت: {formatDate(item.lastSeenAt)} · انقضا: {formatDate(item.expiresAt)}</small>
                   </div>
                   <div className="admin-security-row-actions">
-                    {!item.isCurrent && isActive ? <button type="button" className="btn-ghost" disabled={!!busy} onClick={() => void revoke(item.id)}>{busy === item.id ? "در حال بستن…" : "بستن نشست"}</button> : null}
+                    {!item.isCurrent && isActive ? <button type="button" className="btn-ghost" disabled={!!busy || loading || !!loadError} onClick={() => void revoke(item.id)}>{busy === item.id ? "در حال بستن…" : "بستن نشست"}</button> : null}
                   </div>
                 </article>
               );
