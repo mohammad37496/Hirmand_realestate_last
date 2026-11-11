@@ -174,6 +174,21 @@ test("mobile list cards can scroll fully clear of the fixed bottom action dock",
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*scroll-margin-block-end:\s*calc\(80px \+ env\(safe-area-inset-bottom\)\)/);
 });
 
+test("mobile footer browser checks disable smooth scrolling before measuring final card clearance", () => {
+  for (const file of [
+    "./property-list-mobile-footer-overlap.browser.test.mjs",
+    "./property-list-mobile-uniform.browser.test.mjs",
+  ]) {
+    const source = fs.readFileSync(new URL(file, import.meta.url), "utf8");
+    const scrollCall = source.match(/await\s+(?:\w+\.last\(\)|\w+)\.evaluate\(\(card\)\s*=>\s*card\.scrollIntoView/);
+    assert.ok(scrollCall, `${file} must scroll the final card into view`);
+    const scrollIndex = scrollCall.index ?? -1;
+    const beforeScroll = source.slice(0, scrollIndex);
+    assert.match(beforeScroll, /document\.documentElement\.style\.scrollBehavior\s*=\s*"auto"/);
+    assert.match(beforeScroll, /document\.body\.style\.scrollBehavior\s*=\s*"auto"/);
+  }
+});
+
 test("homepage shared cards retain the compact RTL list and 44px image action overlay on phones", () => {
   const homeMobile = homePropertyCss.slice(homePropertyCss.indexOf("/* The homepage showcase uses the same compact RTL list-card rhythm"));
   assert.match(homeMobile, /\.site-home \.property-showcase \.pcard-mobile-list\s*\{\s*grid-template-rows:\s*minmax\(168px, auto\)/);

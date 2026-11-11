@@ -208,6 +208,12 @@ try {
       const footer = page.locator(".quick-actions").first();
       let footerGeometry = null;
       if (await footer.count()) {
+        // This is a final-position geometry assertion. Do not sample a smooth
+        // scroll animation that may still be in flight on a loaded CI runner.
+        await page.evaluate(() => {
+          document.documentElement.style.scrollBehavior = "auto";
+          document.body.style.scrollBehavior = "auto";
+        });
         await cards.last().evaluate((card) => card.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
         footerGeometry = await cards.last().evaluate((card) => {
           const footerElement = document.querySelector(".quick-actions");
