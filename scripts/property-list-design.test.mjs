@@ -161,6 +161,7 @@ test("mobile list cards keep every property photo in the same compact frame", ()
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media\s*\{[^}]*height:\s*132px;[^}]*max-height:\s*132px/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-image-link picture,[\s\S]*?height:\s*132px;[^}]*object-fit:\s*cover/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-body\s*\{[^}]*grid-template-rows:\s*16px 2\.45em 22px 18px 16px;[^}]*height:\s*132px/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-body\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-title\s*\{[^}]*-webkit-line-clamp:\s*2/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-specs span:nth-child\(n \+ 4\)/);
 });
