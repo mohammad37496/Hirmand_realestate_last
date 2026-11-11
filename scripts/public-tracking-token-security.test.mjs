@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const [publicTracking, ownerStatus, partnerLookup, customerChatGet, customerChatPost, submissions, publicActions, adminCustomerChat, mediaProxy, mediaById, mediaAccess, leadsRoute, partnerSession, rateLimit, tokenServer] = await Promise.all([
+const [publicTracking, ownerStatus, partnerLookup, customerChatGet, customerChatPost, submissions, publicActions, adminCustomerChat, mediaProxy, mediaById, mediaAccess, leadsRoute, partnerSession, partnerSessionRoute, rateLimit, tokenServer] = await Promise.all([
   read("server/routes/api/public-lead-tracking.get.ts"),
   read("server/routes/api/owner-property-status.post.ts"),
   read("server/routes/api/partner/lookup.post.ts"),
@@ -17,6 +17,7 @@ const [publicTracking, ownerStatus, partnerLookup, customerChatGet, customerChat
   read("src/lib/liara-media-access.server.ts"),
   read("server/routes/api/leads.post.ts"),
   read("src/lib/partner-session.server.ts"),
+  read("server/routes/api/partner/session.post.ts"),
   read("src/lib/admin-rate-limit.server.ts"),
   read("src/lib/tracking-token.server.ts"),
 ]);
@@ -82,6 +83,14 @@ test("all public-token consumers share the legacy-compatible validator and 128-b
   assert.match(leadsRoute, /generatePublicTrackingToken\(\)/);
   assert.match(submissions, /generatePublicTrackingToken\(\)/);
   assert.match(partnerSession, /generatePartnerTrackingCode\(\)/);
+});
+
+test("partner PIN login is same-origin and rate limited before credential verification", () => {
+  assert.match(partnerSessionRoute, /assertSameOrigin\(event\)/);
+  assertThrottleBefore(partnerSessionRoute, "authenticatePartner(");
+  assert.match(partnerSessionRoute, /clientFingerprint\(event\)/);
+  assert.match(partnerSessionRoute, /tooManyAttemptsError\(attempt.retryAfterSeconds\)/);
+  assert.match(partnerSessionRoute, /clearAdminAttempts\(loginRateKey\)/);
 });
 
 test("rate limiting uses atomic Redis EVAL and synchronous in-memory bucket consumption", () => {
