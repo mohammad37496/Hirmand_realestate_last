@@ -1,4 +1,4 @@
-import { defineEventHandler, getCookie, readBody, setResponseHeader, createError } from "h3";
+import { defineEventHandler, getCookie, setResponseHeader, createError } from "h3";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
@@ -15,9 +15,10 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "lead.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مشاهده بازخورد مشتریان برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { total: 0, average: 0, interested: 0, recent: [] };
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای دریافت بازخوردها پیکربندی نشده است." });
+  }
 
-  await readBody(event).catch(() => ({}));
   const sql = await getSql();
   const summaryRows = await sql.query<{ total: number; average: number; interested: number }>(
     "select count(*)::int as total, coalesce(round(avg(rating)::numeric,1),0)::float as average, count(*) filter (where interest='interested')::int as interested from lead_visit_feedback",
