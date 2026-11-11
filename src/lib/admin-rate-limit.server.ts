@@ -6,11 +6,9 @@
  *
  * The counter lives in Redis when `UPSTASH_REDIS_REST_URL` /
  * `UPSTASH_REDIS_REST_TOKEN` are set, and in a process-local Map otherwise.
- * That split is not a nicety: the production build runs on Vercel, where each
- * request can land on a different instance. A Map there resets on every cold
- * start, so an attacker rotating instances would never trip the limit. The
- * in-memory path is still the right default for `npm run dev` and for anyone
- * self-hosting a single Node process, and it keeps this module dependency-free.
+ * The Map is suitable for development or a single-process deployment; it is
+ * not shared across multiple production instances. Configured Redis failures
+ * deliberately fail closed instead of silently weakening the shared limit.
  */
 
 import { createHash } from "node:crypto";
@@ -185,7 +183,7 @@ function store(): ThrottleStore {
 
 /** Stable rate-limit identity. User-Agent is caller-controlled and must not split a caller's bucket. */
 export function clientFingerprint(event: H3Event): string {
-  const ip = resolveClientIp(getHeader(event, "x-forwarded-for"), getHeader(event, "x-real-ip")?.trim() || getRequestIP(event));
+  const ip = resolveClientIp(getHeader(event, "x-forwarded-for"), getRequestIP(event));
   return createHash("sha256").update(ip).digest("hex");
 }
 
