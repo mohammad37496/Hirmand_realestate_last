@@ -503,8 +503,16 @@ export default defineEventHandler(async (event) => {
         statusMessage: "این بازه برای این فایل قبلاً درخواستی دارد. لطفاً یکی از زمان‌های خالی را انتخاب کنید.",
       });
     }
-    if (visitResult.kind !== "created") throw createError({ statusCode: 500, statusMessage: "ثبت درخواست بازدید انجام نشد." });
-    return { success: true, duplicate: false, id: visitResult.id, visitRequested: true, trackingToken };
+    if (visitResult.kind !== "created" && visitResult.kind !== "duplicate") {
+      throw createError({ statusCode: 500, statusMessage: "ثبت درخواست بازدید انجام نشد." });
+    }
+    return {
+      success: true,
+      duplicate: visitResult.kind === "duplicate",
+      id: visitResult.id,
+      visitRequested: true,
+      trackingToken: visitResult.trackingToken,
+    };
   }
   if (parsed.data.deal === "درخواست تأمین مالی" && parsed.data.propertyId) {
     const propertyRows = await sql.query<{

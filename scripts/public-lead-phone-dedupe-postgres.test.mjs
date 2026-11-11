@@ -4,6 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import pg from "pg";
 import { test } from "node:test";
 import { findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "../src/lib/public-lead-phone-dedupe.ts";
+import { createPropertyVisitRequest } from "../src/lib/property-visit-request.ts";
 
 const { Pool } = pg;
 const databaseUrl = process.env.TEST_DATABASE_URL;
@@ -55,11 +56,33 @@ test("same-phone public lead submissions serialize across independent PostgreSQL
       create table "${schema}".leads (
         id text primary key,
         phone text not null,
+        name text,
+        people_count integer,
+        job text,
+        deal text,
+        property_type text,
+        neighborhood text,
+        consultant text,
+        note text,
+        source text,
+        follow_up_at timestamptz,
+        floor_preference text,
+        property_id text,
+        visit_preferred_at timestamptz,
+        visit_requested_at timestamptz,
+        visit_status text,
         budget_amount integer,
         callback_preferred_at timestamptz,
         public_tracking_token text,
         created_at timestamptz not null default current_timestamp
       );
+      create table "${schema}".properties (
+        id text primary key, title text not null, property_type text not null, neighborhood text not null,
+        contact_name text not null, deleted_at timestamptz, status text not null, publish_at timestamptz,
+        unpublish_at timestamptz, availability_status text not null
+      );
+      insert into "${schema}".properties(id,title,property_type,neighborhood,contact_name,status,availability_status)
+      values ('property-visit','Apartment','apartment','Center','Agent','published','available');
       create table "${schema}".lead_activities (id bigserial primary key, lead_id text not null references "${schema}".leads(id));
       create table "${schema}".admin_tasks (id text primary key, lead_id text not null references "${schema}".leads(id));
     `);
@@ -142,6 +165,61 @@ test("same-phone public lead submissions serialize across independent PostgreSQL
         (select count(*)::int from "${schema}".admin_tasks) as tasks
     `);
     assert.deepEqual(callbackCounts.rows[0], { leads: 1, activities: 2, tasks: 2 });
+
+    const visitBackendPids = [];
+    const visitSql = {
+      transaction: async (callback) => {
+        const client = await pool.connect();
+        try {
+          await client.query("set search_path to \"" + schema + "\"");
+          await client.query("begin");
+          const backend = await client.query("select pg_backend_pid() as pid");
+          visitBackendPids.push(Number(backend.rows[0].pid));
+          const transactionSql = {
+            query: async (text, params = []) => {
+              const result = await client.query(text, params);
+              if (/insert into leads/i.test(text) && /visit_preferred_at/i.test(text)) await delay(100);
+              return result.rows;
+            },
+          };
+          const result = await callback(transactionSql);
+          await client.query("commit");
+          return result;
+        } catch (error) {
+          await client.query("rollback").catch(() => {});
+          throw error;
+        } finally {
+          client.release();
+        }
+      },
+    };
+    const visitInput = {
+      propertyId: "property-visit",
+      visitAt: "2026-11-12T12:00:00.000Z",
+      name: "Customer",
+      phone,
+      peopleCount: 1,
+      job: "",
+      floorPreference: "",
+      consultant: "",
+      note: "Visit request",
+    };
+    const visitResults = await Promise.all([
+      createPropertyVisitRequest(visitSql, { ...visitInput, trackingToken: "visit-token-one" }),
+      createPropertyVisitRequest(visitSql, { ...visitInput, trackingToken: "visit-token-two" }),
+    ]);
+    assert.deepEqual(visitResults.map((result) => result.kind).sort(), ["created", "duplicate"]);
+    assert.equal(visitResults[0].id, visitResults[1].id);
+    assert.equal(visitResults[0].trackingToken, visitResults[1].trackingToken);
+    assert.equal(new Set(visitBackendPids).size, 2, "visit retries must use independent PostgreSQL sessions");
+    assert.equal(
+      (await pool.query(`select count(*)::int as count from "${schema}".leads where property_id='property-visit'`)).rows[0].count,
+      1,
+    );
+    assert.equal(
+      (await createPropertyVisitRequest(visitSql, { ...visitInput, phone: "09123456780", trackingToken: "visit-token-other" })).kind,
+      "conflict",
+    );
 
     await assert.rejects(
       withPublicLeadPhoneDedupeLock(sql, "09123456780", async () => {

@@ -25,8 +25,15 @@ type PropertyVisitRequestResult =
   | { kind: "conflict" }
   | { kind: "failed" }
   | {
+      kind: "duplicate";
+      id: string;
+      trackingToken: string;
+      property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string };
+    }
+  | {
       kind: "created";
       id: string;
+      trackingToken: string;
       property: { id: string; title: string; property_type: string; neighborhood: string; contact_name: string };
     };
 
@@ -68,6 +75,21 @@ export async function createPropertyVisitRequest(
     const property = propertyRows[0];
     if (!property) return { kind: "not_found" };
 
+    const duplicateRows = await transactionSql.query<{ id: string; public_tracking_token: string | null }>(
+      "select id, public_tracking_token from leads where property_id::text=$1 and phone=$2 and visit_status in ('requested','confirmed') and visit_preferred_at=$3::timestamptz limit 1",
+      [property.id, input.phone, input.visitAt],
+    );
+    if (duplicateRows[0]) {
+      const trackingToken = duplicateRows[0].public_tracking_token || input.trackingToken;
+      if (!duplicateRows[0].public_tracking_token) {
+        await transactionSql.query(
+          "update leads set public_tracking_token=$2 where id=$1",
+          [duplicateRows[0].id, trackingToken],
+        );
+      }
+      return { kind: "duplicate", id: duplicateRows[0].id, trackingToken, property };
+    }
+
     const conflictRows = await transactionSql.query<{ id: string }>(
       "select id from leads where property_id::text=$1 and visit_status in ('requested','confirmed') and abs(extract(epoch from (visit_preferred_at - $2::timestamptz))) < 2700 limit 1",
       [property.id, input.visitAt],
@@ -103,7 +125,7 @@ export async function createPropertyVisitRequest(
         : input.intake.followUp;
       await recordPublicLeadIntake(transactionSql, rows[0].id, activity, followUp);
     }
-    return { kind: "created", id: rows[0].id, property };
+    return { kind: "created", id: rows[0].id, trackingToken: input.trackingToken, property };
   });
 }
 
