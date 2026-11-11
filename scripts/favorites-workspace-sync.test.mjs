@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const favoritesSource = readFileSync(fileURLToPath(new URL("../src/routes/favorites.tsx", import.meta.url)), "utf8");
+const propertiesSource = readFileSync(fileURLToPath(new URL("../src/lib/properties.ts", import.meta.url)), "utf8");
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -38,6 +39,17 @@ test("initial favorites lookup failures preserve saved slugs and show an accessi
   assert.match(favoritesSource, /setFavoritesLoadError\("دریافت فهرست اشتراکی ناموفق بود/);
   assert.match(favoritesSource, /onClick=\{\(\) => setFavoritesRetry\(\(current\) => current \+ 1\)\}/);
   assert.match(favoritesSource, /\) : favoritesLoadError \? null : \(/);
+});
+
+test("an unconfigured database rejects saved-property lookup instead of pruning favorites, recent history or compare", () => {
+  const lookupBlock = propertiesSource.match(
+    /export\s+const\s+listPublishedPropertiesBySlugs\s*=\s*createServerFn\([\s\S]*?\.handler\(async\s*\(\{\s*data\s*\}\)\s*=>\s*\{([\s\S]*?)\n\s*\}\);/,
+  )?.[1] ?? "";
+
+  assert.match(lookupBlock, /if\s+\(data\.slugs\.length\s+===\s+0\)\s+return\s+\[\];/);
+  assert.match(lookupBlock, /if\s+\(dbSource\s+===\s+"unconfigured"\)\s*\{\s*throw\s+new\s+Error\(/);
+  assert.doesNotMatch(lookupBlock, /dbSource\s+===\s+"unconfigured"[^\n]*return\s+\[\]/);
+  assert.match(favoritesSource, /catch\s*\{\s*if\s*\(!cancelled\s*&&\s*favoriteRequestId\s*===\s*favoriteLoadVersion\.current\)\s*\{\s*setFavoritesLoadError\(/);
 });
 
 test("a mounted favorites view replaces account A metadata when account B syncs without reloading", () => {

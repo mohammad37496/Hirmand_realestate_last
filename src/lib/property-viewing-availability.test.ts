@@ -37,6 +37,15 @@ test("viewing availability rejects an HTTP error even when its body resembles a 
   );
 });
 
+test("an unconfigured database response cannot verify an empty day as free capacity", async () => {
+  await assert.rejects(
+    fetchPropertyViewingSlots("property-1", "2026-11-12", async () =>
+      jsonResponse({ success: false, message: "availability unavailable" }, 503),
+    ),
+    /could not be verified/i,
+  );
+});
+
 test("viewing availability rejects an unsuccessful or malformed payload", async () => {
   await assert.rejects(
     fetchPropertyViewingSlots("property-1", "2026-11-12", async () =>

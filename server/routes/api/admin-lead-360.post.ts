@@ -18,7 +18,9 @@ export default defineEventHandler(async (event) => {
   }
   const canViewDeals = hasAdminPermission(role, "deal.manage");
   const canViewCommissions = hasAdminPermission(role, "commission.manage");
-  if (dbSource === "unconfigured") return { customer: null, activities: [], deals: [], settlements: [], documents: [], access: { deals: canViewDeals, commissions: canViewCommissions } };
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "پرونده مشتری موقتاً در دسترس نیست." });
+  }
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const leadId = clean(body.id);

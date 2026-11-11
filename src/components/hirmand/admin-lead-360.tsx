@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { BriefcaseBusiness, CalendarClock, FileText, MessageCircle, UserRound, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { addDecimalStrings } from "@/lib/decimal-money";
@@ -27,19 +27,30 @@ export function AdminLead360({ leads }: { leads: Lead[] }) {
   const [leadId, setLeadId] = useState("");
   const [payload, setPayload] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const requestSequence = useRef(0);
 
   async function load(id: string) {
     setLeadId(id);
-    if (!id) { setPayload(null); return; }
+    const requestId = ++requestSequence.current;
+    if (!id) { setPayload(null); setLoadError(null); setLoading(false); return; }
+    setPayload(null);
+    setLoadError(null);
     setLoading(true);
     try {
       const response = await fetch("/api/admin-lead-360", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }) });
       const data = (await response.json()) as Payload & { statusMessage?: string };
       if (!response.ok) throw new Error(data.statusMessage || "پرونده مشتری بارگذاری نشد.");
-      setPayload(data);
+      if (requestId === requestSequence.current) setPayload(data);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "پرونده مشتری بارگذاری نشد.");
-    } finally { setLoading(false); }
+      if (requestId === requestSequence.current) {
+        const message = error instanceof Error ? error.message : "پرونده مشتری بارگذاری نشد.";
+        setLoadError(message);
+        toast.error(message);
+      }
+    } finally {
+      if (requestId === requestSequence.current) setLoading(false);
+    }
   }
 
   const c = payload?.customer;
@@ -53,7 +64,9 @@ export function AdminLead360({ leads }: { leads: Lead[] }) {
         <label className="field admin-360-select"><span>مشتری</span><select value={leadId} onChange={(e) => void load(e.target.value)}><option value="">انتخاب مشتری</option>{leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name} · {lead.phone}</option>)}</select></label>
       </div>
 
-      {!c && !loading ? <div className="admin-empty-state"><UserRound size={24} /><strong>یک مشتری را انتخاب کنید.</strong></div> : null}
+      {loadError ? <div className="admin-empty-state" role="alert"><UserRound size={24} /><strong>پرونده مشتری دریافت نشد.</strong><p>{loadError}</p><button type="button" className="btn-ghost" onClick={() => void load(leadId)} disabled={loading}>تلاش دوباره</button></div> : null}
+      {!leadId && !c && !loading && !loadError ? <div className="admin-empty-state"><UserRound size={24} /><strong>یک مشتری را انتخاب کنید.</strong></div> : null}
+      {leadId && !c && !loading && !loadError && payload ? <div className="admin-empty-state"><UserRound size={24} /><strong>پرونده این مشتری پیدا نشد.</strong></div> : null}
       {loading ? <div className="admin-empty">در حال دریافت پرونده…</div> : null}
 
       {c ? <>
