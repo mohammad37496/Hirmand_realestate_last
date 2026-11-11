@@ -26,9 +26,11 @@ export function AdminSeoRedirects() {
   const [statusCode,setStatusCode]=useState<301|302|307|308>(301);
   const [active,setActive]=useState(true);
   const [editingId,setEditingId]=useState<number|undefined>();
+  const [loadError,setLoadError]=useState("");
 
   async function load(){
     setLoading(true);
+    setLoadError("");
     try{
       const [items,errors]=await Promise.all([
         listAdminRedirects({data:{limit:100}}),
@@ -36,7 +38,7 @@ export function AdminSeoRedirects() {
       ]);
       setRedirects(items);
       setNotFound(errors);
-    }catch(error){toast.error(error instanceof Error?error.message:"گزارش SEO دریافت نشد.");}
+    }catch(error){const message=error instanceof Error?error.message:"گزارش SEO دریافت نشد.";setLoadError(message);toast.error(message);}
     finally{setLoading(false);}
   }
   useEffect(()=>{void load();},[]);
@@ -50,6 +52,7 @@ export function AdminSeoRedirects() {
   }
 
   async function save(){
+    if(loadError)return;
     setSaving(true);
     try{
       const item=await upsertAdminRedirect({data:{id:editingId,sourcePath:source,targetPath:target,statusCode,active}});
@@ -64,6 +67,7 @@ export function AdminSeoRedirects() {
   }
 
   async function remove(id:number){
+    if(loadError)return;
     setDeleting(id);
     try{
       await deleteAdminRedirect({data:{id}});
@@ -74,6 +78,7 @@ export function AdminSeoRedirects() {
   }
 
   async function clearErrors(){
+    if(loadError)return;
     try{
       const result=await clearAdmin404Logs({data:{beforeDays:30}});
       toast.success(`${fa(result.deleted)} رکورد ۴۰۴ قدیمی پاک شد.`);
@@ -89,6 +94,8 @@ export function AdminSeoRedirects() {
         <button type="button" className="btn-ghost" onClick={()=>void load()} disabled={loading}><RefreshCw size={15} className={loading?"admin-spin":""}/> تازه‌سازی</button>
       </section>
 
+      {loadError?<div className="admin-error-banner" role="alert">{loadError}<button type="button" className="btn-ghost" onClick={()=>void load()} disabled={loading}>تلاش دوباره</button></div>:null}
+
       <section className="admin-seo-grid">
         <div className="admin-panel admin-seo-form">
           <div className="admin-panel-head"><div><span className="kicker">مدیر مسیرها</span><h2>{editingId?"ویرایش ریدایرکت":"ساخت ریدایرکت جدید"}</h2></div><LinkIcon size={19}/></div>
@@ -98,18 +105,18 @@ export function AdminSeoRedirects() {
             <label className="admin-seo-field"><span>کد انتقال</span><select value={statusCode} onChange={e=>setStatusCode(Number(e.target.value) as typeof statusCode)}><option value="301">301 · دائمی</option><option value="302">302 · موقت</option><option value="307">307 · موقت با روش درخواست</option><option value="308">308 · دائمی با روش درخواست</option></select></label>
             <label className="admin-seo-toggle"><input type="checkbox" checked={active} onChange={e=>setActive(e.target.checked)}/><span><strong>فعال</strong><small>از همین لحظه اعمال شود</small></span></label>
           </div>
-          <div className="admin-seo-form-actions"><button type="button" className="btn-ghost" onClick={reset} disabled={saving}>پاک کردن</button><button type="button" className="btn-gold" onClick={()=>void save()} disabled={saving||!source.trim()||!target.trim()}><Plus size={15}/>{saving?"در حال ذخیره…":editingId?"ذخیره تغییرات":"ثبت ریدایرکت"}</button></div>
+          <div className="admin-seo-form-actions"><button type="button" className="btn-ghost" onClick={reset} disabled={saving}>پاک کردن</button><button type="button" className="btn-gold" onClick={()=>void save()} disabled={saving||!!loadError||!source.trim()||!target.trim()}><Plus size={15}/>{saving?"در حال ذخیره…":editingId?"ذخیره تغییرات":"ثبت ریدایرکت"}</button></div>
         </div>
 
         <section className="admin-panel admin-seo-404">
-          <div className="admin-panel-head"><div><span className="kicker">گزارش ۴۰۴</span><h2>مسیرهای خراب پرتکرار</h2></div><button type="button" className="btn-ghost" onClick={()=>void clearErrors()} disabled={loading||!notFound.length}>پاک‌سازی ۳۰ روزه</button></div>
-          {loading?<div className="admin-seo-empty">در حال بررسی…</div>:!notFound.length?<div className="admin-seo-empty"><AlertTriangle size={18}/> خطای ثبت‌شده‌ای نداریم.</div>:<div className="admin-seo-404-list">{notFound.slice(0,20).map(item=><button key={item.id} type="button" className="admin-seo-404-row" onClick={()=>draftFrom404(item.path)}><span><strong dir="ltr">{item.path}</strong><small>{fa(item.hitCount)} بازدید ۴۰۴ · آخرین بار {date(item.lastSeenAt)}</small></span><Plus size={15}/></button>)}</div>}
+          <div className="admin-panel-head"><div><span className="kicker">گزارش ۴۰۴</span><h2>مسیرهای خراب پرتکرار</h2></div><button type="button" className="btn-ghost" onClick={()=>void clearErrors()} disabled={loading||!!loadError||!notFound.length}>پاک‌سازی ۳۰ روزه</button></div>
+          {loading?<div className="admin-seo-empty">در حال بررسی…</div>:loadError?null:!notFound.length?<div className="admin-seo-empty"><AlertTriangle size={18}/> خطای ثبت‌شده‌ای نداریم.</div>:<div className="admin-seo-404-list">{notFound.slice(0,20).map(item=><button key={item.id} type="button" className="admin-seo-404-row" onClick={()=>draftFrom404(item.path)}><span><strong dir="ltr">{item.path}</strong><small>{fa(item.hitCount)} بازدید ۴۰۴ · آخرین بار {date(item.lastSeenAt)}</small></span><Plus size={15}/></button>)}</div>}
         </section>
       </section>
 
       <section className="admin-panel admin-seo-table">
-        <div className="admin-panel-head"><div><span className="kicker">مسیرهای فعال</span><h2>ریدایرکت‌های ثبت‌شده</h2></div><span className="admin-dashboard-summary">{fa(redirects.length)} مورد</span></div>
-        {loading?<div className="admin-seo-empty">در حال دریافت…</div>:!redirects.length?<div className="admin-seo-empty">هنوز ریدایرکتی ثبت نشده است.</div>:<div className="admin-seo-table-list">{redirects.map(item=><article key={item.id} className="admin-seo-table-row"><div className="admin-seo-route"><strong dir="ltr">{item.sourcePath}</strong><span>→</span><strong dir="ltr">{item.targetPath}</strong></div><div className="admin-seo-meta"><span>{item.statusCode}</span><span>{item.active?"فعال":"خاموش"}</span><span>{fa(item.hitCount)} کلیک</span><span>آخرین بازدید: {date(item.lastHitAt)}</span></div><div className="admin-seo-actions"><a className="admin-icon-btn" href={item.targetPath} target="_blank" rel="noreferrer" title="باز کردن مقصد"><ExternalLink size={15}/></a><button type="button" className="admin-icon-btn" onClick={()=>{setEditingId(item.id);setSource(item.sourcePath);setTarget(item.targetPath);setStatusCode(item.statusCode);setActive(item.active);window.scrollTo({top:0,behavior:"smooth"});}} title="ویرایش"><LinkIcon size={15}/></button><button type="button" className="admin-icon-btn danger" disabled={deleting===item.id} onClick={()=>void remove(item.id)} title="حذف"><Trash2 size={15}/></button></div></article>)}</div>}
+        <div className="admin-panel-head"><div><span className="kicker">مسیرهای فعال</span><h2>ریدایرکت‌های ثبت‌شده</h2></div><span className="admin-dashboard-summary">{loadError?"نامشخص":fa(redirects.length)+" مورد"}</span></div>
+        {loading?<div className="admin-seo-empty">در حال دریافت…</div>:loadError?null:!redirects.length?<div className="admin-seo-empty">هنوز ریدایرکتی ثبت نشده است.</div>:<div className="admin-seo-table-list">{redirects.map(item=><article key={item.id} className="admin-seo-table-row"><div className="admin-seo-route"><strong dir="ltr">{item.sourcePath}</strong><span>→</span><strong dir="ltr">{item.targetPath}</strong></div><div className="admin-seo-meta"><span>{item.statusCode}</span><span>{item.active?"فعال":"خاموش"}</span><span>{fa(item.hitCount)} کلیک</span><span>آخرین بازدید: {date(item.lastHitAt)}</span></div><div className="admin-seo-actions"><a className="admin-icon-btn" href={item.targetPath} target="_blank" rel="noreferrer" title="باز کردن مقصد"><ExternalLink size={15}/></a><button type="button" className="admin-icon-btn" disabled={!!loadError} onClick={()=>{setEditingId(item.id);setSource(item.sourcePath);setTarget(item.targetPath);setStatusCode(item.statusCode);setActive(item.active);window.scrollTo({top:0,behavior:"smooth"});}} title="ویرایش"><LinkIcon size={15}/></button><button type="button" className="admin-icon-btn danger" disabled={deleting===item.id||!!loadError} onClick={()=>void remove(item.id)} title="حذف"><Trash2 size={15}/></button></div></article>)}</div>}
       </section>
     </main>
   );
