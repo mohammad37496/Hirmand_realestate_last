@@ -25,7 +25,7 @@ import {
   shouldUseLegacyBlobFallback,
   withLiaraStreamIdleTimeout,
 } from "./liara-media-access.server.ts";
-import { exactMediaRangeBytes } from "./media-range-bytes.ts";
+import { exactMediaRangeBytes, parseMediaByteRange } from "./media-range-bytes.ts";
 import {
   createRangeNotSatisfiableResponse,
   liaraRangeNotSatisfiableResponse,
@@ -251,7 +251,21 @@ test("stored media ranges reject incomplete database byte slices", () => {
 
   const mediaStore = readFileSync("src/lib/media-store.server.ts", "utf8");
   assert.match(mediaStore, /exactMediaRangeBytes\(rows\[0\]\?\.data,\s*length\)/);
-  assert.match(mediaStore, /if \(!bytes\)\s*\{\s*throw new Error\("Stored media range was incomplete\."\)/);
+  assert.match(mediaStore, /throw new IncompleteMediaRangeError\(\)/);
+
+  const mediaRoute = readFileSync("server/routes/api/media/[id].get.ts", "utf8");
+  assert.match(
+    mediaRoute,
+    /catch \(error\)[\s\S]*?error instanceof IncompleteMediaRangeError[\s\S]*?statusCode: 404[\s\S]*?throw error/,
+  );
+});
+
+test("database media ranges reject suffix requests against empty objects", () => {
+  assert.equal(parseMediaByteRange("bytes=-1", 0), "unsatisfiable");
+  assert.equal(parseMediaByteRange("bytes=-500", 0), "unsatisfiable");
+  assert.equal(parseMediaByteRange("bytes=0-0", 0), "unsatisfiable");
+  assert.deepEqual(parseMediaByteRange("bytes=-2", 5), { start: 3, end: 4 });
+  assert.deepEqual(parseMediaByteRange("bytes=1-", 5), { start: 1, end: 4 });
 });
 
 test("Liara video and audio routes apply the shared upstream idle timeout", () => {
