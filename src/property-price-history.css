@@ -30,6 +30,10 @@
   background:var(--card);
   box-shadow:var(--el-1);
 }
+.property-price-history-error p{margin:0;color:var(--subtle);font-size:.76rem;line-height:1.9}
+.property-price-history-error strong{color:var(--navy-900);font-size:.84rem}
+.property-price-history-loading{color:var(--subtle);font-size:.76rem;text-align:center}
+.property-price-history-error button{justify-self:start;min-height:40px}
 .property-price-history-list{display:grid;gap:10px;}
 .property-price-history-item{
   display:grid;
