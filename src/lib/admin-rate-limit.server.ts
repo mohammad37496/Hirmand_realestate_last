@@ -5,10 +5,10 @@
  * request to the login endpoint is a brute-force opportunity.
  *
  * The counter lives in Redis when `UPSTASH_REDIS_REST_URL` /
- * `UPSTASH_REDIS_REST_TOKEN` are set, and in a process-local Map otherwise.
- * The Map is suitable for development or a single-process deployment; it is
- * not shared across multiple production instances. Configured Redis failures
- * deliberately fail closed instead of silently weakening the shared limit.
+ * `UPSTASH_REDIS_REST_TOKEN` are set, and in a process-local Map in development.
+ * Production must have the shared store configured; a process-local fallback
+ * would let requests bypass the limit by reaching another instance. Redis
+ * failures deliberately fail closed instead of silently weakening the limit.
  */
 
 import { createHash } from "node:crypto";
@@ -177,7 +177,14 @@ function redisStore(): ThrottleStore {
 
 /** A configured shared limiter must fail closed when Redis is unavailable. */
 function store(): ThrottleStore {
-  if (!REST_URL || !REST_TOKEN) return memoryStore();
+  if (!REST_URL || !REST_TOKEN) {
+    const allowInMemoryForVerify =
+      process.env.CI === "true" && process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT === "true";
+    if (process.env.NODE_ENV === "production" && !allowInMemoryForVerify) {
+      throw createError({ statusCode: 503, statusMessage: "سرویس محدودسازی درخواست‌ها پیکربندی نشده است." });
+    }
+    return memoryStore();
+  }
   return redisStore();
 }
 

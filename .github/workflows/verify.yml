@@ -131,6 +131,7 @@ jobs:
           done
 
           BETTER_AUTH_URL=http://localhost:8081 \
+          HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT=true \
           RESEND_API_URL=http://127.0.0.1:4321/emails \
           RESEND_API_KEY=ci-password-reset-test-key \
           RESEND_FROM_EMAIL='Hirmand <accounts@hirmandrealestate.ir>' \
@@ -194,6 +195,9 @@ jobs:
           # Assert equal compact list-card geometry and real non-overlap with
           # the fixed mobile action dock at five narrow-phone viewports.
           node scripts/property-list-mobile-footer-overlap.browser.test.mjs http://127.0.0.1:8081
+          # Compare every rendered list card across content variants (long title,
+          # missing image, absent metadata, rental price lines) at phone/tablet widths.
+          node scripts/property-list-mobile-uniform.browser.test.mjs http://127.0.0.1:8081
           node scripts/browser-smoke.mjs http://127.0.0.1:8081/ /workspace/screenshots/hirmand-preview.png
           node scripts/property-search-browser-smoke.mjs http://127.0.0.1:8081
           node scripts/admin-mutation-smoke.mjs http://127.0.0.1:8081

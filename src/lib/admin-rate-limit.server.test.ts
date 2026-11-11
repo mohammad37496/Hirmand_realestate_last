@@ -50,3 +50,63 @@ test("a configured Redis outage fails closed instead of falling back to per-inst
     else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
   }
 });
+
+test("production requires the shared Redis store instead of falling back to per-process memory", async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousCi = process.env.CI;
+  const previousVerifyFlag = process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  process.env.CI = "true";
+  delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+  process.env.NODE_ENV = "production";
+  try {
+    const isolated = await import(`./admin-rate-limit.server.ts?redis-unconfigured=${crypto.randomUUID()}`);
+    await assert.rejects(
+      isolated.consumeAdminAttempt("redis-unconfigured:" + crypto.randomUUID()),
+      (error: unknown) => Boolean(error && typeof error === "object" && "statusCode" in error && error.statusCode === 503),
+    );
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousCi === undefined) delete process.env.CI;
+    else process.env.CI = previousCi;
+    if (previousVerifyFlag === undefined) delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+    else process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = previousVerifyFlag;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
+});
+
+test("Verify preview may explicitly use the in-memory limiter without Redis", async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousCi = process.env.CI;
+  const previousVerifyFlag = process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  process.env.NODE_ENV = "production";
+  process.env.CI = "true";
+  process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = "true";
+  try {
+    const isolated = await import(`./admin-rate-limit.server.ts?verify-memory=${crypto.randomUUID()}`);
+    const result = await isolated.consumeAdminAttempt("verify-memory:" + crypto.randomUUID());
+    assert.equal(result.allowed, true);
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousCi === undefined) delete process.env.CI;
+    else process.env.CI = previousCi;
+    if (previousVerifyFlag === undefined) delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+    else process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = previousVerifyFlag;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
+});
