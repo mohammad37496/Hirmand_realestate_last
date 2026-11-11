@@ -1,3 +1,5 @@
+import { isValidPublicTrackingToken } from "./tracking-token.ts";
+
 export type MediaAccessSql = {
   query<T>(statement: string, parameters?: unknown[]): Promise<T[]>;
 };
@@ -103,7 +105,7 @@ export async function hasRejectedCustomerSubmissionMedia(
   rawUrl: string,
 ): Promise<boolean> {
   const token = trackingToken.trim().toUpperCase().replace(/\s+/g, "");
-  if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(token)) return false;
+  if (!isValidPublicTrackingToken(token)) return false;
   try {
     const rows = await sql.query<{ present: boolean }>(
       `select exists(

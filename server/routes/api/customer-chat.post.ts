@@ -1,9 +1,10 @@
 import { createError, defineEventHandler, readBody } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { assertSameOrigin, clientFingerprint } from "@/lib/admin-rate-limit.server";
+import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 
-const codeSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
+const codeSchema = z.string().trim().toUpperCase().refine(isValidPublicTrackingToken);
 
 const schema = z.object({
   code: codeSchema,
@@ -13,6 +14,8 @@ const schema = z.object({
 
 export default defineEventHandler(async (event) => {
   assertSameOrigin(event);
+  const attempt = await consumeAdminAttempt("customer-chat-send:" + clientFingerprint(event));
+  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
   const body = schema.safeParse(await readBody(event).catch(() => null));
   if (!body.success) {
     throw createError({ statusCode: 400, statusMessage: body.error.issues[0]?.message || "اطلاعات پیام نامعتبر است." });
@@ -23,7 +26,7 @@ export default defineEventHandler(async (event) => {
 
   const sql = await getSql();
   const leadRows = await sql.query<{ id:string; trackingToken:string; name:string }>(
-    "select id,tracking_token as \"trackingToken\",name from leads where upper(tracking_token)=upper($1) limit 1",
+    "select id,public_tracking_token as \"trackingToken\",name from leads where upper(public_tracking_token)=upper($1) limit 1",
     [body.data.code],
   );
   const lead = leadRows[0];
@@ -40,9 +43,6 @@ export default defineEventHandler(async (event) => {
   }
 
   // Keep a small audit breadcrumb without storing IP or user agent in the message.
-  const fingerprint = clientFingerprint(event).slice(0, 180);
-  void fingerprint;
-
   const id = crypto.randomUUID();
   await sql.query(
     "insert into customer_messages(id,lead_id,tracking_token,sender_type,sender_name,message) values($1,$2,$3,'customer',$4,$5)",

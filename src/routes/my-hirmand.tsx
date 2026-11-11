@@ -5,6 +5,7 @@ import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { OwnerPropertyStatus } from "@/components/hirmand/owner-property-status";
 import { SITE } from "@/lib/site";
 import { clearCustomerTrackingCodes, forgetCustomerTrackingCode, normalizeCustomerTrackingCode, readCustomerTrackingCodes, rememberCustomerTrackingCode, type CustomerTrackingSummary } from "@/lib/customer-tracking";
+import { isValidPublicTrackingToken, TRACKING_TOKEN_MAX_LENGTH } from "@/lib/tracking-token";
 import "@/my-hirmand.css";
 
 type TrackingTimelineItem = { type: "created" | "status" | "visit"; label: string; note: string; at: string | null };
@@ -112,7 +113,7 @@ function MyHirmandPage() {
   function addCode(event: FormEvent) {
     event.preventDefault();
     const normalized = normalizeCustomerTrackingCode(codeInput);
-    if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(normalized)) { setMessage("کد رهگیری معتبر را به شکل HIR-26-XXXXXXXXXXXX وارد کنید."); return; }
+    if (!isValidPublicTrackingToken(normalized)) { setMessage("کد رهگیری واردشده معتبر نیست."); return; }
     rememberCustomerTrackingCode(normalized); setCodeInput(""); setMessage("کد به «پرونده‌های من» اضافه شد."); void loadCode(normalized);
   }
 
@@ -132,7 +133,7 @@ function MyHirmandPage() {
       <main className="my-hirmand-page" id="top">
         <section className="my-hirmand-hero"><div><span className="kicker">مرکز مشتری هیرمند</span><h1>پرونده‌های من</h1><p>کدهای رهگیری درخواست‌هایتان را یک‌جا نگه دارید و وضعیت، مشاور، فایل مرتبط و تاریخچه هر درخواست را سریع ببینید.</p></div><div className="my-hirmand-hero-badge"><History size={42}/><strong>{totalActive.toLocaleString("fa-IR")}</strong><span>پرونده قابل مشاهده</span></div></section>
         <section className="my-hirmand-control-card"><form className="my-hirmand-add-form" onSubmit={addCode}>
-          <label className="field"><span>افزودن کد رهگیری</span><input value={codeInput} onChange={(event) => setCodeInput(normalizeCustomerTrackingCode(event.target.value).slice(0,23))} placeholder="HIR-26-XXXXXXXXXXXX" dir="ltr" maxLength={23} autoComplete="off" /></label>
+          <label className="field"><span>افزودن کد رهگیری</span><input value={codeInput} onChange={(event) => setCodeInput(normalizeCustomerTrackingCode(event.target.value).slice(0,TRACKING_TOKEN_MAX_LENGTH))} placeholder="HIR-26-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" dir="ltr" maxLength={TRACKING_TOKEN_MAX_LENGTH} autoComplete="off" /></label>
           <button type="submit" className="btn-gold">افزودن پرونده</button>
           <button type="button" className="btn-ghost" onClick={() => void refreshAll()} disabled={loadingAll || !items.length}><RefreshCw size={15} className={loadingAll ? "my-hirmand-spin" : undefined}/> بروزرسانی همه</button>
           {items.length ? <button type="button" className="btn-ghost" onClick={() => { clearCustomerTrackingCodes(); setResults({}); setMessage("کدهای ذخیره‌شده از این دستگاه پاک شدند."); }}>پاک‌کردن همه</button> : null}

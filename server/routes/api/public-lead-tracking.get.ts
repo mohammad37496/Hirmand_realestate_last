@@ -1,6 +1,8 @@
 import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
 import { publicCustomerPropertyReviewNote } from "@/lib/customer-property-owner-status";
+import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 type VisitStatus = "none" | "requested" | "confirmed" | "completed" | "cancelled";
@@ -31,9 +33,11 @@ function normalizeCode(value: unknown) {
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
+  const attempt = await consumeAdminAttempt("public-lead-tracking:" + clientFingerprint(event), 30);
+  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
 
   const code = normalizeCode(getQuery(event).code);
-  if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(code)) {
+  if (!isValidPublicTrackingToken(code)) {
     throw createError({ statusCode: 400, statusMessage: "کد رهگیری نامعتبر است." });
   }
 

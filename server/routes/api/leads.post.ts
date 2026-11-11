@@ -8,6 +8,7 @@ import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
 import { createPropertyVisitRequest } from "@/lib/property-visit-request";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 import { createPublicLeadIntake } from "@/lib/public-lead-intake";
+import { ensurePublicTrackingToken, generatePublicTrackingToken } from "@/lib/tracking-token.server";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -17,12 +18,6 @@ const PROPERTY_SERVICE_REQUEST_DEALS = new Set([
   "بررسی حقوقی معامله",
   "درخواست تأیید اطلاعات فایل",
 ]);
-
-function createPublicTrackingToken() {
-  const year = new Date().getFullYear().toString().slice(-2);
-  const random = crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase();
-  return `HIR-${year}-${random}`;
-}
 
 const matchSchema = z.object({
   slug: z.string().trim().min(1).max(220),
@@ -280,30 +275,16 @@ export default defineEventHandler(async (event) => {
       } catch (error) {
         console.error("[leads] automatic smart matching failed for duplicate budget lead", error);
       }
-      const trackingToken =
-        existing[0].public_tracking_token || createPublicTrackingToken();
-      if (!existing[0].public_tracking_token) {
-        await sql.query(
-          "update leads set public_tracking_token=$2 where id=$1",
-          [existing[0].id, trackingToken],
-        );
-      }
+      const trackingToken = await ensurePublicTrackingToken(sql, existing[0].id, existing[0].public_tracking_token);
       return { success: true, duplicate: true, updated: true, id: existing[0].id, trackingToken };
     }
-    const trackingToken =
-      existing[0].public_tracking_token || createPublicTrackingToken();
-    if (!existing[0].public_tracking_token) {
-      await sql.query(
-        "update leads set public_tracking_token=$2 where id=$1",
-        [existing[0].id, trackingToken],
-      );
-    }
+    const trackingToken = await ensurePublicTrackingToken(sql, existing[0].id, existing[0].public_tracking_token);
     return { success: true, duplicate: true, id: existing[0].id, trackingToken };
   }
 
   if (parsed.data.callbackPreferredAt) {
     const callbackDate = new Date(parsed.data.callbackPreferredAt);
-    const trackingToken = createPublicTrackingToken();
+    const trackingToken = generatePublicTrackingToken();
     const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
       const rows = await transactionSql.query<{ id: string }>(
       "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,follow_up_at,callback_preferred_at,public_tracking_token) values ($1,$2,$3,$4,$5,'درخواست تماس',$6,$7,$8,$9,'website',$10,$11,$12) returning id",
@@ -345,7 +326,7 @@ export default defineEventHandler(async (event) => {
     if (!property) {
       throw createError({ statusCode: 404, statusMessage: "این فایل دیگر برای درخواست تأیید اطلاعات در دسترس نیست." });
     }
-    const trackingToken = createPublicTrackingToken();
+    const trackingToken = generatePublicTrackingToken();
     const requestNote = parsed.data.note.trim() || "درخواست بررسی و تأیید اطلاعات اصلی فایل";
     const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
       const rows = await transactionSql.query<{ id: string }>(
@@ -395,7 +376,7 @@ export default defineEventHandler(async (event) => {
         : parsed.data.deal === "درخواست محتوای جدید"
           ? "fresh_media"
           : "legal_review";
-    const trackingToken = createPublicTrackingToken();
+    const trackingToken = generatePublicTrackingToken();
     const requestNote = parsed.data.note.trim() || parsed.data.deal;
     const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
       const rows = await transactionSql.query<{ id: string }>(
@@ -428,7 +409,7 @@ export default defineEventHandler(async (event) => {
     );
     const property = propertyRows[0];
     if (!property) throw createError({ statusCode: 404, statusMessage: "این فایل دیگر برای دریافت پیشنهاد در دسترس نیست." });
-    const trackingToken = createPublicTrackingToken();
+    const trackingToken = generatePublicTrackingToken();
     const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
       const rows = await transactionSql.query<{ id: string }>(
         "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,offer_amount,offer_conditions,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'پیشنهاد قیمت',$6,$7,$8,$9,'website',$10,$11,$12,current_timestamp + interval '2 hours',$13) returning id",
@@ -455,7 +436,7 @@ export default defineEventHandler(async (event) => {
 
   if (parsed.data.propertyId && parsed.data.visitPreferredAt) {
     const visitDate = new Date(parsed.data.visitPreferredAt);
-    const trackingToken = createPublicTrackingToken();
+    const trackingToken = generatePublicTrackingToken();
     const visitResult = await createPropertyVisitRequest(sql, {
       propertyId: parsed.data.propertyId,
       visitAt: visitDate.toISOString(),
@@ -508,7 +489,7 @@ export default defineEventHandler(async (event) => {
     const property = propertyRows[0];
     if (!property) throw createError({ statusCode: 404, statusMessage: "این فایل دیگر برای بررسی تأمین مالی در دسترس نیست." });
 
-    const trackingToken = createPublicTrackingToken();
+    const trackingToken = generatePublicTrackingToken();
     const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
       const rows = await transactionSql.query<{ id: string }>(
         "insert into leads (id,name,phone,people_count,job,deal,property_type,neighborhood,consultant,note,source,property_id,follow_up_at,public_tracking_token) values ($1,$2,$3,$4,$5,'درخواست تأمین مالی',$6,$7,$8,$9,'website',$10,current_timestamp + interval '2 hours',$11) returning id",
@@ -547,7 +528,7 @@ export default defineEventHandler(async (event) => {
     const property = propertyRows[0];
     if (!property) throw createError({ statusCode: 404, statusMessage: "این فایل دیگر برای دریافت درخواست مدارک در دسترس نیست." });
 
-    const trackingToken = createPublicTrackingToken();
+    const trackingToken = generatePublicTrackingToken();
     const requestNote = parsed.data.note.trim() || "درخواست بررسی مدارک و شرایط معامله";
     const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
       const rows = await transactionSql.query<{ id: string }>(
@@ -573,7 +554,7 @@ export default defineEventHandler(async (event) => {
     return { success: true, id: leadId, documentRequest: true, trackingToken };
   }
 
-  const trackingToken = createPublicTrackingToken();
+  const trackingToken = generatePublicTrackingToken();
   const createdLeadId = await createPublicLeadIntake(sql, async (transactionSql) => {
     const rows = await transactionSql.query<{ id: string }>(
     `insert into leads (

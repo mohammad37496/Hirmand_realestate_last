@@ -5,6 +5,7 @@ import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { CustomerConversation } from "@/components/hirmand/customer-conversation";
 import { SITE } from "@/lib/site";
 import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
+import { isValidPublicTrackingToken, TRACKING_TOKEN_MAX_LENGTH } from "@/lib/tracking-token";
 import "@/request-tracking.css";
 
 type TrackingResult = {
@@ -70,8 +71,8 @@ function RequestTrackingPage() {
 
   async function lookup(value = code) {
     const normalized = value.trim().toUpperCase().replace(/\s+/g, "");
-    if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(normalized)) {
-      setMessage("کد رهگیری را به شکل HIR-26-XXXXXXXXXXXX وارد کنید.");
+    if (!isValidPublicTrackingToken(normalized)) {
+      setMessage("کد رهگیری واردشده معتبر نیست.");
       setResult(null);
       return;
     }
@@ -221,7 +222,8 @@ function RequestTrackingPage() {
               <input
                 value={code}
                 onChange={(event) => setCode(event.target.value.toUpperCase())}
-                placeholder="HIR-26-XXXXXXXXXXXX"
+                placeholder="HIR-26-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                maxLength={TRACKING_TOKEN_MAX_LENGTH}
                 dir="ltr"
                 autoComplete="off"
                 spellCheck={false}

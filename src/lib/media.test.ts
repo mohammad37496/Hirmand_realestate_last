@@ -427,9 +427,14 @@ test("customer-submission media requires the exact rejected tracking capability 
     const key = "properties/customer-submissions/new/photo.webp";
     const videoKey = "properties/customer-submissions/new/clip.mp4";
     const token = "HIR-26-ABCDEF123456";
+    const newToken = "HIR-26-0123456789ABCDEF0123456789ABCDEF";
     await db.query(
       "insert into customer_property_submissions values ($1, 'rejected', $2::jsonb)",
       [token, JSON.stringify({ images: [rejectedStoredUrl] })],
+    );
+    await db.query(
+      "insert into customer_property_submissions values ($1, 'rejected', $2::jsonb)",
+      [newToken, JSON.stringify({ images: [rejectedUrl] })],
     );
     await db.query(
       "insert into customer_property_submissions values ($1, 'pending', $2::jsonb)",
@@ -479,6 +484,7 @@ test("customer-submission media requires the exact rejected tracking capability 
     };
 
     assert.equal(await hasRejectedCustomerSubmissionMedia(sql, token, rejectedUrl), true);
+    assert.equal(await hasRejectedCustomerSubmissionMedia(sql, newToken, rejectedUrl), true);
     assert.equal(await hasRejectedCustomerSubmissionMedia(sql, token, pendingUrl), false);
     assert.equal(await hasRejectedCustomerSubmissionMedia(sql, "HIR-26-000000000000", rejectedUrl), false);
     assert.equal(await hasRejectedCustomerSubmissionMedia(sql, "HIR-26-987654ABCDEF", "/api/media/db-rejected-id"), true);

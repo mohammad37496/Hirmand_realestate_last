@@ -1,11 +1,16 @@
-import { createError, defineEventHandler, getQuery, getRequestIP } from "h3";
+import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
+import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 
-const codeSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
+const codeSchema = z.string().trim().toUpperCase().refine(isValidPublicTrackingToken);
 
 export default defineEventHandler(async (event) => {
-  const rawCode = String((getQuery(event).code ?? "")).trim().toUpperCase().replace(/\\s+/g, "");
+  setResponseHeader(event, "cache-control", "no-store");
+  const attempt = await consumeAdminAttempt("customer-chat-lookup:" + clientFingerprint(event), 60);
+  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+  const rawCode = String((getQuery(event).code ?? "")).trim().toUpperCase().replace(/\s+/g, "");
   const trackingCode = codeSchema.safeParse(rawCode);
   if (!trackingCode.success) {
     throw createError({ statusCode: 400, statusMessage: "کد رهگیری نامعتبر است." });
@@ -16,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
   const sql = await getSql();
   const leadRows = await sql.query<{ id:string; name:string; consultant:string; deal:string }>(
-    "select id,name,consultant,deal from leads where upper(tracking_token) = upper($1) limit 1",
+    "select id,name,consultant,deal from leads where upper(public_tracking_token) = upper($1) limit 1",
     [trackingCode.data],
   );
   const lead = leadRows[0];
@@ -45,8 +50,6 @@ export default defineEventHandler(async (event) => {
     "select count(*)::int as count from customer_messages where lead_id=$1 and sender_type='admin' and read_by_customer_at is null",
     [lead.id],
   );
-
-  void getRequestIP(event);
 
   return {
     trackingCode: trackingCode.data,
