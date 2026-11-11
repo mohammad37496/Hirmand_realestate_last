@@ -215,6 +215,15 @@ try {
           document.body.style.scrollBehavior = "auto";
         });
         await cards.last().evaluate((card) => card.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
+        await page.evaluate(() => {
+          const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+          const footerElement = document.querySelector(".quick-actions");
+          if (!card || !footerElement) return;
+          const cardRect = card.getBoundingClientRect();
+          const footerRect = footerElement.getBoundingClientRect();
+          const clearance = footerRect.top - cardRect.bottom;
+          if (clearance < 8) window.scrollBy({ top: 8 - clearance, behavior: "instant" });
+        });
         await page.waitForFunction(() => {
           const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
           const footerElement = document.querySelector(".quick-actions");
