@@ -6,6 +6,10 @@ const component = await readFile(
   new URL("../src/components/hirmand/property-viewing-request.tsx", import.meta.url),
   "utf8",
 );
+const endpoint = await readFile(
+  new URL("../server/routes/api/property-viewing-slots.get.ts", import.meta.url),
+  "utf8",
+);
 
 test("viewing request shows an error and blocks submission until availability is verified", () => {
   const timeLabelIndex = component.indexOf('<label htmlFor="property-viewing-time">');
@@ -25,4 +29,9 @@ test("viewing request shows an error and blocks submission until availability is
   assert.match(timeField, /property-viewing-retry/);
   assert.doesNotMatch(timeField, /<label className="field">/);
   assert.doesNotMatch(component, /catch\(\(\) => \{\s*if \(!cancelled\) setOccupiedTimes\(\[\]\);\s*\}\)/);
+});
+
+test("viewing slots endpoint returns 503 instead of claiming every slot is free when the database is unconfigured", () => {
+  assert.match(endpoint, /if \(dbSource === "unconfigured"\)\s*\{\s*throw createError\(\{ statusCode: 503/);
+  assert.doesNotMatch(endpoint, /dbSource === "unconfigured"[^\n]*return \{ success: true, occupiedTimes: \[\]/);
 });
