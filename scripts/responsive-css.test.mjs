@@ -287,11 +287,14 @@ testRunner.test("Playwright responsive matrix includes all requested widths and 
     "text wrapping diagnostics should identify the affected selector");
   const responsiveStepIndex = verifyWorkflow.indexOf("node scripts/responsive-layout-smoke.mjs");
   const mobileFooterStepIndex = verifyWorkflow.indexOf("node scripts/property-list-mobile-footer-overlap.browser.test.mjs");
+  const mobileUniformStepIndex = verifyWorkflow.indexOf("node scripts/property-list-mobile-uniform.browser.test.mjs");
   const legacySmokeIndex = verifyWorkflow.indexOf("node scripts/browser-smoke.mjs");
   assert.ok(responsiveStepIndex >= 0 && legacySmokeIndex >= 0 && responsiveStepIndex < legacySmokeIndex,
     "responsive diagnostics should run before legacy browser smoke can fail");
   assert.ok(mobileFooterStepIndex > responsiveStepIndex && mobileFooterStepIndex < legacySmokeIndex,
     "the mobile list-card/footer overlap browser regression must run in Verify after responsive layout smoke");
+  assert.ok(mobileUniformStepIndex > mobileFooterStepIndex && mobileUniformStepIndex < legacySmokeIndex,
+    "the multi-card content-variant geometry regression must run in Verify before legacy browser smoke");
   for (const route of [
     '"/"',
     '"/properties"',
