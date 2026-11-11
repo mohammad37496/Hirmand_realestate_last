@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import type { Sql } from "./db.ts";
-import { createAdminBackupExport, recordAdminBackupExport, verifyAdminBackupTables } from "./admin-backup-verification.ts";
+import { ADMIN_BACKUP_TABLES, createAdminBackupExport, pruneAdminBackupHistory, recordAdminBackupExport, verifyAdminBackupTables } from "./admin-backup-verification.ts";
 
 function createSql(query: (text: string, params: unknown[]) => Promise<unknown[]>) {
   return {
@@ -76,8 +76,17 @@ test("creates one repeatable-read backup snapshot and records it in the same tra
       create table consultants (id text primary key);
       create table staff_attendance (id text primary key);
       create table staff_mobile_devices (id text primary key);
+      create table admin_tasks (id text primary key);
+      create table property_change_history (id text primary key);
+      create table site_events (id text primary key);
       create table admin_backup_log (id bigserial primary key, kind text not null, table_counts jsonb not null);
+      create table admin_audit_log (id bigserial primary key, action text not null, entity_type text not null, entity_id text, entity_title text not null default '', actor text not null default 'admin', metadata jsonb not null default '{}'::jsonb, created_at timestamptz not null default current_timestamp);
       insert into properties(id) values ('p-1');
+      insert into admin_tasks(id) values ('t-1');
+      insert into property_change_history(id) values ('h-1'), ('h-2');
+      insert into site_events(id) values ('e-1'), ('e-2'), ('e-3');
+      insert into admin_backup_log(kind,table_counts) values ('json_export','{}');
+      insert into admin_audit_log(action,entity_type) values ('test','admin_backup');
       insert into leads(id) values ('l-1'), ('l-2');
     `);
     const sql = {
@@ -91,8 +100,13 @@ test("creates one repeatable-read backup snapshot and records it in the same tra
     } as unknown as Sql;
 
     const json = await createAdminBackupExport(sql, () => new Date("2026-11-11T01:00:00.000Z"));
-    const backup = JSON.parse(json) as { integrity: { totalRows: number; tableCounts: { properties: number; leads: number } } };
-    assert.equal(backup.integrity.totalRows, 3);
+    const backup = JSON.parse(json) as { version: number; scope: { kind: string; includedTables: string[]; excluded: string[] }; integrity: { totalRows: number; kind: string; tableCounts: Record<string, number> }; adminTasks: unknown[]; propertyChangeHistory: unknown[]; siteEvents: unknown[]; backupHistory: unknown[]; adminAuditLog: unknown[] };
+    assert.equal(backup.version, 4);
+    assert.equal(backup.scope.kind, "selected-business-data-export");
+    assert.deepEqual(backup.scope.includedTables, [...ADMIN_BACKUP_TABLES]);
+    assert.ok(backup.scope.excluded.some((item) => item.includes("Object Storage")));
+    assert.equal(backup.integrity.kind, "selected-table-row-count");
+    assert.equal(backup.integrity.totalRows, 11);
     assert.deepEqual(backup.integrity.tableCounts, {
       properties: 1,
       leads: 2,
@@ -101,8 +115,18 @@ test("creates one repeatable-read backup snapshot and records it in the same tra
       consultants: 0,
       attendance: 0,
       staffMobileDevices: 0,
+      adminTasks: 1,
+      propertyChangeHistory: 2,
+      siteEvents: 3,
+      backupHistory: 1,
+      adminAuditLog: 1,
     });
-    const history = await pg.query<{ kind: string; table_counts: { leads: number } }>("select kind,table_counts from admin_backup_log");
+    assert.equal(backup.adminTasks.length, 1);
+    assert.equal(backup.propertyChangeHistory.length, 2);
+    assert.equal(backup.siteEvents.length, 3);
+    assert.equal(backup.backupHistory.length, 1);
+    assert.equal(backup.adminAuditLog.length, 1);
+    const history = await pg.query<{ kind: string; table_counts: Record<string, number> }>("select kind,table_counts from admin_backup_log order by id desc limit 1");
     assert.deepEqual(history.rows[0], { kind: "json_export", table_counts: backup.integrity.tableCounts });
   } finally {
     await pg.close();
@@ -120,6 +144,10 @@ test("does not return a backup when the history write fails inside the export tr
       create table consultants (id text primary key);
       create table staff_attendance (id text primary key);
       create table staff_mobile_devices (id text primary key);
+      create table admin_tasks (id text primary key);
+      create table property_change_history (id text primary key);
+      create table site_events (id text primary key);
+      create table admin_audit_log (id bigserial primary key, action text not null, entity_type text not null, entity_id text, entity_title text not null default '', actor text not null default 'admin', metadata jsonb not null default '{}'::jsonb, created_at timestamptz not null default current_timestamp);
       insert into properties(id) values ('p-1');
     `);
     const sql = {
@@ -219,4 +247,68 @@ test("marks a timed-out query explicitly and returns to healthy after a successf
 test("does not report a backup export as recorded when its history insert fails", async () => {
   const sql = createSql(async () => { throw new Error("history table unavailable"); });
   await assert.rejects(recordAdminBackupExport(sql, { properties: 1 }), /history table unavailable/);
+});
+
+test("prunes backup history and records its audit entry in the same transaction", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table admin_backup_log (id bigserial primary key, created_at timestamptz not null);
+      create table admin_audit_log (
+        id bigserial primary key, action text not null, entity_type text not null,
+        entity_id text, entity_title text not null default '', actor text not null default 'admin',
+        metadata jsonb not null default '{}'::jsonb, created_at timestamptz not null default current_timestamp
+      );
+      insert into admin_backup_log(created_at) values
+        (current_timestamp - interval '120 days'), (current_timestamp - interval '10 days');
+    `);
+    const sql = {
+      query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+        (await pg.query<T>(text, params)).rows,
+      transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+        pg.transaction(async (tx) => callback({
+          query: async <R = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+            (await tx.query<R>(text, params)).rows,
+        } as unknown as Sql)),
+    } as unknown as Sql;
+
+    assert.equal(await pruneAdminBackupHistory(sql, 90), 1);
+    const remaining = await pg.query("select id from admin_backup_log");
+    const audit = await pg.query<{ action: string; entity_type: string; metadata: { deleted: number; retentionDays: number } }>(
+      "select action,entity_type,metadata from admin_audit_log",
+    );
+    assert.equal(remaining.rows.length, 1);
+    assert.deepEqual(audit.rows[0], {
+      action: "admin_backup_history_pruned",
+      entity_type: "admin_backup",
+      metadata: { deleted: 1, retentionDays: 90 },
+    });
+  } finally {
+    await pg.close();
+  }
+});
+
+test("rolls back backup-history pruning when its required audit write fails", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table admin_backup_log (id bigserial primary key, created_at timestamptz not null);
+      insert into admin_backup_log(created_at) values (current_timestamp - interval '120 days');
+    `);
+    const sql = {
+      query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+        (await pg.query<T>(text, params)).rows,
+      transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+        pg.transaction(async (tx) => callback({
+          query: async <R = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+            (await tx.query<R>(text, params)).rows,
+        } as unknown as Sql)),
+    } as unknown as Sql;
+
+    await assert.rejects(pruneAdminBackupHistory(sql, 90), /admin_audit_log/);
+    const remaining = await pg.query("select id from admin_backup_log");
+    assert.equal(remaining.rows.length, 1);
+  } finally {
+    await pg.close();
+  }
 });

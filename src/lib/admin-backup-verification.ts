@@ -12,9 +12,10 @@ export const ADMIN_BACKUP_TABLES = [
   "property_change_history",
   "site_events",
   "admin_backup_log",
+  "admin_audit_log",
 ] as const;
 
-export const ADMIN_BACKUP_CORE_TABLES = ["properties", "leads", "consultants", "admin_backup_log"] as const;
+export const ADMIN_BACKUP_CORE_TABLES = ["properties", "leads", "consultants", "admin_backup_log", "admin_audit_log"] as const;
 
 export type AdminBackupTableStatus = "available" | "missing" | "error" | "timeout";
 export type AdminBackupVerificationStatus = "healthy" | "degraded" | "error" | "timeout";
@@ -153,7 +154,7 @@ export async function createAdminBackupExport(sql: Sql, now: () => Date = () => 
   if (!sql.transaction) throw new Error("Admin backup export requires transaction support.");
   return sql.transaction(async (transactionSql) => {
     await transactionSql.query("set transaction isolation level repeatable read");
-    const [properties, leads, activities, finance, consultants, attendance, staffMobileDevices] = await Promise.all([
+    const [properties, leads, activities, finance, consultants, attendance, staffMobileDevices, tasks, propertyHistory, siteEvents, backupHistory, auditLog] = await Promise.all([
       transactionSql.query("select * from properties"),
       transactionSql.query("select * from leads"),
       transactionSql.query("select * from lead_activities"),
@@ -161,6 +162,11 @@ export async function createAdminBackupExport(sql: Sql, now: () => Date = () => 
       transactionSql.query("select * from consultants"),
       transactionSql.query("select * from staff_attendance"),
       transactionSql.query("select * from staff_mobile_devices"),
+      transactionSql.query("select * from admin_tasks"),
+      transactionSql.query("select * from property_change_history"),
+      transactionSql.query("select * from site_events"),
+      transactionSql.query("select * from admin_backup_log"),
+      transactionSql.query("select * from admin_audit_log"),
     ]);
     const tableCounts = {
       properties: properties.length,
@@ -170,13 +176,28 @@ export async function createAdminBackupExport(sql: Sql, now: () => Date = () => 
       consultants: consultants.length,
       attendance: attendance.length,
       staffMobileDevices: staffMobileDevices.length,
+      adminTasks: tasks.length,
+      propertyChangeHistory: propertyHistory.length,
+      siteEvents: siteEvents.length,
+      backupHistory: backupHistory.length,
+      adminAuditLog: auditLog.length,
     };
     const payload = {
       exportedAt: now().toISOString(),
       app: "Hirmand Real Estate",
-      version: 3,
+      version: 4,
+      scope: {
+        kind: "selected-business-data-export",
+        includedTables: [...ADMIN_BACKUP_TABLES],
+        excluded: [
+          "Authentication credentials and sessions",
+          "Phone Bridge private device, location and command data",
+          "Binary files stored in Liara Object Storage",
+          "Temporary upload sessions and chunks",
+        ],
+      },
       integrity: {
-        kind: "row-count",
+        kind: "selected-table-row-count",
         tableCounts,
         totalRows: Object.values(tableCounts).reduce((sum, value) => sum + value, 0),
       },
@@ -187,8 +208,37 @@ export async function createAdminBackupExport(sql: Sql, now: () => Date = () => 
       consultants,
       attendance,
       staffMobileDevices,
+      adminTasks: tasks,
+      propertyChangeHistory: propertyHistory,
+      siteEvents,
+      backupHistory,
+      adminAuditLog: auditLog,
     };
     await recordAdminBackupExport(transactionSql, tableCounts);
     return JSON.stringify(payload, null, 2);
+  });
+}
+
+export async function pruneAdminBackupHistory(sql: Sql, retentionDays: number) {
+  if (!sql.transaction) throw new Error("Admin backup history pruning requires transaction support.");
+  return sql.transaction(async (transactionSql) => {
+    const rows = await transactionSql.query<{ id: number }>(
+      "delete from admin_backup_log where created_at < current_timestamp - ($1::int * interval '1 day') returning id",
+      [retentionDays],
+    );
+    await transactionSql.query(
+      `insert into admin_audit_log
+        (action, entity_type, entity_id, entity_title, actor, metadata)
+       values ($1, $2, $3, $4, $5, $6::jsonb)`,
+      [
+        "admin_backup_history_pruned",
+        "admin_backup",
+        null,
+        "",
+        "admin",
+        JSON.stringify({ deleted: rows.length, retentionDays }),
+      ],
+    );
+    return rows.length;
   });
 }

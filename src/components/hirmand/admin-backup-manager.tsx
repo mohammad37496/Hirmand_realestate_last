@@ -1,10 +1,11 @@
 import { Database, Download, History, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { readLastSuccessfulBackupVerification, writeLastSuccessfulBackupVerification } from "@/lib/admin-backup-last-success";
 
 type Verification = { checkedAt: string; lastSuccessfulAt: string | null; status: "healthy" | "degraded" | "error" | "timeout"; coreReady: boolean; complete: boolean; tables: Array<{ table: string; status: "available" | "missing" | "error" | "timeout"; exists: boolean | null; count: number | null }> };
 type BackupHistoryItem = { id: number; kind: string; createdAt: string; tableCounts: Record<string, unknown> };
-const TABLE_LABEL: Record<string, string> = { properties: "فایل‌ها", leads: "لیدها", leadActivities: "فعالیت‌های CRM", financeTransactions: "امور مالی", consultants: "مشاوران", attendance: "حضور و غیاب" };
+const TABLE_LABEL: Record<string, string> = { properties: "فایل‌ها", leads: "لیدها", leadActivities: "فعالیت‌های CRM", financeTransactions: "امور مالی", consultants: "مشاوران", attendance: "حضور و غیاب", staffMobileDevices: "دستگاه‌های کارکنان", adminTasks: "وظایف مدیریت", propertyChangeHistory: "تاریخچه تغییر فایل", siteEvents: "رویدادهای سایت", backupHistory: "تاریخچه پشتیبان", adminAuditLog: "گزارش ممیزی مدیریت", admin_backup_log: "تاریخچه پشتیبان", admin_audit_log: "گزارش ممیزی مدیریت", admin_tasks: "وظایف مدیریت", property_change_history: "تاریخچه تغییر فایل", site_events: "رویدادهای سایت" };
 function formatDate(value: string) { return new Date(value).toLocaleString("fa-IR", { dateStyle: "medium", timeStyle: "short" }); }
 function rowsCount(item: BackupHistoryItem) { return Object.values(item.tableCounts).reduce((sum: number, value) => sum + (Number(value) || 0), 0); }
 
@@ -15,6 +16,7 @@ export function AdminBackupManager() {
   const [history, setHistory] = useState<BackupHistoryItem[]>([]);
   const [historyError, setHistoryError] = useState("");
   const [verification, setVerification] = useState<Verification | null>(null);
+  const [lastSuccessfulAt, setLastSuccessfulAt] = useState<string | null>(null);
   const [verificationError, setVerificationError] = useState("");
   const [retentionDays, setRetentionDays] = useState("90");
   const [pruning, setPruning] = useState(false);
@@ -38,7 +40,12 @@ export function AdminBackupManager() {
     finally { setHistoryLoading(false); }
   }
 
-  useEffect(() => { void loadHistory(); }, []);
+  useEffect(() => {
+    let storage: Storage | null = null;
+    try { storage = window.localStorage; } catch { /* Browser storage can be disabled. */ }
+    setLastSuccessfulAt(readLastSuccessfulBackupVerification(storage));
+    void loadHistory();
+  }, []);
 
   async function verifyBackup() {
     if (verifying) return; setVerifying(true); setVerificationError("");
@@ -47,10 +54,14 @@ export function AdminBackupManager() {
       const data = await res.json().catch(() => ({})) as Partial<Verification> & { statusMessage?: string };
       if (!res.ok) throw new Error(data?.statusMessage || "راستی‌آزمایی پشتیبان انجام نشد.");
       if (!data.checkedAt || !Array.isArray(data.tables) || !data.status) throw new Error("پاسخ راستی‌آزمایی ناقص است.");
-      const lastSuccessfulAt = data.status === "healthy"
-        ? data.checkedAt
-        : verification?.lastSuccessfulAt ?? (verification?.status === "healthy" ? verification.checkedAt : null);
-      setVerification({ ...(data as Verification), lastSuccessfulAt });
+      const nextLastSuccessfulAt = data.status === "healthy" ? data.checkedAt : lastSuccessfulAt;
+      if (data.status === "healthy") {
+        let storage: Storage | null = null;
+        try { storage = window.localStorage; } catch { /* Browser storage can be disabled. */ }
+        writeLastSuccessfulBackupVerification(storage, data.checkedAt);
+      }
+      setLastSuccessfulAt(nextLastSuccessfulAt);
+      setVerification({ ...(data as Verification), lastSuccessfulAt: nextLastSuccessfulAt });
       if (data.status === "healthy") toast.success("ساختار پایگاه داده کامل و در دسترس است.");
       else toast.error(data.status === "timeout" ? "مهلت بررسی پایگاه داده تمام شد." : data.status === "error" ? "بررسی ساختار پایگاه داده با خطا مواجه شد." : "ساختار پایگاه داده کامل نیست.");
     } catch (error) {
@@ -96,8 +107,8 @@ export function AdminBackupManager() {
         <div>
           <span className="kicker">امنیت و پشتیبان‌گیری</span>
           <h2>نسخه پشتیبان و تاریخچه خروجی‌ها</h2>
-          <p>ساختار پایگاه داده را بررسی کنید، خروجی JSON بگیرید و سابقه خروجی‌های قبلی را ببینید. سوابق قدیمی نیز با نگهداری ۹۰، ۱۸۰ یا ۳۶۵ روز قابل پاک‌سازی هستند.</p>
-          <div className="admin-backup-summary-line"><span>آخرین خروجی: <strong>{latest ? formatDate(latest.createdAt) : "هنوز ثبت نشده"}</strong></span>{latest ? <span>{rowsCount(latest).toLocaleString("fa-IR")} رکورد در آخرین خروجی</span> : null}</div>
+          <p>ساختار جدول‌های عملیاتی منتخب را بررسی کنید و خروجی JSON بگیرید. این خروجی شامل اطلاعات احراز هویت، داده‌های خصوصی Phone Bridge یا فایل‌های باینری ذخیره‌شده در Object Storage نیست؛ برای بازیابی کامل زیرساخت، پشتیبان پایگاه داده و فضای ذخیره‌سازی نیز لازم است.</p>
+          <div className="admin-backup-summary-line"><span>آخرین خروجی: <strong>{latest ? formatDate(latest.createdAt) : "هنوز ثبت نشده"}</strong></span>{latest ? <span>{rowsCount(latest).toLocaleString("fa-IR")} رکورد در آخرین خروجی</span> : null}{lastSuccessfulAt ? <span>آخرین راستی‌آزمایی موفق در این مرورگر: <strong>{formatDate(lastSuccessfulAt)}</strong></span> : null}</div>
         </div>
         <div className="admin-backup-actions">
           <button className="btn-ghost" type="button" onClick={() => void verifyBackup()} disabled={verifying}><RefreshCw size={15} className={verifying ? "admin-spin" : ""} />{verifying ? "در حال بررسی…" : "راستی‌آزمایی"}</button>
