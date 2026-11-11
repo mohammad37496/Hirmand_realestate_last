@@ -170,7 +170,7 @@ const ALLOWED_VIDEO_TYPES = new Set([
 
 export const LIARA_MEDIA_STREAM_IDLE_TIMEOUT_MS = 12_000;
 
-/** Preserve streaming/backpressure while cancelling an upstream body that stops producing bytes. */
+/** Preserve backpressure while cancelling an upstream body that stops producing bytes. */
 function withIdleTimeout(
   body: ReadableStream<Uint8Array>,
   timeoutMs: number,
@@ -186,10 +186,13 @@ function withIdleTimeout(
         const result = await Promise.race([
           reader.read(),
           new Promise<never>((_, reject) => {
-            activeTimer = setTimeout(() => {
-              reject(new Error("Upstream Liara media stream stalled."));
-              void reader.cancel().catch(() => undefined);
-            }, Math.max(1, timeoutMs));
+            activeTimer = setTimeout(
+              () => {
+                reject(new Error("Upstream Liara media stream stalled."));
+                void reader.cancel().catch(() => undefined);
+              },
+              Math.max(1, timeoutMs),
+            );
           }),
         ]);
         if (activeTimer) clearTimeout(activeTimer);
