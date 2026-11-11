@@ -3,6 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { normalizeConsultantTargetMoney } from "@/lib/admin-consultant-targets";
 
 function clean(value: unknown, max = 200) { return typeof value === "string" ? value.trim().slice(0, max) : ""; }
@@ -19,7 +20,7 @@ export default defineEventHandler(async event => {
   assertSameOrigin(event);
   const claims = await getAdminSessionClaims(token);
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "reports.view")) throw createError({ statusCode: 403, statusMessage: "دسترسی گزارش مدیریت برای این حساب فعال نیست." });
-  if (dbSource === "unconfigured") return { month: new Date().toISOString().slice(0, 7), rows: [] };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده برای دریافت یا ذخیره اهداف مشاوران آماده نیست.");
 
   const sql = await getSql();
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
