@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { publicPropertyFiltersSchema } from "./property-search-contract.ts";
+import { finishPropertyLoadMore, resetPropertySearchPaginationLock } from "./property-search-pagination.ts";
 
 test("public filter contract accepts supported transaction types and money ranges", () => {
   const parsed = publicPropertyFiltersSchema.parse({
@@ -75,11 +76,54 @@ test("public floor filters allow -60 and levels 0 through 20, rejecting unsuppor
 
 test("stale load-more requests cannot clear a newer query loading state", async () => {
   const route = await readFile(new URL("../routes/properties.index.tsx", import.meta.url), "utf8");
+  const queryEffectStart = route.indexOf("const currentRequest = ++requestId.current;");
+  const queryEffectEnd = route.indexOf("const timer = window.setTimeout", queryEffectStart);
+  const queryEffect = route.slice(queryEffectStart, queryEffectEnd);
+  const validQueryStart = queryEffect.indexOf("setLoading(true);");
+  assert.ok(validQueryStart >= 0, "a valid filter change must start the new query");
+  assert.ok(
+    queryEffect.indexOf("resetPropertySearchPaginationLock(setLoadingMore);", validQueryStart) >= 0,
+    "a valid filter change must release the previous page-request lock",
+  );
+
   const loadMoreStart = route.indexOf("const loadMore = useCallback");
   const loadMoreEnd = route.indexOf("  }, [", loadMoreStart);
   const loadMore = route.slice(loadMoreStart, loadMoreEnd);
-  assert.match(loadMore, /if \(requestId\.current === queryVersion\) setLoadingMore\(false\)/);
-  assert.doesNotMatch(loadMore, /finally\s*\{\s*setLoadingMore\(false\)/);
+  assert.match(loadMore, /finishPropertyLoadMore\(requestId, queryVersion, setLoadingMore\)/);
+
+  const requestId = { current: 1 };
+  let loadingMore = true;
+  const setLoadingMore = (value: boolean) => { loadingMore = value; };
+  const deferred = () => {
+    let resolve!: () => void;
+    const promise = new Promise<void>((done) => { resolve = done; });
+    return { promise, resolve };
+  };
+
+  const oldPageVersion = requestId.current;
+  const oldPage = deferred();
+  const oldCompletion = oldPage.promise.finally(() =>
+    finishPropertyLoadMore(requestId, oldPageVersion, setLoadingMore),
+  );
+
+  requestId.current += 1;
+  resetPropertySearchPaginationLock(setLoadingMore);
+  assert.equal(loadingMore, false, "the new query releases the old page lock");
+
+  const currentPageVersion = requestId.current;
+  const currentPage = deferred();
+  const currentCompletion = currentPage.promise.finally(() =>
+    finishPropertyLoadMore(requestId, currentPageVersion, setLoadingMore),
+  );
+  loadingMore = true;
+
+  oldPage.resolve();
+  await oldCompletion;
+  assert.equal(loadingMore, true, "the stale page completion cannot clear the newer page lock");
+
+  currentPage.resolve();
+  await currentCompletion;
+  assert.equal(loadingMore, false, "the current page completion releases its own lock");
 });
 
 test("map-list featured badge respects the same expiry rule as property cards", async () => {
