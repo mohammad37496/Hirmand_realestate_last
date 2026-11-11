@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle, CalendarDays, CheckCircle2, Clock3, Database, ExternalLink,
   ListTodo, Plus, RefreshCw, SearchX, ServerCog, ShieldCheck, Trash2,
@@ -19,7 +19,17 @@ type ProductivityData = {
   expiredFeatured: Array<{ id: string; slug: string; title: string; featuredUntil: string }>;
   duplicateGroups: Array<{ kind: "owner" | "title"; key: string; label: string; neighborhood: string; fileCount: number; files: Array<{ id: string; slug: string; title: string }> }>;
   recentActivity: Array<{ source: string; itemId: string; event: string; title: string; createdAt: string }>;
-  system: { database: string; counts: Record<string, number>; generatedAt: string };
+  system: {
+    database: string;
+    status: "healthy" | "degraded" | "error" | "timeout";
+    coreReady: boolean;
+    counts: Record<string, number | null>;
+    counterStatus: Record<string, "available" | "missing" | "error" | "timeout">;
+    unavailableCounters: string[];
+    timedOutCounters: string[];
+    generatedAt: string;
+    lastSuccessfulAt: string | null;
+  };
 };
 
 const PRIORITY_LABEL: Record<Priority, string> = { low: "کم", normal: "عادی", high: "بالا", urgent: "فوری" };
@@ -77,6 +87,8 @@ export function AdminProductivityCenter() {
   const [data, setData] = useState<ProductivityData | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const loadRequestId = useRef(0);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [title, setTitle] = useState("");
@@ -96,20 +108,39 @@ export function AdminProductivityCenter() {
   }
 
   async function loadAll() {
+    const requestId = ++loadRequestId.current;
     setLoading(true);
+    setLoadError("");
     try {
       const results = await Promise.all([request<ProductivityData>("summary"), request<{ tasks: Task[] }>("list_tasks")]);
-      setData(results[0]);
+      if (requestId !== loadRequestId.current) return;
+      const summary = results[0];
+      if (!summary?.tasks || !summary?.propertyHealth || !Array.isArray(summary.staleProperties)
+        || !Array.isArray(summary.expiredFeatured) || !Array.isArray(summary.duplicateGroups)
+        || !Array.isArray(summary.recentActivity) || !summary.system?.status
+        || !summary.system.counts || !summary.system.counterStatus || !Array.isArray(results[1]?.tasks)) {
+        throw new Error("پاسخ مرکز بهره‌وری ناقص است؛ دوباره تلاش کنید.");
+      }
+      const lastSuccessfulAt = summary.system.status === "healthy"
+        ? summary.system.generatedAt
+        : data?.system.lastSuccessfulAt ?? (data?.system.status === "healthy" ? data.system.generatedAt : null);
+      setData({ ...summary, system: { ...summary.system, lastSuccessfulAt } });
       setTasks(results[1].tasks || []);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "مرکز مدیریت بارگذاری نشد.");
-    } finally { setLoading(false); }
+      if (requestId === loadRequestId.current) {
+        const message = error instanceof Error ? error.message : "مرکز مدیریت بارگذاری نشد.";
+        setLoadError(message);
+        toast.error(message);
+      }
+    } finally {
+      if (requestId === loadRequestId.current) setLoading(false);
+    }
   }
 
   useEffect(() => {
     void loadAll();
     const timer = window.setInterval(() => void loadAll(), 60000);
-    return () => window.clearInterval(timer);
+    return () => { window.clearInterval(timer); loadRequestId.current += 1; };
     // loadAll is intentionally kept local to this screen; refresh cadence is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -162,6 +193,9 @@ export function AdminProductivityCenter() {
   return (
     <div className="admin-productivity">
       <style dangerouslySetInnerHTML={{ __html: CENTER_CSS }} />
+      {loadError ? <div className="admin-productivity-notice" role="alert"><AlertCircle size={18}/><div><strong>بارگذاری یا به‌روزرسانی مرکز مدیریت ناموفق بود.</strong><span>{loadError}{data?.system.lastSuccessfulAt ? " · آخرین داده موفق: " + formatDate(data.system.lastSuccessfulAt) : " · هنوز داده موفقی بارگذاری نشده است."}</span><button className="btn-ghost" type="button" onClick={() => void loadAll()} disabled={loading}>تلاش دوباره</button></div></div> : null}
+      {!data && loading ? <div className="admin-productivity-empty">در حال دریافت اطلاعات مرکز مدیریت…</div> : null}
+      {data ? <>
       {(data?.tasks.overdue || data?.propertyHealth.incomplete) ? (
         <div className="admin-productivity-notice">
           <AlertCircle size={18} />
@@ -272,9 +306,9 @@ export function AdminProductivityCenter() {
         <section className="admin-panel">
           <div className="admin-panel-head"><div><span className="kicker">سیستم</span><h2>وضعیت سرویس‌ها</h2></div><ServerCog size={18} color="var(--brass-700)" /></div>
           <div className="admin-productivity-health">
-            <div className="admin-productivity-health-row"><strong><Database size={14}/> پایگاه داده</strong><span>{data?.system.database === "connected" ? "متصل" : "نامشخص"}</span><span><CheckCircle2 size={15}/></span></div>
-            {Object.entries(data?.system.counts || {}).map(([key,value]) => (
-              <div key={key} className="admin-productivity-health-row"><strong>{key === "properties" ? "فایل‌ها" : key === "leads" ? "درخواست‌ها" : key === "consultants" ? "مشاوران" : key === "media" ? "رسانه" : "وظایف"}</strong><span>{faNumber(value)}</span><span><CheckCircle2 size={15}/></span></div>
+            <div className="admin-productivity-health-row" data-tone={data.system.status === "healthy" ? undefined : "danger"}><strong><Database size={14}/> پایگاه داده</strong><span>{data.system.status === "healthy" ? "متصل و سالم" : data.system.status === "degraded" ? "ناقص" : data.system.status === "timeout" ? "مهلت بررسی تمام شد" : "خطا"}</span><span>{data.system.lastSuccessfulAt ? "آخرین موفقیت: " + formatDate(data.system.lastSuccessfulAt) : "بررسی موفقی ثبت نشده"}</span></div>
+            {Object.entries(data.system.counts).map(([key,value]) => (
+              <div key={key} className="admin-productivity-health-row" data-tone={value == null ? "danger" : undefined}><strong>{key === "properties" ? "فایل‌ها" : key === "leads" ? "درخواست‌ها" : key === "consultants" ? "مشاوران" : key === "media" ? "رسانه" : "وظایف"}</strong><span>{value == null ? "—" : faNumber(value)}</span><span>{data.system.counterStatus[key] === "available" ? "تأیید شد" : data.system.counterStatus[key] === "timeout" ? "مهلت بررسی تمام شد" : data.system.counterStatus[key] === "missing" ? "جدول موجود نیست" : "بررسی ناموفق"}</span></div>
             ))}
           </div>
         </section>
@@ -288,6 +322,7 @@ export function AdminProductivityCenter() {
           </div> : <div className="admin-productivity-empty">فعالیتی برای نمایش نیست.</div>}
         </section>
       </div>
+      </> : null}
     </div>
   );
 }
