@@ -44,9 +44,21 @@ export function CustomerConversation({ code, customerName = "" }: Props) {
         credentials: "same-origin",
         headers: { accept: "application/json" },
       });
-      const data = await response.json().catch(() => null) as { messages?: ChatMessage[]; statusMessage?: string } | null;
+      const data = await response.json().catch(() => null) as { messages?: ChatMessage[]; unreadCustomer?: number; statusMessage?: string } | null;
       if (!response.ok) throw new Error(data?.statusMessage || "گفت‌وگو در دسترس نیست.");
-      setMessages(Array.isArray(data?.messages) ? data.messages : []);
+      const nextMessages = Array.isArray(data?.messages) ? data.messages : [];
+      setMessages(nextMessages);
+      const visibleAdminMessageIds = nextMessages.filter((item) => item.senderType === "admin").map((item) => item.id);
+      if (Number(data?.unreadCustomer) > 0 && visibleAdminMessageIds.length) {
+        const readResponse = await fetch("/api/customer-chat/read", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ code, messageIds: visibleAdminMessageIds }),
+        });
+        const readData = await readResponse.json().catch(() => null) as { statusMessage?: string } | null;
+        if (!readResponse.ok) throw new Error(readData?.statusMessage || "ثبت مشاهده پیام‌های مشاور انجام نشد.");
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "دریافت پیام‌ها انجام نشد.");
     } finally {

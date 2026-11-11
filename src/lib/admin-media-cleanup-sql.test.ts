@@ -122,3 +122,27 @@ test("admin media health scan and cleanup use the same safe candidate SQL", asyn
   assert.match(source, /adminMediaCleanupOrphanDeleteSql/);
   assert.match(source, /adminMediaReferencedCountSql/);
 });
+
+test("admin media health and cleanup fail closed when the database is unconfigured", async () => {
+  const source = await readFile(new URL("./admin-media-health.ts", import.meta.url), "utf8");
+  const component = await readFile(new URL("../components/hirmand/admin-media-health.tsx", import.meta.url), "utf8");
+  const scanStart = source.indexOf("export const getAdminMediaHealth =");
+  const cleanupStart = source.indexOf("export const cleanupAdminMedia =");
+  assert.notEqual(scanStart, -1);
+  assert.notEqual(cleanupStart, -1);
+  const scanHandler = source.slice(scanStart, cleanupStart);
+  const cleanupHandler = source.slice(cleanupStart);
+
+  for (const handler of [scanHandler, cleanupHandler]) {
+    const guard = handler.indexOf('dbSource === "unconfigured"');
+    assert.ok(guard >= 0, "both scan and cleanup must guard an unconfigured database");
+    assert.match(handler, /throw createError\(\{\s*statusCode:\s*503/);
+    assert.ok(guard < handler.indexOf("getSql()"), "both operations must fail before attempting a query");
+  }
+  assert.doesNotMatch(scanHandler, /storedObjects:\s*0/);
+  assert.doesNotMatch(cleanupHandler, /orphanDeleted:\s*0/);
+  assert.match(component, /loadError/);
+  assert.match(component, /role="alert"/);
+  assert.match(component, /تلاش دوباره/);
+  assert.match(component, /data \? "به‌روزرسانی سلامت رسانه‌ها ناموفق بود\."/);
+});

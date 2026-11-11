@@ -20,6 +20,7 @@ export function AdminManagementReport({ role }: { role: AdminRole }) {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -27,7 +28,12 @@ export function AdminManagementReport({ role }: { role: AdminRole }) {
       const payload = (await response.json()) as Data & { statusMessage?: string };
       if (!response.ok) throw new Error(payload.statusMessage || "گزارش مدیریتی بارگذاری نشد.");
       setData(payload);
-    } catch (error) { toast.error(error instanceof Error ? error.message : "گزارش مدیریتی بارگذاری نشد."); }
+      setLoadError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "گزارش مدیریتی بارگذاری نشد.";
+      setLoadError(message);
+      toast.error(message);
+    }
     finally { setLoading(false); }
   }, [days]);
   useEffect(() => { void load(); }, [load]);
@@ -58,13 +64,14 @@ export function AdminManagementReport({ role }: { role: AdminRole }) {
         <button type="button" className="btn-gold" onClick={downloadCsv} disabled={!data}><Download size={14} /> CSV</button>
       </div>
     </div>
-    {loading && !data ? <div className="admin-empty">در حال آماده‌سازی گزارش…</div> : data ? <>
+    {loadError ? <div className="admin-empty" role="alert"><strong>{data ? "به‌روزرسانی گزارش مدیریتی ناموفق بود." : "گزارش مدیریتی دریافت نشد."}</strong><p>{loadError}</p><button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14} /> تلاش دوباره</button></div> : null}
+    {loading && !data ? <div className="admin-empty" role="status">در حال آماده‌سازی گزارش…</div> : data ? <>
       <div className="admin-report-kpis"><div><span>فایل‌های جدید</span><strong>{fa(data.properties.created)}</strong></div><div><span>لیدهای جدید</span><strong>{fa(data.leads.created)}</strong></div><div><span>معامله تکمیل‌شده</span><strong>{fa(data.deals.completed)}</strong></div>{canViewDeals ? <><div><span>حجم معاملات</span><strong>{money(data.deals.volume)}</strong></div><div><span>کمیسیون</span><strong>{money(data.deals.commission)}</strong></div></> : null}{data.finance ? <div><span>مانده مالی</span><strong>{money(data.finance.balance)}</strong></div> : null}</div>
       <div className="admin-report-grid"><section><h3>وضعیت فایل‌ها</h3><p>منتشرشده {fa(data.properties.published)} · پیش‌نویس {fa(data.properties.draft)} · بایگانی {fa(data.properties.archived)}</p></section>
         <section><h3>وضعیت CRM</h3><p>لید باز {fa(data.leads.open)} · قرارداد {fa(data.leads.contract)} · بسته‌شده {fa(data.leads.closed)}</p></section>
         {data.finance ? <section><h3><WalletCards size={15} /> مالی</h3><p>درآمد {money(data.finance.income)} · هزینه {money(data.finance.expense)} · مانده {money(data.finance.balance)}</p></section> : null}
         {canViewDeals ? <section><h3>مشاوران برتر</h3><div className="admin-report-consultants">{data.topConsultants.map((item) => <div key={item.name}><strong>{item.name}</strong><span>{fa(item.deals)} معامله · {money(item.volume)}</span></div>)}</div></section> : null}
       </div>
-    </> : null}
+    </> : loadError ? null : !loading ? <div className="admin-empty">هنوز گزارش معتبری دریافت نشده است.</div> : null}
   </section>;
 }

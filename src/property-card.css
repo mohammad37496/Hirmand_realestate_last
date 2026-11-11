@@ -338,22 +338,20 @@
 
 /* ----------------------------------------------------------------- specs -- */
 /* ----------------------------------------------------------------- specs -- */
-/* Compact property facts: warm branded strip + individual white chips. */
+/* Property facts use a quiet, editorial strip with clear icon hierarchy. */
 .pcard-specs {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
   direction: rtl;
-  gap: 6px;
-  margin-top: 2px;
-  padding: 10px 11px;
-  border-top: 1px solid rgba(11, 26, 43, 0.09);
-  border-bottom: 1px solid rgba(11, 26, 43, 0.09);
-  border-radius: 10px;
-  background: #f1eae0;
-  color: #626d7b;
-  font-size: 0.72rem;
+  gap: 7px;
+  margin-top: 3px;
+  padding: 10px 0 0;
+  border-top: 1px solid #e9edf0;
+  background: transparent;
+  color: #596879;
+  font-size: 0.73rem;
   font-weight: 600;
 }
 
@@ -362,29 +360,35 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-height: 31px;
-  padding: 5px 9px;
-  border: 1px solid rgba(11, 26, 43, 0.09);
-  border-radius: 8px;
-  background: #fff;
-  color: #626d7b;
-  box-shadow: 0 2px 8px rgba(11, 26, 43, 0.035);
-  line-height: 1;
+  gap: 7px;
+  min-height: 34px;
+  padding: 5px 9px 5px 10px;
+  border: 1px solid #e8edf0;
+  border-radius: 9px;
+  background: #f8fafb;
+  color: #455568;
+  line-height: 1.35;
   white-space: nowrap;
-  transition: none;
+  transition: border-color 160ms var(--ease), background-color 160ms var(--ease), transform 160ms var(--ease);
 }
 
 .pcard-specs span svg {
   flex: 0 0 14px;
   width: 14px;
   height: 14px;
-  color: #8a5e14;
+  padding: 2px;
+  box-sizing: content-box;
+  border-radius: 6px;
+  background: #f3ead8;
+  color: #95691f;
   stroke: currentColor;
 }
 
-/* Keep compact property facts static; the main Hirmand theme does not
-   change their color, border or position on hover. */
+.pcard-specs span:hover {
+  transform: translateY(-1px);
+  border-color: #d9c59f;
+  background: #fffdf9;
+}
 
 /* ---------------------------------------------------------------- footer -- */
 .pcard-footer {
@@ -638,14 +642,14 @@
 @media (max-width: 720px) {
   .pcard-specs {
     gap: 6px;
-    padding: 9px 10px;
+    padding-top: 8px;
   }
 
   .pcard-specs span {
-    min-height: 29px;
-    padding: 5px 8px;
-    border-radius: 7px;
-    font-size: 0.68rem;
+    min-height: 30px;
+    padding: 4px 7px;
+    border-radius: 8px;
+    font-size: 0.67rem;
   }
 
   .pcard-specs span svg {

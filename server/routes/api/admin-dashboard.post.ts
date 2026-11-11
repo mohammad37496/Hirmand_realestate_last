@@ -7,6 +7,8 @@ import {
   loadAdminDashboardConsultantPerformance,
   loadAdminDashboardConsultantStats,
 } from "@/lib/admin-dashboard-consultant-stats";
+import { loadAdminDashboardOptionalQuery } from "@/lib/admin-dashboard-optional-query";
+import { hasCompleteAdminDashboardSummaryRows } from "@/lib/admin-dashboard-summary";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 
@@ -28,27 +30,11 @@ export default defineEventHandler(async (event) => {
   const canViewLeadDetails = hasAdminPermission(role, "lead.manage");
 
   if (dbSource === "unconfigured") {
-    return {
-      properties: { total: 0, published: 0, draft: 0, archived: 0, featured: 0, withoutImages: 0, newLast7: 0, incomplete: 0 },
-      consultants: { total: 0, active: 0, withFiles: 0, withLeads: 0 },
-      leads: { total: 0, new: 0, contacted: 0, follow_up: 0, visited: 0, contract: 0, closed: 0, spam: 0, today: 0, last7: 0, last30: 0 },
-      propertyTypes: [],
-      leadDays: [],
-      music: { total: 0, active: 0, sizeBytes: 0 },
-      visitors: { today: 0, last7: 0, last30: 0, pageviewsToday: 0, pageviewsLast7: 0, pageviewsLast30: 0, activeNow: 0 },
-      visitorDays: [],
-      topPages: [],
-      topProperties: [],
-      eventStats: [],
-      visitorSources: [],
-      followUps: { due: 0, next7: 0 },
-      leadSla: { overdue: 0, newOver4Hours: 0 },
-      recentLeads: [],
-    };
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای داشبورد مدیریت پیکربندی نشده است." });
   }
 
   const sql = await getSql();
-  const [propertyStats, leadStats, propertyTypes, leadDays, musicStats, recentLeads, visitorStats, activeVisitorStats, visitorDays, topPages, topProperties, eventStats, visitorSources, followUps, consultantStats, consultantPerformance, leadSla] = await Promise.all([    sql.query<Record<string, unknown>>(
+  const [propertyStats, leadStats, propertyTypes, leadDays, musicStats, recentLeads, visitorStatsResult, activeVisitorStatsResult, visitorDaysResult, topPagesResult, topPropertiesResult, eventStatsResult, visitorSourcesResult, followUps, consultantStats, leadSla, consultantPerformance] = await Promise.all([    sql.query<Record<string, unknown>>(
       `select
         count(*)::int as total,
         count(*) filter (where status = 'published')::int as published,
@@ -114,7 +100,7 @@ export default defineEventHandler(async (event) => {
       order by created_at desc
       limit 6
     `),
-    sql.query<Record<string, unknown>>(`
+    loadAdminDashboardOptionalQuery("visitorStats", sql.query<Record<string, unknown>>(`
       select
         count(*) filter (
           where day = (current_timestamp at time zone 'Asia/Tehran')::date
@@ -135,19 +121,13 @@ export default defineEventHandler(async (event) => {
           where day >= (current_timestamp at time zone 'Asia/Tehran')::date - 29
         ), 0)::int as pageviews_last30
       from site_visitor_days
-    `).catch((error) => {
-      console.error("[admin-dashboard] visitor stats unavailable", error);
-      return [{}];
-    }),
-    sql.query<Record<string, unknown>>(`
+    `), [{}]),
+    loadAdminDashboardOptionalQuery("activeVisitorStats", sql.query<Record<string, unknown>>(`
       select count(distinct visitor_id)::int as active_now
       from site_visitor_days
       where last_seen_at >= current_timestamp - interval '5 minutes'
-    `).catch((error) => {
-      console.error("[admin-dashboard] active visitors unavailable", error);
-      return [{}];
-    }),
-    sql.query<Record<string, unknown>>(`
+    `), [{}]),
+    loadAdminDashboardOptionalQuery("visitorDays", sql.query<Record<string, unknown>>(`
       select
         ((current_timestamp at time zone 'Asia/Tehran')::date - days.n)::date as day,
         count(site_visitor_days.visitor_id)::int as unique_visitors,
@@ -157,11 +137,8 @@ export default defineEventHandler(async (event) => {
         on site_visitor_days.day = ((current_timestamp at time zone 'Asia/Tehran')::date - days.n)
       group by days.n
       order by day asc
-    `).catch((error) => {
-      console.error("[admin-dashboard] visitor trend unavailable", error);
-      return [];
-    }),
-    sql.query<Record<string, unknown>>(`
+    `), []),
+    loadAdminDashboardOptionalQuery("topPages", sql.query<Record<string, unknown>>(`
       select
         path,
         coalesce(sum(pageviews), 0)::int as pageviews,
@@ -173,11 +150,8 @@ export default defineEventHandler(async (event) => {
       group by path
       order by pageviews desc, unique_visitors desc
       limit 8
-    `).catch((error) => {
-      console.error("[admin-dashboard] top pages unavailable", error);
-      return [];
-    }),
-    sql.query<Record<string, unknown>>(`
+    `), []),
+    loadAdminDashboardOptionalQuery("topProperties", sql.query<Record<string, unknown>>(`
       select
         e.property_slug,
         p.title,
@@ -195,11 +169,8 @@ export default defineEventHandler(async (event) => {
       having count(*) filter (where e.event_name = 'property_view') > 0
       order by views desc, unique_views desc
       limit 8
-    `).catch((error) => {
-      console.error("[admin-dashboard] top properties unavailable", error);
-      return [];
-    }),
-    sql.query<Record<string, unknown>>(`
+    `), []),
+    loadAdminDashboardOptionalQuery("eventStats", sql.query<Record<string, unknown>>(`
       select
         event_name,
         count(*)::int as count,
@@ -208,11 +179,8 @@ export default defineEventHandler(async (event) => {
       where day >= (current_timestamp at time zone 'Asia/Tehran')::date - 29
       group by event_name
       order by count desc
-    `).catch((error) => {
-      console.error("[admin-dashboard] event stats unavailable", error);
-      return [];
-    }),
-    sql.query<Record<string, unknown>>(`
+    `), []),
+    loadAdminDashboardOptionalQuery("visitorSources", sql.query<Record<string, unknown>>(`
       select
         coalesce(nullif(utm_source, ''), nullif(referrer_host, ''), 'direct') as source,
         coalesce(nullif(utm_campaign, ''), 'بدون کمپین') as campaign,
@@ -222,18 +190,13 @@ export default defineEventHandler(async (event) => {
       group by 1, 2
       order by visitors desc
       limit 12
-    `).catch((error) => {
-      console.error("[admin-dashboard] visitor sources unavailable", error);
-      return [];
-    }),    sql.query<Record<string, unknown>>(
+    `), []),
+    sql.query<Record<string, unknown>>(
       `select
         count(*) filter (where status in ('new','contacted','follow_up','visited','contract') and follow_up_at <= current_timestamp)::int as due,
         count(*) filter (where status in ('new','contacted','follow_up','visited','contract') and follow_up_at > current_timestamp and follow_up_at <= current_timestamp + interval '7 days')::int as next7
       from leads
-    `).catch((error) => {
-      console.error("[admin-dashboard] follow-up stats unavailable", error);
-      return [{}];
-    }),
+    `),
     loadAdminDashboardConsultantStats(sql),
     sql.query<Record<string, unknown>>(
       `select
@@ -251,15 +214,40 @@ export default defineEventHandler(async (event) => {
              and l.created_at < current_timestamp - interval '4 hours'
          )::int as new_over_4h
        from leads l`
-    ).catch((error) => {
-      console.error("[admin-dashboard] lead SLA unavailable", error);
-      return [{}];
-    }),
+    ),
     loadAdminDashboardConsultantPerformance(sql),
   ]);
-  const p = propertyStats[0] ?? {};
-  const l = leadStats[0] ?? {};
-  const m = musicStats[0] ?? {};
+  if (!hasCompleteAdminDashboardSummaryRows({ propertyStats, leadStats, musicStats, followUps, consultantStats, leadSla })) {
+    throw createError({ statusCode: 503, statusMessage: "داده‌های اصلی داشبورد ناقص است؛ دوباره تلاش کنید." });
+  }
+  const p = propertyStats[0];
+  const l = leadStats[0];
+  const m = musicStats[0];
+  const visitorStats = visitorStatsResult.data;
+  const activeVisitorStats = activeVisitorStatsResult.data;
+  const visitorDays = visitorDaysResult.data;
+  const topPages = topPagesResult.data;
+  const topProperties = topPropertiesResult.data;
+  const eventStats = eventStatsResult.data;
+  const visitorSources = visitorSourcesResult.data;
+  const unavailableSections = [
+    visitorStatsResult,
+    activeVisitorStatsResult,
+    visitorDaysResult,
+    topPagesResult,
+    topPropertiesResult,
+    eventStatsResult,
+    visitorSourcesResult,
+  ].filter((result) => !result.available).map((result) => result.section);
+  const timedOutSections = [
+    visitorStatsResult,
+    activeVisitorStatsResult,
+    visitorDaysResult,
+    topPagesResult,
+    topPropertiesResult,
+    eventStatsResult,
+    visitorSourcesResult,
+  ].filter((result) => result.timedOut).map((result) => result.section);
   const v = (visitorStats[0] ?? {}) as Record<string, unknown>;
   const active = (activeVisitorStats[0] ?? {}) as Record<string, unknown>;
   const followUp = (followUps[0] ?? {}) as Record<string, unknown>;
@@ -347,6 +335,8 @@ export default defineEventHandler(async (event) => {
       campaign: String(row.campaign),
       visitors: Number(row.visitors) || 0,
     })),
+    unavailableSections,
+    timedOutSections,
     followUps: {
       due: Number(followUp.due) || 0,
       next7: Number(followUp.next7) || 0,
