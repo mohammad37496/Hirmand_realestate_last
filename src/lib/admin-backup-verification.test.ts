@@ -222,17 +222,15 @@ test("treats an incomplete schema lookup response as an error, not as a missing 
   assert.deepEqual(result.tables[0], { table: "properties", status: "error", exists: null, count: null });
 });
 
-test("marks a timed-out query explicitly and returns to healthy after a successful retry", async () => {
+test("marks a PostgreSQL statement timeout explicitly and returns to healthy after a successful retry", async () => {
   let shouldTimeout = true;
   const sql = createSql(async (text) => {
-    if (shouldTimeout && text.includes("count(*)")) return new Promise<unknown[]>(() => {});
+    if (shouldTimeout && text.includes("count(*)")) {
+      throw Object.assign(new Error("canceling statement due to statement timeout"), { code: "57014" });
+    }
     return text.includes("to_regclass") ? [{ name: "public.properties" }] : [{ count: 4 }];
   });
-  const timedOut = await verifyAdminBackupTables(sql, {
-    tables: ["properties"],
-    coreTables: ["properties"],
-    timeoutMs: 5,
-  });
+  const timedOut = await verifyAdminBackupTables(sql, { tables: ["properties"], coreTables: ["properties"] });
   assert.equal(timedOut.status, "timeout");
   assert.equal(timedOut.tables[0]?.status, "timeout");
   assert.equal(timedOut.tables[0]?.exists, true);
@@ -244,6 +242,24 @@ test("marks a timed-out query explicitly and returns to healthy after a successf
   assert.equal(recovered.status, "healthy");
   assert.equal(recovered.tables[0]?.count, 4);
   assert.ok(recovered.lastSuccessfulAt);
+});
+
+test("waits for the SQL driver to settle instead of returning while a query is still pending", async () => {
+  let rejectCountQuery: ((error: Error) => void) | undefined;
+  const sql = createSql(async (text) => {
+    if (text.includes("to_regclass")) return [{ name: "public.properties" }];
+    return new Promise<unknown[]>((_, reject) => { rejectCountQuery = reject; });
+  });
+  let settled = false;
+  const verification = verifyAdminBackupTables(sql, { tables: ["properties"], coreTables: ["properties"] })
+    .finally(() => { settled = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(typeof rejectCountQuery, "function");
+  assert.equal(settled, false);
+  rejectCountQuery!(Object.assign(new Error("canceling statement due to statement timeout"), { code: "57014" }));
+  const result = await verification;
+  assert.equal(result.status, "timeout");
+  assert.equal(settled, true);
 });
 
 test("does not report a backup export as recorded when its history insert fails", async () => {

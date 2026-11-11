@@ -92,7 +92,7 @@ function toSql(run: Run, transaction?: Sql["transaction"]): Sql {
 export function getConfiguredDbQueryTimeoutMs() {
   const configured = Number(process.env.DB_QUERY_TIMEOUT_MS ?? 8_000);
   if (!Number.isFinite(configured) || configured <= 0) return 8_000;
-  return Math.min(2_147_483_147, Math.max(1, Math.floor(configured)));
+  return Math.min(2_147_483_147, Math.max(500, Math.floor(configured)));
 }
 
 function createPostgresSql(): Promise<Sql> {
@@ -102,6 +102,10 @@ function createPostgresSql(): Promise<Sql> {
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
     const queryTimeoutMs = getConfiguredDbQueryTimeoutMs();
+    const configuredConnectTimeout = Number(process.env.DB_POOL_CONNECT_MS ?? 8_000);
+    const connectTimeoutMs = Number.isFinite(configuredConnectTimeout) && configuredConnectTimeout > 0
+      ? Math.max(500, Math.floor(configuredConnectTimeout))
+      : 8_000;
     const pool = new Pool({
       connectionString: databaseUrl!,
       // `query_timeout` is only a client-side watchdog in node-postgres. The
@@ -112,7 +116,9 @@ function createPostgresSql(): Promise<Sql> {
       query_timeout: queryTimeoutMs + 500,
       max: Number(process.env.DB_POOL_MAX ?? 5),
       idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_MS ?? 10_000),
-      connectionTimeoutMillis: Number(process.env.DB_POOL_CONNECT_MS ?? 8_000),
+      // Bound queued Pool.connect() acquisitions by the same overall query budget.
+      // This matters when Promise.all fan-out temporarily saturates the pool.
+      connectionTimeoutMillis: Math.min(connectTimeoutMs, queryTimeoutMs),
       allowExitOnIdle: true,
       application_name: "hirmand-real-estate",
     });

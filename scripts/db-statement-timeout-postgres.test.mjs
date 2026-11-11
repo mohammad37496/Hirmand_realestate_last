@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import pg from "pg";
 import test from "node:test";
 
 const testDatabaseUrl = process.env.TEST_DATABASE_URL?.trim();
@@ -9,6 +11,8 @@ test("PostgreSQL statement_timeout cancels pool and transaction queries server-s
 }, async () => {
   process.env.DATABASE_URL = testDatabaseUrl;
   process.env.DB_QUERY_TIMEOUT_MS = "1000";
+  process.env.DB_POOL_MAX = "1";
+  process.env.DB_POOL_CONNECT_MS = "8000";
 
   // Import only after setting the isolated test database and short timeout so
   // the module-level pool is created with these values.
@@ -56,4 +60,35 @@ test("PostgreSQL statement_timeout cancels pool and transaction queries server-s
 
   const recovery = await sql.query("select 1::int as value");
   assert.equal(recovery[0]?.value, 1, "pool must remain usable after server-side cancellation and rollback");
+
+  const admin = new pg.Pool({ connectionString: testDatabaseUrl, max: 1 });
+  const table = `db_timeout_queue_probe_${process.pid}_${randomBytes(4).toString("hex")}`;
+  let releaseTransaction;
+  let transactionStarted;
+  const holdTransaction = new Promise((resolve) => { releaseTransaction = resolve; });
+  const started = new Promise((resolve) => { transactionStarted = resolve; });
+  try {
+    await admin.query(`create table public.${table} (value text not null)`);
+    const transaction = sql.transaction(async () => {
+      transactionStarted();
+      await holdTransaction;
+    });
+    await started;
+
+    const queuedStartedAt = Date.now();
+    await assert.rejects(
+      sql.query(`insert into public.${table}(value) values('must-not-run-after-timeout')`),
+      /timeout|connect/i,
+    );
+    assert.ok(Date.now() - queuedStartedAt < 1_800, "queued pool acquisition should expire within the configured query budget");
+
+    releaseTransaction();
+    await transaction;
+    const queuedRows = await sql.query(`select value from public.${table}`);
+    assert.equal(queuedRows.length, 0, "a timed-out queued query must be removed and must not execute later");
+  } finally {
+    releaseTransaction();
+    await admin.query(`drop table if exists public.${table}`).catch(() => {});
+    await admin.end();
+  }
 });

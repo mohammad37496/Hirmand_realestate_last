@@ -1,4 +1,4 @@
-import { getConfiguredDbQueryTimeoutMs, type Sql } from "./db.ts";
+import type { Sql } from "./db.ts";
 
 export const ADMIN_BACKUP_TABLES = [
   "properties",
@@ -46,35 +46,13 @@ function isTimeout(error: unknown) {
     || /timed?\s*out|timeout|statement timeout/i.test(error.message);
 }
 
-async function queryWithTimeout<T>(task: () => Promise<T>, timeoutMs: number): Promise<T> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      Promise.resolve().then(task),
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => {
-          const error = new Error("Admin backup verification timed out.");
-          error.name = "AdminBackupVerificationTimeout";
-          reject(error);
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-}
-
 async function checkTable(
   sql: Pick<Sql, "query">,
   table: string,
-  timeoutMs: number,
 ): Promise<AdminBackupTableCheck> {
   let existsRows: Array<{ name: string | null }>;
   try {
-    existsRows = await queryWithTimeout(
-      () => sql.query<{ name: string | null }>("select to_regclass($1) as name", [table]),
-      timeoutMs,
-    );
+    existsRows = await sql.query<{ name: string | null }>("select to_regclass($1) as name", [table]);
   } catch (error) {
     return { table, status: isTimeout(error) ? "timeout" : "error", exists: null, count: null };
   }
@@ -86,10 +64,7 @@ async function checkTable(
   }
 
   try {
-    const countRows = await queryWithTimeout(
-      () => sql.query<{ count: number | string }>(`select count(*)::int as count from ${table}`),
-      timeoutMs,
-    );
+    const countRows = await sql.query<{ count: number | string }>(`select count(*)::int as count from ${table}`);
     const count = Number(countRows[0]?.count);
     if (!countRows[0] || !Number.isSafeInteger(count) || count < 0) {
       return { table, status: "error", exists: true, count: null };
@@ -110,14 +85,16 @@ export async function verifyAdminBackupTables(
   options: {
     tables?: readonly string[];
     coreTables?: readonly string[];
-    timeoutMs?: number;
     now?: () => Date;
   } = {},
 ): Promise<AdminBackupVerification> {
   const tables = options.tables ?? ADMIN_BACKUP_TABLES;
   const coreTables = options.coreTables ?? ADMIN_BACKUP_CORE_TABLES;
-  const timeoutMs = options.timeoutMs ?? getConfiguredDbQueryTimeoutMs();
-  const checked = await Promise.all(tables.map((table) => checkTable(sql, table, timeoutMs)));
+  // Do not race Pool.query against a JS timer: a query waiting in pg-pool's
+  // acquisition queue cannot be cancelled by Promise.race and could execute later.
+  // PostgreSQL statement_timeout cancels dispatched SQL; connectionTimeoutMillis
+  // bounds queued acquisitions using the same configured query budget.
+  const checked = await Promise.all(tables.map((table) => checkTable(sql, table)));
   const hasTimeout = checked.some((item) => item.status === "timeout");
   const hasError = checked.some((item) => item.status === "error");
   const hasMissing = checked.some((item) => item.status === "missing");
