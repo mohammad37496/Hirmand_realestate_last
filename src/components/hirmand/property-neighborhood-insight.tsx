@@ -28,10 +28,16 @@ function compactRange(min: number | null, max: number | null) {
 export function PropertyNeighborhoodInsight({ property }: { property: Property }) {
   const [rows, setRows] = useState<PropertyCardData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [retryVersion, setRetryVersion] = useState(0);
+  const [loadedNeighborhood, setLoadedNeighborhood] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError("");
+    setRows([]);
+    setLoadedNeighborhood("");
     void listPublishedPropertyCards({
       data: {
         neighborhood: property.neighborhood,
@@ -39,16 +45,22 @@ export function PropertyNeighborhoodInsight({ property }: { property: Property }
         offset: 0,
       },
     }).then((items) => {
-      if (!cancelled) setRows(items);
+      if (!cancelled) {
+        setRows(items);
+        setLoadedNeighborhood(property.neighborhood);
+      }
     }).catch(() => {
-      if (!cancelled) setRows([]);
+      if (!cancelled) {
+        setLoadError("دریافت فایل‌های مقایسه‌ای این محله موقتاً ممکن نیست.");
+        setLoadedNeighborhood(property.neighborhood);
+      }
     }).finally(() => {
       if (!cancelled) setLoading(false);
     });
     return () => {
       cancelled = true;
     };
-  }, [property.neighborhood]);
+  }, [property.neighborhood, retryVersion]);
 
   const insight = useMemo(() => {
     const all = rows.filter((item) => item.slug !== property.slug);
@@ -81,10 +93,24 @@ export function PropertyNeighborhoodInsight({ property }: { property: Property }
     };
   }, [property.slug, rows]);
 
-  if (loading) {
+  if (loading || loadedNeighborhood !== property.neighborhood) {
     return (
       <section className="property-neighborhood-insight">
         <div className="property-neighborhood-insight-loading">در حال محاسبه تصویر کلی محله…</div>
+      </section>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className="property-neighborhood-insight" role="alert">
+        <div className="property-neighborhood-insight-error">
+          <strong>اطلاعات مقایسه‌ای محله در دسترس نیست</strong>
+          <p>{loadError}</p>
+          <button type="button" className="btn-ghost" onClick={() => setRetryVersion((current) => current + 1)} disabled={loading}>
+            تلاش دوباره
+          </button>
+        </div>
       </section>
     );
   }
