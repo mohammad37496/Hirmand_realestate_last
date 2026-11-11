@@ -17,6 +17,17 @@ const routes = await Promise.all(routePaths.map((name) =>
   readFile(new URL(`../server/routes/api/${name}`, import.meta.url), "utf8"),
 ));
 
+const serverFunctionModules = [
+  { file: "admin-audit.ts", operations: ["listAdminAuditLog", "clearAdminAuditLog"] },
+  {
+    file: "admin-security.ts",
+    operations: ["listAdminSecuritySessions", "revokeAdminSessionById", "revokeOtherAdminSessions", "purgeExpiredAdminSessions"],
+  },
+];
+const serverFunctions = await Promise.all(serverFunctionModules.map(({ file }) =>
+  readFile(new URL(`../src/lib/${file}`, import.meta.url), "utf8"),
+));
+
 test("core admin APIs fail with 503 rather than returning empty or successful defaults when DB is unconfigured", () => {
   for (const [index, source] of routes.entries()) {
     assert.match(source, /assertAdminDatabaseConfigured\(dbSource,/,
@@ -26,6 +37,23 @@ test("core admin APIs fail with 503 rather than returning empty or successful de
     assert.ok(query < 0 || guard < query, `${routePaths[index]} must guard before querying`);
     assert.doesNotMatch(source, /if\s*\(dbSource\s*===\s*["']unconfigured["']\)\s*return/);
   }
+});
+
+test("admin audit and session-security server functions fail with 503 instead of empty or false-success results", () => {
+  for (const [index, { file, operations }] of serverFunctionModules.entries()) {
+    const source = serverFunctions[index];
+    for (const operation of operations) {
+      const start = source.indexOf(`export const ${operation}`);
+      const next = source.indexOf("export const ", start + 1);
+      const block = source.slice(start, next === -1 ? undefined : next);
+      assert.notEqual(start, -1, `${file} must export ${operation}`);
+      assert.match(block, /assertAdminDatabaseConfigured\(dbSource,/,
+        `${operation} must reject an unconfigured database with 503`);
+      assert.doesNotMatch(block, /if\s*\(dbSource\s*===\s*["']unconfigured["']\)\s*return/);
+    }
+  }
+  assert.doesNotMatch(serverFunctions[1], /return \{ success: true, revoked: changed \}/);
+  assert.match(serverFunctions[1], /statusCode:\s*409,\s*statusMessage:\s*"نشست مورد نظر قبلاً بسته شده یا وجود ندارد\."/);
 });
 
 const componentPaths = [
@@ -54,4 +82,23 @@ test("admin workspaces show unavailable state instead of empty or zero data", ()
   assert.match(components[7], /اطلاعات ثبت‌های مشتری در دسترس نیست/);
   assert.match(components[8], /loadError/);
   assert.match(components[8], /AdminErrorBanner/);
+});
+
+const auditAndSecurityUi = await Promise.all([
+  readFile(new URL("../src/components/hirmand/admin-audit-log.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../src/components/hirmand/admin-security-center.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../src/components/hirmand/admin-mobile-management.tsx", import.meta.url), "utf8"),
+]);
+
+test("admin audit and session-security workspaces show retryable errors instead of empty or zero states", () => {
+  assert.match(auditAndSecurityUi[0], /loadError/);
+  assert.match(auditAndSecurityUi[0], /role=["']alert["']/);
+  assert.match(auditAndSecurityUi[0], /loadError\s*&&\s*!items\.length\s*\?\s*null/);
+  assert.match(auditAndSecurityUi[1], /loadError/);
+  assert.match(auditAndSecurityUi[1], /role=["']alert["']/);
+  assert.match(auditAndSecurityUi[1], /!loadError\s*&&\s*!loading/);
+  assert.match(auditAndSecurityUi[1], /!!busy\s*\|\|\s*loading\s*\|\|\s*!!loadError/);
+  assert.match(auditAndSecurityUi[2], /setLoadError\(error\s+instanceof\s+Error\s*\?\s*error\.message/);
+  assert.match(auditAndSecurityUi[2], /role=["']alert["']/);
+  assert.match(auditAndSecurityUi[2], /setRetryVersion\(\(current\)\s*=>\s*current\s*\+\s*1\)/);
 });
