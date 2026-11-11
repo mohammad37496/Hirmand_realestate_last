@@ -896,7 +896,10 @@ export const listPublishedPropertiesBySlugs = createServerFn({ method: "GET" })
     }),
   )
   .handler(async ({ data }) => {
-    if (dbSource === "unconfigured" || data.slugs.length === 0) return [];
+    if (data.slugs.length === 0) return [];
+    if (dbSource === "unconfigured") {
+      throw new Error("Property lookup is unavailable because the database is not configured.");
+    }
 
     const sql = await getSql();
     const rows = await sql.query<Record<string, unknown>>(
