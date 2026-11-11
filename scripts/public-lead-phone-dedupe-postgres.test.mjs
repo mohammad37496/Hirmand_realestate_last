@@ -68,6 +68,7 @@ test("same-phone public lead submissions serialize across independent PostgreSQL
         follow_up_at timestamptz,
         floor_preference text,
         property_id text,
+        consultant_id text,
         visit_preferred_at timestamptz,
         visit_requested_at timestamptz,
         visit_status text,
