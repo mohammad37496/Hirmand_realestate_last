@@ -13,6 +13,7 @@ import {
   gateIdentityUserInfo,
   sessionBoundToGateIdentity,
 } from "./gate-identity.server";
+import { prepareGateIdentitySession } from "./gate-session-lifecycle";
 import { GATE_SESSION_MARKER_COOKIE } from "./gate-session-marker";
 
 export const GATE_PROVIDER_ID = "grok-gate";
@@ -55,9 +56,8 @@ async function emitSessionCookie(
     return null;
   }
 
-  const sessionValue = parseSetCookieHeader(signedCookie).get(
-    sessionTokenName,
-  )?.value;
+  const sessionValue =
+    parseSetCookieHeader(signedCookie).get(sessionTokenName)?.value;
   if (!sessionValue) {
     console.error(`${LOG} signed Set-Cookie missing session token value`, {
       cookiePreview: signedCookie.slice(0, 120),
@@ -119,7 +119,10 @@ async function expireSessionDataCookie(
       maxAge: 0,
     });
   } catch (err) {
-    console.error(`${LOG} TanStack setCookie (expire session_data) failed`, err);
+    console.error(
+      `${LOG} TanStack setCookie (expire session_data) failed`,
+      err,
+    );
   }
   try {
     ctx.context.responseHeaders?.append(
@@ -236,56 +239,43 @@ export function gateIdentitySessions() {
 
             const sessionCookieName = ctx.context.authCookies.sessionToken.name;
             const cookieHeader = inbound.get("cookie") ?? "";
-            if (cookieHeader.includes(`${sessionCookieName}=`)) {
-              const existing = await getSessionFromCtx(ctx).catch((err) => {
-                console.error(`${LOG} getSessionFromCtx failed`, err);
-                return null;
-              });
-              if (existing?.session && existing.user) {
-                const accounts = await ctx.context.internalAdapter
-                  .findAccounts(existing.user.id)
-                  .catch((err) => {
-                    console.error(`${LOG} findAccounts failed`, err);
-                    return null;
-                  });
-                if (!accounts) {
-                  console.error(
-                    `${LOG} could not load accounts for existing session user`,
-                    { userId: existing.user.id },
-                  );
-                  return;
-                }
-                if (
-                  sessionBoundToGateIdentity(
-                    accounts,
-                    identity.sub,
-                    GATE_PROVIDER_ID,
-                  )
-                ) {
-                  await writeGateMarkerCookie(ctx, false);
-                  return;
-                }
-                await ctx.context.internalAdapter
-                  .deleteSession(existing.session.token)
-                  .catch((err) => {
-                    console.error(
-                      `${LOG} deleteSession (stale non-gate session) failed`,
-                      err,
-                    );
-                    return null;
-                  });
-              }
+            const preparation = await prepareGateIdentitySession({
+              hasSessionCookie: cookieHeader.includes(`${sessionCookieName}=`),
+              loadSession: () => getSessionFromCtx(ctx),
+              loadAccounts: (userId) =>
+                ctx.context.internalAdapter.findAccounts(userId),
+              matchesIdentity: (accounts) =>
+                sessionBoundToGateIdentity(
+                  accounts,
+                  identity.sub,
+                  GATE_PROVIDER_ID,
+                ),
+              revokeSession: (token) =>
+                ctx.context.internalAdapter.deleteSession(token),
+              createReplacementSession: () =>
+                handleOAuthUserInfo(ctx, {
+                  userInfo: gateIdentityUserInfo(identity),
+                  account: {
+                    providerId: GATE_PROVIDER_ID,
+                    issuer: GATE_ACCOUNT_ISSUER,
+                    accountId: identity.sub,
+                  } as GateAccount,
+                }),
+            });
+            if (preparation.status === "unavailable") {
+              console.error(
+                `${LOG} gate session ${preparation.stage} failed; refusing identity rotation`,
+                preparation.error,
+              );
+              return;
+            }
+            if (preparation.status === "same-identity") {
+              await writeGateMarkerCookie(ctx, false);
+              return;
             }
 
             try {
-              const result = await handleOAuthUserInfo(ctx, {
-                userInfo: gateIdentityUserInfo(identity),
-                account: {
-                  providerId: GATE_PROVIDER_ID,
-                  issuer: GATE_ACCOUNT_ISSUER,
-                  accountId: identity.sub,
-                } as GateAccount,
-              });
+              const result = preparation.replacement;
               if (result.error || !result.data) {
                 console.error(`${LOG} handleOAuthUserInfo failed`, {
                   error: result.error,

@@ -1647,7 +1647,7 @@ export function PropertyDetailView({
                 </div>
 
                 <div className="property-primary-contact" aria-label="تماس سریع با مشاور">
-                  <PropertyCallbackRequest propertyType={TYPE_LABEL[property.propertyType]} neighborhood={property.neighborhood} context={"فایل «" + property.title + "»"} />
+                  <PropertyCallbackRequest propertyId={property.id} propertyType={TYPE_LABEL[property.propertyType]} neighborhood={property.neighborhood} context={"فایل «" + property.title + "»"} />
                   {propertyTel ? <a
                     className="property-primary-contact-call"
                     href={`tel:${propertyTel}`}

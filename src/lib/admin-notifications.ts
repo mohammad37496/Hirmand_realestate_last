@@ -2,15 +2,24 @@ import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
+import {
+  ADMIN_SESSION_COOKIE,
+  getAdminSessionClaims,
+} from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
+import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { loadAdminNotificationCandidates } from "@/lib/admin-notification-candidates";
 
 async function requireAdmin() {
   const token = getCookie(ADMIN_SESSION_COOKIE);
-  if (!(await verifyAdminSessionToken(token))) throw new Error("نشست مدیریت معتبر نیست.");
+  const claims = await getAdminSessionClaims(token);
+  if (!claims) throw new Error("نشست مدیریت معتبر نیست.");
   assertAdminServerFnOrigin();
+  if (!hasAdminPermission(normalizeAdminRole(claims.role), "lead.manage")) {
+    throw new Error("برای مشاهده و مدیریت اعلان‌های مشتریان، مجوز مدیریت CRM لازم است.");
+  }
+  return claims;
 }
 
 type Candidate = {
