@@ -8,6 +8,7 @@ import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
 import { createPropertyVisitRequest } from "@/lib/property-visit-request";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 import { createPublicLeadIntake, resolveActivePublicLeadConsultant, resolvePropertyLeadConsultant } from "@/lib/public-lead-intake";
+import { insertPublicBudgetLead } from "@/lib/public-lead-insert";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -612,61 +613,42 @@ export default defineEventHandler(async (event) => {
   const createdLeadId = await createPublicLeadIntake(sql, async (transactionSql) => {
     const assignedConsultant = await resolveActivePublicLeadConsultant(transactionSql, parsed.data.consultantId);
     assignedConsultantName = assignedConsultant.name || parsed.data.consultant;
-    const rows = await transactionSql.query<{ id: string }>(
-    `insert into leads (
-      id, name, phone, people_count, job, deal, property_type, neighborhood, consultant, note, source, consultant_id,
-      acquisition_source, acquisition_medium, acquisition_campaign, acquisition_referrer, acquisition_landing_path,
-      follow_up_at, lease_deadline, budget_deposit, budget_rent, budget_purchase, budget_sale, budget_rate, budget_equivalent, budget_bedrooms,
-      floor_preference, matched_properties, match_count,
-      budget_deposit_min, budget_deposit_max, budget_rent_min, budget_rent_max,
-      budget_purchase_min, budget_purchase_max, budget_sale_min, budget_sale_max,
-      requested_amenities, requested_bedrooms, public_tracking_token
-    )
-    values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,current_timestamp + interval '24 hours',$18,$19,$20,$21,$22,$23,$24,$25,$26,$27::jsonb,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37::jsonb,$38,$39)
-    returning id`,
-    [
-      crypto.randomUUID(),
-      parsed.data.name,
-      parsed.data.phone,
-      parsed.data.peopleCount ?? null,
-      parsed.data.job,
-      parsed.data.deal,
-      parsed.data.propertyType,
-      parsed.data.neighborhood,
-      assignedConsultantName,
-      assignedConsultant.id,
+    return insertPublicBudgetLead(transactionSql, {
+      id: crypto.randomUUID(),
+      name: parsed.data.name,
+      phone: parsed.data.phone,
+      peopleCount: parsed.data.peopleCount ?? null,
+      job: parsed.data.job,
+      deal: parsed.data.deal,
+      propertyType: parsed.data.propertyType,
+      neighborhood: parsed.data.neighborhood,
+      consultantName: assignedConsultantName,
       note,
-      parsed.data.source,
-      acquisition.source,
-      acquisition.medium,
-      acquisition.campaign,
-      acquisition.referrer,
-      acquisition.landingPath,
+      source: parsed.data.source,
+      consultantId: assignedConsultant.id,
+      acquisition,
       leaseDeadline,
-      budgetDeposit || null,
-      budgetRent || null,
-      budgetPurchase || null,
-      budgetSale || null,
-      parsed.data.source === "budget_match" ? DEFAULT_MATCH_RAHN_RATE : null,
-      equivalent || null,
-      parsed.data.budgetBedrooms ?? null,
-      parsed.data.floorPreference,
-      JSON.stringify(matchedProperties),
-      matchedProperties.length,
-      budgetDepositMin || null,
-      budgetDeposit || null,
-      budgetRentMin || null,
-      budgetRent || null,
-      budgetPurchaseMin || null,
-      budgetPurchase || null,
-      budgetSaleMin || null,
-      budgetSale || null,
-      JSON.stringify(parsed.data.requestedAmenities),
-      parsed.data.requestedBedrooms ?? null,
+      budgetDeposit: budgetDeposit || null,
+      budgetRent: budgetRent || null,
+      budgetPurchase: budgetPurchase || null,
+      budgetSale: budgetSale || null,
+      budgetRate: parsed.data.source === "budget_match" ? DEFAULT_MATCH_RAHN_RATE : null,
+      budgetEquivalent: equivalent || null,
+      budgetBedrooms: parsed.data.budgetBedrooms ?? null,
+      floorPreference: parsed.data.floorPreference,
+      matchedProperties,
+      budgetDepositMin: budgetDepositMin || null,
+      budgetDepositMax: budgetDeposit || null,
+      budgetRentMin: budgetRentMin || null,
+      budgetRentMax: budgetRent || null,
+      budgetPurchaseMin: budgetPurchaseMin || null,
+      budgetPurchaseMax: budgetPurchase || null,
+      budgetSaleMin: budgetSaleMin || null,
+      budgetSaleMax: budgetSale || null,
+      requestedAmenities: parsed.data.requestedAmenities,
+      requestedBedrooms: parsed.data.requestedBedrooms ?? null,
       trackingToken,
-    ],
-    );
-    return rows[0]?.id ?? null;
+    });
   }, {
     activityType: "follow_up",
     title: "لید جدید ثبت شد",

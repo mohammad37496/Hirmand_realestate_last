@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
 test("CRM consultant attribution is ID-based across transactional writes and aggregates", async () => {
-  const [migration, leads, intake, visit, assignment, balancer, dashboard, performance, targets, health, dedupe, salesControl, callback, workflow] = await Promise.all([
+  const [migration, leads, intake, visit, assignment, balancer, dashboard, performance, targets, health, dedupe, salesControl, callback, workflow, leadInsert, salesQueries] = await Promise.all([
     read("../migrations/0104_lead_consultant_relation.sql"),
     read("../server/routes/api/leads.post.ts"),
     read("../src/lib/public-lead-intake.ts"),
@@ -20,6 +20,8 @@ test("CRM consultant attribution is ID-based across transactional writes and agg
     read("../server/routes/api/admin-sales-control-center.post.ts"),
     read("../src/components/hirmand/property-callback-request.tsx"),
     read("../.github/workflows/deploy-liara.yml"),
+    read("../src/lib/public-lead-insert.ts"),
+    read("../src/lib/admin-sales-control-center.ts"),
   ]);
 
   assert.match(migration, /foreign key \(consultant_id\) references consultants\(id\) on delete set null/i);
@@ -29,11 +31,13 @@ test("CRM consultant attribution is ID-based across transactional writes and agg
   assert.match(migration, /else 'legacy_unresolved'/);
   assert.match(migration, /old\.consultant_id is not null/);
 
-  assert.equal((leads.match(/insert into leads/gi) ?? []).length, 7);
+  assert.equal((leads.match(/insert into leads/gi) ?? []).length, 6);
   assert.equal((leads.match(/consultant_id/gi) ?? []).length >= 7, true);
   assert.equal((leads.match(/resolvePropertyLeadConsultant\(transactionSql/g) ?? []).length, 6);
   assert.equal((leads.match(/resolveActivePublicLeadConsultant\(transactionSql/g) ?? []).length, 3);
   assert.match(leads, /consultantId: z\.string/);
+  assert.match(leads, /insertPublicBudgetLead\(transactionSql/);
+  assert.match(leadInsert, /consultant, note, source, consultant_id/);
   assert.match(intake, /is_active=true[\s\S]*for share/i);
   assert.match(intake, /select consultant_id[\s\S]*for update/i);
   assert.match(intake, /Lock order matters: consultant first, property second/);
@@ -56,8 +60,9 @@ test("CRM consultant attribution is ID-based across transactional writes and agg
   assert.match(dedupe, /consultant_id = case/);
   assert.match(dedupe, /select id from consultants[\s\S]*for share/i);
   assert.match(dedupe, /select id,status,consultant,consultant_id,consultant_link_state[\s\S]*for update/i);
-  assert.match(salesControl, /c\.id as key/);
-  assert.match(salesControl, /join consultants c on c\.id=l\.consultant_id/);
+  assert.match(salesControl, /loadAdminSalesControlCenterQueries\(sql/);
+  assert.match(salesQueries, /c\.id as key/);
+  assert.match(salesQueries, /join consultants c on c\.id\s*=\s*l\.consultant_id/);
   assert.match(callback, /propertyId,propertyType/);
   assert.match(workflow, /0104_lead_consultant_relation\.sql/);
 });
