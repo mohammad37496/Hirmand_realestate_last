@@ -8,6 +8,7 @@ import { autoMatchLead } from "@/lib/lead-smart-matcher.server";
 import { createPropertyVisitRequest } from "@/lib/property-visit-request";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 import { createPublicLeadIntake } from "@/lib/public-lead-intake";
+import { withPublicLeadPhoneDedupeLock } from "@/lib/public-lead-phone-dedupe";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -148,7 +149,10 @@ export default defineEventHandler(async (event) => {
   const parsed = schema.safeParse(await readBody(event));
   if (!parsed.success) throw createError({ statusCode: 422, statusMessage: "اطلاعات درخواست ناقص یا نامعتبر است." });
   if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "ثبت آنلاین درخواست در حال حاضر فعال نیست." });
-  const sql = await getSql();
+  const databaseSql = await getSql();
+  if (typeof databaseSql.transaction !== "function") {
+    throw createError({ statusCode: 503, statusMessage: "ثبت درخواست در حال حاضر در دسترس نیست." });
+  }
   const visitorId = getCookie(event, VISITOR_COOKIE);
   let acquisition: {
     source: string | null;
@@ -166,7 +170,7 @@ export default defineEventHandler(async (event) => {
 
   if (visitorId && /^[a-f0-9-]{20,80}$/i.test(visitorId)) {
     try {
-      const acquisitionRows = await sql.query<Record<string, unknown>>(
+      const acquisitionRows = await databaseSql.query<Record<string, unknown>>(
         `select
            utm_source,
            utm_medium,
@@ -193,6 +197,8 @@ export default defineEventHandler(async (event) => {
       console.error("[leads] acquisition lookup unavailable", error);
     }
   }
+  let leadIdToAutoMatch: string | null = null;
+  const result = await withPublicLeadPhoneDedupeLock(databaseSql, parsed.data.phone, async (sql) => {
   const existing = await sql.query<{ id: string; public_tracking_token: string | null }>(
     `select id, public_tracking_token from leads where phone = $1 and created_at > current_timestamp - interval '10 minutes' limit 1`,
     [parsed.data.phone],
@@ -275,11 +281,7 @@ export default defineEventHandler(async (event) => {
           parsed.data.requestedBedrooms ?? null,
         ],
       );
-      try {
-        await autoMatchLead(sql, existing[0].id, { mode: "smart", limit: 8 });
-      } catch (error) {
-        console.error("[leads] automatic smart matching failed for duplicate budget lead", error);
-      }
+      leadIdToAutoMatch = existing[0].id;
       const trackingToken =
         existing[0].public_tracking_token || createPublicTrackingToken();
       if (!existing[0].public_tracking_token) {
@@ -644,14 +646,19 @@ export default defineEventHandler(async (event) => {
     dueMinutes: 24 * 60,
   });
   if (parsed.data.deal === "خرید" || parsed.data.deal === "فروش" || parsed.data.deal === "رهن" || parsed.data.deal === "اجاره") {
+    leadIdToAutoMatch = createdLeadId;
+  }
+  return { success: true, id: createdLeadId, duplicate: false, trackingToken };
+  });
+  if (leadIdToAutoMatch) {
     try {
-      const automaticMatches = await autoMatchLead(sql, createdLeadId, { mode: "smart", limit: 8 });
+      const automaticMatches = await autoMatchLead(databaseSql, leadIdToAutoMatch, { mode: "smart", limit: 8 });
       if (automaticMatches.count > 0) {
-        console.info("[leads] automatic smart matching completed", { leadId: createdLeadId, count: automaticMatches.count });
+        console.info("[leads] automatic smart matching completed", { leadId: leadIdToAutoMatch, count: automaticMatches.count });
       }
     } catch (error) {
       console.error("[leads] automatic smart matching failed", error);
     }
   }
-  return { success: true, id: createdLeadId, duplicate: false, trackingToken };
+  return result;
 });
