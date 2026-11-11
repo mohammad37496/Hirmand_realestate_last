@@ -4,6 +4,7 @@ import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-sessi
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { updateAdminLeadWithActivity } from "@/lib/admin-lead-activity-action";
 import { createOverdueLeadTasks } from "@/lib/admin-overdue-lead-tasks";
 
@@ -110,7 +111,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "سطح دسترسی CRM برای این حساب فعال نیست." });
   }
 
-  if (dbSource === "unconfigured") return { leads: [], total: 0 };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده CRM برای دریافت یا مدیریت سرنخ‌ها آماده نیست.");
   const sql = await getSql();
 
   if (body.action === "export") {

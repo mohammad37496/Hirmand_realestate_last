@@ -21,9 +21,11 @@ function fa(value: number) { return value.toLocaleString("fa-IR"); }
 export function AdminKpiHistory() {
   const [items, setItems] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async (sync = false) => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-kpi-snapshot" + (sync ? "?action=sync" : ""), {
         method: "POST",
@@ -34,7 +36,9 @@ export function AdminKpiHistory() {
       if (!response.ok) throw new Error(data.statusMessage || "تاریخچه KPI دریافت نشد.");
       setItems(data.snapshots ?? []);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تاریخچه KPI دریافت نشد.");
+      const message = error instanceof Error ? error.message : "تاریخچه KPI دریافت نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   }, []);
 
@@ -71,7 +75,7 @@ export function AdminKpiHistory() {
           <RefreshCw size={14} className={loading ? "admin-spin" : ""} /> بروزرسانی
         </button>
       </div>
-      {!latest ? <div className="admin-empty">هنوز snapshot روزانه ساخته نشده است.</div> : (
+      {loadError ? <div className="admin-empty" role="alert">{loadError}<button type="button" className="btn-ghost" onClick={() => void load(true)} disabled={loading}>تلاش مجدد</button></div> : !latest ? <div className="admin-empty">هنوز snapshot روزانه ساخته نشده است.</div> : (
         <>
           <div className="admin-kpi-cards">
             {metrics.map(([label, value, change]) => (
