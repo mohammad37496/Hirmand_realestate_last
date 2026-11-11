@@ -59,7 +59,7 @@ test("production requires the shared Redis store instead of falling back to per-
   const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
   delete process.env.UPSTASH_REDIS_REST_URL;
   delete process.env.UPSTASH_REDIS_REST_TOKEN;
-  process.env.CI = "false";
+  process.env.CI = "true";
   delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
   process.env.NODE_ENV = "production";
   try {
