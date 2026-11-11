@@ -150,14 +150,18 @@ test("mobile list cards avoid repeating the photo transaction badge and wrap uni
 });
 
 test("mobile list cards keep every property photo in the same compact frame", () => {
-  const compactMobileList = marketplaceCss.slice(
-    marketplaceCss.lastIndexOf("/* Mobile list cards use one compact, fixed photo frame"),
+  const compactMobileList = responsiveHardeningCss.slice(
+    responsiveHardeningCss.lastIndexOf("/* One fixed, compact geometry for every marketplace mobile list card."),
   );
-  assert.match(compactMobileList, /@media \(max-width:\s*640px\)/);
-  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*grid-template-rows:\s*138px;[^}]*height:\s*138px/);
-  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*width:\s*calc\(100% - clamp\(104px,\s*30vw,\s*124px\)\);[^}]*margin-inline-start:\s*clamp\(104px,\s*30vw,\s*124px\)/);
-  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media,[\s\S]*?height:\s*138px;[\s\S]*?max-height:\s*138px/);
-  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media img\s*\{[^}]*object-fit:\s*cover/);
+  assert.match(compactMobileList, /@media \(max-width:\s*720px\)/);
+  assert.match(compactMobileList, /\.pf-page:has\(\.pf-grid\.is-list-view\)\s*\{[^}]*padding-bottom:\s*calc\(96px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*grid-template-rows:\s*132px;[^}]*height:\s*132px;[^}]*max-height:\s*132px/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*width:\s*calc\(100% - clamp\(92px,\s*28vw,\s*112px\)\);[^}]*height:\s*132px;[^}]*margin-inline-start:\s*clamp\(92px,\s*28vw,\s*112px\)/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media\s*\{[^}]*height:\s*132px;[^}]*max-height:\s*132px/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-image-link picture,[\s\S]*?height:\s*132px;[^}]*object-fit:\s*cover/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-body\s*\{[^}]*grid-template-rows:\s*16px 2\.45em 22px 18px 16px;[^}]*height:\s*132px/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-title\s*\{[^}]*-webkit-line-clamp:\s*2/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-specs span:nth-child\(n \+ 4\)/);
 });
 
 test("mobile list cards can scroll fully clear of the fixed bottom action dock", () => {

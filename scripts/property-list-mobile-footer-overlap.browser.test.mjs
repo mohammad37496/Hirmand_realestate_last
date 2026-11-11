@@ -81,12 +81,12 @@ try {
         continue;
       }
 
-      const expectedImageWidth = Math.min(124, Math.max(104, viewport.width * 0.3));
+      const expectedImageWidth = Math.min(112, Math.max(92, viewport.width * 0.28));
       const reference = cardMetrics[0];
       const invalidFrames = cardMetrics.filter((frame) =>
-        Math.abs(frame.height - 138) > 1 ||
-        Math.abs(frame.imageHeight - 138) > 1 ||
-        Math.abs(frame.bodyHeight - 138) > 1 ||
+        Math.abs(frame.height - 132) > 1 ||
+        Math.abs(frame.imageHeight - 132) > 1 ||
+        Math.abs(frame.bodyHeight - 132) > 1 ||
         Math.abs(frame.imageWidth - expectedImageWidth) > 1 ||
         Math.abs(frame.height - reference.height) > 0.5 ||
         Math.abs(frame.width - reference.width) > 0.5 ||
