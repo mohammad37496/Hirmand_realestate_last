@@ -134,24 +134,28 @@ export function CustomerWorkspaceSyncProvider({
   children,
 }: { enabled?: boolean; children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
+  // useCurrentUserState normalizes a fresh user object on each render. Effects
+  // that subscribe to workspace events must key off the stable account ID,
+  // otherwise every sync state update tears down and re-adds their listeners.
+  const userId = user?.id ?? null;
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const bootedUser = useRef<string | null>(null);
-  const activeUserId = useRef<string | null>(user?.id ?? null);
+  const activeUserId = useRef<string | null>(userId);
   const syncInFlight = useRef(false);
   const syncQueued = useRef(false);
   const syncRef = useRef<() => void>(() => {});
   useEffect(() => {
-    activeUserId.current = user?.id ?? null;
-  }, [user?.id]);
+    activeUserId.current = userId;
+  }, [userId]);
 
   useEffect(() => {
-    if (!user?.id) return;
-    resetWorkspaceForAccountSwitch({ storage: localStorage, target: window, userId: user.id });
-  }, [user?.id]);
+    if (!userId) return;
+    resetWorkspaceForAccountSwitch({ storage: localStorage, target: window, userId });
+  }, [userId]);
 
   const sync = useCallback(async () => {
-    if (!user || !authEnabled) return;
+    if (!userId || !authEnabled) return;
     if (syncInFlight.current) {
       syncQueued.current = true;
       return;
@@ -171,8 +175,8 @@ export function CustomerWorkspaceSyncProvider({
         const response = await fetch("/api/customer-workspace", { credentials: "same-origin", headers });
         if (!response.ok) throw new Error("فضای شخصی هنوز آماده نیست.");
         const value = await response.json() as RemoteWorkspace;
-        if (activeUserId.current !== user.id) throw new Error("نشست حساب تغییر کرده است؛ صفحه را تازه‌سازی کنید.");
-        if (value.ownerId !== user.id) throw new Error("نشست حساب تغییر کرده است؛ صفحه را تازه‌سازی کنید.");
+        if (activeUserId.current !== userId) throw new Error("نشست حساب تغییر کرده است؛ صفحه را تازه‌سازی کنید.");
+        if (value.ownerId !== userId) throw new Error("نشست حساب تغییر کرده است؛ صفحه را تازه‌سازی کنید.");
         if (!(value.revision === null || (typeof value.revision === "string" && /^[1-9][0-9]{0,18}$/.test(value.revision)))) {
           throw new Error("نسخه فضای شخصی نامعتبر است.");
         }
@@ -188,19 +192,19 @@ export function CustomerWorkspaceSyncProvider({
         // Remote-only sync remains available without local storage.
       }
       const local = localWorkspace();
-      const ownerMatches = storedOwner === user.id;
-      const baseRecord = ownerMatches ? readBase(user.id) : null;
+      const ownerMatches = storedOwner === userId;
+      const baseRecord = ownerMatches ? readBase(userId) : null;
       const ownershipDecision = chooseCustomerWorkspaceSync({
         remote,
         local,
         ownerId: storedOwner,
-        currentUserId: user.id,
+        currentUserId: userId,
         pendingLocalChanges: Boolean(pendingMarker),
       });
       // A missing base is a first sync / upgrade path: treat both snapshots as
       // additions against empty state rather than silently discarding either.
       const base = baseRecord?.workspace ?? { favorites: [], favoriteMeta: {}, savedSearches: [], recentProperties: [] };
-      let merged = ownershipDecision.direction === "pull" && storedOwner !== null && storedOwner !== user.id
+      let merged = ownershipDecision.direction === "pull" && storedOwner !== null && storedOwner !== userId
         ? remote
         : mergeCustomerWorkspaceThreeWay(base, local, remote);
 
@@ -226,7 +230,7 @@ export function CustomerWorkspaceSyncProvider({
         let savedRevision: string | null = null;
         let committedWorkspace: Workspace | null = null;
         for (let attempt = 0; attempt < 3; attempt += 1) {
-          if (activeUserId.current !== user.id) return;
+          if (activeUserId.current !== userId) return;
           const postResponse = await fetch("/api/customer-workspace", {
             method: "POST",
             credentials: "same-origin",
@@ -234,7 +238,7 @@ export function CustomerWorkspaceSyncProvider({
               "content-type": "application/json",
               ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
             },
-            body: JSON.stringify({ ...merged, ownerId: user.id, expectedRevision: remote.revision }),
+            body: JSON.stringify({ ...merged, ownerId: userId, expectedRevision: remote.revision }),
           });
           const saved = await postResponse.json().catch(() => null) as { success?: boolean; revision?: string } | null;
           if (postResponse.ok && saved?.success && typeof saved.revision === "string") {
@@ -256,9 +260,9 @@ export function CustomerWorkspaceSyncProvider({
         })();
         if (latestMarker === pendingMarker) persistWorkspace(committedWorkspace);
         else syncQueued.current = true;
-        saveBase(user.id, savedRevision, committedWorkspace);
+        saveBase(userId, savedRevision, committedWorkspace);
         try {
-          localStorage.setItem(WORKSPACE_OWNER_KEY, user.id);
+          localStorage.setItem(WORKSPACE_OWNER_KEY, userId);
           if (pendingMarker && localStorage.getItem(WORKSPACE_PENDING_KEY) === pendingMarker) {
             localStorage.removeItem(WORKSPACE_PENDING_KEY);
           } else if (localStorage.getItem(WORKSPACE_PENDING_KEY) !== null) {
@@ -269,9 +273,9 @@ export function CustomerWorkspaceSyncProvider({
         }
       } else {
         persistWorkspace(merged);
-        saveBase(user.id, remote.revision, merged);
+        saveBase(userId, remote.revision, merged);
         try {
-          localStorage.setItem(WORKSPACE_OWNER_KEY, user.id);
+          localStorage.setItem(WORKSPACE_OWNER_KEY, userId);
           if (pendingMarker && localStorage.getItem(WORKSPACE_PENDING_KEY) === pendingMarker) {
             localStorage.removeItem(WORKSPACE_PENDING_KEY);
           }
@@ -280,7 +284,7 @@ export function CustomerWorkspaceSyncProvider({
         }
       }
 
-      if (activeUserId.current !== user.id) return;
+      if (activeUserId.current !== userId) return;
       window.dispatchEvent(new CustomEvent("hirmand:workspace-synced"));
       setStatus("فضای شخصی شما بین دستگاه‌ها همگام شد.");
     } catch (error) {
@@ -301,20 +305,20 @@ export function CustomerWorkspaceSyncProvider({
         syncRef.current();
       }
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     syncRef.current = () => { void sync(); };
   }, [sync]);
 
   useEffect(() => {
-    if (!enabled || isPending || !user || !authEnabled || bootedUser.current === user.id) return;
-    bootedUser.current = user.id;
+    if (!enabled || isPending || !userId || !authEnabled || bootedUser.current === userId) return;
+    bootedUser.current = userId;
     void sync();
-  }, [enabled, isPending, user, sync]);
+  }, [enabled, isPending, userId, sync]);
 
   useEffect(() => {
-    if (!enabled || isPending || !user || !authEnabled) return;
+    if (!enabled || isPending || !userId || !authEnabled) return;
     let timer: number | undefined;
     const queueSync = (markLocalChange: boolean) => {
       if (markLocalChange) {
@@ -351,12 +355,12 @@ export function CustomerWorkspaceSyncProvider({
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [enabled, isPending, user, sync]);
+  }, [enabled, isPending, userId, sync]);
 
   useEffect(() => {
-    if (!enabled || isPending || user || !authEnabled) return;
+    if (!enabled || isPending || userId || !authEnabled) return;
     clearWorkspaceForSignedOutUser({ storage: localStorage, target: window });
-  }, [enabled, isPending, user]);
+  }, [enabled, isPending, userId]);
 
   return (
     <CustomerWorkspaceSyncContext.Provider value={{ user, isPending, busy, status, retry: () => { void sync(); } }}>

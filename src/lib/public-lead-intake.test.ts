@@ -178,13 +178,14 @@ test("the public lead route wires all required branches through the transaction 
     /insert into lead_activities[\s\S]{0,260}?\.catch\(\(\)\s*=>\s*\{\}\)/i,
   );
   assert.ok(
-    route.indexOf("await autoMatchLead(sql, createdLeadId") >
-      route.indexOf("const createdLeadId = await createPublicLeadIntake"),
+    route.indexOf("await autoMatchLead(databaseSql, leadIdToAutoMatch") >
+      route.indexOf("const result = await withPublicLeadPhoneDedupeLock"),
   );
   assert.ok(
     route.indexOf("site_visitor_days") <
-      route.indexOf("const createdLeadId = await createPublicLeadIntake"),
+      route.indexOf("const result = await withPublicLeadPhoneDedupeLock"),
   );
+  assert.match(route, /typeof databaseSql\.transaction !== "function"/);
 });
 
 test("public lead intake fails closed without transaction support", async () => {

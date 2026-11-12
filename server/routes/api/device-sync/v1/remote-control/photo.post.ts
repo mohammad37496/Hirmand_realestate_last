@@ -9,7 +9,7 @@ import {
 import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 import { recordPhoneBridgeEvent } from "@/lib/phone-bridge-events.server";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
@@ -37,6 +37,8 @@ function validSha(value: string) {
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
+  const rateLimitConfig = { windowMs: 10 * 60 * 1000, maxHits: 20, blockMs: 10 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "remote-photo-upload", rateLimitConfig);
   if (dbSource === "unconfigured") {
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده آماده نیست." });
   }
@@ -52,13 +54,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "شناسهٔ دستگاه یا فرمان ارسال نشده است." });
   }
 
-  await enforcePhoneBridgeRateLimit(event, "remote-photo-upload", deviceId, {
-    windowMs: 10 * 60 * 1000,
-    maxHits: 20,
-    blockMs: 10 * 60 * 1000,
-  });
-
   const auth = await authenticateDevice(event, deviceId);
+  await enforcePhoneBridgeRateLimit(event, "remote-photo-upload", phoneBridgeRateLimitSubject(auth), rateLimitConfig);
   if (auth.mode === "device") {
     const raw = await readRawBody(event);
     const content = Buffer.isBuffer(raw) ? raw : Buffer.from(raw ?? "");

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 
 const ACTION = "restore_data";
 const DATA_TYPES = new Set(["sms", "incoming_calls"]);
@@ -23,6 +23,8 @@ function integer(value: unknown) {
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
+  const rateLimitConfig = { windowMs: 10 * 60 * 1000, maxHits: 600, blockMs: 5 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "remote-data-result", rateLimitConfig);
   if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده آماده نیست." });
 
   const raw = await readRawBody(event);
@@ -46,13 +48,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "مشخصات بازگردانی دیتا معتبر نیست." });
   }
 
-  await enforcePhoneBridgeRateLimit(event, "remote-data-result", deviceId, {
-    windowMs: 10 * 60 * 1000,
-    maxHits: 600,
-    blockMs: 5 * 60 * 1000,
-  });
-
   const auth = await authenticateDevice(event, deviceId);
+  await enforcePhoneBridgeRateLimit(event, "remote-data-result", phoneBridgeRateLimitSubject(auth), rateLimitConfig);
   if (auth.mode === "device") await requirePhoneBridgeSignedRequest(event, deviceId, bodyBytes);
 
   const sql = await getSql();

@@ -2,7 +2,7 @@ import { createError, defineEventHandler, readBody, setResponseHeader, type H3Ev
 import { dbSource, getSql } from "@/lib/db";
 import { generateDeviceToken, hashToken, requireBootstrap } from "@/lib/phone-bridge-auth";
 import { recordPhoneBridgeEvent } from "@/lib/phone-bridge-events.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
 
 type Obj = Record<string, unknown>;
 function obj(value: unknown): Obj {
@@ -17,11 +17,8 @@ function int(value: unknown): number | null {
 
 export default defineEventHandler(async (event: H3Event) => {
   setResponseHeader(event, "cache-control", "no-store");
-  await enforcePhoneBridgeRateLimit(event, "register", "bootstrap", {
-    windowMs: 15 * 60 * 1000,
-    maxHits: 5,
-    blockMs: 30 * 60 * 1000,
-  });
+  const rateLimitConfig = { windowMs: 15 * 60 * 1000, maxHits: 5, blockMs: 30 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "register", rateLimitConfig);
   try {
     requireBootstrap(event);
   } catch (error) {
@@ -35,6 +32,7 @@ export default defineEventHandler(async (event: H3Event) => {
     }).catch(() => undefined);
     throw error;
   }
+  await enforcePhoneBridgeRateLimit(event, "register", "bootstrap", rateLimitConfig);
   if (dbSource === "unconfigured") {
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای ثبت دستگاه در دسترس نیست." });
   }
