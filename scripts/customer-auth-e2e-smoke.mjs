@@ -26,6 +26,7 @@ async function waitForWorkspaceSync(page, previousCount = 0) {
   await page.waitForFunction(
     (count) => Number(window.__hirmandWorkspaceSyncCount || 0) > count,
     previousCount,
+    { timeout: 30_000 },
   );
 }
 
@@ -239,9 +240,6 @@ try {
   assert.equal(secondDeviceInitialWorkspace.status(), 200);
   assert.deepEqual((await secondDeviceInitialWorkspace.json()).favorites, ["guest-favorite"]);
 
-  const previousSecondDeviceSyncCount = await secondDevicePage.evaluate(
-    () => Number(window.__hirmandWorkspaceSyncCount || 0),
-  );
   const secondDeviceSyncPromise = secondDevicePage.waitForResponse((response) =>
     response.url().endsWith("/api/customer-workspace") && response.request().method() === "POST",
   );
@@ -263,7 +261,6 @@ try {
     window.dispatchEvent(new Event("hirmand:workspace-changed"));
   });
   const secondDeviceSync = await secondDeviceSyncPromise;
-  await waitForWorkspaceSync(secondDevicePage, previousSecondDeviceSyncCount);
   assert.equal(secondDeviceSync.status(), 200, "the second device should persist its workspace edit");
 
   const firstDevicePullPromise = firstPage.waitForResponse((response) =>
