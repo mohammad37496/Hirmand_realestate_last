@@ -923,6 +923,7 @@ export const listRelatedProperties = createServerFn({ method: "GET" })
     z.object({
       slug: z.string().min(1),
       neighborhood: z.string().trim().min(1).max(80),
+      transactionType: z.enum(["buy", "sell", "rent", "mortgage"]),
       propertyType: z.enum([
         "apartment",
         "villa",
@@ -947,17 +948,27 @@ export const listRelatedProperties = createServerFn({ method: "GET" })
          from properties
          where ${PUBLIC_PUBLICATION_WHERE}
            and slug <> $1
-           and (
-             neighborhood = $2
-             or property_type = $3
-           )
+           and transaction_type = $3
+           and (neighborhood = $2 or property_type = $4)
          order by
            case when neighborhood = $2 then 0 else 1 end,
+           case when property_type = $4 then 0 else 1 end,
+           case when exists (
+               select 1
+               from jsonb_array_elements_text(
+                 case when jsonb_typeof(coalesce(images, '[]'::jsonb)) = 'array'
+                   then coalesce(images, '[]'::jsonb) else '[]'::jsonb end
+               ) as media(url)
+               where media.url not like '/images/type-%'
+                 and media.url not like '/images/fallback/%'
+                 and media.url <> '/images/isfahan-arch.jpg'
+                 and media.url !~* '^https://images[.]pexels[.]com/photos/(7546596|7173672|8142052|6636258|6447393|7534559|6588599|11296221|6312353|6527027|6934188|6316055)/'
+             ) then 0 else 1 end,
            case when featured and (featured_until is null or featured_until >= current_timestamp) then 0 else 1 end,
            published_at desc nulls last,
            created_at desc
-         limit $4`,
-        [data.slug, data.neighborhood, data.propertyType, data.limit],
+         limit $5`,
+        [data.slug, data.neighborhood, data.transactionType, data.propertyType, data.limit],
       );
       return rows.map((row) => mapProperty(row));
       },
