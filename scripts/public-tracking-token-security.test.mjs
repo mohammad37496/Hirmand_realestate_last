@@ -98,11 +98,13 @@ test("rate limiting uses atomic Redis EVAL and synchronous in-memory bucket cons
   assert.match(rateLimit, /redis\.call\('SET'/);
   assert.match(rateLimit, /consume\(key, input\)/);
   assert.match(rateLimit, /read\/modify\/write happens synchronously/);
-  assert.match(rateLimit, /resolveClientIp\(getRequestIP\(event\)\)/);
-  assert.doesNotMatch(rateLimit, /getHeader\(event,\s*["']x-forwarded-for["']\)|xForwardedFor\s*:\s*true/i);
+  assert.match(rateLimit, /resolveClientIp\(getRequestIP\(event\), getHeader\(event, "x-forwarded-for"\)\)/);
+  assert.match(rateLimit, /forwardedEntries\.at\(-1\)/);
+  assert.match(rateLimit, /isIP\(trustedClientIp\)/);
+  assert.doesNotMatch(rateLimit, /xForwardedFor\s*:\s*true/i);
+  assert.doesNotMatch(rateLimit, /getHeader\\(event,\\s*" x-real-ip\\)/i);
   assert.match(rateLimit, /createHash\("sha256"\)/);
   assert.doesNotMatch(rateLimit, /x-real-ip/i);
-  assert.match(rateLimit, /resolveClientIp\(getRequestIP\(event\)\)/);
   assert.match(rateLimit, /process\.env\.NODE_ENV === "production"[\s\S]*?statusCode:\s*503/);
 });
 

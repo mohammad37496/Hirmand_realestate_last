@@ -24,16 +24,21 @@ test("clearing a rate-limit bucket allows a new attempt", async () => {
   assert.equal((await consumeAdminAttempt(key, 3)).allowed, true);
 });
 
-test("rate-limit identity uses the server-observed peer and never caller-supplied forwarding headers", () => {
+test("rate-limit identity trusts only Liara's rightmost client IP and ignores spoofed XFF prefixes", () => {
   assert.equal(resolveClientIp("10.0.0.4"), "10.0.0.4");
   assert.equal(resolveClientIp(undefined), "unknown");
+  assert.equal(resolveClientIp("10.0.0.4", "198.51.100.99, 203.0.113.7"), "203.0.113.7");
+  assert.equal(resolveClientIp("10.0.0.4", "198.51.100.99, invalid"), "10.0.0.4");
   const event = {
     req: {
-      headers: new Headers({ "x-forwarded-for": "198.51.100.99, 203.0.113.7" }),
+      headers: new Headers({
+        "x-forwarded-for": "198.51.100.99, 203.0.113.7",
+        "x-real-ip": "198.51.100.99",
+      }),
       context: { clientAddress: "10.0.0.4" },
     },
   } as unknown as import("h3").H3Event;
-  assert.equal(clientFingerprint(event), createHash("sha256").update("10.0.0.4").digest("hex"));
+  assert.equal(clientFingerprint(event), createHash("sha256").update("203.0.113.7").digest("hex"));
 });
 
 test("a configured Redis outage fails closed instead of falling back to per-instance memory", async () => {

@@ -26,15 +26,15 @@ test("deploy workflow exposes a false-by-default manual-only bootstrap and skips
   );
   assert.match(
     workflow,
-    /ensure-better-auth-secret:\s+if: \$\{\{ github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main' && inputs\.ensure_better_auth_secret == true \}\}/,
+    /ensure-better-auth-secret:\s+if: \$\{\{ github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main' && inputs\.ensure_better_auth_secret == true && inputs\.validate_environment_only != true \}\}/,
   );
   assert.match(
     workflow,
-    /deploy:\s+if: \$\{\{ github\.ref == 'refs\/heads\/main' && \(github\.event_name != 'workflow_dispatch' \|\| inputs\.ensure_better_auth_secret != true\)/,
+    /deploy:\s+if: \$\{\{ github\.ref == 'refs\/heads\/main' && \(github\.event_name != 'workflow_dispatch' \|\| \(inputs\.ensure_better_auth_secret != true && inputs\.validate_environment_only != true\)\)[\s\S]*?\[skip liara\]/,
   );
   assert.match(
     workflow,
-    /'liara-dispatch-non-main' \|\| github\.event_name == 'workflow_dispatch' && inputs\.ensure_better_auth_secret == true && 'liara-secret-bootstrap' \|\| 'liara-deploy-main'/,
+    /'liara-dispatch-non-main' \|\| github\.event_name == 'workflow_dispatch' && inputs\.validate_environment_only == true && 'liara-env-validation' \|\| github\.event_name == 'workflow_dispatch' && inputs\.ensure_better_auth_secret == true && 'liara-secret-bootstrap' \|\| 'liara-deploy-main'/,
   );
   assert.match(
     workflow,
@@ -42,6 +42,14 @@ test("deploy workflow exposes a false-by-default manual-only bootstrap and skips
   );
   assert.match(workflow, /LIARA_TEAM_ID: \$\{\{ secrets\.LIARA_TEAM_ID \}\}/);
   assert.match(workflow, /LIARA_APP_NAME: \$\{\{ vars\.LIARA_APP_NAME \}\}/);
+});
+
+test("Liara environment validation is manual-only and never deploys", () => {
+  const workflow = readFileSync(resolve(".github/workflows/deploy-liara.yml"), "utf8");
+  assert.match(workflow, /validate_environment_only:[\s\S]*?type: boolean[\s\S]*?default: false/);
+  assert.match(workflow, /validate-liara-environment:\s+if: \$\{\{ github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main' && inputs\.validate_environment_only == true \}\}/);
+  assert.match(workflow, /node scripts\/validate-liara-auth-env\.mjs/);
+  assert.match(workflow, /\[skip liara\]/);
 });
 
 test("secret bootstrap is strictly manual and opt-in", () => {
