@@ -24,6 +24,7 @@ import {
   hasRejectedCustomerSubmissionMedia,
   isPublishedPropertyMedia,
   liaraMediaCacheControl,
+  shouldRateLimitPrivateMediaRequest,
 } from "@/lib/liara-media-access.server";
 
 /**
@@ -72,54 +73,62 @@ export default defineEventHandler(async (event) => {
   const rawUrl = `/api/media/${encodeURIComponent(id)}${query.type === "video" ? "?type=video" : ""}`;
 
   let publishedReference = false;
+  let hasPrivateMediaPermission = false;
   if (visibility === "customer-submission" || visibility === "property-upload") {
     const claims = await getAdminSessionClaims(getCookie(event, ADMIN_SESSION_COOKIE));
-    const hasPrivateMediaPermission = Boolean(
+    hasPrivateMediaPermission = Boolean(
       claims && hasAdminPermission(claims.role, "property.manage"),
     );
-    if (!hasPrivateMediaPermission) {
-      const attempt = await consumeAdminAttempt("private-property-media:" + clientFingerprint(event), 120);
-      if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
-    }
-    if (!hasPrivateMediaPermission && dbSource !== "unconfigured") {
-      try {
-        const sql = await getSql();
-        publishedReference = await isPublishedPropertyMedia(sql, rawUrl);
-        let ownerSubmissionAccess = false;
-        let recentUploadAccess = false;
-        if (visibility === "customer-submission" && !publishedReference) {
-          ownerSubmissionAccess = await hasRejectedCustomerSubmissionMedia(
-            sql,
-            typeof query.trackingToken === "string" ? query.trackingToken : "",
-            rawUrl,
-          );
-          if (!ownerSubmissionAccess) {
-            recentUploadAccess = await hasCompletedCustomerUploadMedia(
-              sql,
-              meta.pathname,
-              rawUrl,
-              typeof query.uploadId === "string" ? query.uploadId : "",
-            );
-          }
-        }
+  }
 
-        if (
-          visibility === "customer-submission" &&
-          !publishedReference &&
-          !ownerSubmissionAccess &&
-          !recentUploadAccess
-        ) {
-          throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
-        }
-        if (visibility === "property-upload" && !publishedReference) {
-          throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
-        }
-      } catch {
-        throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
-      }
-    } else if (!hasPrivateMediaPermission) {
-      throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
+  let mediaSql: Awaited<ReturnType<typeof getSql>> | null = null;
+  if (
+    (visibility === "customer-submission" || visibility === "property-upload") &&
+    !hasPrivateMediaPermission &&
+    dbSource !== "unconfigured"
+  ) {
+    try {
+      mediaSql = await getSql();
+      publishedReference = await isPublishedPropertyMedia(mediaSql, rawUrl);
+    } catch {
+      // Fail closed when the database cannot confirm a published reference.
     }
+  }
+
+  if (shouldRateLimitPrivateMediaRequest(visibility, hasPrivateMediaPermission, publishedReference)) {
+    const attempt = await consumeAdminAttempt("private-property-media:" + clientFingerprint(event), 120);
+    if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+  }
+
+  let ownerSubmissionAccess = false;
+  let recentUploadAccess = false;
+  if (visibility === "customer-submission" && !hasPrivateMediaPermission && !publishedReference && mediaSql) {
+    ownerSubmissionAccess = await hasRejectedCustomerSubmissionMedia(
+      mediaSql,
+      typeof query.trackingToken === "string" ? query.trackingToken : "",
+      rawUrl,
+    );
+    if (!ownerSubmissionAccess) {
+      recentUploadAccess = await hasCompletedCustomerUploadMedia(
+        mediaSql,
+        meta.pathname,
+        rawUrl,
+        typeof query.uploadId === "string" ? query.uploadId : "",
+      );
+    }
+  }
+
+  if (
+    visibility === "customer-submission" &&
+    !hasPrivateMediaPermission &&
+    !publishedReference &&
+    !ownerSubmissionAccess &&
+    !recentUploadAccess
+  ) {
+    throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
+  }
+  if (visibility === "property-upload" && !hasPrivateMediaPermission && !publishedReference) {
+    throw createError({ statusCode: 404, statusMessage: "رسانه پیدا نشد." });
   }
 
   const size = meta.sizeBytes;

@@ -6,9 +6,11 @@ import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/
 import { detectRasterImageType, isDivarRemoteHost, isLiaraStorageHost, isVideoUrl } from "@/lib/media";
 import { getLiaraObject, isAllowedLiaraMediaKey, liaraObjectKeyFromUrl } from "@/lib/liara-object-storage.server";
 import {
+  databaseMediaVisibility,
   hasCompletedCustomerUploadMedia,
   hasRejectedCustomerSubmissionMedia,
   isPublishedPropertyMedia,
+  shouldRateLimitPrivateMediaRequest,
   createLiaraVideoResponse,
   LIARA_MEDIA_STREAM_IDLE_TIMEOUT_MS,
   liaraMediaCacheControl,
@@ -118,8 +120,9 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: "تصویر پیدا نشد." });
     }
 
-    const customerSubmissionMedia = liaraKey.startsWith("properties/customer-submissions/");
-    const propertyUploadMedia = liaraKey.startsWith("properties/uploads/");
+    const mediaVisibility = databaseMediaVisibility(liaraKey);
+    const customerSubmissionMedia = mediaVisibility === "customer-submission";
+    const propertyUploadMedia = mediaVisibility === "property-upload";
     let hasPrivateMediaPermission = false;
     if (customerSubmissionMedia || propertyUploadMedia) {
       const claims = await getAdminSessionClaims(getCookie(event, ADMIN_SESSION_COOKIE));
@@ -131,39 +134,38 @@ export default defineEventHandler(async (event) => {
     let publishedReference = false;
     let ownerSubmissionAccess = false;
     let recentUploadAccess = false;
-    if (
-      (customerSubmissionMedia || propertyUploadMedia) &&
-      !hasPrivateMediaPermission
-    ) {
-      const attempt = await consumeAdminAttempt("private-property-media:" + clientFingerprint(event), 120);
-      if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
-    }
+    let mediaSql: Awaited<ReturnType<typeof getSql>> | null = null;
     if (
       (customerSubmissionMedia || propertyUploadMedia) &&
       !hasPrivateMediaPermission &&
       dbSource !== "unconfigured"
     ) {
       try {
-        const sql = await getSql();
-        publishedReference = await isPublishedPropertyMedia(sql, raw);
-        if (customerSubmissionMedia && !publishedReference) {
-          ownerSubmissionAccess = await hasRejectedCustomerSubmissionMedia(
-            sql,
-            typeof query.trackingToken === "string" ? query.trackingToken : "",
-            raw,
-          );
-          if (!ownerSubmissionAccess) {
-            recentUploadAccess = await hasCompletedCustomerUploadMedia(
-              sql,
-              liaraKey,
-              raw,
-              typeof query.uploadId === "string" ? query.uploadId : "",
-            );
-          }
-        }
+        mediaSql = await getSql();
+        publishedReference = await isPublishedPropertyMedia(mediaSql, raw);
       } catch {
-        // Fail closed when the database cannot confirm a published reference or
-        // the exact owner/upload capability.
+        // Fail closed when the database cannot confirm a published reference.
+      }
+    }
+
+    if (shouldRateLimitPrivateMediaRequest(mediaVisibility, hasPrivateMediaPermission, publishedReference)) {
+      const attempt = await consumeAdminAttempt("private-property-media:" + clientFingerprint(event), 120);
+      if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+    }
+
+    if (customerSubmissionMedia && !hasPrivateMediaPermission && !publishedReference && mediaSql) {
+      ownerSubmissionAccess = await hasRejectedCustomerSubmissionMedia(
+        mediaSql,
+        typeof query.trackingToken === "string" ? query.trackingToken : "",
+        raw,
+      );
+      if (!ownerSubmissionAccess) {
+        recentUploadAccess = await hasCompletedCustomerUploadMedia(
+          mediaSql,
+          liaraKey,
+          raw,
+          typeof query.uploadId === "string" ? query.uploadId : "",
+        );
       }
     }
 

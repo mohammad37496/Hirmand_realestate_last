@@ -1,9 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  databaseMediaVisibility,
   createLiaraVideoResponse,
   liaraMediaCacheControl,
+  shouldRateLimitPrivateMediaRequest,
 } from "./liara-media-access.server.ts";
+
+test("only unpublished private media requires the shared rate limiter", () => {
+  assert.equal(databaseMediaVisibility("properties/uploads/gallery/photo.webp"), "property-upload");
+  assert.equal(databaseMediaVisibility("properties/customer-submissions/photo.webp"), "customer-submission");
+  assert.equal(shouldRateLimitPrivateMediaRequest("property-upload", false, true), false);
+  assert.equal(shouldRateLimitPrivateMediaRequest("customer-submission", false, true), false);
+  assert.equal(shouldRateLimitPrivateMediaRequest("property-upload", false, false), true);
+  assert.equal(shouldRateLimitPrivateMediaRequest("customer-submission", false, false), true);
+  assert.equal(shouldRateLimitPrivateMediaRequest("property-upload", true, false), false);
+  assert.equal(shouldRateLimitPrivateMediaRequest("customer-submission", true, false), false);
+  assert.equal(shouldRateLimitPrivateMediaRequest("public", false, false), false);
+  assert.equal(shouldRateLimitPrivateMediaRequest("unknown", false, false), false);
+});
 
 test("private Liara media namespaces are never publicly cacheable", () => {
   assert.equal(

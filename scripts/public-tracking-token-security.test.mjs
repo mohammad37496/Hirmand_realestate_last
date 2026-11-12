@@ -30,6 +30,13 @@ function assertThrottleBefore(route, validationOrLookup) {
   assert.ok(next > throttle, "rate limit must run before code validation or lookup");
 }
 
+function assertPublicationBeforeThrottle(route) {
+  const publication = route.indexOf("isPublishedPropertyMedia(");
+  const throttle = route.indexOf("consumeAdminAttempt(");
+  assert.ok(publication >= 0, "media route must check for a published property reference");
+  assert.ok(throttle > publication, "published media must be confirmed before private-media rate limiting");
+}
+
 test("public lead tracking lookup is rate limited before validating the token", () => {
   assertThrottleBefore(publicTracking, "isValidPublicTrackingToken(code)");
 });
@@ -66,9 +73,17 @@ test("other public token operations retain their existing pre-validation throttl
   assert.match(publicActions, /assertSameOrigin\(event\)/);
 });
 
-test("private customer-submission and property-upload media checks are rate limited before token validation", () => {
-  assertThrottleBefore(mediaProxy, "isPublishedPropertyMedia(");
-  assertThrottleBefore(mediaById, "isPublishedPropertyMedia(");
+test("published media is confirmed before throttling while private media capabilities remain rate limited", () => {
+  assertPublicationBeforeThrottle(mediaProxy);
+  assertPublicationBeforeThrottle(mediaById);
+  assertThrottleBefore(mediaProxy, "hasRejectedCustomerSubmissionMedia(");
+  assertThrottleBefore(mediaProxy, "hasCompletedCustomerUploadMedia(");
+  assertThrottleBefore(mediaById, "hasRejectedCustomerSubmissionMedia(");
+  assertThrottleBefore(mediaById, "hasCompletedCustomerUploadMedia(");
+  assert.match(mediaProxy, /shouldRateLimitPrivateMediaRequest\(/);
+  assert.match(mediaById, /shouldRateLimitPrivateMediaRequest\(/);
+  assert.match(mediaProxy, /databaseMediaVisibility\(liaraKey\)/);
+  assert.match(mediaById, /databaseMediaVisibility\(meta\.pathname\)/);
   assert.match(mediaProxy, /customerSubmissionMedia \|\| propertyUploadMedia/);
   assert.match(mediaById, /visibility === "customer-submission" \|\| visibility === "property-upload"/);
   assert.match(mediaProxy, /consumeAdminAttempt\("private-property-media:"[^\n]*, 120\)/);

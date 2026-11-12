@@ -22,21 +22,6 @@ export function isLiaraStorageHost(value: string): boolean {
   }
 }
 
-/** Public property gallery objects may fall back to their bucket URL if the
- * signed proxy is temporarily unavailable. Submission uploads stay proxied. */
-function isPublicLiaraGalleryObject(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return isLiaraStorageHost(value) &&
-      url.pathname.includes("/properties/uploads/gallery/") &&
-      !url.hash &&
-      !url.username &&
-      !url.password;
-  } catch {
-    return false;
-  }
-}
-
 export type RasterImageMime =
   | "image/jpeg"
   | "image/png"
@@ -228,8 +213,10 @@ export function mediaSourceCandidates(src: string, fallback = ""): string[] {
   }
 
   if (isLiaraRemote) {
-    const proxy = `/api/media-proxy?url=${encodeURIComponent(value)}`;
-    return isPublicLiaraGalleryObject(value) ? [proxy, value] : [proxy];
+    // Keep every Liara object behind the server-side publication and ownership
+    // checks. A direct bucket fallback would bypass those checks for orphaned
+    // or unpublished objects in the public-gallery namespace.
+    return [`/api/media-proxy?url=${encodeURIComponent(value)}`];
   }
 
   return [value];

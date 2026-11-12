@@ -56,7 +56,7 @@ test("database media endpoint gates private upload prefixes and preserves public
   assert.match(databaseMediaRoute, /hasRejectedCustomerSubmissionMedia\([\s\S]*?query\.trackingToken/);
   assert.match(databaseMediaRoute, /hasCompletedCustomerUploadMedia\([\s\S]*?query\.uploadId/);
   assert.match(databaseMediaRoute, /query\.type === "video" \? "\?type=video"/);
-  assert.match(databaseMediaRoute, /isPublishedPropertyMedia\(sql,\s*rawUrl\)/);
+  assert.match(databaseMediaRoute, /isPublishedPropertyMedia\((?:sql|mediaSql),\s*rawUrl\)/);
   assert.match(databaseMediaRoute, /liaraMediaCacheControl\(meta\.pathname,\s*publishedReference\)/);
   assert.match(databaseMediaRoute, /createRangeNotSatisfiableResponse\(`bytes \*\/\$\{size\}`\)/);
   assert.match(databaseMediaRoute, /status:\s*range\s*\?\s*206\s*:\s*200/);
