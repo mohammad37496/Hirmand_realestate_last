@@ -54,7 +54,8 @@
     "start": "node scripts/prestart.mjs && node .output/server/index.mjs",
     "prebuild": "node scripts/ensure-ffmpeg.mjs",
     "assets:fallback:refresh": "node scripts/generate-fallback-assets.mjs",
-    "test:customer-tracking-client": "node --experimental-strip-types --test src/lib/customer-tracking-client.test.ts src/lib/public-lead-tracking-money.test.ts && node --test scripts/customer-tracking-client-contract.test.mjs"
+    "test:customer-tracking-client": "node --experimental-strip-types --test src/lib/customer-tracking-client.test.ts src/lib/public-lead-tracking-money.test.ts && node --test scripts/customer-tracking-client-contract.test.mjs",
+    "test:admin-overdue-task-dedupe": "node --experimental-strip-types --test src/lib/admin-overdue-lead-tasks.test.ts scripts/admin-overdue-task-postgres.test.mjs && node --test scripts/admin-overdue-task-dedupe-contract.test.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
