@@ -32,10 +32,22 @@ import {
 } from "./music-range-response.ts";
 
 test("Liara object URLs use the signed same-origin media proxy", () => {
-  const source = "https://storage.c2.liara.space/hirmand/properties/uploads/home.webp";
+  const source = "https://storage.c2.liara.space/hirmand/properties/uploads/gallery/home.webp";
   assert.equal(isLiaraStorageHost(source), true);
   assert.deepEqual(mediaSourceCandidates(source, "/images/type-apartment.jpg"), [
     "/api/media-proxy?url=" + encodeURIComponent(source),
+    source,
+  ]);
+});
+
+test("private Liara submission media never receives a direct bucket fallback", () => {
+  const source = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/photo.webp";
+  assert.deepEqual(mediaSourceCandidates(source), [
+    "/api/media-proxy?url=" + encodeURIComponent(source),
+  ]);
+  const capabilitySource = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/gallery/photo.webp#uploadId=9f4b0c2a-9d0a-4f8a-8b7e-4f2a1c6d8e90";
+  assert.deepEqual(mediaSourceCandidates(capabilitySource), [
+    "/api/media-proxy?url=" + encodeURIComponent(capabilitySource),
   ]);
 });
 
