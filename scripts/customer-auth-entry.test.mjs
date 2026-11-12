@@ -94,12 +94,12 @@ test("personal workspace syncs changes and prevents data crossing between accoun
   assert.match(workspace, /window\.addEventListener\("focus", onFocus\)/);
   assert.match(workspace, /document\.addEventListener\("visibilitychange", onVisibilityChange\)/);
   assert.match(workspace, /ownerId: storedOwner/);
-  assert.match(workspace, /currentUserId: user\.id/);
+  assert.match(workspace, /currentUserId: userId/);
   assert.match(workspace, /WORKSPACE_OWNER_KEY/);
   assert.match(workspace, /getBearerToken\(\)/);
   assert.match(workspace, /Authorization: `Bearer \$\{bearerToken\}`/);
   assert.match(workspace, /WORKSPACE_PENDING_KEY/);
-  assert.match(workspace, /activeUserId\.current !== user\.id/);
+  assert.match(workspace, /activeUserId\.current !== userId/);
   assert.match(workspace, /chooseCustomerWorkspaceSync/);
   assert.match(favorites, /hirmand:workspace-changed/);
   assert.match(properties, /hirmand:workspace-changed/);
@@ -123,6 +123,15 @@ test("personal workspace syncs changes and prevents data crossing between accoun
   assert.doesNotMatch(favorites, /import \{ CustomerWorkspaceSync \}/);
   assert.match(verify, /export async function requireUserIdFromHeaders/);
   assert.match(verify, /statusCode: 401, statusMessage: "Unauthorized"/);
+});
+
+test("workspace event subscriptions stay mounted when the auth hook recreates its user object", () => {
+  assert.match(workspace, /const userId = user\?\.id \?\? null/);
+  assert.match(workspace, /\}, \[userId\]\);/,
+    "the sync callback and account-switch effects must depend on the stable account ID");
+  assert.equal((workspace.match(/\[enabled, isPending, userId, sync\]/g) ?? []).length, 2,
+    "initial sync and event subscriptions must not re-register for each normalized user object");
+  assert.doesNotMatch(workspace, /\[enabled, isPending, user, sync\]/);
 });
 
 test("cross-device workspace smoke verifies favorites, metadata, saved searches and history", () => {

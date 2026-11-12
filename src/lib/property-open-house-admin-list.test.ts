@@ -60,7 +60,7 @@ test("property managers can read open-house schedules without selecting RSVP per
 });
 
 test("concurrent visit requests for one property and time cannot both reserve the slot", async () => {
-  const visits: Array<{ propertyId: string; visitAt: string }> = [];
+  const visits: Array<{ id: string; propertyId: string; phone: string; visitAt: string; trackingToken: string }> = [];
   let lockTail = Promise.resolve();
   let propertyLockQuery = "";
   const property = {
@@ -76,14 +76,20 @@ test("concurrent visit requests for one property and time cannot both reserve th
         if (/for update/i.test(text)) propertyLockQuery = text;
         return [property] as T[];
       }
-      if (/select id from leads/i.test(text)) {
+      if (/select id, public_tracking_token from leads where property_id/i.test(text)) {
+        const duplicate = visits.find((visit) =>
+          visit.propertyId === String(params[0]) && visit.phone === String(params[1]) && visit.visitAt === String(params[2]),
+        );
+        return (duplicate ? [{ id: duplicate.id, public_tracking_token: duplicate.trackingToken }] : []) as T[];
+      }
+      if (/select id from leads where property_id/i.test(text)) {
         const duplicate = visits.some((visit) =>
           visit.propertyId === String(params[0]) && visit.visitAt === String(params[1]),
         );
         return (duplicate ? [{ id: "existing-visit" }] : []) as T[];
       }
       if (/insert into leads/i.test(text)) {
-        visits.push({ propertyId: String(params[11]), visitAt: String(params[12]) });
+        visits.push({ id: String(params[0]), phone: String(params[2]), propertyId: String(params[11]), visitAt: String(params[12]), trackingToken: String(params[13]) });
         return [{ id: String(params[0]) }] as T[];
       }
       throw new Error(`Unexpected visit query: ${text}`);
@@ -120,9 +126,21 @@ test("concurrent visit requests for one property and time cannot both reserve th
     createPropertyVisitRequest(sql, { ...base, trackingToken: "HIR-26-BBBBBBBBBBBB" }),
   ]);
 
-  assert.deepEqual(results.map((result) => result.kind).sort(), ["conflict", "created"]);
+  assert.deepEqual(results.map((result) => result.kind).sort(), ["created", "duplicate"]);
+  const successfulResults = results.filter((result): result is typeof result & { id: string; trackingToken: string } =>
+    "id" in result && "trackingToken" in result,
+  );
+  assert.equal(successfulResults.length, 2);
+  assert.equal(successfulResults[0]?.id, successfulResults[1]?.id);
+  assert.equal(successfulResults[0]?.trackingToken, successfulResults[1]?.trackingToken);
   assert.equal(visits.length, 1);
+  assert.equal((await createPropertyVisitRequest(sql, { ...base, phone: "09123456780", trackingToken: "HIR-26-CCCCCCCCCCCC" })).kind, "conflict");
   assert.match(propertyLockQuery, /for update/i);
+
+  const route = await readFile(new URL("../../server/routes/api/leads.post.ts", import.meta.url), "utf8");
+  assert.match(route, /duplicate: visitResult\.kind === "duplicate"/);
+  const viewingUi = await readFile(new URL("../components/hirmand/property-viewing-request.tsx", import.meta.url), "utf8");
+  assert.match(viewingUi, /if \(!payload\?\.duplicate\) trackAnalyticsEvent\("visit_request"/);
 });
 
 test("concurrent reschedules for one property and time cannot both reserve the slot", async () => {
@@ -201,7 +219,8 @@ test("PGlite serializes concurrent visit creation and rescheduling on the proper
         deal text, property_type text, neighborhood text, consultant text, consultant_id text, note text,
         source text, follow_up_at timestamptz, floor_preference text, property_id text,
         visit_preferred_at timestamptz, visit_requested_at timestamptz, visit_status text,
-        public_tracking_token text, updated_at timestamptz default current_timestamp
+        public_tracking_token text, created_at timestamptz default current_timestamp,
+        updated_at timestamptz default current_timestamp
       );
       insert into properties(id,title,property_type,neighborhood,contact_name,status,availability_status)
         values ('property-1','Sample','apartment','Center','Agent','published','available');
@@ -230,7 +249,15 @@ test("PGlite serializes concurrent visit creation and rescheduling on the proper
       createPropertyVisitRequest(sql, { ...request, trackingToken: "HIR-26-AAAAAAAAAAAA" }),
       createPropertyVisitRequest(sql, { ...request, trackingToken: "HIR-26-BBBBBBBBBBBB" }),
     ]);
-    assert.deepEqual(createResults.map((result) => result.kind).sort(), ["conflict", "created"]);
+    assert.deepEqual(createResults.map((result) => result.kind).sort(), ["created", "duplicate"]);
+    const successfulCreates = createResults.filter((result): result is typeof result & { id: string; trackingToken: string } =>
+      "id" in result && "trackingToken" in result,
+    );
+    assert.equal(successfulCreates.length, 2);
+    assert.equal(successfulCreates[0]?.id, successfulCreates[1]?.id);
+    assert.equal(successfulCreates[0]?.trackingToken, successfulCreates[1]?.trackingToken);
+    const otherPhone = await createPropertyVisitRequest(sql, { ...request, phone: "09123456780", trackingToken: "HIR-26-CCCCCCCCCCCC" });
+    assert.equal(otherPhone.kind, "conflict");
 
     await pg.exec(`
       insert into leads(id,property_id,visit_status,visit_preferred_at) values

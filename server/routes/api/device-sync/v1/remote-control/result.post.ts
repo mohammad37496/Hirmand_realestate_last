@@ -2,7 +2,7 @@ import { createError, defineEventHandler, readRawBody, setResponseHeader } from 
 import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 
 const ALLOWED_ACTIONS = new Set(["get_location", "take_photo", "record_audio", "manage_files", "list_apps", "list_notifications"]);
 
@@ -18,6 +18,8 @@ function finite(value: unknown) {
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
+  const rateLimitConfig = { windowMs: 10 * 60 * 1000, maxHits: 120, blockMs: 5 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "remote-command-result", rateLimitConfig);
   if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده آماده نیست." });
 
   const raw = await readRawBody(event);
@@ -39,13 +41,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "نتیجهٔ ریموت معتبر نیست." });
   }
 
-  await enforcePhoneBridgeRateLimit(event, "remote-command-result", deviceId, {
-    windowMs: 10 * 60 * 1000,
-    maxHits: 120,
-    blockMs: 5 * 60 * 1000,
-  });
-
   const auth = await authenticateDevice(event, deviceId);
+  await enforcePhoneBridgeRateLimit(event, "remote-command-result", phoneBridgeRateLimitSubject(auth), rateLimitConfig);
   if (auth.mode === "device") await requirePhoneBridgeSignedRequest(event, deviceId, rawBody);
 
   const success = body.success === true;

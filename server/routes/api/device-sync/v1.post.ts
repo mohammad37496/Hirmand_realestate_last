@@ -5,7 +5,7 @@ import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
 import { sanitizePhoneBridgePayload } from "@/lib/phone-bridge-payload.server";
 import { recordPhoneBridgeEvent } from "@/lib/phone-bridge-events.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 
 const MAX_BODY_BYTES = 4 * 1024 * 1024;
 type JsonObject = Record<string, unknown>;
@@ -42,10 +42,12 @@ function summaryFor(payload: JsonObject) {
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
+  const rateLimitConfig = { windowMs: 10 * 60 * 1000, maxHits: 120, blockMs: 10 * 60 * 1000 };
 
   if (dbSource === "unconfigured") {
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای دریافت دادهٔ گوشی در دسترس نیست." });
   }
+  await enforcePhoneBridgeIpRateLimit(event, "sync", rateLimitConfig);
 
   const raw = await readRawBody(event);
   const rawBody = Buffer.isBuffer(raw) ? raw : Buffer.from(raw ?? "");
@@ -63,25 +65,24 @@ export default defineEventHandler(async (event) => {
   if (!deviceId) {
     throw createError({ statusCode: 400, statusMessage: "شناسهٔ نصب گوشی ارسال نشده است." });
   }
-  await enforcePhoneBridgeRateLimit(event, "sync", deviceId, {
-    windowMs: 10 * 60 * 1000,
-    maxHits: 120,
-    blockMs: 10 * 60 * 1000,
-  });
   let authPolicy: Awaited<ReturnType<typeof authenticateDevice>>;
   try {
     authPolicy = await authenticateDevice(event, deviceId);
+    await enforcePhoneBridgeRateLimit(event, "sync", phoneBridgeRateLimitSubject(authPolicy), rateLimitConfig);
     if (authPolicy.mode === "device") {
       await requirePhoneBridgeSignedRequest(event, deviceId, rawBody);
     }
   } catch (error) {
-    await recordPhoneBridgeEvent({
-      deviceId,
-      eventType: "security.auth_failed",
-      severity: "error",
-      message: "احراز هویت دستگاه برای Sync ناموفق بود.",
-      metadata: { route: "/api/device-sync/v1" },
-    }).catch(() => undefined);
+    const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 0;
+    if (statusCode !== 429) {
+      await recordPhoneBridgeEvent({
+        deviceId,
+        eventType: "security.auth_failed",
+        severity: "error",
+        message: "احراز هویت دستگاه برای Sync ناموفق بود.",
+        metadata: { route: "/api/device-sync/v1" },
+      }).catch(() => undefined);
+    }
     throw error;
   }
 

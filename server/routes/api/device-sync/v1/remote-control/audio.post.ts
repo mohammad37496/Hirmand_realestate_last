@@ -3,7 +3,7 @@ import { createError, defineEventHandler, getHeader, readRawBody, setResponseHea
 import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
 import { recordPhoneBridgeEvent } from "@/lib/phone-bridge-events.server";
 
 const MAX_BYTES = 128 * 1024 * 1024;
@@ -15,6 +15,8 @@ function decodeName(value:string|undefined){try{return safeName(Buffer.from(valu
 export default defineEventHandler(async event=>{
  setResponseHeader(event,"cache-control","no-store");
  if(dbSource==="unconfigured") throw createError({statusCode:503,statusMessage:"پایگاه داده آماده نیست."});
+ const rateLimitConfig={windowMs:10*60*1000,maxHits:10,blockMs:10*60*1000};
+ await enforcePhoneBridgeIpRateLimit(event,"remote-audio-upload",rateLimitConfig);
  const deviceId=getHeader(event,"x-hirmand-device-id")?.trim().slice(0,120)||"";
  const commandId=getHeader(event,"x-hirmand-command-id")?.trim().slice(0,120)||"";
  const sha=getHeader(event,"x-hirmand-file-sha256")?.trim().toLowerCase()||"";
@@ -22,9 +24,9 @@ export default defineEventHandler(async event=>{
  const mime=getHeader(event,"x-hirmand-file-mime")?.trim().toLowerCase()||"";
  const name=decodeName(getHeader(event,"x-hirmand-file-name"));
  if(!deviceId||!commandId) throw createError({statusCode:400,statusMessage:"شناسهٔ دستگاه یا فرمان ارسال نشده است."});
- await enforcePhoneBridgeRateLimit(event,"remote-audio-upload",deviceId,{windowMs:10*60*1000,maxHits:10,blockMs:10*60*1000});
  const auth=await authenticateDevice(event,deviceId);
  if(auth.mode!=="device") throw createError({statusCode:401,statusMessage:"احراز هویت دستگاه معتبر نیست."});
+ await enforcePhoneBridgeRateLimit(event,"remote-audio-upload",auth.deviceId,rateLimitConfig);
  if(auth.allowedModules.microphone===false) throw createError({statusCode:403,statusMessage:"ماژول میکروفون برای این دستگاه غیرفعال است."});
  const raw=await readRawBody(event); const content=Buffer.isBuffer(raw)?raw:Buffer.from(raw||"");
  if(content.length<1||content.length>MAX_BYTES) throw createError({statusCode:413,statusMessage:"حجم فایل صوتی نامعتبر است."});
