@@ -21,6 +21,7 @@ const [publicTracking, ownerStatus, partnerLookup, customerChatGet, customerChat
   read("src/lib/admin-rate-limit.server.ts"),
   read("src/lib/tracking-token.server.ts"),
 ]);
+const customerChatSend = await read("src/lib/customer-chat-send.ts");
 
 function assertThrottleBefore(route, validationOrLookup) {
   const throttle = route.indexOf("consumeAdminAttempt(");
@@ -55,7 +56,7 @@ test("customer chat lookups and sends are rate limited before token validation",
   assert.match(customerChatPost, /assertSameOrigin\(event\)/);
   assert.match(customerChatPost, /setResponseHeader\(event,\s*["']cache-control["'],\s*["']no-store["']\)/);
   assertThrottleBefore(customerChatPost, "schema.safeParse(");
-  assert.match(customerChatPost, /public_tracking_token/);
+  assert.match(customerChatSend, /public_tracking_token/);
 });
 
 test("other public token operations retain their existing pre-validation throttles", () => {
