@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "کد رهگیری را وارد کنید." });
   }
   if (dbSource === "unconfigured") {
-    throw createError({ statusCode: 503, statusMessage: "سامانه پیگیری موقتاً در دسترس نیست." });
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده موقتاً در دسترس نیست." });
   }
   const result = await lookupPartnerContract(code);
   if (!result) {

@@ -1,6 +1,6 @@
 export const TRACKING_TOKEN_MAX_LENGTH = 39;
 
-const PUBLIC_TRACKING_TOKEN_PATTERN = /^HIR-[A-Z0-9]{2}-(?:[A-F0-9]{12}|[A-F0-9]{32})$/;
+const PUBLIC_TRACKING_TOKEN_PATTERN = /^HIR-\d{2}-(?:[A-F0-9]{12}|[A-F0-9]{32})$/;
 const PARTNER_TRACKING_CODE_PATTERN = /^HIR-\d{2}-(?:[A-F0-9]{8}|[A-F0-9]{32})$/;
 
 /** Accepts existing 48-bit tokens and newly issued 128-bit public tokens. */

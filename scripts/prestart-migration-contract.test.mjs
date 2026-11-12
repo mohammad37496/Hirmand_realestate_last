@@ -19,6 +19,8 @@ test("migration success logs are bound to the stamped deployment commit", async 
   assert.match(source, /customer-auth migrations verified\$\{deploymentLabel\}/);
   assert.match(source, /PROPERTY_CONSULTANT_RELATION_MIGRATIONS/);
   assert.match(source, /property consultant migrations verified\$\{deploymentLabel\}/);
+  assert.match(source, /LEAD_CONSULTANT_RELATION_MIGRATIONS/);
+  assert.match(source, /lead consultant migrations verified\$\{deploymentLabel\}/);
   assert.match(source, /public\/deployment\.json/);
 });
 
@@ -43,6 +45,8 @@ test("Liara deploy polls for the exact migration verification line for this comm
   assert.match(workflow, /0059_customer_workspace_revision\.sql/);
   assert.match(workflow, /property consultant migrations verified for deployment \$\{EXPECTED_DEPLOYMENT_SHA\}/);
   assert.match(workflow, /0103_property_consultant_relation\.sql/);
+  assert.match(workflow, /lead consultant migrations verified for deployment \$\{EXPECTED_DEPLOYMENT_SHA\}/);
+  assert.match(workflow, /0104_lead_consultant_relation\.sql/);
 });
 
 test("migration runner acquires its advisory lock before reading the migration ledger", async () => {
@@ -109,8 +113,8 @@ test("concurrent migration runners apply a pending migration only once", async (
 
     const poolFactory = () => ({ connect: async () => new FakeClient(), end: async () => {} });
     await Promise.all([
-      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false }),
-      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false }),
+      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false, verifyLeadConsultantMigration: false }),
+      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false, verifyLeadConsultantMigration: false }),
     ]);
 
     assert.equal(state.executions, 1);

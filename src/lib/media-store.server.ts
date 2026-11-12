@@ -325,6 +325,13 @@ export type MediaMeta = {
   pathname: string;
 };
 
+export class IncompleteMediaRangeError extends Error {
+  constructor() {
+    super("Stored media range was incomplete.");
+    this.name = "IncompleteMediaRangeError";
+  }
+}
+
 export async function getMediaMeta(id: string): Promise<MediaMeta | null> {
   if (dbSource === "unconfigured") return null;
   const sql = await getSql();
@@ -372,7 +379,9 @@ export async function readMediaRange(
   );
 
   const bytes = exactMediaRangeBytes(rows[0]?.data, length);
-  if (!bytes) return null;
+  if (!bytes) {
+    throw new IncompleteMediaRangeError();
+  }
   return {
     // `pg` hands back a Buffer, PGlite a Uint8Array; both are byte containers.
     bytes: Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes),

@@ -7,6 +7,7 @@ import { ensurePublicTrackingToken, generatePartnerTrackingCode, generatePublicT
 test("public tracking accepts legacy 48-bit and current 128-bit tokens", () => {
   assert.equal(isValidPublicTrackingToken("HIR-26-ABCDEF123456"), true);
   assert.equal(isValidPublicTrackingToken("HIR-26-0123456789ABCDEF0123456789ABCDEF"), true);
+  assert.equal(isValidPublicTrackingToken("HIR-AB-ABCDEF123456"), false);
   assert.equal(isValidPublicTrackingToken("HIR-26-ABCDEF12345"), false);
   assert.equal(isValidPublicTrackingToken("HIR-26-0123456789ABCDEF0123456789ABCDEG"), false);
 });

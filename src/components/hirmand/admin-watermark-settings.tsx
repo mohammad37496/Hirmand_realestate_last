@@ -9,6 +9,7 @@ export function AdminWatermarkSettings() {
   const [settings, setSettings] = useState<PropertyWatermarkSettings>(DEFAULT_PROPERTY_WATERMARK);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -21,10 +22,14 @@ export function AdminWatermarkSettings() {
       .then(async (response) => {
         const payload = await response.json().catch(() => null);
         if (!response.ok || !payload?.settings) throw new Error(payload?.statusMessage || "تنظیمات واترمارک دریافت نشد.");
-        if (active) setSettings(payload.settings);
+        if (active) { setSettings(payload.settings); setLoadError(null); }
       })
       .catch((error) => {
-        if (active) toast.error(error instanceof Error ? error.message : "تنظیمات واترمارک دریافت نشد.");
+        if (active) {
+          const message = error instanceof Error ? error.message : "تنظیمات واترمارک دریافت نشد.";
+          setLoadError(message);
+          toast.error(message);
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -72,6 +77,7 @@ export function AdminWatermarkSettings() {
 
       <section className="admin-watermark-layout">
         <div className="admin-watermark-panel">
+          {loadError ? <div className="admin-empty" role="alert">{loadError} دریافت تنظیمات ناموفق بود؛ تا زمان بازیابی پایگاه داده ذخیره‌سازی غیرفعال است.</div> : null}
           <div className="admin-watermark-panel-head">
             <div><span className="kicker">تنظیمات</span><h2>نحوه نمایش واترمارک</h2></div>
             <span className={settings.enabled ? "admin-watermark-status is-on" : "admin-watermark-status"}>{settings.enabled ? "فعال" : "خاموش"}</span>
@@ -111,8 +117,8 @@ export function AdminWatermarkSettings() {
           </div>
 
           <div className="admin-watermark-actions">
-            <button type="button" className="btn-ghost" onClick={reset} disabled={saving || loading}><RotateCcw size={15} /> بازنشانی</button>
-            <button type="button" className="btn-gold" onClick={() => void save()} disabled={saving || loading}><Save size={15} /> {saving ? "در حال ذخیره…" : "ذخیره تنظیمات"}</button>
+            <button type="button" className="btn-ghost" onClick={reset} disabled={saving || loading || Boolean(loadError)}><RotateCcw size={15} /> بازنشانی</button>
+            <button type="button" className="btn-gold" onClick={() => void save()} disabled={saving || loading || Boolean(loadError)}><Save size={15} /> {saving ? "در حال ذخیره…" : "ذخیره تنظیمات"}</button>
           </div>
         </div>
 

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const [publicTracking, ownerStatus, partnerLookup, customerChatGet, customerChatPost, submissions, publicActions, adminCustomerChat, mediaProxy, mediaById, mediaAccess, leadsRoute, partnerSession, rateLimit, tokenServer] = await Promise.all([
+const [publicTracking, ownerStatus, partnerLookup, customerChatGet, customerChatPost, submissions, publicActions, adminCustomerChat, mediaProxy, mediaById, mediaAccess, leadsRoute, partnerSession, partnerSessionRoute, rateLimit, tokenServer] = await Promise.all([
   read("server/routes/api/public-lead-tracking.get.ts"),
   read("server/routes/api/owner-property-status.post.ts"),
   read("server/routes/api/partner/lookup.post.ts"),
@@ -17,6 +17,7 @@ const [publicTracking, ownerStatus, partnerLookup, customerChatGet, customerChat
   read("src/lib/liara-media-access.server.ts"),
   read("server/routes/api/leads.post.ts"),
   read("src/lib/partner-session.server.ts"),
+  read("server/routes/api/partner/session.post.ts"),
   read("src/lib/admin-rate-limit.server.ts"),
   read("src/lib/tracking-token.server.ts"),
 ]);
@@ -85,15 +86,24 @@ test("all public-token consumers share the legacy-compatible validator and 128-b
   assert.match(partnerSession, /generatePartnerTrackingCode\(\)/);
 });
 
+test("partner PIN login is same-origin and rate limited before credential verification", () => {
+  assert.match(partnerSessionRoute, /assertSameOrigin\(event\)/);
+  assertThrottleBefore(partnerSessionRoute, "authenticatePartner(");
+  assert.match(partnerSessionRoute, /clientFingerprint\(event\)/);
+  assert.match(partnerSessionRoute, /tooManyAttemptsError\(attempt.retryAfterSeconds\)/);
+  assert.match(partnerSessionRoute, /clearAdminAttempts\(loginRateKey\)/);
+});
+
 test("rate limiting uses atomic Redis EVAL and synchronous in-memory bucket consumption", () => {
   assert.match(rateLimit, /redisCommand<Array<number \| string>>\(\s*"EVAL"/);
   assert.match(rateLimit, /redis\.call\('SET'/);
   assert.match(rateLimit, /consume\(key, input\)/);
   assert.match(rateLimit, /read\/modify\/write happens synchronously/);
-  assert.match(rateLimit, /forwarded\?\.at\(-1\)/);
+  assert.match(rateLimit, /resolveClientIp\(getRequestIP\(event\)\)/);
+  assert.doesNotMatch(rateLimit, /getHeader\(event,\s*["']x-forwarded-for["']\)|xForwardedFor\s*:\s*true/i);
   assert.match(rateLimit, /createHash\("sha256"\)/);
   assert.doesNotMatch(rateLimit, /x-real-ip/i);
-  assert.match(rateLimit, /resolveClientIp\(getHeader\(event, "x-forwarded-for"\), getRequestIP\(event\)\)/);
+  assert.match(rateLimit, /resolveClientIp\(getRequestIP\(event\)\)/);
   assert.match(rateLimit, /process\.env\.NODE_ENV === "production"[\s\S]*?statusCode:\s*503/);
 });
 

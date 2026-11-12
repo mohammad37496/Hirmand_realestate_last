@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import { PGlite } from "@electric-sql/pglite";
 import { loadAdminSalesControlCenterQueries } from "./admin-sales-control-center.ts";
 import type { Sql } from "./db.ts";
 
@@ -18,8 +20,53 @@ test("sales control center returns consultant and pipeline data when both querie
   assert.deepEqual(pipeline, [{ id: "2" }]);
   assert.match(queries[0], /select c\.id as key/);
   assert.match(queries[0], /join consultants c on c\.id = p\.consultant_id/);
+  assert.match(queries[0], /join consultants c on c\.id = l\.consultant_id/);
   assert.match(queries[0], /left join file_stats fs on fs\.key = c\.id/);
+  assert.match(queries[0], /left join lead_stats ls on ls\.key = c\.id/);
+  assert.doesNotMatch(queries[0], /lower\(trim\(consultant\)\)/);
   assert.doesNotMatch(queries[0], /contact_name/);
+});
+
+test("sales control center attributes same-name leads only by stable consultant ID", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table consultants (id text primary key, name text not null, phone text not null, is_active boolean not null);
+      create table properties (id text primary key, consultant_id text references consultants(id), status text not null, slug text not null);
+      create table leads (
+        id text primary key,
+        consultant text not null,
+        consultant_id text references consultants(id),
+        status text not null,
+        created_at timestamptz not null,
+        follow_up_at timestamptz,
+        visit_status text
+      );
+      create table lead_activities (lead_id text not null, activity_type text not null);
+      create table site_events (property_slug text not null, event_name text not null, day date not null);
+      insert into consultants(id,name,phone,is_active) values
+        ('consultant-a','مشاور مشترک','09120000001',true),
+        ('consultant-b','مشاور مشترک','09120000002',true);
+      insert into leads(id,consultant,consultant_id,status,created_at) values
+        ('lead-a','مشاور مشترک','consultant-a','new',current_timestamp),
+        ('lead-b','مشاور مشترک','consultant-b','contacted',current_timestamp),
+        ('legacy-unlinked','مشاور مشترک',null,'new',current_timestamp);
+    `);
+    const sql = {
+      query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+        (await pg.query<T>(text, params)).rows,
+    } as unknown as Sql;
+    const [consultants] = await loadAdminSalesControlCenterQueries(sql, 30);
+    assert.deepEqual(
+      consultants.map((row) => ({ id: row.id, leads: row.leads })),
+      [
+        { id: "consultant-a", leads: 1 },
+        { id: "consultant-b", leads: 1 },
+      ],
+    );
+  } finally {
+    await pg.close();
+  }
 });
 
 for (const fragment of ["with file_stats", "from leads\n       where created_at"]) {
@@ -33,3 +80,17 @@ for (const fragment of ["with file_stats", "from leads\n       where created_at"
     await assert.rejects(loadAdminSalesControlCenterQueries(sql, 30), /sales report database unavailable/);
   });
 }
+
+test("admin sales funnel fails closed instead of returning a malformed empty report", async () => {
+  const route = await readFile(new URL("../../server/routes/api/admin-sales-funnel.get.ts", import.meta.url), "utf8");
+  const component = await readFile(new URL("../components/hirmand/admin-sales-funnel.tsx", import.meta.url), "utf8");
+  const guard = route.indexOf('dbSource === "unconfigured"');
+  assert.ok(guard >= 0);
+  assert.match(route, /dbSource === "unconfigured"\)\s*\{\s*throw createError\(\{ statusCode: 503/);
+  assert.ok(guard < route.indexOf("getSql()"));
+  assert.doesNotMatch(route, /return \{ days: 30, statuses: \[\], sources: \[\], aging: \[\], conversions: \{\} \}/);
+  assert.match(component, /loadError/);
+  assert.match(component, /role="alert"/);
+  assert.match(component, /تلاش دوباره/);
+  assert.match(component, /data\s*\?\s*"به‌روزرسانی قیف فروش ناموفق بود\."/);
+});

@@ -10,6 +10,7 @@ import {
   hasRejectedCustomerSubmissionMedia,
   isPublishedPropertyMedia,
   createLiaraVideoResponse,
+  LIARA_MEDIA_STREAM_IDLE_TIMEOUT_MS,
   liaraMediaCacheControl,
 } from "@/lib/liara-media-access.server";
 
@@ -132,13 +133,16 @@ export default defineEventHandler(async (event) => {
     let recentUploadAccess = false;
     if (
       (customerSubmissionMedia || propertyUploadMedia) &&
+      !hasPrivateMediaPermission
+    ) {
+      const attempt = await consumeAdminAttempt("private-property-media:" + clientFingerprint(event), 120);
+      if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+    }
+    if (
+      (customerSubmissionMedia || propertyUploadMedia) &&
       !hasPrivateMediaPermission &&
       dbSource !== "unconfigured"
     ) {
-      if (customerSubmissionMedia || propertyUploadMedia) {
-        const attempt = await consumeAdminAttempt("private-property-media:" + clientFingerprint(event), 120);
-        if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
-      }
       try {
         const sql = await getSql();
         publishedReference = await isPublishedPropertyMedia(sql, raw);
@@ -187,7 +191,12 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 502, statusMessage: "دریافت رسانه از فضای ذخیره‌سازی هیرمند ممکن نشد." });
     }
     if (video) {
-      const videoResponse = createLiaraVideoResponse(response, liaraKey, cacheControl, TIMEOUT_MS);
+      const videoResponse = createLiaraVideoResponse(
+        response,
+        liaraKey,
+        cacheControl,
+        LIARA_MEDIA_STREAM_IDLE_TIMEOUT_MS,
+      );
       if (videoResponse) return videoResponse;
       if (!response.ok) {
         throw createError({ statusCode: response.status === 404 ? 404 : 502, statusMessage: "دریافت ویدئو از فضای ذخیره‌سازی هیرمند ممکن نشد." });

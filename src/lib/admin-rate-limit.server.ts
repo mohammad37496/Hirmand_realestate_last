@@ -190,15 +190,14 @@ function store(): ThrottleStore {
 
 /** Stable rate-limit identity. User-Agent is caller-controlled and must not split a caller's bucket. */
 export function clientFingerprint(event: H3Event): string {
-  const ip = resolveClientIp(getHeader(event, "x-forwarded-for"), getRequestIP(event));
+  const ip = resolveClientIp(getRequestIP(event));
   return createHash("sha256").update(ip).digest("hex");
 }
 
-export function resolveClientIp(forwardedHeader: string | undefined, remoteIp: string | undefined) {
-  const forwarded = forwardedHeader?.split(",").map((value) => value.trim()).filter(Boolean);
-  // The nearest trusted reverse proxy appends the client address to X-Forwarded-For.
-  // Use the rightmost value so a caller-supplied leftmost value cannot choose its bucket.
-  return forwarded?.at(-1) || remoteIp || "unknown";
+export function resolveClientIp(remoteIp: string | undefined) {
+  // The transport peer is server-observed. Do not trust X-Forwarded-For until
+  // the hosting ingress is explicitly configured and verified to overwrite it.
+  return remoteIp || "unknown";
 }
 
 export type RateLimitResult = {

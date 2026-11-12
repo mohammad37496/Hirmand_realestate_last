@@ -208,28 +208,33 @@ try {
       const footer = page.locator(".quick-actions").first();
       let footerGeometry = null;
       if (await footer.count()) {
-        // scrollIntoView can be a no-op when the last card is already inside
-        // the viewport, even when a fixed footer overlays part of it. Move
-        // only the measured distance needed to clear the dock; scrolling to
-        // the document bottom would trigger the page's infinite-load sentinel.
-        const scrollPlan = await page.evaluate(() => {
-          const card = document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").item(
-            document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").length - 1,
-          );
-          const footerElement = document.querySelector(".quick-actions");
-          const scrollingElement = document.scrollingElement ?? document.documentElement;
-          const cardRect = card?.getBoundingClientRect();
-          const footerRect = footerElement?.getBoundingClientRect();
-          const requestedScroll = cardRect && footerRect ? Math.max(0, cardRect.bottom - footerRect.top + 4) : 0;
-          const beforeScrollTop = scrollingElement.scrollTop;
-          scrollingElement.scrollBy({ top: requestedScroll, behavior: "instant" });
-          return { requestedScroll, beforeScrollTop };
+        // This is a final-position geometry assertion. Do not sample a smooth
+        // scroll animation that may still be in flight on a loaded CI runner.
+        await page.evaluate(() => {
+          document.documentElement.style.scrollBehavior = "auto";
+          document.body.style.scrollBehavior = "auto";
         });
-        await page.waitForTimeout(80);
-        footerGeometry = await cards.last().evaluate((card, plan) => {
+        await cards.last().evaluate((card) => card.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
+        await page.evaluate(() => {
+          const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+          const footerElement = document.querySelector(".quick-actions");
+          if (!card || !footerElement) return;
+          const cardRect = card.getBoundingClientRect();
+          const footerRect = footerElement.getBoundingClientRect();
+          const clearance = footerRect.top - cardRect.bottom;
+          if (clearance < 8) window.scrollBy({ top: 8 - clearance, behavior: "instant" });
+        });
+        await page.waitForFunction(() => {
+          const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+          const footerElement = document.querySelector(".quick-actions");
+          if (!card || !footerElement) return false;
+          const cardRect = card.getBoundingClientRect();
+          const footerRect = footerElement.getBoundingClientRect();
+          return cardRect.bottom <= footerRect.top - 4;
+        }, null, { timeout: 3_000 });
+        footerGeometry = await cards.last().evaluate((card) => {
           const footerElement = document.querySelector(".quick-actions");
           const pageRoot = document.querySelector(".pf-page");
-          const scrollingElement = document.scrollingElement ?? document.documentElement;
           const rect = (element) => {
             const value = element?.getBoundingClientRect();
             return value ? { top: value.top, bottom: value.bottom, left: value.left, right: value.right } : null;
@@ -246,15 +251,10 @@ try {
             pageScrollHeight: pageRoot?.scrollHeight ?? null,
             pageClientHeight: pageRoot?.clientHeight ?? null,
             cardScrollMarginEnd: cardStyle.scrollMarginBlockEnd,
-            requestedScroll: plan.requestedScroll,
-            actualScroll: scrollingElement.scrollTop - plan.beforeScrollTop,
-            documentScrollTop: scrollingElement.scrollTop,
-            documentScrollHeight: scrollingElement.scrollHeight,
-            documentClientHeight: scrollingElement.clientHeight,
             overlap: Boolean(cardRect && footerRect && cardRect.left < footerRect.right - 1 && cardRect.right > footerRect.left + 1 && cardRect.top < footerRect.bottom - 1 && cardRect.bottom > footerRect.top + 1),
             gap: cardRect && footerRect ? footerRect.top - cardRect.bottom : null,
           };
-        }, scrollPlan);
+        });
         if (footerGeometry.overlap || footerGeometry.gap < 4) failures.push(`${viewport.width}px: last card intersects or approaches the fixed footer unsafely: ${JSON.stringify(footerGeometry)}`);
       }
 

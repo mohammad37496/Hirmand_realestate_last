@@ -242,6 +242,54 @@ test("sensitive admin server functions enforce their matching permission on the 
   }
 });
 
+test("admin notification server functions require lead.manage before reading or changing CRM notifications", () => {
+  const source = readFileSync(new URL("./admin-notifications.ts", import.meta.url), "utf8");
+  const guard = source.match(/async function requireAdmin\(\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.equal([...guard.matchAll(/getAdminSessionClaims\(token\)/g)].length, 1, "session claims must be resolved exactly once");
+  assert.doesNotMatch(guard, /verifyAdminSessionToken\(/, "do not verify the same session through a second claims lookup");
+  assert.doesNotMatch(source, /verifyAdminSessionToken/);
+  assert.match(guard, /if \(!claims\) throw new Error\("نشست مدیریت معتبر نیست\."\)/);
+  assert.match(guard, /assertAdminServerFnOrigin\(\)/);
+  assert.match(guard, /hasAdminPermission\(normalizeAdminRole\(claims\.role\),\s*"lead\.manage"\)/);
+  assert.ok(guard.indexOf("getAdminSessionClaims(token)") < guard.indexOf("assertAdminServerFnOrigin()"));
+  assert.ok(guard.indexOf("assertAdminServerFnOrigin()") < guard.indexOf('"lead.manage"'));
+
+  for (const operation of ["listAdminNotifications", "markAdminNotificationRead", "markAllAdminNotificationsRead"]) {
+    const start = source.indexOf(`export const ${operation}`);
+    const next = source.indexOf("export const ", start + 1);
+    assert.notEqual(start, -1, `${operation} must be exported`);
+    const handler = source.slice(start, next === -1 ? undefined : next);
+    const adminGuardIndex = handler.indexOf("await requireAdmin()");
+    assert.notEqual(adminGuardIndex, -1, `${operation} must enforce CRM permission`);
+    for (const protectedOperation of ["getSql()", "syncCandidates(sql)"]) {
+      const protectedIndex = handler.indexOf(protectedOperation);
+      if (protectedIndex !== -1) {
+        assert.ok(
+          adminGuardIndex < protectedIndex,
+          `${operation} must enforce CRM permission before ${protectedOperation}`,
+        );
+      }
+    }
+    for (const update of handler.matchAll(/sql\.query\(\s*["'`]update\b/gi)) {
+      assert.ok(
+        adminGuardIndex < (update.index ?? Number.POSITIVE_INFINITY),
+        `${operation} must enforce CRM permission before every UPDATE`,
+      );
+    }
+    assert.ok(
+      adminGuardIndex < handler.indexOf("getSql()"),
+      `${operation} must enforce CRM permission before database access`,
+    );
+  }
+
+  for (const role of ["content", "viewer"] as const) {
+    assert.equal(hasAdminPermission(normalizeAdminRole(role), "lead.manage"), false, `${role} must be denied CRM notifications`);
+  }
+  for (const role of ["owner", "manager", "sales", "staff"] as const) {
+    assert.equal(hasAdminPermission(normalizeAdminRole(role), "lead.manage"), true, `${role} may manage CRM notifications`);
+  }
+});
+
 /* ------------------------------------------------------------------ */
 /* magic-byte sniffing                                                 */
 /* ------------------------------------------------------------------ */
@@ -365,21 +413,20 @@ test("throttles are tracked per key, not globally", async () => {
   assert.equal((await consumeAdminAttempt(quiet)).allowed, true);
 });
 
-test("rate-limit identity cannot be bypassed by rotating the caller's User-Agent", async () => {
-  const request = (userAgent: string, ip = "203.0.113.10") => ({
-    req: new Request("https://hirmandrealestate.ir/api/admin/session", {
-      headers: { "x-forwarded-for": ip, "user-agent": userAgent },
-    }),
-    node: { req: { socket: { remoteAddress: "127.0.0.1" } } },
+test("rate-limit identity uses the adapter peer address, not caller-controlled headers", async () => {
+  const request = (userAgent: string, ip = "203.0.113.10", forwardedIp = "198.51.100.99") => ({
+    req: Object.assign(new Request("https://hirmandrealestate.ir/api/admin/session", {
+      headers: { "x-forwarded-for": forwardedIp, "user-agent": userAgent },
+    }), { context: { clientAddress: ip } }),
   }) as unknown as import("h3").H3Event;
 
   const firstKey = `user-agent-rotation:${clientFingerprint(request("Browser A"))}`;
-  const rotatedKey = `user-agent-rotation:${clientFingerprint(request("curl/9.0"))}`;
-  assert.equal(firstKey, rotatedKey, "same source IP must retain one bucket across User-Agent changes");
+  const rotatedKey = `user-agent-rotation:${clientFingerprint(request("curl/9.0", "203.0.113.10", "192.0.2.44"))}`;
+  assert.equal(firstKey, rotatedKey, "same server-observed peer must retain one bucket across caller header changes");
   assert.notEqual(
-    clientFingerprint(request("Browser A", "203.0.113.11")),
-    clientFingerprint(request("Browser A", "203.0.113.10")),
-    "different source IPs retain separate buckets",
+    clientFingerprint(request("Browser A", "203.0.113.11", "198.51.100.99")),
+    clientFingerprint(request("Browser A", "203.0.113.10", "198.51.100.99")),
+    "different server-observed peers retain separate buckets",
   );
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
