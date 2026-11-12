@@ -12,6 +12,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { isIP } from "node:net";
 import { createError, getHeader, getRequestIP, type H3Event } from "h3";
 
 type Bucket = { hits: number[]; blockedUntil: number };
@@ -190,14 +191,19 @@ function store(): ThrottleStore {
 
 /** Stable rate-limit identity. User-Agent is caller-controlled and must not split a caller's bucket. */
 export function clientFingerprint(event: H3Event): string {
-  const ip = resolveClientIp(getRequestIP(event));
+  const ip = resolveClientIp(getRequestIP(event), getHeader(event, "x-forwarded-for"));
   return createHash("sha256").update(ip).digest("hex");
 }
 
-export function resolveClientIp(remoteIp: string | undefined) {
-  // The transport peer is server-observed. Do not trust X-Forwarded-For until
-  // the hosting ingress is explicitly configured and verified to overwrite it.
-  return remoteIp || "unknown";
+/**
+ * Liara Node PaaS routes requests through one reverse proxy and documents
+ * trusted-proxy count 1. Its rightmost X-Forwarded-For entry is the client IP;
+ * earlier entries may be caller supplied, so never select the leftmost value.
+ */
+export function resolveClientIp(remoteIp: string | undefined, forwardedFor?: string | null) {
+  const forwardedEntries = forwardedFor?.split(",").map((entry) => entry.trim()).filter(Boolean) ?? [];
+  const trustedClientIp = forwardedEntries.at(-1);
+  return trustedClientIp && isIP(trustedClientIp) ? trustedClientIp : remoteIp || "unknown";
 }
 
 export type RateLimitResult = {

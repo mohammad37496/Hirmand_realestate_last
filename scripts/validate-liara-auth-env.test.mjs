@@ -5,6 +5,8 @@ import { normalizeBetterAuthOrigin } from "./auth-origin.mjs";
 
 const ready = [
   { key: "DATABASE_URL", value: "postgresql://redacted" },
+  { key: "UPSTASH_REDIS_REST_URL", value: "https://redis.example.upstash.io" },
+  { key: "UPSTASH_REDIS_REST_TOKEN", value: "redacted-redis-token" },
   { key: "BETTER_AUTH_URL", value: "https://hirmandrealestate.ir" },
   { key: "BETTER_AUTH_SECRET", value: "x".repeat(48) },
   { key: "VITE_AUTH_ENABLED", value: "true" },
@@ -29,6 +31,8 @@ test("Liara auth summary reports safe presence/validity without exposing secret 
   ]);
 
   assert.deepEqual(summary, {
+    UPSTASH_REDIS_REST_URL: "valid (HTTPS URL)",
+    UPSTASH_REDIS_REST_TOKEN: "present",
     VITE_AUTH_ENABLED: "enabled",
     DATABASE_URL: "valid (DATABASE_URL)",
     BETTER_AUTH_URL: "valid",
@@ -65,10 +69,25 @@ test("nested Liara environment payloads are supported", () => {
 
 test("missing persistent auth configuration blocks a production deploy", () => {
   assert.deepEqual(validateLiaraCustomerAuthEnvironment([{ key: "VITE_AUTH_ENABLED", value: "true" }]), [
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
     "one persistent PostgreSQL URL (DATABASE_URL, POSTGRES_URL, POSTGRES_PRISMA_URL, NEON_DATABASE_URL, DATABASE_URL_UNPOOLED, POSTGRES_URL_NON_POOLING)",
     "BETTER_AUTH_URL",
     "BETTER_AUTH_SECRET (at least 32 characters)",
   ]);
+});
+
+test("missing or invalid shared Redis configuration blocks deployment without exposing values", () => {
+  const missingUrl = ready.filter((row) => row.key !== "UPSTASH_REDIS_REST_URL");
+  assert.deepEqual(validateLiaraCustomerAuthEnvironment(missingUrl), ["UPSTASH_REDIS_REST_URL"]);
+  const missingToken = ready.filter((row) => row.key !== "UPSTASH_REDIS_REST_TOKEN");
+  assert.deepEqual(validateLiaraCustomerAuthEnvironment(missingToken), ["UPSTASH_REDIS_REST_TOKEN"]);
+  const invalidUrl = ready.map((row) => row.key === "UPSTASH_REDIS_REST_URL" ? { ...row, value: "http://redis.example.upstash.io" } : row);
+  assert.deepEqual(validateLiaraCustomerAuthEnvironment(invalidUrl), ["UPSTASH_REDIS_REST_URL must be a valid HTTPS URL"]);
+  const summary = summarizeLiaraCustomerAuthEnvironment(missingUrl);
+  assert.equal(summary.UPSTASH_REDIS_REST_URL, "missing");
+  assert.equal(summary.UPSTASH_REDIS_REST_TOKEN, "present");
+  assert.doesNotMatch(JSON.stringify(summary), /redacted-redis-token/);
 });
 
 test("invalid auth origins are rejected before deploy", () => {
