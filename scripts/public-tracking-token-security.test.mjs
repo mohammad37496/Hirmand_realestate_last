@@ -110,6 +110,6 @@ test("rate limiting uses atomic Redis EVAL and synchronous in-memory bucket cons
 test("legacy duplicate leads receive the actual atomically stored public tracking token", () => {
   assert.match(tokenServer, /public_tracking_token=case when public_tracking_token ~\* '\^HIR-/);
   assert.match(tokenServer, /returning public_tracking_token as/);
-  assert.equal((leadsRoute.match(/ensurePublicTrackingToken\(sql/g) ?? []).length, 2);
+  assert.equal((leadsRoute.match(/ensurePublicTrackingToken\(sql/g) ?? []).length, 3);
   assert.doesNotMatch(leadsRoute, /update leads set public_tracking_token=\$2 where id=\$1/);
 });

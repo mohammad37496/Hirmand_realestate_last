@@ -2,7 +2,7 @@ import { createError, defineEventHandler, getHeader, readRawBody, setResponseHea
 import { randomUUID } from "node:crypto";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 import { getSql, dbSource } from "@/lib/db";
 import { recordPhoneBridgeEvent } from "@/lib/phone-bridge-events.server";
 import { createHash } from "node:crypto";
@@ -12,19 +12,16 @@ const allowedMime = new Set(["audio/mp4","audio/m4a","audio/aac","audio/3gpp","a
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
+  const rateLimitConfig = { windowMs: 10 * 60 * 1000, maxHits: 20, blockMs: 10 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "call-recording-upload", rateLimitConfig);
   const deviceId = String(getHeader(event, "x-hirmand-device-id") || "").trim();
   if (!deviceId) throw createError({ statusCode: 400, statusMessage: "شناسه دستگاه ارسال نشده است." });
-
-  await enforcePhoneBridgeRateLimit(event, "call-recording-upload", deviceId, {
-    windowMs: 10 * 60 * 1000,
-    maxHits: 20,
-    blockMs: 10 * 60 * 1000,
-  });
+  const auth = await authenticateDevice(event, deviceId);
+  await enforcePhoneBridgeRateLimit(event, "call-recording-upload", phoneBridgeRateLimitSubject(auth), rateLimitConfig);
   const raw = await readRawBody(event);
   const bytes = raw ? Buffer.from(raw) : Buffer.alloc(0);
   if (!bytes.length || bytes.length > MAX_BYTES) throw createError({ statusCode: 413, statusMessage: "اندازه فایل صوتی مجاز نیست." });
 
-  const auth = await authenticateDevice(event, deviceId);
   if (auth.mode === "device") await requirePhoneBridgeSignedRequest(event, deviceId, bytes);
 
   if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده آماده نیست." });

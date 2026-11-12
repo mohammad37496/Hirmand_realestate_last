@@ -8,6 +8,7 @@ import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
 import { compareDecimalStrings } from "@/lib/decimal-money";
 import { formatTomanExact } from "@/lib/money";
 import { isValidPublicTrackingToken, TRACKING_TOKEN_MAX_LENGTH } from "@/lib/tracking-token";
+import { isDuplicatePublicVisitFeedbackConflict } from "@/lib/public-visit-feedback";
 import "@/request-tracking.css";
 
 type TrackingResult = {
@@ -27,6 +28,7 @@ type TrackingResult = {
   callbackPreferredAt?: string | null;
   offerAmount?: string | null;
   offerConditions?: string;
+  feedbackSubmitted?: boolean;
   customerPropertySubmissionStatus?: "pending" | "approved" | "rejected" | null;
   customerPropertySubmissionReviewNote?: string;
   timeline?: Array<{ type: "created" | "status" | "visit"; label: string; note: string; at: string | null }>;
@@ -34,7 +36,7 @@ type TrackingResult = {
 };
 
 function faDate(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "â€”";
   try {
     return new Intl.DateTimeFormat("fa-IR", {
       year: "numeric",
@@ -53,6 +55,13 @@ function statusStep(status: string) {
   const steps = ["new", "contacted", "follow_up", "visited", "contract"];
   const index = steps.indexOf(status);
   return index >= 0 ? index : status === "closed" ? 4 : 0;
+}
+
+class TrackingActionError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "TrackingActionError";
+  }
 }
 
 export const Route = createFileRoute("/request-tracking")({
@@ -74,8 +83,9 @@ function RequestTrackingPage() {
   async function lookup(value = code) {
     const normalized = value.trim().toUpperCase().replace(/\s+/g, "");
     if (!isValidPublicTrackingToken(normalized)) {
-      setMessage("کد رهگیری واردشده معتبر نیست.");
+      setMessage("Ú©Ø¯ Ø±Ù‡Ú¯ÛŒØ±ÛŒ ÙˆØ§Ø±Ø¯Ø´Ø¯Ù‡ Ù…Ø¹ØªØ¨Ø± Ù†ÛŒØ³Øª.");
       setResult(null);
+      setFeedbackSubmitted(false);
       return;
     }
 
@@ -88,14 +98,16 @@ function RequestTrackingPage() {
       });
       const data = (await response.json().catch(() => null)) as TrackingResult & { statusMessage?: string } | null;
       if (!response.ok || !data?.trackingCode) {
-        throw new Error(data?.statusMessage || "درخواستی با این کد پیدا نشد.");
+        throw new Error(data?.statusMessage || "Ø¯Ø±Ø®ÙˆØ§Ø³ØªÛŒ Ø¨Ø§ Ø§ÛŒÙ† Ú©Ø¯ Ù¾ÛŒØ¯Ø§ Ù†Ø´Ø¯.");
       }
       setResult(data);
       setCode(data.trackingCode);
+      setFeedbackSubmitted(data.feedbackSubmitted === true);
       rememberCustomerTrackingCode(data.trackingCode);
     } catch (error) {
       setResult(null);
-      setMessage(error instanceof Error ? error.message : "پیگیری درخواست انجام نشد.");
+      setFeedbackSubmitted(false);
+      setMessage(error instanceof Error ? error.message : "Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯.");
     } finally {
       setBusy(false);
     }
@@ -124,7 +136,7 @@ function RequestTrackingPage() {
     });
     const data = await response.json().catch(() => null) as { success?: boolean; message?: string; statusMessage?: string } | null;
     if (!response.ok || !data?.success) {
-      throw new Error(data?.statusMessage || data?.message || "عملیات انجام نشد.");
+      throw new TrackingActionError(response.status, data?.statusMessage || data?.message || "Ø¹Ù…Ù„ÛŒØ§Øª Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯.");
     }
     return data;
   }
@@ -132,17 +144,17 @@ function RequestTrackingPage() {
   async function rescheduleVisit() {
     const iso = toIsoVisitTime(rescheduleAt);
     if (!result || !iso) {
-      setMessage("زمان جدید بازدید باید معتبر و حداقل ۳۰ دقیقه از اکنون فاصله داشته باشد.");
+      setMessage("Ø²Ù…Ø§Ù† Ø¬Ø¯ÛŒØ¯ Ø¨Ø§Ø²Ø¯ÛŒØ¯ Ø¨Ø§ÛŒØ¯ Ù…Ø¹ØªØ¨Ø± Ùˆ Ø­Ø¯Ø§Ù‚Ù„ Û³Û° Ø¯Ù‚ÛŒÙ‚Ù‡ Ø§Ø² Ø§Ú©Ù†ÙˆÙ† ÙØ§ØµÙ„Ù‡ Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯.");
       return;
     }
     setActionBusy(true);
     try {
       const data = await postTrackingAction({ action: "reschedule", code: result.trackingCode, visitPreferredAt: iso });
-      setMessage(data.message || "زمان بازدید تغییر کرد.");
+      setMessage(data.message || "Ø²Ù…Ø§Ù† Ø¨Ø§Ø²Ø¯ÛŒØ¯ ØªØºÛŒÛŒØ± Ú©Ø±Ø¯.");
       setRescheduleAt("");
       await lookup(result.trackingCode);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "تغییر زمان بازدید انجام نشد.");
+      setMessage(error instanceof Error ? error.message : "ØªØºÛŒÛŒØ± Ø²Ù…Ø§Ù† Ø¨Ø§Ø²Ø¯ÛŒØ¯ Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯.");
     } finally {
       setActionBusy(false);
     }
@@ -153,10 +165,10 @@ function RequestTrackingPage() {
     setActionBusy(true);
     try {
       const data = await postTrackingAction({ action: "cancel", code: result.trackingCode });
-      setMessage(data.message || "بازدید لغو شد.");
+      setMessage(data.message || "Ø¨Ø§Ø²Ø¯ÛŒØ¯ Ù„ØºÙˆ Ø´Ø¯.");
       await lookup(result.trackingCode);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "لغو بازدید انجام نشد.");
+      setMessage(error instanceof Error ? error.message : "Ù„ØºÙˆ Ø¨Ø§Ø²Ø¯ÛŒØ¯ Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯.");
     } finally {
       setActionBusy(false);
     }
@@ -174,10 +186,16 @@ function RequestTrackingPage() {
         note: feedbackNote,
       });
       setFeedbackSubmitted(true);
-      setMessage(data.message || "بازخورد ثبت شد.");
+      setMessage(data.message || "Ø¨Ø§Ø²Ø®ÙˆØ±Ø¯ Ø«Ø¨Øª Ø´Ø¯.");
       setFeedbackNote("");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "ثبت بازخورد انجام نشد.");
+      if (error instanceof TrackingActionError && isDuplicatePublicVisitFeedbackConflict(error.status, error.message)) {
+        setFeedbackSubmitted(true);
+        setFeedbackNote("");
+        setMessage("Ø¨Ø§Ø²Ø®ÙˆØ±Ø¯ Ø§ÛŒÙ† Ø¨Ø§Ø²Ø¯ÛŒØ¯ Ù‚Ø¨Ù„Ø§Ù‹ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª.");
+      } else {
+        setMessage(error instanceof Error ? error.message : "Ø«Ø¨Øª Ø¨Ø§Ø²Ø®ÙˆØ±Ø¯ Ø§Ù†Ø¬Ø§Ù… Ù†Ø´Ø¯.");
+      }
     } finally {
       setActionBusy(false);
     }
@@ -186,9 +204,9 @@ function RequestTrackingPage() {
   async function copyCode() {
     try {
       await navigator.clipboard.writeText(code);
-      setMessage("کد رهگیری کپی شد.");
+      setMessage("Ú©Ø¯ Ø±Ù‡Ú¯ÛŒØ±ÛŒ Ú©Ù¾ÛŒ Ø´Ø¯.");
     } catch {
-      setMessage("کپی کد در این مرورگر در دسترس نیست.");
+      setMessage("Ú©Ù¾ÛŒ Ú©Ø¯ Ø¯Ø± Ø§ÛŒÙ† Ù…Ø±ÙˆØ±Ú¯Ø± Ø¯Ø± Ø¯Ø³ØªØ±Ø³ Ù†ÛŒØ³Øª.");
     }
   }
 
@@ -199,11 +217,11 @@ function RequestTrackingPage() {
       <main className="request-tracking-page">
         <section className="request-tracking-hero">
           <div>
-            <span className="kicker">پیگیری مشتری</span>
-            <h1>وضعیت درخواستتان را آنلاین ببینید.</h1>
+            <span className="kicker">Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ù…Ø´ØªØ±ÛŒ</span>
+            <h1>ÙˆØ¶Ø¹ÛŒØª Ø¯Ø±Ø®ÙˆØ§Ø³ØªØªØ§Ù† Ø±Ø§ Ø¢Ù†Ù„Ø§ÛŒÙ† Ø¨Ø¨ÛŒÙ†ÛŒØ¯.</h1>
             <p>
-              کدی را که هنگام ثبت درخواست از هیرمند دریافت کرده‌اید وارد کنید.
-              بدون ورود به حساب کاربری، فقط اطلاعات مربوط به همین درخواست نمایش داده می‌شود.
+              Ú©Ø¯ÛŒ Ø±Ø§ Ú©Ù‡ Ù‡Ù†Ú¯Ø§Ù… Ø«Ø¨Øª Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ø§Ø² Ù‡ÛŒØ±Ù…Ù†Ø¯ Ø¯Ø±ÛŒØ§ÙØª Ú©Ø±Ø¯Ù‡â€ŒØ§ÛŒØ¯ ÙˆØ§Ø±Ø¯ Ú©Ù†ÛŒØ¯.
+              Ø¨Ø¯ÙˆÙ† ÙˆØ±ÙˆØ¯ Ø¨Ù‡ Ø­Ø³Ø§Ø¨ Ú©Ø§Ø±Ø¨Ø±ÛŒØŒ ÙÙ‚Ø· Ø§Ø·Ù„Ø§Ø¹Ø§Øª Ù…Ø±Ø¨ÙˆØ· Ø¨Ù‡ Ù‡Ù…ÛŒÙ† Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù†Ù…Ø§ÛŒØ´ Ø¯Ø§Ø¯Ù‡ Ù…ÛŒâ€ŒØ´ÙˆØ¯.
             </p>
           </div>
           <div className="request-tracking-emblem" aria-hidden="true">
@@ -220,7 +238,7 @@ function RequestTrackingPage() {
             }}
           >
             <label className="field">
-              <span>کد رهگیری</span>
+              <span>Ú©Ø¯ Ø±Ù‡Ú¯ÛŒØ±ÛŒ</span>
               <input
                 value={code}
                 onChange={(event) => setCode(event.target.value.toUpperCase())}
@@ -234,11 +252,11 @@ function RequestTrackingPage() {
             </label>
             <button className="btn-gold" type="submit" disabled={busy}>
               {busy ? <RefreshCw size={17} className="request-tracking-spin" /> : <Search size={17} />}
-              {busy ? "در حال بررسی…" : "پیگیری درخواست"}
+              {busy ? "Ø¯Ø± Ø­Ø§Ù„ Ø¨Ø±Ø±Ø³ÛŒâ€¦" : "Ù¾ÛŒÚ¯ÛŒØ±ÛŒ Ø¯Ø±Ø®ÙˆØ§Ø³Øª"}
             </button>
             <button className="btn-ghost" type="button" onClick={() => void copyCode()} disabled={!code.trim()}>
               <Copy size={16} />
-              کپی کد
+              Ú©Ù¾ÛŒ Ú©Ø¯
             </button>
           </form>
 
@@ -249,19 +267,19 @@ function RequestTrackingPage() {
               <div className="request-tracking-success-head">
                 <div className="request-tracking-success-icon"><CheckCircle2 size={24} /></div>
                 <div>
-                  <span className="kicker">درخواست پیدا شد</span>
+                  <span className="kicker">Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù¾ÛŒØ¯Ø§ Ø´Ø¯</span>
                   <h2>{result.statusLabel}</h2>
-                  <p>آخرین بروزرسانی: {faDate(result.updatedAt || result.createdAt)}</p>
+                  <p>Ø¢Ø®Ø±ÛŒÙ† Ø¨Ø±ÙˆØ²Ø±Ø³Ø§Ù†ÛŒ: {faDate(result.updatedAt || result.createdAt)}</p>
                 </div>
               </div>
 
-              <div className="request-tracking-progress" aria-label="مراحل پیگیری">
+              <div className="request-tracking-progress" aria-label="Ù…Ø±Ø§Ø­Ù„ Ù¾ÛŒÚ¯ÛŒØ±ÛŒ">
                 {[
-                  ["new", "ثبت درخواست"],
-                  ["contacted", "تماس"],
-                  ["follow_up", "پیگیری"],
-                  ["visited", "بازدید"],
-                  ["contract", "قرارداد"],
+                  ["new", "Ø«Ø¨Øª Ø¯Ø±Ø®ÙˆØ§Ø³Øª"],
+                  ["contacted", "ØªÙ…Ø§Ø³"],
+                  ["follow_up", "Ù¾ÛŒÚ¯ÛŒØ±ÛŒ"],
+                  ["visited", "Ø¨Ø§Ø²Ø¯ÛŒØ¯"],
+                  ["contract", "Ù‚Ø±Ø§Ø±Ø¯Ø§Ø¯"],
                 ].map(([key, label], index) => (
                   <div key={key} className={"request-track-step" + (index <= currentStep ? " is-active" : "")}>
                     <span>{index + 1}</span>
@@ -271,22 +289,22 @@ function RequestTrackingPage() {
               </div>
 
               <div className="request-tracking-facts">
-                <div><UserRound size={17} /><span>مشاور</span><strong>{result.consultant || "در حال تخصیص"}</strong></div>
-                <div><Home size={17} /><span>نوع درخواست</span><strong>{result.deal || result.propertyType || "درخواست ملکی"}</strong></div>
-                <div><span>محله</span><strong>{result.neighborhood || "ثبت نشده"}</strong></div>
-                <div><CalendarDays size={17} /><span>ثبت درخواست</span><strong>{faDate(result.createdAt)}</strong></div>
+                <div><UserRound size={17} /><span>Ù…Ø´Ø§ÙˆØ±</span><strong>{result.consultant || "Ø¯Ø± Ø­Ø§Ù„ ØªØ®ØµÛŒØµ"}</strong></div>
+                <div><Home size={17} /><span>Ù†ÙˆØ¹ Ø¯Ø±Ø®ÙˆØ§Ø³Øª</span><strong>{result.deal || result.propertyType || "Ø¯Ø±Ø®ÙˆØ§Ø³Øª Ù…Ù„Ú©ÛŒ"}</strong></div>
+                <div><span>Ù…Ø­Ù„Ù‡</span><strong>{result.neighborhood || "Ø«Ø¨Øª Ù†Ø´Ø¯Ù‡"}</strong></div>
+                <div><CalendarDays size={17} /><span>Ø«Ø¨Øª Ø¯Ø±Ø®ÙˆØ§Ø³Øª</span><strong>{faDate(result.createdAt)}</strong></div>
               </div>
 
               {result.property ? (
                 <div className="request-tracking-property">
                   <div>
-                    <span className="kicker">فایل مرتبط</span>
+                    <span className="kicker">ÙØ§ÛŒÙ„ Ù…Ø±ØªØ¨Ø·</span>
                     <h3>{result.property.title}</h3>
                     <p>{result.neighborhood}</p>
                   </div>
                   {result.property.slug ? (
                     <Link className="btn-ghost" to="/properties/$slug" params={{ slug: result.property.slug }}>
-                      مشاهده فایل
+                      Ù…Ø´Ø§Ù‡Ø¯Ù‡ ÙØ§ÛŒÙ„
                       <ArrowRight size={16} />
                     </Link>
                   ) : null}
@@ -295,24 +313,24 @@ function RequestTrackingPage() {
 
               {result.callbackPreferredAt ? (
                 <div className="request-tracking-notice">
-                  زمان تماس پیشنهادی: <strong>{new Date(result.callbackPreferredAt).toLocaleString("fa-IR")}</strong>
+                  Ø²Ù…Ø§Ù† ØªÙ…Ø§Ø³ Ù¾ÛŒØ´Ù†Ù‡Ø§Ø¯ÛŒ: <strong>{new Date(result.callbackPreferredAt).toLocaleString("fa-IR")}</strong>
                 </div>
               ) : null}
               {result.offerAmount != null && compareDecimalStrings(result.offerAmount, "0") > 0 ? (
                 <div className="request-tracking-notice">
-                  پیشنهاد قیمت ثبت‌شده: <strong>{formatTomanExact(result.offerAmount)}</strong>
-                  {result.offerConditions ? <span> · {result.offerConditions}</span> : null}
+                  Ù¾ÛŒØ´Ù†Ù‡Ø§Ø¯ Ù‚ÛŒÙ…Øª Ø«Ø¨Øªâ€ŒØ´Ø¯Ù‡: <strong>{formatTomanExact(result.offerAmount)}</strong>
+                  {result.offerConditions ? <span> Â· {result.offerConditions}</span> : null}
                 </div>
               ) : null}
               {result.customerPropertySubmissionStatus === "rejected" ? (
                 <div className="request-tracking-revision">
                   <div>
-                    <span className="kicker">نیازمند اصلاح</span>
-                    <h3>اطلاعات ملک نیاز به اصلاح دارد.</h3>
-                    <p>{result.customerPropertySubmissionReviewNote || "مواردی که کارشناس اعلام کرده را اصلاح کنید و دوباره ارسال کنید."}</p>
+                    <span className="kicker">Ù†ÛŒØ§Ø²Ù…Ù†Ø¯ Ø§ØµÙ„Ø§Ø­</span>
+                    <h3>Ø§Ø·Ù„Ø§Ø¹Ø§Øª Ù…Ù„Ú© Ù†ÛŒØ§Ø² Ø¨Ù‡ Ø§ØµÙ„Ø§Ø­ Ø¯Ø§Ø±Ø¯.</h3>
+                    <p>{result.customerPropertySubmissionReviewNote || "Ù…ÙˆØ§Ø±Ø¯ÛŒ Ú©Ù‡ Ú©Ø§Ø±Ø´Ù†Ø§Ø³ Ø§Ø¹Ù„Ø§Ù… Ú©Ø±Ø¯Ù‡ Ø±Ø§ Ø§ØµÙ„Ø§Ø­ Ú©Ù†ÛŒØ¯ Ùˆ Ø¯ÙˆØ¨Ø§Ø±Ù‡ Ø§Ø±Ø³Ø§Ù„ Ú©Ù†ÛŒØ¯."}</p>
                   </div>
                   <a className="btn-gold" href={"/submit-property?code=" + encodeURIComponent(result.trackingCode)}>
-                    اصلاح و ارسال مجدد
+                    Ø§ØµÙ„Ø§Ø­ Ùˆ Ø§Ø±Ø³Ø§Ù„ Ù…Ø¬Ø¯Ø¯
                   </a>
                 </div>
               ) : null}
@@ -320,8 +338,8 @@ function RequestTrackingPage() {
               {result.timeline?.length ? (
                 <div className="request-tracking-timeline">
                   <div className="request-tracking-timeline-head">
-                    <div><span className="kicker">تاریخچه درخواست</span><h3>آخرین رویدادها</h3></div>
-                    <span>تا ۶ رویداد اخیر</span>
+                    <div><span className="kicker">ØªØ§Ø±ÛŒØ®Ú†Ù‡ Ø¯Ø±Ø®ÙˆØ§Ø³Øª</span><h3>Ø¢Ø®Ø±ÛŒÙ† Ø±ÙˆÛŒØ¯Ø§Ø¯Ù‡Ø§</h3></div>
+                    <span>ØªØ§ Û¶ Ø±ÙˆÛŒØ¯Ø§Ø¯ Ø§Ø®ÛŒØ±</span>
                   </div>
                   <div className="request-tracking-timeline-list">
                     {result.timeline.slice(-6).reverse().map((event, index) => (
@@ -345,17 +363,17 @@ function RequestTrackingPage() {
               {result.visitStatus !== "none" ? (
                 <div className="request-tracking-visit">
                   <div>
-                    <span className="kicker">بازدید</span>
+                    <span className="kicker">Ø¨Ø§Ø²Ø¯ÛŒØ¯</span>
                     <strong>{result.visitStatusLabel}</strong>
                   </div>
                   <div>
-                    <span>زمان پیشنهادی</span>
+                    <span>Ø²Ù…Ø§Ù† Ù¾ÛŒØ´Ù†Ù‡Ø§Ø¯ÛŒ</span>
                     <strong>{faDate(result.visitPreferredAt)}</strong>
                   </div>
                   {result.visitStatus === "requested" || result.visitStatus === "confirmed" ? (
                     <div className="request-tracking-visit-actions">
                       <label className="field">
-                        <span>زمان جدید</span>
+                        <span>Ø²Ù…Ø§Ù† Ø¬Ø¯ÛŒØ¯</span>
                         <input
                           type="datetime-local"
                           value={rescheduleAt}
@@ -365,7 +383,7 @@ function RequestTrackingPage() {
                       </label>
                       <div className="request-tracking-action-row">
                         <button type="button" className="btn-gold" onClick={() => void rescheduleVisit()} disabled={actionBusy || !rescheduleAt}>
-                          تغییر زمان بازدید
+                          ØªØºÛŒÛŒØ± Ø²Ù…Ø§Ù† Ø¨Ø§Ø²Ø¯ÛŒØ¯
                         </button>
                         <button
                           type="button"
@@ -373,7 +391,7 @@ function RequestTrackingPage() {
                           onClick={() => void cancelVisit()}
                           disabled={actionBusy}
                         >
-                          لغو بازدید
+                          Ù„ØºÙˆ Ø¨Ø§Ø²Ø¯ÛŒØ¯
                         </button>
                       </div>
                     </div>
@@ -386,43 +404,43 @@ function RequestTrackingPage() {
                   {feedbackSubmitted ? (
                     <div className="request-tracking-feedback-success">
                       <CheckCircle2 size={20} />
-                      <strong>بازخورد شما ثبت شد. از همراهی‌تان ممنونیم.</strong>
+                      <strong>Ø¨Ø±Ø§ÛŒ Ø§ÛŒÙ† Ø¨Ø§Ø²Ø¯ÛŒØ¯ Ø¨Ø§Ø²Ø®ÙˆØ±Ø¯ Ø«Ø¨Øª Ø´Ø¯Ù‡ Ø§Ø³Øª. Ø§Ø² Ù‡Ù…Ø±Ø§Ù‡ÛŒâ€ŒØªØ§Ù† Ù…Ù…Ù†ÙˆÙ†ÛŒÙ….</strong>
                     </div>
                   ) : (
                     <>
                       <div>
-                        <span className="kicker">تجربه بازدید</span>
-                        <h3>بازدید چطور بود؟</h3>
-                        <p>امتیاز و نظر شما فقط برای بهبود خدمات هیرمند ثبت می‌شود.</p>
+                        <span className="kicker">ØªØ¬Ø±Ø¨Ù‡ Ø¨Ø§Ø²Ø¯ÛŒØ¯</span>
+                        <h3>Ø¨Ø§Ø²Ø¯ÛŒØ¯ Ú†Ø·ÙˆØ± Ø¨ÙˆØ¯ØŸ</h3>
+                        <p>Ø§Ù…ØªÛŒØ§Ø² Ùˆ Ù†Ø¸Ø± Ø´Ù…Ø§ ÙÙ‚Ø· Ø¨Ø±Ø§ÛŒ Ø¨Ù‡Ø¨ÙˆØ¯ Ø®Ø¯Ù…Ø§Øª Ù‡ÛŒØ±Ù…Ù†Ø¯ Ø«Ø¨Øª Ù…ÛŒâ€ŒØ´ÙˆØ¯.</p>
                       </div>
-                      <div className="request-tracking-rating" role="radiogroup" aria-label="امتیاز بازدید">
+                      <div className="request-tracking-rating" role="radiogroup" aria-label="Ø§Ù…ØªÛŒØ§Ø² Ø¨Ø§Ø²Ø¯ÛŒØ¯">
                         {[1, 2, 3, 4, 5].map((value) => (
                           <button
                             key={value}
                             type="button"
                             className={value <= feedbackRating ? "is-active" : ""}
                             onClick={() => setFeedbackRating(value)}
-                            aria-label={value.toLocaleString("fa-IR") + " از ۵"}
+                            aria-label={value.toLocaleString("fa-IR") + " Ø§Ø² Ûµ"}
                             aria-pressed={value === feedbackRating}
                           >
-                            ★
+                            â˜…
                           </button>
                         ))}
                       </div>
                       <label className="field">
-                        <span>میزان علاقه شما</span>
+                        <span>Ù…ÛŒØ²Ø§Ù† Ø¹Ù„Ø§Ù‚Ù‡ Ø´Ù…Ø§</span>
                         <select value={feedbackInterest} onChange={(event) => setFeedbackInterest(event.target.value as typeof feedbackInterest)} disabled={actionBusy}>
-                          <option value="interested">برای این ملک علاقه‌مندم</option>
-                          <option value="unsure">هنوز مطمئن نیستم</option>
-                          <option value="not_interested">مناسب من نبود</option>
+                          <option value="interested">Ø¨Ø±Ø§ÛŒ Ø§ÛŒÙ† Ù…Ù„Ú© Ø¹Ù„Ø§Ù‚Ù‡â€ŒÙ…Ù†Ø¯Ù…</option>
+                          <option value="unsure">Ù‡Ù†ÙˆØ² Ù…Ø·Ù…Ø¦Ù† Ù†ÛŒØ³ØªÙ…</option>
+                          <option value="not_interested">Ù…Ù†Ø§Ø³Ø¨ Ù…Ù† Ù†Ø¨ÙˆØ¯</option>
                         </select>
                       </label>
                       <label className="field">
-                        <span>نظر یا نکته (اختیاری)</span>
+                        <span>Ù†Ø¸Ø± ÛŒØ§ Ù†Ú©ØªÙ‡ (Ø§Ø®ØªÛŒØ§Ø±ÛŒ)</span>
                         <textarea rows={3} maxLength={1000} value={feedbackNote} onChange={(event) => setFeedbackNote(event.target.value)} disabled={actionBusy} />
                       </label>
                       <button type="button" className="btn-gold" onClick={() => void submitFeedback()} disabled={actionBusy}>
-                        {actionBusy ? "در حال ثبت…" : "ثبت بازخورد"}
+                        {actionBusy ? "Ø¯Ø± Ø­Ø§Ù„ Ø«Ø¨Øªâ€¦" : "Ø«Ø¨Øª Ø¨Ø§Ø²Ø®ÙˆØ±Ø¯"}
                       </button>
                     </>
                   )}
@@ -430,24 +448,24 @@ function RequestTrackingPage() {
               ) : null}
 
               <div className="request-tracking-code">
-                <span>کد رهگیری شما</span>
+                <span>Ú©Ø¯ Ø±Ù‡Ú¯ÛŒØ±ÛŒ Ø´Ù…Ø§</span>
                 <strong dir="ltr">{result.trackingCode}</strong>
-                <Link className="request-tracking-code-link" to="/my-hirmand">مشاهده همه پرونده‌های من</Link>
+                <Link className="request-tracking-code-link" to="/my-hirmand">Ù…Ø´Ø§Ù‡Ø¯Ù‡ Ù‡Ù…Ù‡ Ù¾Ø±ÙˆÙ†Ø¯Ù‡â€ŒÙ‡Ø§ÛŒ Ù…Ù†</Link>
               </div>
             </div>
           ) : (
             <div className="request-tracking-empty">
               <span className="request-tracking-empty-icon"><Search size={22} /></span>
-              <h2>هنوز کدی وارد نشده است.</h2>
-              <p>کد رهگیری را وارد کنید تا وضعیت درخواست، مشاور مسئول و در صورت وجود، زمان بازدید را ببینید.</p>
+              <h2>Ù‡Ù†ÙˆØ² Ú©Ø¯ÛŒ ÙˆØ§Ø±Ø¯ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª.</h2>
+              <p>Ú©Ø¯ Ø±Ù‡Ú¯ÛŒØ±ÛŒ Ø±Ø§ ÙˆØ§Ø±Ø¯ Ú©Ù†ÛŒØ¯ ØªØ§ ÙˆØ¶Ø¹ÛŒØª Ø¯Ø±Ø®ÙˆØ§Ø³ØªØŒ Ù…Ø´Ø§ÙˆØ± Ù…Ø³Ø¦ÙˆÙ„ Ùˆ Ø¯Ø± ØµÙˆØ±Øª ÙˆØ¬ÙˆØ¯ØŒ Ø²Ù…Ø§Ù† Ø¨Ø§Ø²Ø¯ÛŒØ¯ Ø±Ø§ Ø¨Ø¨ÛŒÙ†ÛŒØ¯.</p>
             </div>
           )}
         </section>
 
         <section className="request-tracking-note">
-          <strong>نکته امنیتی</strong>
-          <p>نام، شماره موبایل، توضیحات خصوصی و سایر اطلاعات حساس شما در این صفحه نمایش داده نمی‌شود.</p>
-          <Link to="/">بازگشت به صفحه اصلی {SITE.shortName}</Link>
+          <strong>Ù†Ú©ØªÙ‡ Ø§Ù…Ù†ÛŒØªÛŒ</strong>
+          <p>Ù†Ø§Ù…ØŒ Ø´Ù…Ø§Ø±Ù‡ Ù…ÙˆØ¨Ø§ÛŒÙ„ØŒ ØªÙˆØ¶ÛŒØ­Ø§Øª Ø®ØµÙˆØµÛŒ Ùˆ Ø³Ø§ÛŒØ± Ø§Ø·Ù„Ø§Ø¹Ø§Øª Ø­Ø³Ø§Ø³ Ø´Ù…Ø§ Ø¯Ø± Ø§ÛŒÙ† ØµÙØ­Ù‡ Ù†Ù…Ø§ÛŒØ´ Ø¯Ø§Ø¯Ù‡ Ù†Ù…ÛŒâ€ŒØ´ÙˆØ¯.</p>
+          <Link to="/">Ø¨Ø§Ø²Ú¯Ø´Øª Ø¨Ù‡ ØµÙØ­Ù‡ Ø§ØµÙ„ÛŒ {SITE.shortName}</Link>
         </section>
       </main>
     </SiteChrome>

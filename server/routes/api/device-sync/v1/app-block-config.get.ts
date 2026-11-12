@@ -2,15 +2,17 @@ import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3
 import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده آماده نیست." });
+  const rateLimitConfig = { windowMs: 10 * 60 * 1000, maxHits: 60, blockMs: 10 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "app-block-config", rateLimitConfig);
   const deviceId = String(getQuery(event).deviceId ?? "").trim();
   if (!deviceId) throw createError({ statusCode: 400, statusMessage: "شناسه دستگاه ارسال نشده است." });
-  await enforcePhoneBridgeRateLimit(event, "app-block-config", deviceId, { windowMs: 10 * 60 * 1000, maxHits: 60, blockMs: 10 * 60 * 1000 });
   const auth = await authenticateDevice(event, deviceId);
+  await enforcePhoneBridgeRateLimit(event, "app-block-config", phoneBridgeRateLimitSubject(auth), rateLimitConfig);
   if (auth.mode === "device") await requirePhoneBridgeSignedRequest(event, deviceId, Buffer.alloc(0));
   const sql = await getSql();
   const deviceRows = await sql.query<{ enabled: boolean; allowed_modules: unknown }>("select enabled,allowed_modules from phone_bridge_devices where id=$1 limit 1", [deviceId]);

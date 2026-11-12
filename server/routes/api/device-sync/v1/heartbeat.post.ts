@@ -3,7 +3,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
 import { recordPhoneBridgeEvent } from "@/lib/phone-bridge-events.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 
 type JsonObject = Record<string, unknown>;
 
@@ -21,33 +21,35 @@ export default defineEventHandler(async (event) => {
   if (dbSource === "unconfigured") {
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای Heartbeat در دسترس نیست." });
   }
+  const rateLimitConfig = { windowMs: 10 * 60 * 1000, maxHits: 30, blockMs: 10 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "heartbeat", rateLimitConfig);
 
   const deviceId = getHeader(event, "x-hirmand-device-id")?.trim().slice(0, 120) ?? "";
   if (!deviceId) {
     throw createError({ statusCode: 400, statusMessage: "شناسهٔ دستگاه ارسال نشده است." });
   }
 
-  await enforcePhoneBridgeRateLimit(event, "heartbeat", deviceId, {
-    windowMs: 10 * 60 * 1000,
-    maxHits: 30,
-    blockMs: 10 * 60 * 1000,
-  });
   const raw = await readRawBody(event);
   const rawBody = Buffer.isBuffer(raw) ? raw : Buffer.from(raw ?? "");
 
+  let auth: Awaited<ReturnType<typeof authenticateDevice>>;
   try {
-    const auth = await authenticateDevice(event, deviceId);
+    auth = await authenticateDevice(event, deviceId);
+    await enforcePhoneBridgeRateLimit(event, "heartbeat", phoneBridgeRateLimitSubject(auth), rateLimitConfig);
     if (auth.mode === "device") {
       await requirePhoneBridgeSignedRequest(event, deviceId, rawBody);
     }
   } catch (error) {
-    await recordPhoneBridgeEvent({
-      deviceId,
-      eventType: "security.auth_failed",
-      severity: "error",
-      message: "احراز هویت دستگاه برای Heartbeat ناموفق بود.",
-      metadata: { route: "/api/device-sync/v1/heartbeat" },
-    }).catch(() => undefined);
+    const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 0;
+    if (statusCode !== 429) {
+      await recordPhoneBridgeEvent({
+        deviceId,
+        eventType: "security.auth_failed",
+        severity: "error",
+        message: "احراز هویت دستگاه برای Heartbeat ناموفق بود.",
+        metadata: { route: "/api/device-sync/v1/heartbeat" },
+      }).catch(() => undefined);
+    }
     throw error;
   }
 
