@@ -115,10 +115,11 @@ try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "fa-IR" });
     const page = await context.newPage();
     await installAdminApiStubs(page, baseUrl);
+    let sessionRole = "owner";
     await page.route("**/api/admin/session", (route) => route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ success: true, authenticated: true, role: "owner" }),
+      body: JSON.stringify({ success: true, authenticated: true, role: sessionRole }),
     }));
     await page.route("**/api/admin/mobile-management/summary", (route) => route.fulfill({
       status: 200,
@@ -146,6 +147,15 @@ try {
       contentType: "application/json",
       body: JSON.stringify({ success: true, staff: [{ id: "qa-staff", name: "کارمند نمونه", role: "مشاور" }] }),
     }));
+    let telemetryCalls = 0;
+    await page.route("**/api/admin/mobile-telemetry?**", (route) => {
+      telemetryCalls += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, telemetry: [], locations: [] }),
+      });
+    });
     let mutationCalls = 0;
     await page.route("**/api/admin/mobile-devices", async (route) => {
       mutationCalls += 1;
@@ -214,6 +224,44 @@ try {
     }
     assert.equal(mutationCalls, 0, "responsive modal checks must not submit device mutations");
 
+    const managementRequests = [];
+    page.on("request", (request) => {
+      const pathname = new URL(request.url()).pathname;
+      if (pathname.startsWith("/api/admin/mobile-") || pathname === "/api/admin/mobile-management/summary" || pathname === "/api/mobile/staff-directory" || pathname.startsWith("/_serverfn")) {
+        managementRequests.push(pathname);
+      }
+    });
+
+    sessionRole = "manager";
+    managementRequests.length = 0;
+    await page.goto(`${baseUrl}/admin-mobile-management`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("heading", { name: "مرکز مدیریت تلفن همراه" }).waitFor({ state: "visible" });
+    assert.ok(managementRequests.includes("/api/admin/mobile-management/summary"), "manager may load the fleet summary");
+    assert.ok(managementRequests.includes("/api/mobile/staff-directory"), "manager may load the staff directory");
+
+    managementRequests.length = 0;
+    await page.goto(`${baseUrl}/admin-mobile-management/qa-staff`, { waitUntil: "domcontentloaded" });
+    await page.waitForResponse((response) => response.url().includes("/api/admin/mobile-management/summary"));
+    await page.waitForResponse((response) => response.url().includes("/api/mobile/staff-directory"));
+    assert.doesNotMatch(await page.locator("body").innerText(), /دسترسی به مدیریت تلفن همراه مجاز نیست/, "manager may open the employee detail route");
+    await page.getByRole("heading", { name: "کارمند نمونه", exact: true }).waitFor({ state: "visible", timeout: 10_000 });
+    const telemetryResponse = page.waitForResponse((response) => response.url().includes("/api/admin/mobile-telemetry"));
+    await page.getByRole("button", { name: "فعالیت" }).click();
+    await telemetryResponse;
+    assert.ok(telemetryCalls > 0, "manager may load protected device telemetry on demand");
+
+    for (const role of ["sales", "content", "staff", "viewer"]) {
+      sessionRole = role;
+      managementRequests.length = 0;
+      await page.goto(`${baseUrl}/admin-mobile-management`, { waitUntil: "domcontentloaded" });
+      await page.getByRole("heading", { name: "دسترسی به مدیریت تلفن همراه مجاز نیست" }).waitFor({ state: "visible" });
+      assert.equal(await page.getByRole("heading", { name: "مرکز مدیریت تلفن همراه" }).count(), 0, `${role} must not see fleet UI`);
+      await page.goto(`${baseUrl}/admin-mobile-management/qa-staff`, { waitUntil: "domcontentloaded" });
+      await page.getByRole("heading", { name: "دسترسی به مدیریت تلفن همراه مجاز نیست" }).waitFor({ state: "visible" });
+      assert.equal(await page.getByRole("heading", { name: "کارمند نمونه", exact: true }).count(), 0, `${role} must not see employee detail UI`);
+      assert.deepEqual(managementRequests, [], `${role} must not trigger protected mobile-management requests on either page`);
+    }
+
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addScriptTag({
       type: "module",
@@ -268,7 +316,7 @@ try {
     await browser.close();
   }
 
-  console.log("[admin-overlay-focus-browser] PASS: shared drawer/palette, enrollment/revoke dialogs and property preview pass keyboard focus checks; all three dialogs fit 320/375/430/768/1024/1366/1920px and no device mutation was sent.");
+  console.log("[admin-overlay-focus-browser] PASS: overlay focus and responsive checks passed; owner/manager can load Mobile Management; sales/content/staff/viewer are gated on both pages with zero protected data requests.");
 } catch (error) {
   console.error("[admin-overlay-focus-browser] FAIL");
   console.error(error instanceof Error ? error.stack ?? error.message : String(error));

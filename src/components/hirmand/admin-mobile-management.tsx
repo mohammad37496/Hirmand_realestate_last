@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { listAdminAuditLog } from "@/lib/admin-audit";
+import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { SITE, TEAM } from "@/lib/site";
 import { useOverlayDismiss } from "@/components/hirmand/admin-ui-utils";
 import {
@@ -43,7 +44,7 @@ import {
 } from "@/lib/mobile-management";
 import "@/admin-mobile-management.css";
 
-type AuthState = "checking" | "authenticated" | "unauthenticated";
+type AuthState = "checking" | "authenticated" | "unauthenticated" | "forbidden";
 
 type StaffDirectoryItem = {
   id: string;
@@ -169,8 +170,11 @@ async function readAdminSession(): Promise<AuthState> {
       credentials: "same-origin",
       body: JSON.stringify({ action: "login" }),
     });
-    const data = (await response.json().catch(() => null)) as { authenticated?: boolean } | null;
-    return response.ok && data?.authenticated ? "authenticated" : "unauthenticated";
+    const data = (await response.json().catch(() => null)) as { authenticated?: boolean; role?: unknown } | null;
+    if (!response.ok || !data?.authenticated) return "unauthenticated";
+    return hasAdminPermission(normalizeAdminRole(data.role), "security.manage")
+      ? "authenticated"
+      : "forbidden";
   } catch {
     return "unauthenticated";
   }
@@ -263,7 +267,7 @@ function useAdminAccess() {
   return state;
 }
 
-function AccessGate({ checking = false }: { checking?: boolean }) {
+function AccessGate({ checking = false, forbidden = false }: { checking?: boolean; forbidden?: boolean }) {
   return (
     <main className="admin-mobile-page">
       <div className="admin-mobile-shell admin-mobile-centered">
@@ -272,11 +276,13 @@ function AccessGate({ checking = false }: { checking?: boolean }) {
             {checking ? <Smartphone size={25} /> : <LockKeyhole size={25} />}
           </div>
           <span className="admin-mobile-kicker">پنل داخلی هیرمند</span>
-          <h1>{checking ? "در حال بررسی نشست مدیریت" : "دسترسی به مدیریت تلفن همراه"}</h1>
+          <h1>{checking ? "در حال بررسی نشست مدیریت" : forbidden ? "دسترسی به مدیریت تلفن همراه مجاز نیست" : "دسترسی به مدیریت تلفن همراه"}</h1>
           <p>
             {checking
               ? "اعتبار نشست مدیریت بررسی می‌شود…"
-              : "برای مشاهده و مدیریت دستگاه‌ها، با حساب مجاز امنیت سیستم وارد شوید."}
+              : forbidden
+                ? "این بخش فقط برای مالک سیستم و مدیر اجرایی در دسترس است."
+                : "برای مشاهده و مدیریت دستگاه‌ها، با حساب مجاز امنیت سیستم وارد شوید."}
           </p>
           {!checking ? (
             <Link to="/admin" className="admin-mobile-primary-action">
@@ -1154,6 +1160,7 @@ export function AdminMobileManagementPage() {
 
   if (auth === "checking") return <AccessGate checking />;
   if (auth === "unauthenticated") return <AccessGate />;
+  if (auth === "forbidden") return <AccessGate forbidden />;
 
   const counts = summary?.counts ?? { total: 0, active: 0, pending: 0, revoked: 0, online: 0, attention: 0, deviceOwner: 0, profileOwner: 0 };
 
@@ -1386,6 +1393,7 @@ export function AdminMobileEmployeePage({ employeeId }: { employeeId: string }) 
 
   if (auth === "checking") return <AccessGate checking />;
   if (auth === "unauthenticated") return <AccessGate />;
+  if (auth === "forbidden") return <AccessGate forbidden />;
 
   if (loading && !person) {
     return <main className="admin-mobile-page"><div className="admin-mobile-shell admin-mobile-centered"><section className="admin-mobile-panel admin-mobile-empty-card"><h1>در حال دریافت اطلاعات</h1><p>پروفایل کارمند و وضعیت دستگاه‌ها در حال بارگذاری است…</p></section></div></main>;
