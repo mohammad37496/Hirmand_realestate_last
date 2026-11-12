@@ -13,6 +13,22 @@ const secondEmail = `customer-auth-${randomUUID()}@example.com`;
 const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
 const errors = [];
 
+async function observeWorkspaceSync(page) {
+  await page.addInitScript(() => {
+    window.__hirmandWorkspaceSyncCount = 0;
+    window.addEventListener("hirmand:workspace-synced", () => {
+      window.__hirmandWorkspaceSyncCount += 1;
+    });
+  });
+}
+
+async function waitForWorkspaceSync(page, previousCount = 0) {
+  await page.waitForFunction(
+    (count) => Number(window.__hirmandWorkspaceSyncCount || 0) > count,
+    previousCount,
+  );
+}
+
 async function assertHeaderAccountAccess(page, signedIn) {
   const desktopAccess = page.locator(".nav-actions > .customer-account-access");
   await desktopAccess.waitFor({ state: "visible" });
@@ -72,6 +88,7 @@ async function expireUserSessionsInDisposableDatabase(userId, context) {
 
 async function signUp(context, address, displayName, seedGuestWorkspace = false) {
   const page = await context.newPage();
+  await observeWorkspaceSync(page);
   page.on("pageerror", (error) => errors.push(error.message));
   const sessionCheck = page.waitForResponse((response) =>
     response.url().includes("/api/auth/get-session"),
@@ -101,7 +118,7 @@ async function signUp(context, address, displayName, seedGuestWorkspace = false)
   const signUpPayload = await signUpResponse.json().catch(() => null);
   assert.equal(signUpResponse.status(), 200, `email sign-up failed: ${JSON.stringify(signUpPayload)}`);
   await page.waitForURL((url) => url.pathname === "/");
-  await page.waitForTimeout(800);
+  await waitForWorkspaceSync(page);
   return page;
 }
 
@@ -194,6 +211,7 @@ try {
   // account. A local edit there must reach the first device on its next focus.
   const secondDeviceContext = await browser.newContext();
   const secondDevicePage = await secondDeviceContext.newPage();
+  await observeWorkspaceSync(secondDevicePage);
   secondDevicePage.on("pageerror", (error) => errors.push(error.message));
   const secondDeviceSessionCheck = secondDevicePage.waitForResponse((response) =>
     response.url().includes("/api/auth/get-session"),
@@ -209,6 +227,7 @@ try {
   const secondDeviceSignIn = await secondDeviceSignInPromise;
   assert.equal(secondDeviceSignIn.status(), 200, "the same account should sign in from a second device");
   await secondDevicePage.waitForURL((url) => url.pathname === "/");
+  await waitForWorkspaceSync(secondDevicePage);
   const secondDeviceSessionResponse = await secondDevicePage.request.get(new URL("/api/auth/get-session", baseUrl).toString());
   const secondDeviceSession = await secondDeviceSessionResponse.json();
   assert.equal(secondDeviceSession?.user?.id, firstSession.user.id, "both devices should resolve to the same account");
@@ -220,6 +239,9 @@ try {
   assert.equal(secondDeviceInitialWorkspace.status(), 200);
   assert.deepEqual((await secondDeviceInitialWorkspace.json()).favorites, ["guest-favorite"]);
 
+  const previousSecondDeviceSyncCount = await secondDevicePage.evaluate(
+    () => Number(window.__hirmandWorkspaceSyncCount || 0),
+  );
   const secondDeviceSyncPromise = secondDevicePage.waitForResponse((response) =>
     response.url().endsWith("/api/customer-workspace") && response.request().method() === "POST",
   );
@@ -241,6 +263,7 @@ try {
     window.dispatchEvent(new Event("hirmand:workspace-changed"));
   });
   const secondDeviceSync = await secondDeviceSyncPromise;
+  await waitForWorkspaceSync(secondDevicePage, previousSecondDeviceSyncCount);
   assert.equal(secondDeviceSync.status(), 200, "the second device should persist its workspace edit");
 
   const firstDevicePullPromise = firstPage.waitForResponse((response) =>
