@@ -2,7 +2,7 @@
  * Dynamic sitemap at /sitemap.xml
  * Includes: home, all neighborhood area pages, and published properties.
  */
-import { defineEventHandler, setResponseHeader } from "h3";
+import { createError, defineEventHandler, setResponseHeader } from "h3";
 import { allAreas, areaPath } from "../../src/lib/areas";
 import { TEAM } from "../../src/lib/site";
 import { canonicalSiteUrl } from "../../src/lib/site-url.mjs";
@@ -47,86 +47,74 @@ function urlEntry(
 
 async function loadPropertyUrls(): Promise<{ loc: string; lastmod?: string; images: string[] }[]> {
   const databaseUrl = resolveDatabaseUrl().url;
-  if (!databaseUrl) return [];
+  if (!databaseUrl) throw new Error("Sitemap database is not configured");
 
+  const { Pool } = await import("pg");
+  const pool = new Pool({ connectionString: databaseUrl, max: 1, idleTimeoutMillis: 3000, connectionTimeoutMillis: 3000 });
   try {
-    const { Pool } = await import("pg");
-    const pool = new Pool({ connectionString: databaseUrl, max: 1, idleTimeoutMillis: 3000, connectionTimeoutMillis: 3000 });
-    try {
-      const res = await pool.query<{ id: string; slug: string; updated_at: Date | string | null; images: unknown }>(
-        `select id, slug, updated_at, images from properties
-         where ${publicPropertyVisibilitySql()}
-         order by published_at desc nulls last, created_at desc
-         limit 49000`,
-      );
-      return res.rows.map((row) => {
-        const lastmod =
-          row.updated_at != null
-            ? new Date(row.updated_at).toISOString().slice(0, 10)
-            : undefined;
-        let images: string[] = [];
-        if (Array.isArray(row.images)) {
-          images = row.images.filter((src): src is string => typeof src === "string");
-        } else if (typeof row.images === "string") {
-          try {
-            const parsed = JSON.parse(row.images);
-            if (Array.isArray(parsed)) {
-              images = parsed.filter((src): src is string => typeof src === "string");
-            }
-          } catch {
-            images = [];
+    const res = await pool.query<{ id: string; slug: string; updated_at: Date | string | null; images: unknown }>(
+      `select id, slug, updated_at, images from properties
+       where ${publicPropertyVisibilitySql()}
+       order by published_at desc nulls last, created_at desc
+       limit 49000`,
+    );
+    return res.rows.map((row) => {
+      const lastmod =
+        row.updated_at != null
+          ? new Date(row.updated_at).toISOString().slice(0, 10)
+          : undefined;
+      let images: string[] = [];
+      if (Array.isArray(row.images)) {
+        images = row.images.filter((src): src is string => typeof src === "string");
+      } else if (typeof row.images === "string") {
+        try {
+          const parsed = JSON.parse(row.images);
+          if (Array.isArray(parsed)) {
+            images = parsed.filter((src): src is string => typeof src === "string");
           }
+        } catch {
+          images = [];
         }
+      }
 
-        return {
-          loc: `${SITE}${propertyPath({ id: String(row.id), slug: String(row.slug) })}`,
-          lastmod,
-          images,
-        };
-      });
-    } finally {
-      await pool.end().catch(() => undefined);
-    }
-  } catch (err) {
-    console.error("[sitemap] property query failed", err);
-    return [];
+      return {
+        loc: `${SITE}${propertyPath({ id: String(row.id), slug: String(row.slug) })}`,
+        lastmod,
+        images,
+      };
+    });
+  } finally {
+    await pool.end().catch(() => undefined);
   }
 }
 
 async function loadGuideUrls(): Promise<{ loc: string; lastmod?: string }[]> {
   const databaseUrl = resolveDatabaseUrl().url;
-  if (!databaseUrl) {
-    return DEFAULT_GUIDES.map((guide) => ({ loc: `${SITE}/guides/${encodeURIComponent(guide.id)}` }));
-  }
+  if (!databaseUrl) throw new Error("Sitemap database is not configured");
 
+  const { Pool } = await import("pg");
+  const pool = new Pool({ connectionString: databaseUrl, max: 1, idleTimeoutMillis: 3000, connectionTimeoutMillis: 3000 });
   try {
-    const { Pool } = await import("pg");
-    const pool = new Pool({ connectionString: databaseUrl, max: 1, idleTimeoutMillis: 3000, connectionTimeoutMillis: 3000 });
-    try {
-      const res = await pool.query<{ id: string; updated_at: Date | string | null }>(
-        `select id, updated_at from site_content_items
-         where kind = 'guide' and active = true and id ~* '^[a-z0-9-]{2,80}$'
-         order by sort_order asc, updated_at desc limit 1000`,
+    const res = await pool.query<{ id: string; updated_at: Date | string | null }>(
+      `select id, updated_at from site_content_items
+       where kind = 'guide' and active = true and id ~* '^[a-z0-9-]{2,80}$'
+       order by sort_order asc, updated_at desc limit 1000`,
+    );
+    if (!res.rows.length) {
+      const existing = await pool.query<{ has_content: boolean }>(
+        "select exists(select 1 from site_content_items) as has_content",
       );
-      if (!res.rows.length) {
-        const existing = await pool.query<{ has_content: boolean }>(
-          "select exists(select 1 from site_content_items) as has_content",
-        );
-        if (!existing.rows[0]?.has_content) {
-          return DEFAULT_GUIDES.map((guide) => ({ loc: `${SITE}/guides/${encodeURIComponent(guide.id)}` }));
-        }
-        return [];
+      if (!existing.rows[0]?.has_content) {
+        return DEFAULT_GUIDES.map((guide) => ({ loc: `${SITE}/guides/${encodeURIComponent(guide.id)}` }));
       }
-      return res.rows.map((row) => ({
-        loc: `${SITE}/guides/${encodeURIComponent(String(row.id))}`,
-        lastmod: row.updated_at != null ? new Date(row.updated_at).toISOString().slice(0, 10) : undefined,
-      }));
-    } finally {
-      await pool.end().catch(() => undefined);
+      return [];
     }
-  } catch (err) {
-    console.error("[sitemap] guide query failed", err);
-    return DEFAULT_GUIDES.map((guide) => ({ loc: `${SITE}/guides/${encodeURIComponent(guide.id)}` }));
+    return res.rows.map((row) => ({
+      loc: `${SITE}/guides/${encodeURIComponent(String(row.id))}`,
+      lastmod: row.updated_at != null ? new Date(row.updated_at).toISOString().slice(0, 10) : undefined,
+    }));
+  } finally {
+    await pool.end().catch(() => undefined);
   }
 }
 
@@ -153,12 +141,24 @@ export default defineEventHandler(async (event) => {
     entries.push(urlEntry(`${SITE}${areaPath(area.slug)}`, "weekly", "0.7", today));
   }
 
-  const properties = await loadPropertyUrls();
+  let properties: Awaited<ReturnType<typeof loadPropertyUrls>>;
+  let guides: Awaited<ReturnType<typeof loadGuideUrls>>;
+  try {
+    properties = await loadPropertyUrls();
+    guides = await loadGuideUrls();
+  } catch (err) {
+    console.error("[sitemap] data query failed", err);
+    throw createError({
+      statusCode: 503,
+      statusMessage: "Sitemap temporarily unavailable",
+      headers: { "cache-control": "no-store" },
+    });
+  }
+
   for (const item of properties) {
     entries.push(urlEntry(item.loc, "weekly", "0.8", item.lastmod ?? today, item.images));
   }
 
-  const guides = await loadGuideUrls();
   for (const item of guides) {
     entries.push(urlEntry(item.loc, "monthly", "0.6", item.lastmod ?? today));
   }
