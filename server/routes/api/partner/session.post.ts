@@ -1,6 +1,13 @@
 import { createError, defineEventHandler, getCookie, readBody, setCookie, setResponseHeader } from "h3";
 import { z } from "zod";
 import {
+  assertSameOrigin,
+  clearAdminAttempts,
+  clientFingerprint,
+  consumeAdminAttempt,
+  tooManyAttemptsError,
+} from "@/lib/admin-rate-limit.server";
+import {
   PARTNER_SESSION_COOKIE,
   PARTNER_SESSION_MAX_AGE,
   createPartnerSessionToken,
@@ -26,6 +33,7 @@ function cookieOptions(maxAge: number) {
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
+  assertSameOrigin(event);
   const parsed = bodySchema.safeParse(await readBody(event).catch(() => ({})));
   if (!parsed.success) {
     throw createError({ statusCode: 400, statusMessage: "اطلاعات نشست نامعتبر است." });
@@ -61,6 +69,10 @@ export default defineEventHandler(async (event) => {
     return { success: true, authenticated: true, partner: overview };
   }
 
+  const loginRateKey = `partner-session-login:${clientFingerprint(event)}`;
+  const attempt = await consumeAdminAttempt(loginRateKey, 8);
+  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+
   const partnerId = await authenticatePartner(body.partnerCode ?? "", body.pin ?? "");
   if (!partnerId) {
     throw createError({
@@ -70,6 +82,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const token = await createPartnerSessionToken(partnerId);
+  await clearAdminAttempts(loginRateKey);
   setCookie(event, PARTNER_SESSION_COOKIE, token, cookieOptions(PARTNER_SESSION_MAX_AGE));
 
   const overview = await getPartnerOverview(partnerId);

@@ -85,12 +85,13 @@ npm run dev
 | `GROK_AUTH_ISSUER` | نشانی سرویس OAuth؛ پیش‌فرض `https://auth.grok.me` | اختیاری |
 | `BLOB_READ_WRITE_TOKEN` | فضای ذخیره‌سازی Vercel Blob برای رسانه‌های حجیم | اختیاری |
 | `HIRMAND_PHONE_BRIDGE_TOKEN` | کلید خصوصی اپ Phone Bridge برای ارسال دادهٔ گوشی به `/api/device-sync/v1` | برای اتصال اپ الزامی |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | شمارنده مشترک محدودسازی تلاش ورود و آپلود | اختیاری ولی روی Vercel لازم |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | شمارنده مشترک محدودسازی تلاش ورود مدیر | در production الزامی |
 
-> بدون `UPSTASH_*` محدودسازی نرخ در حافظه همان پروسه نگه‌داری می‌شود؛ برای `npm run dev`
-> و سرور تک‌پروسه‌ای کافی است، ولی روی Vercel که هر درخواست ممکن است به نمونه دیگری
-> برسد، شمارنده با هر cold start صفر می‌شود. پس از تنظیم این دو متغیر روی محیط
-> تولید، محدودسازی بین همه نمونه‌ها مشترک می‌شود.
+> در development و تست محلی، نبود `UPSTASH_*` به ذخیره‌ساز حافظه‌ای همان پروسه
+> برمی‌گردد. در production، نبود این دو متغیر یا از دسترس خارج شدن Redis باعث پاسخ
+> خطای 503 می‌شود؛ هیچ fallback حافظه‌ای در production مجاز نیست، چون بین نمونه‌ها
+> مشترک نیست و می‌تواند محدودسازی تلاش ورود را دور بزند. پیش از انتشار، هر دو مقدار
+> را در Environment سرویس production تنظیم و دسترسی Redis را بررسی کنید.
 
 برای فعال‌شدن ورود Google و X، پس از دریافت شناسه و رمز اختصاصی از OAuth Broker، مقدار `VITE_GROK_OAUTH_ENABLED=true` را تنظیم و همین دو نشانی callback را در تنظیمات Broker ثبت کنید:
 

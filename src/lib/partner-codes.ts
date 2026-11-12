@@ -1,3 +1,5 @@
+import { isValidPartnerTrackingCode } from "./tracking-token.ts";
+
 export function normalizeDigits(value: string) {
   return value
     .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
@@ -22,5 +24,5 @@ export function normalizeTrackingCode(value: string) {
 }
 
 export function isValidTrackingCode(value: string) {
-  return /^HIR-\d{2}-[A-Z0-9]{8}$/.test(normalizeTrackingCode(value));
+  return isValidPartnerTrackingCode(normalizeTrackingCode(value));
 }

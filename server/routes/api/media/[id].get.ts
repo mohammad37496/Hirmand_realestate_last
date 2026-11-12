@@ -10,6 +10,7 @@ import {
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission } from "@/lib/admin-roles";
+import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import {
   getMediaMeta,
   IncompleteMediaRangeError,
@@ -76,6 +77,10 @@ export default defineEventHandler(async (event) => {
     const hasPrivateMediaPermission = Boolean(
       claims && hasAdminPermission(claims.role, "property.manage"),
     );
+    if (!hasPrivateMediaPermission) {
+      const attempt = await consumeAdminAttempt("private-property-media:" + clientFingerprint(event), 120);
+      if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+    }
     if (!hasPrivateMediaPermission && dbSource !== "unconfigured") {
       try {
         const sql = await getSql();

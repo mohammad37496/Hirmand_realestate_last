@@ -1,6 +1,11 @@
 import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
 import { publicCustomerPropertyReviewNote } from "@/lib/customer-property-owner-status";
+import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
+import { compareDecimalStrings } from "@/lib/decimal-money";
+import { formatTomanExact } from "@/lib/money";
+import { toExactPublicOfferAmount } from "@/lib/public-lead-tracking-money";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 type VisitStatus = "none" | "requested" | "confirmed" | "completed" | "cancelled";
@@ -31,9 +36,11 @@ function normalizeCode(value: unknown) {
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
+  const attempt = await consumeAdminAttempt("public-lead-tracking:" + clientFingerprint(event), 30);
+  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
 
   const code = normalizeCode(getQuery(event).code);
-  if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(code)) {
+  if (!isValidPublicTrackingToken(code)) {
     throw createError({ statusCode: 400, statusMessage: "کد رهگیری نامعتبر است." });
   }
 
@@ -65,7 +72,7 @@ export default defineEventHandler(async (event) => {
   const visitRequestedAt = row.visit_requested_at ? new Date(String(row.visit_requested_at)).toISOString() : null;
   const visitPreferredAt = row.visit_preferred_at ? new Date(String(row.visit_preferred_at)).toISOString() : null;
   const callbackPreferredAt = row.callback_preferred_at ? new Date(String(row.callback_preferred_at)).toISOString() : null;
-  const offerAmount = row.offer_amount == null ? null : Number(row.offer_amount);
+  const offerAmount = toExactPublicOfferAmount(row.offer_amount);
   const offerConditions = String(row.offer_conditions ?? "");
   const customerPropertySubmissionStatus = row.customer_property_submission_status == null ? null : String(row.customer_property_submission_status);
   const customerPropertySubmissionReviewNote = publicCustomerPropertyReviewNote(
@@ -114,8 +121,8 @@ export default defineEventHandler(async (event) => {
   if (callbackPreferredAt) {
     timeline.push({ type: "visit", label: "زمان تماس ثبت شد", note: "زمان پیشنهادی تماس: " + new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tehran" }).format(new Date(callbackPreferredAt)), at: callbackPreferredAt });
   }
-  if (offerAmount != null && offerAmount > 0) {
-    timeline.push({ type: "status", label: "پیشنهاد قیمت ثبت شد", note: "مبلغ پیشنهاد: " + offerAmount.toLocaleString("fa-IR") + " تومان", at: updatedAt || createdAt });
+  if (offerAmount != null && compareDecimalStrings(offerAmount, "0") > 0) {
+    timeline.push({ type: "status", label: "پیشنهاد قیمت ثبت شد", note: "مبلغ پیشنهاد: " + formatTomanExact(offerAmount), at: updatedAt || createdAt });
   }
   if (visitPreferredAt) {
     timeline.push({ type: "visit", label: "زمان بازدید ثبت شد", note: "زمان پیشنهادی: " + new Intl.DateTimeFormat("fa-IR", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tehran" }).format(new Date(visitPreferredAt)), at: visitPreferredAt });

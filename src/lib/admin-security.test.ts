@@ -413,21 +413,20 @@ test("throttles are tracked per key, not globally", async () => {
   assert.equal((await consumeAdminAttempt(quiet)).allowed, true);
 });
 
-test("rate-limit identity cannot be bypassed by rotating the caller's User-Agent", async () => {
-  const request = (userAgent: string, ip = "203.0.113.10") => ({
-    req: new Request("https://hirmandrealestate.ir/api/admin/session", {
-      headers: { "x-forwarded-for": ip, "user-agent": userAgent },
-    }),
-    node: { req: { socket: { remoteAddress: "127.0.0.1" } } },
+test("rate-limit identity uses Liara's rightmost trusted client IP, not spoofed XFF prefixes or user agents", async () => {
+  const request = (userAgent: string, ip = "10.0.0.4", forwardedIp = "198.51.100.99, 203.0.113.10") => ({
+    req: Object.assign(new Request("https://hirmandrealestate.ir/api/admin/session", {
+      headers: { "x-forwarded-for": forwardedIp, "user-agent": userAgent },
+    }), { context: { clientAddress: ip } }),
   }) as unknown as import("h3").H3Event;
 
-  const firstKey = `user-agent-rotation:${clientFingerprint(request("Browser A"))}`;
-  const rotatedKey = `user-agent-rotation:${clientFingerprint(request("curl/9.0"))}`;
-  assert.equal(firstKey, rotatedKey, "same source IP must retain one bucket across User-Agent changes");
+  const firstKey = "user-agent-rotation:" + clientFingerprint(request("Browser A"));
+  const rotatedKey = "user-agent-rotation:" + clientFingerprint(request("curl/9.0", "10.0.0.4", "192.0.2.44, 203.0.113.10"));
+  assert.equal(firstKey, rotatedKey, "same trusted client IP must retain one bucket across caller-controlled prefix and user-agent changes");
   assert.notEqual(
-    clientFingerprint(request("Browser A", "203.0.113.11")),
-    clientFingerprint(request("Browser A", "203.0.113.10")),
-    "different source IPs retain separate buckets",
+    clientFingerprint(request("Browser A", "10.0.0.4", "198.51.100.99, 203.0.113.11")),
+    clientFingerprint(request("Browser A", "10.0.0.4", "198.51.100.99, 203.0.113.10")),
+    "different rightmost client IPs retain separate buckets",
   );
 
   for (let attempt = 0; attempt < 8; attempt += 1) {

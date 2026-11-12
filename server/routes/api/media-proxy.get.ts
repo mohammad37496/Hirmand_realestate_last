@@ -2,6 +2,7 @@ import { createError, defineEventHandler, getCookie, getHeader, getQuery } from 
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission } from "@/lib/admin-roles";
+import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { detectRasterImageType, isDivarRemoteHost, isLiaraStorageHost, isVideoUrl } from "@/lib/media";
 import { getLiaraObject, isAllowedLiaraMediaKey, liaraObjectKeyFromUrl } from "@/lib/liara-object-storage.server";
 import {
@@ -130,6 +131,13 @@ export default defineEventHandler(async (event) => {
     let publishedReference = false;
     let ownerSubmissionAccess = false;
     let recentUploadAccess = false;
+    if (
+      (customerSubmissionMedia || propertyUploadMedia) &&
+      !hasPrivateMediaPermission
+    ) {
+      const attempt = await consumeAdminAttempt("private-property-media:" + clientFingerprint(event), 120);
+      if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+    }
     if (
       (customerSubmissionMedia || propertyUploadMedia) &&
       !hasPrivateMediaPermission &&

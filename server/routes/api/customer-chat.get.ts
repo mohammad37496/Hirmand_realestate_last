@@ -3,8 +3,9 @@ import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { loadLatestCustomerChatMessages } from "@/lib/customer-chat-messages";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 
-const codeSchema = z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/);
+const codeSchema = z.string().trim().toUpperCase().refine(isValidPublicTrackingToken);
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
 
   const sql = await getSql();
   const leadRows = await sql.query<{ id:string; consultant:string; deal:string }>(
-    "select l.id,coalesce(c.name,l.consultant) as consultant,l.deal from leads l left join consultants c on c.id=l.consultant_id where upper(l.tracking_token) = upper($1) limit 1",
+    "select l.id,coalesce(c.name,l.consultant) as consultant,l.deal from leads l left join consultants c on c.id=l.consultant_id where upper(l.public_tracking_token) = upper($1) limit 1",
     [trackingCode.data],
   );
   const lead = leadRows[0];

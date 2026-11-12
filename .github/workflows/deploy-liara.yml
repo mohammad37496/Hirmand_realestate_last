@@ -13,10 +13,15 @@ on:
         required: false
         type: boolean
         default: false
+      validate_environment_only:
+        description: "Read Liara runtime configuration and validate required app and Redis settings without deploying"
+        required: false
+        type: boolean
+        default: false
 
 # Only the newest main commit should be deployed.
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && 'liara-dispatch-non-main' || github.event_name == 'workflow_dispatch' && inputs.ensure_better_auth_secret == true && 'liara-secret-bootstrap' || 'liara-deploy-main' }}
+  group: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && 'liara-dispatch-non-main' || github.event_name == 'workflow_dispatch' && inputs.validate_environment_only == true && 'liara-env-validation' || github.event_name == 'workflow_dispatch' && inputs.ensure_better_auth_secret == true && 'liara-secret-bootstrap' || 'liara-deploy-main' }}
   cancel-in-progress: true
 
 permissions:
@@ -24,7 +29,7 @@ permissions:
 
 jobs:
   ensure-better-auth-secret:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.ensure_better_auth_secret == true }}
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.ensure_better_auth_secret == true && inputs.validate_environment_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -46,8 +51,41 @@ jobs:
           LIARA_APP_NAME: ${{ vars.LIARA_APP_NAME }}
         run: node scripts/ensure-liara-better-auth-secret.mjs
 
+  validate-liara-environment:
+    if: ${{ github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.validate_environment_only == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[validate liara env]'))) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Liara CLI
+        run: npm i -g @liara/cli@9
+      - name: Validate production app and shared Redis environment (values redacted)
+        env:
+          LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+          LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
+          LIARA_APP_NAME: ${{ vars.LIARA_APP_NAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_NAME="${LIARA_APP_NAME:-hirmand}"
+          if [[ -z "${LIARA_TOKEN:-}" ]]; then
+            echo "::error::GitHub Actions secret LIARA_API_TOKEN is empty or unavailable."
+            exit 1
+          fi
+          TEAM_ARGS=()
+          if [[ -n "${LIARA_TEAM_ID:-}" ]]; then
+            TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
+          fi
+          liara env list --app="${APP_NAME}" --api-token="${LIARA_TOKEN}" "${TEAM_ARGS[@]}" --output=json > "${RUNNER_TEMP}/liara-env.json"
+          node scripts/validate-liara-auth-env.mjs "${RUNNER_TEMP}/liara-env.json"
+
   deploy:
-    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.ensure_better_auth_secret != true) && !contains(github.event.head_commit.message, 'trigger neighborhood catalog sync') }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || (inputs.ensure_better_auth_secret != true && inputs.validate_environment_only != true)) && !contains(github.event.head_commit.message, 'trigger neighborhood catalog sync') && !contains(github.event.head_commit.message, '[skip liara]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:

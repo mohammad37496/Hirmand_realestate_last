@@ -5,6 +5,9 @@ import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { CustomerConversation } from "@/components/hirmand/customer-conversation";
 import { SITE } from "@/lib/site";
 import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
+import { compareDecimalStrings } from "@/lib/decimal-money";
+import { formatTomanExact } from "@/lib/money";
+import { isValidPublicTrackingToken, TRACKING_TOKEN_MAX_LENGTH } from "@/lib/tracking-token";
 import { isDuplicatePublicVisitFeedbackConflict } from "@/lib/public-visit-feedback";
 import "@/request-tracking.css";
 
@@ -23,7 +26,7 @@ type TrackingResult = {
   visitRequestedAt?: string | null;
   visitPreferredAt: string | null;
   callbackPreferredAt?: string | null;
-  offerAmount?: number | null;
+  offerAmount?: string | null;
   offerConditions?: string;
   feedbackSubmitted?: boolean;
   customerPropertySubmissionStatus?: "pending" | "approved" | "rejected" | null;
@@ -79,8 +82,8 @@ function RequestTrackingPage() {
 
   async function lookup(value = code) {
     const normalized = value.trim().toUpperCase().replace(/\s+/g, "");
-    if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(normalized)) {
-      setMessage("کد رهگیری را به شکل HIR-26-XXXXXXXXXXXX وارد کنید.");
+    if (!isValidPublicTrackingToken(normalized)) {
+      setMessage("کد رهگیری واردشده معتبر نیست.");
       setResult(null);
       setFeedbackSubmitted(false);
       return;
@@ -239,7 +242,8 @@ function RequestTrackingPage() {
               <input
                 value={code}
                 onChange={(event) => setCode(event.target.value.toUpperCase())}
-                placeholder="HIR-26-XXXXXXXXXXXX"
+                placeholder="HIR-26-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                maxLength={TRACKING_TOKEN_MAX_LENGTH}
                 dir="ltr"
                 autoComplete="off"
                 spellCheck={false}
@@ -312,9 +316,9 @@ function RequestTrackingPage() {
                   زمان تماس پیشنهادی: <strong>{new Date(result.callbackPreferredAt).toLocaleString("fa-IR")}</strong>
                 </div>
               ) : null}
-              {result.offerAmount ? (
+              {result.offerAmount != null && compareDecimalStrings(result.offerAmount, "0") > 0 ? (
                 <div className="request-tracking-notice">
-                  پیشنهاد قیمت ثبت‌شده: <strong>{Number(result.offerAmount).toLocaleString("fa-IR")} تومان</strong>
+                  پیشنهاد قیمت ثبت‌شده: <strong>{formatTomanExact(result.offerAmount)}</strong>
                   {result.offerConditions ? <span> · {result.offerConditions}</span> : null}
                 </div>
               ) : null}

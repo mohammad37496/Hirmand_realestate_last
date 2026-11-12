@@ -5,15 +5,11 @@ import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { OwnerPropertyStatus } from "@/components/hirmand/owner-property-status";
 import { SITE } from "@/lib/site";
 import { clearCustomerTrackingCodes, forgetCustomerTrackingCode, normalizeCustomerTrackingCode, readCustomerTrackingCodes, rememberCustomerTrackingCode, type CustomerTrackingSummary } from "@/lib/customer-tracking";
+import { loadPublicTrackingResult, type PublicTrackingResult } from "@/lib/customer-tracking-client";
+import { isValidPublicTrackingToken, TRACKING_TOKEN_MAX_LENGTH } from "@/lib/tracking-token";
 import "@/my-hirmand.css";
 
-type TrackingTimelineItem = { type: "created" | "status" | "visit"; label: string; note: string; at: string | null };
-type TrackingResult = {
-  trackingCode: string; status: string; statusLabel: string; visitStatus: string; visitStatusLabel: string;
-  createdAt: string | null; updatedAt: string | null; consultant: string; deal: string; propertyType: string;
-  neighborhood: string; visitRequestedAt: string | null; visitPreferredAt: string | null;
-  property: { title: string; slug: string } | null; timeline: TrackingTimelineItem[];
-};
+type TrackingResult = PublicTrackingResult;
 
 function faDate(value: string | null) {
   if (!value) return "—";
@@ -21,7 +17,7 @@ function faDate(value: string | null) {
   catch { return value; }
 }
 
-function CustomerRequestCard({ item, result, busy, onRemove, onCopy }: { item: CustomerTrackingSummary; result: TrackingResult | null; busy: boolean; onRemove: () => void; onCopy: () => void }) {
+function CustomerRequestCard({ item, result, error, busy, onRemove, onCopy, onRetry }: { item: CustomerTrackingSummary; result: TrackingResult | null; error: string; busy: boolean; onRemove: () => void; onCopy: () => void; onRetry: () => void }) {
   return (
     <article className="my-hirmand-request-card">
       <div className="my-hirmand-request-head">
@@ -50,7 +46,7 @@ function CustomerRequestCard({ item, result, busy, onRemove, onCopy }: { item: C
             {result.timeline.slice(-6).reverse().map((event, index) => <div className="my-hirmand-timeline-item" key={event.type + "-" + (event.at || "na") + "-" + index}><span className="my-hirmand-timeline-dot">{event.type === "visit" ? <CalendarDays size={12} /> : <CheckCircle2 size={12} />}</span><div><strong>{event.label}</strong><small>{event.note}</small><time>{faDate(event.at)}</time></div></div>)}
           </div></div> : null}
         </>
-      ) : <div className="my-hirmand-error">این کد در حال حاضر قابل دریافت نیست؛ ممکن است درخواست حذف شده باشد یا سامانه موقتاً در دسترس نباشد.</div>}
+      ) : <div className="my-hirmand-error"><span>{error || "وضعیت این پرونده هنوز دریافت نشده است."}</span><button type="button" className="btn-ghost" onClick={onRetry}>تلاش دوباره</button></div>}
       <div className="my-hirmand-card-foot"><Link to="/request-tracking">صفحه کامل پیگیری</Link><span>ذخیره‌شده روی همین دستگاه</span></div>
     </article>
   );
@@ -68,6 +64,7 @@ export const Route = createFileRoute("/my-hirmand")({
 function MyHirmandPage() {
   const [items, setItems] = useState<CustomerTrackingSummary[]>([]);
   const [results, setResults] = useState<Record<string, TrackingResult | null>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [codeInput, setCodeInput] = useState("");
   const [message, setMessage] = useState("");
@@ -84,19 +81,15 @@ function MyHirmandPage() {
   const loadCode = useCallback(async (code: string) => {
     const trackingCode = normalizeCustomerTrackingCode(code);
     setBusy((prev) => ({ ...prev, [trackingCode]: true }));
-    try {
-      const response = await fetch("/api/public-lead-tracking?code=" + encodeURIComponent(trackingCode), {
-        credentials: "same-origin",
-        headers: { accept: "application/json" },
-      });
-      const data = await response.json().catch(() => null) as TrackingResult & { statusMessage?: string } | null;
-      if (!response.ok || !data?.trackingCode) throw new Error(data?.statusMessage || "درخواست پیدا نشد.");
-      setResults((prev) => ({ ...prev, [trackingCode]: data }));
-    } catch {
+    const loaded = await loadPublicTrackingResult(trackingCode);
+    if (loaded.ok) {
+      setErrors((prev) => { const next = { ...prev }; delete next[trackingCode]; return next; });
+      setResults((prev) => ({ ...prev, [trackingCode]: loaded.data }));
+    } else {
       setResults((prev) => ({ ...prev, [trackingCode]: null }));
-    } finally {
-      setBusy((prev) => ({ ...prev, [trackingCode]: false }));
+      setErrors((prev) => ({ ...prev, [trackingCode]: loaded.message }));
     }
+    setBusy((prev) => ({ ...prev, [trackingCode]: false }));
   }, []);
 
   useEffect(() => {
@@ -112,7 +105,7 @@ function MyHirmandPage() {
   function addCode(event: FormEvent) {
     event.preventDefault();
     const normalized = normalizeCustomerTrackingCode(codeInput);
-    if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(normalized)) { setMessage("کد رهگیری معتبر را به شکل HIR-26-XXXXXXXXXXXX وارد کنید."); return; }
+    if (!isValidPublicTrackingToken(normalized)) { setMessage("کد رهگیری واردشده معتبر نیست."); return; }
     rememberCustomerTrackingCode(normalized); setCodeInput(""); setMessage("کد به «پرونده‌های من» اضافه شد."); void loadCode(normalized);
   }
 
@@ -132,12 +125,12 @@ function MyHirmandPage() {
       <main className="my-hirmand-page" id="top">
         <section className="my-hirmand-hero"><div><span className="kicker">مرکز مشتری هیرمند</span><h1>پرونده‌های من</h1><p>کدهای رهگیری درخواست‌هایتان را یک‌جا نگه دارید و وضعیت، مشاور، فایل مرتبط و تاریخچه هر درخواست را سریع ببینید.</p></div><div className="my-hirmand-hero-badge"><History size={42}/><strong>{totalActive.toLocaleString("fa-IR")}</strong><span>پرونده قابل مشاهده</span></div></section>
         <section className="my-hirmand-control-card"><form className="my-hirmand-add-form" onSubmit={addCode}>
-          <label className="field"><span>افزودن کد رهگیری</span><input value={codeInput} onChange={(event) => setCodeInput(normalizeCustomerTrackingCode(event.target.value).slice(0,23))} placeholder="HIR-26-XXXXXXXXXXXX" dir="ltr" maxLength={23} autoComplete="off" /></label>
+          <label className="field"><span>افزودن کد رهگیری</span><input value={codeInput} onChange={(event) => setCodeInput(normalizeCustomerTrackingCode(event.target.value).slice(0,TRACKING_TOKEN_MAX_LENGTH))} placeholder="HIR-26-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" dir="ltr" maxLength={TRACKING_TOKEN_MAX_LENGTH} autoComplete="off" /></label>
           <button type="submit" className="btn-gold">افزودن پرونده</button>
           <button type="button" className="btn-ghost" onClick={() => void refreshAll()} disabled={loadingAll || !items.length}><RefreshCw size={15} className={loadingAll ? "my-hirmand-spin" : undefined}/> بروزرسانی همه</button>
-          {items.length ? <button type="button" className="btn-ghost" onClick={() => { clearCustomerTrackingCodes(); setResults({}); setMessage("کدهای ذخیره‌شده از این دستگاه پاک شدند."); }}>پاک‌کردن همه</button> : null}
+          {items.length ? <button type="button" className="btn-ghost" onClick={() => { clearCustomerTrackingCodes(); setResults({}); setErrors({}); setMessage("کدهای ذخیره‌شده از این دستگاه پاک شدند."); }}>پاک‌کردن همه</button> : null}
         </form>{message ? <p className="my-hirmand-message" role="status">{message}</p> : null}</section>
-        {items.length ? <section className="my-hirmand-grid">{items.map((item) => <CustomerRequestCard key={item.trackingCode} item={item} result={results[item.trackingCode] ?? null} busy={Boolean(busy[item.trackingCode])} onRemove={() => { forgetCustomerTrackingCode(item.trackingCode); setResults((prev) => { const next = {...prev}; delete next[item.trackingCode]; return next; }); }} onCopy={() => copyCode(item.trackingCode)} />)}</section> : <section className="my-hirmand-empty"><div className="my-hirmand-empty-icon"><History size={24}/></div><h2>هنوز پرونده‌ای ذخیره نشده است.</h2><p>بعد از هر ثبت یا پیگیری درخواست، کد را می‌توانید در این دستگاه نگه دارید.</p><div><Link className="btn-gold" to="/request-tracking">پیگیری یک کد</Link><Link className="btn-ghost" to="/properties">مشاهده فایل‌ها</Link></div></section>}
+        {items.length ? <section className="my-hirmand-grid">{items.map((item) => <CustomerRequestCard key={item.trackingCode} item={item} result={results[item.trackingCode] ?? null} error={errors[item.trackingCode] ?? ""} busy={Boolean(busy[item.trackingCode])} onRemove={() => { forgetCustomerTrackingCode(item.trackingCode); setResults((prev) => { const next = {...prev}; delete next[item.trackingCode]; return next; }); setErrors((prev) => { const next = {...prev}; delete next[item.trackingCode]; return next; }); }} onCopy={() => copyCode(item.trackingCode)} onRetry={() => void loadCode(item.trackingCode)} />)}</section> : <section className="my-hirmand-empty"><div className="my-hirmand-empty-icon"><History size={24}/></div><h2>هنوز پرونده‌ای ذخیره نشده است.</h2><p>بعد از هر ثبت یا پیگیری درخواست، کد را می‌توانید در این دستگاه نگه دارید.</p><div><Link className="btn-gold" to="/request-tracking">پیگیری یک کد</Link><Link className="btn-ghost" to="/properties">مشاهده فایل‌ها</Link></div></section>}
         <OwnerPropertyStatus />
         <section className="my-hirmand-note"><strong>حریم خصوصی</strong><p>این صفحه حساب کاربری دائمی ندارد؛ کدهای رهگیری فقط در حافظه مرورگر همین دستگاه ذخیره می‌شوند و نام و شماره موبایل شما نمایش داده نمی‌شود.</p></section>
       </main>

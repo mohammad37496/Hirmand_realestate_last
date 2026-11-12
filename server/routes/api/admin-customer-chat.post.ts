@@ -1,12 +1,13 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { z } from "zod";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 
 const schema = z.object({
-  code: z.string().trim().toUpperCase().regex(/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/),
+  code: z.string().trim().toUpperCase().refine(isValidPublicTrackingToken),
   message: z.string().trim().min(1).max(1200),
   consultant: z.string().trim().max(80).optional().default("هیرمند"),
 });
@@ -33,7 +34,7 @@ export default defineEventHandler(async (event) => {
 
   const sql = await getSql();
   const lead = await sql.query<{ id:string }>(
-    "select id from leads where upper(tracking_token)=upper($1) limit 1",
+    "select id from leads where upper(public_tracking_token)=upper($1) limit 1",
     [body.data.code],
   );
   if (!lead[0]) {
@@ -41,7 +42,7 @@ export default defineEventHandler(async (event) => {
   }
 
   await sql.query(
-    "insert into customer_messages(id,lead_id,tracking_token,sender_type,sender_name,message) select $1,id,tracking_token,'admin',$2,$3 from leads where upper(tracking_token)=upper($4)",
+    "insert into customer_messages(id,lead_id,tracking_token,sender_type,sender_name,message) select $1,id,public_tracking_token,'admin',$2,$3 from leads where upper(public_tracking_token)=upper($4)",
     [crypto.randomUUID(), body.data.consultant || "هیرمند", body.data.message, body.data.code],
   );
 

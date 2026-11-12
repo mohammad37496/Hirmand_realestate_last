@@ -1,3 +1,5 @@
+import { isValidPublicTrackingToken } from "./tracking-token.ts";
+
 const CUSTOMER_TRACKING_KEY = "hirmand:customer:tracking-codes";
 const MAX_CUSTOMER_CODES = 8;
 
@@ -22,7 +24,7 @@ export function readCustomerTrackingCodes(): CustomerTrackingSummary[] {
         trackingCode: normalizeCustomerTrackingCode(String(item.trackingCode ?? "")),
         savedAt: typeof item.savedAt === "string" ? item.savedAt : new Date().toISOString(),
       }))
-      .filter((item) => /^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(item.trackingCode))
+      .filter((item) => isValidPublicTrackingToken(item.trackingCode))
       .filter((item, index, list) => list.findIndex((other) => other.trackingCode === item.trackingCode) === index)
       .slice(0, MAX_CUSTOMER_CODES);
   } catch {
@@ -41,7 +43,7 @@ function persist(items: CustomerTrackingSummary[]) {
 export function rememberCustomerTrackingCode(value: string) {
   if (typeof window === "undefined") return;
   const trackingCode = normalizeCustomerTrackingCode(value);
-  if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(trackingCode)) return;
+  if (!isValidPublicTrackingToken(trackingCode)) return;
   const current = readCustomerTrackingCodes();
   persist([{ trackingCode, savedAt: new Date().toISOString() }, ...current.filter((item) => item.trackingCode !== trackingCode)]);
   window.dispatchEvent(new CustomEvent("hirmand:tracking-codes-changed"));

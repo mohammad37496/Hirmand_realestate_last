@@ -8,6 +8,7 @@ import { trackingHead } from "@/lib/seo";
 import type { PartnerContract, PartnerOverview } from "@/lib/partner-program.server";
 import { partnerPortalUrl, partnerQrImageUrl } from "@/lib/partner-links";
 import { isValidTrackingCode, normalizeDigits, normalizePartnerCode, normalizeTrackingCode } from "@/lib/partner-codes";
+import { TRACKING_TOKEN_MAX_LENGTH } from "@/lib/tracking-token";
 
 const TX_LABEL: Record<string, string> = {
   buy: "درخواست خرید",
@@ -209,7 +210,7 @@ function TrackingPage() {
     const normalized = normalizeTrackingCode(trackingCode);
     setTrackingCode(normalized);
     if (!isValidTrackingCode(normalized)) {
-      setMessage("کد رهگیری را به شکل HIR-YY-XXXXXXXX وارد کنید.");
+      setMessage("کد رهگیری واردشده معتبر نیست.");
       return;
     }
     setLookupBusy(true);
@@ -326,9 +327,9 @@ function TrackingPage() {
                 <span>کد رهگیری</span>
                 <input
                   value={trackingCode}
-                  onChange={(event) => setTrackingCode(normalizeTrackingCode(event.target.value).slice(0, 15))}
-                  placeholder="HIR-YY-XXXXXXXX"
-                  maxLength={15}
+                  onChange={(event) => setTrackingCode(normalizeTrackingCode(event.target.value).slice(0, TRACKING_TOKEN_MAX_LENGTH))}
+                  placeholder="HIR-YY-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                  maxLength={TRACKING_TOKEN_MAX_LENGTH}
                   autoComplete="off"
                   aria-describedby="tracking-format-hint"
                   dir="ltr"
@@ -342,7 +343,7 @@ function TrackingPage() {
                 {(trackingCode || lookup) ? <button type="button" className="btn-ghost" onClick={() => { setTrackingCode(""); setLookup(null); setMessage(""); }}>پاک کردن</button> : null}
               </div>
             </form>
-            <p className="partner-field-hint" id="tracking-format-hint">فرمت کد: <b dir="ltr">HIR-YY-XXXXXXXX</b> — حروف و عدد قابل قبول است.</p>
+            <p className="partner-field-hint" id="tracking-format-hint">کدهای قدیمی و جدید رهگیری قرارداد قابل استعلام هستند.</p>
             {lookup ? (
               <div className="partner-lookup-result">
                 <div className="partner-lookup-code-row">

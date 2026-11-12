@@ -7,14 +7,10 @@ import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemp
 import { resubmitCustomerPropertySubmissionWithLeadSync } from "@/lib/customer-property-submission-lead-sync";
 import { findPotentialDuplicateCustomerPropertySubmissions } from "@/lib/customer-property-submission-duplicate";
 import { createInitialCustomerPropertySubmission } from "@/lib/customer-property-submission-create";
+import { generatePublicTrackingToken } from "@/lib/tracking-token.server";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
-
-function createTrackingToken() {
-  const year = String(new Date().getFullYear()).slice(-2);
-  const random = crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase();
-  return "HIR-" + year + "-" + random;
-}
 
 const moneyField = z.union([z.string().regex(/^\d{1,20}$/), z.null()]).optional().default(null);
 const optionalText = (max: number) => z.string().trim().max(max).optional().default("");
@@ -95,7 +91,7 @@ export default defineEventHandler(async (event) => {
     const trackingToken = typeof rawTrackingToken === "string"
       ? rawTrackingToken.trim().toUpperCase().replace(/\s+/g, "")
       : "";
-    if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(trackingToken)) {
+    if (!isValidPublicTrackingToken(trackingToken)) {
       throw createError({ statusCode: 400, statusMessage: "کد رهگیری نامعتبر است." });
     }
 
@@ -169,7 +165,7 @@ export default defineEventHandler(async (event) => {
   }
   if (parsed.data.website) throw createError({ statusCode: 400, statusMessage: "درخواست نامعتبر است." });
 
-  const trackingToken = createTrackingToken();
+  const trackingToken = generatePublicTrackingToken();
   const submissionId = crypto.randomUUID();
   const leadId = crypto.randomUUID();
   void getCookie(event, VISITOR_COOKIE);

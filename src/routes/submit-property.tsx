@@ -15,6 +15,7 @@ import {
 } from "@/lib/property-options";
 import { normalizeMoneyText } from "@/lib/property-input-normalization";
 import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
+import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 import { isVideoUrl, mediaPreviewSource, withMediaUploadCapability } from "@/lib/media";
 import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
 import { appendCustomerPropertyMedia, MAX_MEDIA, uploadCustomerPropertyFiles } from "@/lib/customer-property-upload";
@@ -121,7 +122,7 @@ function SubmitPropertyPage() {
 
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get("code")?.trim().toUpperCase().replace(/\s+/g, "") || "";
-    if (!/^HIR-[A-Z0-9]{2}-[A-F0-9]{12}$/.test(token)) {
+    if (!isValidPublicTrackingToken(token)) {
       try {
         const raw = window.localStorage.getItem(CUSTOMER_DRAFT_KEY);
         const parsed = raw ? JSON.parse(raw) as { savedAt?: number; data?: Record<string, unknown> } : null;
