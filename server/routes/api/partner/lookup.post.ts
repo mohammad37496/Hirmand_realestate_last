@@ -1,4 +1,5 @@
 import { createError, defineEventHandler, readBody, setResponseHeader } from "h3";
+import { dbSource } from "@/lib/db";
 import { isValidTrackingCode, normalizeTrackingCode } from "@/lib/partner-codes";
 import { lookupPartnerContract } from "@/lib/partner-program.server";
 
@@ -8,6 +9,9 @@ export default defineEventHandler(async (event) => {
   const code = typeof body.trackingCode === "string" ? normalizeTrackingCode(body.trackingCode) : "";
   if (!code || code.length > 32 || !isValidTrackingCode(code)) {
     throw createError({ statusCode: 400, statusMessage: "کد رهگیری را وارد کنید." });
+  }
+  if (dbSource === "unconfigured") {
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده موقتاً در دسترس نیست." });
   }
   const result = await lookupPartnerContract(code);
   if (!result) {
