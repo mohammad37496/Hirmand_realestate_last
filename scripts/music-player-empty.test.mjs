@@ -16,8 +16,8 @@ test("empty music player is hidden by a stylesheet loaded after responsive overr
 });
 
 test("desktop music player uses one compact fixed lower-left size", () => {
-  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)[\s\S]*?\.music-player\s*\{[^}]*left:\s*14px\s*!important;[^}]*bottom:\s*14px\s*!important;[^}]*width:\s*min\(320px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*320px\s*!important;/);
-  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)\s*and\s*\(pointer:\s*fine\)[\s\S]*?\.music-player\s*\{[^}]*width:\s*min\(300px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*300px\s*!important;[^}]*min-height:\s*46px\s*!important;/);
+  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)[\s\S]*?\.music-player\s*\{[^}]*left:\s*14px\s*!important;[^}]*bottom:\s*14px\s*!important;[^}]*width:\s*min\(450px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*450px\s*!important;/);
+  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)\s*and\s*\(pointer:\s*fine\)[\s\S]*?\.music-player\s*\{[^}]*width:\s*min\(360px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*360px\s*!important;[^}]*min-height:\s*46px\s*!important;/);
 });
 
 test("playlist is controlled by one icon-only button", () => {

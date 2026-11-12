@@ -310,7 +310,9 @@ try {
 
   const responsiveViewports = [
     { width: 320, height: 640, touch: true },
+    { width: 375, height: 812, touch: true },
     { width: 390, height: 844, touch: true },
+    { width: 430, height: 932, touch: true },
     { width: 568, height: 320, touch: true },
     { width: 640, height: 360, touch: true },
     { width: 768, height: 900, touch: true },
@@ -318,6 +320,7 @@ try {
     { width: 1024, height: 768, touch: true },
     { width: 1280, height: 400, touch: false },
     { width: 1280, height: 800, touch: false },
+    { width: 1366, height: 900, touch: false },
     { width: 1440, height: 900, touch: false },
     { width: 1920, height: 1080, touch: false },
   ];
@@ -383,15 +386,37 @@ try {
     await responsivePage.waitForSelector(".music-player:not(.music-player-empty)", { state: "attached", timeout: 30_000 });
     const compactDesktopPlayer = await responsivePage.locator(".music-player").evaluate((player) => {
       const bounds = player.getBoundingClientRect();
+      const actions = player.querySelector(".music-compact-actions");
+      const actionsBounds = actions.getBoundingClientRect();
       return {
         x: Math.round(bounds.x),
         width: Math.round(bounds.width),
         height: Math.round(bounds.height),
         metaWidth: Math.round(player.querySelector(".music-meta").getBoundingClientRect().width),
+        actions: {
+          x: Math.round(actionsBounds.x),
+          right: Math.round(actionsBounds.right),
+          width: Math.round(actionsBounds.width),
+        },
+        actionButtons: [...actions.querySelectorAll("button")].map((button) => {
+          const buttonBounds = button.getBoundingClientRect();
+          return {
+            label: button.getAttribute("aria-label") || button.title,
+            x: Math.round(buttonBounds.x),
+            right: Math.round(buttonBounds.right),
+            width: Math.round(buttonBounds.width),
+          };
+        }),
         backgroundColor: getComputedStyle(player).backgroundColor,
         titleColor: getComputedStyle(player.querySelector(".music-meta strong")).color,
       };
     });
+    if (viewport.width === 1366 && !viewport.touch && process.env.MUSIC_PLAYER_DESKTOP_SCREENSHOT_PATH) {
+      await responsivePage.locator(".music-player").screenshot({ path: process.env.MUSIC_PLAYER_DESKTOP_SCREENSHOT_PATH });
+    }
+    if (viewport.width === 768 && viewport.touch && process.env.MUSIC_PLAYER_TOUCH_SCREENSHOT_PATH) {
+      await responsivePage.locator(".music-player").screenshot({ path: process.env.MUSIC_PLAYER_TOUCH_SCREENSHOT_PATH });
+    }
     if (viewport.width <= 720) {
 
       const launcher = await responsivePage.locator(".music-player-launcher").evaluate((button) => {
@@ -534,7 +559,7 @@ try {
     }
     if (!viewport.touch && viewport.width >= 721 && viewport.height > 420) {
       const leftGap = compactDesktopPlayer.x;
-      assert.ok(compactDesktopPlayer.width <= 320,
+      assert.ok(compactDesktopPlayer.width <= 360,
         `fine-pointer desktop player should remain a compact floating card: ${JSON.stringify(compactDesktopPlayer)}`);
       assert.ok(leftGap >= 10 && leftGap <= 20,
         `fine-pointer desktop player should stay anchored near the lower-left corner: ${JSON.stringify({ compactDesktopPlayer, leftGap })}`);
@@ -546,6 +571,18 @@ try {
         `fine-pointer desktop player should keep its dark navy surface: ${JSON.stringify(compactDesktopPlayer)}`);
       assert.equal(compactDesktopPlayer.titleColor, "rgb(247, 237, 218)",
         `fine-pointer desktop player title should stay readable on navy: ${JSON.stringify(compactDesktopPlayer)}`);
+    }
+    if (viewport.width >= 721 && viewport.height > 420) {
+      const playerRight = compactDesktopPlayer.x + compactDesktopPlayer.width;
+      const minimumDesktopWidth = viewport.touch ? 440 : 350;
+      const maximumDesktopWidth = viewport.touch ? 450 : 360;
+      assert.ok(compactDesktopPlayer.width >= minimumDesktopWidth && compactDesktopPlayer.width <= maximumDesktopWidth,
+        `desktop music dock must reserve enough width for its controls: ${JSON.stringify(compactDesktopPlayer)}`);
+      assert.ok(compactDesktopPlayer.actions.x >= compactDesktopPlayer.x - 1 && compactDesktopPlayer.actions.right <= playerRight + 1,
+        `compact action group must remain inside the music dock: ${JSON.stringify(compactDesktopPlayer)}`);
+      assert.ok(compactDesktopPlayer.actionButtons.every((button) =>
+        button.x >= compactDesktopPlayer.x - 1 && button.right <= playerRight + 1 && button.x >= 0 && button.right <= viewport.width + 1),
+      `every desktop action button must remain visible inside the dock and viewport: ${JSON.stringify(compactDesktopPlayer.actionButtons)}`);
     }
     const scrollableDock = viewport.touch || viewport.height <= 420;
     assert.equal(layout.playlistPosition, scrollableDock ? "static" : "absolute",
@@ -634,7 +671,7 @@ try {
       const bounds = player.getBoundingClientRect();
       return { x: Math.round(bounds.x), width: Math.round(bounds.width), bottom: Math.round(bounds.bottom) };
     });
-    assert.deepEqual(position, { x: 14, width: 300, bottom: 786 },
+    assert.deepEqual(position, { x: 14, width: 360, bottom: 786 },
       `the desktop music dock must keep the same position and size on ${routePath}: ${JSON.stringify(position)}`);
     await routeConsistencyPage.evaluate(async () => {
       const root = document.documentElement;
