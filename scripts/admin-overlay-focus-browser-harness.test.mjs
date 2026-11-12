@@ -30,6 +30,27 @@ async function freePort() {
   return address.port;
 }
 
+async function mountMobileEmployeeComponent(page) {
+  await page.addScriptTag({
+    type: "module",
+    content: `
+      import React from "/node_modules/.vite/deps/react.js";
+      import ReactDOMClient from "/node_modules/.vite/deps/react-dom_client.js";
+      import { createRootRoute, createRouter, RouterProvider } from "/node_modules/@tanstack/react-router/dist/esm/index.js";
+      import { AdminMobileEmployeePage } from "/src/components/hirmand/admin-mobile-management.tsx";
+      const container = document.createElement("div");
+      container.id = "qa-mobile-management-employee-root";
+      document.body.append(container);
+      const rootRoute = createRootRoute({ component: () => React.createElement(AdminMobileEmployeePage, { employeeId: "qa-staff" }) });
+      const router = createRouter({ routeTree: rootRoute });
+      window.__qaMobileManagementRoot = ReactDOMClient.createRoot(container);
+      window.__qaRenderMobileManagementEmployee = () => window.__qaMobileManagementRoot.render(React.createElement(RouterProvider, { router }));
+    `,
+  });
+  await page.waitForFunction(() => typeof window.__qaRenderMobileManagementEmployee === "function");
+  await page.evaluate(() => window.__qaRenderMobileManagementEmployee());
+}
+
 async function migrateDatabase() {
   const db = new PGlite({ dataDir: dbDir });
   try {
@@ -115,11 +136,18 @@ try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "fa-IR" });
     const page = await context.newPage();
     await installAdminApiStubs(page, baseUrl);
-    await page.route("**/api/admin/session", (route) => route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ success: true, authenticated: true, role: "owner" }),
-    }));
+    let sessionRole = "owner";
+    let sessionDelayMs = 0;
+    await page.route("**/api/admin/session", async (route) => {
+      const delay = sessionDelayMs;
+      sessionDelayMs = 0;
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, authenticated: true, role: sessionRole }),
+      });
+    });
     await page.route("**/api/admin/mobile-management/summary", (route) => route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -141,11 +169,20 @@ try {
         policy: { managementMode: "Device Owner", permissionPolicy: "مدیریت‌شده", securityPolicy: "فعال", appPolicy: "مدیریت‌شده", syncPolicy: "فعال", retentionPolicy: "پیش‌فرض", locationPolicy: "غیرفعال" },
       }),
     }));
-    await page.route("**/api/mobile/staff-directory", (route) => route.fulfill({
+    await page.route("**/api/mobile/staff-directory**", (route) => route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({ success: true, staff: [{ id: "qa-staff", name: "کارمند نمونه", role: "مشاور" }] }),
     }));
+    let telemetryCalls = 0;
+    await page.route("**/api/admin/mobile-telemetry?**", (route) => {
+      telemetryCalls += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, telemetry: [], locations: [] }),
+      });
+    });
     let mutationCalls = 0;
     await page.route("**/api/admin/mobile-devices", async (route) => {
       mutationCalls += 1;
@@ -214,6 +251,52 @@ try {
     }
     assert.equal(mutationCalls, 0, "responsive modal checks must not submit device mutations");
 
+    const managementRequests = [];
+    page.on("request", (request) => {
+      const pathname = new URL(request.url()).pathname;
+      if (pathname.startsWith("/api/admin/mobile-") || pathname === "/api/admin/mobile-management/summary" || pathname === "/api/mobile/staff-directory" || pathname.startsWith("/_serverfn")) {
+        managementRequests.push(pathname);
+      }
+    });
+
+    sessionRole = "manager";
+    managementRequests.length = 0;
+    await page.goto(`${baseUrl}/admin-mobile-management`, { waitUntil: "domcontentloaded" });
+    await page.getByRole("heading", { name: "مرکز مدیریت تلفن همراه" }).waitFor({ state: "visible" });
+    assert.ok(managementRequests.includes("/api/admin/mobile-management/summary"), "manager may load the fleet summary");
+    assert.ok(managementRequests.includes("/api/mobile/staff-directory"), "manager may load the staff directory");
+
+    managementRequests.length = 0;
+    await mountMobileEmployeeComponent(page);
+    const employeeSummary = await page.waitForResponse((response) => response.url().includes("/api/admin/mobile-management/summary"), { timeout: 10_000 });
+    const employeeStaff = await page.waitForResponse((response) => response.url().includes("/api/mobile/staff-directory"), { timeout: 10_000 });
+    assert.equal(employeeSummary.status(), 200, "manager employee route should load the fleet summary");
+    assert.deepEqual((await employeeStaff.json()).staff?.map((item) => item.id), ["qa-staff"], "manager employee route should load the QA staff profile");
+    assert.doesNotMatch(await page.locator("body").innerText(), /دسترسی به مدیریت تلفن همراه مجاز نیست/, "manager may open the employee detail route");
+    await page.getByRole("heading", { name: "کارمند نمونه", exact: true }).first().waitFor({ state: "visible", timeout: 10_000 });
+    const telemetryResponse = page.waitForResponse((response) => response.url().includes("/api/admin/mobile-telemetry"));
+    await page.getByRole("button", { name: "فعالیت" }).click();
+    await telemetryResponse;
+    assert.ok(telemetryCalls > 0, "manager may load protected device telemetry on demand");
+
+    for (const role of ["sales", "content", "staff", "viewer"]) {
+      sessionRole = role;
+      if (role === "sales") sessionDelayMs = 750;
+      managementRequests.length = 0;
+      await page.goto(`${baseUrl}/admin-mobile-management`, { waitUntil: "domcontentloaded" });
+      if (role === "sales") {
+        await page.getByRole("heading", { name: "در حال بررسی نشست مدیریت" }).waitFor({ state: "visible" });
+        assert.equal(await page.getByRole("heading", { name: "مرکز مدیریت تلفن همراه" }).count(), 0, "fleet UI must remain hidden while the session role is unresolved");
+        assert.deepEqual(managementRequests, [], "no protected mobile data may be requested before the role is resolved");
+      }
+      await page.getByRole("heading", { name: "دسترسی به مدیریت تلفن همراه مجاز نیست" }).waitFor({ state: "visible" });
+      assert.equal(await page.getByRole("heading", { name: "مرکز مدیریت تلفن همراه" }).count(), 0, `${role} must not see fleet UI`);
+      await mountMobileEmployeeComponent(page);
+      await page.getByRole("heading", { name: "دسترسی به مدیریت تلفن همراه مجاز نیست" }).nth(1).waitFor({ state: "visible" });
+      assert.equal(await page.getByRole("heading", { name: "کارمند نمونه", exact: true }).count(), 0, `${role} must not see employee detail UI`);
+      assert.deepEqual(managementRequests, [], `${role} must not trigger protected mobile-management requests on either page`);
+    }
+
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.addScriptTag({
       type: "module",
@@ -268,7 +351,7 @@ try {
     await browser.close();
   }
 
-  console.log("[admin-overlay-focus-browser] PASS: shared drawer/palette, enrollment/revoke dialogs and property preview pass keyboard focus checks; all three dialogs fit 320/375/430/768/1024/1366/1920px and no device mutation was sent.");
+  console.log("[admin-overlay-focus-browser] PASS: overlay focus and responsive checks passed; owner/manager can load Mobile Management; sales/content/staff/viewer are gated on both pages with zero protected data requests.");
 } catch (error) {
   console.error("[admin-overlay-focus-browser] FAIL");
   console.error(error instanceof Error ? error.stack ?? error.message : String(error));
