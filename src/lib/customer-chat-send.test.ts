@@ -62,6 +62,30 @@ test("concurrent customer chat sends serialize the cooldown check and insert", a
   }
 });
 
+test("cooldown starts at the actual insert time, not the transaction start", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    const transaction = sql.transaction;
+    if (!transaction) throw new Error("transaction support is unavailable");
+    const delayedSql = {
+      transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) =>
+        transaction.call(sql, async (transactionSql) => callback({
+          query: async <R = Record<string, unknown>>(text: string, params: unknown[] = []) => {
+            if (!transactionSql.query) throw new Error("transaction query is unavailable");
+            const rows = await transactionSql.query<R>(text, params);
+            if (/for\s+update/i.test(text)) await new Promise((resolve) => setTimeout(resolve, 12_500));
+            return rows;
+          },
+        } as Sql)),
+    } as Sql;
+
+    assert.equal((await sendCustomerChatMessage(delayedSql, input)).kind, "sent");
+    assert.equal((await sendCustomerChatMessage(sql, input)).kind, "cooldown");
+  } finally {
+    await pg.close();
+  }
+});
+
 test("a recent message blocks a new customer send", async () => {
   const { pg, sql } = await createFixture();
   try {

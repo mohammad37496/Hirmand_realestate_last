@@ -38,8 +38,8 @@ export async function sendCustomerChatMessage(
     const id = crypto.randomUUID();
     await transactionSql.query(
       `insert into customer_messages
-        (id,lead_id,tracking_token,sender_type,sender_name,message)
-       values($1,$2,$3,'customer',$4,$5)`,
+        (id,lead_id,tracking_token,sender_type,sender_name,message,created_at)
+       values($1,$2,$3,'customer',$4,$5,clock_timestamp())`,
       [id, lead.id, lead.trackingToken, input.senderName, input.message],
     );
     return { kind: "sent", id };
