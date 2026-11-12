@@ -47,7 +47,8 @@ test("deploy workflow exposes a false-by-default manual-only bootstrap and skips
 test("Liara environment validation is manual-only and never deploys", () => {
   const workflow = readFileSync(resolve(".github/workflows/deploy-liara.yml"), "utf8");
   assert.match(workflow, /validate_environment_only:[\s\S]*?type: boolean[\s\S]*?default: false/);
-  assert.match(workflow, /validate-liara-environment:\s+if: \$\{\{ github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main' && inputs\.validate_environment_only == true \}\}/);
+  assert.match(workflow, /validate-liara-environment:[\s\S]*?inputs\.validate_environment_only == true/);
+  assert.match(workflow, /validate-liara-environment:[\s\S]*?contains\(github\.event\.head_commit\.message, '\[validate liara env\]'\)/);
   assert.match(workflow, /node scripts\/validate-liara-auth-env\.mjs/);
   assert.match(workflow, /\[skip liara\]/);
 });

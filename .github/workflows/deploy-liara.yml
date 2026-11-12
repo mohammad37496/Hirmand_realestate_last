@@ -52,7 +52,7 @@ jobs:
         run: node scripts/ensure-liara-better-auth-secret.mjs
 
   validate-liara-environment:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.validate_environment_only == true }}
+    if: ${{ github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.validate_environment_only == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[validate liara env]'))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
