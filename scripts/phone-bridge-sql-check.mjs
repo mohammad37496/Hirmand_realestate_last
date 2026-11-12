@@ -125,6 +125,73 @@ try {
     ],
   );
 
+  // --------------------------------------------------------- rate limiting --
+  // This mirrors the atomic upsert in phone-bridge-rate-limit.server.ts. The
+  // key is intentionally supplied by the caller so the same SQL can enforce
+  // both coarse peer-IP and authenticated-device buckets.
+  const phoneBridgeRateLimitSql = `insert into phone_bridge_rate_limits (key,window_start,hits,blocked_until)
+       values ($1,$2,1,null)
+       on conflict (key) do update set
+         window_start=case
+           when phone_bridge_rate_limits.blocked_until > $3::timestamptz then phone_bridge_rate_limits.window_start
+           when phone_bridge_rate_limits.window_start <> $2::timestamptz then $2
+           else phone_bridge_rate_limits.window_start
+         end,
+         hits=case
+           when phone_bridge_rate_limits.blocked_until > $3::timestamptz then phone_bridge_rate_limits.hits
+           when phone_bridge_rate_limits.window_start <> $2::timestamptz then 1
+           when phone_bridge_rate_limits.hits + 1 > $4 then 0
+           else phone_bridge_rate_limits.hits + 1
+         end,
+         blocked_until=case
+           when phone_bridge_rate_limits.blocked_until > $3::timestamptz then phone_bridge_rate_limits.blocked_until
+           when phone_bridge_rate_limits.window_start <> $2::timestamptz then null
+           when phone_bridge_rate_limits.hits + 1 > $4 then $5::timestamptz
+           else phone_bridge_rate_limits.blocked_until
+         end
+       returning hits,blocked_until`;
+  const rateNowMs = Date.now();
+  const rateWindowMs = 10 * 60 * 1000;
+  const rateWindowStart = new Date(Math.floor(rateNowMs / rateWindowMs) * rateWindowMs);
+  const rateNow = new Date(rateNowMs);
+  const rateBlockedUntil = new Date(rateNowMs + 5 * 60 * 1000);
+  const peerKey = createHash("sha256").update("phone-bridge:ip:sync:198.51.100.10").digest("hex");
+  const peerArgs = [peerKey, rateWindowStart.toISOString(), rateNow.toISOString(), 3, rateBlockedUntil.toISOString()];
+  const peerAttempts = await Promise.all(
+    Array.from({ length: 10 }, () => pg.query(phoneBridgeRateLimitSql, peerArgs)),
+  ).catch((error) => {
+    console.error(`  FAIL rate-limit concurrent upsert: ${error.message}`);
+    failed++;
+    return [];
+  });
+  const peerRows = await sql.query(
+    "select hits,blocked_until from phone_bridge_rate_limits where key=$1",
+    [peerKey],
+  );
+  check(
+    "rate-limit upsert atomically blocks concurrent requests after the configured budget",
+    peerAttempts.length === 10 && peerRows.length === 1 && Number(peerRows[0].hits) === 0 && Boolean(peerRows[0].blocked_until),
+    JSON.stringify(peerRows[0] ?? null),
+  );
+
+  const deviceKey = createHash("sha256").update("phone-bridge:device:sync:device-1").digest("hex");
+  await run("rate-limit: a separate authenticated device receives an independent bucket", phoneBridgeRateLimitSql, [
+    deviceKey,
+    rateWindowStart.toISOString(),
+    rateNow.toISOString(),
+    3,
+    rateBlockedUntil.toISOString(),
+  ]);
+  const deviceRows = await sql.query(
+    "select hits,blocked_until from phone_bridge_rate_limits where key=$1",
+    [deviceKey],
+  );
+  check(
+    "a second device behind the same peer does not inherit the first device's block",
+    deviceRows.length === 1 && Number(deviceRows[0].hits) === 1 && deviceRows[0].blocked_until == null,
+    JSON.stringify(deviceRows[0] ?? null),
+  );
+
   // -------------------------------------------------------------- consent --
   const scopes = { location: true, device_status: true };
   await run(

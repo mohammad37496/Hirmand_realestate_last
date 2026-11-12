@@ -3,7 +3,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -19,6 +19,8 @@ function finite(value: unknown) {
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
+  const rateLimitConfig = { windowMs: 24 * 60 * 60 * 1000, maxHits: 5000, blockMs: 10 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "location", rateLimitConfig);
   if (dbSource === "unconfigured") {
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای دریافت موقعیت آماده نیست." });
   }
@@ -39,13 +41,8 @@ export default defineEventHandler(async (event) => {
   const deviceId = stringValue(payload.deviceId, 120);
   if (!deviceId) throw createError({ statusCode: 400, statusMessage: "شناسه دستگاه ارسال نشده است." });
 
-  await enforcePhoneBridgeRateLimit(event, "location", deviceId, {
-    windowMs: 24 * 60 * 60 * 1000,
-    maxHits: 5000,
-    blockMs: 10 * 60 * 1000,
-  });
-
   const auth = await authenticateDevice(event, deviceId);
+  await enforcePhoneBridgeRateLimit(event, "location", phoneBridgeRateLimitSubject(auth), rateLimitConfig);
   if (auth.mode === "device") await requirePhoneBridgeSignedRequest(event, deviceId, body);
 
   const sql = await getSql();
