@@ -252,7 +252,7 @@ export function PropertyViewingRequest({ property }: PropertyViewingRequestProps
       }
       if (payload?.trackingToken) setTrackingToken(payload.trackingToken);
       setDone(true);
-      trackAnalyticsEvent("visit_request", property.slug);
+      if (!payload?.duplicate) trackAnalyticsEvent("visit_request", property.slug);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "ثبت درخواست بازدید انجام نشد.");
     } finally {
