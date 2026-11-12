@@ -34,10 +34,10 @@
 /* A compact, studio-style desktop dock with a clear track / transport / action hierarchy. */
 @media (min-width: 721px) and (pointer: fine) {
   .music-player {
-    width: min(344px, calc(100vw - 28px)) !important;
-    max-width: 344px !important;
+    width: min(360px, calc(100vw - 28px)) !important;
+    max-width: 360px !important;
     min-height: 60px !important;
-    padding: 7px 9px 12px !important;
+    padding: 7px 8px 12px !important;
     border: 1px solid rgb(226 196 140 / 24%) !important;
     border-radius: 16px !important;
     box-shadow: 0 16px 42px rgb(5 14 25 / 30%), 0 3px 10px rgb(5 14 25 / 18%) !important;
@@ -46,10 +46,10 @@
 
   .music-player .music-player-main {
     display: grid !important;
-    grid-template-columns: 34px minmax(76px, 1fr) auto auto !important;
+    grid-template-columns: 36px minmax(76px, 1fr) auto auto !important;
     align-items: center !important;
     min-height: 40px !important;
-    gap: 7px !important;
+    gap: 2px !important;
     padding: 0 !important;
   }
 
@@ -74,10 +74,10 @@
   }
 
   .music-player .music-cover {
-    width: 34px !important;
-    min-width: 34px !important;
-    height: 34px !important;
-    min-height: 34px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
     border: 1px solid rgb(226 196 140 / 38%) !important;
     border-radius: 10px !important;
     box-shadow: 0 4px 12px rgb(0 0 0 / 22%) !important;
@@ -93,10 +93,10 @@
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 28px !important;
-    min-width: 28px !important;
-    height: 28px !important;
-    min-height: 28px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
     padding: 0 !important;
     border: 1px solid rgb(255 255 255 / 9%) !important;
     border-radius: 9px !important;
@@ -113,10 +113,10 @@
   }
 
   .music-player .music-transport .music-play {
-    width: 34px !important;
-    min-width: 34px !important;
-    height: 34px !important;
-    min-height: 34px !important;
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    min-height: 36px !important;
     border: 0 !important;
     border-radius: 50% !important;
     color: #10243a !important;
@@ -131,7 +131,7 @@
   }
 
   .music-player .music-compact-actions {
-    gap: 2px !important;
+    gap: 1px !important;
     margin: 0 !important;
   }
 
@@ -176,7 +176,7 @@
   }
 
   .music-player .music-secondary-controls > button {
-    min-height: 32px !important;
+    min-height: 36px !important;
     border-radius: 9px !important;
   }
 
