@@ -44,6 +44,7 @@
     "test:public-watermark-nitro": "node scripts/public-watermark-nitro-smoke.mjs",
     "test:public-search-browser": "node scripts/public-search-browser-harness.test.mjs",
     "test:admin-overlay-focus-browser": "node scripts/admin-overlay-focus-browser-harness.test.mjs",
+    "test:admin-confirm-dialog-focus-browser": "node scripts/admin-confirm-dialog-focus-browser.test.mjs",
     "lint": "eslint .",
     "qa:admin": "sh ./scripts/admin-qa-run.sh",
     "qa:admin-a11y": "sh ./scripts/admin-audit-run.sh",

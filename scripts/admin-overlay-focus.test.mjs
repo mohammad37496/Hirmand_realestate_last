@@ -9,6 +9,8 @@ const adminUi = fs.readFileSync(new URL("../src/components/hirmand/admin-ui.tsx"
 const mobileManagement = fs.readFileSync(new URL("../src/components/hirmand/admin-mobile-management.tsx", import.meta.url), "utf8");
 const propertyPreview = fs.readFileSync(new URL("../src/components/hirmand/admin-property-preview.tsx", import.meta.url), "utf8");
 const browserAudit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
+const confirmBrowserTest = fs.readFileSync(new URL("./admin-confirm-dialog-focus-browser.test.mjs", import.meta.url), "utf8");
+const confirmFixture = fs.readFileSync(new URL("./admin-confirm-dialog-focus-fixture.tsx", import.meta.url), "utf8");
 const packageJson = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
 test("shared overlay hook traps forward and reverse Tab at modal boundaries", () => {
@@ -26,7 +28,8 @@ test("shared overlay hook retains Escape dismissal, scroll lock and opener resto
   assert.match(utils, /event\.key === "Escape"[\s\S]*?onClose\(\)/);
   assert.match(utils, /body\.style\.overflow = "hidden"/);
   assert.match(utils, /body\.style\.overflow = previousOverflow/);
-  assert.match(utils, /restoreFocusRef\.current\?\.focus\?\.\(\)/);
+  assert.match(utils, /activeElementRef\.current\?\.focus\?\.\(\)/);
+  assert.match(utils, /focusTarget\?\.focus\?\.\(\)/);
 });
 
 test("mobile admin drawer focuses its close button and contains focus within its dialog", () => {
@@ -40,11 +43,22 @@ test("mobile admin drawer focuses its close button and contains focus within its
 
 test("confirmation dialogs use the shared focus trap and scroll lock", () => {
   assert.match(utils, /const dialogRef = useRef<HTMLDivElement>\(null\)/);
-  assert.match(utils, /useOverlayDismiss\(\{ open: Boolean\(request\), onClose: closeRequest, containerRef: dialogRef \}\)/);
+  assert.match(utils, /const openerRef = useRef<HTMLElement \| null>\(null\)/);
+  assert.match(utils, /if \(!dialogRef\.current\)\s*\{[\s\S]*?openerRef\.current = document\.activeElement instanceof HTMLElement \? document\.activeElement : null/);
+  assert.match(utils, /restoreFocusRef\?: React\.RefObject<HTMLElement \| null>/);
+  assert.match(utils, /restoreFocusRef: openerRef,[\s\S]*?containerRef: dialogRef/);
   assert.match(utils, /<AdminConfirmDialog request=\{request\} onSettle=\{settle\} dialogRef=\{dialogRef\} \/>/);
   assert.match(adminUi, /dialogRef:\s*React\.RefObject<HTMLDivElement \| null>/);
   assert.match(adminUi, /ref=\{dialogRef\}/);
   assert.doesNotMatch(adminUi, /document\.addEventListener\("keydown", onKeyDown\)/);
+});
+
+test("confirmation dialog browser regression covers cancel, confirm and Escape opener restoration", () => {
+  assert.equal(packageJson.scripts["test:admin-confirm-dialog-focus-browser"], "node scripts/admin-confirm-dialog-focus-browser.test.mjs");
+  assert.match(confirmBrowserTest, /for \(const flow of \["cancel", "confirm", "escape"\]\)/);
+  assert.match(confirmBrowserTest, /\$\{flow\} close should restore focus to the exact opener/);
+  assert.match(confirmBrowserTest, /initially focus the confirm action/);
+  assert.match(confirmFixture, /useConfirmDialog\(\)/);
 });
 
 test("command palette uses shared modal focus handling and restores the invoking element", () => {
