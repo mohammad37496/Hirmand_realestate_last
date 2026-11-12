@@ -15,9 +15,11 @@ test("empty music player is hidden by a stylesheet loaded after responsive overr
   assert.equal([...responsiveCss.matchAll(/\.music-player(?:\.music-player-empty)?/g)].at(-1)?.[0], ".music-player.music-player-empty", "the empty-player override must be the final player selector");
 });
 
-test("desktop music player uses one compact fixed lower-left size", () => {
-  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)[\s\S]*?\.music-player\s*\{[^}]*left:\s*14px\s*!important;[^}]*bottom:\s*14px\s*!important;[^}]*width:\s*min\(450px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*450px\s*!important;/);
-  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)\s*and\s*\(pointer:\s*fine\)[\s\S]*?\.music-player\s*\{[^}]*width:\s*min\(360px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*360px\s*!important;[^}]*min-height:\s*46px\s*!important;/);
+test("desktop music player uses a compact premium dock with a narrower fine-pointer layout", () => {
+  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)[\s\S]*?\.music-player\s*\{[^}]*left:\s*14px\s*!important;[^}]*bottom:\s*14px\s*!important;[^}]*width:\s*min\(420px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*420px\s*!important;/);
+  assert.match(musicLayoutCss, /@media\s*\(min-width:\s*721px\)\s*and\s*\(pointer:\s*fine\)[\s\S]*?\.music-player\s*\{[^}]*width:\s*min\(344px,\s*calc\(100vw - 28px\)\)\s*!important;[^}]*max-width:\s*344px\s*!important;[^}]*min-height:\s*60px\s*!important;/);
+  assert.match(musicLayoutCss, /grid-template-columns:\s*34px minmax\(76px, 1fr\) auto auto/);
+  assert.match(musicLayoutCss, /\.music-player button:focus-visible[\s\S]*?outline:\s*2px solid #f0cc91/);
 });
 
 test("playlist is controlled by one icon-only button", () => {
