@@ -1686,8 +1686,18 @@ body:has(.music-player:not(.music-player-empty)) .floating-call-menu {
    -------------------------------------------------------------------------- */
 .team-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .team-card {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+
+  .team-profile-link {
+    grid-column: 1 / -1;
+  }
 }
 
 .team-card {
