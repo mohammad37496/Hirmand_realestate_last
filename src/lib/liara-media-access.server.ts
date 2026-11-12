@@ -6,6 +6,23 @@ export type MediaAccessSql = {
 
 export type DatabaseMediaVisibility = "customer-submission" | "property-upload" | "public" | "unknown";
 
+/**
+ * Published media has already passed the database visibility check and is public
+ * content. Keep the shared limiter for unpublished/private media capabilities,
+ * where it protects owner tokens and completed-upload receipts.
+ */
+export function shouldRateLimitPrivateMediaRequest(
+  visibility: DatabaseMediaVisibility,
+  hasPrivateMediaPermission: boolean,
+  publishedReference: boolean,
+): boolean {
+  return (
+    !hasPrivateMediaPermission &&
+    !publishedReference &&
+    (visibility === "customer-submission" || visibility === "property-upload")
+  );
+}
+
 /** Known database media producers; unknown namespaces are private by default. */
 export function databaseMediaVisibility(pathname: string): DatabaseMediaVisibility {
   if (pathname.startsWith("properties/customer-submissions/")) return "customer-submission";

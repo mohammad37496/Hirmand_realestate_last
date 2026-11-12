@@ -36,11 +36,14 @@ test("Liara object URLs use the signed same-origin media proxy", () => {
   assert.equal(isLiaraStorageHost(source), true);
   assert.deepEqual(mediaSourceCandidates(source, "/images/type-apartment.jpg"), [
     "/api/media-proxy?url=" + encodeURIComponent(source),
-    source,
   ]);
 });
 
-test("private Liara submission media never receives a direct bucket fallback", () => {
+test("Liara gallery and submission media never bypass server-side access checks", () => {
+  const gallerySource = "https://storage.c2.liara.site/hirmand-realestate/properties/uploads/gallery/photo.webp";
+  assert.deepEqual(mediaSourceCandidates(gallerySource), [
+    "/api/media-proxy?url=" + encodeURIComponent(gallerySource),
+  ]);
   const source = "https://storage.c2.liara.site/hirmand-realestate/properties/customer-submissions/photo.webp";
   assert.deepEqual(mediaSourceCandidates(source), [
     "/api/media-proxy?url=" + encodeURIComponent(source),
