@@ -57,6 +57,11 @@ async function verifyPayload(token: string | undefined): Promise<JWTPayload | nu
   }
 }
 
+export async function getAdminSessionIdFromToken(token: string | undefined): Promise<string | null> {
+  const payload = await verifyPayload(token);
+  return typeof payload?.jti === "string" && payload.jti.trim() ? payload.jti : null;
+}
+
 export async function getAdminSessionClaims(token: string | undefined): Promise<AdminSessionClaims | null> {
   const payload = await verifyPayload(token);
   if (!payload) return null;

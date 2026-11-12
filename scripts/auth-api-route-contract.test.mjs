@@ -16,6 +16,22 @@ test("Better Auth handles both session reads and sign-in/sign-out writes", () =>
   assert.match(source, /POST\s*:\s*async\s*\(\{\s*request\s*\}\)\s*=>\s*auth\.handler\(request\)/);
 });
 
+const adminSessionPath = fileURLToPath(new URL("../server/routes/api/admin/session.post.ts", import.meta.url));
+const adminSessionSource = readFileSync(adminSessionPath, "utf8");
+const logoutBlock = adminSessionSource.split('if (action === "logout") {')[1]?.split("\n  }")[0] ?? "";
+
+test("admin logout verifies the signed token and awaits server-side revocation", () => {
+  assert.match(logoutBlock, /getAdminSessionIdFromToken\(getCookie\(event, ADMIN_SESSION_COOKIE\)\)/);
+  assert.match(logoutBlock, /completeAdminSessionLogout\([\s\S]*?revokeAdminSession/);
+  assert.doesNotMatch(logoutBlock, /\.catch\(\(\)\s*=>\s*\{\s*\}\)/);
+});
+
+test("admin logout preserves the cookie on revoke failure and clears it only after success", () => {
+  assert.ok(logoutBlock.indexOf("if (!logoutCompleted)") < logoutBlock.indexOf("setCookie(event, ADMIN_SESSION_COOKIE"));
+  assert.match(logoutBlock, /if \(!logoutCompleted\)[\s\S]*?statusCode:\s*503/);
+  assert.match(logoutBlock, /return \{ success: true \}/);
+});
+
 const smokePath = fileURLToPath(new URL("./browser-smoke.mjs", import.meta.url));
 const smokeSource = readFileSync(smokePath, "utf8");
 
