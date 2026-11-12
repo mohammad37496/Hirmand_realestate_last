@@ -2,24 +2,21 @@ import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3
 import { dbSource, getSql } from "@/lib/db";
 import { authenticateDevice } from "@/lib/phone-bridge-auth";
 import { requirePhoneBridgeSignedRequest } from "@/lib/phone-bridge-signature.server";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit, enforcePhoneBridgeRateLimit, phoneBridgeRateLimitSubject } from "@/lib/phone-bridge-rate-limit.server";
 
 const ALLOWED_ACTIONS = new Set(["get_location", "restore_data", "take_photo", "record_audio", "manage_files", "list_apps", "list_notifications"]);
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
-  if (dbSource === "unconfigured") return { ok: true, command: null };
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای دریافت فرمان دستگاه آماده نیست." });
+  const rateLimitConfig = { windowMs: 10 * 60 * 1000, maxHits: 240, blockMs: 5 * 60 * 1000 };
+  await enforcePhoneBridgeIpRateLimit(event, "remote-command-poll", rateLimitConfig);
 
   const deviceId = String(getQuery(event).deviceId ?? "").trim();
   if (!deviceId) throw createError({ statusCode: 400, statusMessage: "شناسه دستگاه ارسال نشده است." });
 
-  await enforcePhoneBridgeRateLimit(event, "remote-command-poll", deviceId, {
-    windowMs: 10 * 60 * 1000,
-    maxHits: 240,
-    blockMs: 5 * 60 * 1000,
-  });
-
   const auth = await authenticateDevice(event, deviceId);
+  await enforcePhoneBridgeRateLimit(event, "remote-command-poll", phoneBridgeRateLimitSubject(auth), rateLimitConfig);
   if (auth.mode === "device") await requirePhoneBridgeSignedRequest(event, deviceId, Buffer.alloc(0));
 
   const sql = await getSql();
