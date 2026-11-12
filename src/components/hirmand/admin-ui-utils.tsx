@@ -26,22 +26,28 @@ export function useOverlayDismiss({
   open,
   onClose,
   initialFocusRef,
+  restoreFocusRef,
   containerRef,
 }: {
   open: boolean;
   onClose: () => void;
   /** Element that should receive focus when the overlay opens. */
   initialFocusRef?: React.RefObject<HTMLElement | null>;
+  /** Element that should regain focus when the overlay closes. */
+  restoreFocusRef?: React.RefObject<HTMLElement | null>;
   /** Optional modal root whose tabbable descendants must contain keyboard focus. */
   containerRef?: React.RefObject<HTMLElement | null>;
 }) {
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const activeElementRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
 
-    restoreFocusRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    activeElementRef.current = restoreFocusRef
+      ? restoreFocusRef.current
+      : document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
 
     // Lock the page but keep the scrollbar's width, otherwise locking shifts
     // the whole layout sideways on a desktop window.
@@ -93,7 +99,9 @@ export function useOverlayDismiss({
     document.addEventListener("keydown", onKeyDown);
 
     const focusTarget = initialFocusRef?.current;
-    (focusTarget ?? restoreFocusRef.current)?.focus?.();
+    // Some dialogs (notably AdminConfirmDialog) manage their own initial focus
+    // in a child effect; do not steal focus back to the opener here.
+    focusTarget?.focus?.();
 
     return () => {
       document.removeEventListener("keydown", onKeyDown);
@@ -101,9 +109,9 @@ export function useOverlayDismiss({
       body.style.paddingInlineEnd = previousPadding;
       // Returning focus is what keeps a keyboard user from being dumped at the
       // top of the document when an overlay closes.
-      restoreFocusRef.current?.focus?.();
+      activeElementRef.current?.focus?.();
     };
-  }, [open, onClose, initialFocusRef, containerRef]);
+  }, [open, onClose, initialFocusRef, restoreFocusRef, containerRef]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -163,9 +171,15 @@ export type ConfirmRequest = ConfirmOptions & { resolve: (ok: boolean) => void }
 export function useConfirmDialog() {
   const [request, setRequest] = useState<ConfirmRequest | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   const confirm = useCallback((options: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
+      // Capture the invoking control before React mounts the dialog. Its child
+      // effect focuses the confirm button before this hook's effect runs.
+      if (!dialogRef.current) {
+        openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      }
       setRequest({ ...options, resolve });
     });
   }, []);
@@ -178,7 +192,12 @@ export function useConfirmDialog() {
   }, []);
 
   const closeRequest = useCallback(() => settle(false), [settle]);
-  useOverlayDismiss({ open: Boolean(request), onClose: closeRequest, containerRef: dialogRef });
+  useOverlayDismiss({
+    open: Boolean(request),
+    onClose: closeRequest,
+    restoreFocusRef: openerRef,
+    containerRef: dialogRef,
+  });
 
   const dialog = request ? (
     <AdminConfirmDialog request={request} onSettle={settle} dialogRef={dialogRef} />
