@@ -4,7 +4,9 @@ import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-sessi
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { updateAdminLeadWithActivity } from "@/lib/admin-lead-activity-action";
+import { createOverdueLeadTasks } from "@/lib/admin-overdue-lead-tasks";
 
 type Status = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 type VisitStatus = "none" | "requested" | "confirmed" | "completed" | "cancelled";
@@ -109,7 +111,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "سطح دسترسی CRM برای این حساب فعال نیست." });
   }
 
-  if (dbSource === "unconfigured") return { leads: [], total: 0 };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده CRM برای دریافت یا مدیریت سرنخ‌ها آماده نیست.");
   const sql = await getSql();
 
   if (body.action === "export") {
@@ -139,7 +141,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const rows = await sql.query<Record<string, unknown>>(
-      "select name, phone, people_count, job, deal, property_type, neighborhood, consultant, status, note, source, " +
+      "select name, phone, people_count, job, deal, property_type, neighborhood, coalesce((select c.name from consultants c where c.id=leads.consultant_id), consultant) as consultant, status, note, source, " +
         "acquisition_source, acquisition_medium, acquisition_campaign, acquisition_referrer, follow_up_at, last_contacted_at, " +
         "property_id, visit_preferred_at, visit_requested_at, visit_status, callback_preferred_at, offer_amount, offer_conditions, lease_deadline, budget_deposit, budget_rent, budget_purchase, budget_sale, budget_deposit_min, budget_deposit_max, budget_rent_min, budget_rent_max, budget_purchase_min, budget_purchase_max, budget_sale_min, budget_sale_max, budget_equivalent, budget_bedrooms, floor_preference, requested_bedrooms, requested_amenities, match_count, created_at " +
         "from leads where " + conditions.join(" and ") +
@@ -243,7 +245,7 @@ export default defineEventHandler(async (event) => {
 
     const [rows, countRows] = await Promise.all([
       sql.query<Record<string, unknown>>(
-        "select id,name,phone,people_count,job,deal,property_type,neighborhood,floor_preference,consultant,note,status,source, " +
+        "select id,name,phone,people_count,job,deal,property_type,neighborhood,floor_preference,coalesce((select c.name from consultants c where c.id=leads.consultant_id), consultant) as consultant,note,status,source, " +
           "acquisition_source,acquisition_medium,acquisition_campaign,acquisition_referrer,follow_up_at,last_contacted_at,property_id,visit_preferred_at,visit_requested_at,visit_status,lease_deadline, " +
           "budget_deposit,budget_rent,budget_purchase,budget_sale,budget_deposit_min,budget_deposit_max,budget_rent_min,budget_rent_max,budget_purchase_min,budget_purchase_max,budget_sale_min,budget_sale_max,budget_equivalent,budget_bedrooms,budget_rate,requested_bedrooms,requested_amenities,matched_properties,match_count,callback_preferred_at,offer_amount,offer_conditions,created_at, " + "(case when status in ('closed','spam') then 0 else (case when status='new' then 28 when status='follow_up' then 22 when status='visited' then 18 when status='contract' then 10 else 14 end) + (case when follow_up_at is not null and follow_up_at <= current_timestamp then 28 when follow_up_at is not null and follow_up_at <= current_timestamp + interval '48 hours' then 16 else 0 end) + (case when visit_status='requested' then 22 when visit_status='confirmed' then 12 else 0 end) + (case when offer_amount is not null then 12 else 0 end) + (case when match_count > 0 then 7 else 0 end) + (case when created_at >= current_timestamp - interval '48 hours' then 5 else 0 end) end)" + " as priority_score " +
           `from leads where ${conditions.join(" and ")} order by ${orderBy} ` +
@@ -316,14 +318,10 @@ export default defineEventHandler(async (event) => {
   }
 
   if (body.action === "create_overdue_tasks") {
-    const overdue = await sql.query<Record<string, unknown>>("select id, name, deal, neighborhood from leads where status not in ('closed','spam') and follow_up_at is not null and follow_up_at <= current_timestamp order by follow_up_at asc limit 500");
-    let created = 0;
-    for (const row of overdue) {
-      const exists = await sql.query<{ id: string }>("select id from admin_tasks where entity_type='lead' and entity_id=$1 and status='open' limit 1",[String(row.id)]).catch(()=>[]);
-      if (exists.length) continue;
-      await sql.query("insert into admin_tasks(id,title,description,status,priority,due_at,assignee,entity_type,entity_id) values($1,$2,$3,'open','high',current_timestamp,'تیم هیرمند','lead',$4)",[crypto.randomUUID(),"پیگیری فوری لید: "+String(row.name||"مشتری"),"لید "+String(row.deal||"درخواست ملکی")+(row.neighborhood?" · "+String(row.neighborhood):"")+" از موعد پیگیری عبور کرده است.",String(row.id)]);
-      created++;
+    if (typeof sql.transaction !== "function") {
+      throw createError({ statusCode: 503, statusMessage: "ساخت وظایف پیگیری به تراکنش پایگاه داده نیاز دارد." });
     }
+    const created = await createOverdueLeadTasks(sql);
     return { success:true, created };
   }
 

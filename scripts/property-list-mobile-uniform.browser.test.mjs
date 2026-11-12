@@ -84,7 +84,7 @@ try {
           grid.appendChild(source);
         }
 
-        const variants = ["baseline", "long-title", "missing-image", "no-price-or-specs", "two-price-lines-many-specs", "long-metadata"];
+        const variants = ["baseline", "long-title", "missing-image", "no-price-or-specs", "two-price-lines-many-specs", "long-metadata", "long-code", "featured-unavailable"];
         for (const variant of variants.slice(1)) {
           const clone = source.cloneNode(true);
           clone.dataset.uniformRegressionVariant = variant;
@@ -94,6 +94,8 @@ try {
           const location = clone.querySelector(".pcard-location");
           const imageLink = clone.querySelector(".pcard-media > .pcard-image-link");
           const meta = clone.querySelector(".pcard-meta");
+          const code = clone.querySelector(".pcard-code");
+          const badges = clone.querySelector(".pcard-badges");
 
           if (variant === "long-title" && title) title.textContent = "آپارتمان بسیار خوش‌نقشه و نورگیر با تراس بزرگ و دسترسی عالی به مراکز خرید و حمل‌ونقل عمومی در محله‌ای آرام و خوش‌دسترسی با امکانات کامل و بازسازی بسیار باکیفیت";
           if (variant === "missing-image" && imageLink) imageLink.innerHTML = '<span class="property-image-fallback" role="img" aria-label="تصویر فایل موجود نیست">بدون تصویر</span>';
@@ -109,10 +111,20 @@ try {
             if (meta) meta.innerHTML = "<span>معاوضه و مشارکت ویژه</span><span>ملک تجاری بزرگ‌مقیاس</span>";
             if (location) location.textContent = "محله بسیار طولانی و پرتراکم با دسترسی عالی به چندین مسیر اصلی شهر";
           }
+          if (variant === "long-code" && code) code.textContent = "کد ۱۲۳۴۵۶۷۸۹۰۱۲۳۴۵۶";
+          if (variant === "featured-unavailable" && badges) {
+            badges.innerHTML = '<span class="pcard-badge pcard-badge-featured">ویژه</span><span class="pcard-badge">ناموجود</span>';
+          }
           clone.dataset.uniformRegressionVariant = variant;
           grid.appendChild(clone);
         }
         source.dataset.uniformRegressionVariant = "baseline";
+        const variantCards = [...grid.querySelectorAll(":scope > .pcard.pcard-mobile-list")];
+        for (let index = variantCards.length; index < 24; index += 1) {
+          const clone = variantCards[index % variantCards.length].cloneNode(true);
+          clone.dataset.uniformRegressionVariant = "repeat-" + (index % variants.length);
+          grid.appendChild(clone);
+        }
         return { usedSyntheticSource, sourceCount: grid.querySelectorAll(":scope > .pcard.pcard-mobile-list").length };
       });
 
@@ -125,6 +137,7 @@ try {
         const imageVisual = imageLink?.querySelector("img, .property-image-fallback");
         const body = card.querySelector(".pcard-body");
         const bodyRect = body?.getBoundingClientRect();
+        const toplineRect = card.querySelector(".pcard-topline")?.getBoundingClientRect();
         const title = card.querySelector(".pcard-title");
         const titleRect = title?.getBoundingClientRect();
         const titleStyle = title ? getComputedStyle(title) : null;
@@ -142,11 +155,12 @@ try {
           card: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
           image: imageRect ? { x: imageRect.x, y: imageRect.y, width: imageRect.width, height: imageRect.height } : null,
           body: bodyRect ? { x: bodyRect.x, y: bodyRect.y, width: bodyRect.width, height: bodyRect.height } : null,
-          title: titleRect ? { width: titleRect.width, height: titleRect.height, lineClamp: titleStyle?.webkitLineClamp, lineHeight: titleStyle?.lineHeight } : null,
-          specs: specsRect ? { width: specsRect.width, height: specsRect.height } : null,
-          price: priceRect ? { width: priceRect.width, height: priceRect.height } : null,
+          topline: toplineRect ? { x: toplineRect.x, y: toplineRect.y, width: toplineRect.width, height: toplineRect.height } : null,
+          title: titleRect ? { x: titleRect.x, y: titleRect.y, width: titleRect.width, height: titleRect.height, lineClamp: titleStyle?.webkitLineClamp, lineHeight: titleStyle?.lineHeight } : null,
+          specs: specsRect ? { x: specsRect.x, y: specsRect.y, width: specsRect.width, height: specsRect.height } : null,
+          price: priceRect ? { x: priceRect.x, y: priceRect.y, width: priceRect.width, height: priceRect.height } : null,
           priceLabelCount,
-          footer: footerRect ? { width: footerRect.width, height: footerRect.height } : null,
+          footer: footerRect ? { x: footerRect.x, y: footerRect.y, width: footerRect.width, height: footerRect.height } : null,
           hasImageVisual: Boolean(imageVisual),
           imageLinkAccessible: imageLink?.tagName === "A" && Boolean(imageLink.getAttribute("aria-label")),
           bodyLinkAccessible: bodyLink?.tagName === "A" && Boolean(bodyLink.getAttribute("aria-label")),
@@ -155,7 +169,7 @@ try {
         };
       }));
 
-      if (metrics.length < 6) failures.push(`${viewport.width}px: expected at least six DOM cards, received ${metrics.length}`);
+      if (metrics.length < 24) failures.push(`${viewport.width}px: expected at least 24 DOM cards, received ${metrics.length}`);
       const baseline = metrics[0];
       const expectedImageWidth = Math.min(112, Math.max(92, viewport.width * 0.28));
       const invalid = metrics.filter((item) =>
@@ -165,6 +179,17 @@ try {
         Math.abs(item.image?.height - 132) > 0.5 ||
         Math.abs(item.body?.height - 132) > 0.5 ||
         Math.abs(item.body?.width - (item.card.width - expectedImageWidth - 2)) > 1.5 ||
+        Math.abs(item.body?.x - (item.card.x + 1)) > 1.5 ||
+        Math.abs(item.image?.x - (item.card.x + item.card.width - expectedImageWidth - 1)) > 1.5 ||
+        [item.topline, item.title, item.price, item.specs, item.footer].some((row) =>
+          !row ||
+          Math.abs(row.x - (item.body.x + 7)) > 1.5 ||
+          Math.abs(row.width - (item.body.width - 14)) > 1.5
+        ) ||
+        ["topline", "price", "specs", "footer"].some((key) =>
+          Math.abs(item[key]?.y - item.body.y - (baseline[key]?.y - baseline.body.y)) > 1
+        ) ||
+        Math.abs((item.title?.y + item.title?.height / 2) - item.body.y - ((baseline.title?.y + baseline.title?.height / 2) - baseline.body.y)) > 1 ||
         Math.abs(item.specs?.height - 18) > 0.5 ||
         Math.abs(item.price?.height - 22) > 0.5 ||
         Math.abs(item.footer?.height - 16) > 0.5 ||
@@ -183,7 +208,30 @@ try {
       const footer = page.locator(".quick-actions").first();
       let footerGeometry = null;
       if (await footer.count()) {
+        // This is a final-position geometry assertion. Do not sample a smooth
+        // scroll animation that may still be in flight on a loaded CI runner.
+        await page.evaluate(() => {
+          document.documentElement.style.scrollBehavior = "auto";
+          document.body.style.scrollBehavior = "auto";
+        });
         await cards.last().evaluate((card) => card.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
+        await page.evaluate(() => {
+          const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+          const footerElement = document.querySelector(".quick-actions");
+          if (!card || !footerElement) return;
+          const cardRect = card.getBoundingClientRect();
+          const footerRect = footerElement.getBoundingClientRect();
+          const clearance = footerRect.top - cardRect.bottom;
+          if (clearance < 8) window.scrollBy({ top: 8 - clearance, behavior: "instant" });
+        });
+        await page.waitForFunction(() => {
+          const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+          const footerElement = document.querySelector(".quick-actions");
+          if (!card || !footerElement) return false;
+          const cardRect = card.getBoundingClientRect();
+          const footerRect = footerElement.getBoundingClientRect();
+          return cardRect.bottom <= footerRect.top - 4;
+        }, null, { timeout: 3_000 });
         footerGeometry = await cards.last().evaluate((card) => {
           const footerElement = document.querySelector(".quick-actions");
           const pageRoot = document.querySelector(".pf-page");

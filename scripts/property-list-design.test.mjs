@@ -5,6 +5,7 @@ import test from "node:test";
 const marketplaceCss = fs.readFileSync(new URL("../src/properties-marketplace-polish.css", import.meta.url), "utf8");
 const responsiveHardeningCss = fs.readFileSync(new URL("../src/mobile-responsive-hardening.css", import.meta.url), "utf8");
 const propertyCardCss = fs.readFileSync(new URL("../src/property-card.css", import.meta.url), "utf8");
+const appStyles = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const homePropertyCss = fs.readFileSync(new URL("../src/home-property-layout.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
@@ -100,6 +101,15 @@ test("explicit grid cards use a premium photo, action and information hierarchy"
   assert.match(gridPolish, /@media \(prefers-reduced-motion:\s*reduce\)/);
 });
 
+test("property facts use a refined responsive chip treatment across card views", () => {
+  assert.match(propertyCardCss, /\.pcard-specs\s*\{[^}]*border-top:\s*1px solid #e9edf0;[^}]*background:\s*transparent/);
+  assert.match(propertyCardCss, /\.pcard-specs span svg\s*\{[^}]*background:\s*#f3ead8;[^}]*color:\s*#95691f/);
+  assert.doesNotMatch(appStyles, /\.pcard-specs\s*\{[^}]*background:\s*#F1EAE0\s*!important/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-grid-view > \.pcard \.pcard-specs\s*\{[^}]*border-top:\s*1px solid #e7ecef;[^}]*background:\s*transparent/);
+  assert.match(marketplaceCss, /\.pf-page \.pf-grid\.is-grid-view > \.pcard \.pcard-specs span svg,[\s\S]*?background:\s*#f1e8d7;[\s\S]*?color:\s*#95691f/);
+  assert.match(marketplaceCss, /@media \(max-width:\s*720px\)[\s\S]*?\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-specs span\s*\{[^}]*min-height:\s*18px;[^}]*background:\s*#f7f9fa/);
+});
+
 test("property marketplace opens in a desktop grid and keeps the compact mobile default", () => {
   assert.match(propertiesRoute, /useState<"grid" \| "list" \| "split">\("grid"\)/);
   assert.match(propertiesRoute, /const media = window\.matchMedia\("\(max-width: 720px\)"\)[\s\S]*?setViewMode\(media\.matches \? "list" : "grid"\)/);
@@ -162,6 +172,7 @@ test("mobile list cards keep every property photo in the same compact frame", ()
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media\s*\{[^}]*height:\s*132px;[^}]*max-height:\s*132px/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media > \.pcard-image-link picture,[\s\S]*?height:\s*132px;[^}]*object-fit:\s*cover/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-body\s*\{[^}]*grid-template-rows:\s*16px 2\.45em 22px 18px 16px;[^}]*height:\s*132px/);
+  assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-body\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-title\s*\{[^}]*-webkit-line-clamp:\s*2/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list \.pcard-specs span:nth-child\(n \+ 4\)/);
 });
@@ -176,6 +187,18 @@ test("mobile list cards can scroll fully clear of the fixed bottom action dock",
   assert.match(mobileFooterBrowserTest, /scrollingElement\.scrollBy\(\{\s*top:\s*requestedScroll,\s*behavior:\s*"instant"\s*\}\)/);
   assert.match(mobileFooterBrowserTest, /actualScroll:\s*scrollingElement\.scrollTop\s*-\s*plan\.beforeScrollTop/);
   assert.match(mobileFooterBrowserTest, /bottomGeometry\.cardFooterGap\s*<\s*4/);
+});
+
+test("mobile uniform-card browser checks disable smooth scrolling before measuring final card clearance", () => {
+  for (const file of ["./property-list-mobile-uniform.browser.test.mjs"]) {
+    const source = fs.readFileSync(new URL(file, import.meta.url), "utf8");
+    const scrollCall = source.match(/await\s+(?:\w+\.last\(\)|\w+)\.evaluate\(\(card\)\s*=>\s*card\.scrollIntoView/);
+    assert.ok(scrollCall, `${file} must scroll the final card into view`);
+    const scrollIndex = scrollCall.index ?? -1;
+    const beforeScroll = source.slice(0, scrollIndex);
+    assert.match(beforeScroll, /document\.documentElement\.style\.scrollBehavior\s*=\s*"auto"/);
+    assert.match(beforeScroll, /document\.body\.style\.scrollBehavior\s*=\s*"auto"/);
+  }
 });
 
 test("homepage shared cards retain the compact RTL list and 44px image action overlay on phones", () => {

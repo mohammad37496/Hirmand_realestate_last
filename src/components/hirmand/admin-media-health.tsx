@@ -19,13 +19,17 @@ export function AdminMediaHealth() {
   const [data, setData] = useState<MediaHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function scan() {
     setLoading(true);
     try {
       setData(await getAdminMediaHealth({ data: { staleMinutes: 120 } }));
+      setLoadError(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "بررسی رسانه‌ها انجام نشد.");
+      const message = error instanceof Error ? error.message : "بررسی رسانه‌ها انجام نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -61,11 +65,21 @@ export function AdminMediaHealth() {
           <button className="btn-ghost" type="button" onClick={() => void scan()} disabled={loading || cleaning}>
             <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> بررسی
           </button>
-          <button className="btn-ghost danger" type="button" onClick={() => void cleanup()} disabled={cleaning || loading}>
+          <button className="btn-ghost danger" type="button" onClick={() => void cleanup()} disabled={cleaning || loading || !data}>
             <Trash2 size={15} /> پاک‌سازی
           </button>
         </div>
       </section>
+
+      {loadError ? (
+        <section className="admin-panel" role="alert">
+          <strong>{data ? "به‌روزرسانی سلامت رسانه‌ها ناموفق بود." : "اطلاعات سلامت رسانه‌ها دریافت نشد."}</strong>
+          <p>{loadError}</p>
+          <button className="btn-ghost" type="button" onClick={() => void scan()} disabled={loading || cleaning}>
+            <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> تلاش دوباره
+          </button>
+        </section>
+      ) : null}
 
       {data ? (
         <>
@@ -89,8 +103,10 @@ export function AdminMediaHealth() {
             <small className="admin-health-timestamp">آخرین اسکن: {new Date(data.scannedAt).toLocaleString("fa-IR")}</small>
           </section>
         </>
-      ) : (
-        <div className="admin-empty">{loading ? "در حال اسکن رسانه‌ها…" : "داده‌ای برای نمایش نیست."}</div>
+      ) : loading ? (
+        <div className="admin-empty" role="status">در حال اسکن رسانه‌ها…</div>
+      ) : loadError ? null : (
+        <div className="admin-empty">هنوز اسکن معتبری انجام نشده است.</div>
       )}
     </main>
   );

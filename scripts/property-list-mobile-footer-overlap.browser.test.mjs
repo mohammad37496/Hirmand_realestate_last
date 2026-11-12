@@ -128,6 +128,10 @@ try {
       // Scroll only the distance needed to clear the dock: scrolling to the
       // document bottom would trip the page's 420px infinite-load sentinel.
       const lastCard = cards.last();
+      await page.evaluate(() => {
+        document.documentElement.style.scrollBehavior = "auto";
+        document.body.style.scrollBehavior = "auto";
+      });
       const scrollPlan = await page.evaluate(() => {
         const card = document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").item(
           document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").length - 1,
@@ -141,7 +145,14 @@ try {
         scrollingElement.scrollBy({ top: requestedScroll, behavior: "instant" });
         return { requestedScroll, beforeScrollTop };
       });
-      await page.waitForTimeout(80);
+      await page.waitForFunction(() => {
+        const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+        const footerElement = document.querySelector(".quick-actions");
+        if (!card || !footerElement) return false;
+        const cardRect = card.getBoundingClientRect();
+        const footerRect = footerElement.getBoundingClientRect();
+        return cardRect.bottom <= footerRect.top - 4;
+      }, null, { timeout: 3_000 });
       const bottomGeometry = await lastCard.evaluate((card, plan) => {
         const footerElement = document.querySelector(".quick-actions");
         const mediaElement = card.querySelector(".pcard-media > .pcard-image-link");
@@ -174,6 +185,9 @@ try {
           requestedScroll: plan.requestedScroll,
           actualScroll: scrollingElement.scrollTop - plan.beforeScrollTop,
           pagePaddingBottom: pageElement ? getComputedStyle(pageElement).paddingBottom : null,
+          scrollY: window.scrollY,
+          viewportHeight: window.innerHeight,
+          scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
         };
       }, scrollPlan);
       if (bottomGeometry.cardOverlapsFooter || bottomGeometry.imageOverlapsFooter || bottomGeometry.bodyOverlapsFooter || bottomGeometry.cardFooterGap < 4) {

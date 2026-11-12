@@ -4,6 +4,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 
 const schema = z.object({
   action: z.enum(["get", "update"]),
@@ -53,7 +54,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, statusMessage: parsedBody.error.issues[0]?.message || "تنظیمات واترمارک معتبر نیست." });
   }
   const body = parsedBody.data;
-  if (dbSource === "unconfigured") return { success: true, settings: DEFAULTS };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده برای دریافت یا ذخیره تنظیمات واترمارک آماده نیست.");
 
   const sql = await getSql();
   if (body.action === "get") {

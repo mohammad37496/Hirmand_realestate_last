@@ -18,9 +18,11 @@ export function AdminLeadMessageTemplates({ leads }: { leads: Lead[] }) {
   const [draft, setDraft] = useState<Template>(blank);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-message-templates", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "list" }) });
       const data = (await response.json()) as { templates?: Template[]; statusMessage?: string };
@@ -30,7 +32,9 @@ export function AdminLeadMessageTemplates({ leads }: { leads: Lead[] }) {
       const keep = items.find((item) => item.id === selectedId) ?? items.find((item) => item.active) ?? items[0];
       if (keep) { setSelectedId(keep.id); setDraft(keep); }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "قالب‌های پیام بارگذاری نشدند.");
+      const message = error instanceof Error ? error.message : "قالب‌های پیام بارگذاری نشدند.";
+      setLoadError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   }, [selectedId]);
   useEffect(() => { void load(); }, [load]);
@@ -86,7 +90,7 @@ export function AdminLeadMessageTemplates({ leads }: { leads: Lead[] }) {
       </div>
       <div className="admin-message-manager-grid">
         <div className="admin-message-template-list">
-          {loading ? <div className="admin-empty">در حال دریافت قالب‌ها…</div> : templates.map((item) => (
+          {loadError ? <div className="admin-empty" role="alert">{loadError}<button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>تلاش مجدد</button></div> : loading ? <div className="admin-empty">در حال دریافت قالب‌ها…</div> : templates.map((item) => (
             <button key={item.id} type="button" className={"admin-message-template-item" + (item.id === selectedId ? " is-active" : "")} onClick={() => selectTemplate(item.id)}>
               <span>{item.title}</span><small>{item.active ? "فعال" : "غیرفعال"} · {item.channel === "whatsapp" ? "واتساپ" : item.channel === "sms" ? "پیامک" : "داخلی"}</small>
             </button>
@@ -101,8 +105,8 @@ export function AdminLeadMessageTemplates({ leads }: { leads: Lead[] }) {
           <label className="field"><span>متن پیام</span><textarea rows={6} value={draft.body} onChange={(e) => setDraft((v) => ({ ...v, body: e.target.value }))} /></label>
           <small className="admin-message-help">متغیرها: <code>{"{{نام}}"}</code> <code>{"{{محله}}"}</code> <code>{"{{معامله}}"}</code> <code>{"{{خواب}}"}</code> <code>{"{{مشاور}}"}</code></small>
           <div className="admin-message-editor-actions">
-            <button type="button" className="btn-gold" onClick={() => void save()} disabled={saving}><Save size={15} />{saving ? "در حال ذخیره…" : "ذخیره قالب"}</button>
-            {draft.id && !["first","visit","match","reminder","follow"].includes(draft.id) ? <button type="button" className="btn-ghost" onClick={() => void remove()}><Trash2 size={15} /> حذف</button> : null}
+            <button type="button" className="btn-gold" onClick={() => void save()} disabled={saving || loading || Boolean(loadError)}><Save size={15} />{saving ? "در حال ذخیره…" : "ذخیره قالب"}</button>
+            {draft.id && !["first","visit","match","reminder","follow"].includes(draft.id) ? <button type="button" className="btn-ghost" onClick={() => void remove()} disabled={loading || Boolean(loadError)}><Trash2 size={15} /> حذف</button> : null}
             <button type="button" className="btn-ghost" onClick={() => setDraft(templates.find((x) => x.id === selectedId) ?? blank)}><X size={15} /> بازنشانی</button>
           </div>
         </div>

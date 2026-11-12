@@ -488,6 +488,33 @@ try {
         if (!state.neighborhoods.includes("جلفا") || !state.neighborhoods.includes("مرداویج") || state.staleMapState) {
           throw new Error("multi-neighborhood selection was not serialized canonically or retained stale map bounds");
         }
+
+        // Mounting the map after a multi-neighborhood search must not turn its
+        // default viewport into an additional SQL bbox filter. Only an explicit
+        // user pan/zoom should add map bounds back to the search.
+        const mapView = neighborhoodPage.locator('button[aria-label="نمایش فایل‌ها روی نقشه"]');
+        await mapView.click();
+        await neighborhoodPage.locator(".pf-map-canvas").waitFor({ state: "visible", timeout: timeoutMs });
+        await neighborhoodPage.waitForTimeout(200);
+        const mapBoundsAfterMount = await neighborhoodPage.evaluate(() => {
+          const params = new URLSearchParams(window.location.search);
+          return {
+            mapMounted: Boolean(document.querySelector(".pf-map-canvas")),
+            neighborhoods: params.getAll("neighborhoods"),
+            bbox: params.get("bbox"),
+            mapBbox: params.get("map_bbox"),
+          };
+        });
+        if (!mapBoundsAfterMount.mapMounted || mapBoundsAfterMount.neighborhoods.length !== 2 || mapBoundsAfterMount.bbox || mapBoundsAfterMount.mapBbox) {
+          throw new Error(`mounting the map narrowed a multi-neighborhood search with its default viewport: ${JSON.stringify(mapBoundsAfterMount)}`);
+        }
+        await neighborhoodPage.locator('button[aria-label="بزرگ‌نمایی نقشه"]').click();
+        await neighborhoodPage.waitForFunction(() => {
+          const params = new URLSearchParams(window.location.search);
+          return params.getAll("neighborhoods").length === 2 && params.has("bbox") && params.has("map_bbox");
+        }, null, { timeout: timeoutMs });
+        await neighborhoodPage.locator('button[aria-label="نمایش شبکه‌ای فایل‌ها"]').click();
+        await neighborhoodPage.locator(".pf-map-canvas").waitFor({ state: "detached", timeout: timeoutMs });
       } else {
         await dialog.getByRole("button", { name: "بستن انتخاب محله" }).click();
         if (width <= 979) await neighborhoodPage.locator(".pf-close").click();

@@ -2108,6 +2108,7 @@ svg {
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list .pcard-body {
     display: grid;
     flex: 1 1 auto;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 16px 2.45em 22px 18px 16px;
     align-content: start;
     align-items: center;
