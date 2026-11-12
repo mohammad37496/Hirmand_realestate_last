@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { test } from "node:test";
 
 // Force the deterministic single-process store for these concurrency tests.
 process.env.UPSTASH_REDIS_REST_URL = "";
 process.env.UPSTASH_REDIS_REST_TOKEN = "";
-const { clearAdminAttempts, consumeAdminAttempt, resolveClientIp } = await import("./admin-rate-limit.server.ts");
+const { clearAdminAttempts, clientFingerprint, consumeAdminAttempt, resolveClientIp } = await import("./admin-rate-limit.server.ts");
 
 test("concurrent attempts cannot race past the in-memory rate limit", async () => {
   const key = "concurrent-test:" + crypto.randomUUID();
@@ -23,10 +24,16 @@ test("clearing a rate-limit bucket allows a new attempt", async () => {
   assert.equal((await consumeAdminAttempt(key, 3)).allowed, true);
 });
 
-test("rate-limit identity prefers the rightmost reverse-proxy IP", () => {
-  assert.equal(resolveClientIp("198.51.100.99, 203.0.113.7", "10.0.0.4"), "203.0.113.7");
-  assert.equal(resolveClientIp(undefined, "10.0.0.4"), "10.0.0.4");
-  assert.equal(resolveClientIp(undefined, undefined), "unknown");
+test("rate-limit identity uses the server-observed peer and never caller-supplied forwarding headers", () => {
+  assert.equal(resolveClientIp("10.0.0.4"), "10.0.0.4");
+  assert.equal(resolveClientIp(undefined), "unknown");
+  const event = {
+    req: {
+      headers: new Headers({ "x-forwarded-for": "198.51.100.99, 203.0.113.7" }),
+      context: { clientAddress: "10.0.0.4" },
+    },
+  } as unknown as import("h3").H3Event;
+  assert.equal(clientFingerprint(event), createHash("sha256").update("10.0.0.4").digest("hex"));
 });
 
 test("a configured Redis outage fails closed instead of falling back to per-instance memory", async () => {

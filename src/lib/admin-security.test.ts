@@ -413,21 +413,20 @@ test("throttles are tracked per key, not globally", async () => {
   assert.equal((await consumeAdminAttempt(quiet)).allowed, true);
 });
 
-test("rate-limit identity cannot be bypassed by rotating the caller's User-Agent", async () => {
-  const request = (userAgent: string, ip = "203.0.113.10") => ({
-    req: new Request("https://hirmandrealestate.ir/api/admin/session", {
-      headers: { "x-forwarded-for": ip, "user-agent": userAgent },
-    }),
-    node: { req: { socket: { remoteAddress: "127.0.0.1" } } },
+test("rate-limit identity uses the adapter peer address, not caller-controlled headers", async () => {
+  const request = (userAgent: string, ip = "203.0.113.10", forwardedIp = "198.51.100.99") => ({
+    req: Object.assign(new Request("https://hirmandrealestate.ir/api/admin/session", {
+      headers: { "x-forwarded-for": forwardedIp, "user-agent": userAgent },
+    }), { context: { clientAddress: ip } }),
   }) as unknown as import("h3").H3Event;
 
   const firstKey = `user-agent-rotation:${clientFingerprint(request("Browser A"))}`;
-  const rotatedKey = `user-agent-rotation:${clientFingerprint(request("curl/9.0"))}`;
-  assert.equal(firstKey, rotatedKey, "same source IP must retain one bucket across User-Agent changes");
+  const rotatedKey = `user-agent-rotation:${clientFingerprint(request("curl/9.0", "203.0.113.10", "192.0.2.44"))}`;
+  assert.equal(firstKey, rotatedKey, "same server-observed peer must retain one bucket across caller header changes");
   assert.notEqual(
-    clientFingerprint(request("Browser A", "203.0.113.11")),
-    clientFingerprint(request("Browser A", "203.0.113.10")),
-    "different source IPs retain separate buckets",
+    clientFingerprint(request("Browser A", "203.0.113.11", "198.51.100.99")),
+    clientFingerprint(request("Browser A", "203.0.113.10", "198.51.100.99")),
+    "different server-observed peers retain separate buckets",
   );
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
