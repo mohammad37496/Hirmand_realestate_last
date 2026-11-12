@@ -17,6 +17,7 @@ import { normalizeMoneyText } from "@/lib/property-input-normalization";
 import { rememberCustomerTrackingCode } from "@/lib/customer-tracking";
 import { isVideoUrl, mediaPreviewSource, withMediaUploadCapability } from "@/lib/media";
 import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
+import { appendCustomerPropertyMedia, MAX_MEDIA, uploadCustomerPropertyFiles } from "@/lib/customer-property-upload";
 import "@/owner-property.css";
 
 function digits(value: string) {
@@ -54,7 +55,6 @@ const CUSTOMER_PROPERTY_TYPES = [
   { id: "commercial", title: "تجاری", text: "" },
 ] as const;
 
-const MAX_MEDIA = 12;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ALLOWED_TYPES = new Set([
   "image/jpeg", "image/png", "image/webp", "image/gif", "image/avif",
@@ -262,23 +262,24 @@ function SubmitPropertyPage() {
 
     setUploading(true);
     setProgress(0);
-    const uploaded: string[] = [];
     try {
-      for (let index = 0; index < list.length; index += 1) {
-        const file = list[index]!;
-        setUploadLabel("فایل " + (index + 1).toLocaleString("fa-IR") + " از " + list.length.toLocaleString("fa-IR") + ": " + file.name);
-        const result = await uploadInChunks({
-          endpoint: "/api/customer-property-upload",
-          file,
-          contentType: file.type,
-          rejectedMessage: "آپلود فایل پذیرفته نشد.",
-          onProgress: setProgress,
-        });
-        const url = typeof result.response.url === "string" ? result.response.url : "";
-        if (!url) throw new Error("نشانی فایل آپلودشده دریافت نشد.");
-        uploaded.push(withMediaUploadCapability(url, result.uploadId));
-      }
-      setMedia((current) => Array.from(new Set([...current, ...uploaded])).slice(0, MAX_MEDIA));
+      const uploaded = await uploadCustomerPropertyFiles(
+        list,
+        async (file, index) => {
+          setUploadLabel("فایل " + (index + 1).toLocaleString("fa-IR") + " از " + list.length.toLocaleString("fa-IR") + ": " + file.name);
+          const result = await uploadInChunks({
+            endpoint: "/api/customer-property-upload",
+            file,
+            contentType: file.type,
+            rejectedMessage: "آپلود فایل پذیرفته نشد.",
+            onProgress: setProgress,
+          });
+          const url = typeof result.response.url === "string" ? result.response.url : "";
+          if (!url) throw new Error("نشانی فایل آپلودشده دریافت نشد.");
+          return withMediaUploadCapability(url, result.uploadId);
+        },
+        (url) => setMedia((current) => appendCustomerPropertyMedia(current, url)),
+      );
       toast.success(uploaded.length === 1 ? "رسانه با موفقیت آپلود شد." : uploaded.length.toLocaleString("fa-IR") + " رسانه آپلود شد.");
     } catch (cause) {
       toast.error(uploadErrorMessage(cause, "آپلود رسانه انجام نشد."));
