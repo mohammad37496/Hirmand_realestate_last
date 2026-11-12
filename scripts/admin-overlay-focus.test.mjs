@@ -6,6 +6,8 @@ const utils = fs.readFileSync(new URL("../src/components/hirmand/admin-ui-utils.
 const admin = fs.readFileSync(new URL("../src/components/hirmand/_admin_impl.tsx", import.meta.url), "utf8");
 const palette = fs.readFileSync(new URL("../src/components/hirmand/admin-command-palette.tsx", import.meta.url), "utf8");
 const adminUi = fs.readFileSync(new URL("../src/components/hirmand/admin-ui.tsx", import.meta.url), "utf8");
+const mobileManagement = fs.readFileSync(new URL("../src/components/hirmand/admin-mobile-management.tsx", import.meta.url), "utf8");
+const propertyPreview = fs.readFileSync(new URL("../src/components/hirmand/admin-property-preview.tsx", import.meta.url), "utf8");
 const browserAudit = fs.readFileSync(new URL("./admin-visual-audit.mjs", import.meta.url), "utf8");
 const packageJson = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 
@@ -53,6 +55,29 @@ test("command palette uses shared modal focus handling and restores the invoking
   assert.match(palette, /<input ref=\{inputRef\}/);
   assert.doesNotMatch(palette, /setTimeout\(\(\) => document\.getElementById/);
   assert.doesNotMatch(palette, /event\.key === "Escape"/);
+});
+
+test("mobile enrollment wizard contains focus, closes with Escape and restores its trigger", () => {
+  assert.match(mobileManagement, /useOverlayDismiss\(\{ open, onClose, initialFocusRef: closeRef, containerRef: dialogRef \}\)/);
+  assert.match(mobileManagement, /ref=\{dialogRef\} className="admin-mobile-modal" role="dialog" aria-modal="true" aria-labelledby="enrollment-title" tabIndex=\{-1\}/);
+  assert.match(mobileManagement, /ref=\{closeRef\} type="button" className="admin-mobile-close"/);
+  assert.match(mobileManagement, /const closeEnrollment = useCallback\(\(\) => setEnrollmentOpen\(false\), \[\]\)/);
+});
+
+test("mobile revoke confirmation is named, traps focus and starts on the safe cancel action", () => {
+  assert.match(mobileManagement, /useOverlayDismiss\(\{ open: true, onClose, initialFocusRef: cancelRef, containerRef: dialogRef \}\)/);
+  assert.match(mobileManagement, /role="dialog" aria-modal="true" aria-labelledby="mobile-device-revoke-title" aria-describedby="mobile-device-revoke-description"/);
+  assert.match(mobileManagement, /<h2 id="mobile-device-revoke-title">لغو دسترسی دستگاه؟<\/h2>/);
+  assert.match(mobileManagement, /<button ref=\{cancelRef\} type="button" className="admin-mobile-secondary-action" onClick=\{onClose\}>انصراف/);
+  assert.match(mobileManagement, /const closeConfirm = useCallback\(\(\) => setConfirmDevice\(null\), \[\]\)/);
+});
+
+test("admin property preview has a labelled dialog and shared keyboard dismissal", () => {
+  assert.match(propertyPreview, /useOverlayDismiss\(\{open,onClose:closePreview,initialFocusRef:closeRef,containerRef:dialogRef\}\)/);
+  assert.match(propertyPreview, /<div className="admin-preview-backdrop" role="presentation"/);
+  assert.match(propertyPreview, /<section ref=\{dialogRef\} className="admin-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-preview-title" tabIndex=\{-1\}>/);
+  assert.match(propertyPreview, /<h2 id="admin-preview-title">/);
+  assert.match(propertyPreview, /<button ref=\{closeRef\} type="button" className="admin-preview-close"/);
 });
 
 test("overlay focus regression test is part of the normal npm test suite", () => {

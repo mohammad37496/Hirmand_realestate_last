@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -30,6 +30,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { listAdminAuditLog } from "@/lib/admin-audit";
 import { SITE, TEAM } from "@/lib/site";
+import { useOverlayDismiss } from "@/components/hirmand/admin-ui-utils";
 import {
   deviceStatusLabel,
   formatRelativeAge,
@@ -506,6 +507,10 @@ function EnrollmentWizard({
 }) {
   const [mode, setMode] = useState<"company" | "personal">("company");
   const [step, setStep] = useState(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useOverlayDismiss({ open, onClose, initialFocusRef: closeRef, containerRef: dialogRef });
 
   useEffect(() => {
     if (open) {
@@ -559,13 +564,13 @@ function EnrollmentWizard({
 
   return (
     <div className="admin-mobile-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className="admin-mobile-modal" role="dialog" aria-modal="true" aria-labelledby="enrollment-title">
+      <div ref={dialogRef} className="admin-mobile-modal" role="dialog" aria-modal="true" aria-labelledby="enrollment-title" tabIndex={-1}>
         <div className="admin-mobile-modal-head">
           <div>
             <span className="admin-mobile-section-kicker">Enrollment Wizard</span>
             <h2 id="enrollment-title">ثبت دستگاه جدید</h2>
           </div>
-          <button type="button" className="admin-mobile-close" onClick={onClose} aria-label="بستن">×</button>
+          <button ref={closeRef} type="button" className="admin-mobile-close" onClick={onClose} aria-label="بستن">×</button>
         </div>
 
         <div className="admin-mobile-enrollment-modes">
@@ -984,17 +989,22 @@ function ConfirmAction({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  useOverlayDismiss({ open: true, onClose, initialFocusRef: cancelRef, containerRef: dialogRef });
+
   return (
-    <div className="admin-mobile-modal-backdrop">
-      <div className="admin-mobile-modal admin-mobile-confirm-modal" role="dialog" aria-modal="true">
+    <div className="admin-mobile-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div ref={dialogRef} className="admin-mobile-modal admin-mobile-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="mobile-device-revoke-title" aria-describedby="mobile-device-revoke-description" tabIndex={-1}>
         <div className="admin-mobile-confirm-icon"><Ban size={22} /></div>
         <span className="admin-mobile-section-kicker">عملیات حساس</span>
-        <h2>لغو دسترسی دستگاه؟</h2>
-        <p>
+        <h2 id="mobile-device-revoke-title">لغو دسترسی دستگاه؟</h2>
+        <p id="mobile-device-revoke-description">
           دسترسی <bdi dir="ltr">{device.deviceId}</bdi> برای <strong>{device.staffName}</strong> به وضعیت لغوشده منتقل می‌شود. این عملیات در Audit Trail ثبت خواهد شد.
         </p>
         <div className="admin-mobile-modal-foot">
-          <button type="button" className="admin-mobile-secondary-action" onClick={onClose}>انصراف</button>
+          <button ref={cancelRef} type="button" className="admin-mobile-secondary-action" onClick={onClose}>انصراف</button>
           <button type="button" className="admin-mobile-device-action danger" onClick={onConfirm} disabled={busy}>
             {busy ? <RefreshCw size={14} className="admin-mobile-spin" /> : <Ban size={14} />}
             تأیید لغو
@@ -1066,6 +1076,8 @@ export function AdminMobileManagementPage() {
   const [busyDeviceId, setBusyDeviceId] = useState("");
   const [confirmDevice, setConfirmDevice] = useState<MobileDevice | null>(null);
   const [enrollmentOpen, setEnrollmentOpen] = useState(false);
+  const closeConfirm = useCallback(() => setConfirmDevice(null), []);
+  const closeEnrollment = useCallback(() => setEnrollmentOpen(false), []);
 
   const visibleDevices = useMemo(() => {
     if (!summary) return [];
@@ -1313,11 +1325,11 @@ export function AdminMobileManagementPage() {
         <ConfirmAction
           device={confirmDevice}
           busy={busyDeviceId === confirmDevice.deviceId}
-          onClose={() => setConfirmDevice(null)}
+          onClose={closeConfirm}
           onConfirm={() => void confirmRevoke()}
         />
       ) : null}
-      <EnrollmentWizard open={enrollmentOpen} onClose={() => setEnrollmentOpen(false)} />
+      <EnrollmentWizard open={enrollmentOpen} onClose={closeEnrollment} />
     </main>
   );
 }
