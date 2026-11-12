@@ -9,6 +9,7 @@ import { createPropertyVisitRequest } from "@/lib/property-visit-request";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 import { createPublicLeadIntake, resolveActivePublicLeadConsultant, resolvePropertyLeadConsultant } from "@/lib/public-lead-intake";
 import { insertPublicBudgetLead } from "@/lib/public-lead-insert";
+import { findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "@/lib/public-lead-phone-dedupe";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -150,7 +151,10 @@ export default defineEventHandler(async (event) => {
   const parsed = schema.safeParse(await readBody(event));
   if (!parsed.success) throw createError({ statusCode: 422, statusMessage: "اطلاعات درخواست ناقص یا نامعتبر است." });
   if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "ثبت آنلاین درخواست در حال حاضر فعال نیست." });
-  const sql = await getSql();
+  const databaseSql = await getSql();
+  if (typeof databaseSql.transaction !== "function") {
+    throw createError({ statusCode: 503, statusMessage: "ثبت درخواست در حال حاضر در دسترس نیست." });
+  }
   const visitorId = getCookie(event, VISITOR_COOKIE);
   let acquisition: {
     source: string | null;
@@ -168,7 +172,7 @@ export default defineEventHandler(async (event) => {
 
   if (visitorId && /^[a-f0-9-]{20,80}$/i.test(visitorId)) {
     try {
-      const acquisitionRows = await sql.query<Record<string, unknown>>(
+      const acquisitionRows = await databaseSql.query<Record<string, unknown>>(
         `select
            utm_source,
            utm_medium,
@@ -195,6 +199,8 @@ export default defineEventHandler(async (event) => {
       console.error("[leads] acquisition lookup unavailable", error);
     }
   }
+  let leadIdToAutoMatch: string | null = null;
+  const result = await withPublicLeadPhoneDedupeLock(databaseSql, parsed.data.phone, async (sql) => {
   const existing = await sql.query<{ id: string; public_tracking_token: string | null }>(
     `select id, public_tracking_token from leads where phone = $1 and created_at > current_timestamp - interval '10 minutes' limit 1`,
     [parsed.data.phone],
@@ -289,12 +295,8 @@ export default defineEventHandler(async (event) => {
           assignedConsultant.name,
         ],
       );
+      leadIdToAutoMatch = existing[0].id;
       });
-      try {
-        await autoMatchLead(sql, existing[0].id, { mode: "smart", limit: 8 });
-      } catch (error) {
-        console.error("[leads] automatic smart matching failed for duplicate budget lead", error);
-      }
       const trackingToken =
         existing[0].public_tracking_token || createPublicTrackingToken();
       if (!existing[0].public_tracking_token) {
@@ -318,6 +320,17 @@ export default defineEventHandler(async (event) => {
 
   if (parsed.data.callbackPreferredAt) {
     const callbackDate = new Date(parsed.data.callbackPreferredAt);
+    const existingCallback = await findRecentPublicCallbackLead(sql, parsed.data.phone, callbackDate);
+    if (existingCallback) {
+      const trackingToken = existingCallback.public_tracking_token || createPublicTrackingToken();
+      if (!existingCallback.public_tracking_token) {
+        await sql.query(
+          "update leads set public_tracking_token=$2 where id=$1",
+          [existingCallback.id, trackingToken],
+        );
+      }
+      return { success: true, duplicate: true, callbackRequested: true, id: existingCallback.id, trackingToken };
+    }
     const trackingToken = createPublicTrackingToken();
     let assignedConsultantName = parsed.data.consultant;
     const leadId = await createPublicLeadIntake(sql, async (transactionSql) => {
@@ -519,8 +532,16 @@ export default defineEventHandler(async (event) => {
         statusMessage: "این بازه برای این فایل قبلاً درخواستی دارد. لطفاً یکی از زمان‌های خالی را انتخاب کنید.",
       });
     }
-    if (visitResult.kind !== "created") throw createError({ statusCode: 500, statusMessage: "ثبت درخواست بازدید انجام نشد." });
-    return { success: true, duplicate: false, id: visitResult.id, visitRequested: true, trackingToken };
+    if (visitResult.kind !== "created" && visitResult.kind !== "duplicate") {
+      throw createError({ statusCode: 500, statusMessage: "ثبت درخواست بازدید انجام نشد." });
+    }
+    return {
+      success: true,
+      duplicate: visitResult.kind === "duplicate",
+      id: visitResult.id,
+      visitRequested: true,
+      trackingToken: visitResult.trackingToken,
+    };
   }
   if (parsed.data.deal === "درخواست تأمین مالی" && parsed.data.propertyId) {
     const propertyRows = await sql.query<{
@@ -664,14 +685,19 @@ export default defineEventHandler(async (event) => {
     dueMinutes: 24 * 60,
   });
   if (parsed.data.deal === "خرید" || parsed.data.deal === "فروش" || parsed.data.deal === "رهن" || parsed.data.deal === "اجاره") {
+    leadIdToAutoMatch = createdLeadId;
+  }
+  return { success: true, id: createdLeadId, duplicate: false, trackingToken };
+  });
+  if (leadIdToAutoMatch) {
     try {
-      const automaticMatches = await autoMatchLead(sql, createdLeadId, { mode: "smart", limit: 8 });
+      const automaticMatches = await autoMatchLead(databaseSql, leadIdToAutoMatch, { mode: "smart", limit: 8 });
       if (automaticMatches.count > 0) {
-        console.info("[leads] automatic smart matching completed", { leadId: createdLeadId, count: automaticMatches.count });
+        console.info("[leads] automatic smart matching completed", { leadId: leadIdToAutoMatch, count: automaticMatches.count });
       }
     } catch (error) {
       console.error("[leads] automatic smart matching failed", error);
     }
   }
-  return { success: true, id: createdLeadId, duplicate: false, trackingToken };
+  return result;
 });
