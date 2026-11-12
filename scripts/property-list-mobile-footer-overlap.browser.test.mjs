@@ -146,7 +146,8 @@ try {
         return { requestedScroll, beforeScrollTop };
       });
       await page.waitForFunction(() => {
-        const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+        const cards = document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list");
+        const card = cards.item(cards.length - 1);
         const footerElement = document.querySelector(".quick-actions");
         if (!card || !footerElement) return false;
         const cardRect = card.getBoundingClientRect();
