@@ -9,6 +9,7 @@ const appStyles = fs.readFileSync(new URL("../src/styles.css", import.meta.url),
 const homePropertyCss = fs.readFileSync(new URL("../src/home-property-layout.css", import.meta.url), "utf8");
 const propertyShowcase = fs.readFileSync(new URL("../src/components/hirmand/property-showcase.tsx", import.meta.url), "utf8");
 const propertiesRoute = fs.readFileSync(new URL("../src/routes/properties.index.tsx", import.meta.url), "utf8");
+const mobileFooterBrowserTest = fs.readFileSync(new URL("./property-list-mobile-footer-overlap.browser.test.mjs", import.meta.url), "utf8");
 const uniformBrowserSmoke = fs.readFileSync(new URL("./property-list-mobile-uniform.browser.test.mjs", import.meta.url), "utf8");
 
 test("desktop property list anchors actions to the lower edge of the property image", () => {
@@ -183,15 +184,16 @@ test("mobile list cards can scroll fully clear of the fixed bottom action dock",
   );
   assert.match(compactMobileList, /\.pf-page\s*\{\s*padding-bottom:\s*calc\(96px \+ env\(safe-area-inset-bottom\)\) !important;/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*scroll-margin-block-end:\s*calc\(80px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(mobileFooterBrowserTest, /const\s+requestedScroll\s*=\s*cardRect\s*&&\s*footerRect\s*\?\s*Math\.max\(0,\s*cardRect\.bottom\s*-\s*footerRect\.top\s*\+\s*4\)/);
+  assert.match(mobileFooterBrowserTest, /scrollingElement\.scrollBy\(\{\s*top:\s*requestedScroll,\s*behavior:\s*"instant"\s*\}\)/);
+  assert.match(mobileFooterBrowserTest, /actualScroll:\s*scrollingElement\.scrollTop\s*-\s*plan\.beforeScrollTop/);
+  assert.match(mobileFooterBrowserTest, /bottomGeometry\.cardFooterGap\s*<\s*4/);
   assert.match(uniformBrowserSmoke, /scrollIntoView\(\{\s*block:\s*"end",\s*inline:\s*"nearest",\s*behavior:\s*"instant"\s*\}\)/);
   assert.match(uniformBrowserSmoke, /footerGeometry\.overlap \|\| footerGeometry\.gap < 4/);
 });
 
-test("mobile footer browser checks disable smooth scrolling before measuring final card clearance", () => {
-  for (const file of [
-    "./property-list-mobile-footer-overlap.browser.test.mjs",
-    "./property-list-mobile-uniform.browser.test.mjs",
-  ]) {
+test("mobile uniform-card browser checks disable smooth scrolling before measuring final card clearance", () => {
+  for (const file of ["./property-list-mobile-uniform.browser.test.mjs"]) {
     const source = fs.readFileSync(new URL(file, import.meta.url), "utf8");
     const scrollCall = source.match(/await\s+(?:\w+\.last\(\)|\w+)\.evaluate\(\(card\)\s*=>\s*card\.scrollIntoView/);
     assert.ok(scrollCall, `${file} must scroll the final card into view`);

@@ -113,6 +113,11 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
 
+      - name: Verify public lead intake deduplication across PostgreSQL sessions
+        run: node --experimental-strip-types --test scripts/public-lead-phone-dedupe-postgres.test.mjs
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
+
       - name: Verify deal and settlement lifecycle locking across PostgreSQL sessions
         run: node --experimental-strip-types --test scripts/admin-deal-lifecycle-postgres.test.mjs
         env:
@@ -181,11 +186,12 @@ jobs:
             sleep 1
           done
 
-          # Playwright installs Chromium's Linux dependencies through apt.
-          # Hosted-runner DNS can fail transiently; keep the full dependency
-          # install, but let apt retry failed index/package downloads.
-          echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-retries >/dev/null
-          npx playwright install --with-deps chromium
+          # ubuntu-latest already ships Chrome/Chromium and their runtime
+          # libraries. Install Playwright's pinned browser without invoking
+          # apt, then launch it explicitly so missing shared libraries fail
+          # here rather than halfway through the browser smoke suite.
+          npx playwright install chromium
+          node scripts/playwright-runtime-smoke.mjs
           # Run the isolated PGlite gallery fixture across real phone/tablet
           # viewports. Keep its responsive screenshots with the other Verify
           # artifacts instead of writing into the repository checkout.

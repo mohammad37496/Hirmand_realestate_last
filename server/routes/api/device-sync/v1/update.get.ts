@@ -1,11 +1,11 @@
 import { createError, defineEventHandler, getQuery, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
-import { enforcePhoneBridgeRateLimit } from "@/lib/phone-bridge-rate-limit.server";
+import { enforcePhoneBridgeIpRateLimit } from "@/lib/phone-bridge-rate-limit.server";
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
 
-  await enforcePhoneBridgeRateLimit(event, "update-check", "public", {
+  await enforcePhoneBridgeIpRateLimit(event, "update-check", {
     windowMs: 10 * 60 * 1000,
     maxHits: 30,
     blockMs: 10 * 60 * 1000,
