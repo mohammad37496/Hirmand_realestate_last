@@ -574,8 +574,8 @@ try {
     }
     if (viewport.width >= 721 && viewport.height > 420) {
       const playerRight = compactDesktopPlayer.x + compactDesktopPlayer.width;
-      const minimumDesktopWidth = viewport.touch ? 410 : 334;
-      const maximumDesktopWidth = viewport.touch ? 420 : 344;
+      const minimumDesktopWidth = viewport.touch ? 440 : 334;
+      const maximumDesktopWidth = viewport.touch ? 450 : 344;
       assert.ok(compactDesktopPlayer.width >= minimumDesktopWidth && compactDesktopPlayer.width <= maximumDesktopWidth,
         `desktop music dock must reserve enough width for its controls: ${JSON.stringify(compactDesktopPlayer)}`);
       assert.ok(compactDesktopPlayer.actions.x >= compactDesktopPlayer.x - 1 && compactDesktopPlayer.actions.right <= playerRight + 1,

@@ -15,8 +15,8 @@
     inset-inline-start: auto !important;
     inset-inline-end: 14px !important;
     bottom: 14px !important;
-    width: min(420px, calc(100vw - 28px)) !important;
-    max-width: 420px !important;
+    width: min(450px, calc(100vw - 28px)) !important;
+    max-width: 450px !important;
     min-height: 58px !important;
     padding: 8px 10px 12px !important;
     border-radius: 16px !important;
