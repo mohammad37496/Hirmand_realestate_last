@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import {
   ArrowRight,
   ArrowUpLeft,
@@ -21,6 +21,7 @@ import { breadcrumbJsonLd, serializeJsonLd } from "@/lib/seo";
 import { SITE } from "@/lib/site";
 import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { getPublicAreaContent, type AreaContent } from "@/lib/area-content";
+import { settleAreaPageDependencies } from "@/lib/area-page-data";
 import areaDetailCss from "../area-detail.css?url";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
@@ -34,22 +35,27 @@ export const Route = createFileRoute("/areas/$slug")({
       return {
         area: null,
         properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>,
+        propertiesUnavailable: false,
         market: null as NeighborhoodMarketSnapshot | null,
         content: null as AreaContent | null,
       };
     }
 
-    try {
-      const [properties, market, content] = await Promise.all([
-        listPublishedProperties({ data: { neighborhood: area.name } }),
-        getNeighborhoodMarketSnapshot({ data: { neighborhood: area.name } }),
-        getPublicAreaContent({ data: { slug: area.slug } }),
-      ]);
-      return { area, properties, market, content };
-    } catch (error) {
-      console.error("[area] page loader failed", error);
-      return { area, properties: [], market: null, content: null };
-    }
+    const data = await settleAreaPageDependencies(
+      {
+        properties: () => listPublishedProperties({ data: { neighborhood: area.name } }),
+        market: () => getNeighborhoodMarketSnapshot({ data: { neighborhood: area.name } }),
+        content: () => getPublicAreaContent({ data: { slug: area.slug } }),
+      },
+      (dependency, error) => console.error(`[area] ${dependency} query failed`, error),
+    );
+    return {
+      area,
+      properties: data.properties ?? [],
+      propertiesUnavailable: data.properties === null,
+      market: data.market,
+      content: data.content,
+    };
   },
   head: ({ loaderData, params }) => {
     const base = areaHead(loaderData?.area ?? null, params.slug);
@@ -88,7 +94,8 @@ function formatFa(value: number) {
 }
 
 function AreaPage() {
-  const { area, properties, market, content } = Route.useLoaderData();
+  const router = useRouter();
+  const { area, properties, propertiesUnavailable, market, content } = Route.useLoaderData();
   const highlights = content ? linesForAreaPage(content.highlights) : [];
   const amenities = content ? linesForAreaPage(content.amenities) : [];
 
@@ -223,7 +230,7 @@ function AreaPage() {
         <section className="area-profile-stats" aria-label="خلاصهٔ محله">
           <div className="area-profile-stat">
             <span className="area-profile-stat-icon"><Building2 size={18} aria-hidden="true" /></span>
-            <span className="area-profile-stat-copy"><small>فایل منتشرشده</small><strong>{formatFa(properties.length)}</strong></span>
+            <span className="area-profile-stat-copy"><small>فایل منتشرشده</small><strong>{propertiesUnavailable ? "—" : formatFa(properties.length)}</strong></span>
           </div>
           <div className="area-profile-stat">
             <span className="area-profile-stat-icon"><MapPinned size={18} aria-hidden="true" /></span>
@@ -398,7 +405,16 @@ function AreaPage() {
               همهٔ فایل‌ها <ArrowUpLeft size={15} aria-hidden="true" />
             </Link>
           </div>
-          {properties.length ? (
+          {propertiesUnavailable ? (
+            <div className="area-profile-empty-listings" role="alert">
+              <span><Building2 size={23} aria-hidden="true" /></span>
+              <h3>دریافت فایل‌های این محله موقتاً ممکن نیست.</h3>
+              <p>مشکلی در دریافت فهرست فایل‌ها رخ داده است. این وضعیت به معنی نبودن ملک منتشرشده نیست؛ لطفاً دوباره تلاش کنید.</p>
+              <button type="button" className="area-action area-action-primary" onClick={() => void router.invalidate()}>
+                تلاش دوباره
+              </button>
+            </div>
+          ) : properties.length ? (
             <div className="area-profile-listings">
               {properties.map((property) => <PropertyCard key={property.id} property={property} />)}
             </div>
