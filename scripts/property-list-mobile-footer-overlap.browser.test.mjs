@@ -123,30 +123,38 @@ try {
         failures.push(`${viewport.width}x${viewport.height}: the fixed bottom action bar is not visibly rendered: ${JSON.stringify(footerState)}`);
       }
 
-      // Exercise the worst-case list-card position next to the fixed dock. The
-      // assertion below compares real rendered rectangles; scrolling alone is
-      // not considered a pass.
+      // Exercise the worst-case list-card position next to the fixed dock.
+      // scrollIntoView can be a no-op when the last card is already visible.
+      // Scroll only the distance needed to clear the dock: scrolling to the
+      // document bottom would trip the page's 420px infinite-load sentinel.
       const lastCard = cards.last();
-      // The assertion measures final layout, not the progress of CSS smooth
-      // scrolling. Disable smooth scrolling so a busy CI runner cannot leave
-      // scrollIntoView halfway through its animation when geometry is sampled.
       await page.evaluate(() => {
         document.documentElement.style.scrollBehavior = "auto";
         document.body.style.scrollBehavior = "auto";
       });
-      await lastCard.evaluate((card) => card.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
-      // Chromium can honor the page's smooth-scroll policy even when the
-      // caller requests an instant scroll. Wait for the actual safe geometry
-      // instead of sampling a partially completed scroll after a fixed delay.
+      const scrollPlan = await page.evaluate(() => {
+        const card = document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").item(
+          document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").length - 1,
+        );
+        const footer = document.querySelector(".quick-actions");
+        const scrollingElement = document.scrollingElement ?? document.documentElement;
+        const cardRect = card?.getBoundingClientRect();
+        const footerRect = footer?.getBoundingClientRect();
+        const requestedScroll = cardRect && footerRect ? Math.max(0, cardRect.bottom - footerRect.top + 4) : 0;
+        const beforeScrollTop = scrollingElement.scrollTop;
+        scrollingElement.scrollBy({ top: requestedScroll, behavior: "instant" });
+        return { requestedScroll, beforeScrollTop };
+      });
       await page.waitForFunction(() => {
-        const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
+        const cards = document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list");
+        const card = cards.item(cards.length - 1);
         const footerElement = document.querySelector(".quick-actions");
         if (!card || !footerElement) return false;
         const cardRect = card.getBoundingClientRect();
         const footerRect = footerElement.getBoundingClientRect();
         return cardRect.bottom <= footerRect.top - 4;
       }, null, { timeout: 3_000 });
-      const bottomGeometry = await lastCard.evaluate((card) => {
+      const bottomGeometry = await lastCard.evaluate((card, plan) => {
         const footerElement = document.querySelector(".quick-actions");
         const mediaElement = card.querySelector(".pcard-media > .pcard-image-link");
         const bodyElement = card.querySelector(".pcard-body");
@@ -158,6 +166,8 @@ try {
         const footerRect = rect(footerElement);
         const imageRect = rect(mediaElement);
         const bodyRect = rect(bodyElement);
+        const scrollingElement = document.scrollingElement ?? document.documentElement;
+        const pageElement = document.querySelector(".pf-page");
         const intersects = (a, b) => Boolean(a && b && a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1);
         return {
           cardRect,
@@ -170,12 +180,17 @@ try {
           cardFooterGap: footerRect && cardRect ? footerRect.top - cardRect.bottom : null,
           imageFooterGap: footerRect && imageRect ? footerRect.top - imageRect.bottom : null,
           bodyFooterGap: footerRect && bodyRect ? footerRect.top - bodyRect.bottom : null,
+          documentScrollTop: scrollingElement.scrollTop,
+          documentScrollHeight: scrollingElement.scrollHeight,
+          documentClientHeight: scrollingElement.clientHeight,
+          requestedScroll: plan.requestedScroll,
+          actualScroll: scrollingElement.scrollTop - plan.beforeScrollTop,
+          pagePaddingBottom: pageElement ? getComputedStyle(pageElement).paddingBottom : null,
           scrollY: window.scrollY,
           viewportHeight: window.innerHeight,
-          documentScrollHeight: document.documentElement.scrollHeight,
           scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
         };
-      });
+      }, scrollPlan);
       if (bottomGeometry.cardOverlapsFooter || bottomGeometry.imageOverlapsFooter || bottomGeometry.bodyOverlapsFooter || bottomGeometry.cardFooterGap < 4) {
         failures.push(`${viewport.width}x${viewport.height}: the fixed bottom action bar occludes the last list card, its image, or its details: ${JSON.stringify(bottomGeometry)}`);
       }
