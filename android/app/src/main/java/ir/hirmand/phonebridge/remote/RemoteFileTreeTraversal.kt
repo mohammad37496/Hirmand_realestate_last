@@ -22,6 +22,19 @@ internal data class RemoteTreeResult(
 
 /** Walk children by their document IDs; a tree URI always points at the selected root. */
 internal object RemoteFileTreeTraversal {
+    data class BoundedReadResult<T>(val values: List<T>, val hasMore: Boolean)
+
+    /** Read a bounded page and detect whether the provider has more rows without materializing them. */
+    fun <T : Any> readAtMost(maxRows: Int, hasNext: () -> Boolean, readNext: () -> T): BoundedReadResult<T> {
+        require(maxRows >= 0)
+        val values = ArrayList<T>(maxRows)
+        while (values.size < maxRows && hasNext()) {
+            values += readNext()
+        }
+        val hasMore = values.size == maxRows && hasNext()
+        return BoundedReadResult(values, hasMore)
+    }
+
     fun enumerate(
         rootDocumentId: String,
         childrenOf: (String, Int) -> List<RemoteTreeDocument>,

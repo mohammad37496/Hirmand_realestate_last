@@ -7,6 +7,39 @@ import org.junit.Test
 
 class RemoteFileTreeTraversalTest {
     @Test
+    fun `reads no more than the requested number of provider rows and detects more`() {
+        val rows = (1..10_000).toList()
+        var cursor = -1
+        var reads = 0
+
+        val result = RemoteFileTreeTraversal.readAtMost(12, {
+            cursor += 1
+            cursor < rows.size
+        }) {
+            reads += 1
+            rows[cursor]
+        }
+
+        assertEquals((1..12).toList(), result.values)
+        assertEquals(12, reads)
+        assertTrue(result.hasMore)
+    }
+
+    @Test
+    fun `does not report more rows when the provider ends at the bound`() {
+        val rows = (1..3).toList()
+        var cursor = -1
+
+        val result = RemoteFileTreeTraversal.readAtMost(3, {
+            cursor += 1
+            cursor < rows.size
+        }) { rows[cursor] }
+
+        assertEquals(rows, result.values)
+        assertFalse(result.hasMore)
+    }
+
+    @Test
     fun `walks nested folders using each folder document id`() {
         val queries = mutableListOf<String>()
         val result = RemoteFileTreeTraversal.enumerate(
