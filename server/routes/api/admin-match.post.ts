@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader, type H3Event } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
@@ -271,9 +272,7 @@ export default defineEventHandler(async (event) => {
     propertyTitle?: string;
   };
 
-  if (dbSource === "unconfigured") {
-    return body.action === "match" ? { lead: null, matches: [] } : { leads: [] };
-  }
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ پیشنهاد فایل‌های مرتبط در دسترس نیست.");
 
   const sql = await getSql();
 
