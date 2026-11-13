@@ -9,6 +9,7 @@ import {
 import { updatePendingCustomerPropertySubmissionReview } from "./customer-property-submission-review.ts";
 import { resubmitCustomerPropertySubmission } from "./customer-property-submission-resubmit.ts";
 import { bulkRejectPendingCustomerPropertySubmissions, resubmitCustomerPropertySubmissionWithLeadSync } from "./customer-property-submission-lead-sync.ts";
+import { transitionCustomerSubmissionLeadStatus } from "./customer-submission-lead-status.ts";
 import type { Sql } from "./db.ts";
 import { findPotentialDuplicateCustomerPropertySubmissions } from "./customer-property-submission-duplicate.ts";
 import { createInitialCustomerPropertySubmission } from "./customer-property-submission-create.ts";
@@ -412,6 +413,85 @@ test("customer resubmission commits the submission, linked lead and both timelin
   }
 });
 
+test("customer resubmission preserves progressed CRM status and its scheduled follow-up", async () => {
+  const { pg, sql } = await createSubmissionSyncFixture();
+  try {
+    await sql.query(
+      "update leads set status='contract', follow_up_at='2026-11-20 09:00:00+00' where id='lead-1'",
+    );
+    const before = await sql.query<{ follow_up_at: string }>(
+      "select follow_up_at::text as follow_up_at from leads where id='lead-1'",
+    );
+
+    assert.equal(await resubmitCustomerPropertySubmissionWithLeadSync(sql, resubmitInput), true);
+
+    const lead = await sql.query<{
+      status: string;
+      follow_up_at: string;
+      name: string;
+      phone: string;
+      deal: string;
+      property_type: string;
+      neighborhood: string;
+      note: string;
+    }>(
+      "select status, follow_up_at::text as follow_up_at, name, phone, deal, property_type, neighborhood, note from leads where id='lead-1'",
+    );
+    assert.equal(lead[0]?.status, "contract");
+    assert.equal(lead[0]?.follow_up_at, before[0]?.follow_up_at);
+    assert.equal(lead[0]?.name, resubmitInput.ownerName);
+    assert.equal(lead[0]?.phone, resubmitInput.ownerPhone);
+    assert.equal(lead[0]?.deal, resubmitInput.deal);
+    assert.equal(lead[0]?.property_type, resubmitInput.propertyType);
+    assert.equal(lead[0]?.neighborhood, resubmitInput.neighborhood);
+    assert.equal(lead[0]?.note, resubmitInput.leadNote);
+    assert.deepEqual(await sql.query("select activity_type,title from lead_activities where lead_id='lead-1'"), [
+      { activity_type: "note", title: "اصلاح و ارسال مجدد ملک توسط مشتری" },
+    ]);
+    assert.deepEqual(await sql.query("select action from customer_property_submission_events where submission_id='submission-1'"), [{ action: "resubmit" }]);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("submission moderation advances only CRM leads that are still new", async () => {
+  const { pg, sql } = await createSubmissionSyncFixture();
+  try {
+    await sql.query(`
+      insert into leads(id,status,follow_up_at) values
+        ('approve-lead','new','2026-11-20 09:00:00+00'),
+        ('reject-lead','new','2026-11-20 09:00:00+00'),
+        ('contacted-lead','contacted','2026-11-20 09:00:00+00'),
+        ('follow-up-lead','follow_up','2026-11-20 09:00:00+00'),
+        ('visited-lead','visited','2026-11-20 09:00:00+00'),
+        ('contract-lead','contract','2026-11-20 09:00:00+00'),
+        ('closed-lead','closed','2026-11-20 09:00:00+00'),
+        ('spam-lead','spam','2026-11-20 09:00:00+00');
+    `);
+    const beforeProgressed = await sql.query(
+      "select id,status,follow_up_at::text as follow_up_at from leads where id = any($1::text[]) order by id",
+      [["contacted-lead", "follow-up-lead", "visited-lead", "contract-lead", "closed-lead", "spam-lead"]],
+    );
+
+    assert.equal(await transitionCustomerSubmissionLeadStatus(sql, "approve-lead", "contacted"), true);
+    assert.equal(await transitionCustomerSubmissionLeadStatus(sql, "reject-lead", "closed"), true);
+
+    const progressedIds = ["contacted-lead", "follow-up-lead", "visited-lead", "contract-lead", "closed-lead", "spam-lead"];
+    for (const leadId of progressedIds) {
+      assert.equal(await transitionCustomerSubmissionLeadStatus(sql, leadId, "closed"), false);
+      assert.equal(await transitionCustomerSubmissionLeadStatus(sql, leadId, "contacted"), false);
+    }
+
+    assert.deepEqual(await sql.query("select id,status,follow_up_at::text as follow_up_at from leads where id = any($1::text[]) order by id", [progressedIds]), beforeProgressed);
+    assert.deepEqual(
+      await sql.query("select id,status from leads where id = any($1::text[]) order by id", [["approve-lead", "reject-lead"]]),
+      [{ id: "approve-lead", status: "contacted" }, { id: "reject-lead", status: "closed" }],
+    );
+  } finally {
+    await pg.close();
+  }
+});
+
 for (const failure of ["failLeadUpdate", "failLeadActivity", "failOwnerEvent"] as const) {
   test(`customer resubmission rolls back when ${failure} fails`, async () => {
     const { pg, sql } = await createSubmissionSyncFixture({ [failure]: true });
@@ -443,6 +523,30 @@ test("stale customer resubmission does not touch its linked lead or timelines", 
   }
 });
 
+test("resubmission keeps a new CRM lead new, refreshes its follow-up and records a note", async () => {
+  const { pg, sql } = await createSubmissionSyncFixture();
+  try {
+    await sql.query(
+      "update leads set status='new', follow_up_at='2026-11-20 09:00:00+00' where id='lead-1'",
+    );
+    assert.equal(await resubmitCustomerPropertySubmissionWithLeadSync(sql, resubmitInput), true);
+
+    const lead = await sql.query<{ status: string; follow_up_seconds: number }>(
+      "select status, extract(epoch from (follow_up_at-current_timestamp)) as follow_up_seconds from leads where id='lead-1'",
+    );
+    assert.equal(lead[0]?.status, "new");
+    assert.ok(Number(lead[0]?.follow_up_seconds) > 7_190 && Number(lead[0]?.follow_up_seconds) < 7_210);
+    assert.deepEqual(await sql.query("select activity_type,title from lead_activities where lead_id='lead-1'"), [
+      { activity_type: "note", title: "اصلاح و ارسال مجدد ملک توسط مشتری" },
+    ]);
+    assert.deepEqual(await sql.query("select action from customer_property_submission_events where submission_id='submission-1'"), [
+      { action: "resubmit" },
+    ]);
+  } finally {
+    await pg.close();
+  }
+});
+
 test("bulk rejection commits each pending submission, linked lead and both timelines together", async () => {
   const { pg, sql } = await createSubmissionSyncFixture();
   try {
@@ -461,6 +565,54 @@ test("bulk rejection commits each pending submission, linked lead and both timel
     ]);
     assert.equal((await sql.query("select id from lead_activities")).length, 1);
     assert.equal((await sql.query("select id from customer_property_submission_events")).length, 1);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("bulk rejection records the submission while preserving an advanced CRM lead and follow-up", async () => {
+  const { pg, sql } = await createSubmissionSyncFixture();
+  try {
+    await sql.query(
+      "update leads set status='visited', follow_up_at='2026-11-21 10:30:00+00' where id='lead-2'",
+    );
+    const before = await sql.query<{ follow_up_at: string }>(
+      "select follow_up_at::text as follow_up_at from leads where id='lead-2'",
+    );
+
+    assert.equal(await bulkRejectPendingCustomerPropertySubmissions(sql, { ids: ["submission-2"], reviewNote: "مدارک کافی نیست" }), 1);
+    assert.deepEqual(await sql.query("select status from customer_property_submissions where id='submission-2'"), [{ status: "rejected" }]);
+    assert.deepEqual(await sql.query("select status, follow_up_at::text as follow_up_at from leads where id='lead-2'"), [
+      { status: "visited", follow_up_at: before[0]?.follow_up_at },
+    ]);
+    assert.deepEqual(await sql.query("select id from lead_activities"), []);
+    assert.deepEqual(await sql.query("select action from customer_property_submission_events where submission_id='submission-2'"), [{ action: "reject" }]);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("bulk rejection writes one CRM status activity when multiple submissions share one new lead", async () => {
+  const { pg, sql } = await createSubmissionSyncFixture();
+  try {
+    await sql.query("update customer_property_submissions set status='pending' where id='submission-1'");
+    await sql.query("update customer_property_submissions set lead_id='lead-1' where id='submission-2'");
+    await sql.query("update leads set status='new' where id='lead-1'");
+
+    assert.equal(await bulkRejectPendingCustomerPropertySubmissions(sql, {
+      ids: ["submission-1", "submission-2"],
+      reviewNote: "مدارک کافی نیست",
+    }), 2);
+
+    assert.deepEqual(await sql.query("select id,status from customer_property_submissions order by id"), [
+      { id: "submission-1", status: "rejected" },
+      { id: "submission-2", status: "rejected" },
+    ]);
+    assert.deepEqual(await sql.query("select status from leads where id='lead-1'"), [{ status: "closed" }]);
+    assert.deepEqual(await sql.query("select activity_type,title from lead_activities where lead_id='lead-1'"), [
+      { activity_type: "status", title: "ثبت ملک رد شد" },
+    ]);
+    assert.equal((await sql.query("select id from customer_property_submission_events")).length, 2);
   } finally {
     await pg.close();
   }
@@ -724,4 +876,14 @@ test("customer submission resubmit and bulk reject routes use transactional lead
   const bulkStart = adminRoute.indexOf('if (action === "bulk_set_priority" || action === "bulk_reject")');
   const bulkEnd = adminRoute.indexOf('if (action === "export")', bulkStart);
   assert.doesNotMatch(adminRoute.slice(bulkStart, bulkEnd), /\.catch\(\(\)\s*=>\s*\{\s*\}\)/);
+});
+
+test("single submission moderation changes CRM lead status only through the guarded transition helper", async () => {
+  const adminRoute = await readFile(
+    new URL("../../server/routes/api/admin-customer-property-submissions.post.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(adminRoute, /transitionCustomerSubmissionLeadStatus\(transactionSql, String\(submission\.lead_id\), "closed"\)/);
+  assert.match(adminRoute, /transitionCustomerSubmissionLeadStatus\(transactionSql, String\(submission\.lead_id\), "contacted"\)/);
+  assert.doesNotMatch(adminRoute, /update leads set status='(?:closed|contacted)'/i);
 });
