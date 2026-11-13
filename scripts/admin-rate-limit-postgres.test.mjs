@@ -44,7 +44,7 @@ test("admin rate limiter evaluates the rolling window after waiting for a Postgr
   try {
     await pool.query(await readFile(new URL("../migrations/0106_admin_rate_limits.sql", import.meta.url), "utf8"));
     await pool.query(
-      "insert into admin_rate_limits(key,attempts) values($1,array_fill(clock_timestamp()-interval '9 minutes 500 milliseconds',array[8]))",
+      "insert into admin_rate_limits(key,attempts) values($1,array_fill(clock_timestamp() - interval '10 minutes' + interval '500 milliseconds',array[8]))",
       [key],
     );
     await blocker.query("begin");
