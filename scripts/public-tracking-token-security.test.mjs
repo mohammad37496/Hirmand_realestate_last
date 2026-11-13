@@ -109,11 +109,13 @@ test("partner PIN login is same-origin and rate limited before credential verifi
   assert.match(partnerSessionRoute, /clearAdminAttempts\(loginRateKey\)/);
 });
 
-test("rate limiting uses atomic Redis EVAL and synchronous in-memory bucket consumption", () => {
-  assert.match(rateLimit, /redisCommand<Array<number \| string>>\(\s*"EVAL"/);
-  assert.match(rateLimit, /redis\.call\('SET'/);
-  assert.match(rateLimit, /consume\(key, input\)/);
-  assert.match(rateLimit, /read\/modify\/write happens synchronously/);
+test("rate limiting uses atomic PostgreSQL row locks and development-only in-memory buckets", () => {
+  assert.match(rateLimit, /consume_admin_rate_limit/);
+  assert.match(rateLimit, /sql\.query/);
+  assert.match(rateLimit, /dbSource !== "postgres"/);
+  assert.match(rateLimit, /dbSource === "unconfigured" && process\.env\.NODE_ENV !== "production"/);
+  assert.match(rateLimit, /memory\.set\(key, next\.bucket\)/);
+  assert.doesNotMatch(rateLimit, /UPSTASH_REDIS_REST_URL|UPSTASH_REDIS_REST_TOKEN|redisCommand|REDIS_CONSUME_SCRIPT/);
   assert.match(rateLimit, /resolveClientIp\(getRequestIP\(event\), getHeader\(event, "x-forwarded-for"\)\)/);
   assert.match(rateLimit, /forwardedEntries\.at\(-1\)/);
   assert.match(rateLimit, /isIP\(trustedClientIp\)/);
@@ -121,7 +123,8 @@ test("rate limiting uses atomic Redis EVAL and synchronous in-memory bucket cons
   assert.doesNotMatch(rateLimit, /getHeader\\(event,\\s*" x-real-ip\\)/i);
   assert.match(rateLimit, /createHash\("sha256"\)/);
   assert.doesNotMatch(rateLimit, /x-real-ip/i);
-  assert.match(rateLimit, /process\.env\.NODE_ENV === "production"[\s\S]*?statusCode:\s*503/);
+  assert.match(rateLimit, /process\.env\.NODE_ENV === "production" && dbSource !== "postgres"/);
+  assert.match(rateLimit, /statusCode:\s*503/);
 });
 
 test("legacy duplicate leads receive the actual atomically stored public tracking token", () => {

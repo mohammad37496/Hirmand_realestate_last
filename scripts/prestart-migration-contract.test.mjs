@@ -21,6 +21,8 @@ test("migration success logs are bound to the stamped deployment commit", async 
   assert.match(source, /property consultant migrations verified\$\{deploymentLabel\}/);
   assert.match(source, /LEAD_CONSULTANT_RELATION_MIGRATIONS/);
   assert.match(source, /lead consultant migrations verified\$\{deploymentLabel\}/);
+  assert.match(source, /ADMIN_RATE_LIMIT_MIGRATIONS/);
+  assert.match(source, /admin rate-limit migrations verified\$\{deploymentLabel\}/);
   assert.match(source, /public\/deployment\.json/);
 });
 
@@ -47,6 +49,15 @@ test("Liara deploy polls for the exact migration verification line for this comm
   assert.match(workflow, /0103_property_consultant_relation\.sql/);
   assert.match(workflow, /lead consultant migrations verified for deployment \$\{EXPECTED_DEPLOYMENT_SHA\}/);
   assert.match(workflow, /0104_lead_consultant_relation\.sql/);
+  assert.match(workflow, /admin rate-limit migrations verified for deployment \$\{EXPECTED_DEPLOYMENT_SHA\}/);
+  assert.match(workflow, /0106_admin_rate_limits\.sql/);
+});
+
+test("Verify exercises admin rate-limit locking across independent PostgreSQL sessions", async () => {
+  const workflow = await readFile(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
+  assert.match(workflow, /Verify admin rate limiting across PostgreSQL sessions/);
+  assert.match(workflow, /scripts\/admin-rate-limit-postgres\.test\.mjs/);
+  assert.match(workflow, /TEST_DATABASE_URL: postgresql:\/\/postgres:postgres@127\.0\.0\.1:5432\/hirmand_verify/);
 });
 
 test("migration runner acquires its advisory lock before reading the migration ledger", async () => {
@@ -113,8 +124,8 @@ test("concurrent migration runners apply a pending migration only once", async (
 
     const poolFactory = () => ({ connect: async () => new FakeClient(), end: async () => {} });
     await Promise.all([
-      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false, verifyLeadConsultantMigration: false }),
-      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false, verifyLeadConsultantMigration: false }),
+      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false, verifyLeadConsultantMigration: false, verifyAdminRateLimitMigration: false }),
+      runMigrations({ connectionString: "postgres://migration-test", migrationsDir: directory, poolFactory, verifyCustomerAuth: false, verifyPropertyConsultantMigration: false, verifyLeadConsultantMigration: false, verifyAdminRateLimitMigration: false }),
     ]);
 
     assert.equal(state.executions, 1);

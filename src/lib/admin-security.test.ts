@@ -437,10 +437,8 @@ test("rate-limit identity uses Liara's rightmost trusted client IP, not spoofed 
   await clearAdminAttempts(firstKey);
 });
 
-test("throttling still works on the in-process store (dev, single-process host)", async () => {
-  // The store is resolved once at import time. With no UPSTASH_* env vars that
-  // is the in-memory Map, which is what `npm run dev` and a single-process
-  // self-host depend on; the shared Redis path is the multi-instance one.
+test("throttling still works on the in-process store when development has no database", async () => {
+  // A local-only fallback is acceptable for development; production requires shared PostgreSQL.
   const result = await consumeAdminAttempt("throttle-fallback");
   assert.equal(result.allowed, true);
   assert.ok(result.remaining >= 0 && result.remaining < 8);

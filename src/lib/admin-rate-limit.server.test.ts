@@ -1,27 +1,123 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { PGlite } from "@electric-sql/pglite";
 import { test } from "node:test";
+import { dbSource, type Sql } from "./db.ts";
+import {
+  clearAdminAttemptsWithSql,
+  clientFingerprint,
+  clearAdminAttempts,
+  consumeAdminAttempt,
+  consumeAdminAttemptWithSql,
+  resolveClientIp,
+} from "./admin-rate-limit.server.ts";
 
-// Force the deterministic single-process store for these concurrency tests.
-process.env.UPSTASH_REDIS_REST_URL = "";
-process.env.UPSTASH_REDIS_REST_TOKEN = "";
-const { clearAdminAttempts, clientFingerprint, consumeAdminAttempt, resolveClientIp } = await import("./admin-rate-limit.server.ts");
+async function createSql() {
+  const pg = new PGlite();
+  await pg.exec(await readFile(new URL("../../migrations/0106_admin_rate_limits.sql", import.meta.url), "utf8"));
+  const sql = {
+    query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+      (await pg.query<T>(text, params)).rows,
+  } as Sql;
+  return { pg, sql };
+}
 
-test("concurrent attempts cannot race past the in-memory rate limit", async () => {
-  const key = "concurrent-test:" + crypto.randomUUID();
-  const results = await Promise.all(Array.from({ length: 48 }, () => consumeAdminAttempt(key, 8)));
-  assert.equal(results.filter((result) => result.allowed).length, 8);
-  assert.equal(results.filter((result) => !result.allowed).length, 40);
-  assert.ok(results.filter((result) => !result.allowed).every((result) => result.retryAfterSeconds > 0));
+test("PostgreSQL admin limiter atomically enforces the shared attempt budget", async () => {
+  const { pg, sql } = await createSql();
+  try {
+    const results = await Promise.all(
+      Array.from({ length: 48 }, () => consumeAdminAttemptWithSql(sql, "concurrent-test", 8)),
+    );
+    assert.equal(results.filter((result) => result.allowed).length, 8);
+    assert.equal(results.filter((result) => !result.allowed).length, 40);
+    assert.ok(results.filter((result) => !result.allowed).every((result) => result.retryAfterSeconds > 0));
+  } finally {
+    await pg.close();
+  }
 });
 
-test("clearing a rate-limit bucket allows a new attempt", async () => {
-  const key = "clear-test:" + crypto.randomUUID();
-  const blocked = await Promise.all(Array.from({ length: 4 }, () => consumeAdminAttempt(key, 3)));
-  assert.equal(blocked.filter((result) => result.allowed).length, 3);
-  assert.equal(blocked.filter((result) => !result.allowed).length, 1);
-  await clearAdminAttempts(key);
-  assert.equal((await consumeAdminAttempt(key, 3)).allowed, true);
+test("PostgreSQL admin limiter preserves block duration and resets the bucket after expiry", async () => {
+  const { pg, sql } = await createSql();
+  try {
+    for (let attempt = 0; attempt < 9; attempt += 1) {
+      const result = await consumeAdminAttemptWithSql(sql, "block-expiry", 8);
+      assert.equal(result.allowed, attempt < 8);
+    }
+    const blocked = await consumeAdminAttemptWithSql(sql, "block-expiry", 8);
+    assert.equal(blocked.allowed, false);
+    assert.ok(blocked.retryAfterSeconds >= 899 && blocked.retryAfterSeconds <= 900);
+
+    const stored = await sql.query<{ attempts: unknown[]; blocked_until: string }>(
+      "select attempts,blocked_until from admin_rate_limits where key=$1", ["block-expiry"],
+    );
+    assert.deepEqual(stored[0]?.attempts, []);
+    assert.ok(stored[0]?.blocked_until);
+
+    await sql.query("update admin_rate_limits set blocked_until=clock_timestamp()-interval '1 second' where key=$1", ["block-expiry"]);
+    assert.deepEqual(await consumeAdminAttemptWithSql(sql, "block-expiry", 8), {
+      allowed: true, remaining: 7, retryAfterSeconds: 0,
+    });
+  } finally {
+    await pg.close();
+  }
+});
+
+test("PostgreSQL admin limiter applies rolling-window boundaries and isolates keys", async () => {
+  const { pg, sql } = await createSql();
+  try {
+    await sql.query(
+      "insert into admin_rate_limits(key,attempts) values($1,array_fill(clock_timestamp()-interval '9 minutes 59 seconds',array[8]))",
+      ["window-boundary"],
+    );
+    assert.equal((await consumeAdminAttemptWithSql(sql, "window-boundary", 8)).allowed, false);
+    assert.deepEqual(await consumeAdminAttemptWithSql(sql, "another-client", 8), {
+      allowed: true, remaining: 7, retryAfterSeconds: 0,
+    });
+  } finally {
+    await pg.close();
+  }
+});
+
+test("successful authentication clears only its PostgreSQL bucket", async () => {
+  const { pg, sql } = await createSql();
+  try {
+    await consumeAdminAttemptWithSql(sql, "clear-me", 3);
+    await consumeAdminAttemptWithSql(sql, "keep-me", 3);
+    await clearAdminAttemptsWithSql(sql, "clear-me");
+    assert.deepEqual(await consumeAdminAttemptWithSql(sql, "clear-me", 3), {
+      allowed: true, remaining: 2, retryAfterSeconds: 0,
+    });
+    assert.deepEqual(await consumeAdminAttemptWithSql(sql, "keep-me", 3), {
+      allowed: true, remaining: 1, retryAfterSeconds: 0,
+    });
+  } finally {
+    await pg.close();
+  }
+});
+
+test("database failures propagate so production callers can fail closed", async () => {
+  const unavailable = {
+    query: async () => { throw new Error("database unavailable"); },
+  } as unknown as Sql;
+  await assert.rejects(consumeAdminAttemptWithSql(unavailable, "db-down"), /database unavailable/);
+  await assert.rejects(clearAdminAttemptsWithSql(unavailable, "db-down"), /database unavailable/);
+});
+
+test("production refuses local or unconfigured databases instead of using a per-instance limiter", { skip: dbSource === "postgres" }, async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    await assert.rejects(consumeAdminAttempt("production-without-shared-postgres"), (error: unknown) =>
+      Boolean(error && typeof error === "object" && "statusCode" in error && error.statusCode === 503),
+    );
+    await assert.rejects(clearAdminAttempts("production-without-shared-postgres"), (error: unknown) =>
+      Boolean(error && typeof error === "object" && "statusCode" in error && error.statusCode === 503),
+    );
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  }
 });
 
 test("rate-limit identity trusts only Liara's rightmost client IP and ignores spoofed XFF prefixes", () => {
@@ -39,195 +135,4 @@ test("rate-limit identity trusts only Liara's rightmost client IP and ignores sp
     },
   } as unknown as import("h3").H3Event;
   assert.equal(clientFingerprint(event), createHash("sha256").update("203.0.113.7").digest("hex"));
-});
-
-test("a configured Redis outage fails closed instead of falling back to per-instance memory", async () => {
-  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  const previousFetch = globalThis.fetch;
-  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test";
-  process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
-  globalThis.fetch = async () => new Response("unavailable", { status: 503 });
-  try {
-    const isolated = await import(`./admin-rate-limit.server.ts?redis-failure=${crypto.randomUUID()}`);
-    await assert.rejects(
-      isolated.consumeAdminAttempt("redis-outage:" + crypto.randomUUID()),
-      /Redis responded 503/,
-    );
-  } finally {
-    globalThis.fetch = previousFetch;
-    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
-    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
-    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
-    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
-  }
-});
-
-test("a configured Redis store sends an atomic EVAL command and accepts its result in production", async () => {
-  const previousNodeEnv = process.env.NODE_ENV;
-  const previousCi = process.env.CI;
-  const previousVerifyFlag = process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  const previousFetch = globalThis.fetch;
-  let requestedUrl = "";
-  let requestHeaders: Headers | undefined;
-  let command: unknown;
-  process.env.NODE_ENV = "production";
-  process.env.CI = "true";
-  delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test/";
-  process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
-  globalThis.fetch = async (input, init) => {
-    requestedUrl = String(input);
-    requestHeaders = new Headers(init?.headers);
-    command = JSON.parse(String(init?.body));
-    return new Response(JSON.stringify({ result: [1, 7, 0] }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
-  };
-  try {
-    const isolated = await import(`./admin-rate-limit.server.ts?redis-success=${crypto.randomUUID()}`);
-    const result = await isolated.consumeAdminAttempt("redis-success:" + crypto.randomUUID(), 8);
-    assert.deepEqual(result, { allowed: true, remaining: 7, retryAfterSeconds: 0 });
-    assert.equal(requestedUrl, "https://redis.example.test");
-    assert.equal(requestHeaders?.get("authorization"), "Bearer test-token");
-    assert.equal(requestHeaders?.get("content-type"), "application/json");
-    assert.ok(Array.isArray(command));
-    assert.equal(command[0], "EVAL");
-    assert.equal(command[2], 1);
-  } finally {
-    globalThis.fetch = previousFetch;
-    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = previousNodeEnv;
-    if (previousCi === undefined) delete process.env.CI;
-    else process.env.CI = previousCi;
-    if (previousVerifyFlag === undefined) delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-    else process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = previousVerifyFlag;
-    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
-    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
-    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
-    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
-  }
-});
-
-test("production rejects either incomplete half of the Upstash configuration", async () => {
-  const previousNodeEnv = process.env.NODE_ENV;
-  const previousCi = process.env.CI;
-  const previousVerifyFlag = process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  process.env.NODE_ENV = "production";
-  process.env.CI = "true";
-  delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-  try {
-    for (const [url, token, suffix] of [
-      ["https://redis.example.test", undefined, "missing-token"],
-      [undefined, "test-token", "missing-url"],
-    ] as const) {
-      if (url === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
-      else process.env.UPSTASH_REDIS_REST_URL = url;
-      if (token === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
-      else process.env.UPSTASH_REDIS_REST_TOKEN = token;
-      const isolated = await import(`./admin-rate-limit.server.ts?redis-partial-${suffix}=${crypto.randomUUID()}`);
-      await assert.rejects(
-        isolated.consumeAdminAttempt(`redis-partial:${suffix}:` + crypto.randomUUID()),
-        (error: unknown) => Boolean(error && typeof error === "object" && "statusCode" in error && error.statusCode === 503),
-      );
-    }
-  } finally {
-    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = previousNodeEnv;
-    if (previousCi === undefined) delete process.env.CI;
-    else process.env.CI = previousCi;
-    if (previousVerifyFlag === undefined) delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-    else process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = previousVerifyFlag;
-    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
-    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
-    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
-    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
-  }
-});
-
-test("a Redis network error propagates instead of degrading to the memory store", async () => {
-  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  const previousFetch = globalThis.fetch;
-  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test";
-  process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
-  globalThis.fetch = async () => { throw new TypeError("network unavailable"); };
-  try {
-    const isolated = await import(`./admin-rate-limit.server.ts?redis-network-failure=${crypto.randomUUID()}`);
-    await assert.rejects(
-      isolated.consumeAdminAttempt("redis-network-failure:" + crypto.randomUUID()),
-      /network unavailable/,
-    );
-  } finally {
-    globalThis.fetch = previousFetch;
-    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
-    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
-    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
-    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
-  }
-});
-
-test("production requires the shared Redis store instead of falling back to per-process memory", async () => {
-  const previousNodeEnv = process.env.NODE_ENV;
-  const previousCi = process.env.CI;
-  const previousVerifyFlag = process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  delete process.env.UPSTASH_REDIS_REST_URL;
-  delete process.env.UPSTASH_REDIS_REST_TOKEN;
-  process.env.CI = "true";
-  delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-  process.env.NODE_ENV = "production";
-  try {
-    const isolated = await import(`./admin-rate-limit.server.ts?redis-unconfigured=${crypto.randomUUID()}`);
-    await assert.rejects(
-      isolated.consumeAdminAttempt("redis-unconfigured:" + crypto.randomUUID()),
-      (error: unknown) => Boolean(error && typeof error === "object" && "statusCode" in error && error.statusCode === 503),
-    );
-  } finally {
-    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = previousNodeEnv;
-    if (previousCi === undefined) delete process.env.CI;
-    else process.env.CI = previousCi;
-    if (previousVerifyFlag === undefined) delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-    else process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = previousVerifyFlag;
-    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
-    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
-    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
-    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
-  }
-});
-
-test("Verify preview may explicitly use the in-memory limiter without Redis", async () => {
-  const previousNodeEnv = process.env.NODE_ENV;
-  const previousCi = process.env.CI;
-  const previousVerifyFlag = process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-  delete process.env.UPSTASH_REDIS_REST_URL;
-  delete process.env.UPSTASH_REDIS_REST_TOKEN;
-  process.env.NODE_ENV = "production";
-  process.env.CI = "true";
-  process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = "true";
-  try {
-    const isolated = await import(`./admin-rate-limit.server.ts?verify-memory=${crypto.randomUUID()}`);
-    const result = await isolated.consumeAdminAttempt("verify-memory:" + crypto.randomUUID());
-    assert.equal(result.allowed, true);
-  } finally {
-    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = previousNodeEnv;
-    if (previousCi === undefined) delete process.env.CI;
-    else process.env.CI = previousCi;
-    if (previousVerifyFlag === undefined) delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
-    else process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = previousVerifyFlag;
-    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
-    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
-    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
-    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
-  }
 });
