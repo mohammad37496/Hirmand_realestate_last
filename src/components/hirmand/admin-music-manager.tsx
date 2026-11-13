@@ -9,6 +9,7 @@ import {
   Play,
   Trash2,
   Upload,
+  RefreshCw,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -86,6 +87,7 @@ export function AdminMusicManager() {
   const [retryMessage, setRetryMessage] = useState("");
   const [queueWarning, setQueueWarning] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState("");
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -101,6 +103,7 @@ export function AdminMusicManager() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/music-admin", {
         method: "POST",
@@ -116,7 +119,9 @@ export function AdminMusicManager() {
       const data = (await response.json()) as { tracks?: AdminMusicTrack[] };
       setTracks(Array.isArray(data.tracks) ? data.tracks : []);
     } catch (error) {
-      toast.error(uploadErrorMessage(error, "بارگذاری آهنگ‌ها انجام نشد."));
+      const message = uploadErrorMessage(error, "بارگذاری آهنگ‌ها انجام نشد.");
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -402,7 +407,7 @@ export function AdminMusicManager() {
               پیشرفت را می‌بینی و فایل بلافاصله در پلیر سایت قابل پخش است.
             </p>
           </div>
-          <div className="admin-music-summary">
+          {!loadError ? <div className="admin-music-summary">
             <span>
               <strong>{activeCount.toLocaleString("fa-IR")}</strong> فعال
               <small> از {tracks.length.toLocaleString("fa-IR")} آهنگ</small>
@@ -411,8 +416,10 @@ export function AdminMusicManager() {
               <strong>{formatSize(totalBytes)}</strong>
               <small>حجم کتابخانه</small>
             </span>
-          </div>
+          </div> : <div className="admin-music-summary"><strong>کتابخانه در دسترس نیست</strong></div>}
         </div>
+
+        {loadError ? <div className="admin-empty" role="alert"><strong>کتابخانه موسیقی در دسترس نیست</strong><p>{loadError}</p><button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> تلاش مجدد</button></div> : null}
 
         <form className="admin-music-upload" onSubmit={uploadTrack}>
           <label className="field">
@@ -444,7 +451,7 @@ export function AdminMusicManager() {
               id="admin-music-file"
               type="file"
               accept=".mp3,.ogg,.oga,.wav,.m4a,.aac,audio/*"
-              disabled={busy || !queueReady}
+              disabled={busy || !queueReady || !!loadError}
               onChange={(e) => {
                 const nextFile = e.target.files?.[0] ?? null;
                 try {
@@ -499,7 +506,7 @@ export function AdminMusicManager() {
             </div>
           ) : null}
 
-          <button type="submit" className="btn-gold" disabled={!queueReady || busy || !file}>
+          <button type="submit" className="btn-gold" disabled={!queueReady || busy || !file || !!loadError}>
             {busy ? <Loader2 size={16} className="admin-spin" /> : <Upload size={16} />}
             {busy ? "در حال آپلود…" : retryPending ? "تلاش مجدد همین فایل" : "آپلود و انتشار آهنگ"}
           </button>
@@ -531,7 +538,7 @@ export function AdminMusicManager() {
           </p>
         ) : null}
 
-        {loading ? (
+        {loadError ? null : loading ? (
           <div className="admin-empty">
             <Loader2 size={24} className="admin-spin" />
             <strong>در حال بارگذاری…</strong>

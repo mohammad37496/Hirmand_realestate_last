@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, BellRing, CheckCircle2 } from "lucide-react";
+import { Bell, BellRing, CheckCircle2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import type { PropertyAvailabilityStatus } from "@/lib/properties";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -16,26 +16,33 @@ export function PropertyBackInMarketAlert({ slug, title, availabilityStatus }: P
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     if (!CLOSED.has(availabilityStatus)) return;
     let cancelled = false;
-    void fetch("/api/property-watch", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "sync" }),
-    })
-      .then((response) => response.ok ? response.json() as Promise<{ subscriptions?: Array<{ slug: string }> }> : null)
-      .then((payload) => {
+    setLoaded(false);
+    setLoadError(null);
+    void (async () => {
+      try {
+        const response = await fetch("/api/property-watch", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "sync" }),
+        });
+        const payload = await response.json().catch(() => null) as { subscriptions?: Array<{ slug: string }>; statusMessage?: string } | null;
+        if (!response.ok) throw new Error(payload?.statusMessage || "وضعیت اعلان این فایل دریافت نشد.");
         if (cancelled) return;
         setEnabled(Boolean(payload?.subscriptions?.some((item) => item.slug === slug)));
-      })
-      .catch(() => {})
-      .finally(() => {
+      } catch (error) {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : "وضعیت اعلان این فایل دریافت نشد.");
+      } finally {
         if (!cancelled) setLoaded(true);
-      });
+      }
+    })();
     return () => { cancelled = true; };
-  }, [slug, availabilityStatus]);
+  }, [slug, availabilityStatus, retryKey]);
 
   if (!CLOSED.has(availabilityStatus)) return null;
 
@@ -49,8 +56,8 @@ export function PropertyBackInMarketAlert({ slug, title, availabilityStatus }: P
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action, slug }),
       });
-      const payload = await response.json().catch(() => null) as { ok?: boolean; enabled?: boolean } | null;
-      if (!response.ok || payload?.ok === false) throw new Error("watch request failed");
+      const payload = await response.json().catch(() => null) as { ok?: boolean; enabled?: boolean; statusMessage?: string } | null;
+      if (!response.ok || payload?.ok === false || payload?.enabled !== (action === "subscribe")) throw new Error(payload?.statusMessage || "تغییر وضعیت اعلان انجام نشد.");
       setEnabled(action === "subscribe");
       trackAnalyticsEvent("property_price_watch", slug);
       toast.success(
@@ -58,8 +65,10 @@ export function PropertyBackInMarketAlert({ slug, title, availabilityStatus }: P
           ? "اعلان بازگشت این فایل به بازار فعال شد."
           : "اعلان بازگشت فایل خاموش شد.",
       );
-    } catch {
-      toast.error("تغییر وضعیت اعلان انجام نشد؛ دوباره تلاش کنید.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "تغییر وضعیت اعلان انجام نشد؛ دوباره تلاش کنید.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -82,17 +91,19 @@ export function PropertyBackInMarketAlert({ slug, title, availabilityStatus }: P
         <span className="property-new-feature-badge"><Bell size={13} /> اعلان وضعیت</span>
       </header>
 
+      {loadError ? <div className="admin-empty" role="alert"><strong>وضعیت اعلان در دسترس نیست</strong><p>{loadError}</p><button type="button" className="btn-ghost" onClick={() => setRetryKey((value) => value + 1)} disabled={busy}><RefreshCw size={14}/> تلاش مجدد</button></div> : null}
+
       <div className="property-back-in-market-body">
         <div className="property-back-in-market-copy">
-          <strong>{loaded && enabled ? "این فایل را در حالت پیگیری دارید." : "حتی اگر فعلاً ناموجود است، می‌توانید آن را از دست ندهید."}</strong>
+          <strong>{loadError ? "وضعیت پیگیری فایل قابل بررسی نیست." : loaded && enabled ? "این فایل را در حالت پیگیری دارید." : "حتی اگر فعلاً ناموجود است، می‌توانید آن را از دست ندهید."}</strong>
           <small>بدون نیاز به ثبت شماره موبایل؛ پیگیری به شناسه مرورگر شما متصل می‌شود.</small>
         </div>
         <button
           type="button"
           className={enabled ? "btn-ghost" : "btn-gold"}
           onClick={() => void toggle()}
-          disabled={busy}
-          aria-pressed={enabled}
+          disabled={busy || !loaded || !!loadError}
+          aria-pressed={loadError ? undefined : enabled}
         >
           {enabled ? <CheckCircle2 size={17} /> : <Bell size={17} />}
           {busy ? "در حال ثبت…" : enabled ? "پیگیری فعال است" : "اعلان بازگشت به بازار"}
