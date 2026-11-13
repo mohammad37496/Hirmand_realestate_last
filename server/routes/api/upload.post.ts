@@ -65,6 +65,9 @@ export default defineEventHandler(async (event) => {
         const derived = mimeFromFilename(filename);
         return ALLOWED.has(derived) ? derived : null;
       },
+      // Photos need no server-side transformation. Videos stay on the existing
+      // chunked path so the permanent watermark is applied before publication.
+      directUpload: ({ contentType }) => contentType.startsWith("image/"),
       unsupportedTypeMessage: "نوع فایل رسانه‌ای مجاز نیست.",
       sizeLimitMessage: (limitMb) => `حجم فایل بیش از ${limitMb} مگابایت است.`,
       transform: async ({ data, contentType, pathname }) => {

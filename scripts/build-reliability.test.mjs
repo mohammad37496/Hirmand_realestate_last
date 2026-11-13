@@ -155,7 +155,7 @@ test("FFmpeg download does not retry permanent client errors", async () => {
 test("FFmpeg GitHub API authorization is scoped to the pinned API asset endpoint", async () => {
   const requests = [];
   const archive = await download(
-    "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/698334968",
+    "https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/assets/698334968",
     0,
     "FFmpeg",
     {
@@ -179,150 +179,109 @@ test("FFmpeg GitHub API authorization is scoped to the pinned API asset endpoint
   assert.equal(requests[0].headers.get("authorization"), "Bearer workflow-token");
   assert.equal(requests[1].headers.has("authorization"), false);
   assert.equal(requests[1].headers.get("accept"), "application/octet-stream");
+
+  const legacyRequests = [];
+  await download("https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/698334968", 0, "legacy FFmpeg", {
+    githubToken: "workflow-token",
+    fetchImpl: async (url, options) => {
+      legacyRequests.push({ url, headers: new Headers(options.headers) });
+      return new Response("legacy route", { status: 200 });
+    },
+  });
+  assert.equal(legacyRequests[0].headers.has("authorization"), false, "never send the workflow token to the retired repository alias");
 });
 
-test("FFmpeg uses the public pinned release URL only after API 5xx exhaustion and verifies its checksum", async () => {
+test("FFmpeg downloads the public pinned release first without credentials and verifies its checksum", async () => {
   const assetBytes = Buffer.from("same pinned FFmpeg archive bytes");
-  const asset = {
-    assetId: 698334968,
-    name: "ffmpeg-test.tar.xz",
-    sha256: createHash("sha256").update(assetBytes).digest("hex"),
-  };
+  const asset = { assetId: 698334968, name: "ffmpeg-test.tar.xz", sha256: createHash("sha256").update(assetBytes).digest("hex") };
+  const requests = [];
+  const archive = await downloadVerifiedFfmpegArchive(asset, {
+    githubToken: "workflow-token",
+    downloadImpl: async (url, redirects, label, options) => { requests.push({ url, redirects, label, options }); return assetBytes; },
+  });
+  assert.deepEqual(archive, assetBytes);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-test.tar.xz");
+  assert.equal(Object.hasOwn(requests[0].options, "githubToken"), false);
+  assert.equal(new Headers(requests[0].options.headers).has("authorization"), false);
+});
+
+test("FFmpeg uses the pinned asset-ID API only after public release HTTP 5xx and verifies its checksum", async () => {
+  const assetBytes = Buffer.from("same pinned FFmpeg archive bytes after public 5xx");
+  const asset = { assetId: 698334968, name: "ffmpeg-fallback-test.tar.xz", sha256: createHash("sha256").update(assetBytes).digest("hex") };
   const requests = [];
   const archive = await downloadVerifiedFfmpegArchive(asset, {
     githubToken: "workflow-token",
     downloadImpl: async (url, redirects, label, options) => {
       requests.push({ url, redirects, label, options });
-      if (requests.length === 1) {
-        const error = new Error("FFmpeg download failed with HTTP 503.");
-        error.status = 503;
-        throw error;
-      }
+      if (requests.length === 1) { const error = new Error("HTTP 503"); error.status = 503; throw error; }
       return assetBytes;
     },
   });
-
   assert.deepEqual(archive, assetBytes);
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].url, "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/698334968");
-  assert.equal(requests[0].options.githubToken, "workflow-token");
-  assert.equal(requests[1].url, "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-test.tar.xz");
-  assert.equal(Object.hasOwn(requests[1].options, "githubToken"), false);
+  assert.equal(requests[0].url, "https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-fallback-test.tar.xz");
+  assert.equal(requests[1].url, "https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/assets/698334968");
+  assert.equal(requests[1].options.githubToken, "workflow-token");
 });
 
-test("FFmpeg uses the public pinned release URL after exhausted API transport retries without credentials", async () => {
-  const assetBytes = Buffer.from("same pinned FFmpeg archive bytes after network failure");
-  const asset = {
-    assetId: 698334968,
-    name: "ffmpeg-transport-test.tar.xz",
-    sha256: createHash("sha256").update(assetBytes).digest("hex"),
-  };
+test("FFmpeg falls back to the asset API after bounded public release transport retries", async () => {
+  const assetBytes = Buffer.from("same pinned archive after transport failure");
+  const asset = { assetId: 698334968, name: "ffmpeg-transport-test.tar.xz", sha256: createHash("sha256").update(assetBytes).digest("hex") };
   const requests = [];
   const fetchCalls = [];
   const archive = await downloadVerifiedFfmpegArchive(asset, {
     githubToken: "workflow-token",
     downloadImpl: async (url, redirects, label, options) => {
-      requests.push({ url, redirects, label, options });
-      if (url.startsWith("https://api.github.com/")) {
-        return download(url, redirects, label, {
-          ...options,
-          maxAttempts: 2,
-          retryDelays: [1],
-          sleep: async () => {},
-          fetchImpl: async (requestUrl, requestOptions) => {
-            fetchCalls.push({ url: requestUrl, headers: new Headers(requestOptions.headers) });
-            throw new TypeError("fetch failed: ECONNRESET");
-          },
-        });
-      }
+      requests.push({ url, options });
+      if (url.startsWith("https://github.com/")) return download(url, redirects, label, { ...options, maxAttempts: 2, retryDelays: [1], sleep: async () => {}, fetchImpl: async (requestUrl, requestOptions) => { fetchCalls.push({ url: requestUrl, headers: new Headers(requestOptions.headers) }); throw new TypeError("fetch failed: ECONNRESET"); } });
       return assetBytes;
     },
   });
-
   assert.deepEqual(archive, assetBytes);
-  assert.equal(fetchCalls.length, 2, "API transport failures must exhaust bounded retries first");
-  assert.equal(fetchCalls[0].headers.get("authorization"), "Bearer workflow-token");
+  assert.equal(fetchCalls.length, 2);
+  assert.equal(fetchCalls[0].headers.has("authorization"), false);
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].url, "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/698334968");
-  assert.equal(requests[1].url, "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-transport-test.tar.xz");
-  assert.equal(Object.hasOwn(requests[1].options, "githubToken"), false);
-  assert.equal(new Headers(requests[1].options.headers).has("authorization"), false);
+  assert.equal(requests[1].url, "https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/assets/698334968");
+  assert.equal(requests[1].options.githubToken, "workflow-token");
 });
 
-test("FFmpeg uses the public pinned release URL after exhausted API timeout retries", async () => {
-  const assetBytes = Buffer.from("same pinned FFmpeg archive bytes after API timeout");
-  const asset = {
-    assetId: 698334968,
-    name: "ffmpeg-timeout-test.tar.xz",
-    sha256: createHash("sha256").update(assetBytes).digest("hex"),
-  };
-  let fetchCalls = 0;
+test("FFmpeg falls back to the asset API after bounded public release timeout retries", async () => {
+  const assetBytes = Buffer.from("same pinned archive after timeout");
+  const asset = { assetId: 698334968, name: "ffmpeg-timeout-test.tar.xz", sha256: createHash("sha256").update(assetBytes).digest("hex") };
   const requests = [];
+  let fetchCalls = 0;
   const archive = await downloadVerifiedFfmpegArchive(asset, {
     githubToken: "workflow-token",
     downloadImpl: async (url, redirects, label, options) => {
       requests.push({ url, options });
-      if (url.startsWith("https://api.github.com/")) {
-        return download(url, redirects, label, {
-          ...options,
-          maxAttempts: 2,
-          retryDelays: [1],
-          sleep: async () => {},
-          fetchImpl: async () => {
-            fetchCalls += 1;
-            const timeout = new Error("request timed out");
-            timeout.name = "TimeoutError";
-            throw timeout;
-          },
-        });
-      }
+      if (url.startsWith("https://github.com/")) return download(url, redirects, label, { ...options, maxAttempts: 2, retryDelays: [1], sleep: async () => {}, fetchImpl: async () => { fetchCalls += 1; const error = new Error("request timed out"); error.name = "TimeoutError"; throw error; } });
       return assetBytes;
     },
   });
-
   assert.deepEqual(archive, assetBytes);
-  assert.equal(fetchCalls, 2, "API timeout must exhaust bounded retries first");
+  assert.equal(fetchCalls, 2);
   assert.equal(requests.length, 2);
-  assert.equal(requests[1].url, "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-timeout-test.tar.xz");
-  assert.equal(Object.hasOwn(requests[1].options, "githubToken"), false);
-  assert.equal(new Headers(requests[1].options.headers).has("authorization"), false);
+  assert.equal(requests[1].url, "https://api.github.com/repos/FFmpeg-Builds/FFmpeg-Builds/releases/assets/698334968");
+  assert.equal(requests[1].options.githubToken, "workflow-token");
 });
 
-test("FFmpeg does not use the release fallback for authorization or ordinary rate-limit statuses, or accept unverified bytes", async () => {
+test("FFmpeg does not use the asset API for permanent public release failures or accept unverified fallback bytes", async () => {
   for (const status of [401, 403, 404, 429]) {
     let calls = 0;
-    await assert.rejects(
-      downloadVerifiedFfmpegArchive({ assetId: 1, name: "ffmpeg.tar.xz", sha256: "0".repeat(64) }, {
-        githubToken: "workflow-token",
-        downloadImpl: async () => {
-          calls += 1;
-          const error = new Error(`HTTP ${status}`);
-          error.status = status;
-          throw error;
-        },
-      }),
-      new RegExp(`HTTP ${status}`),
-    );
-    assert.equal(calls, 1, `HTTP ${status} must not trigger the public release fallback`);
+    await assert.rejects(downloadVerifiedFfmpegArchive({ assetId: 1, name: "ffmpeg.tar.xz", sha256: "0".repeat(64) }, {
+      githubToken: "workflow-token",
+      downloadImpl: async () => { calls += 1; const error = new Error("HTTP " + status); error.status = status; throw error; },
+    }), new RegExp("HTTP " + status));
+    assert.equal(calls, 1, "HTTP " + status + " must not trigger the asset API fallback");
   }
 
   let calls = 0;
-  await assert.rejects(
-    downloadVerifiedFfmpegArchive({ assetId: 1, name: "ffmpeg.tar.xz", sha256: "0".repeat(64) }, {
-      githubToken: "workflow-token",
-      downloadImpl: async () => {
-        calls += 1;
-        if (calls === 1) {
-          const error = new Error("HTTP 503");
-          error.status = 503;
-          throw error;
-        }
-        return Buffer.from("tampered fallback archive");
-      },
-    }),
-    /FFmpeg checksum mismatch/,
-  );
-  assert.equal(calls, 2, "fallback bytes must still pass the pinned SHA-256 check");
+  await assert.rejects(downloadVerifiedFfmpegArchive({ assetId: 1, name: "ffmpeg.tar.xz", sha256: "0".repeat(64) }, {
+    githubToken: "workflow-token",
+    downloadImpl: async () => { calls += 1; if (calls === 1) { const error = new Error("HTTP 503"); error.status = 503; throw error; } return Buffer.from("tampered fallback archive"); },
+  }), /FFmpeg checksum mismatch/);
+  assert.equal(calls, 2, "asset API fallback bytes must still pass the pinned SHA-256 check");
 });
 
 test("FFmpeg downloader retries explicit GitHub rate-limit 403 and 429, not ordinary 403", async () => {
@@ -659,7 +618,9 @@ test("object-store offload never deletes the database fallback before saving the
 });
 
 test("FFmpeg downloads use pinned GitHub release asset IDs and the octet-stream API", () => {
-  assert.match(ffmpegProvisioner, /api\.github\.com\/repos\/BtbN\/FFmpeg-Builds\/releases\/assets\/\$\{asset\.assetId\}/);
+  assert.ok(ffmpegProvisioner.includes('const RELEASE_REPOSITORY = "FFmpeg-Builds/FFmpeg-Builds"'));
+  assert.ok(ffmpegProvisioner.includes('const apiUrl = "https://api.github.com/repos/" + RELEASE_REPOSITORY + "/releases/assets/" + asset.assetId'));
+  assert.doesNotMatch(ffmpegProvisioner, /repos\/BtbN\/FFmpeg-Builds\/releases\/assets/);
   assert.match(ffmpegProvisioner, /Accept:\s*"application\/octet-stream"/);
   assert.match(ffmpegProvisioner, /assetId:\s*698334968/);
   assert.match(ffmpegProvisioner, /assetId:\s*698335088/);
