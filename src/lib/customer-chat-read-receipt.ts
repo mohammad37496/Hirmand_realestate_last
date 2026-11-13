@@ -13,7 +13,7 @@ export async function markCustomerChatMessagesRead(
   const ids = [...new Set(messageIds)].slice(0, 100);
   const rows = await sql.query<{ leadId: string | null; markedCount: number }>(
     `with target as (
-       select id from leads where upper(tracking_token)=upper($1) limit 1
+       select id from leads where upper(public_tracking_token)=upper($1) limit 1
      ), updated as (
        update customer_messages as message
        set read_by_customer_at = current_timestamp

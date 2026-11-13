@@ -28,8 +28,8 @@ test("read receipts use a same-origin, no-store, rate-limited POST endpoint", ()
   assert.match(postRoute, /markCustomerChatMessagesRead\(/);
   assert.ok(postRoute.indexOf("assertSameOrigin(event)") < postRoute.indexOf("readBody(event)"));
   assert.ok(postRoute.indexOf("consumeAdminAttempt(") < postRoute.indexOf("readBody(event)"));
-  assert.match(readReceiptHelper, /upper\(tracking_token\)=upper\(\$1\)/);
-  assert.doesNotMatch(readReceiptHelper, /public_tracking_token|tracking-token\.ts/);
+  assert.match(readReceiptHelper, /upper\(public_tracking_token\)=upper\(\$1\)/);
+  assert.doesNotMatch(readReceiptHelper, /upper\(tracking_token\)=upper\(\$1\)/);
 });
 
 test("the customer conversation marks only the admin messages it actually fetched", () => {
