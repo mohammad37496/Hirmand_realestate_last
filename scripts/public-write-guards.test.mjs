@@ -50,6 +50,7 @@ test("public lead intake checks origin and uses the shared database limiter befo
   assert.match(publicLeadRateLimit, /insert into public_lead_rate_limits[\s\S]*?on conflict \(key\) do update/);
   assert.match(leadsRoute, /PROPERTY_BOUND_REQUEST_DEALS\.has\(value\.deal\) && !value\.propertyId/);
   assert.match(leadsRoute, /PROPERTY_BOUND_REQUEST_DEALS\.has\(parsed\.data\.deal\)/);
+  assert.match(leadsRoute, /parsed\.data\.offerAmount == null/);
   assert.match(leadsRoute, /findRecentPropertyRequestLead\(sql, property\.id, parsed\.data\.phone, parsed\.data\.deal\)/);
 });
 

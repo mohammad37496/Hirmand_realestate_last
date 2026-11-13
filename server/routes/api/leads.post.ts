@@ -243,7 +243,7 @@ export default defineEventHandler(async (event) => {
     ? buildBudgetLeadNote(budgetPayload)
     : parsed.data.note;
 
-  if (existing[0] && !(parsed.data.propertyId && parsed.data.visitPreferredAt) && !parsed.data.callbackPreferredAt && !PROPERTY_BOUND_REQUEST_DEALS.has(parsed.data.deal)) {
+  if (existing[0] && !(parsed.data.propertyId && parsed.data.visitPreferredAt) && !parsed.data.callbackPreferredAt && parsed.data.offerAmount == null && !PROPERTY_BOUND_REQUEST_DEALS.has(parsed.data.deal)) {
     if (parsed.data.source === "budget_match") {
       if (typeof sql.transaction !== "function") throw createError({ statusCode: 503, statusMessage: "به‌روزرسانی درخواست به تراکنش پایگاه داده نیاز دارد." });
       await sql.transaction(async (transactionSql) => {
