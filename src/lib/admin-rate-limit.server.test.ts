@@ -63,6 +63,115 @@ test("a configured Redis outage fails closed instead of falling back to per-inst
   }
 });
 
+test("a configured Redis store sends an atomic EVAL command and accepts its result in production", async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousCi = process.env.CI;
+  const previousVerifyFlag = process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const previousFetch = globalThis.fetch;
+  let requestedUrl = "";
+  let requestHeaders: Headers | undefined;
+  let command: unknown;
+  process.env.NODE_ENV = "production";
+  process.env.CI = "true";
+  delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test/";
+  process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+  globalThis.fetch = async (input, init) => {
+    requestedUrl = String(input);
+    requestHeaders = new Headers(init?.headers);
+    command = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({ result: [1, 7, 0] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    const isolated = await import(`./admin-rate-limit.server.ts?redis-success=${crypto.randomUUID()}`);
+    const result = await isolated.consumeAdminAttempt("redis-success:" + crypto.randomUUID(), 8);
+    assert.deepEqual(result, { allowed: true, remaining: 7, retryAfterSeconds: 0 });
+    assert.equal(requestedUrl, "https://redis.example.test");
+    assert.equal(requestHeaders?.get("authorization"), "Bearer test-token");
+    assert.equal(requestHeaders?.get("content-type"), "application/json");
+    assert.ok(Array.isArray(command));
+    assert.equal(command[0], "EVAL");
+    assert.equal(command[2], 1);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousCi === undefined) delete process.env.CI;
+    else process.env.CI = previousCi;
+    if (previousVerifyFlag === undefined) delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+    else process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = previousVerifyFlag;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
+});
+
+test("production rejects either incomplete half of the Upstash configuration", async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousCi = process.env.CI;
+  const previousVerifyFlag = process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  process.env.NODE_ENV = "production";
+  process.env.CI = "true";
+  delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+  try {
+    for (const [url, token, suffix] of [
+      ["https://redis.example.test", undefined, "missing-token"],
+      [undefined, "test-token", "missing-url"],
+    ] as const) {
+      if (url === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+      else process.env.UPSTASH_REDIS_REST_URL = url;
+      if (token === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+      else process.env.UPSTASH_REDIS_REST_TOKEN = token;
+      const isolated = await import(`./admin-rate-limit.server.ts?redis-partial-${suffix}=${crypto.randomUUID()}`);
+      await assert.rejects(
+        isolated.consumeAdminAttempt(`redis-partial:${suffix}:` + crypto.randomUUID()),
+        (error: unknown) => Boolean(error && typeof error === "object" && "statusCode" in error && error.statusCode === 503),
+      );
+    }
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousCi === undefined) delete process.env.CI;
+    else process.env.CI = previousCi;
+    if (previousVerifyFlag === undefined) delete process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT;
+    else process.env.HIRMAND_TEST_ALLOW_IN_MEMORY_RATE_LIMIT = previousVerifyFlag;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
+});
+
+test("a Redis network error propagates instead of degrading to the memory store", async () => {
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const previousFetch = globalThis.fetch;
+  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.test";
+  process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+  globalThis.fetch = async () => { throw new TypeError("network unavailable"); };
+  try {
+    const isolated = await import(`./admin-rate-limit.server.ts?redis-network-failure=${crypto.randomUUID()}`);
+    await assert.rejects(
+      isolated.consumeAdminAttempt("redis-network-failure:" + crypto.randomUUID()),
+      /network unavailable/,
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
+});
+
 test("production requires the shared Redis store instead of falling back to per-process memory", async () => {
   const previousNodeEnv = process.env.NODE_ENV;
   const previousCi = process.env.CI;
