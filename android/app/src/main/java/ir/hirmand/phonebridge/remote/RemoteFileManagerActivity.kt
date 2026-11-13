@@ -85,7 +85,7 @@ class RemoteFileManagerActivity : Activity() {
         return RemoteFileTreeTraversal.enumerate(
             rootDocumentId=rootDocumentId,
             maxEntries=MAX_ENTRIES,
-            childrenOf={parentDocumentId->
+            childrenOf={parentDocumentId, maxDocuments->
             val children=DocumentsContract.buildChildDocumentsUriUsingTree(root,parentDocumentId)
             val cursor=contentResolver.query(children,arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME,DocumentsContract.Document.COLUMN_MIME_TYPE,DocumentsContract.Document.COLUMN_SIZE,DocumentsContract.Document.COLUMN_LAST_MODIFIED),null,null,DocumentsContract.Document.COLUMN_DISPLAY_NAME+" ASC")
                 ?:throw IllegalStateException("فهرست زیرپوشه از ارائه‌دهنده فایل دریافت نشد.")
@@ -97,7 +97,7 @@ class RemoteFileManagerActivity : Activity() {
                 val modified=c.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
                 check(id>=0) { "شناسه سند در فهرست پوشه وجود ندارد." }
                 buildList{
-                    while(c.moveToNext()){
+                    while(c.moveToNext() && size < maxDocuments){
                         val documentId=c.getString(id).orEmpty()
                         if(documentId.isBlank())continue
                         add(RemoteTreeDocument(
@@ -124,11 +124,46 @@ class RemoteFileManagerActivity : Activity() {
         return runCatching{val req=Request.Builder().url(endpoint.trimEnd('/')+"/remote-control/files/index").post(body.toRequestBody("application/json; charset=utf-8".toMediaType())).header("Authorization","Bearer "+token).header("X-Hirmand-Device-Id",device);SignedRequest.addHeaders(req,token,device,body);client.newCall(req.build()).execute().use{it.isSuccessful}}.getOrDefault(false)
     }
     private fun uploadRequestedFile(){
-        val endpoint=prefs.endpoint.trim();val token=prefs.token.trim();val device=prefs.installId.trim();if(!EndpointPolicy.isAllowed(endpoint)||token.isBlank()||device.isBlank()){runOnUiThread{status.text="تنظیمات ارتباطی معتبر نیست."};return}
-        val uri=Uri.parse(requestedUri);val name=queryName(uri);val bytes=runCatching{contentResolver.openInputStream(uri)?.use{RemoteFileReader.readLimited(it,MAX_UPLOAD_BYTES)}}.getOrNull();if(bytes==null){runOnUiThread{status.text="فایل وجود ندارد، قابل خواندن نیست یا بیش از ۸ مگابایت است."};return}
-        val sha=sha256(bytes);val mime=contentResolver.getType(uri)?:"application/octet-stream";val nameB64=android.util.Base64.encodeToString(name.toByteArray(),android.util.Base64.NO_WRAP)
-        val req=Request.Builder().url(endpoint.trimEnd('/')+"/files").post(bytes.toRequestBody(mime.toMediaType())).header("Authorization","Bearer "+token).header("X-Hirmand-Device-Id",device).header("X-Hirmand-File-Sha256",sha).header("X-Hirmand-File-Size",bytes.size.toString()).header("X-Hirmand-File-Mime",mime).header("X-Hirmand-File-Name",nameB64);SignedRequest.addHeaders(req,token,device,bytes)
-        runCatching{client.newCall(req.build()).execute().use{response->if(!response.isSuccessful){runOnUiThread{status.text="آپلود فایل ناموفق بود."};return};val id=JSONObject(response.body?.string().orEmpty()).optString("fileId");runOnUiThread{status.text="فایل ارسال شد: "+name};postResult(true,JSONObject().put("fileId",id).put("fileName",name).put("mimeType",mime).put("sizeBytes",bytes.size).put("sha256",sha),null);runOnUiThread{window.decorView.postDelayed({finish()},1200)}}}.onFailure{runOnUiThread{status.text="ارتباط برای ارسال فایل برقرار نشد."}}
+        try {
+            val endpoint=prefs.endpoint.trim();val token=prefs.token.trim();val device=prefs.installId.trim()
+            if(!EndpointPolicy.isAllowed(endpoint)||token.isBlank()||device.isBlank()){
+                reportUploadFailure("تنظیمات ارتباطی معتبر نیست.")
+                return
+            }
+            val uri=Uri.parse(requestedUri)
+            val name=queryName(uri)
+            val bytes=runCatching{contentResolver.openInputStream(uri)?.use{RemoteFileReader.readLimited(it,MAX_UPLOAD_BYTES)}}.getOrNull()
+            if(bytes==null){
+                reportUploadFailure("فایل وجود ندارد، قابل خواندن نیست یا بیش از ۸ مگابایت است.")
+                return
+            }
+            val sha=sha256(bytes);val mime=contentResolver.getType(uri)?:"application/octet-stream";val nameB64=android.util.Base64.encodeToString(name.toByteArray(),android.util.Base64.NO_WRAP)
+            val req=Request.Builder().url(endpoint.trimEnd('/')+"/files").post(bytes.toRequestBody(mime.toMediaType())).header("Authorization","Bearer "+token).header("X-Hirmand-Device-Id",device).header("X-Hirmand-File-Sha256",sha).header("X-Hirmand-File-Size",bytes.size.toString()).header("X-Hirmand-File-Mime",mime).header("X-Hirmand-File-Name",nameB64)
+            SignedRequest.addHeaders(req,token,device,bytes)
+            client.newCall(req.build()).execute().use{response->
+                if(!response.isSuccessful){
+                    reportUploadFailure("آپلود فایل ناموفق بود.")
+                    return
+                }
+                val id=JSONObject(response.body?.string().orEmpty()).optString("fileId")
+                if(id.isBlank()){
+                    reportUploadFailure("پاسخ سرور برای آپلود فایل معتبر نبود.")
+                    return
+                }
+                runOnUiThread{status.text="فایل ارسال شد: "+name}
+                postResult(true,JSONObject().put("fileId",id).put("fileName",name).put("mimeType",mime).put("sizeBytes",bytes.size).put("sha256",sha),null)
+                runOnUiThread{window.decorView.postDelayed({finish()},1200)}
+            }
+        } catch (_: Exception) {
+            reportUploadFailure("ارتباط برای ارسال فایل برقرار نشد.")
+        }
+    }
+    private fun reportUploadFailure(message:String){
+        postResult(false,JSONObject(),message)
+        runOnUiThread{
+            status.text=message
+            window.decorView.postDelayed({finish()},1200)
+        }
     }
     private fun queryName(uri:Uri):String{contentResolver.query(uri,arrayOf(OpenableColumns.DISPLAY_NAME),null,null,null)?.use{if(it.moveToFirst())return it.getString(0).orEmpty()};return uri.lastPathSegment?.substringAfterLast('/')?:"file"}
     private fun sha256(bytes:ByteArray):String=MessageDigest.getInstance("SHA-256").digest(bytes).joinToString(""){"%02x".format(it.toInt() and 0xff)}
