@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { test } from "node:test";
 import type { Sql } from "./db.ts";
 import { createPublicLeadIntake } from "./public-lead-intake.ts";
-import { findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "./public-lead-phone-dedupe.ts";
+import { findRecentPropertyRequestLead, findRecentPublicCallbackLead, findRecentPublicLeadByPhone, withPublicLeadPhoneDedupeLock } from "./public-lead-phone-dedupe.ts";
 
 function createSql(pg: PGlite) {
   let transactionCount = 0;
@@ -28,6 +28,8 @@ async function createFixture() {
     create table leads (
       id text primary key,
       phone text not null,
+      property_id text,
+      deal text,
       budget_amount integer,
       callback_preferred_at timestamptz,
       public_tracking_token text,
@@ -165,10 +167,83 @@ test("callback retries reuse only the same recent phone and scheduled time", asy
   }
 });
 
+test("property request retries reuse the matching property, phone, deal and tracking token", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    await sql.query(
+      "insert into leads(id,phone,property_id,deal,public_tracking_token) values($1,$2,$3,$4,$5)",
+      ["request-1", "09123456789", "property-1", "درخواست مدارک", "TRACK-ORIGINAL"],
+    );
+    assert.deepEqual(
+      await findRecentPropertyRequestLead(sql, "property-1", "09123456789", "درخواست مدارک"),
+      { id: "request-1", public_tracking_token: "TRACK-ORIGINAL" },
+    );
+    assert.equal(await findRecentPropertyRequestLead(sql, "property-2", "09123456789", "درخواست مدارک"), null);
+    assert.equal(await findRecentPropertyRequestLead(sql, "property-1", "09123456789", "درخواست تأمین مالی"), null);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("generic and property retry cutoffs advance after a competing request waits on the phone lock", async () => {
+  const { pg, sql } = await createFixture();
+  const phone = "09123456789";
+  try {
+    await sql.query(
+      "insert into leads(id,phone,property_id,deal,public_tracking_token,created_at) values($1,$2,$3,$4,$5,clock_timestamp() - interval '10 minutes' + interval '500 milliseconds')",
+      ["request-at-boundary", phone, "property-1", "درخواست مدارک", "TRACK-BOUNDARY"],
+    );
+
+    let releaseLock!: () => void;
+    let signalLocked!: () => void;
+    const locked = new Promise<void>((resolve) => { signalLocked = resolve; });
+    const holder = withPublicLeadPhoneDedupeLock(sql, phone, async () => {
+      signalLocked();
+      await new Promise<void>((resolve) => { releaseLock = resolve; });
+    });
+
+    await locked;
+    const waitingRequest = withPublicLeadPhoneDedupeLock(sql, phone, async (lockedSql) => ({
+      generic: await findRecentPublicLeadByPhone(lockedSql, phone),
+      property: await findRecentPropertyRequestLead(lockedSql, "property-1", phone, "درخواست مدارک"),
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    releaseLock();
+    await holder;
+
+    assert.deepEqual(await waitingRequest, { generic: null, property: null });
+  } finally {
+    await pg.close();
+  }
+});
+
+test("concurrent retries of one property request create only one lead", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    const submit = (id: string) => withPublicLeadPhoneDedupeLock(sql, "09123456789", async (lockedSql) => {
+      const duplicate = await findRecentPropertyRequestLead(lockedSql, "property-1", "09123456789", "درخواست کارشناسی فنی");
+      if (duplicate) return { kind: "duplicate", id: duplicate.id } as const;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      await lockedSql.query(
+        "insert into leads(id,phone,property_id,deal,public_tracking_token) values($1,$2,$3,$4,$5)",
+        [id, "09123456789", "property-1", "درخواست کارشناسی فنی", "TRACK-" + id],
+      );
+      return { kind: "created", id } as const;
+    });
+
+    const results = await Promise.all([submit("request-a"), submit("request-b")]);
+    assert.equal(results.filter((result) => result.kind === "created").length, 1);
+    assert.equal(results.filter((result) => result.kind === "duplicate").length, 1);
+    assert.equal((await sql.query("select id from leads where property_id='property-1'")).length, 1);
+  } finally {
+    await pg.close();
+  }
+});
+
 test("public lead route acquires the phone lock before checking the ten-minute dedupe window", async () => {
   const route = await readFile(new URL("../../server/routes/api/leads.post.ts", import.meta.url), "utf8");
   const lock = route.indexOf("withPublicLeadPhoneDedupeLock(databaseSql, parsed.data.phone");
-  const lookup = route.indexOf("const existing = await sql.query");
+  const lookup = route.indexOf("findRecentPublicLeadByPhone(sql, parsed.data.phone)");
   const callbackLookup = route.indexOf("findRecentPublicCallbackLead(sql, parsed.data.phone, callbackDate)");
   const callbackCreate = route.indexOf("const leadId = await createPublicLeadIntake(sql", callbackLookup);
   const create = route.indexOf("const createdLeadId = await createPublicLeadIntake(sql");

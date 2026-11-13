@@ -13,12 +13,12 @@ function normalizePhone(value: string) {
   return value
     .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
     .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
-    .replace(/D/g, "")
+    .replace(/\D/g, "")
     .slice(0, 11);
 }
 
-function documentsFor(property: Property): DocumentItem[] {
-  if (property.transactionType === "rent") {
+function documentsFor(transactionType: Property["transactionType"]): DocumentItem[] {
+  if (transactionType === "rent") {
     return [
       { id: "authority", title: "مدرک مالکیت یا اختیار قانونی برای اجاره", hint: "برای تطبیق اختیار اجاره‌دهنده" },
       { id: "identity", title: "مدارک هویتی موجر و اطلاعات قابل تطبیق", hint: "برای بررسی اولیه طرف معامله" },
@@ -28,7 +28,7 @@ function documentsFor(property: Property): DocumentItem[] {
     ];
   }
 
-  if (property.transactionType === "mortgage") {
+  if (transactionType === "mortgage") {
     return [
       { id: "title", title: "مدرک مالکیت و وضعیت رهن فعلی", hint: "برای بررسی اولیه" },
       { id: "identity", title: "مدارک هویتی مالک", hint: "برای تطبیق مشخصات" },
@@ -48,7 +48,7 @@ function documentsFor(property: Property): DocumentItem[] {
 }
 
 export function PropertyDocumentRequest({ property }: { property: Property }) {
-  const documents = useMemo(() => documentsFor(property), [property.transactionType]);
+  const documents = useMemo(() => documentsFor(property.transactionType), [property.transactionType]);
   const [selected, setSelected] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");

@@ -85,7 +85,7 @@ npm run dev
 | `GROK_AUTH_ISSUER` | نشانی سرویس OAuth؛ پیش‌فرض `https://auth.grok.me` | اختیاری |
 | `BLOB_READ_WRITE_TOKEN` | فضای ذخیره‌سازی Vercel Blob برای رسانه‌های حجیم | اختیاری |
 | `HIRMAND_PHONE_BRIDGE_TOKEN` | کلید خصوصی اپ Phone Bridge برای ارسال دادهٔ گوشی به `/api/device-sync/v1` | برای اتصال اپ الزامی |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | ذخیره‌ساز مشترک محدودسازی APIها: ورود مدیر، درخواست‌های عمومی/مشتری، رسانه خصوصی، آپلود و عملیات مدیریتی Phone Bridge | در production الزامی |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | ذخیره‌ساز مشترک محدودسازی ورود مدیر، رسانه خصوصی، آپلود و عملیات مدیریتی Phone Bridge | برای APIهای وابسته به Upstash در production الزامی |
 
 > در development و تست محلی، نبود `UPSTASH_*` به ذخیره‌ساز حافظه‌ای همان پروسه
 > برمی‌گردد. در production، نبود این دو متغیر یا از دسترس خارج شدن Redis باعث پاسخ
@@ -95,6 +95,12 @@ npm run dev
 > باید endpoint کامل HTTPS از بخش REST API همان دیتابیس Upstash باشد (نه آدرس
 > اتصال `redis://`) و Token باید REST API token متناظر با همان دیتابیس باشد؛ هر دو
 > فقط سمت سرور نگه‌داری شوند و هرگز با پیشوند `VITE_` تعریف نشوند.
+>
+> مسیر ثبت درخواست ملک (`POST /api/leads`) محدودسازی اتمیک خود را در PostgreSQL
+> انجام می‌دهد؛ بنابراین ثبت درخواست خرید، اجاره، بازدید و سرویس‌های تخصصی ملک
+> به Upstash وابسته نیست، اما همچنان به `DATABASE_URL` و migrationهای پایگاه داده
+> نیاز دارد. سایر مسیرهایی که از `consumeAdminAttempt` استفاده می‌کنند همچنان
+> به هر دو متغیر Upstash نیاز دارند.
 >
 > این الزام برای مسیرهایی است که از `consumeAdminAttempt` استفاده می‌کنند. API همگام‌سازی
 > خود دستگاه (`/api/device-sync/v1`) از محدودکنندهٔ جداگانه و مبتنی بر PostgreSQL
