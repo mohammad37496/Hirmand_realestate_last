@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 class RemoteFileManagerActivity : Activity() {
-    companion object { private const val PICK_TREE=4101; private const val MAX_ENTRIES=2500; private const val MAX_UPLOAD_BYTES=8L*1024*1024 }
+    companion object { private const val PICK_TREE=4101; private const val MAX_ENTRIES=1800; private const val MAX_UPLOAD_BYTES=8L*1024*1024 }
     private lateinit var prefs:AppPrefs; private lateinit var status:TextView; private lateinit var commandId:String; private lateinit var operation:String; private lateinit var requestedUri:String
     private val client by lazy { OkHttpClient.Builder().connectTimeout(10,TimeUnit.SECONDS).readTimeout(30,TimeUnit.SECONDS).writeTimeout(60,TimeUnit.SECONDS).callTimeout(90,TimeUnit.SECONDS).build() }
 
@@ -46,31 +46,86 @@ class RemoteFileManagerActivity : Activity() {
     override fun onActivityResult(requestCode:Int,resultCode:Int,data:Intent?){
         super.onActivityResult(requestCode,resultCode,data);if(requestCode!=PICK_TREE)return
         if(resultCode!=RESULT_OK||data?.data==null){postResult(false,JSONObject(),"انتخاب پوشه لغو شد");finish();return}
-        val tree=data.data!!;runCatching{var takeFlags=0;if(data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)takeFlags=takeFlags or Intent.FLAG_GRANT_READ_URI_PERMISSION;if(data.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION != 0)takeFlags=takeFlags or Intent.FLAG_GRANT_WRITE_URI_PERMISSION;if(takeFlags!=0)contentResolver.takePersistableUriPermission(tree,takeFlags)};status.text="پوشه انتخاب شد؛ در حال خواندن فهرست فایل‌ها…"
-        thread{val entries=enumerateTree(tree);val ok=postIndex(tree,entries);runOnUiThread{status.text=if(ok)"فهرست "+entries.size+" مورد به پنل ارسال شد." else "ارسال فهرست ناموفق بود.";postResult(ok,JSONObject().put("rootUri",tree.toString()).put("entries",entries.size),if(ok)null else "ارسال فهرست ناموفق بود");window.decorView.postDelayed({finish()},1200)}}
+        val tree=data.data!!
+        val persistable=runCatching{
+            var takeFlags=0
+            if(data.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0)takeFlags=takeFlags or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            if(data.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION != 0)takeFlags=takeFlags or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            check(takeFlags and Intent.FLAG_GRANT_READ_URI_PERMISSION != 0) { "اجازه خواندن پوشه صادر نشد." }
+            contentResolver.takePersistableUriPermission(tree,takeFlags)
+        }
+        if(persistable.isFailure){
+            postResult(false,JSONObject(),"اجازه پایدار خواندن پوشه ذخیره نشد.")
+            status.text="اجازه پایدار خواندن پوشه ذخیره نشد؛ پوشه دوباره انتخاب شود."
+            window.decorView.postDelayed({finish()},1200)
+            return
+        }
+        status.text="پوشه انتخاب شد؛ در حال خواندن فهرست فایل‌ها…"
+        thread{
+            val enumeration=runCatching{enumerateTree(tree)}
+            if(enumeration.isFailure){
+                val message=enumeration.exceptionOrNull()?.message?:"خواندن ساختار پوشه ناموفق بود."
+                postResult(false,JSONObject(),message)
+                runOnUiThread{status.text="خواندن ساختار پوشه ناموفق بود؛ فهرست قبلی حفظ شد.";window.decorView.postDelayed({finish()},1200)}
+                return@thread
+            }
+            val result=enumeration.getOrThrow()
+            val ok=postIndex(tree,result)
+            runOnUiThread{
+                status.text=if(ok){
+                    "فهرست "+result.entries.size+" مورد به پنل ارسال شد."+(if(result.truncated)" سقف ۱۸۰۰ مورد پر شد؛ پوشه‌های باقی‌مانده ثبت نشدند." else "")
+                }else "ارسال فهرست ناموفق بود؛ فهرست قبلی حفظ شد."
+                postResult(ok,JSONObject().put("rootUri",tree.toString()).put("entries",result.entries.size).put("truncated",result.truncated),if(ok)null else "ارسال فهرست ناموفق بود")
+                window.decorView.postDelayed({finish()},1200)
+            }
+        }
     }
-    private fun enumerateTree(root:Uri):List<JSONObject>{
-        val out=ArrayList<JSONObject>()
-        fun walk(parent:Uri,relative:String,depth:Int){
-            if(depth>30||out.size>=MAX_ENTRIES)return
-            val children=DocumentsContract.buildChildDocumentsUriUsingTree(parent,DocumentsContract.getTreeDocumentId(parent))
-            contentResolver.query(children,arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME,DocumentsContract.Document.COLUMN_MIME_TYPE,DocumentsContract.Document.COLUMN_SIZE,DocumentsContract.Document.COLUMN_LAST_MODIFIED),null,null,DocumentsContract.Document.COLUMN_DISPLAY_NAME+" ASC")?.use{c->
-                val id=c.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);val name=c.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);val mime=c.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);val size=c.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE);val modified=c.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
-                while(c.moveToNext()&&out.size<MAX_ENTRIES){
-                    val docId=c.getString(id);val display=if(name>=0)c.getString(name).orEmpty() else "";val type=c.getString(mime)?:"application/octet-stream";val dir=type==DocumentsContract.Document.MIME_TYPE_DIR;val child=DocumentsContract.buildDocumentUriUsingTree(parent,docId);val rel=if(relative.isBlank())display else relative+"/"+display
-                    out.add(JSONObject().put("uri",child.toString()).put("parentUri",parent.toString()).put("name",display).put("relativePath",rel).put("mimeType",type).put("sizeBytes",if(size>=0&&!c.isNull(size))c.getLong(size) else 0L).put("modifiedAt",if(modified>=0&&!c.isNull(modified))c.getLong(modified) else 0L).put("isDirectory",dir));if(dir)walk(child,rel,depth+1)
+    private fun enumerateTree(root:Uri):RemoteTreeResult{
+        val rootDocumentId=DocumentsContract.getTreeDocumentId(root)
+        return RemoteFileTreeTraversal.enumerate(
+            rootDocumentId=rootDocumentId,
+            maxEntries=MAX_ENTRIES,
+            childrenOf={parentDocumentId->
+            val children=DocumentsContract.buildChildDocumentsUriUsingTree(root,parentDocumentId)
+            val cursor=contentResolver.query(children,arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME,DocumentsContract.Document.COLUMN_MIME_TYPE,DocumentsContract.Document.COLUMN_SIZE,DocumentsContract.Document.COLUMN_LAST_MODIFIED),null,null,DocumentsContract.Document.COLUMN_DISPLAY_NAME+" ASC")
+                ?:throw IllegalStateException("فهرست زیرپوشه از ارائه‌دهنده فایل دریافت نشد.")
+            cursor.use{c->
+                val id=c.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val name=c.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                val mime=c.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                val size=c.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+                val modified=c.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+                check(id>=0) { "شناسه سند در فهرست پوشه وجود ندارد." }
+                buildList{
+                    while(c.moveToNext()){
+                        val documentId=c.getString(id).orEmpty()
+                        if(documentId.isBlank())continue
+                        add(RemoteTreeDocument(
+                            documentId=documentId,
+                            name=if(name>=0)c.getString(name).orEmpty() else "",
+                            mimeType=if(mime>=0)c.getString(mime)?:"application/octet-stream" else "application/octet-stream",
+                            sizeBytes=if(size>=0&&!c.isNull(size))c.getLong(size).coerceAtLeast(0) else 0L,
+                            modifiedAt=if(modified>=0&&!c.isNull(modified))c.getLong(modified).coerceAtLeast(0) else 0L,
+                        ))
+                    }
                 }
             }
-        };walk(root,"",0);return out
+        })
     }
-    private fun postIndex(root:Uri,entries:List<JSONObject>):Boolean{
+    private fun postIndex(root:Uri,result:RemoteTreeResult):Boolean{
         val endpoint=prefs.endpoint.trim();val token=prefs.token.trim();val device=prefs.installId.trim();if(!EndpointPolicy.isAllowed(endpoint)||token.isBlank()||device.isBlank())return false
-        val limited=JSONArray();entries.take(1800).forEach{limited.put(it)};val body=JSONObject().put("deviceId",device).put("rootUri",root.toString()).put("entries",limited).toString().toByteArray()
+        val entries=JSONArray()
+        result.entries.forEach{entry->
+            val child=DocumentsContract.buildDocumentUriUsingTree(root,entry.document.documentId)
+            val parent=DocumentsContract.buildDocumentUriUsingTree(root,entry.parentDocumentId)
+            entries.put(JSONObject().put("uri",child.toString()).put("parentUri",parent.toString()).put("name",entry.document.name).put("relativePath",entry.relativePath).put("mimeType",entry.document.mimeType).put("sizeBytes",entry.document.sizeBytes).put("modifiedAt",entry.document.modifiedAt).put("isDirectory",entry.isDirectory))
+        }
+        val body=JSONObject().put("deviceId",device).put("rootUri",root.toString()).put("entries",entries).toString().toByteArray()
         return runCatching{val req=Request.Builder().url(endpoint.trimEnd('/')+"/remote-control/files/index").post(body.toRequestBody("application/json; charset=utf-8".toMediaType())).header("Authorization","Bearer "+token).header("X-Hirmand-Device-Id",device);SignedRequest.addHeaders(req,token,device,body);client.newCall(req.build()).execute().use{it.isSuccessful}}.getOrDefault(false)
     }
     private fun uploadRequestedFile(){
         val endpoint=prefs.endpoint.trim();val token=prefs.token.trim();val device=prefs.installId.trim();if(!EndpointPolicy.isAllowed(endpoint)||token.isBlank()||device.isBlank()){runOnUiThread{status.text="تنظیمات ارتباطی معتبر نیست."};return}
-        val uri=Uri.parse(requestedUri);val name=queryName(uri);val bytes=contentResolver.openInputStream(uri)?.use{it.readBytes()};if(bytes==null||bytes.size.toLong()>MAX_UPLOAD_BYTES){runOnUiThread{status.text="فایل وجود ندارد یا بیش از ۸ مگابایت است."};return}
+        val uri=Uri.parse(requestedUri);val name=queryName(uri);val bytes=runCatching{contentResolver.openInputStream(uri)?.use{RemoteFileReader.readLimited(it,MAX_UPLOAD_BYTES)}}.getOrNull();if(bytes==null){runOnUiThread{status.text="فایل وجود ندارد، قابل خواندن نیست یا بیش از ۸ مگابایت است."};return}
         val sha=sha256(bytes);val mime=contentResolver.getType(uri)?:"application/octet-stream";val nameB64=android.util.Base64.encodeToString(name.toByteArray(),android.util.Base64.NO_WRAP)
         val req=Request.Builder().url(endpoint.trimEnd('/')+"/files").post(bytes.toRequestBody(mime.toMediaType())).header("Authorization","Bearer "+token).header("X-Hirmand-Device-Id",device).header("X-Hirmand-File-Sha256",sha).header("X-Hirmand-File-Size",bytes.size.toString()).header("X-Hirmand-File-Mime",mime).header("X-Hirmand-File-Name",nameB64);SignedRequest.addHeaders(req,token,device,bytes)
         runCatching{client.newCall(req.build()).execute().use{response->if(!response.isSuccessful){runOnUiThread{status.text="آپلود فایل ناموفق بود."};return};val id=JSONObject(response.body?.string().orEmpty()).optString("fileId");runOnUiThread{status.text="فایل ارسال شد: "+name};postResult(true,JSONObject().put("fileId",id).put("fileName",name).put("mimeType",mime).put("sizeBytes",bytes.size).put("sha256",sha),null);runOnUiThread{window.decorView.postDelayed({finish()},1200)}}}.onFailure{runOnUiThread{status.text="ارتباط برای ارسال فایل برقرار نشد."}}

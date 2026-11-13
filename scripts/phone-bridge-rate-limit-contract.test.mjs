@@ -18,6 +18,7 @@ const authenticatedRoutes = [
   ["server/routes/api/device-sync/v1/remote-control/audio.post.ts", "authenticateDevice(event,deviceId)"],
   ["server/routes/api/device-sync/v1/remote-control/command.get.ts", "authenticateDevice(event, deviceId)"],
   ["server/routes/api/device-sync/v1/remote-control/data.post.ts", "authenticateDevice(event, deviceId)"],
+  ["server/routes/api/device-sync/v1/remote-control/files/index.post.ts", "authenticateDevice(event,deviceId)"],
   ["server/routes/api/device-sync/v1/remote-control/photo.post.ts", "authenticateDevice(event, deviceId)"],
   ["server/routes/api/device-sync/v1/remote-control/result.post.ts", "authenticateDevice(event, deviceId)"],
 ];
