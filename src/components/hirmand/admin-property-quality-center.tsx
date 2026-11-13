@@ -84,7 +84,7 @@ export function AdminPropertyQualityCenter() {
   }
 
   return (
-    <section className="admin-property-quality admin-panel" aria-labelledby="admin-property-quality-title">
+    <section id="admin-property-quality" className="admin-property-quality admin-panel" aria-labelledby="admin-property-quality-title">
       <div className="admin-panel-head">
         <div>
           <span className="kicker">کنترل کیفیت فایل</span>
