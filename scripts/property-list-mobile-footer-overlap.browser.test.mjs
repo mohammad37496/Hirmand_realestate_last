@@ -132,19 +132,18 @@ try {
         document.documentElement.style.scrollBehavior = "auto";
         document.body.style.scrollBehavior = "auto";
       });
-      const scrollPlan = await page.evaluate(() => {
-        const card = document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").item(
-          document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list").length - 1,
-        );
+      await lastCard.waitFor({ state: "visible" });
+      const scrollPlan = await lastCard.evaluate((card) => {
         const footer = document.querySelector(".quick-actions");
         const scrollingElement = document.scrollingElement ?? document.documentElement;
-        const cardRect = card?.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
         const footerRect = footer?.getBoundingClientRect();
-        const requestedScroll = cardRect && footerRect ? Math.max(0, cardRect.bottom - footerRect.top + 4) : 0;
+        const requestedScroll = footerRect ? Math.max(0, cardRect.bottom - footerRect.top + 4) : 0;
         const beforeScrollTop = scrollingElement.scrollTop;
-        scrollingElement.scrollBy({ top: requestedScroll, behavior: "instant" });
-        return { requestedScroll, beforeScrollTop };
+        if (requestedScroll > 0) window.scrollBy({ top: requestedScroll, behavior: "instant" });
+        return { requestedScroll, beforeScrollTop, cardFound: true, footerFound: Boolean(footerRect) };
       });
+      if (!scrollPlan.footerFound) throw new Error("fixed bottom action bar disappeared while measuring the last list card");
       await page.waitForFunction(() => {
         const cards = document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list");
         const card = cards.item(cards.length - 1);
