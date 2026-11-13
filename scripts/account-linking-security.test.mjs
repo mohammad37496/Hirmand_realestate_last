@@ -9,9 +9,9 @@ test("a trusted OAuth identity cannot take over an unverified local email/passwo
   const result = await handleOAuthUserInfo({
     context: {
       internalAdapter: {
-        findOAuthUser: async () => ({
+        findAccountOwnerByKey: async () => null,
+        findUserByEmail: async () => ({
           user: { id: "attacker-owned-account", email: "victim@example.com", emailVerified: false },
-          linkedAccount: null,
           accounts: [],
         }),
         linkAccount: async () => { linkAttempts += 1; },
