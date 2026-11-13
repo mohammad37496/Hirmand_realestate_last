@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie, setResponseHeader, type H3Event } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
@@ -19,7 +20,7 @@ async function requireAdmin(event: H3Event) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") return { items: [] };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ رادار تقاضای محله‌ها در دسترس نیست.");
 
   const sql = await getSql();
   const rows = await sql.query<Record<string, unknown>>(

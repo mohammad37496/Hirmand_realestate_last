@@ -29,6 +29,7 @@ export function AdminPropertyDuplicateCheck(props: Props) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function check() {
     if (props.title.trim().length < 3 || props.neighborhood.trim().length < 2) {
@@ -36,6 +37,7 @@ export function AdminPropertyDuplicateCheck(props: Props) {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-property-duplicates", {
         method: "POST",
@@ -58,7 +60,11 @@ export function AdminPropertyDuplicateCheck(props: Props) {
       setChecked(true);
       if (!data?.matches?.length) toast.success("فایل مشابه مشکوک پیدا نشد.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "بررسی فایل‌های مشابه انجام نشد.");
+      const message = error instanceof Error ? error.message : "بررسی فایل‌های مشابه انجام نشد.";
+      setLoadError(message);
+      setChecked(false);
+      setMatches([]);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -77,7 +83,7 @@ export function AdminPropertyDuplicateCheck(props: Props) {
         </button>
       </div>
 
-      {checked ? (
+      {loadError ? <div className="admin-duplicate-warning" role="alert"><span>{loadError}</span><button type="button" className="btn-ghost" onClick={() => void check()} disabled={loading}>تلاش مجدد</button></div> : checked ? (
         matches.length ? (
           <div className="admin-duplicate-list">
             <div className="admin-duplicate-warning">

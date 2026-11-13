@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader, type H3Event } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
@@ -20,9 +21,7 @@ async function requireAdmin(event: H3Event) {
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   await requireAdmin(event);
-  if (dbSource === "unconfigured") {
-    return { groups: [], total: 0 };
-  }
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ بررسی تکراری‌های CRM در دسترس نیست.");
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const action = typeof body.action === "string" ? body.action : "list";

@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie, setResponseHeader, type H3Event } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -23,7 +24,7 @@ export default defineEventHandler(async(event)=>{
   const claims = await requireAdmin(event);
   const role = normalizeAdminRole(claims?.role);
   const canViewFinance = hasAdminPermission(role, "finance.manage");
-  if(dbSource==="unconfigured") return {dueLeads:[],dueCount:0,next7Count:0,staleProperties:0,finance:financeMoneySummary("0","0")};
+  assertAdminDatabaseConfigured(dbSource,"پایگاه داده مدیریت تنظیم نشده است؛ مرکز عملیات در دسترس نیست.");
   const sql=await getSql();
   const [due,next7,stale] = await Promise.all([
     sql.query<Record<string,unknown>>(

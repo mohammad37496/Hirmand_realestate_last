@@ -1,5 +1,6 @@
 import { defineEventHandler, createError, getCookie, getQuery, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -22,7 +23,7 @@ export default defineEventHandler(async (event) => {
   }
   const canViewDeals = hasAdminPermission(role, "deal.manage");
   const canViewCommissions = hasAdminPermission(role, "commission.manage");
-  if (dbSource === "unconfigured") return { days: 90, access: { deals: canViewDeals, commissions: canViewCommissions }, consultants: [] };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ گزارش عملکرد مشاوران در دسترس نیست.");
 
   const query = getQuery(event);
   const rawDays = Number(query.days);

@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -20,7 +21,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "property.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی تاریخچه قیمت برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") return { property: null, history: [] };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ تاریخچه قیمت در دسترس نیست.");
 
   const body = (await readBody(event).catch(() => ({}))) as Record<string, unknown>;
   const propertyId = clean(body.propertyId);

@@ -13,6 +13,20 @@ const routePaths = [
   "admin-customer-property-submissions.post.ts",
   "admin-phone-bridge.post.ts",
   "leads-admin.post.ts",
+  "admin-campaign-performance.post.ts",
+  "admin-consultant-performance.get.ts",
+  "admin-lead-dedupe.post.ts",
+  "admin-lead-segments.post.ts",
+  "admin-match.post.ts",
+  "admin-neighborhood-demand.post.ts",
+  "admin-operations.post.ts",
+  "admin-owners.post.ts",
+  "admin-property-duplicates.post.ts",
+  "admin-property-performance.post.ts",
+  "admin-property-price-history.post.ts",
+  "admin-property-quality.post.ts",
+  "admin-sales-control-center.post.ts",
+  "admin/properties-export.post.ts",
   "admin-finance.post.ts",
 ];
 const routes = await Promise.all(routePaths.map((name) =>
@@ -73,6 +87,13 @@ const componentPaths = [
   "admin-action-center.tsx",
   "admin-customer-property-submissions.tsx",
   "admin-lead-manager.tsx",
+  "admin-consultant-performance.tsx",
+  "admin-lead-segments.tsx",
+  "admin-neighborhood-demand-radar.tsx",
+  "admin-owner-manager.tsx",
+  "admin-property-duplicate-check.tsx",
+  "admin-property-price-history.tsx",
+  "admin-property-quality-center.tsx",
   "admin-finance-manager.tsx",
 ];
 const components = await Promise.all(componentPaths.map((name) =>
@@ -90,6 +111,44 @@ test("admin workspaces show unavailable state instead of empty or zero data", ()
   assert.match(components[7], /اطلاعات ثبت‌های مشتری در دسترس نیست/);
   assert.match(components[8], /loadError/);
   assert.match(components[8], /AdminErrorBanner/);
+});
+
+test("admin reporting and property tools show retryable errors instead of false empty results", () => {
+  const consultant = components[componentPaths.indexOf("admin-consultant-performance.tsx")];
+  assert.match(consultant, /hasLoaded/);
+  assert.match(consultant, /loadError/);
+  assert.match(consultant, /role=["']alert["']/);
+  assert.match(consultant, /onClick=\{\(\)\s*=>\s*void load\(\)\}/);
+
+  const segments = components[componentPaths.indexOf("admin-lead-segments.tsx")];
+  assert.match(segments, /loadError/);
+  assert.match(segments, /role=["']alert["']/);
+  assert.match(segments, /onClick=\{\(\)\s*=>\s*void load\(\)\}/);
+
+  const neighborhood = components[componentPaths.indexOf("admin-neighborhood-demand-radar.tsx")];
+  assert.match(neighborhood, /loadError/);
+  assert.match(neighborhood, /catch\s*\(error\)/);
+  assert.match(neighborhood, /role=["']alert["']/);
+  assert.match(neighborhood, /loadError\s*&&\s*!items\.length\s*\?\s*null/);
+
+  const owners = components[componentPaths.indexOf("admin-owner-manager.tsx")];
+  assert.match(owners, /error\s*&&\s*owners\.length\s*===\s*0\s*\?\s*null/);
+  assert.match(owners, /role=["']alert["']/);
+
+  const duplicates = components[componentPaths.indexOf("admin-property-duplicate-check.tsx")];
+  assert.match(duplicates, /loadError/);
+  assert.match(duplicates, /setChecked\(false\)/);
+  assert.match(duplicates, /role=["']alert["']/);
+
+  const priceHistory = components[componentPaths.indexOf("admin-property-price-history.tsx")];
+  assert.match(priceHistory, /hasLoaded/);
+  assert.match(priceHistory, /loadError/);
+  assert.match(priceHistory, /role=["']alert["']/);
+
+  const quality = components[componentPaths.indexOf("admin-property-quality-center.tsx")];
+  assert.match(quality, /loadError/);
+  assert.match(quality, /role=["']alert["']/);
+  assert.match(quality, /!currentData\s*&&\s*!loadError/);
 });
 
 test("finance ledger distinguishes an unavailable database from a successfully loaded empty ledger", () => {
