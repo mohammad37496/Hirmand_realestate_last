@@ -2,6 +2,7 @@ import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 
 const EVENT_NAMES = [
@@ -85,21 +86,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "شناسه فایل الزامی است." });
   }
 
-  if (dbSource === "unconfigured") {
-    return {
-      windowDays: 30,
-      property: null,
-      events: emptyStats(),
-      uniqueVisitors: 0,
-      leads: { total: 0, visitRequests: 0, confirmedVisits: 0, completedVisits: 0 },
-      conversionRate: 0,
-      freshness: { updatedAt: null, publishedAt: null, daysSinceUpdate: null, daysSincePublish: null },
-      quality: { score: 0, imageCount: 0, missing: [] },
-      market: null,
-      leadSources: [],
-      recommendations: [],
-    };
-  }
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ گزارش عملکرد فایل در دسترس نیست.");
 
   const sql = await getSql();
 
@@ -363,8 +350,6 @@ export default defineEventHandler(async (event) => {
       priority: "normal",
     });
   }
-
-  const faNumber = (value: number) => value.toLocaleString("fa-IR");
 
   return {
     windowDays: 30,

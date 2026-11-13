@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
@@ -23,9 +24,7 @@ export default defineEventHandler(async (event) => {
   const candidate = Number(body?.days);
   const days = (ALLOWED_DAYS.has(candidate) ? candidate : 30) as 7 | 30 | 90;
 
-  if (dbSource === "unconfigured") {
-    return { days, rows: [], daily: [], quality: { leads: 0, source: 0, medium: 0, campaign: 0 }, totals: { campaigns: 0, leads: 0, contacted: 0, visits: 0, contracts: 0 } };
-  }
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ گزارش کمپین‌ها در دسترس نیست.");
 
   const sql = await getSql();
   const { rows, daily, quality } = await loadAdminCampaignPerformanceQueries(sql, days);

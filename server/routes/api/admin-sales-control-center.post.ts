@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -27,22 +28,7 @@ export default defineEventHandler(async (event) => {
   const requestedDays = Number(body?.days);
   const days = ALLOWED_DAYS.has(requestedDays) ? requestedDays : 30;
 
-  if (dbSource === "unconfigured") {
-    return {
-      days,
-      pipeline: { new: 0, contacted: 0, follow_up: 0, visited: 0, contract: 0 },
-      summary: {
-        consultants: 0,
-        activeConsultants: 0,
-        activeLeads: 0,
-        overdueLeads: 0,
-        visitRequests: 0,
-        contracts: 0,
-        totalViews: 0,
-      },
-      consultants: [],
-    };
-  }
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ مرکز کنترل فروش در دسترس نیست.");
 
   const sql = await getSql();
 

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Building2, Phone, Search, UserRound } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Phone, Search, UserRound } from "lucide-react";
 import { propertyPath } from "@/lib/property-path";
 import { formatToman } from "@/lib/money";
 import { toIranianE164Phone } from "@/lib/phone-normalization";
@@ -24,7 +24,7 @@ export function AdminOwnerManager(){
   const [expanded,setExpanded]=useState<string|null>(null);
   const [error,setError]=useState("");
 
-  async function load(){
+  const load = useCallback(async () => {
     setLoading(true); setError("");
     try{
       const response=await fetch("/api/admin-owners",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"list",query})});
@@ -33,24 +33,24 @@ export function AdminOwnerManager(){
       setOwners(Array.isArray(data.owners)?data.owners:[]);
     }catch(e){setError(e instanceof Error?e.message:"بارگذاری مالکین انجام نشد.");}
     finally{setLoading(false);}
-  }
+  }, [query]);
 
-  useEffect(()=>{const t=window.setTimeout(()=>void load(),250);return()=>window.clearTimeout(t)},[query]);
+  useEffect(()=>{const t=window.setTimeout(()=>void load(),250);return()=>window.clearTimeout(t)},[load]);
 
   const totalFiles=useMemo(()=>owners.reduce((n,o)=>n+o.fileCount,0),[owners]);
 
   return <div className="admin-owner-manager">
     <section className="admin-panel">
       <div className="admin-panel-head">
-        <div><span className="kicker">مالکین</span><h2>{owners.length.toLocaleString("fa-IR")} مالک · {totalFiles.toLocaleString("fa-IR")} فایل</h2></div>
+        <div><span className="kicker">مالکین</span><h2>{error ? "اطلاعات مالکین در دسترس نیست" : `${owners.length.toLocaleString("fa-IR")} مالک · ${totalFiles.toLocaleString("fa-IR")} فایل`}</h2></div>
         <button type="button" className="btn-ghost" onClick={()=>void load()} disabled={loading}>به‌روزرسانی</button>
       </div>
       <label className="admin-search" style={{marginBottom:12}}>
         <Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="جستجوی نام یا تلفن مالک..." />
       </label>
-      {error?<div className="admin-matching-error">{error}</div>:null}
+      {error?<div className="admin-matching-error" role="alert">{error} <button type="button" className="btn-ghost" onClick={()=>void load()} disabled={loading}>تلاش مجدد</button></div>:null}
       {loading?<div className="admin-matching-empty">در حال دریافت مالکین…</div>:
-       owners.length===0?<div className="admin-empty"><UserRound size={28}/><strong>مالک ثبت‌شده‌ای پیدا نشد</strong><p>اطلاعات مالک از فایل‌های ثبت‌شده جمع‌آوری می‌شود.</p></div>:
+       error && owners.length===0 ? null : owners.length===0?<div className="admin-empty"><UserRound size={28}/><strong>مالک ثبت‌شده‌ای پیدا نشد</strong><p>اطلاعات مالک از فایل‌های ثبت‌شده جمع‌آوری می‌شود.</p></div>:
        <div className="admin-owner-grid">
         {owners.map(owner=>{
           const key=owner.name+"::"+owner.phone;

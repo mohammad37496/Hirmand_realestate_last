@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getCookie, getHeader, readBody, setResponseHeader, type H3Event } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -132,9 +133,7 @@ export default defineEventHandler(async (event) => {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "property.manage")) {
     throw createError({ statusCode: 403, statusMessage: "دسترسی بررسی کیفیت فایل‌های ملک برای این حساب فعال نیست." });
   }
-  if (dbSource === "unconfigured") {
-    return { success: true, media: { checked: 0, issues: [] }, priceAnomalies: [], verificationDue: [] };
-  }
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ بررسی کیفیت فایل‌ها در دسترس نیست.");
 
   const parsedBody = bodySchema.safeParse(await readBody(event).catch(() => ({})));
   if (!parsedBody.success) {

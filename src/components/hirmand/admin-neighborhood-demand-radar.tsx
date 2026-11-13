@@ -16,14 +16,19 @@ type Item = {
 export function AdminNeighborhoodDemandRadar() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-neighborhood-demand", { method: "POST" });
-      if (!response.ok) throw new Error("demand radar failed");
-      const result = (await response.json()) as { items?: Item[] };
+      const payload = await response.json().catch(() => ({})) as { items?: Item[]; statusMessage?: string };
+      if (!response.ok) throw new Error(payload.statusMessage || "رادار تقاضای محله‌ها بارگذاری نشد.");
+      const result = payload;
       setItems(result.items ?? []);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "رادار تقاضای محله‌ها بارگذاری نشد.");
     } finally {
       setLoading(false);
     }
@@ -50,8 +55,10 @@ export function AdminNeighborhoodDemandRadar() {
         شاخص داخلی هیرمند از ترکیب بازدید، ذخیره، تماس، درخواست بازدید و لید ساخته می‌شود و آمار رسمی بازار نیست.
       </p>
 
+      {loadError ? <div className="admin-empty" role="alert"><strong>اطلاعات رادار در دسترس نیست</strong><p>{loadError}{items.length ? " · داده‌های قبلی نمایش داده می‌شوند." : ""}</p><button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14} /> تلاش مجدد</button></div> : null}
+
       <div className="admin-breakdown">
-        {!items.length ? (
+        {loading && !items.length ? <div className="admin-empty">در حال دریافت داده‌های محله‌ها…</div> : loadError && !items.length ? null : !items.length ? (
           <div className="admin-empty">
             <Activity size={24} />
             <strong>هنوز داده کافی برای رادار تقاضا ثبت نشده است.</strong>

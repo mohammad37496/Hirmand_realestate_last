@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -35,7 +36,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "دسترسی بررسی فایل‌های مشابه برای این حساب فعال نیست." });
   }
 
-  if (dbSource === "unconfigured") return { matches: [] };
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ بررسی فایل‌های مشابه در دسترس نیست.");
 
   const parsed = schema.safeParse(await readBody(event).catch(() => null));
   if (!parsed.success) throw createError({ statusCode: 422, statusMessage: "اطلاعات فایل برای بررسی کامل نیست." });

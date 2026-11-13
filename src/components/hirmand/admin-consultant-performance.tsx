@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, BriefcaseBusiness, WalletCards, UsersRound } from "lucide-react";
+import { BarChart3, BriefcaseBusiness, RefreshCw, WalletCards, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { addDecimalStrings } from "@/lib/decimal-money";
 import { formatTomanExact } from "@/lib/money";
@@ -27,17 +27,23 @@ export function AdminConsultantPerformance() {
   const [rows, setRows] = useState<Row[]>([]);
   const [access, setAccess] = useState({ deals: false, commissions: false });
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-consultant-performance?days=" + days);
       const data = (await response.json()) as { consultants?: Row[]; access?: { deals?: boolean; commissions?: boolean }; statusMessage?: string };
       if (!response.ok) throw new Error(data.statusMessage || "گزارش عملکرد آماده نشد.");
       setRows(Array.isArray(data.consultants) ? data.consultants : []);
       setAccess({ deals: data.access?.deals === true, commissions: data.access?.commissions === true });
+      setHasLoaded(true);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "گزارش عملکرد مشاوران آماده نشد.");
+      const message = error instanceof Error ? error.message : "گزارش عملکرد مشاوران آماده نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -69,15 +75,17 @@ export function AdminConsultantPerformance() {
           </select>
         </div>
 
-        <div className="admin-kpi-cards admin-performance-kpis">
+        {loadError ? <div className="admin-empty" role="alert"><strong>گزارش عملکرد در دسترس نیست</strong><p>{loadError}{hasLoaded && rows.length ? " · آخرین داده‌های موفق موقتاً نمایش داده می‌شوند." : ""}</p><button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14} /> تلاش مجدد</button></div> : null}
+
+        {hasLoaded && (!loadError || rows.length > 0) ? <div className="admin-kpi-cards admin-performance-kpis">
           <div className="admin-kpi-card"><UsersRound size={16} /><span>درخواست‌ها</span><strong>{compact(totals.leads)}</strong></div>
           <div className="admin-kpi-card"><BriefcaseBusiness size={16} /><span>معاملات</span><strong>{compact(totals.deals)}</strong></div>
           <div className="admin-kpi-card"><BarChart3 size={16} /><span>تکمیل‌شده</span><strong>{compact(totals.completed)}</strong></div>
           {access.deals ? <div className="admin-kpi-card"><WalletCards size={16} /><span>حجم معاملات</span><strong>{money(totals.volume)}</strong></div> : null}
           {access.commissions ? <div className="admin-kpi-card"><WalletCards size={16} /><span>سهم کمیسیون در انتظار</span><strong>{money(totals.due)}</strong></div> : null}
-        </div>
+        </div> : null}
 
-        {loading ? <div className="admin-empty">در حال محاسبه…</div> : !rows.length ? <div className="admin-empty">برای این بازه هنوز فعالیت ثبت نشده است.</div> : (
+        {loading && !hasLoaded ? <div className="admin-empty">در حال محاسبه…</div> : loadError && !rows.length ? null : !rows.length ? <div className="admin-empty">برای این بازه هنوز فعالیت ثبت نشده است.</div> : (
           <div className="admin-performance-table-wrap">
             <table className="admin-performance-table">
               <thead><tr><th>مشاور</th><th>لید</th><th>معامله</th><th>تکمیل</th><th>نرخ تبدیل</th>{access.deals ? <th>حجم معامله</th> : null}{access.commissions ? <><th>کمیسیون</th><th>پرداخت‌شده</th><th>مانده</th></> : null}</tr></thead>

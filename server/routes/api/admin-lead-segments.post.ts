@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
@@ -15,7 +16,7 @@ export default defineEventHandler(async event=>{
  assertSameOrigin(event);
  const claims=await getAdminSessionClaims(token);
  if(!hasAdminPermission(normalizeAdminRole(claims?.role),"lead.manage"))throw createError({statusCode:403,statusMessage:"دسترسی مدیریت CRM برای این حساب فعال نیست."});
- if(dbSource==="unconfigured")return{segments:[]};
+ assertAdminDatabaseConfigured(dbSource,"پایگاه داده مدیریت تنظیم نشده است؛ لیست‌های هوشمند CRM در دسترس نیستند.");
  const sql=await getSql(); const body=(await readBody(event).catch(()=>({}))) as Record<string,unknown>;
  const action=clean(body.action,30)||"list";
  if(action==="list"){
