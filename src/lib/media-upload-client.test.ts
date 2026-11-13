@@ -3,6 +3,9 @@ import test from "node:test";
 import { uploadInChunks } from "./media-upload-client.ts";
 
 const originalFetch = globalThis.fetch;
+const originalXhr = globalThis.XMLHttpRequest;
+const originalCreateImageBitmap = globalThis.createImageBitmap;
+const originalDocument = globalThis.document;
 const stableId = "abf2b32a-9fd1-4ad4-86b0-3e4b10b01b20";
 
 function jsonResponse(value: unknown, status = 200) {
@@ -195,5 +198,122 @@ test("the server cannot silently replace the stable retry ID", async () => {
     await assert.rejects(uploadInChunks(options()), /شناسهٔ پایدار تلاش مجدد را تأیید نکرد/);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("direct Liara uploads stream the File with the signed Content-Type and finalize through the same receipt", async () => {
+  const calls: string[] = [];
+  const progress: number[] = [];
+  let sentBody: unknown;
+  const sentHeaders: Record<string, string> = {};
+
+  class FakeXhr {
+    upload = { onprogress: null as ((event: ProgressEvent) => void) | null };
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    ontimeout: (() => void) | null = null;
+    onabort: (() => void) | null = null;
+    status = 200;
+    timeout = 0;
+    open(method: string, url: string) { assert.equal(method, "PUT"); assert.equal(url, "https://storage.example.test/bucket/object?signature=short"); }
+    setRequestHeader(name: string, value: string) { sentHeaders[name] = value; }
+    send(body: unknown) {
+      sentBody = body;
+      this.upload.onprogress?.({ lengthComputable: true, loaded: 6, total: 6 } as ProgressEvent);
+      this.onload?.();
+    }
+    abort() { this.onabort?.(); }
+  }
+
+  Object.defineProperty(globalThis, "XMLHttpRequest", { configurable: true, value: FakeXhr });
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? "{}")) as { action?: string };
+    calls.push(body.action ?? "unknown");
+    if (body.action === "begin") {
+      return jsonResponse({
+        uploadId: stableId,
+        totalChunks: 1,
+        totalBytes: 6,
+        directUpload: {
+          url: "https://storage.example.test/bucket/object?signature=short",
+          headers: { "content-type": "audio/mpeg" },
+        },
+      });
+    }
+    if (body.action === "complete") return jsonResponse({ track: { id: stableId } });
+    return jsonResponse({ message: "unexpected request" }, 400);
+  }) as typeof fetch;
+
+  try {
+    const result = await uploadInChunks({ ...options(), onProgress: (value) => progress.push(value) });
+    assert.deepEqual(calls, ["begin", "complete"]);
+    assert.equal(sentHeaders["content-type"], "audio/mpeg");
+    assert.equal((sentBody as Blob).size, 6);
+    assert.deepEqual(progress, [0, 99, 99, 100]);
+    assert.deepEqual(result.response, { track: { id: stableId } });
+  } finally {
+    globalThis.fetch = originalFetch;
+    Object.defineProperty(globalThis, "XMLHttpRequest", { configurable: true, value: originalXhr });
+  }
+});
+
+test("large JPEGs are resized and recompressed only when the browser output is smaller", async () => {
+  const originalFile = new File([new Uint8Array(2_000)], "large-photo.jpg", {
+    type: "image/jpeg",
+    lastModified: 10,
+  });
+  let beginSize = 0;
+  let canvasWidth = 0;
+  let canvasHeight = 0;
+  Object.defineProperty(globalThis, "createImageBitmap", {
+    configurable: true,
+    value: async () => ({ width: 4000, height: 3000, close() {} }),
+  });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: {
+      createElement: () => {
+        const canvas = {
+          width: 0,
+          height: 0,
+          getContext: () => ({ drawImage() {} }),
+          toBlob(callback: (blob: Blob | null) => void, type: string) {
+            callback(new Blob([new Uint8Array(500)], { type }));
+          },
+        };
+        return new Proxy(canvas, {
+          set(target, property, value) {
+            if (property === "width") canvasWidth = Number(value);
+            if (property === "height") canvasHeight = Number(value);
+            return Reflect.set(target, property, value);
+          },
+        });
+      },
+    },
+  });
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const headers = new Headers(init?.headers);
+    if (headers.get("content-type") === "application/octet-stream") {
+      const bytes = (init?.body as Blob).size;
+      return jsonResponse({ uploadId: stableId, receivedChunks: 1, bytesReceived: bytes });
+    }
+    const body = JSON.parse(String(init?.body ?? "{}")) as { action?: string; sizeBytes?: number };
+    if (body.action === "begin") {
+      beginSize = Number(body.sizeBytes) || 0;
+      return jsonResponse({ uploadId: stableId, chunkSize: 1024, totalChunks: 1, totalBytes: beginSize });
+    }
+    if (body.action === "complete") return jsonResponse({ url: "/api/media/test" });
+    return jsonResponse({ ok: true });
+  }) as typeof fetch;
+
+  try {
+    await uploadInChunks({ endpoint: "/api/upload", file: originalFile, contentType: "image/jpeg" });
+    assert.equal(beginSize, 500);
+    assert.equal(canvasWidth, 2560);
+    assert.equal(canvasHeight, 1920);
+  } finally {
+    globalThis.fetch = originalFetch;
+    Object.defineProperty(globalThis, "createImageBitmap", { configurable: true, value: originalCreateImageBitmap });
+    Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
   }
 });

@@ -19,6 +19,19 @@ type LiaraConfig = {
   secretKey: string;
 };
 
+export type LiaraObjectHead = {
+  sizeBytes: number;
+  contentType: string;
+  etag: string | null;
+};
+
+export type LiaraObjectInventory = {
+  objectCount: number;
+  totalBytes: number;
+  complete: boolean;
+  pagesScanned: number;
+};
+
 function readConfig(): LiaraConfig | null {
   const endpointRaw = process.env.LIARA_ENDPOINT?.trim();
   const bucket = process.env.LIARA_BUCKET_NAME?.trim();
@@ -49,6 +62,12 @@ export function liaraStorageConfigured(): boolean {
   return readConfig() !== null;
 }
 
+/** Direct browser uploads remain opt-in until the bucket's CORS policy is set. */
+export function liaraDirectUploadEnabled(): boolean {
+  return process.env.LIARA_DIRECT_UPLOAD_ENABLED?.trim().toLowerCase() === "true" &&
+    liaraStorageConfigured();
+}
+
 function sha256(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -71,6 +90,17 @@ function encodeKey(key: string): string {
     .join("/");
 }
 
+function canonicalQuery(url: URL): string {
+  return Array.from(url.searchParams.entries())
+    .map(([key, value]) => [rfc3986(key), rfc3986(value)] as const)
+    .sort(([leftKey, leftValue], [rightKey, rightValue]) =>
+      (leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0) ||
+      (leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0),
+    )
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+}
+
 function objectUrl(config: LiaraConfig, key: string): URL {
   const url = new URL(config.endpoint.toString());
   const prefix = url.pathname.replace(/\/+$/, "");
@@ -85,6 +115,11 @@ function objectUrl(config: LiaraConfig, key: string): URL {
   return url;
 }
 
+export function liaraObjectUrl(key: string): string | null {
+  const config = readConfig();
+  return config ? objectUrl(config, key).toString() : null;
+}
+
 function hmacSigningKey(secret: string, dateStamp: string): Buffer {
   const dateKey = hmac("AWS4" + secret, dateStamp);
   const regionKey = hmac(dateKey, REGION);
@@ -93,12 +128,13 @@ function hmacSigningKey(secret: string, dateStamp: string): Buffer {
 }
 
 function signedRequest(input: {
-  method: "GET" | "PUT" | "DELETE";
+  method: "GET" | "HEAD" | "PUT" | "DELETE";
   url: URL;
   accessKey: string;
   secretKey: string;
   body?: Buffer;
   contentType?: string;
+  extraHeaders?: Record<string, string>;
 }): RequestInit {
   const now = new Date();
   const amzDate = now
@@ -118,6 +154,9 @@ function signedRequest(input: {
     "x-amz-date": amzDate,
   };
   if (contentType) headers["content-type"] = contentType;
+  for (const [name, value] of Object.entries(input.extraHeaders ?? {})) {
+    headers[name.toLowerCase()] = value.trim().replace(/\s+/g, " ");
+  }
 
   const sortedHeaders = Object.keys(headers)
     .sort()
@@ -132,7 +171,7 @@ function signedRequest(input: {
   const canonicalRequest = [
     input.method,
     canonicalUri,
-    "",
+    canonicalQuery(input.url),
     canonicalHeaders,
     signedHeaders,
     payloadHash,
@@ -180,6 +219,7 @@ async function send(input: {
   key: string;
   body?: Buffer;
   contentType?: string;
+  extraHeaders?: Record<string, string>;
 }): Promise<boolean> {
   const config = readConfig();
   if (!config) return false;
@@ -194,7 +234,7 @@ async function send(input: {
 
   try {
     const response = await fetch(url, request);
-    if (response.ok) return true;
+    if (response.ok || (input.method === "DELETE" && response.status === 404)) return true;
 
     const detail = (await response.text().catch(() => "")).trim().slice(0, 400);
     console.warn(
@@ -228,6 +268,209 @@ export async function putLiaraObject(input: {
     contentType: input.contentType || "application/octet-stream",
   });
   return ok ? objectUrl(config, input.key).toString() : null;
+}
+
+/** Copy a verified staging object to its immutable publication key server-side. */
+export async function copyLiaraObject(sourceKey: string, destinationKey: string): Promise<boolean> {
+  const config = readConfig();
+  if (!config) return false;
+  const url = objectUrl(config, destinationKey);
+  const source = "/" + encodeURIComponent(config.bucket) + "/" + encodeKey(sourceKey);
+  const request = signedRequest({
+    method: "PUT",
+    url,
+    accessKey: config.accessKey,
+    secretKey: config.secretKey,
+    body: Buffer.alloc(0),
+    extraHeaders: { "x-amz-copy-source": source },
+  });
+  try {
+    const response = await fetchWithHeaderTimeout(fetch, url, request, 15_000);
+    if (!response.ok) return false;
+    const body = await response.text().catch(() => "");
+    return !/<Error\b/i.test(body);
+  } catch (error) {
+    console.warn("[liara-storage] COPY request failed:", error instanceof Error ? error.message : error);
+    return false;
+  }
+}
+
+/**
+ * Create a short-lived path-style S3 Signature V4 URL for a single browser PUT.
+ * Content-Type is part of SignedHeaders, so the browser must send this exact
+ * value. The payload uses UNSIGNED-PAYLOAD because the browser streams the file
+ * directly and the completion endpoint verifies the stored bytes afterwards.
+ */
+export function createLiaraPresignedPutUrl(input: {
+  key: string;
+  contentType: string;
+  sizeBytes: number;
+  expiresInSeconds?: number;
+  now?: Date;
+}): { url: string; headers: Record<string, string> } | null {
+  const config = readConfig();
+  if (!config) return null;
+
+  const expiresInSeconds = Math.floor(input.expiresInSeconds ?? 900);
+  if (!Number.isInteger(expiresInSeconds) || expiresInSeconds < 60 || expiresInSeconds > 900) {
+    throw new Error("Liara direct-upload URL expiry must be between 60 and 900 seconds.");
+  }
+  const contentType = input.contentType.trim().toLowerCase();
+  if (!contentType || /[\r\n]/.test(contentType)) {
+    throw new Error("A valid Content-Type is required for a direct upload.");
+  }
+  if (!Number.isSafeInteger(input.sizeBytes) || input.sizeBytes <= 0) {
+    throw new Error("A positive, safe upload size is required for a direct upload.");
+  }
+
+  const url = objectUrl(config, input.key);
+  const now = input.now ?? new Date();
+  const amzDate = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const dateStamp = amzDate.slice(0, 8);
+  const credentialScope = dateStamp + "/" + REGION + "/" + SERVICE + "/aws4_request";
+  const signedHeaders = "content-length;content-type;host";
+  url.searchParams.set("X-Amz-Algorithm", ALGORITHM);
+  url.searchParams.set("X-Amz-Credential", config.accessKey + "/" + credentialScope);
+  url.searchParams.set("X-Amz-Date", amzDate);
+  url.searchParams.set("X-Amz-Expires", String(expiresInSeconds));
+  url.searchParams.set("X-Amz-SignedHeaders", signedHeaders);
+
+  const canonicalHeaders =
+    "content-length:" + input.sizeBytes + "\n" +
+    "content-type:" + contentType + "\n" +
+    "host:" + url.host + "\n";
+  const canonicalRequest = [
+    "PUT",
+    url.pathname || "/",
+    canonicalQuery(url),
+    canonicalHeaders,
+    signedHeaders,
+    "UNSIGNED-PAYLOAD",
+  ].join("\n");
+  const stringToSign = [
+    ALGORITHM,
+    amzDate,
+    credentialScope,
+    sha256(canonicalRequest),
+  ].join("\n");
+  const signature = hmac(
+    hmacSigningKey(config.secretKey, dateStamp),
+    stringToSign,
+  ).toString("hex");
+  url.searchParams.set("X-Amz-Signature", signature);
+
+  return {
+    url: url.toString(),
+    headers: { "content-type": contentType },
+  };
+}
+
+/** Read server-verified metadata for a single object without downloading it. */
+export async function headLiaraObject(key: string): Promise<LiaraObjectHead | null> {
+  const config = readConfig();
+  if (!config) return null;
+  const url = objectUrl(config, key);
+  try {
+    const response = await fetchWithHeaderTimeout(
+      fetch,
+      url,
+      signedRequest({
+        method: "HEAD",
+        url,
+        accessKey: config.accessKey,
+        secretKey: config.secretKey,
+      }),
+      10_000,
+    );
+    if (!response.ok) return null;
+    const sizeBytes = Number(response.headers.get("content-length"));
+    if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0) return null;
+    return {
+      sizeBytes,
+      contentType: (response.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase(),
+      etag: response.headers.get("etag"),
+    };
+  } catch (error) {
+    console.warn("[liara-storage] HEAD request failed:", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+function decodeXmlText(value: string): string {
+  return value.replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (entity, token: string) => {
+    const normalized = token.toLowerCase();
+    if (normalized === "amp") return "&";
+    if (normalized === "lt") return "<";
+    if (normalized === "gt") return ">";
+    if (normalized === "quot") return '"';
+    if (normalized === "apos") return "'";
+    const numeric = normalized.startsWith("#x")
+      ? Number.parseInt(normalized.slice(2), 16)
+      : Number.parseInt(normalized.slice(1), 10);
+    return Number.isFinite(numeric) && numeric >= 0 && numeric <= 0x10ffff
+      ? String.fromCodePoint(numeric)
+      : entity;
+  });
+}
+
+/**
+ * Bounded ListObjectsV2 scan for admin telemetry. A partial scan is explicitly
+ * marked incomplete; callers must never present its totals as bucket totals.
+ */
+export async function listLiaraObjectInventory(maxPages = 10): Promise<LiaraObjectInventory> {
+  const config = readConfig();
+  if (!config) throw new Error("Liara Object Storage is not configured.");
+  const pageLimit = Math.max(1, Math.min(100, Math.floor(maxPages)));
+  let continuationToken: string | null = null;
+  let objectCount = 0;
+  let totalBytes = 0;
+  let pagesScanned = 0;
+  let complete = false;
+
+  while (pagesScanned < pageLimit) {
+    const url = objectUrl(config, "");
+    url.searchParams.set("list-type", "2");
+    url.searchParams.set("max-keys", "1000");
+    if (continuationToken) url.searchParams.set("continuation-token", continuationToken);
+    const response = await fetchWithHeaderTimeout(
+      fetch,
+      url,
+      signedRequest({
+        method: "GET",
+        url,
+        accessKey: config.accessKey,
+        secretKey: config.secretKey,
+      }),
+      5_000,
+    );
+    if (!response.ok) {
+      throw new Error(`Liara inventory request failed (HTTP ${response.status}).`);
+    }
+    const xml = await response.text();
+    if (!/<ListBucketResult(?:\s|>)/i.test(xml) || !/<IsTruncated>/i.test(xml)) {
+      throw new Error("Liara returned an invalid ListObjectsV2 response.");
+    }
+    for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/gi)) {
+      const block = match[1] ?? "";
+      const sizeMatch = block.match(/<Size>(\d+)<\/Size>/i);
+      if (!sizeMatch) continue;
+      const size = Number(sizeMatch[1]);
+      if (!Number.isSafeInteger(size) || size < 0) continue;
+      objectCount += 1;
+      totalBytes += size;
+    }
+    pagesScanned += 1;
+    const truncated = /<IsTruncated>\s*true\s*<\/IsTruncated>/i.test(xml);
+    if (!truncated) {
+      complete = true;
+      break;
+    }
+    const next = xml.match(/<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/i)?.[1];
+    continuationToken = next ? decodeXmlText(next.trim()) : null;
+    if (!continuationToken) break;
+  }
+
+  return { objectCount, totalBytes, complete, pagesScanned };
 }
 
 /**
@@ -285,8 +528,8 @@ export async function fetchWithHeaderTimeout(
   }
 }
 
-export async function deleteLiaraObject(key: string): Promise<void> {
-  await send({ method: "DELETE", key });
+export async function deleteLiaraObject(key: string): Promise<boolean> {
+  return send({ method: "DELETE", key });
 }
 
 export function liaraObjectKeyFromUrl(

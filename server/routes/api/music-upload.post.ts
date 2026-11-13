@@ -41,6 +41,7 @@ export default defineEventHandler(async (event) => {
       const derived = mimeFromFilename(filename);
       return ALLOWED_AUDIO_TYPE_SET.has(derived) ? derived : null;
     },
+    directUpload: ({ contentType }) => contentType.startsWith("audio/"),
     unsupportedTypeMessage:
       "فرمت فایل صوتی پشتیبانی نمی‌شود. MP3، OGG، WAV، M4A یا AAC انتخاب کنید.",
     sizeLimitMessage: (limitMb) =>
