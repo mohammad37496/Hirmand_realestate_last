@@ -413,6 +413,34 @@ function decodeXmlText(value: string): string {
   });
 }
 
+async function readBoundedLiaraResponseText(response: Response, maxBytes: number): Promise<string> {
+  const declaredLength = Number(response.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    throw new Error("Liara response exceeded the inventory response-size limit.");
+  }
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        throw new Error("Liara response exceeded the inventory response-size limit.");
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, totalBytes).toString("utf8");
+}
+
 /**
  * Bounded ListObjectsV2 scan for admin telemetry. A partial scan is explicitly
  * marked incomplete; callers must never present its totals as bucket totals.
@@ -432,35 +460,40 @@ export async function listLiaraObjectInventory(maxPages = 10): Promise<LiaraObje
     url.searchParams.set("list-type", "2");
     url.searchParams.set("max-keys", "1000");
     if (continuationToken) url.searchParams.set("continuation-token", continuationToken);
-    const response = await fetchWithHeaderTimeout(
-      fetch,
+    const response = await fetch(
       url,
-      signedRequest({
-        method: "GET",
-        url,
-        accessKey: config.accessKey,
-        secretKey: config.secretKey,
-      }),
-      5_000,
+      {
+        ...signedRequest({
+          method: "GET",
+          url,
+          accessKey: config.accessKey,
+          secretKey: config.secretKey,
+        }),
+        // Abort covers both response headers and XML body consumption.
+        signal: AbortSignal.timeout(5_000),
+      },
     );
     if (!response.ok) {
       throw new Error(`Liara inventory request failed (HTTP ${response.status}).`);
     }
-    const xml = await response.text();
-    if (!/<ListBucketResult(?:\s|>)/i.test(xml) || !/<IsTruncated>/i.test(xml)) {
+    const xml = await readBoundedLiaraResponseText(response, 4 * 1024 * 1024);
+    const truncatedValue = xml.match(/<IsTruncated>\s*(true|false)\s*<\/IsTruncated>/i)?.[1]?.toLowerCase();
+    if (!/<ListBucketResult(?:\s|>)/i.test(xml) || !truncatedValue) {
       throw new Error("Liara returned an invalid ListObjectsV2 response.");
     }
     for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/gi)) {
       const block = match[1] ?? "";
       const sizeMatch = block.match(/<Size>(\d+)<\/Size>/i);
-      if (!sizeMatch) continue;
+      if (!sizeMatch) throw new Error("Liara returned an object without a valid Size value.");
       const size = Number(sizeMatch[1]);
-      if (!Number.isSafeInteger(size) || size < 0) continue;
+      if (!Number.isSafeInteger(size) || size < 0 || !Number.isSafeInteger(totalBytes + size)) {
+        throw new Error("Liara returned an unsafe object size; inventory totals are unavailable.");
+      }
       objectCount += 1;
       totalBytes += size;
     }
     pagesScanned += 1;
-    const truncated = /<IsTruncated>\s*true\s*<\/IsTruncated>/i.test(xml);
+    const truncated = truncatedValue === "true";
     if (!truncated) {
       complete = true;
       break;

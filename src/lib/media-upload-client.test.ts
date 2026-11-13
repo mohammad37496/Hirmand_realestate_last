@@ -265,9 +265,13 @@ test("large JPEGs are resized and recompressed only when the browser output is s
   let beginSize = 0;
   let canvasWidth = 0;
   let canvasHeight = 0;
+  let imageOrientation = "";
   Object.defineProperty(globalThis, "createImageBitmap", {
     configurable: true,
-    value: async () => ({ width: 4000, height: 3000, close() {} }),
+    value: async (_file: ImageBitmapSource, options?: ImageBitmapOptions) => {
+      imageOrientation = options?.imageOrientation ?? "";
+      return { width: 4000, height: 3000, close() {} };
+    },
   });
   Object.defineProperty(globalThis, "document", {
     configurable: true,
@@ -311,9 +315,50 @@ test("large JPEGs are resized and recompressed only when the browser output is s
     assert.equal(beginSize, 500);
     assert.equal(canvasWidth, 2560);
     assert.equal(canvasHeight, 1920);
+    assert.equal(imageOrientation, "from-image");
   } finally {
     globalThis.fetch = originalFetch;
     Object.defineProperty(globalThis, "createImageBitmap", { configurable: true, value: originalCreateImageBitmap });
     Object.defineProperty(globalThis, "document", { configurable: true, value: originalDocument });
+  }
+});
+
+test("PNG uploads keep their original bytes so animated PNG frames are not flattened", async () => {
+  const originalFile = new File([new Uint8Array(2_000)], "animated.png", {
+    type: "image/png",
+  });
+  let bitmapCalls = 0;
+  let beginSize = 0;
+  let chunkBytes = 0;
+  Object.defineProperty(globalThis, "createImageBitmap", {
+    configurable: true,
+    value: async () => {
+      bitmapCalls += 1;
+      return { width: 4000, height: 3000, close() {} };
+    },
+  });
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const headers = new Headers(init?.headers);
+    if (headers.get("content-type") === "application/octet-stream") {
+      chunkBytes = (init?.body as Blob).size;
+      return jsonResponse({ uploadId: stableId, receivedChunks: 1, bytesReceived: chunkBytes });
+    }
+    const body = JSON.parse(String(init?.body ?? "{}")) as { action?: string; sizeBytes?: number };
+    if (body.action === "begin") {
+      beginSize = Number(body.sizeBytes) || 0;
+      return jsonResponse({ uploadId: stableId, chunkSize: 4096, totalChunks: 1, totalBytes: beginSize });
+    }
+    if (body.action === "complete") return jsonResponse({ url: "/api/media/test" });
+    return jsonResponse({ ok: true });
+  }) as typeof fetch;
+
+  try {
+    await uploadInChunks({ endpoint: "/api/upload", file: originalFile, contentType: "image/png" });
+    assert.equal(bitmapCalls, 0);
+    assert.equal(beginSize, originalFile.size);
+    assert.equal(chunkBytes, originalFile.size);
+  } finally {
+    globalThis.fetch = originalFetch;
+    Object.defineProperty(globalThis, "createImageBitmap", { configurable: true, value: originalCreateImageBitmap });
   }
 });

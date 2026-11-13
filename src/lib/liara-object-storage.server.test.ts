@@ -185,6 +185,32 @@ test("Liara inventory marks a page-limited scan incomplete instead of reporting 
   }
 });
 
+test("Liara inventory rejects malformed object sizes instead of reporting a complete partial total", async () => {
+  configureLiara();
+  globalThis.fetch = (async () => new Response(
+    "<ListBucketResult><Contents><Key>a</Key></Contents><IsTruncated>false</IsTruncated></ListBucketResult>",
+    { status: 200 },
+  )) as typeof fetch;
+  try {
+    await assert.rejects(listLiaraObjectInventory(1), /without a valid Size/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Liara inventory rejects an oversized response before parsing a partial total", async () => {
+  configureLiara();
+  globalThis.fetch = (async () => new Response(
+    "<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>",
+    { status: 200, headers: { "content-length": String(4 * 1024 * 1024 + 1) } },
+  )) as typeof fetch;
+  try {
+    await assert.rejects(listLiaraObjectInventory(1), /response-size limit/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 after(() => {
   globalThis.fetch = originalFetch;
   for (const key of envKeys) {

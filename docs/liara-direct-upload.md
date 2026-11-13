@@ -12,6 +12,9 @@ The presigned signature also binds the browser-generated `Content-Length` and
 after the server has applied its route-specific file-size limit.
 The browser supplies `Content-Length` automatically; application code must not
 try to set that forbidden request header manually.
+Browser-side canvas optimization is limited to JPEG files and applies EXIF
+orientation before re-encoding. PNG, GIF, WebP and AVIF are uploaded unchanged so
+animated frames and format-specific metadata are preserved.
 The signed URL can be reused until expiry, so it writes only to a private
 staging key. After byte verification, the server copies that object to its
 final key and removes the staging object; the browser URL cannot overwrite the
@@ -26,11 +29,22 @@ object being cleaned.
 Before enabling the feature, configure the Liara bucket's CORS policy for the
 exact browser origins that will upload. At minimum:
 
+- Keep the bucket private. The site reads final Liara objects through its
+  same-origin server routes, which apply the existing publication, owner and
+  admin checks. CORS permits the signed browser PUT; it does not make objects
+  private or public. Do not enable public bucket access to make uploads work.
+- Keep `staging/` outside every public media route. A presigned PUT grants write
+  access to one staging key until expiry; it does not grant read access. Aborted
+  direct sessions are retired immediately, while their staging object is left
+  for cleanup after the URL expiry and retention window so a late PUT cannot
+  recreate an orphan after deletion.
+
 - Allowed origins: `https://hirmandrealestate.ir` and
   `https://www.hirmandrealestate.ir` (remove any origin the site does not use).
-- Allowed methods: `PUT`, `GET`, `HEAD`.
+- Allowed methods: `PUT`.
 - Allowed request headers: `Content-Type`.
-- Exposed response headers: `ETag`, `Content-Length`.
+- No exposed response headers are required; the browser upload client reads only
+  the PUT status and upload progress. Final object reads stay server-side.
 - Max age: 600 seconds.
 
 If direct uploads are enabled in a non-production preview, add that exact
@@ -56,9 +70,11 @@ chunked upload path.
 
 The admin media-health scan lists up to 10 pages of 1,000 objects from Liara and
 marks the result incomplete if the bucket has more objects. The inventory is
-cached in-process for five minutes to avoid a full listing on every dashboard
-refresh. PostgreSQL database size is reported only when the configured backend
-is PostgreSQL; the PGlite preview intentionally reports it as unavailable.
+bounded to five seconds and 4 MiB per page, and rejects malformed object sizes
+instead of reporting a partial total as complete. It is cached in-process for
+five minutes to avoid a full listing on every dashboard refresh. PostgreSQL
+database size is reported only when the configured backend is PostgreSQL; the
+PGlite preview intentionally reports it as unavailable.
 
 See [the storage backup and restore runbook](./storage-backup-and-restore.md).
 This feature does not enable provider backups or claim a restore has been tested.

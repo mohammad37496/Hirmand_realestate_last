@@ -29,7 +29,9 @@ type BeginResponse = {
 };
 
 async function optimizeImageBeforeUpload(file: File): Promise<File> {
-  if (!/^image\/(?:jpeg|png)$/i.test(file.type) || typeof createImageBitmap !== "function") {
+  // Canvas snapshots only one frame from animated PNGs. Keep PNG/GIF/WebP/AVIF
+  // byte-for-byte and optimize JPEGs, which cannot contain animation.
+  if (file.type.trim().toLowerCase() !== "image/jpeg" || typeof createImageBitmap !== "function") {
     return file;
   }
   try {
@@ -44,14 +46,14 @@ async function optimizeImageBeforeUpload(file: File): Promise<File> {
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(bitmap.width * scale));
       canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-      const context = canvas.getContext("2d", { alpha: file.type === "image/png" });
+      const context = canvas.getContext("2d");
       if (!context) return file;
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
       const output = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob(
           resolve,
-          file.type,
-          file.type === "image/jpeg" ? 0.86 : undefined,
+          "image/jpeg",
+          0.86,
         );
       });
       if (!output || output.size >= file.size * 0.95) return file;

@@ -814,22 +814,31 @@ export async function handleChunkedUpload(
     const uploadId = typeof body?.uploadId === "string" ? body.uploadId.trim() : "";
     if (uploadId) {
       const sql = await getSql();
+      // A presigned PUT remains usable until its expiry even after the browser
+      // asks to abort. Retire the session atomically so begin/complete cannot
+      // reuse it, then let stale-session pruning delete staging after the signed
+      // URL expiry plus the normal retention window. Deleting the object here
+      // would allow an in-flight or replayed PUT to recreate an orphan afterward.
+      const expiredDirect = await sql.query<{ id: string }>(
+        `update media_upload_sessions
+         set completion_state = 'expired'
+         where id = $1 and kind = $2 and left(pathname, length($3)) = $3
+           and upload_mode = 'direct' and completion_state = 'pending'
+         returning id`,
+        [uploadId, config.kind, sessionPathPrefix],
+      );
+      if (expiredDirect[0]) return { aborted: true };
+
       const rows = await sql.query<{ object_key: string | null; pathname: string; upload_mode: string }>(
         `select object_key, pathname, upload_mode from media_upload_sessions
          where id = $1 and kind = $2 and left(pathname, length($3)) = $3
-           and completion_state = 'pending' limit 1`,
+           and upload_mode <> 'direct' and completion_state = 'pending' limit 1`,
         [uploadId, config.kind, sessionPathPrefix],
       );
       const session = rows[0];
-      if (session?.upload_mode === "direct") {
-        const deleted = await deleteLiaraObject(String(session.object_key ?? `staging/${session.pathname}`));
-        if (!deleted) {
-          throw httpError("پاک‌سازی فایل نیمه‌کاره در فضای ابری انجام نشد؛ نشست برای تلاش مجدد حفظ شد.", 503);
-        }
-      }
       if (session) {
         await sql.query(
-          "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3 and completion_state = 'pending'",
+          "delete from media_upload_sessions where id = $1 and kind = $2 and left(pathname, length($3)) = $3 and upload_mode <> 'direct' and completion_state = 'pending'",
           [uploadId, config.kind, sessionPathPrefix],
         );
       }

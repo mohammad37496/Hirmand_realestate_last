@@ -43,6 +43,15 @@ test("direct uploads still require the scoped DB session and server-side object 
   assert.match(protocol, /String\(session\.upload_mode \?\? "chunked"\) === "direct"/);
 });
 
+test("aborting a direct upload retires the session and defers staging deletion until its signed URL is stale", () => {
+  const abortStart = protocol.indexOf('if (action === "abort")');
+  assert.notEqual(abortStart, -1);
+  const abortHandler = protocol.slice(abortStart);
+  assert.match(abortHandler, /update media_upload_sessions[\s\S]*set completion_state = 'expired'[\s\S]*upload_mode = 'direct'[\s\S]*completion_state = 'pending'[\s\S]*returning id/i);
+  assert.match(abortHandler, /upload_mode <> 'direct'[\s\S]*completion_state = 'pending'/);
+  assert.doesNotMatch(abortHandler, /deleteLiaraObject/);
+});
+
 test("direct PUT is browser-side with progress, while completion uses the normal server receipt", () => {
   assert.match(client, /xhr\.open\("PUT", input\.url, true\)/);
   assert.match(client, /xhr\.upload\.onprogress/);
@@ -62,6 +71,8 @@ test("only transform-free photos and music are opted into direct uploads; proper
 test("storage health reports bounded Liara inventory and PostgreSQL database sizes", () => {
   assert.match(storage, /listLiaraObjectInventory\(maxPages = 10\)/);
   assert.match(storage, /complete, pagesScanned/);
+  assert.match(storage, /AbortSignal\.timeout\(5_000\)/);
+  assert.match(storage, /readBoundedLiaraResponseText\(response, 4 \* 1024 \* 1024\)/);
   assert.match(health, /pg_database_size\(current_database\(\)\)/);
   assert.match(health, /liaraInventoryComplete/);
   assert.match(health, /postgresSizeError: postgresSize\.error/);
@@ -74,6 +85,10 @@ test("migration and rollout docs keep direct upload opt-in and require explicit 
   assert.match(migration, /direct_upload_expires_at/);
   assert.match(migration, /object_key text/);
   assert.match(docs, /LIARA_DIRECT_UPLOAD_ENABLED=true/);
-  assert.match(docs, /Allowed methods: `PUT`, `GET`, `HEAD`/);
+  assert.match(docs, /Keep the bucket private/);
+  assert.match(docs, /Keep `staging\/` outside every public media route/);
+  assert.match(docs, /Allowed methods: `PUT`\./);
+  assert.match(docs, /Allowed request headers: `Content-Type`/);
+  assert.match(docs, /No exposed response headers are required/);
   assert.match(docs, /Property videos deliberately retain the existing server-side/);
 });
