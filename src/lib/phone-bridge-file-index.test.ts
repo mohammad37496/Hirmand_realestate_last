@@ -116,6 +116,30 @@ test("serializes concurrent replacements so entries from two folder trees cannot
   }
 });
 
+test("bulk inserts the full 1,800 entry limit in one database statement", async () => {
+  const pg = new PGlite();
+  try {
+    await createSchema(pg);
+    const entries = Array.from({ length: 1800 }, (_, index) => ({
+      uri: `content://tree/file-${index}`,
+      name: `file-${index}`,
+      relativePath: `folder/file-${index}`,
+    }));
+    const count = await replacePhoneBridgeFileIndex(sqlFor(pg), {
+      deviceId: "device-1",
+      rootUri: "content://tree/root",
+      entries,
+    });
+    assert.equal(count, 1800);
+    const rows = await pg.query<{ count: number }>(
+      "select count(*)::int as count from phone_bridge_file_entries where device_id='device-1'",
+    );
+    assert.equal(rows.rows[0]?.count, 1800);
+  } finally {
+    await pg.close();
+  }
+});
+
 test("a missing device row cannot delete an existing device's index", async () => {
   const pg = new PGlite();
   try {

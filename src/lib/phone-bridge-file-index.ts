@@ -59,13 +59,21 @@ export async function replacePhoneBridgeFileIndex(
     );
     if (!devices.length) throw new Error("Phone Bridge device is unavailable for file indexing.");
     await tx.query("delete from phone_bridge_file_entries where device_id=$1", [input.deviceId]);
-    for (const entry of entries) {
+    if (entries.length) {
+      const valuesPerEntry = 11;
+      const placeholders = entries.map((_, index) => {
+        const first = index * valuesPerEntry + 1;
+        return `(${Array.from({ length: valuesPerEntry }, (_value, offset) => `$${first + offset}`).join(",")})`;
+      }).join(",");
+      const values = entries.flatMap((entry) => [
+        entry.id, input.deviceId, rootUri, entry.uri, entry.parentUri, entry.name,
+        entry.relativePath, entry.mimeType, entry.sizeBytes, entry.modifiedAt, entry.isDirectory,
+      ]);
       await tx.query(
         `insert into phone_bridge_file_entries
            (id,device_id,root_uri,uri,parent_uri,name,relative_path,mime_type,size_bytes,modified_at,is_directory)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-        [entry.id, input.deviceId, rootUri, entry.uri, entry.parentUri,
-          entry.name, entry.relativePath, entry.mimeType, entry.sizeBytes, entry.modifiedAt, entry.isDirectory],
+         values ${placeholders}`,
+        values,
       );
     }
   });
