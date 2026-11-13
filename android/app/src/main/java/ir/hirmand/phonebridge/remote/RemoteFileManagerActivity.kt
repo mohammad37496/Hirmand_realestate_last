@@ -82,7 +82,10 @@ class RemoteFileManagerActivity : Activity() {
     }
     private fun enumerateTree(root:Uri):RemoteTreeResult{
         val rootDocumentId=DocumentsContract.getTreeDocumentId(root)
-        return RemoteFileTreeTraversal.enumerate(rootDocumentId, maxEntries=MAX_ENTRIES){parentDocumentId->
+        return RemoteFileTreeTraversal.enumerate(
+            rootDocumentId=rootDocumentId,
+            maxEntries=MAX_ENTRIES,
+            childrenOf={parentDocumentId->
             val children=DocumentsContract.buildChildDocumentsUriUsingTree(root,parentDocumentId)
             val cursor=contentResolver.query(children,arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME,DocumentsContract.Document.COLUMN_MIME_TYPE,DocumentsContract.Document.COLUMN_SIZE,DocumentsContract.Document.COLUMN_LAST_MODIFIED),null,null,DocumentsContract.Document.COLUMN_DISPLAY_NAME+" ASC")
                 ?:throw IllegalStateException("فهرست زیرپوشه از ارائه‌دهنده فایل دریافت نشد.")
@@ -107,7 +110,7 @@ class RemoteFileManagerActivity : Activity() {
                     }
                 }
             }
-        }
+        })
     }
     private fun postIndex(root:Uri,result:RemoteTreeResult):Boolean{
         val endpoint=prefs.endpoint.trim();val token=prefs.token.trim();val device=prefs.installId.trim();if(!EndpointPolicy.isAllowed(endpoint)||token.isBlank()||device.isBlank())return false
