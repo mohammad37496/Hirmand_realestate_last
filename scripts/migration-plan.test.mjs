@@ -13,6 +13,7 @@ import { test } from "node:test";
 import {
   assertRequiredMigrationFiles,
   assertRequiredMigrationLedger,
+  ADMIN_RATE_LIMIT_MIGRATIONS,
   CUSTOMER_AUTH_MIGRATIONS,
   LEAD_CONSULTANT_RELATION_MIGRATIONS,
   PROPERTY_CONSULTANT_RELATION_MIGRATIONS,
@@ -106,6 +107,14 @@ test("CRM lead-consultant relation migration is required in every production dep
   assert.doesNotThrow(() => assertRequiredMigrationLedger(LEAD_CONSULTANT_RELATION_MIGRATIONS, LEAD_CONSULTANT_RELATION_MIGRATIONS));
   assert.throws(() => assertRequiredMigrationFiles([], LEAD_CONSULTANT_RELATION_MIGRATIONS), /0104_lead_consultant_relation\.sql/);
   assert.throws(() => assertRequiredMigrationLedger([], LEAD_CONSULTANT_RELATION_MIGRATIONS), /0104_lead_consultant_relation\.sql/);
+});
+
+test("PostgreSQL admin rate-limit migration is required in every production deploy ledger", () => {
+  assert.deepEqual(ADMIN_RATE_LIMIT_MIGRATIONS, ["0106_admin_rate_limits.sql"]);
+  assert.doesNotThrow(() => assertRequiredMigrationFiles(ADMIN_RATE_LIMIT_MIGRATIONS, ADMIN_RATE_LIMIT_MIGRATIONS));
+  assert.doesNotThrow(() => assertRequiredMigrationLedger(ADMIN_RATE_LIMIT_MIGRATIONS, ADMIN_RATE_LIMIT_MIGRATIONS));
+  assert.throws(() => assertRequiredMigrationFiles([], ADMIN_RATE_LIMIT_MIGRATIONS), /0106_admin_rate_limits\.sql/);
+  assert.throws(() => assertRequiredMigrationLedger([], ADMIN_RATE_LIMIT_MIGRATIONS), /0106_admin_rate_limits\.sql/);
 });
 
 test("non-.sql entries are dropped (readdir also yields the auth/ directory)", () => {

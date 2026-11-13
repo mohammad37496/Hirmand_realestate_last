@@ -72,6 +72,10 @@ export const LEAD_CONSULTANT_RELATION_MIGRATIONS = Object.freeze([
   "0104_lead_consultant_relation.sql",
 ]);
 
+export const ADMIN_RATE_LIMIT_MIGRATIONS = Object.freeze([
+  "0106_admin_rate_limits.sql",
+]);
+
 /**
  * Fail closed when an auth-enabled deployment is missing a required root migration.
  * @param {Iterable<string>} paths

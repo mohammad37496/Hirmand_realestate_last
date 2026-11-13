@@ -5,6 +5,7 @@ import pg from "pg";
 import {
   assertRequiredMigrationFiles,
   assertRequiredMigrationLedger,
+  ADMIN_RATE_LIMIT_MIGRATIONS,
   CUSTOMER_AUTH_MIGRATIONS,
   LEAD_CONSULTANT_RELATION_MIGRATIONS,
   PROPERTY_CONSULTANT_RELATION_MIGRATIONS,
@@ -39,10 +40,12 @@ export async function runMigrations({
   verifyCustomerAuth = process.env.VITE_AUTH_ENABLED !== "false",
   verifyPropertyConsultantMigration = true,
   verifyLeadConsultantMigration = true,
+  verifyAdminRateLimitMigration = true,
 }) {
   const entries = await readdir(migrationsDir);
   if (verifyPropertyConsultantMigration) assertRequiredMigrationFiles(entries, PROPERTY_CONSULTANT_RELATION_MIGRATIONS);
   if (verifyLeadConsultantMigration) assertRequiredMigrationFiles(entries, LEAD_CONSULTANT_RELATION_MIGRATIONS);
+  if (verifyAdminRateLimitMigration) assertRequiredMigrationFiles(entries, ADMIN_RATE_LIMIT_MIGRATIONS);
   if (verifyCustomerAuth) assertRequiredMigrationFiles(entries);
   const pool = poolFactory({
     connectionString,
@@ -102,6 +105,10 @@ export async function runMigrations({
       console.log(`[migrate] customer-auth migrations verified${deploymentLabel}: ${CUSTOMER_AUTH_MIGRATIONS.join(", ")}`);
     } else {
       console.log("[migrate] database is up to date.");
+    }
+    if (verifyAdminRateLimitMigration) {
+      assertRequiredMigrationLedger(appliedNames, ADMIN_RATE_LIMIT_MIGRATIONS);
+      console.log(`[migrate] admin rate-limit migrations verified${deploymentLabel}: ${ADMIN_RATE_LIMIT_MIGRATIONS.join(", ")}`);
     }
   } finally {
     if (client) {

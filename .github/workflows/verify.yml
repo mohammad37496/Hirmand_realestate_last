@@ -93,6 +93,11 @@ jobs:
         id: migrate_database
         run: npm run db:migrate
 
+      - name: Verify admin rate limiting across PostgreSQL sessions
+        run: node --experimental-strip-types --test scripts/admin-rate-limit-postgres.test.mjs
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
+
       - name: Verify customer chat cooldown locking across PostgreSQL sessions
         run: node --experimental-strip-types --test scripts/customer-chat-send-postgres.test.mjs
         env:
