@@ -1,5 +1,5 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
-import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { assertSameOrigin, clientFingerprint } from "@/lib/admin-rate-limit.server";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { buildBudgetLeadNote, budgetEquivalent } from "@/lib/budget-lead";
@@ -9,8 +9,9 @@ import { createPropertyVisitRequest } from "@/lib/property-visit-request";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 import { createPublicLeadIntake, resolveActivePublicLeadConsultant, resolvePropertyLeadConsultant } from "@/lib/public-lead-intake";
 import { insertPublicBudgetLead } from "@/lib/public-lead-insert";
-import { findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "@/lib/public-lead-phone-dedupe";
+import { findRecentPropertyRequestLead, findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "@/lib/public-lead-phone-dedupe";
 import { ensurePublicTrackingToken, generatePublicTrackingToken } from "@/lib/tracking-token.server";
+import { consumePublicLeadAttempt } from "@/lib/public-lead-rate-limit.server";
 
 const VISITOR_COOKIE = "hirmand_visitor_id";
 
@@ -19,6 +20,13 @@ const PROPERTY_SERVICE_REQUEST_DEALS = new Set([
   "درخواست محتوای جدید",
   "بررسی حقوقی معامله",
   "درخواست تأیید اطلاعات فایل",
+]);
+
+const PROPERTY_BOUND_REQUEST_DEALS = new Set([
+  ...PROPERTY_SERVICE_REQUEST_DEALS,
+  "درخواست تأیید اطلاعات فایل",
+  "درخواست تأمین مالی",
+  "درخواست مدارک",
 ]);
 
 const matchSchema = z.object({
@@ -103,6 +111,9 @@ const schema = z.object({
   if (value.visitPreferredAt && !value.propertyId) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["propertyId"], message: "برای درخواست بازدید، فایل مشخص نشده است." });
   }
+  if (PROPERTY_BOUND_REQUEST_DEALS.has(value.deal) && !value.propertyId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["propertyId"], message: "برای این نوع درخواست، فایل مشخص نشده است." });
+  }
   if (
     value.propertyId &&
     !value.visitPreferredAt &&
@@ -140,13 +151,16 @@ const schema = z.object({
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, "cache-control", "no-store");
   assertSameOrigin(event);
-  const attempt = await consumeAdminAttempt("public-lead:" + clientFingerprint(event));
-  if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
+  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "ثبت آنلاین درخواست در حال حاضر فعال نیست." });
+  const databaseSql = await getSql();
+  const attempt = await consumePublicLeadAttempt(databaseSql, "public-lead:" + clientFingerprint(event));
+  if (!attempt.allowed) {
+    setResponseHeader(event, "retry-after", String(attempt.retryAfterSeconds));
+    throw createError({ statusCode: 429, statusMessage: "تعداد درخواست‌ها بیش از حد مجاز است. کمی بعد دوباره تلاش کنید." });
+  }
 
   const parsed = schema.safeParse(await readBody(event));
   if (!parsed.success) throw createError({ statusCode: 422, statusMessage: "اطلاعات درخواست ناقص یا نامعتبر است." });
-  if (dbSource === "unconfigured") throw createError({ statusCode: 503, statusMessage: "ثبت آنلاین درخواست در حال حاضر فعال نیست." });
-  const databaseSql = await getSql();
   if (typeof databaseSql.transaction !== "function") {
     throw createError({ statusCode: 503, statusMessage: "ثبت درخواست در حال حاضر در دسترس نیست." });
   }
@@ -229,7 +243,7 @@ export default defineEventHandler(async (event) => {
     ? buildBudgetLeadNote(budgetPayload)
     : parsed.data.note;
 
-  if (existing[0] && !(parsed.data.propertyId && parsed.data.visitPreferredAt) && !parsed.data.callbackPreferredAt && parsed.data.offerAmount == null && !PROPERTY_SERVICE_REQUEST_DEALS.has(parsed.data.deal)) {
+  if (existing[0] && !(parsed.data.propertyId && parsed.data.visitPreferredAt) && !parsed.data.callbackPreferredAt && !PROPERTY_BOUND_REQUEST_DEALS.has(parsed.data.deal)) {
     if (parsed.data.source === "budget_match") {
       if (typeof sql.transaction !== "function") throw createError({ statusCode: 503, statusMessage: "به‌روزرسانی درخواست به تراکنش پایگاه داده نیاز دارد." });
       await sql.transaction(async (transactionSql) => {
@@ -355,6 +369,11 @@ export default defineEventHandler(async (event) => {
     if (!property) {
       throw createError({ statusCode: 404, statusMessage: "این فایل دیگر برای درخواست تأیید اطلاعات در دسترس نیست." });
     }
+    const duplicate = await findRecentPropertyRequestLead(sql, property.id, parsed.data.phone, parsed.data.deal);
+    if (duplicate) {
+      const trackingToken = await ensurePublicTrackingToken(sql, duplicate.id, duplicate.public_tracking_token);
+      return { success: true, duplicate: true, id: duplicate.id, verificationRequest: true, trackingToken };
+    }
     const trackingToken = generatePublicTrackingToken();
     const requestNote = parsed.data.note.trim() || "درخواست بررسی و تأیید اطلاعات اصلی فایل";
     let assignedConsultantName = property.contact_name || parsed.data.consultant;
@@ -400,6 +419,16 @@ export default defineEventHandler(async (event) => {
         statusCode: 404,
         statusMessage: "این فایل دیگر برای ثبت درخواست تخصصی در دسترس نیست.",
       });
+    }
+    const duplicate = await findRecentPropertyRequestLead(sql, property.id, parsed.data.phone, parsed.data.deal);
+    if (duplicate) {
+      const trackingToken = await ensurePublicTrackingToken(sql, duplicate.id, duplicate.public_tracking_token);
+      const requestType = parsed.data.deal === "درخواست کارشناسی فنی"
+        ? "technical_inspection"
+        : parsed.data.deal === "درخواست محتوای جدید"
+          ? "fresh_media"
+          : "legal_review";
+      return { success: true, duplicate: true, id: duplicate.id, expertServiceRequest: requestType, trackingToken };
     }
 
     const requestType =
@@ -534,6 +563,11 @@ export default defineEventHandler(async (event) => {
     );
     const property = propertyRows[0];
     if (!property) throw createError({ statusCode: 404, statusMessage: "این فایل دیگر برای بررسی تأمین مالی در دسترس نیست." });
+    const duplicate = await findRecentPropertyRequestLead(sql, property.id, parsed.data.phone, parsed.data.deal);
+    if (duplicate) {
+      const trackingToken = await ensurePublicTrackingToken(sql, duplicate.id, duplicate.public_tracking_token);
+      return { success: true, duplicate: true, id: duplicate.id, financingRequest: true, trackingToken };
+    }
 
     const trackingToken = generatePublicTrackingToken();
     let assignedConsultantName = property.contact_name || parsed.data.consultant;
@@ -576,6 +610,11 @@ export default defineEventHandler(async (event) => {
     );
     const property = propertyRows[0];
     if (!property) throw createError({ statusCode: 404, statusMessage: "این فایل دیگر برای دریافت درخواست مدارک در دسترس نیست." });
+    const duplicate = await findRecentPropertyRequestLead(sql, property.id, parsed.data.phone, parsed.data.deal);
+    if (duplicate) {
+      const trackingToken = await ensurePublicTrackingToken(sql, duplicate.id, duplicate.public_tracking_token);
+      return { success: true, duplicate: true, id: duplicate.id, documentRequest: true, trackingToken };
+    }
 
     const trackingToken = generatePublicTrackingToken();
     const requestNote = parsed.data.note.trim() || "درخواست بررسی مدارک و شرایط معامله";

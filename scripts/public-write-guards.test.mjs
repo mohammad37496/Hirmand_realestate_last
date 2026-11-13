@@ -6,6 +6,10 @@ const leadsRoute = await readFile(
   new URL("../server/routes/api/leads.post.ts", import.meta.url),
   "utf8",
 );
+const publicLeadRateLimit = await readFile(
+  new URL("../src/lib/public-lead-rate-limit.server.ts", import.meta.url),
+  "utf8",
+);
 const reportsRoute = await readFile(
   new URL("../server/routes/api/property-reports.post.ts", import.meta.url),
   "utf8",
@@ -36,13 +40,23 @@ const propertyVisitRequest = await readFile(new URL("../src/lib/property-visit-r
 const propertyQuestionsRoute = await readFile(new URL("../server/routes/api/property-questions.post.ts", import.meta.url), "utf8");
 const notificationsRoute = await readFile(new URL("../src/routes/notifications.tsx", import.meta.url), "utf8");
 
-test("public lead intake checks origin and applies a rate limit before parsing or writing", () => {
+test("public lead intake checks origin and uses the shared database limiter before parsing or writing", () => {
   assert.match(leadsRoute, /assertSameOrigin\(event\)/);
-  assert.match(leadsRoute, /consumeAdminAttempt\(["']public-lead:["']\s*\+\s*clientFingerprint\(event\)\)/);
+  assert.match(leadsRoute, /consumePublicLeadAttempt\(databaseSql, ["']public-lead:["']\s*\+\s*clientFingerprint\(event\)\)/);
 
-  const throttleIndex = leadsRoute.indexOf('consumeAdminAttempt("public-lead:"');
+  const throttleIndex = leadsRoute.indexOf('consumePublicLeadAttempt(databaseSql, "public-lead:"');
   const bodyParseIndex = leadsRoute.indexOf("schema.safeParse(await readBody(event))");
   assert.ok(throttleIndex >= 0 && bodyParseIndex > throttleIndex);
+  assert.match(publicLeadRateLimit, /insert into public_lead_rate_limits[\s\S]*?on conflict \(key\) do update/);
+  assert.match(leadsRoute, /PROPERTY_BOUND_REQUEST_DEALS\.has\(value\.deal\) && !value\.propertyId/);
+  assert.match(leadsRoute, /PROPERTY_BOUND_REQUEST_DEALS\.has\(parsed\.data\.deal\)/);
+  assert.match(leadsRoute, /findRecentPropertyRequestLead\(sql, property\.id, parsed\.data\.phone, parsed\.data\.deal\)/);
+});
+
+test("property document request normalizes Persian and Arabic digits without retaining punctuation", async () => {
+  const component = await readFile(new URL("../src/components/hirmand/property-document-request.tsx", import.meta.url), "utf8");
+  assert.match(component, /\.replace\(\/\\D\/g, ""\)/);
+  assert.doesNotMatch(component, /\.replace\(\/D\/g, ""\)/);
 });
 
 test("public property reports check origin and apply a rate limit before database writes", () => {

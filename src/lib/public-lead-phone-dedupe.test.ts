@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { test } from "node:test";
 import type { Sql } from "./db.ts";
 import { createPublicLeadIntake } from "./public-lead-intake.ts";
-import { findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "./public-lead-phone-dedupe.ts";
+import { findRecentPropertyRequestLead, findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "./public-lead-phone-dedupe.ts";
 
 function createSql(pg: PGlite) {
   let transactionCount = 0;
@@ -28,6 +28,8 @@ async function createFixture() {
     create table leads (
       id text primary key,
       phone text not null,
+      property_id text,
+      deal text,
       budget_amount integer,
       callback_preferred_at timestamptz,
       public_tracking_token text,
@@ -160,6 +162,77 @@ test("callback retries reuse only the same recent phone and scheduled time", asy
       trackingToken: "token-callback-after-window",
     });
     assert.equal((await sql.query("select id from leads")).length, 3);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("property request retries reuse the matching property, phone, deal and tracking token", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    await sql.query(
+      "insert into leads(id,phone,property_id,deal,public_tracking_token) values($1,$2,$3,$4,$5)",
+      ["request-1", "09123456789", "property-1", "درخواست مدارک", "TRACK-ORIGINAL"],
+    );
+    assert.deepEqual(
+      await findRecentPropertyRequestLead(sql, "property-1", "09123456789", "درخواست مدارک"),
+      { id: "request-1", public_tracking_token: "TRACK-ORIGINAL" },
+    );
+    assert.equal(await findRecentPropertyRequestLead(sql, "property-2", "09123456789", "درخواست مدارک"), null);
+    assert.equal(await findRecentPropertyRequestLead(sql, "property-1", "09123456789", "درخواست تأمین مالی"), null);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("property request retry window uses wall-clock time after waiting for the phone lock", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    await sql.query(
+      "insert into leads(id,phone,property_id,deal,public_tracking_token,created_at) values($1,$2,$3,$4,$5,clock_timestamp() - interval '10 minutes' - interval '1 second')",
+      ["request-old", "09123456789", "property-1", "درخواست مدارک", "TRACK-OLD"],
+    );
+    assert.equal(await findRecentPropertyRequestLead(sql, "property-1", "09123456789", "درخواست مدارک"), null);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("property request retry cutoff advances while its phone-lock transaction is waiting", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    const result = await withPublicLeadPhoneDedupeLock(sql, "09123456789", async (lockedSql) => {
+      await lockedSql.query(
+        "insert into leads(id,phone,property_id,deal,public_tracking_token,created_at) values($1,$2,$3,$4,$5,clock_timestamp() - interval '10 minutes' + interval '1 second')",
+        ["request-at-boundary", "09123456789", "property-1", "درخواست مدارک", "TRACK-BOUNDARY"],
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      return findRecentPropertyRequestLead(lockedSql, "property-1", "09123456789", "درخواست مدارک");
+    });
+    assert.equal(result, null);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("concurrent retries of one property request create only one lead", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    const submit = (id: string) => withPublicLeadPhoneDedupeLock(sql, "09123456789", async (lockedSql) => {
+      const duplicate = await findRecentPropertyRequestLead(lockedSql, "property-1", "09123456789", "درخواست کارشناسی فنی");
+      if (duplicate) return { kind: "duplicate", id: duplicate.id } as const;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      await lockedSql.query(
+        "insert into leads(id,phone,property_id,deal,public_tracking_token) values($1,$2,$3,$4,$5)",
+        [id, "09123456789", "property-1", "درخواست کارشناسی فنی", "TRACK-" + id],
+      );
+      return { kind: "created", id } as const;
+    });
+
+    const results = await Promise.all([submit("request-a"), submit("request-b")]);
+    assert.equal(results.filter((result) => result.kind === "created").length, 1);
+    assert.equal(results.filter((result) => result.kind === "duplicate").length, 1);
+    assert.equal((await sql.query("select id from leads where property_id='property-1'")).length, 1);
   } finally {
     await pg.close();
   }
