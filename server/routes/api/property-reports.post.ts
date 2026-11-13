@@ -2,7 +2,8 @@ import { createError, defineEventHandler, getCookie, readBody, setResponseHeader
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
-import { assertSameOrigin, clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
+import { assertSameOrigin, clientFingerprint } from "@/lib/admin-rate-limit.server";
+import { consumePublicLeadAttempt } from "@/lib/public-lead-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
@@ -41,9 +42,6 @@ export default defineEventHandler(async (event) => {
   const wantsAdmin = action === "list" || action === "updateStatus";
 
   if (!wantsAdmin) {
-    const attempt = await consumeAdminAttempt("property-report:" + clientFingerprint(event));
-    if (!attempt.allowed) throw tooManyAttemptsError(attempt.retryAfterSeconds);
-
     if (dbSource === "unconfigured") {
       throw createError({ statusCode: 503, statusMessage: "پایگاه داده تنظیم نشده است." });
     }
@@ -60,6 +58,12 @@ export default defineEventHandler(async (event) => {
     const property = propertyRows[0];
     if (!property) {
       throw createError({ statusCode: 404, statusMessage: "فایل موردنظر پیدا نشد." });
+    }
+
+    const attempt = await consumePublicLeadAttempt(sql, "property-report:" + clientFingerprint(event));
+    if (!attempt.allowed) {
+      setResponseHeader(event, "retry-after", String(attempt.retryAfterSeconds));
+      throw createError({ statusCode: 429, statusMessage: "ثبت گزارش بیش از حد مجاز انجام شده است. کمی بعد دوباره تلاش کنید." });
     }
 
     const normalizedVisitorId =
