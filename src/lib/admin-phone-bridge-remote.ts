@@ -282,7 +282,9 @@ export const createPhoneBridgeRemoteCommand = createServerFn({ method: "POST" })
       actorAccountId: typeof claims?.options?.accountId === "string" ? claims.options.accountId : null,
       eventType: "remote.command_requested",
       severity: "warning",
-      message: data.action === "restore_data"
+      message: data.action === "manage_files"
+        ? (data.operation === "pick_folder" ? "فرمان انتخاب و همگام‌سازی پوشهٔ فایل ثبت شد." : "فرمان دریافت فایل از دستگاه ثبت شد.")
+        : data.action === "restore_data"
         ? "فرمان بازگردانی دیتا ثبت شد؛ تأیید روی گوشی لازم است."
         : data.action === "take_photo"
           ? "فرمان گرفتن عکس ثبت شد؛ اقدام روی خود گوشی لازم است."
@@ -290,7 +292,9 @@ export const createPhoneBridgeRemoteCommand = createServerFn({ method: "POST" })
       metadata: {
         commandId: id,
         action: data.action,
-        ...(data.action === "restore_data"
+        ...(data.action === "manage_files"
+          ? { operation: data.operation }
+          : data.action === "restore_data"
           ? { dataType: data.dataType, requestedCount: data.requestedCount }
           : data.action === "take_photo"
             ? { camera: data.camera, flash: data.camera === "front" ? false : data.flash }
@@ -360,9 +364,42 @@ export const getPhoneBridgeRemoteDataPage = createServerFn({ method: "POST", str
   });
 
 export const listPhoneBridgeFileEntries = createServerFn({ method: "POST" })
-  .validator(z.object({ deviceId:z.string().trim().min(1).max(120), search:z.string().trim().max(200).optional().default(""), limit:z.number().int().min(1).max(500).default(200) }))
-  .handler(async({data})=>{
-    await requireRemoteControlAdmin(); if(dbSource==="unconfigured")return [];
-    const sql=await getSql(); const rows=await sql.query<Record<string,unknown>>("select id,uri,name,relative_path,mime_type,size_bytes,modified_at,is_directory from phone_bridge_file_entries where device_id=$1 and (lower(name) like lower($2) or lower(relative_path) like lower($2)) order by is_directory desc,relative_path asc limit $3",[data.deviceId,"%"+data.search+"%",data.limit]);
-    return rows.map(r=>({id:String(r.id),uri:String(r.uri),name:String(r.name),relativePath:String(r.relative_path),mimeType:String(r.mime_type),sizeBytes:Number(r.size_bytes),modifiedAt:Number(r.modified_at),isDirectory:r.is_directory===true}));
+  .validator(z.object({
+    deviceId: z.string().trim().min(1).max(120),
+    search: z.string().trim().max(200).optional().default(""),
+    limit: z.number().int().min(1).max(200).default(100),
+    offset: z.number().int().min(0).max(1800).default(0),
+  }))
+  .handler(async ({ data }) => {
+    await requireRemoteControlAdmin();
+    if (dbSource === "unconfigured") {
+      throw new Error("پایگاه داده Phone Bridge پیکربندی نشده است.");
+    }
+
+    const sql = await getSql();
+    const pattern = "%" + data.search + "%";
+    const [rows, countRows] = await Promise.all([
+      sql.query<Record<string, unknown>>(
+        "select id,uri,name,relative_path,mime_type,size_bytes,modified_at,is_directory from phone_bridge_file_entries where device_id=$1 and (lower(name) like lower($2) or lower(relative_path) like lower($2)) order by relative_path asc,is_directory desc,id asc limit $3 offset $4",
+        [data.deviceId, pattern, data.limit, data.offset],
+      ),
+      sql.query<{ total_count: number | string }>(
+        "select count(*)::int as total_count from phone_bridge_file_entries where device_id=$1 and (lower(name) like lower($2) or lower(relative_path) like lower($2))",
+        [data.deviceId, pattern],
+      ),
+    ]);
+
+    return {
+      entries: rows.map((row) => ({
+        id: String(row.id),
+        uri: String(row.uri),
+        name: String(row.name),
+        relativePath: String(row.relative_path),
+        mimeType: String(row.mime_type),
+        sizeBytes: Number(row.size_bytes),
+        modifiedAt: Number(row.modified_at),
+        isDirectory: row.is_directory === true,
+      })),
+      totalCount: Number(countRows[0]?.total_count ?? 0),
+    };
   });

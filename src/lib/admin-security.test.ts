@@ -173,7 +173,8 @@ test("core consultant deletion is blocked on the server, not only in the admin U
   const start = source.indexOf("export const deleteConsultant");
   assert.match(source.slice(start), /data\.id === "sheikh" \|\| data\.id === "moradi"/);
   const adminUi = readFileSync(new URL("../components/hirmand/_admin_impl.tsx", import.meta.url), "utf8");
-  assert.match(adminUi, /if \(hasAdminPermission\(adminRole, "team\.manage"\)\) return navItems/);
+  assert.match(adminUi, /if \(hasAdminPermission\(adminRole, "team\.manage"\)\) return permittedItems/);
+  assert.match(adminUi, /item\.view !== "phoneBridge" \|\| hasAdminPermission\(adminRole, "security\.manage"\)/);
 });
 
 test("sensitive admin server functions enforce their matching permission on the server", () => {
