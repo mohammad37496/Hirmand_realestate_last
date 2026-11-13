@@ -43,17 +43,6 @@ export function summarizeLiaraCustomerAuthEnvironment(payload) {
     }
   }
 
-  const redisUrl = env.get("UPSTASH_REDIS_REST_URL") ?? "";
-  let redisUrlStatus = redisUrl ? "invalid" : "missing";
-  if (redisUrl) {
-    try {
-      const parsedRedisUrl = new URL(redisUrl);
-      redisUrlStatus = parsedRedisUrl.protocol === "https:" && parsedRedisUrl.hostname ? "valid (HTTPS URL)" : "invalid (must be HTTPS URL)";
-    } catch {
-      redisUrlStatus = "invalid (must be HTTPS URL)";
-    }
-  }
-  const redisTokenStatus = env.get("UPSTASH_REDIS_REST_TOKEN") ? "present" : "missing";
   const authFlag = env.get("VITE_AUTH_ENABLED");
   const authUrl = env.get("BETTER_AUTH_URL");
   let authUrlStatus = authUrl ? "valid" : "missing";
@@ -73,8 +62,6 @@ export function summarizeLiaraCustomerAuthEnvironment(payload) {
   const resendSenderValid = /^[^\s@]+@hirmandrealestate\.ir$/i.test(senderEmail);
 
   return {
-    UPSTASH_REDIS_REST_URL: redisUrlStatus,
-    UPSTASH_REDIS_REST_TOKEN: redisTokenStatus,
     VITE_AUTH_ENABLED: authFlag === "true" ? "enabled" : authFlag === "false" ? "disabled" : "missing (application default: enabled)",
     DATABASE_URL: databaseStatus,
     BETTER_AUTH_URL: authUrlStatus,
@@ -95,18 +82,6 @@ export function validateLiaraCustomerAuthEnvironment(payload) {
   }
 
   const errors = [];
-  const redisUrl = env.get("UPSTASH_REDIS_REST_URL");
-  if (!redisUrl) {
-    errors.push("UPSTASH_REDIS_REST_URL");
-  } else {
-    try {
-      const parsedRedisUrl = new URL(redisUrl);
-      if (parsedRedisUrl.protocol !== "https:" || !parsedRedisUrl.hostname) errors.push("UPSTASH_REDIS_REST_URL must be a valid HTTPS URL");
-    } catch {
-      errors.push("UPSTASH_REDIS_REST_URL must be a valid HTTPS URL");
-    }
-  }
-  if (!env.get("UPSTASH_REDIS_REST_TOKEN")) errors.push("UPSTASH_REDIS_REST_TOKEN");
   const databaseKey = DATABASE_KEYS.find((key) => env.get(key));
   if (!databaseKey) {
     errors.push(`one persistent PostgreSQL URL (${DATABASE_KEYS.join(", ")})`);
