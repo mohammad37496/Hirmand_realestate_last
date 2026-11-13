@@ -7,14 +7,14 @@ import { markCustomerChatMessagesRead } from "./customer-chat-read-receipt.ts";
 async function createFixture() {
   const pg = new PGlite();
   await pg.exec(`
-    create table leads (id text primary key, tracking_token text not null unique);
+    create table leads (id text primary key, public_tracking_token text not null unique);
     create table customer_messages (
       id text primary key,
       lead_id text not null references leads(id) on delete cascade,
       sender_type text not null,
       read_by_customer_at timestamptz
     );
-    insert into leads(id,tracking_token) values
+    insert into leads(id,public_tracking_token) values
       ('lead-1','HIR-26-AAAAAAAAAAAA'),
       ('lead-2','HIR-26-BBBBBBBBBBBB');
     insert into customer_messages(id,lead_id,sender_type,read_by_customer_at) values
