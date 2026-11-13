@@ -206,7 +206,7 @@ test("mobile uniform-card browser checks disable smooth scrolling before measuri
 
 test("homepage shared cards retain the compact RTL list and 44px image action overlay on phones", () => {
   const homeMobile = homePropertyCss.slice(homePropertyCss.indexOf("/* The homepage showcase uses the same compact RTL list-card rhythm"));
-  assert.match(homeMobile, /\.site-home \.property-showcase \.pcard-mobile-list\s*\{\s*grid-template-rows:\s*minmax\(168px, auto\)/);
+  assert.match(homeMobile, /\.site-home \.property-showcase \.pcard-mobile-list\s*\{\s*grid-template-rows:\s*minmax\(168px, 1fr\)/);
   assert.match(homeMobile, /\.site-home \.property-showcase \.pcard-mobile-list \.pcard-unit-price\s*\{\s*display:\s*none/);
   assert.match(marketplaceCss, /\.site-home \.property-showcase \.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?bottom:\s*0;[\s\S]*?width:\s*100%/);
   assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions \.property-action\s*\{[\s\S]*?width:\s*44px;[\s\S]*?min-height:\s*44px/);

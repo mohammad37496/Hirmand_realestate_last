@@ -125,11 +125,13 @@
 
 .site-home .property-showcase .property-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
   gap: 18px;
   align-items: stretch;
 }
 
 .site-home .property-showcase .pcard {
+  height: 100%;
   min-height: 100%;
   border-radius: 20px;
   box-shadow: 0 10px 26px rgba(23, 32, 51, 0.065);
@@ -369,7 +371,7 @@
 /* The homepage showcase uses the same compact RTL list-card rhythm on phones. */
 @media (max-width: 720px) {
   .site-home .property-showcase .pcard-mobile-list {
-    grid-template-rows: minmax(168px, auto);
+    grid-template-rows: minmax(168px, 1fr);
   }
 
   .site-home .property-showcase .pcard-mobile-list .pcard-media,
