@@ -43,6 +43,9 @@ export function AdminPhoneBridgeFileManager() {
   const [busyAction, setBusyAction] = useState<"pick_folder" | string | null>(null);
   const [commandMessage, setCommandMessage] = useState("");
   const entriesRequestId = useRef(0);
+  const mountedRef = useRef(false);
+  const pollTimeoutRef = useRef<number | null>(null);
+  const resolvePollRef = useRef<(() => void) | null>(null);
 
   const selectedDevice = useMemo(() => devices.find((device) => device.id === deviceId) ?? null, [devices, deviceId]);
   const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -52,12 +55,13 @@ export function AdminPhoneBridgeFileManager() {
     setError(null);
     try {
       const result = await listPhoneBridgeDevices({ data: { limit: 100 } });
+      if (!mountedRef.current) return;
       setDevices(result);
       setDeviceId((current) => current && result.some((device) => device.id === current) ? current : result[0]?.id ?? "");
     } catch (loadError) {
-      setError(messageOf(loadError, "فهرست دستگاه‌ها بارگذاری نشد."));
+      if (mountedRef.current) setError(messageOf(loadError, "فهرست دستگاه‌ها بارگذاری نشد."));
     } finally {
-      setDevicesLoading(false);
+      if (mountedRef.current) setDevicesLoading(false);
     }
   }, []);
 
@@ -67,6 +71,7 @@ export function AdminPhoneBridgeFileManager() {
       setEntries([]);
       setTotalCount(0);
       setEntriesError(null);
+      setEntriesLoading(false);
       return;
     }
     setEntriesLoading(true);
@@ -81,7 +86,6 @@ export function AdminPhoneBridgeFileManager() {
         },
       });
       if (requestId !== entriesRequestId.current) return;
-      setEntriesLoading(false);
       setEntries(result.entries);
       setTotalCount(result.totalCount);
     } catch (loadError) {
@@ -90,6 +94,18 @@ export function AdminPhoneBridgeFileManager() {
       if (requestId === entriesRequestId.current) setEntriesLoading(false);
     }
   }, [deviceId, page, search]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      entriesRequestId.current += 1;
+      if (pollTimeoutRef.current !== null) window.clearTimeout(pollTimeoutRef.current);
+      pollTimeoutRef.current = null;
+      resolvePollRef.current?.();
+      resolvePollRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     void loadDevices();
@@ -102,6 +118,7 @@ export function AdminPhoneBridgeFileManager() {
   const waitForCommand = useCallback(async (commandId: string) => {
     for (let attempt = 0; attempt < 100; attempt += 1) {
       const command = await getPhoneBridgeRemoteCommand({ data: { commandId } });
+      if (!mountedRef.current) throw new Error("Phone Bridge command polling cancelled.");
       if (!command) throw new Error("فرمان Phone Bridge پیدا نشد.");
       setCommandMessage(
         command.status === "queued" ? "فرمان در صف دستگاه است…" :
@@ -113,7 +130,15 @@ export function AdminPhoneBridgeFileManager() {
       if (command.status === "failed" || command.status === "expired") {
         throw new Error(command.errorMessage || "فرمان ناموفق یا منقضی شد.");
       }
-      await new Promise((resolve) => window.setTimeout(resolve, 1500));
+      await new Promise<void>((resolve) => {
+        resolvePollRef.current = resolve;
+        pollTimeoutRef.current = window.setTimeout(() => {
+          pollTimeoutRef.current = null;
+          resolvePollRef.current = null;
+          resolve();
+        }, 1500);
+      });
+      if (!mountedRef.current) throw new Error("Phone Bridge command polling cancelled.");
     }
     throw new Error("پاسخی از دستگاه دریافت نشد؛ وضعیت فرمان را دوباره بررسی کنید.");
   }, []);
@@ -133,9 +158,9 @@ export function AdminPhoneBridgeFileManager() {
       setPage(0);
       await loadEntries(0, deviceId, search);
     } catch (actionError) {
-      setError(messageOf(actionError, "همگام‌سازی درخت فایل انجام نشد."));
+      if (mountedRef.current) setError(messageOf(actionError, "همگام‌سازی درخت فایل انجام نشد."));
     } finally {
-      setBusyAction(null);
+      if (mountedRef.current) setBusyAction(null);
     }
   }
 
@@ -154,9 +179,9 @@ export function AdminPhoneBridgeFileManager() {
       if (!fileId) throw new Error("دستگاه فایل را ارسال کرد اما شناسهٔ فایل در پاسخ موجود نیست.");
       window.location.assign("/api/admin/phone-bridge/files/" + encodeURIComponent(fileId));
     } catch (actionError) {
-      setError(messageOf(actionError, "دریافت فایل انجام نشد."));
+      if (mountedRef.current) setError(messageOf(actionError, "دریافت فایل انجام نشد."));
     } finally {
-      setBusyAction(null);
+      if (mountedRef.current) setBusyAction(null);
     }
   }
 
@@ -174,7 +199,7 @@ export function AdminPhoneBridgeFileManager() {
           <h2 id="phone-bridge-files-title">درخت فایل‌های انتخاب‌شده</h2>
           <p>فقط پوشه‌ای نمایش داده می‌شود که کاربر دستگاه از طریق انتخاب‌گر رسمی Android اجازهٔ دسترسی به آن را داده است.</p>
         </div>
-        <button type="button" className="btn-ghost" onClick={() => void loadDevices()} disabled={devicesLoading}>
+        <button type="button" className="btn-ghost" onClick={() => void loadDevices()} disabled={devicesLoading || !!busyAction}>
           <RefreshCw size={15} aria-hidden="true" /> بروزرسانی دستگاه‌ها
         </button>
       </div>
@@ -188,7 +213,7 @@ export function AdminPhoneBridgeFileManager() {
           <select
             value={deviceId}
             onChange={(event) => { setDeviceId(event.target.value); setPage(0); }}
-            disabled={devicesLoading || devices.length === 0}
+            disabled={devicesLoading || devices.length === 0 || !!busyAction}
             style={{ width: "100%", minHeight: 42 }}
           >
             <option value="">{devicesLoading ? "در حال دریافت دستگاه‌ها…" : "انتخاب دستگاه"}</option>
@@ -204,7 +229,7 @@ export function AdminPhoneBridgeFileManager() {
         </button>
       </div>
 
-      {!devicesLoading && devices.length === 0 ? (
+      {!devicesLoading && !error && devices.length === 0 ? (
         <div className="admin-empty-state" role="status">دستگاه Phone Bridge ثبت‌شده‌ای برای این حساب پیدا نشد.</div>
       ) : null}
 
@@ -221,7 +246,7 @@ export function AdminPhoneBridgeFileManager() {
           <Search size={16} aria-hidden="true" />
           <input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="جستجو در نام یا مسیر فایل…" aria-label="جستجوی درخت فایل" />
         </label>
-        <button type="submit" className="btn-ghost" disabled={!deviceId || entriesLoading}>
+        <button type="submit" className="btn-ghost" disabled={!deviceId || entriesLoading || !!busyAction}>
           <Search size={15} aria-hidden="true" /> جستجو
         </button>
       </form>
@@ -265,7 +290,7 @@ export function AdminPhoneBridgeFileManager() {
                   <td style={{ padding: 10, borderTop: "1px solid var(--border, #e5e7eb)" }}>{modified}</td>
                   <td style={{ padding: 10, borderTop: "1px solid var(--border, #e5e7eb)", textAlign: "end" }}>
                     {!entry.isDirectory ? (
-                      <button type="button" className="btn-ghost" onClick={() => void downloadFile(entry)} disabled={!!busyAction || !selectedDevice?.enabled}>
+                      <button type="button" className="btn-ghost" onClick={() => void downloadFile(entry)} disabled={!!busyAction || !selectedDevice?.enabled} aria-label={entry.name}>
                         <Download size={15} aria-hidden="true" /> دریافت
                       </button>
                     ) : <span>—</span>}
@@ -273,7 +298,7 @@ export function AdminPhoneBridgeFileManager() {
                 </tr>
               );
             })}
-            {!entriesLoading && entries.length === 0 ? (
+            {!entriesLoading && !entriesError && entries.length === 0 ? (
               <tr><td colSpan={4} style={{ padding: 22, textAlign: "center" }}>فایلی در این پوشه پیدا نشد؛ ابتدا پوشه را انتخاب و همگام‌سازی کنید.</td></tr>
             ) : null}
           </tbody>
