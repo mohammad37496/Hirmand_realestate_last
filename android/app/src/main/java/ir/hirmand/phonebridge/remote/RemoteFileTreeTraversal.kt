@@ -24,7 +24,7 @@ internal data class RemoteTreeResult(
 internal object RemoteFileTreeTraversal {
     fun enumerate(
         rootDocumentId: String,
-        childrenOf: (String) -> List<RemoteTreeDocument>,
+        childrenOf: (String, Int) -> List<RemoteTreeDocument>,
         maxEntries: Int = 1800,
         maxDepth: Int = 30,
     ): RemoteTreeResult {
@@ -38,7 +38,7 @@ internal object RemoteFileTreeTraversal {
                 return
             }
 
-            for (document in childrenOf(parentDocumentId)) {
+            for (document in childrenOf(parentDocumentId, (maxEntries - entries.size + 1).coerceAtLeast(1))) {
                 if (entries.size >= maxEntries) {
                     truncated = true
                     return
