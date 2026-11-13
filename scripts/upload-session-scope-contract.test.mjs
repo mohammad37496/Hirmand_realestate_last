@@ -37,7 +37,7 @@ test("completion receipts and claims require both session kind and route prefix"
 
 test("completion cleanup, retry-state updates and abort remain route-scoped", () => {
   assert.ok((protocol.match(/left\(pathname, length\(\$\d+\)\) = \$\d+/g) ?? []).length >= 7);
-  assert.match(protocol, /delete from media_upload_sessions where id = \$1 and kind = \$2 and left\(pathname, length\(\$3\)\) = \$3 and completion_state = 'pending'/);
+  assert.match(protocol, /delete from media_upload_sessions where id = \$1 and kind = \$2 and left\(pathname, length\(\$3\)\) = \$3 and upload_mode <> 'direct' and completion_state = 'pending'/);
   assert.match(customerRoute, /kind:\s*"customer-property-media"[\s\S]*?pathPrefix:\s*"properties\/customer-submissions"/);
 });
 

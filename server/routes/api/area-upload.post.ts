@@ -39,6 +39,7 @@ export default defineEventHandler(async (event) => {
       const derived = mimeFromFilename(filename);
       return ALLOWED.has(derived) ? derived : null;
     },
+    directUpload: ({ contentType }) => contentType.startsWith("image/"),
     unsupportedTypeMessage: "فقط تصاویر JPG، PNG، WebP، GIF و AVIF پذیرفته می‌شوند.",
     sizeLimitMessage: (limitMb) => "حجم تصویر بیش از " + limitMb + " مگابایت است.",
     finish: async ({ stored }) => ({ url: stored.url }),
