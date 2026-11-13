@@ -14,6 +14,7 @@ import {
 } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
+import { buildPhoneBridgeAttachmentContentDisposition } from "@/lib/phone-bridge-content-disposition";
 
 async function requirePhoneBridgeAdmin(event: H3Event) {
   if (!(await verifyAdminSessionToken(getCookie(event, ADMIN_SESSION_COOKIE)))) {
@@ -24,14 +25,6 @@ async function requirePhoneBridgeAdmin(event: H3Event) {
   if (!hasAdminPermission(normalizeAdminRole(claims?.role), "security.manage")) {
     throw createError({ statusCode: 403, statusMessage: "مجوز لازم برای مشاهدهٔ فایل‌های Phone Bridge وجود ندارد." });
   }
-}
-
-function safeDownloadName(value: string) {
-  const sanitized = [...value].map((char) => {
-    const code = char.charCodeAt(0);
-    return code < 32 || char === "/" || char === "\\" ? "-" : char;
-  }).join("");
-  return sanitized.trim().slice(-180) || "file";
 }
 
 export default defineEventHandler(async (event) => {
@@ -62,7 +55,7 @@ export default defineEventHandler(async (event) => {
     "content-disposition",
     inline
       ? "inline"
-      : "attachment; filename=\"phone-bridge-file\"; filename*=UTF-8''" + encodeURIComponent(safeDownloadName(row.name)),
+      : buildPhoneBridgeAttachmentContentDisposition(row.name),
   );
   setResponseHeader(event, "x-content-type-options", "nosniff");
   return row.content;
