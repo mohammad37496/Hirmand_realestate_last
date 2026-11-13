@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { Sql } from "./db.ts";
 import { updatePendingCustomerPropertySubmissionReview } from "./customer-property-submission-review.ts";
 import { resubmitCustomerPropertySubmission } from "./customer-property-submission-resubmit.ts";
+import {
+  refreshCustomerSubmissionLeadAfterResubmit,
+  transitionCustomerSubmissionLeadStatus,
+} from "./customer-submission-lead-status.ts";
 
 type ResubmitAndSyncInput = {
   id: string;
@@ -32,15 +36,22 @@ export async function resubmitCustomerPropertySubmissionWithLeadSync(
     if (!resubmitted) return false;
 
     if (input.leadId) {
-      const updatedLead = await tx.query<{ id: string }>(
-        "update leads set status='new', updated_at=current_timestamp, follow_up_at=current_timestamp + interval '2 hours', name=$2, phone=$3, job='مالک', deal=$4, property_type=$5, neighborhood=$6, note=$7 where id=$1 returning id",
-        [input.leadId, input.ownerName, input.ownerPhone, input.deal, input.propertyType, input.neighborhood, input.leadNote],
-      );
-      if (updatedLead[0]) {
+      const refreshedLead = await refreshCustomerSubmissionLeadAfterResubmit(tx, {
+        leadId: input.leadId,
+        ownerName: input.ownerName,
+        ownerPhone: input.ownerPhone,
+        deal: input.deal,
+        propertyType: input.propertyType,
+        neighborhood: input.neighborhood,
+        leadNote: input.leadNote,
+      });
+      if (refreshedLead) {
+        const activityType = refreshedLead.statusChanged ? "status" : "note";
         await tx.query(
-          "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
+          "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,$2,$3,$4,$5::jsonb)",
           [
             input.leadId,
+            activityType,
             "اصلاح و ارسال مجدد ملک توسط مشتری",
             input.previousReviewNote || "مشتری اطلاعات ملک را اصلاح و دوباره برای بررسی ارسال کرد.",
             JSON.stringify({ submissionId: input.id, trackingToken: input.trackingToken }),
@@ -93,11 +104,8 @@ export async function bulkRejectPendingCustomerPropertySubmissions(
       if (!updated) throw new Error("A locked pending submission changed before bulk rejection.");
 
       if (target.lead_id) {
-        const linkedLead = await tx.query<{ id: string }>(
-          "update leads set status='closed', updated_at=current_timestamp where id=$1 returning id",
-          [target.lead_id],
-        );
-        if (linkedLead[0]) {
+        const statusChanged = await transitionCustomerSubmissionLeadStatus(tx, target.lead_id, "closed");
+        if (statusChanged) {
           await tx.query(
             "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
             [target.lead_id, "ثبت ملک رد شد", input.reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.", JSON.stringify({ submissionId: target.id, bulk: true })],

@@ -12,6 +12,7 @@ import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { isAllowedPropertyFloorValue } from "@/lib/property-options";
 import { updatePendingCustomerPropertySubmissionReview } from "@/lib/customer-property-submission-review";
 import { bulkRejectPendingCustomerPropertySubmissions } from "@/lib/customer-property-submission-lead-sync";
+import { transitionCustomerSubmissionLeadStatus } from "@/lib/customer-submission-lead-status";
 import { loadCustomerSubmissionHistory } from "@/lib/customer-submission-history";
 import { loadCustomerSubmissionQueueStats } from "@/lib/customer-submission-queue-stats";
 
@@ -442,12 +443,8 @@ export default defineEventHandler(async (event) => {
       });
       if (!updated) throw createError({ statusCode: 409, statusMessage: "پرونده هم‌زمان تغییر کرده است؛ فهرست را تازه‌سازی کنید." });
       if (submission.lead_id) {
-        const linkedLead = await transactionSql.query<{ id: string }>(
-          "select id from leads where id=$1 for update",
-          [submission.lead_id],
-        );
-        if (linkedLead[0]) {
-          await transactionSql.query("update leads set status='closed', updated_at=current_timestamp where id=$1", [submission.lead_id]);
+        const statusChanged = await transitionCustomerSubmissionLeadStatus(transactionSql, String(submission.lead_id), "closed");
+        if (statusChanged) {
           await transactionSql.query(
             "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
             [submission.lead_id, "ثبت ملک رد شد", reviewNote || "درخواست ثبت ملک توسط کارشناس رد شد.", JSON.stringify({ submissionId: body.id })],
@@ -598,12 +595,8 @@ export default defineEventHandler(async (event) => {
       );
 
       if (submission.lead_id) {
-        const linkedLead = await transactionSql.query<{ id: string }>(
-          "select id from leads where id=$1 for update",
-          [submission.lead_id],
-        );
-        if (linkedLead[0]) {
-          await transactionSql.query("update leads set status='contacted', updated_at=current_timestamp where id=$1", [submission.lead_id]);
+        const statusChanged = await transitionCustomerSubmissionLeadStatus(transactionSql, String(submission.lead_id), "contacted");
+        if (statusChanged) {
           await transactionSql.query(
             "insert into lead_activities (lead_id,activity_type,title,note,metadata) values ($1,'status',$2,$3,$4::jsonb)",
             [submission.lead_id, "ملک مشتری تأیید و منتشر شد", "فایل با موفقیت در سایت منتشر شد.", JSON.stringify({ submissionId:body.id, propertyId, propertySlug:slug })],
