@@ -27,6 +27,7 @@ const routePaths = [
   "admin-property-quality.post.ts",
   "admin-sales-control-center.post.ts",
   "admin/properties-export.post.ts",
+  "admin-finance.post.ts",
 ];
 const routes = await Promise.all(routePaths.map((name) =>
   readFile(new URL(`../server/routes/api/${name}`, import.meta.url), "utf8"),
@@ -93,6 +94,7 @@ const componentPaths = [
   "admin-property-duplicate-check.tsx",
   "admin-property-price-history.tsx",
   "admin-property-quality-center.tsx",
+  "admin-finance-manager.tsx",
 ];
 const components = await Promise.all(componentPaths.map((name) =>
   readFile(new URL(`../src/components/hirmand/${name}`, import.meta.url), "utf8"),
@@ -147,6 +149,15 @@ test("admin reporting and property tools show retryable errors instead of false 
   assert.match(quality, /loadError/);
   assert.match(quality, /role=["']alert["']/);
   assert.match(quality, /!currentData\s*&&\s*!loadError/);
+});
+
+test("finance ledger distinguishes an unavailable database from a successfully loaded empty ledger", () => {
+  const source = components[componentPaths.indexOf("admin-finance-manager.tsx")];
+  assert.match(source, /hasLoaded/);
+  assert.match(source, /setLoadError\(message\)/);
+  assert.match(source, /loadError\s*\?\s*<div className=["']admin-empty["'] role=["']alert["']/);
+  assert.match(source, /!loadError&&hasLoaded&&items\.length===0/);
+  assert.match(source, /disabled=\{saving\|\|!hasLoaded\|\|/);
 });
 
 const adminFailClosedUi = await Promise.all([
