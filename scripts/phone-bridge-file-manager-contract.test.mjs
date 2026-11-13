@@ -28,7 +28,7 @@ test("file manager can select a folder, browse paginated tree entries and downlo
   assert.match(component, /if \(!targetDeviceId\)[\s\S]*?setEntriesLoading\(false\)/);
   assert.match(component, /!devicesLoading && !error && devices.length === 0/);
   assert.match(component, /!entriesLoading && !entriesError && entries.length === 0/);
-  assert.match(component, /aria-label=\{entry\.name\}/);
+  assert.match(component, /aria-label=\{"دریافت " \+ entry\.name\}/);
   assert.match(component, /mountedRef = useRef\(false\)/);
   assert.match(component, /resolvePollRef\.current\?\.\(\)/);
   assert.match(component, /window\.clearTimeout\(pollTimeoutRef\.current\)/);

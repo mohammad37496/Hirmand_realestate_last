@@ -290,7 +290,7 @@ export function AdminPhoneBridgeFileManager() {
                   <td style={{ padding: 10, borderTop: "1px solid var(--border, #e5e7eb)" }}>{modified}</td>
                   <td style={{ padding: 10, borderTop: "1px solid var(--border, #e5e7eb)", textAlign: "end" }}>
                     {!entry.isDirectory ? (
-                      <button type="button" className="btn-ghost" onClick={() => void downloadFile(entry)} disabled={!!busyAction || !selectedDevice?.enabled} aria-label={entry.name}>
+                      <button type="button" className="btn-ghost" onClick={() => void downloadFile(entry)} disabled={!!busyAction || !selectedDevice?.enabled} aria-label={"دریافت " + entry.name}>
                         <Download size={15} aria-hidden="true" /> دریافت
                       </button>
                     ) : <span>—</span>}
