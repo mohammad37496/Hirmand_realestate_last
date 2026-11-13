@@ -18,8 +18,11 @@ const date = (v: string) => new Intl.DateTimeFormat("fa-IR", { dateStyle: "mediu
 export function AdminPropertyPriceHistory({ propertyId }: { propertyId: string }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-property-price-history", {
         method: "POST", headers: { "content-type": "application/json" }, credentials: "same-origin",
@@ -28,8 +31,11 @@ export function AdminPropertyPriceHistory({ propertyId }: { propertyId: string }
       const data = (await response.json()) as { history?: Item[]; statusMessage?: string };
       if (!response.ok) throw new Error(data.statusMessage || "تاریخچه قیمت بارگذاری نشد.");
       setItems(Array.isArray(data.history) ? data.history : []);
+      setHasLoaded(true);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تاریخچه قیمت بارگذاری نشد.");
+      const message = error instanceof Error ? error.message : "تاریخچه قیمت بارگذاری نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally { setLoading(false); }
   }, [propertyId]);
   useEffect(() => { void load(); }, [load]);
@@ -40,7 +46,8 @@ export function AdminPropertyPriceHistory({ propertyId }: { propertyId: string }
       <div className="admin-price-history-head"><div><span className="kicker">کنترل قیمت</span><p>تغییرات فروش، رهن و اجاره ثبت می‌شوند؛ سوابق قبل از فعال‌شدن این قابلیت ممکن است موجود نباشند.</p></div>
         <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14} className={loading ? "admin-spin" : ""} /> بروزرسانی</button>
       </div>
-      {loading ? <div className="admin-empty">در حال دریافت تاریخچه…</div> : !items.length ? <div className="admin-empty">هنوز تغییر قیمت ثبت نشده است.</div> :
+      {loadError ? <div className="admin-empty" role="alert"><strong>تاریخچه قیمت در دسترس نیست</strong><p>{loadError}{hasLoaded && items.length ? " · آخرین سوابق موفق موقتاً نمایش داده می‌شوند." : ""}</p><button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> تلاش مجدد</button></div> : null}
+      {loading && !hasLoaded ? <div className="admin-empty">در حال دریافت تاریخچه…</div> : loadError && !items.length ? null : !items.length ? <div className="admin-empty">هنوز تغییر قیمت ثبت نشده است.</div> :
         <div className="admin-price-history-list">{items.map((item) => {
           const changes: Array<{ label: string; before: number | null; after: number | null; percent: number | null }> = [];
           if (item.priceBefore !== item.priceAfter && (item.priceBefore != null || item.priceAfter != null)) changes.push({ label: "فروش", before: item.priceBefore, after: item.priceAfter, percent: item.pricePercent });

@@ -40,9 +40,12 @@ export function AdminPropertyQualityCenter() {
   const [data, setData] = useState<ScanData | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const currentData = data;
 
   const scan = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/admin-property-quality", {
         method: "POST",
@@ -53,7 +56,9 @@ export function AdminPropertyQualityCenter() {
       if (!response.ok || !payload?.media) throw new Error(payload?.statusMessage || "اسکن کیفیت فایل‌ها انجام نشد.");
       setData(payload);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "اسکن کیفیت فایل‌ها انجام نشد.");
+      const message = error instanceof Error ? error.message : "اسکن کیفیت فایل‌ها انجام نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -92,25 +97,27 @@ export function AdminPropertyQualityCenter() {
         </button>
       </div>
 
-      {!data ? (
+      {loadError ? <div className="admin-empty" role="alert"><strong>نتیجه بررسی کیفیت در دسترس نیست</strong><p>{loadError}{currentData ? " · آخرین نتیجه موفق نمایش داده می‌شود." : ""}</p><button type="button" className="btn-ghost" onClick={() => void scan()} disabled={loading}><RefreshCw size={14}/> تلاش مجدد</button></div> : null}
+
+      {!currentData && !loadError ? (
         <div className="admin-property-quality-empty">
           <Gauge size={24} />
           <strong>برای شروع، اسکن سلامت فایل‌ها را اجرا کنید.</strong><small>در هر اسکن، بخشی از رسانه‌ها و همه فایل‌های فروش برای بررسی داده‌ای کنترل می‌شوند.</small>
         </div>
-      ) : (
+      ) : currentData ? (
         <>
           <div className="admin-property-quality-stats">
-            <div><span><ImageOff size={15}/> رسانه مشکل‌دار</span><strong>{data.media.issues.length.toLocaleString("fa-IR")}</strong><small>{data.media.checked.toLocaleString("fa-IR")} رسانه بررسی شد</small></div>
-            <div><span><AlertTriangle size={15}/> ناهنجاری قیمت</span><strong>{data.priceAnomalies.length.toLocaleString("fa-IR")}</strong><small>هشدار داده‌ای؛ نه ارزش‌گذاری کارشناسی</small></div>
-            <div><span><ShieldCheck size={15}/> بازبینی عقب‌افتاده</span><strong>{data.verificationDue.length.toLocaleString("fa-IR")}</strong><small>بیش از ۱۴ روز یا بدون بازبینی</small></div>
+            <div><span><ImageOff size={15}/> رسانه مشکل‌دار</span><strong>{currentData.media.issues.length.toLocaleString("fa-IR")}</strong><small>{currentData.media.checked.toLocaleString("fa-IR")} رسانه بررسی شد</small></div>
+            <div><span><AlertTriangle size={15}/> ناهنجاری قیمت</span><strong>{currentData.priceAnomalies.length.toLocaleString("fa-IR")}</strong><small>هشدار داده‌ای؛ نه ارزش‌گذاری کارشناسی</small></div>
+            <div><span><ShieldCheck size={15}/> بازبینی عقب‌افتاده</span><strong>{currentData.verificationDue.length.toLocaleString("fa-IR")}</strong><small>بیش از ۱۴ روز یا بدون بازبینی</small></div>
           </div>
 
           <div className="admin-property-quality-grid">
             <section className="admin-property-quality-list">
               <div className="admin-property-quality-list-head">
-                <div><strong>رسانه‌هایی که نیاز به بررسی دارند</strong><span>{data.media.issues.length.toLocaleString("fa-IR")} مورد</span></div>
+                <div><strong>رسانه‌هایی که نیاز به بررسی دارند</strong><span>{currentData.media.issues.length.toLocaleString("fa-IR")} مورد</span></div>
               </div>
-              {data.media.issues.length ? data.media.issues.slice(0, 10).map((item) => (
+              {currentData.media.issues.length ? currentData.media.issues.slice(0, 10).map((item) => (
                 <article key={item.propertyId + item.url} className="admin-property-quality-row">
                   <div className="admin-property-quality-row-main">
                     <ImageOff size={17} />
@@ -126,9 +133,9 @@ export function AdminPropertyQualityCenter() {
 
             <section className="admin-property-quality-list">
               <div className="admin-property-quality-list-head">
-                <div><strong>قیمت‌هایی که نیاز به بازبینی دارند</strong><span>{data.priceAnomalies.length.toLocaleString("fa-IR")} مورد</span></div>
+                <div><strong>قیمت‌هایی که نیاز به بازبینی دارند</strong><span>{currentData.priceAnomalies.length.toLocaleString("fa-IR")} مورد</span></div>
               </div>
-              {data.priceAnomalies.length ? data.priceAnomalies.slice(0, 10).map((item) => (
+              {currentData.priceAnomalies.length ? currentData.priceAnomalies.slice(0, 10).map((item) => (
                 <article key={item.propertyId} className="admin-property-quality-row">
                   <div className="admin-property-quality-row-main">
                     <AlertTriangle size={17} />
@@ -151,9 +158,9 @@ export function AdminPropertyQualityCenter() {
 
           <section className="admin-property-quality-list admin-property-quality-verification">
             <div className="admin-property-quality-list-head">
-              <div><strong>فایل‌های نیازمند ثبت بازبینی هیرمند</strong><span>{data.verificationDue.length.toLocaleString("fa-IR")} مورد</span></div>
+              <div><strong>فایل‌های نیازمند ثبت بازبینی هیرمند</strong><span>{currentData.verificationDue.length.toLocaleString("fa-IR")} مورد</span></div>
             </div>
-            {data.verificationDue.length ? data.verificationDue.slice(0, 12).map((item) => (
+            {currentData.verificationDue.length ? currentData.verificationDue.slice(0, 12).map((item) => (
               <article key={item.propertyId} className="admin-property-quality-row">
                 <div className="admin-property-quality-row-main">
                   <ShieldCheck size={17} />
@@ -167,9 +174,9 @@ export function AdminPropertyQualityCenter() {
             )) : <div className="admin-property-quality-ok"><BadgeCheck size={18}/> همه فایل‌های این صف در ۱۴ روز اخیر بازبینی شده‌اند.</div>}
           </section>
 
-          {data.scannedAt ? <p className="admin-property-quality-note">آخرین اسکن: {faDate(data.scannedAt)} · اسکن رسانه فقط بخش محدودی از رسانه‌های اخیر را برای سرعت بررسی می‌کند.</p> : null}
+          {currentData.scannedAt ? <p className="admin-property-quality-note">آخرین اسکن: {faDate(currentData.scannedAt)} · اسکن رسانه فقط بخش محدودی از رسانه‌های اخیر را برای سرعت بررسی می‌کند.</p> : null}
         </>
-      )}
+      ) : null}
     </section>
   );
 }
