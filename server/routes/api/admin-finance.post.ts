@@ -5,6 +5,7 @@ import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { getAdminSessionClaims } from "@/lib/admin-session.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { financeMoneySummary, normalizeFinanceMoney, parseFinanceAmount } from "@/lib/admin-finance-money";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 
 type Kind = "income" | "expense";
 
@@ -57,12 +58,7 @@ export default defineEventHandler(async(event)=>{
     note?:string;
     limit?:number;
   };
-  if (dbSource === "unconfigured") {
-    if ((body.action ?? "list") === "list") {
-      return { transactions: [], summary: financeMoneySummary("0", "0") };
-    }
-    throw createError({ statusCode: 503, statusMessage: "پایگاه داده مالی تنظیم نشده است؛ تغییرات ثبت نشد." });
-  }
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مالی تنظیم نشده است؛ اطلاعات دفتر مالی در دسترس نیست.");
   const sql=await getSql();
 
   if((body.action??"list")==="list"){
