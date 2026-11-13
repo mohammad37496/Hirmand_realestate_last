@@ -27,10 +27,13 @@ test("Android forwards the selected root and validates its persisted SAF grant b
   assert.ok(service.includes('putExtra("root_uri", payload.optString("rootUri"))'));
   assert.ok(activity.includes("persistedUriPermissions"));
   assert.ok(activity.includes("RemoteFileUriGuard.isAllowed"));
-  assert.ok(activity.includes("DocumentsContract.isChildDocument"));
+  assert.ok(activity.includes("DocumentsContract.findDocumentPath"));
   const guardIndex = activity.indexOf("RemoteFileUriGuard.isAllowed");
   const openIndex = activity.indexOf("contentResolver.openInputStream(uri)");
   assert.ok(guardIndex >= 0 && openIndex > guardIndex, "root containment must be checked before reading file bytes");
   assert.ok(guard.includes("persistedReadTreeUris"));
   assert.ok(guard.includes("rawAuthority"));
+  assert.ok(activity.includes("DocumentsContract.getDocumentId(uri)"));
+  assert.ok(activity.includes("documentPath?.path"));
+  assert.ok(guard.includes("rootDocumentId in path && path.lastOrNull() == requestedDocumentId"));
 });

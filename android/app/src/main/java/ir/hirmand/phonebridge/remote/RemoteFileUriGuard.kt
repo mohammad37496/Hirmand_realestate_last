@@ -1,25 +1,26 @@
-﻿package ir.hirmand.phonebridge.remote
+package ir.hirmand.phonebridge.remote
 
 import java.net.URI
 
 internal object RemoteFileUriGuard {
     fun isAllowed(
         rootTreeUri: String,
-        rootDocumentUri: String,
+        rootDocumentId: String,
         requestedUri: String,
         persistedReadTreeUris: Set<String>,
-        isChildDocument: (parentDocumentUri: String, childDocumentUri: String) -> Boolean,
+        requestedDocumentId: String,
+        resolvedDocumentPath: List<String>?,
     ): Boolean {
-        if (rootTreeUri.isBlank() || rootDocumentUri.isBlank() || requestedUri.isBlank()) return false
+        if (rootTreeUri.isBlank() || rootDocumentId.isBlank() || requestedUri.isBlank() || requestedDocumentId.isBlank()) return false
         if (rootTreeUri !in persistedReadTreeUris) return false
 
         val root = parseContentUri(rootTreeUri) ?: return false
-        val parent = parseContentUri(rootDocumentUri) ?: return false
         val child = parseContentUri(requestedUri) ?: return false
         val authority = root.rawAuthority?.takeIf { it.isNotBlank() } ?: return false
-        if (parent.rawAuthority != authority || child.rawAuthority != authority) return false
+        if (child.rawAuthority != authority) return false
 
-        return runCatching { isChildDocument(rootDocumentUri, requestedUri) }.getOrDefault(false)
+        val path = resolvedDocumentPath ?: return false
+        return rootDocumentId in path && path.lastOrNull() == requestedDocumentId
     }
 
     private fun parseContentUri(value: String): URI? {

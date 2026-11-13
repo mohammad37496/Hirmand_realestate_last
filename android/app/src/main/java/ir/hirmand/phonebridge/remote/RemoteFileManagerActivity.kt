@@ -133,21 +133,21 @@ class RemoteFileManagerActivity : Activity() {
             }
             val uri=Uri.parse(requestedUri)
             val rootTreeUri=Uri.parse(requestedRootUri)
-            val rootDocumentUri=runCatching{
-                DocumentsContract.buildDocumentUriUsingTree(rootTreeUri,DocumentsContract.getTreeDocumentId(rootTreeUri))
-            }.getOrNull()
+            val rootDocumentId=runCatching{DocumentsContract.getTreeDocumentId(rootTreeUri)}.getOrNull()
+            val requestedDocumentId=runCatching{DocumentsContract.getDocumentId(uri)}.getOrNull()
+            val documentPath=runCatching{DocumentsContract.findDocumentPath(contentResolver,uri)}.getOrNull()
             val persistedReadTreeUris=contentResolver.persistedUriPermissions
                 .filter{it.isReadPermission}
                 .map{it.uri.toString()}
                 .toSet()
-            val allowedRootFile=rootDocumentUri!=null && RemoteFileUriGuard.isAllowed(
+            val allowedRootFile=rootDocumentId!=null && requestedDocumentId!=null && RemoteFileUriGuard.isAllowed(
                 requestedRootUri,
-                rootDocumentUri.toString(),
+                rootDocumentId,
                 requestedUri,
-                persistedReadTreeUris
-            ){parent,child->
-                DocumentsContract.isChildDocument(contentResolver,Uri.parse(parent),Uri.parse(child))
-            }
+                persistedReadTreeUris,
+                requestedDocumentId,
+                documentPath?.path
+            )
             if(!allowedRootFile){
                 reportUploadFailure("مسیر فایل خارج از پوشهٔ انتخاب‌شده است یا مجوز خواندن آن معتبر نیست.")
                 return

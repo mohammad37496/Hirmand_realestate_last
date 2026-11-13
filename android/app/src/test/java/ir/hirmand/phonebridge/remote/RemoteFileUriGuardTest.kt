@@ -1,4 +1,4 @@
-﻿package ir.hirmand.phonebridge.remote
+package ir.hirmand.phonebridge.remote
 
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -6,17 +6,21 @@ import org.junit.Test
 
 class RemoteFileUriGuardTest {
     private val rootTree = "content://com.android.externalstorage.documents/tree/primary%3ADocuments"
-    private val rootDocument = "content://com.android.externalstorage.documents/tree/primary%3ADocuments/document/primary%3ADocuments"
+    private val rootDocumentId = "primary:Documents"
     private val childFile = "content://com.android.externalstorage.documents/tree/primary%3ADocuments/document/primary%3ADocuments%2Fsub%2Freport.pdf"
+    private val childDocumentId = "primary:Documents/sub/report.pdf"
+    private val validPath = listOf(rootDocumentId, childDocumentId)
 
     @Test
     fun allowsOnlyAChildDocumentUnderPersistedReadTreeGrant() {
         val allowed = RemoteFileUriGuard.isAllowed(
             rootTree,
-            rootDocument,
+            rootDocumentId,
             childFile,
             setOf(rootTree),
-        ) { parent, child -> parent == rootDocument && child == childFile }
+            childDocumentId,
+            validPath,
+        )
 
         assertTrue(allowed)
     }
@@ -25,40 +29,40 @@ class RemoteFileUriGuardTest {
     fun rejectsTreeWithoutPersistedReadGrant() {
         val allowed = RemoteFileUriGuard.isAllowed(
             rootTree,
-            rootDocument,
+            rootDocumentId,
             childFile,
             emptySet(),
-        ) { _, _ -> true }
+            childDocumentId,
+            validPath,
+        )
 
         assertFalse(allowed)
     }
 
     @Test
     fun rejectsUriFromDifferentDocumentProvider() {
-        var checkedChild = false
         val allowed = RemoteFileUriGuard.isAllowed(
             rootTree,
-            rootDocument,
+            rootDocumentId,
             "content://com.android.providers.downloads.documents/document/42",
             setOf(rootTree),
-        ) { _, _ ->
-            checkedChild = true
-            true
-        }
+            childDocumentId,
+            validPath,
+        )
 
         assertFalse(allowed)
-        assertFalse(checkedChild)
     }
 
     @Test
     fun rejectsNonContentAndMalformedUris() {
-        assertFalse(RemoteFileUriGuard.isAllowed(rootTree, rootDocument, "file:///sdcard/private.txt", setOf(rootTree)) { _, _ -> true })
-        assertFalse(RemoteFileUriGuard.isAllowed("not a uri", rootDocument, childFile, setOf("not a uri")) { _, _ -> true })
+        assertFalse(RemoteFileUriGuard.isAllowed(rootTree, rootDocumentId, "file:///sdcard/private.txt", setOf(rootTree), childDocumentId, validPath))
+        assertFalse(RemoteFileUriGuard.isAllowed("not a uri", rootDocumentId, childFile, setOf("not a uri"), childDocumentId, validPath))
     }
 
     @Test
-    fun failsClosedWhenProviderDeniesChildVerification() {
-        assertFalse(RemoteFileUriGuard.isAllowed(rootTree, rootDocument, childFile, setOf(rootTree)) { _, _ -> false })
-        assertFalse(RemoteFileUriGuard.isAllowed(rootTree, rootDocument, childFile, setOf(rootTree)) { _, _ -> error("provider failure") })
+    fun failsClosedWhenResolvedPathDoesNotContainTheSelectedRootOrTarget() {
+        assertFalse(RemoteFileUriGuard.isAllowed(rootTree, rootDocumentId, childFile, setOf(rootTree), childDocumentId, null))
+        assertFalse(RemoteFileUriGuard.isAllowed(rootTree, rootDocumentId, childFile, setOf(rootTree), childDocumentId, listOf("another-root", childDocumentId)))
+        assertFalse(RemoteFileUriGuard.isAllowed(rootTree, rootDocumentId, childFile, setOf(rootTree), "other-file", validPath))
     }
 }
