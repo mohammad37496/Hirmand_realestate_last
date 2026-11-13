@@ -9,7 +9,7 @@ import { createPropertyVisitRequest } from "@/lib/property-visit-request";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 import { createPublicLeadIntake, resolveActivePublicLeadConsultant, resolvePropertyLeadConsultant } from "@/lib/public-lead-intake";
 import { insertPublicBudgetLead } from "@/lib/public-lead-insert";
-import { findRecentPropertyRequestLead, findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "@/lib/public-lead-phone-dedupe";
+import { findRecentPropertyRequestLead, findRecentPublicCallbackLead, findRecentPublicLeadByPhone, withPublicLeadPhoneDedupeLock } from "@/lib/public-lead-phone-dedupe";
 import { ensurePublicTrackingToken, generatePublicTrackingToken } from "@/lib/tracking-token.server";
 import { consumePublicLeadAttempt } from "@/lib/public-lead-rate-limit.server";
 
@@ -210,10 +210,7 @@ export default defineEventHandler(async (event) => {
   }
   let leadIdToAutoMatch: string | null = null;
   const result = await withPublicLeadPhoneDedupeLock(databaseSql, parsed.data.phone, async (sql) => {
-  const existing = await sql.query<{ id: string; public_tracking_token: string | null }>(
-    `select id, public_tracking_token from leads where phone = $1 and created_at > current_timestamp - interval '10 minutes' limit 1`,
-    [parsed.data.phone],
-  );
+  const existing = await findRecentPublicLeadByPhone(sql, parsed.data.phone);
 
   const budgetDepositMin = parsed.data.budgetDepositMin ?? parsed.data.budgetDeposit ?? 0;
   const budgetDeposit = parsed.data.budgetDepositMax ?? parsed.data.budgetDeposit ?? budgetDepositMin;
@@ -243,14 +240,14 @@ export default defineEventHandler(async (event) => {
     ? buildBudgetLeadNote(budgetPayload)
     : parsed.data.note;
 
-  if (existing[0] && !(parsed.data.propertyId && parsed.data.visitPreferredAt) && !parsed.data.callbackPreferredAt && parsed.data.offerAmount == null && !PROPERTY_BOUND_REQUEST_DEALS.has(parsed.data.deal)) {
+  if (existing && !(parsed.data.propertyId && parsed.data.visitPreferredAt) && !parsed.data.callbackPreferredAt && parsed.data.offerAmount == null && !PROPERTY_BOUND_REQUEST_DEALS.has(parsed.data.deal)) {
     if (parsed.data.source === "budget_match") {
       if (typeof sql.transaction !== "function") throw createError({ statusCode: 503, statusMessage: "به‌روزرسانی درخواست به تراکنش پایگاه داده نیاز دارد." });
       await sql.transaction(async (transactionSql) => {
         // Lock the consultant before the lead so FK ON DELETE SET NULL cannot
         // deadlock with this update's lead-row lock.
         const assignedConsultant = await resolveActivePublicLeadConsultant(transactionSql, parsed.data.consultantId);
-        const locked = await transactionSql.query<{ id: string }>("select id from leads where id=$1 limit 1 for update", [existing[0].id]);
+        const locked = await transactionSql.query<{ id: string }>("select id from leads where id=$1 limit 1 for update", [existing.id]);
         if (!locked[0]) throw createError({ statusCode: 409, statusMessage: "درخواست تکراری هم‌زمان تغییر کرده است. دوباره تلاش کنید." });
         await transactionSql.query(
         `update leads
@@ -265,7 +262,7 @@ export default defineEventHandler(async (event) => {
              budget_sale_min=$32, budget_sale_max=$33, requested_amenities=$34::jsonb, requested_bedrooms=$35, updated_at=current_timestamp
          where id=$1`,
         [
-          existing[0].id,
+          existing.id,
           parsed.data.name,
           parsed.data.peopleCount ?? null,
           parsed.data.job,
@@ -304,15 +301,15 @@ export default defineEventHandler(async (event) => {
           assignedConsultant.name,
         ],
       );
-      leadIdToAutoMatch = existing[0].id;
+      leadIdToAutoMatch = existing.id;
       });
       const trackingToken =
-        await ensurePublicTrackingToken(sql, existing[0].id, existing[0].public_tracking_token);
-      return { success: true, duplicate: true, updated: true, id: existing[0].id, trackingToken };
+        await ensurePublicTrackingToken(sql, existing.id, existing.public_tracking_token);
+      return { success: true, duplicate: true, updated: true, id: existing.id, trackingToken };
     }
     const trackingToken =
-      await ensurePublicTrackingToken(sql, existing[0].id, existing[0].public_tracking_token);
-    return { success: true, duplicate: true, id: existing[0].id, trackingToken };
+      await ensurePublicTrackingToken(sql, existing.id, existing.public_tracking_token);
+    return { success: true, duplicate: true, id: existing.id, trackingToken };
   }
 
   if (parsed.data.callbackPreferredAt) {

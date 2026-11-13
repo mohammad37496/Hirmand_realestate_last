@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { test } from "node:test";
 import type { Sql } from "./db.ts";
 import { createPublicLeadIntake } from "./public-lead-intake.ts";
-import { findRecentPropertyRequestLead, findRecentPublicCallbackLead, withPublicLeadPhoneDedupeLock } from "./public-lead-phone-dedupe.ts";
+import { findRecentPropertyRequestLead, findRecentPublicCallbackLead, findRecentPublicLeadByPhone, withPublicLeadPhoneDedupeLock } from "./public-lead-phone-dedupe.ts";
 
 function createSql(pg: PGlite) {
   let transactionCount = 0;
@@ -185,31 +185,33 @@ test("property request retries reuse the matching property, phone, deal and trac
   }
 });
 
-test("property request retry window uses wall-clock time after waiting for the phone lock", async () => {
+test("generic and property retry cutoffs advance after a competing request waits on the phone lock", async () => {
   const { pg, sql } = await createFixture();
+  const phone = "09123456789";
   try {
     await sql.query(
-      "insert into leads(id,phone,property_id,deal,public_tracking_token,created_at) values($1,$2,$3,$4,$5,clock_timestamp() - interval '10 minutes' - interval '1 second')",
-      ["request-old", "09123456789", "property-1", "درخواست مدارک", "TRACK-OLD"],
+      "insert into leads(id,phone,property_id,deal,public_tracking_token,created_at) values($1,$2,$3,$4,$5,clock_timestamp() - interval '10 minutes' + interval '500 milliseconds')",
+      ["request-at-boundary", phone, "property-1", "درخواست مدارک", "TRACK-BOUNDARY"],
     );
-    assert.equal(await findRecentPropertyRequestLead(sql, "property-1", "09123456789", "درخواست مدارک"), null);
-  } finally {
-    await pg.close();
-  }
-});
 
-test("property request retry cutoff advances while its phone-lock transaction is waiting", async () => {
-  const { pg, sql } = await createFixture();
-  try {
-    const result = await withPublicLeadPhoneDedupeLock(sql, "09123456789", async (lockedSql) => {
-      await lockedSql.query(
-        "insert into leads(id,phone,property_id,deal,public_tracking_token,created_at) values($1,$2,$3,$4,$5,clock_timestamp() - interval '10 minutes' + interval '1 second')",
-        ["request-at-boundary", "09123456789", "property-1", "درخواست مدارک", "TRACK-BOUNDARY"],
-      );
-      await new Promise((resolve) => setTimeout(resolve, 1_500));
-      return findRecentPropertyRequestLead(lockedSql, "property-1", "09123456789", "درخواست مدارک");
+    let releaseLock!: () => void;
+    let signalLocked!: () => void;
+    const locked = new Promise<void>((resolve) => { signalLocked = resolve; });
+    const holder = withPublicLeadPhoneDedupeLock(sql, phone, async () => {
+      signalLocked();
+      await new Promise<void>((resolve) => { releaseLock = resolve; });
     });
-    assert.equal(result, null);
+
+    await locked;
+    const waitingRequest = withPublicLeadPhoneDedupeLock(sql, phone, async (lockedSql) => ({
+      generic: await findRecentPublicLeadByPhone(lockedSql, phone),
+      property: await findRecentPropertyRequestLead(lockedSql, "property-1", phone, "درخواست مدارک"),
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    releaseLock();
+    await holder;
+
+    assert.deepEqual(await waitingRequest, { generic: null, property: null });
   } finally {
     await pg.close();
   }
@@ -241,7 +243,7 @@ test("concurrent retries of one property request create only one lead", async ()
 test("public lead route acquires the phone lock before checking the ten-minute dedupe window", async () => {
   const route = await readFile(new URL("../../server/routes/api/leads.post.ts", import.meta.url), "utf8");
   const lock = route.indexOf("withPublicLeadPhoneDedupeLock(databaseSql, parsed.data.phone");
-  const lookup = route.indexOf("const existing = await sql.query");
+  const lookup = route.indexOf("findRecentPublicLeadByPhone(sql, parsed.data.phone)");
   const callbackLookup = route.indexOf("findRecentPublicCallbackLead(sql, parsed.data.phone, callbackDate)");
   const callbackCreate = route.indexOf("const leadId = await createPublicLeadIntake(sql", callbackLookup);
   const create = route.indexOf("const createdLeadId = await createPublicLeadIntake(sql");

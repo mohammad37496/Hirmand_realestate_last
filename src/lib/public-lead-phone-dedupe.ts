@@ -54,6 +54,17 @@ export async function findRecentPublicCallbackLead(
   return rows[0] ?? null;
 }
 
+export async function findRecentPublicLeadByPhone(
+  sql: Sql,
+  phone: string,
+): Promise<{ id: string; public_tracking_token: string | null } | null> {
+  const rows = await sql.query<{ id: string; public_tracking_token: string | null }>(
+    "select id,public_tracking_token from leads where phone=$1 and created_at > clock_timestamp() - interval '10 minutes' limit 1",
+    [phone],
+  );
+  return rows[0] ?? null;
+}
+
 /** Reuse the original tracking token when a property-specific request is retried. */
 export async function findRecentPropertyRequestLead(
   sql: Sql,

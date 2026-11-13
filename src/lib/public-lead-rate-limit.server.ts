@@ -2,6 +2,8 @@ import { createError } from "h3";
 import type { Sql } from "@/lib/db";
 
 const MAX_ATTEMPTS = 8;
+const WINDOW_SECONDS = 10 * 60;
+const BLOCK_SECONDS = 15 * 60;
 let cleanupCounter = 0;
 
 export type PublicLeadRateLimitResult = {
@@ -18,29 +20,11 @@ export async function consumePublicLeadAttempt(
   sql: Sql,
   key: string,
 ): Promise<PublicLeadRateLimitResult> {
-  let rows: Array<{ attempts: string[]; blocked_until: string | Date | null; checked_at: string | Date }>;
+  let rows: Array<{ allowed: boolean; retry_after_seconds: number | string }>;
   try {
-    rows = await sql.query<{ attempts: string[]; blocked_until: string | Date | null; checked_at: string | Date }>(
-      `insert into public_lead_rate_limits (key,attempts,blocked_until)
-       values ($1,array[clock_timestamp()],null)
-       on conflict (key) do update set
-         attempts=case
-           when public_lead_rate_limits.blocked_until > excluded.attempts[1] then public_lead_rate_limits.attempts
-           else array_append(
-             array(select hit from unnest(public_lead_rate_limits.attempts) as recent(hit)
-               where hit > excluded.attempts[1] - interval '10 minutes'),
-             excluded.attempts[1]
-           )
-         end,
-         blocked_until=case
-           when public_lead_rate_limits.blocked_until > excluded.attempts[1] then public_lead_rate_limits.blocked_until
-           when cardinality(array(select hit from unnest(public_lead_rate_limits.attempts) as recent(hit)
-             where hit > excluded.attempts[1] - interval '10 minutes')) + 1 > $2
-             then excluded.attempts[1] + interval '15 minutes'
-           else null
-         end
-       returning attempts,blocked_until,clock_timestamp() as checked_at`,
-      [key, MAX_ATTEMPTS],
+    rows = await sql.query<{ allowed: boolean; retry_after_seconds: number | string }>(
+      "select allowed,retry_after_seconds from consume_public_lead_rate_limit($1,$2,$3,$4)",
+      [key, MAX_ATTEMPTS, WINDOW_SECONDS, BLOCK_SECONDS],
     );
   } catch {
     throw createError({ statusCode: 503, statusMessage: "ثبت درخواست در حال حاضر در دسترس نیست." });
@@ -50,23 +34,11 @@ export async function consumePublicLeadAttempt(
   if (!row) {
     throw createError({ statusCode: 503, statusMessage: "بررسی محدودیت ثبت درخواست ناموفق بود." });
   }
-  const checkedAtMs = new Date(row.checked_at).getTime();
-  const blockedUntilMs = row.blocked_until ? new Date(row.blocked_until).getTime() : 0;
-  if (blockedUntilMs > checkedAtMs) {
-    if (++cleanupCounter % 100 === 0) {
-      await sql.query(
-        "delete from public_lead_rate_limits where (blocked_until is null or blocked_until < current_timestamp) and (cardinality(attempts)=0 or attempts[cardinality(attempts)] < current_timestamp - interval '2 hours')",
-      ).catch((error) => console.warn("[public-lead-rate-limit] cleanup failed", error));
-    }
-    return {
-      allowed: false,
-      retryAfterSeconds: Math.max(1, Math.ceil((blockedUntilMs - checkedAtMs) / 1000)),
-    };
-  }
+  const retryAfterSeconds = Number(row.retry_after_seconds);
   if (++cleanupCounter % 100 === 0) {
     await sql.query(
-      "delete from public_lead_rate_limits where (blocked_until is null or blocked_until < current_timestamp) and (cardinality(attempts)=0 or attempts[cardinality(attempts)] < current_timestamp - interval '2 hours')",
+      "delete from public_lead_rate_limits where (blocked_until is null or blocked_until < clock_timestamp()) and (cardinality(attempts)=0 or attempts[cardinality(attempts)] < clock_timestamp() - interval '2 hours')",
     ).catch((error) => console.warn("[public-lead-rate-limit] cleanup failed", error));
   }
-  return { allowed: true, retryAfterSeconds: 0 };
+  return { allowed: row.allowed, retryAfterSeconds };
 }
