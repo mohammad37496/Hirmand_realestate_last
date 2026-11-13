@@ -25,11 +25,11 @@ import kotlin.concurrent.thread
 
 class RemoteFileManagerActivity : Activity() {
     companion object { private const val PICK_TREE=4101; private const val MAX_ENTRIES=1800; private const val MAX_UPLOAD_BYTES=8L*1024*1024 }
-    private lateinit var prefs:AppPrefs; private lateinit var status:TextView; private lateinit var commandId:String; private lateinit var operation:String; private lateinit var requestedUri:String
+    private lateinit var prefs:AppPrefs; private lateinit var status:TextView; private lateinit var commandId:String; private lateinit var operation:String; private lateinit var requestedUri:String; private lateinit var requestedRootUri:String
     private val client by lazy { OkHttpClient.Builder().connectTimeout(10,TimeUnit.SECONDS).readTimeout(30,TimeUnit.SECONDS).writeTimeout(60,TimeUnit.SECONDS).callTimeout(90,TimeUnit.SECONDS).build() }
 
     override fun onCreate(state:Bundle?){
-        super.onCreate(state); prefs=AppPrefs(this); commandId=intent.getStringExtra("command_id").orEmpty(); operation=intent.getStringExtra("operation").orEmpty(); requestedUri=intent.getStringExtra("uri").orEmpty()
+        super.onCreate(state); prefs=AppPrefs(this); commandId=intent.getStringExtra("command_id").orEmpty(); operation=intent.getStringExtra("operation").orEmpty(); requestedUri=intent.getStringExtra("uri").orEmpty(); requestedRootUri=intent.getStringExtra("root_uri").orEmpty()
         val root=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(40,50,40,40);gravity=Gravity.CENTER_HORIZONTAL}
         root.addView(TextView(this).apply{text="مدیریت فایل‌های Phone Bridge";textSize=22f;gravity=Gravity.CENTER})
         status=TextView(this).apply{text=if(operation=="download")"فایل برای ارسال به پنل آماده است؛ برای ادامه تأیید کنید." else "برای نمایش فایل‌ها باید یک پوشه را خودتان انتخاب و اجازه دسترسی بدهید.";textSize=17f;setPadding(0,30,0,30);gravity=Gravity.CENTER};root.addView(status)
@@ -132,6 +132,26 @@ class RemoteFileManagerActivity : Activity() {
                 return
             }
             val uri=Uri.parse(requestedUri)
+            val rootTreeUri=Uri.parse(requestedRootUri)
+            val rootDocumentId=runCatching{DocumentsContract.getTreeDocumentId(rootTreeUri)}.getOrNull()
+            val requestedDocumentId=runCatching{DocumentsContract.getDocumentId(uri)}.getOrNull()
+            val documentPath=runCatching{DocumentsContract.findDocumentPath(contentResolver,uri)}.getOrNull()
+            val persistedReadTreeUris=contentResolver.persistedUriPermissions
+                .filter{it.isReadPermission}
+                .map{it.uri.toString()}
+                .toSet()
+            val allowedRootFile=rootDocumentId!=null && requestedDocumentId!=null && RemoteFileUriGuard.isAllowed(
+                requestedRootUri,
+                rootDocumentId,
+                requestedUri,
+                persistedReadTreeUris,
+                requestedDocumentId,
+                documentPath?.path
+            )
+            if(!allowedRootFile){
+                reportUploadFailure("مسیر فایل خارج از پوشهٔ انتخاب‌شده است یا مجوز خواندن آن معتبر نیست.")
+                return
+            }
             val name=queryName(uri)
             val bytes=runCatching{contentResolver.openInputStream(uri)?.use{RemoteFileReader.readLimited(it,MAX_UPLOAD_BYTES)}}.getOrNull()
             if(bytes==null){
