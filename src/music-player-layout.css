@@ -34,8 +34,8 @@
 /* A compact, studio-style desktop dock with a clear track / transport / action hierarchy. */
 @media (min-width: 721px) and (pointer: fine) {
   .music-player {
-    width: min(360px, calc(100vw - 28px)) !important;
-    max-width: 360px !important;
+    width: min(320px, calc(100vw - 28px)) !important;
+    max-width: 320px !important;
     min-height: 60px !important;
     padding: 6px 8px 12px !important;
     border: 1px solid rgb(226 196 140 / 24%) !important;
@@ -133,6 +133,12 @@
   .music-player .music-compact-actions {
     gap: 1px !important;
     margin: 0 !important;
+  }
+
+  /* The cover already toggles the expanded controls; keep the compact row
+     focused on playlist access and dismiss, saving one full control slot. */
+  .music-player .music-compact-actions button:nth-of-type(2) {
+    display: none !important;
   }
 
   .music-player .music-live-badge {
