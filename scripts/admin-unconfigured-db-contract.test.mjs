@@ -13,6 +13,7 @@ const routePaths = [
   "admin-customer-property-submissions.post.ts",
   "admin-phone-bridge.post.ts",
   "leads-admin.post.ts",
+  "admin-finance.post.ts",
 ];
 const routes = await Promise.all(routePaths.map((name) =>
   readFile(new URL(`../server/routes/api/${name}`, import.meta.url), "utf8"),
@@ -72,6 +73,7 @@ const componentPaths = [
   "admin-action-center.tsx",
   "admin-customer-property-submissions.tsx",
   "admin-lead-manager.tsx",
+  "admin-finance-manager.tsx",
 ];
 const components = await Promise.all(componentPaths.map((name) =>
   readFile(new URL(`../src/components/hirmand/${name}`, import.meta.url), "utf8"),
@@ -88,6 +90,15 @@ test("admin workspaces show unavailable state instead of empty or zero data", ()
   assert.match(components[7], /اطلاعات ثبت‌های مشتری در دسترس نیست/);
   assert.match(components[8], /loadError/);
   assert.match(components[8], /AdminErrorBanner/);
+});
+
+test("finance ledger distinguishes an unavailable database from a successfully loaded empty ledger", () => {
+  const source = components[componentPaths.indexOf("admin-finance-manager.tsx")];
+  assert.match(source, /hasLoaded/);
+  assert.match(source, /setLoadError\(message\)/);
+  assert.match(source, /loadError\s*\?\s*<div className=["']admin-empty["'] role=["']alert["']/);
+  assert.match(source, /!loadError&&hasLoaded&&items\.length===0/);
+  assert.match(source, /disabled=\{saving\|\|!hasLoaded\|\|/);
 });
 
 const adminFailClosedUi = await Promise.all([
