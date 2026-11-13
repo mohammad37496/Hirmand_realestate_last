@@ -82,7 +82,8 @@ class RemoteFileManagerActivity : Activity() {
     }
     private fun enumerateTree(root:Uri):RemoteTreeResult{
         val rootDocumentId=DocumentsContract.getTreeDocumentId(root)
-        return RemoteFileTreeTraversal.enumerate(
+        var providerTruncated = false
+        val result = RemoteFileTreeTraversal.enumerate(
             rootDocumentId=rootDocumentId,
             maxEntries=MAX_ENTRIES,
             childrenOf={parentDocumentId, maxDocuments->
@@ -93,24 +94,24 @@ class RemoteFileManagerActivity : Activity() {
                 val id=c.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
                 val name=c.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
                 val mime=c.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
-                val size=c.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+                val sizeColumn=c.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
                 val modified=c.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
                 check(id>=0) { "شناسه سند در فهرست پوشه وجود ندارد." }
-                buildList{
-                    while(c.moveToNext() && size < maxDocuments){
-                        val documentId=c.getString(id).orEmpty()
-                        if(documentId.isBlank())continue
-                        add(RemoteTreeDocument(
-                            documentId=documentId,
-                            name=if(name>=0)c.getString(name).orEmpty() else "",
-                            mimeType=if(mime>=0)c.getString(mime)?:"application/octet-stream" else "application/octet-stream",
-                            sizeBytes=if(size>=0&&!c.isNull(size))c.getLong(size).coerceAtLeast(0) else 0L,
-                            modifiedAt=if(modified>=0&&!c.isNull(modified))c.getLong(modified).coerceAtLeast(0) else 0L,
-                        ))
-                    }
+                val bounded = RemoteFileTreeTraversal.readAtMost(maxDocuments, c::moveToNext) {
+                    val documentId = c.getString(id).orEmpty()
+                    RemoteTreeDocument(
+                        documentId = documentId,
+                        name = if (name >= 0) c.getString(name).orEmpty() else "",
+                        mimeType = if (mime >= 0) c.getString(mime) ?: "application/octet-stream" else "application/octet-stream",
+                        sizeBytes = if (sizeColumn >= 0 && !c.isNull(sizeColumn)) c.getLong(sizeColumn).coerceAtLeast(0) else 0L,
+                        modifiedAt = if (modified >= 0 && !c.isNull(modified)) c.getLong(modified).coerceAtLeast(0) else 0L,
+                    )
                 }
+                if (bounded.hasMore) providerTruncated = true
+                bounded.values
             }
         })
+        return result.copy(truncated = result.truncated || providerTruncated)
     }
     private fun postIndex(root:Uri,result:RemoteTreeResult):Boolean{
         val endpoint=prefs.endpoint.trim();val token=prefs.token.trim();val device=prefs.installId.trim();if(!EndpointPolicy.isAllowed(endpoint)||token.isBlank()||device.isBlank())return false
