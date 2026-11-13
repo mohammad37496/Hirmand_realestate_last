@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { PGlite } from "@electric-sql/pglite";
+import type { Sql } from "./db.ts";
 import { fetchPropertyViewingSlots } from "./property-viewing-availability.ts";
+import { getPublicPropertyViewingSlots } from "./property-viewing-slots.ts";
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -74,4 +77,59 @@ test("viewing availability propagates network failures instead of treating them 
     }),
     /Failed to fetch/,
   );
+});
+
+test("public viewing slots hide non-public property schedules and retain the 45-minute overlap window", async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec(`
+      create table properties (
+        id text primary key,
+        deleted_at timestamptz,
+        status text not null,
+        publish_at timestamptz,
+        unpublish_at timestamptz
+      );
+      create table leads (
+        id text primary key,
+        property_id text not null references properties(id),
+        visit_status text not null,
+        visit_preferred_at timestamptz
+      );
+      insert into properties(id,status,publish_at,unpublish_at,deleted_at) values
+        ('public','published',null,null,null),
+        ('due-draft','draft','2026-11-11T00:00:00Z',null,null),
+        ('future-draft','draft','2027-11-13T00:00:00Z',null,null),
+        ('expired','published',null,'2026-11-11T00:00:00Z',null),
+        ('deleted','published',null,null,'2026-11-11T00:00:00Z');
+      insert into leads(id,property_id,visit_status,visit_preferred_at) values
+        ('requested','public','requested','2026-11-12T10:00:00+03:30'),
+        ('confirmed','public','confirmed','2026-11-12T11:00:00+03:30'),
+        ('cancelled','public','cancelled','2026-11-12T12:00:00+03:30'),
+        ('completed','public','completed','2026-11-12T13:00:00+03:30'),
+        ('hidden-request','future-draft','requested','2026-11-12T10:00:00+03:30'),
+        ('expired-request','expired','confirmed','2026-11-12T11:00:00+03:30'),
+        ('deleted-request','deleted','confirmed','2026-11-12T12:00:00+03:30');
+    `);
+
+    const sql = {
+      query: async <T = Record<string, unknown>>(statement: string, params: unknown[] = []) =>
+        (await pg.query<T>(statement, params)).rows,
+    } as Pick<Sql, "query">;
+
+    assert.deepEqual(
+      await getPublicPropertyViewingSlots(sql, "public", "2026-11-12"),
+      { kind: "found", occupiedTimes: ["09:30", "10:00", "10:30", "11:00", "11:30"] },
+    );
+    assert.deepEqual(
+      await getPublicPropertyViewingSlots(sql, "due-draft", "2026-11-12"),
+      { kind: "found", occupiedTimes: [] },
+    );
+
+    for (const propertyId of ["future-draft", "expired", "deleted", "missing"]) {
+      assert.deepEqual(await getPublicPropertyViewingSlots(sql, propertyId, "2026-11-12"), { kind: "not_found" });
+    }
+  } finally {
+    await pg.close();
+  }
 });

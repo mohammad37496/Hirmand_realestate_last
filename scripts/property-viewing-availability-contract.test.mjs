@@ -10,6 +10,10 @@ const endpoint = await readFile(
   new URL("../server/routes/api/property-viewing-slots.get.ts", import.meta.url),
   "utf8",
 );
+const slotsQuery = await readFile(
+  new URL("../src/lib/property-viewing-slots.ts", import.meta.url),
+  "utf8",
+);
 
 test("viewing request shows an error and blocks submission until availability is verified", () => {
   const timeLabelIndex = component.indexOf('<label htmlFor="property-viewing-time">');
@@ -34,4 +38,12 @@ test("viewing request shows an error and blocks submission until availability is
 test("viewing slots endpoint returns 503 instead of claiming every slot is free when the database is unconfigured", () => {
   assert.match(endpoint, /if \(dbSource === "unconfigured"\)\s*\{\s*throw createError\(\{ statusCode: 503/);
   assert.doesNotMatch(endpoint, /dbSource === "unconfigured"[^\n]*return \{ success: true, occupiedTimes: \[\]/);
+});
+
+test("viewing slots are only exposed for publicly visible properties", () => {
+  assert.match(endpoint, /getPublicPropertyViewingSlots\(sql, parsed\.data\.propertyId, parsed\.data\.date\)/);
+  assert.match(endpoint, /result\.kind === "not_found"[\s\S]*?statusCode: 404/);
+  assert.match(slotsQuery, /left join leads lead[\s\S]*?lead\.visit_status in \('requested','confirmed'\)/);
+  assert.match(slotsQuery, /publicPropertyVisibilitySql\("property"\)/);
+  assert.doesNotMatch(slotsQuery, /from leads where property_id/);
 });
