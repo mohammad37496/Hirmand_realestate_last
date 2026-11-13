@@ -65,15 +65,36 @@ test("property document request normalizes Persian and Arabic digits without ret
   assert.doesNotMatch(component, /\.replace\(\/D\/g, ""\)/);
 });
 
-test("public property reports check origin and apply a rate limit before database writes", () => {
+test("public property reports use the shared PostgreSQL rate limit after validation and property visibility checks", () => {
   const originIndex = reportsRoute.indexOf("assertSameOrigin(event);");
   const bodyReadIndex = reportsRoute.indexOf("readBody(event)");
   const publicBranchIndex = reportsRoute.indexOf("if (!wantsAdmin)");
-  const throttleIndex = reportsRoute.indexOf('consumeAdminAttempt("property-report:"');
+  const databaseGuardIndex = reportsRoute.indexOf('dbSource === "unconfigured"');
   const payloadParseIndex = reportsRoute.indexOf("publicSchema.safeParse(body)");
+  const propertyLookupIndex = reportsRoute.indexOf("from properties where id=$1 and slug=$2");
+  const throttleIndex = reportsRoute.indexOf('consumePublicLeadAttempt(sql, "property-report:"');
+  const insertIndex = reportsRoute.indexOf("insert into property_reports");
   assert.ok(originIndex >= 0 && bodyReadIndex > originIndex);
-  assert.ok(publicBranchIndex > bodyReadIndex && throttleIndex > publicBranchIndex);
-  assert.ok(payloadParseIndex > throttleIndex);
+  assert.ok(publicBranchIndex > bodyReadIndex && databaseGuardIndex > publicBranchIndex);
+  assert.ok(payloadParseIndex > databaseGuardIndex && propertyLookupIndex > payloadParseIndex);
+  assert.ok(throttleIndex > propertyLookupIndex && insertIndex > throttleIndex);
+  assert.match(reportsRoute, /import \{ consumePublicLeadAttempt \} from "@\/lib\/public-lead-rate-limit\.server"/);
+  assert.match(reportsRoute, /setResponseHeader\(event, "retry-after", String\(attempt\.retryAfterSeconds\)\)/);
+  assert.doesNotMatch(reportsRoute, /consumeAdminAttempt|tooManyAttemptsError/);
+});
+
+test("public property questions use the shared PostgreSQL limiter only for validated asks", () => {
+  const originIndex = propertyQuestionsRoute.indexOf('if(parsed.data.action==="ask") assertSameOrigin(event)');
+  const propertyLookupIndex = propertyQuestionsRoute.indexOf("publicPropertyVisibilitySql()");
+  const listBranchIndex = propertyQuestionsRoute.indexOf('if(parsed.data.action==="list")');
+  const throttleIndex = propertyQuestionsRoute.indexOf('consumePublicLeadAttempt(sql,"property-question:"');
+  const insertIndex = propertyQuestionsRoute.indexOf("insert into property_questions");
+  assert.ok(originIndex >= 0 && propertyLookupIndex > originIndex);
+  assert.ok(listBranchIndex > propertyLookupIndex && throttleIndex > listBranchIndex);
+  assert.ok(insertIndex > throttleIndex);
+  assert.match(propertyQuestionsRoute, /import \{ consumePublicLeadAttempt \} from "@\/lib\/public-lead-rate-limit\.server"/);
+  assert.match(propertyQuestionsRoute, /setResponseHeader\(event,"retry-after",String\(throttle\.retryAfterSeconds\)\)/);
+  assert.doesNotMatch(propertyQuestionsRoute, /consumeAdminAttempt/);
 });
 
 test("shared-shortlist creation checks origin and rate-limits writes before database access", () => {

@@ -2,7 +2,8 @@ import { createError, defineEventHandler, getCookie, readBody, setResponseHeader
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
-import { assertSameOrigin, clientFingerprint, consumeAdminAttempt } from "@/lib/admin-rate-limit.server";
+import { assertSameOrigin, clientFingerprint } from "@/lib/admin-rate-limit.server";
+import { consumePublicLeadAttempt } from "@/lib/public-lead-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { publicPropertyVisibilitySql } from "@/lib/public-property-visibility";
 
@@ -56,6 +57,7 @@ export default defineEventHandler(async(event)=>{
 
   const parsed=publicActionSchema.safeParse(body);
   if(!parsed.success) throw createError({statusCode:422,statusMessage:"اطلاعات پرسش معتبر نیست."});
+  if(parsed.data.action==="ask") assertSameOrigin(event);
   const sql=await getSql();
   const property=await sql.query<{id:string}>(`select id from properties where id=$1 and ${publicPropertyVisibilitySql()} limit 1`,[parsed.data.propertyId]);
   if(!property[0]) throw createError({statusCode:404,statusMessage:"فایل موردنظر پیدا نشد."});
@@ -63,9 +65,11 @@ export default defineEventHandler(async(event)=>{
     const rows=await sql.query<Record<string,unknown>>("select id,question,answer,created_at,answered_at from property_questions where property_id=$1 and status='answered' order by answered_at desc nulls last,created_at desc limit 30",[parsed.data.propertyId]);
     return {questions:rows.map(row=>({id:String(row.id),question:String(row.question??""),answer:String(row.answer??""),createdAt:new Date(String(row.created_at)).toISOString(),answeredAt:row.answered_at?new Date(String(row.answered_at)).toISOString():null}))};
   }
-  const throttle=await consumeAdminAttempt("property-question:"+clientFingerprint(event));
-  if(!throttle.allowed) throw createError({statusCode:429,statusMessage:"ارسال پرسش بیش از حد مجاز انجام شده است. کمی بعد دوباره تلاش کنید."});
-  assertSameOrigin(event);
+  const throttle=await consumePublicLeadAttempt(sql,"property-question:"+clientFingerprint(event));
+  if(!throttle.allowed){
+    setResponseHeader(event,"retry-after",String(throttle.retryAfterSeconds));
+    throw createError({statusCode:429,statusMessage:"ارسال پرسش بیش از حد مجاز انجام شده است. کمی بعد دوباره تلاش کنید."});
+  }
   await sql.query("insert into property_questions(id,property_id,question) values($1,$2,$3)",[crypto.randomUUID(),parsed.data.propertyId,parsed.data.question]);
   return {success:true,accepted:true,message:"سؤال شما ثبت شد و پس از بررسی نمایش داده می‌شود."};
 });
