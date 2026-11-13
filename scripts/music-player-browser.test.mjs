@@ -402,6 +402,7 @@ try {
           const buttonBounds = button.getBoundingClientRect();
           return {
             label: button.getAttribute("aria-label") || button.title,
+            visible: getComputedStyle(button).display !== "none" && getComputedStyle(button).visibility !== "hidden",
             x: Math.round(buttonBounds.x),
             right: Math.round(buttonBounds.right),
             width: Math.round(buttonBounds.width),
@@ -559,7 +560,7 @@ try {
     }
     if (!viewport.touch && viewport.width >= 721 && viewport.height > 420) {
       const leftGap = compactDesktopPlayer.x;
-      assert.ok(compactDesktopPlayer.width <= 360,
+      assert.ok(compactDesktopPlayer.width <= 320,
         `fine-pointer desktop player should remain a compact floating card: ${JSON.stringify(compactDesktopPlayer)}`);
       assert.ok(leftGap >= 10 && leftGap <= 20,
         `fine-pointer desktop player should stay anchored near the lower-left corner: ${JSON.stringify({ compactDesktopPlayer, leftGap })}`);
@@ -574,15 +575,18 @@ try {
     }
     if (viewport.width >= 721 && viewport.height > 420) {
       const playerRight = compactDesktopPlayer.x + compactDesktopPlayer.width;
-      const minimumDesktopWidth = viewport.touch ? 440 : 350;
-      const maximumDesktopWidth = viewport.touch ? 450 : 360;
+      const minimumDesktopWidth = viewport.touch ? 440 : 310;
+      const maximumDesktopWidth = viewport.touch ? 450 : 320;
       assert.ok(compactDesktopPlayer.width >= minimumDesktopWidth && compactDesktopPlayer.width <= maximumDesktopWidth,
         `desktop music dock must reserve enough width for its controls: ${JSON.stringify(compactDesktopPlayer)}`);
       assert.ok(compactDesktopPlayer.actions.x >= compactDesktopPlayer.x - 1 && compactDesktopPlayer.actions.right <= playerRight + 1,
         `compact action group must remain inside the music dock: ${JSON.stringify(compactDesktopPlayer)}`);
-      assert.ok(compactDesktopPlayer.actionButtons.every((button) =>
+      const visibleActionButtons = compactDesktopPlayer.actionButtons.filter((button) => button.visible);
+      assert.equal(visibleActionButtons.length, viewport.touch ? 3 : 2,
+        `fine-pointer desktop should expose playlist and dismiss actions, while touch layouts retain settings: ${JSON.stringify(compactDesktopPlayer.actionButtons)}`);
+      assert.ok(visibleActionButtons.every((button) =>
         button.x >= compactDesktopPlayer.x - 1 && button.right <= playerRight + 1 && button.x >= 0 && button.right <= viewport.width + 1),
-      `every desktop action button must remain visible inside the dock and viewport: ${JSON.stringify(compactDesktopPlayer.actionButtons)}`);
+      `every visible desktop action button must remain inside the dock and viewport: ${JSON.stringify(visibleActionButtons)}`);
     }
     const scrollableDock = viewport.touch || viewport.height <= 420;
     assert.equal(layout.playlistPosition, scrollableDock ? "static" : "absolute",
@@ -671,7 +675,7 @@ try {
       const bounds = player.getBoundingClientRect();
       return { x: Math.round(bounds.x), width: Math.round(bounds.width), bottom: Math.round(bounds.bottom) };
     });
-    assert.deepEqual(position, { x: 14, width: 360, bottom: 786 },
+    assert.deepEqual(position, { x: 14, width: 320, bottom: 786 },
       `the desktop music dock must keep the same position and size on ${routePath}: ${JSON.stringify(position)}`);
     await routeConsistencyPage.evaluate(async () => {
       const root = document.documentElement;

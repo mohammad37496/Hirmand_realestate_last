@@ -35,6 +35,9 @@ export default defineEventHandler((event) => {
       const derived = mimeFromFilename(filename);
       return ALLOWED.has(derived) ? derived : null;
     },
+    // Customer photos can go straight to Liara; videos retain the server-side
+    // watermarking and moderation-safe chunked upload pipeline.
+    directUpload: ({ contentType }) => contentType.startsWith("image/"),
     unsupportedTypeMessage: "نوع فایل رسانه‌ای مجاز نیست.",
     sizeLimitMessage: (limitMb) => `حجم هر فایل بیش از ${limitMb} مگابایت است.`,
     // Submitted property photos are not permanently watermarked; the public gallery

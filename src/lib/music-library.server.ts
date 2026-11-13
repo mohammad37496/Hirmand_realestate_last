@@ -20,9 +20,8 @@ export const ALLOWED_AUDIO_TYPES = [
 export const ALLOWED_AUDIO_TYPE_SET = new Set<string>(ALLOWED_AUDIO_TYPES);
 
 /**
- * Hard ceiling for a single song. The upload is assembled from chunks inside
- * the database and then handed to the object store when one is configured, so
- * this stays within a size the serverless function can hold comfortably.
+ * Hard ceiling for a single song. Direct Liara uploads avoid storing audio
+ * chunks in PostgreSQL; the chunked database fallback remains bounded too.
  */
 export const MAX_AUDIO_BYTES = 32 * 1024 * 1024;
 

@@ -1,10 +1,10 @@
 /**
  * Server-only media storage.
  *
- * Uploaded media lives in the application database (`media_objects`) and is
- * served from our own origin with HTTP range support. Liara stores private and
- * public media; legacy Vercel Blob is restricted to known public namespaces.
- * Private property media falls back to the database when Liara is unavailable.
+ * Media metadata and business references live in PostgreSQL. Small legacy or
+ * transformed uploads may retain a database byte fallback (`media_objects`);
+ * eligible browser uploads go directly to Liara. Legacy Vercel Blob is limited
+ * to known public namespaces.
  */
 
 import { dbSource, getSql } from "@/lib/db";
@@ -391,21 +391,79 @@ export async function readMediaRange(
 }
 
 /**
- * Delete abandoned staging sessions so chunk uploads that never complete do not
- * fill the database forever.
+ * Expire abandoned upload sessions and remove their DB chunks or Liara staging
+ * objects without racing a fresh presigned URL reissue.
  */
 export async function pruneStaleUploadSessions(
   maxAgeMinutes = 120,
+  throwOnError = false,
 ): Promise<void> {
   if (dbSource === "unconfigured") return;
   try {
     const sql = await getSql();
+    const staleDirect = await sql.query<{ id: string; object_key: string }>(
+      `update media_upload_sessions
+       set completion_state = 'expired'
+       where upload_mode = 'direct'
+         and greatest(created_at, coalesce(direct_upload_expires_at, created_at))
+           < current_timestamp - ($1::text || ' minutes')::interval
+         and completion_state <> 'expired'
+       returning id, coalesce(object_key, 'staging/' || pathname) as object_key`,
+      [String(maxAgeMinutes)],
+    );
+    const expiredDirect = await sql.query<{ id: string; object_key: string }>(
+      `select id, coalesce(object_key, 'staging/' || pathname) as object_key
+       from media_upload_sessions
+       where upload_mode = 'direct' and completion_state = 'expired'
+         and greatest(created_at, coalesce(direct_upload_expires_at, created_at))
+           < current_timestamp - ($1::text || ' minutes')::interval`,
+      [String(maxAgeMinutes)],
+    );
+    const directById = new Map<string, string>();
+    for (const session of [...staleDirect, ...expiredDirect]) {
+      directById.set(String(session.id), String(session.object_key));
+    }
+    const failedDirectDeletes: string[] = [];
+    const deletedDirectIds: string[] = [];
+    const directEntries = Array.from(directById.entries());
+    for (let offset = 0; offset < directEntries.length; offset += 8) {
+      const batch = directEntries.slice(offset, offset + 8);
+      const outcomes = await Promise.all(batch.map(async ([id, objectKey]) => ({
+        id,
+        deleted: await deleteLiaraObject(objectKey),
+      })));
+      for (const outcome of outcomes) {
+        if (outcome.deleted) deletedDirectIds.push(outcome.id);
+        else failedDirectDeletes.push(outcome.id);
+      }
+    }
+    if (deletedDirectIds.length) {
+      await sql.query(
+        "delete from media_upload_sessions where id = any($1::text[]) and upload_mode = 'direct' and completion_state = 'expired'",
+        [deletedDirectIds],
+      );
+    }
+
+    if (failedDirectDeletes.length) {
+      await sql.query(
+        `delete from media_upload_sessions
+         where upload_mode <> 'direct'
+           and created_at < current_timestamp - ($1::text || ' minutes')::interval`,
+        [String(maxAgeMinutes)],
+      );
+      if (throwOnError) {
+        throw new Error(`${failedDirectDeletes.length} direct-upload staging object(s) could not be deleted; their sessions were retained for retry.`);
+      }
+      return;
+    }
     await sql.query(
       `delete from media_upload_sessions
-       where created_at < current_timestamp - ($1::text || ' minutes')::interval`,
+       where upload_mode <> 'direct'
+         and created_at < current_timestamp - ($1::text || ' minutes')::interval`,
       [String(maxAgeMinutes)],
     );
   } catch (error) {
     console.warn("[media] pruning stale upload sessions failed", error);
+    if (throwOnError) throw error;
   }
 }
