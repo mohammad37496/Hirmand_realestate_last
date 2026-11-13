@@ -1608,6 +1608,8 @@
 
 @media (max-width: 720px) {
   .pcard-mobile-list { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(168px, auto); }
+  .pf-page .pf-grid.is-list-view { grid-auto-rows: 1fr; align-items: stretch; }
+  .pf-page .pf-grid.is-list-view > .pcard { height: 100%; }
   .pcard-mobile-list > .pcard-media { position: relative; z-index: 0; grid-column: 1; grid-row: 1; min-height: clamp(168px, 46.4vw, 181px); }
   .pcard-mobile-list > .pcard-link { position: relative; z-index: 1; }
   .pcard-mobile-list > .pcard-link { display: flex; grid-column: 1; grid-row: 1; min-width: 0; margin-inline-start: clamp(120px, 40vw, 170px); }
