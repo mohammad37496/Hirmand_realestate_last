@@ -28,3 +28,21 @@ test("new property image uploads skip permanent watermark processing", async () 
   assert.match(upload, /if \(contentType\.startsWith\("image\/"\)\) return null/);
   assert.doesNotMatch(upload, /applyPropertyImageWatermarkServer/);
 });
+
+test("area images use the same-origin media proxy for private Liara objects", async () => {
+  const areaPage = await read("src/routes/areas.$slug.tsx");
+  const adminArea = await read("src/components/hirmand/admin-area-content.tsx");
+  assert.match(areaPage, /mediaPreviewSource\(content\.heroImage\)/);
+  assert.match(areaPage, /href=\{mediaPreviewSource\(url\)\}/);
+  assert.match(areaPage, /src=\{mediaPreviewSource\(url\)\}/);
+  assert.match(adminArea, /import \{ mediaPreviewSource \} from "@\/lib\/media"/);
+  assert.match(adminArea, /src=\{mediaPreviewSource\(url\)\}/);
+});
+
+test("Liara image proxy matches the 25 MiB upload cap without raising Divar's bound", async () => {
+  const proxy = await read("server/routes/api/media-proxy.get.ts");
+  assert.match(proxy, /MAX_LIARA_IMAGE_BYTES = 25 \* 1024 \* 1024/);
+  assert.match(proxy, /MAX_DIVAR_IMAGE_BYTES = 12 \* 1024 \* 1024/);
+  assert.match(proxy, /readBoundedImage\(response, MAX_LIARA_IMAGE_BYTES, TIMEOUT_MS\)/);
+  assert.match(proxy, /readBoundedImage\(response, MAX_DIVAR_IMAGE_BYTES, TIMEOUT_MS\)/);
+});

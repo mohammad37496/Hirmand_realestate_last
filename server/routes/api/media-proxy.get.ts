@@ -25,16 +25,24 @@ import {
  * grid without depending on a third-party proxy service.
  */
 
-const MAX_BYTES = 12 * 1024 * 1024;
+// Uploaded Liara property and area images are accepted up to 25 MiB. Keep
+// the smaller bound for third-party Divar images, whose import path is capped
+// separately and should not increase the proxy's memory budget.
+const MAX_LIARA_IMAGE_BYTES = 25 * 1024 * 1024;
+const MAX_DIVAR_IMAGE_BYTES = 12 * 1024 * 1024;
 const TIMEOUT_MS = 12_000;
 
 function isAllowedTarget(target: URL): boolean {
   return target.protocol === "https:" && (isDivarRemoteHost(target.toString()) || isLiaraStorageHost(target.toString()));
 }
 
-async function readBoundedImage(response: Response, timeoutMs = TIMEOUT_MS): Promise<Uint8Array> {
+async function readBoundedImage(
+  response: Response,
+  maxBytes: number,
+  timeoutMs = TIMEOUT_MS,
+): Promise<Uint8Array> {
   const declaredLength = Number(response.headers.get("content-length") ?? 0);
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_BYTES) {
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
     throw createError({ statusCode: 502, statusMessage: "حجم تصویر نامعتبر است." });
   }
 
@@ -61,7 +69,7 @@ async function readBoundedImage(response: Response, timeoutMs = TIMEOUT_MS): Pro
       if (done) break;
       if (!value) continue;
       total += value.byteLength;
-      if (total > MAX_BYTES) {
+      if (total > maxBytes) {
         await reader.cancel();
         throw createError({ statusCode: 502, statusMessage: "حجم تصویر نامعتبر است." });
       }
@@ -208,7 +216,7 @@ export default defineEventHandler(async (event) => {
     if (!response.ok) {
       throw createError({ statusCode: response?.status === 404 ? 404 : 502, statusMessage: "دریافت تصویر از فضای ذخیره‌سازی هیرمند ممکن نشد." });
     }
-    const bytes = await readBoundedImage(response, TIMEOUT_MS);
+    const bytes = await readBoundedImage(response, MAX_LIARA_IMAGE_BYTES, TIMEOUT_MS);
     const contentType = detectRasterImageType(bytes);
     if (!contentType) throw createError({ statusCode: 502, statusMessage: "محتوای ذخیره‌شده تصویر معتبر نیست." });
     return new Response(bytes.buffer as ArrayBuffer, {
@@ -279,7 +287,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const bytes = await readBoundedImage(response, TIMEOUT_MS);
+  const bytes = await readBoundedImage(response, MAX_DIVAR_IMAGE_BYTES, TIMEOUT_MS);
   if (!bytes.length) {
     throw createError({ statusCode: 502, statusMessage: "حجم تصویر نامعتبر است." });
   }
