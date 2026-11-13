@@ -53,6 +53,11 @@ export async function replacePhoneBridgeFileIndex(
   });
 
   await sql.transaction(async (tx) => {
+    const devices = await tx.query<{ id: string }>(
+      "select id from phone_bridge_devices where id=$1 for update",
+      [input.deviceId],
+    );
+    if (!devices.length) throw new Error("Phone Bridge device is unavailable for file indexing.");
     await tx.query("delete from phone_bridge_file_entries where device_id=$1", [input.deviceId]);
     for (const entry of entries) {
       await tx.query(

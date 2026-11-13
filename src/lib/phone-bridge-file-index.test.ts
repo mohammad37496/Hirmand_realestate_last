@@ -85,6 +85,53 @@ test("a failed insert rolls back the index replacement and preserves the previou
   }
 });
 
+test("serializes concurrent replacements so entries from two folder trees cannot mix", async () => {
+  const pg = new PGlite();
+  try {
+    await createSchema(pg);
+    const sql = sqlFor(pg);
+    await Promise.all([
+      replacePhoneBridgeFileIndex(sql, {
+        deviceId: "device-1",
+        rootUri: "content://tree/a",
+        entries: [{ uri: "content://tree/a/one", name: "one" }, { uri: "content://tree/a/two", name: "two" }],
+      }),
+      replacePhoneBridgeFileIndex(sql, {
+        deviceId: "device-1",
+        rootUri: "content://tree/b",
+        entries: [{ uri: "content://tree/b/one", name: "one" }, { uri: "content://tree/b/two", name: "two" }],
+      }),
+    ]);
+
+    const rows = await pg.query<{ root_uri: string; uri: string }>(
+      "select root_uri,uri from phone_bridge_file_entries where device_id='device-1' order by uri",
+    );
+    assert.equal(rows.rows.length, 2);
+    assert.equal(new Set(rows.rows.map((row) => row.root_uri)).size, 1);
+    const rootUri = rows.rows[0]?.root_uri;
+    assert.ok(rootUri === "content://tree/a" || rootUri === "content://tree/b");
+    assert.ok(rows.rows.every((row) => row.uri.startsWith(rootUri!)));
+  } finally {
+    await pg.close();
+  }
+});
+
+test("a missing device row cannot delete an existing device's index", async () => {
+  const pg = new PGlite();
+  try {
+    await createSchema(pg);
+    await assert.rejects(replacePhoneBridgeFileIndex(sqlFor(pg), {
+      deviceId: "missing-device",
+      rootUri: "content://tree/new-root",
+      entries: [],
+    }), /device is unavailable/);
+    const rows = await pg.query<{ uri: string }>("select uri from phone_bridge_file_entries where device_id='device-1'");
+    assert.deepEqual(rows.rows, [{ uri: "content://old" }]);
+  } finally {
+    await pg.close();
+  }
+});
+
 test("requires transaction support before touching the current file index", async () => {
   let queried = false;
   const sql = { query: async () => { queried = true; return []; } } as unknown as Sql;
