@@ -10,6 +10,7 @@ import {
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
 import { recordPhoneBridgeEvent } from "@/lib/phone-bridge-events.server";
+import { queuePhoneBridgeRemoteCommand } from "@/lib/phone-bridge-remote-command-sql";
 import { randomUUID } from "node:crypto";
 
 async function requireRemoteControlAdmin() {
@@ -244,12 +245,6 @@ export const createPhoneBridgeRemoteCommand = createServerFn({ method: "POST" })
       throw new Error("MP3 در نسخهٔ فعلی encoder داخلی ندارد؛ WAV یا AMR را انتخاب کن.");
     }
 
-    const active = await sql.query<{ id: string }>(
-      "select id from phone_bridge_remote_commands where device_id=$1 and status in ('queued','running') and expires_at >= current_timestamp limit 1",
-      [data.deviceId],
-    );
-    if (active.length) throw new Error("یک فرمان ریموت هنوز در حال اجراست؛ ابتدا نتیجهٔ آن را دریافت کن.");
-
     const id = randomUUID();
     let payload: string;
     if (data.action === "restore_data") {
@@ -264,18 +259,19 @@ export const createPhoneBridgeRemoteCommand = createServerFn({ method: "POST" })
       payload = "{}";
     }
 
-    const expiresSql = data.action === "manage_files"
-      ? "current_timestamp + interval '180 seconds'"
-      : data.action === "restore_data"
-        ? "current_timestamp + interval '180 seconds'"
-      : data.action === "take_photo"
-        ? "current_timestamp + interval '180 seconds'"
-        : "current_timestamp + interval '60 seconds'";
+    const expiresInSeconds: 60 | 180 =
+      data.action === "manage_files" || data.action === "restore_data" || data.action === "take_photo"
+        ? 180
+        : 60;
 
-    await sql.query(
-      "insert into phone_bridge_remote_commands (id,device_id,action,status,payload,requested_by,expires_at) values ($1,$2,$3,'queued',$4::jsonb,$5," + expiresSql + ")",
-      [id, data.deviceId, data.action, payload, typeof claims?.options?.accountId === "string" ? claims.options.accountId : null],
-    );
+    await queuePhoneBridgeRemoteCommand(sql, {
+      id,
+      deviceId: data.deviceId,
+      action: data.action,
+      payload,
+      requestedBy: typeof claims?.options?.accountId === "string" ? claims.options.accountId : null,
+      expiresInSeconds,
+    });
 
     await recordPhoneBridgeEvent({
       deviceId: data.deviceId,
