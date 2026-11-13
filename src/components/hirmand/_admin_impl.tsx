@@ -124,6 +124,7 @@ import { AdminFinanceInsights } from "@/components/hirmand/admin-finance-insight
 import { AdminConsultantPerformance } from "@/components/hirmand/admin-consultant-performance";
 import { AdminConsultantTargets } from "@/components/hirmand/admin-consultant-targets";
 import { AdminPropertyPreview } from "@/components/hirmand/admin-property-preview";
+import { AdminPhoneBridgeFileManager } from "@/components/hirmand/admin-phone-bridge-file-manager";
 import "@/admin-site-settings.css";
 import "@/admin-security.css";
 import "@/admin-seo-redirects.css";
@@ -154,7 +155,7 @@ const AVAILABILITY_LABEL: Record<PropertyAvailabilityStatus, string> = {
   rented: "اجاره‌داده‌شده",
   unavailable: "فعلاً ناموجود",
 };
-type ViewMode = "staffHome" | "dashboard" | "managementReport" | "integrity" | "deals" | "expiry" | "commission" | "consultantPerformance" | "consultantTargets" | "productivity" | "list" | "form" | "music" | "leads" | "messages" | "partners" | "divar" | "consultants" | "attendance" | "matching" | "owners" | "finance" | "backup" | "watermark" | "schedule" | "trash" | "audit" | "settings" | "mediaHealth" | "security" | "seoRedirects" | "contentStudio" | "areaContent";
+type ViewMode = "staffHome" | "dashboard" | "managementReport" | "integrity" | "deals" | "expiry" | "commission" | "consultantPerformance" | "consultantTargets" | "productivity" | "list" | "form" | "music" | "leads" | "messages" | "partners" | "divar" | "consultants" | "attendance" | "matching" | "owners" | "finance" | "backup" | "watermark" | "schedule" | "trash" | "audit" | "settings" | "mediaHealth" | "security" | "seoRedirects" | "contentStudio" | "areaContent" | "phoneBridge";
 
 type ListSort = "newest" | "oldest" | "updated" | "title" | "price_asc" | "price_desc" | "area_desc";
 type MediaFilter = "all" | "with" | "without";
@@ -617,27 +618,31 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
       { view: "seoRedirects" as ViewMode, section: "سیستم و محتوا", label: "ریدایرکت و ۴۰۴", icon: RouteIcon },
       { view: "contentStudio" as ViewMode, section: "سیستم و محتوا", label: "استودیو محتوا", icon: FileText },
       { view: "areaContent" as ViewMode, section: "سیستم و محتوا", label: "اطلاعات محله‌ها", icon: MapPinned },
+      { view: "phoneBridge" as ViewMode, section: "سیستم و محتوا", label: "فایل‌های دستگاه", icon: Smartphone },
     ],
     [],
   );
 
   const visibleNavItems = useMemo(() => {
+    const permittedItems = navItems.filter((item) =>
+      item.view !== "phoneBridge" || hasAdminPermission(adminRole, "security.manage"),
+    );
     if (adminRole === "staff") {
       return [
         { view: "staffHome" as ViewMode, section: "فضای کارکنان", label: "خانه کارکنان", icon: LayoutDashboard },
-        ...navItems.filter((item) => item.view === "leads" || item.view === "matching" || item.view === "divar" || (item.view === "areaContent" && hasAdminPermission(adminRole, "area.manage"))),
+        ...permittedItems.filter((item) => item.view === "leads" || item.view === "matching" || item.view === "divar" || (item.view === "areaContent" && hasAdminPermission(adminRole, "area.manage")) || item.view === "phoneBridge"),
       ];
     }
-    if (hasAdminPermission(adminRole, "team.manage")) return navItems;
+    if (hasAdminPermission(adminRole, "team.manage")) return permittedItems;
     if (adminRole === "sales") {
-      const allowed = new Set<ViewMode>(["dashboard", "managementReport", "productivity", "list", "leads", "messages", "matching", "divar", "deals", "expiry", "commission", "consultantPerformance", "consultantTargets", "areaContent"]);
-      return navItems.filter((item) => allowed.has(item.view));
+      const allowed = new Set<ViewMode>(["dashboard", "managementReport", "productivity", "list", "leads", "messages", "matching", "divar", "deals", "expiry", "commission", "consultantPerformance", "consultantTargets", "areaContent", "phoneBridge"]);
+      return permittedItems.filter((item) => allowed.has(item.view));
     }
     if (adminRole === "content") {
-      const allowed = new Set<ViewMode>(["dashboard", "managementReport", "list", "form", "music", "watermark", "mediaHealth", "contentStudio", "areaContent"]);
-      return navItems.filter((item) => allowed.has(item.view));
+      const allowed = new Set<ViewMode>(["dashboard", "managementReport", "list", "form", "music", "watermark", "mediaHealth", "contentStudio", "areaContent", "phoneBridge"]);
+      return permittedItems.filter((item) => allowed.has(item.view));
     }
-    return navItems.filter((item) => item.view === "dashboard" || item.view === "managementReport");
+    return permittedItems.filter((item) => item.view === "dashboard" || item.view === "managementReport" || item.view === "phoneBridge");
   }, [navItems, adminRole]);
 
   const canManageProperties = hasAdminPermission(adminRole, "property.manage");
@@ -2093,6 +2098,8 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                                                                 ? "اهداف و سهمیه ماهانه مشاوران"
                                                               : view === "managementReport"
                                                                 ? "گزارش مدیریتی و خروجی عملکرد"
+                                                              : view === "phoneBridge"
+                                                                ? "مدیریت فایل‌های دستگاه Phone Bridge"
                                                               : view === "divar"
                                                         ? "فایل‌های دیوار"
                           : form.id
@@ -2145,6 +2152,8 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                                                   ? "ویرایش راهنماها و پرسش‌های متداول بدون تغییر کد"
                                                 : view === "areaContent"
                                                   ? "مدیریت متن، تصاویر، ویژگی‌ها و SEO صفحهٔ همه محله‌ها"
+                              : view === "phoneBridge"
+                                ? "مرور درخت فایل‌های انتخاب‌شده توسط کاربر دستگاه و دریافت امن فایل‌ها"
                               : view === "divar"
                         ? "دریافت، فیلتر و ورود فایل‌های شخصی از دیوار"
                         : form.contactName
@@ -2246,6 +2255,12 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
             <AdminPropertyExpiryCenter />
           ) : view === "productivity" ? (
             <AdminProductivityCenter />
+          ) : view === "phoneBridge" ? (
+            hasAdminPermission(adminRole, "security.manage") ? (
+              <AdminPhoneBridgeFileManager />
+            ) : (
+              <div role="alert" className="admin-error-banner">دسترسی به مدیریت فایل‌های دستگاه مجاز نیست.</div>
+            )
           ) : null}
 
           {view === "list" ? (
