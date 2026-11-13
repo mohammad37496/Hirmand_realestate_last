@@ -3,6 +3,7 @@ import { ExternalLink, ImagePlus, MapPinned, Search, Save, Trash2 } from "lucide
 import { toast } from "sonner";
 import { getAdminAreaContents, saveAdminAreaContent, type AreaContent, type AreaContentDraft } from "@/lib/area-content";
 import { uploadErrorMessage, uploadInChunks } from "@/lib/media-upload-client";
+import { mediaPreviewSource } from "@/lib/media";
 
 const EMPTY_DRAFT: AreaContentDraft = {
   slug: "", intro: "", about: "", highlights: "", amenities: "",
@@ -257,7 +258,7 @@ export function AdminAreaContentManager() {
                   <div className="admin-area-gallery-editor">
                     {draft.gallery.map((url, index) => (
                       <figure className="admin-area-gallery-item" key={url + "-" + index}>
-                        <img src={url} alt={"پیش‌نمایش تصویر " + (index + 1).toLocaleString("fa-IR")} loading="lazy" />
+                        <img src={mediaPreviewSource(url)} alt={"پیش‌نمایش تصویر " + (index + 1).toLocaleString("fa-IR")} loading="lazy" />
                         <figcaption>
                           <button type="button" onClick={() => update("heroImage", url)} title="استفاده به‌عنوان کاور">کاور</button>
                           <button type="button" onClick={() => update("gallery", draft.gallery.filter((_, itemIndex) => itemIndex !== index))} aria-label={"حذف تصویر " + (index + 1).toLocaleString("fa-IR")}><Trash2 size={14} /></button>

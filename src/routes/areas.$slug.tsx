@@ -22,6 +22,7 @@ import { SITE } from "@/lib/site";
 import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { getPublicAreaContent, type AreaContent } from "@/lib/area-content";
 import { settleAreaPageDependencies } from "@/lib/area-page-data";
+import { mediaPreviewSource } from "@/lib/media";
 import areaDetailCss from "../area-detail.css?url";
 import { SiteChrome } from "@/components/hirmand/site-chrome";
 import { PropertyCard } from "@/components/hirmand/property-showcase";
@@ -199,7 +200,7 @@ function AreaPage() {
 
           {content?.heroImage ? (
             <div className="area-profile-hero-media">
-              <img src={content.heroImage} alt={"نمای منتخب محلهٔ " + area.name} loading="eager" />
+              <img src={mediaPreviewSource(content.heroImage)} alt={"نمای منتخب محلهٔ " + area.name} loading="eager" />
               <span className="area-profile-image-caption">راهنمای محلهٔ {area.name}</span>
             </div>
           ) : (
@@ -386,8 +387,8 @@ function AreaPage() {
             </div>
             <div className="area-profile-gallery">
               {content.gallery.map((url, index) => (
-                <a key={url + "-" + index} href={url} target="_blank" rel="noreferrer" aria-label={"نمایش تصویر " + formatFa(index + 1) + " از محلهٔ " + area.name}>
-                  <img src={url} alt={"تصویر " + formatFa(index + 1) + " از محلهٔ " + area.name} loading="lazy" />
+                <a key={url + "-" + index} href={mediaPreviewSource(url)} target="_blank" rel="noreferrer" aria-label={"نمایش تصویر " + formatFa(index + 1) + " از محلهٔ " + area.name}>
+                  <img src={mediaPreviewSource(url)} alt={"تصویر " + formatFa(index + 1) + " از محلهٔ " + area.name} loading="lazy" />
                   <span>{formatFa(index + 1).padStart(2, "۰")}</span>
                 </a>
               ))}
