@@ -31,6 +31,7 @@ export const Route = createFileRoute("/properties/$slug")({
         data: {
           slug: property.slug,
           neighborhood: property.neighborhood,
+          transactionType: property.transactionType,
           propertyType: property.propertyType,
           limit: 6,
         },
