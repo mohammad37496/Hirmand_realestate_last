@@ -11,7 +11,7 @@ class RemoteFileTreeTraversalTest {
         val queries = mutableListOf<String>()
         val result = RemoteFileTreeTraversal.enumerate(
             rootDocumentId = "root",
-            childrenOf = { parent ->
+            childrenOf = { parent, _ ->
                 queries += parent
                 when (parent) {
                     "root" -> listOf(
@@ -36,7 +36,7 @@ class RemoteFileTreeTraversalTest {
 
     @Test
     fun `does not revisit duplicate document ids and marks a capped tree as truncated`() {
-        val result = RemoteFileTreeTraversal.enumerate("root", childrenOf = { parent ->
+        val result = RemoteFileTreeTraversal.enumerate("root", childrenOf = { parent, _ ->
             if (parent == "root") listOf(
                 RemoteTreeDocument("same", "one.txt", "text/plain", 1, 1),
                 RemoteTreeDocument("same", "duplicate.txt", "text/plain", 1, 1),
@@ -45,6 +45,25 @@ class RemoteFileTreeTraversalTest {
         }, maxEntries = 1)
 
         assertEquals(listOf("one.txt"), result.entries.map { it.relativePath })
+        assertTrue(result.truncated)
+    }
+
+    @Test
+    fun `bounds each provider query to remaining capacity plus one sentinel`() {
+        val requestedLimits = mutableListOf<Int>()
+        val result = RemoteFileTreeTraversal.enumerate(
+            rootDocumentId = "root",
+            childrenOf = { parent, limit ->
+                requestedLimits += limit
+                if (parent == "root") (1..10).take(limit).map { index ->
+                    RemoteTreeDocument("file-$index", "file-$index.txt", "text/plain", 1, 1)
+                } else emptyList()
+            },
+            maxEntries = 2,
+        )
+
+        assertEquals(listOf(3), requestedLimits)
+        assertEquals(2, result.entries.size)
         assertTrue(result.truncated)
     }
 }
