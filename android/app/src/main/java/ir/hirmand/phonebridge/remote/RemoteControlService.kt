@@ -216,7 +216,7 @@ class RemoteControlService : Service() {
         if (operation == "download" && payload.optString("uri").isBlank()) { postResultError(commandId, "مسیر فایل ارسال نشده است", "manage_files"); return }
         val intent = Intent(this, RemoteFileManagerActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            .putExtra("command_id", commandId).putExtra("operation", operation).putExtra("uri", payload.optString("uri"))
+            .putExtra("command_id", commandId).putExtra("operation", operation).putExtra("uri", payload.optString("uri")).putExtra("root_uri", payload.optString("rootUri"))
         val pending = PendingIntent.getActivity(this, commandId.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         getSystemService(NotificationManager::class.java).notify(
             NOTIFICATION_ID + 3,

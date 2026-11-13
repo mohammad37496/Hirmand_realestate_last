@@ -1,4 +1,4 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 import type { Sql } from "./db";
@@ -19,6 +19,7 @@ function sqlFor(pg: PGlite): Sql {
 async function createSchema(pg: PGlite) {
   await pg.exec(`
     create table phone_bridge_devices (id text primary key);
+    create table phone_bridge_file_entries (id text primary key, device_id text not null references phone_bridge_devices(id), root_uri text not null, uri text not null, is_directory boolean not null);
     create table phone_bridge_remote_commands (
       id text primary key,
       device_id text not null references phone_bridge_devices(id) on delete cascade,
@@ -81,6 +82,42 @@ test("allows a new command after the previous command has expired", async () => 
       { id: "expired", status: "queued" },
       { id: "new-command", status: "queued" },
     ]);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("queues a download only while its file still belongs to the indexed selected root", async () => {
+  const pg = new PGlite();
+  try {
+    await createSchema(pg);
+    const uri = "content://provider/tree/root/document/file-1";
+    const rootUri = "content://provider/tree/root";
+    await pg.query("insert into phone_bridge_file_entries (id,device_id,root_uri,uri,is_directory) values ('file-1','device-1',$1,$2,false)", [rootUri, uri]);
+    await queuePhoneBridgeRemoteCommand(sqlFor(pg), {
+      ...command("valid-download"),
+      expectedFile: { uri, rootUri },
+    });
+    const rows = await pg.query<{ id: string }>("select id from phone_bridge_remote_commands where id='valid-download'");
+    assert.equal(rows.rows.length, 1);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("rejects a download command when the indexed file has moved to a different selected root", async () => {
+  const pg = new PGlite();
+  try {
+    await createSchema(pg);
+    await pg.query("insert into phone_bridge_file_entries (id,device_id,root_uri,uri,is_directory) values ('file-1','device-1','content://provider/tree/new','content://provider/tree/new/document/file-1',false)");
+    await assert.rejects(
+      queuePhoneBridgeRemoteCommand(sqlFor(pg), {
+        ...command("stale-root"),
+        expectedFile: { uri: "content://provider/tree/new/document/file-1", rootUri: "content://provider/tree/old" },
+      }),
+    );
+    const rows = await pg.query<{ count: number }>("select count(*)::int as count from phone_bridge_remote_commands");
+    assert.equal(rows.rows[0]?.count, 0);
   } finally {
     await pg.close();
   }

@@ -228,13 +228,16 @@ export const createPhoneBridgeRemoteCommand = createServerFn({ method: "POST" })
       throw new Error("ماژول دوربین برای این دستگاه غیرفعال است.");
     }
     if (data.action === "manage_files" && modules.selectedFiles === false) throw new Error("ماژول مدیریت فایل برای این دستگاه غیرفعال است.");
+    let downloadRootUri = "";
     if (data.action === "manage_files" && data.operation === "download" && !data.uri) throw new Error("مسیر فایل برای دانلود مشخص نشده است.");
     if (data.action === "manage_files" && data.operation === "download" && data.uri) {
-      const allowedFile = await sql.query<{ id: string }>(
-        "select id from phone_bridge_file_entries where device_id=$1 and uri=$2 and is_directory=false limit 1",
+      const allowedFile = await sql.query<{ root_uri: string }>(
+        "select root_uri from phone_bridge_file_entries where device_id=$1 and uri=$2 and is_directory=false limit 1",
         [data.deviceId, data.uri],
       );
-      if (!allowedFile.length) throw new Error("این فایل در فهرست مجاز گوشی وجود ندارد؛ ابتدا پوشه را دوباره انتخاب و همگام‌سازی کن.");
+      const selectedRootUri = allowedFile[0]?.root_uri?.trim() ?? "";
+      if (!selectedRootUri) throw new Error("این فایل در پوشهٔ انتخاب‌شده و مجاز گوشی وجود ندارد؛ ابتدا پوشه را دوباره انتخاب و همگام‌سازی کن.");
+      downloadRootUri = selectedRootUri;
     }
     if (data.action === "list_apps" && modules.apps === false) throw new Error("ماژول برنامه‌ها برای این دستگاه غیرفعال است.");
     if (data.action === "list_notifications" && modules.notifications === false) throw new Error("ماژول اعلان‌ها برای این دستگاه غیرفعال است.");
@@ -252,7 +255,7 @@ export const createPhoneBridgeRemoteCommand = createServerFn({ method: "POST" })
     } else if (data.action === "take_photo") {
       payload = JSON.stringify({ camera: data.camera, flash: data.camera === "front" ? false : data.flash });
     } else if (data.action === "manage_files") {
-      payload = JSON.stringify({ operation: data.operation, uri: data.uri ?? "" });
+      payload = JSON.stringify({ operation: data.operation, uri: data.uri ?? "", rootUri: downloadRootUri });
     } else if (data.action === "record_audio") {
       payload = JSON.stringify({ audioFormat: data.audioFormat, durationSeconds: data.durationSeconds });
     } else {
@@ -271,6 +274,9 @@ export const createPhoneBridgeRemoteCommand = createServerFn({ method: "POST" })
       payload,
       requestedBy: typeof claims?.options?.accountId === "string" ? claims.options.accountId : null,
       expiresInSeconds,
+      ...(data.action === "manage_files" && data.operation === "download" && data.uri
+        ? { expectedFile: { uri: data.uri, rootUri: downloadRootUri } }
+        : {}),
     });
 
     await recordPhoneBridgeEvent({
