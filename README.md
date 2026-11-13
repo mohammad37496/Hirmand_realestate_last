@@ -85,13 +85,23 @@ npm run dev
 | `GROK_AUTH_ISSUER` | نشانی سرویس OAuth؛ پیش‌فرض `https://auth.grok.me` | اختیاری |
 | `BLOB_READ_WRITE_TOKEN` | فضای ذخیره‌سازی Vercel Blob برای رسانه‌های حجیم | اختیاری |
 | `HIRMAND_PHONE_BRIDGE_TOKEN` | کلید خصوصی اپ Phone Bridge برای ارسال دادهٔ گوشی به `/api/device-sync/v1` | برای اتصال اپ الزامی |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | شمارنده مشترک محدودسازی تلاش ورود مدیر | در production الزامی |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | ذخیره‌ساز مشترک محدودسازی APIها: ورود مدیر، درخواست‌های عمومی/مشتری، رسانه خصوصی، آپلود و عملیات مدیریتی Phone Bridge | در production الزامی |
 
 > در development و تست محلی، نبود `UPSTASH_*` به ذخیره‌ساز حافظه‌ای همان پروسه
 > برمی‌گردد. در production، نبود این دو متغیر یا از دسترس خارج شدن Redis باعث پاسخ
 > خطای 503 می‌شود؛ هیچ fallback حافظه‌ای در production مجاز نیست، چون بین نمونه‌ها
 > مشترک نیست و می‌تواند محدودسازی تلاش ورود را دور بزند. پیش از انتشار، هر دو مقدار
-> را در Environment سرویس production تنظیم و دسترسی Redis را بررسی کنید.
+> را در Environment سرویس production تنظیم و دسترسی Redis را بررسی کنید. مقدار URL
+> باید endpoint کامل HTTPS از بخش REST API همان دیتابیس Upstash باشد (نه آدرس
+> اتصال `redis://`) و Token باید REST API token متناظر با همان دیتابیس باشد؛ هر دو
+> فقط سمت سرور نگه‌داری شوند و هرگز با پیشوند `VITE_` تعریف نشوند.
+>
+> این الزام برای مسیرهایی است که از `consumeAdminAttempt` استفاده می‌کنند. API همگام‌سازی
+> خود دستگاه (`/api/device-sync/v1`) از محدودکنندهٔ جداگانه و مبتنی بر PostgreSQL
+> Phone Bridge استفاده می‌کند؛ بنابراین نبود Upstash به‌تنهایی همگام‌سازی دستگاه را
+> متوقف نمی‌کند، اما در نبود/اختلال PostgreSQL یا محدودکنندهٔ اختصاصی، آن API نیز
+> عمداً با 503 متوقف می‌شود. عملیات مدیریتی Phone Bridge که از محدودکنندهٔ مشترک
+> استفاده می‌کنند همچنان به Upstash نیاز دارند.
 
 برای فعال‌شدن ورود Google و X، پس از دریافت شناسه و رمز اختصاصی از OAuth Broker، مقدار `VITE_GROK_OAUTH_ENABLED=true` را تنظیم و همین دو نشانی callback را در تنظیمات Broker ثبت کنید:
 
