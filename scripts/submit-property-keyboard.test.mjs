@@ -17,3 +17,10 @@ test("property media upload can be opened with Enter and Space", () => {
   assert.match(responsiveSmoke, /route === "\/submit-property"[\s\S]*?for \(const key of \["Enter", "Space"\]\)[\s\S]*?waitForEvent\("filechooser"[\s\S]*?uploadZone\.press\(key\)/);
   assert.match(responsiveSmoke, /if \(!chooser\.isMultiple\(\)\)[\s\S]*?await chooser\.setFiles\(\[\]\)/);
 });
+
+test("property draft autosave tracks location coordinate changes", () => {
+  const submission = read("../src/routes/submit-property.tsx");
+  const dependencies = submission.match(/window\.localStorage\.setItem\(CUSTOMER_DRAFT_KEY[\s\S]*?\}, \[([\s\S]*?)\]\);/)?.[1] ?? "";
+  assert.match(dependencies, /\blatitude\b/);
+  assert.match(dependencies, /\blongitude\b/);
+});

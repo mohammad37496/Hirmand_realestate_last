@@ -207,7 +207,7 @@ function SubmitPropertyPage() {
     draftReady, editToken, done, ownerName, ownerPhone, title, transactionType, propertyType,
     neighborhood, address, area, bedrooms, bathrooms, floor, totalFloors, builtYear, orientation,
     cabinetType, flooringType, coolingSystem, heatingSystem, wallClosetType, parking, elevator,
-    storage, painted, wallpaper, convertible, otherAmenities, features, price, deposit, rent, description, media,
+    storage, painted, wallpaper, convertible, otherAmenities, features, price, deposit, rent, description, media, latitude, longitude,
   ]);
 
   const imageCount = useMemo(() => media.filter((src) => !isVideoUrl(src)).length, [media]);
