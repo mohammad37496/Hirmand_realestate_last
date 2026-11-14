@@ -35,6 +35,12 @@ test("admin logout preserves the cookie on revoke failure and clears it only aft
 const smokePath = fileURLToPath(new URL("./browser-smoke.mjs", import.meta.url));
 const smokeSource = readFileSync(smokePath, "utf8");
 
+test("production-preview browser smoke forwards a synthetic client IP only to loopback", () => {
+  assert.match(smokeSource, /const localSmokeTarget = \["localhost", "127\.0\.0\.1", "\[::1\]"\]\.includes\(new URL\(url\)\.hostname\)/);
+  assert.match(smokeSource, /localSmokeTarget \? \{ extraHTTPHeaders: \{ "x-forwarded-for": "127\.0\.0\.1" \} \} : \{\}/);
+  assert.doesNotMatch(smokeSource, /browser\.newPage\(/);
+});
+
 test("browser smoke requires a JSON 200 from the Better Auth session route", () => {
   assert.match(smokeSource, /new URL\(["']\/api\/auth\/get-session["'], url\)/);
   assert.match(smokeSource, /response.status\(\) === 200 && validJson/);

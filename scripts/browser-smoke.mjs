@@ -110,10 +110,23 @@ try {
     args: ["--no-sandbox", "--disable-dev-shm-usage"],
   });
 
+  // Verify serves the production build directly on loopback, not behind
+  // Liara's ingress proxy. Better Auth deliberately has no production localhost
+  // fallback, so model the single address a local proxy would forward. Never
+  // attach this synthetic header to a remote preview or production URL.
+  const localSmokeTarget = ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname);
+  const newSmokePage = async ({ viewport } = {}) => {
+    const context = await browser.newContext({
+      ...(viewport ? { viewport } : {}),
+      ...(localSmokeTarget ? { extraHTTPHeaders: { "x-forwarded-for": "127.0.0.1" } } : {}),
+    });
+    return context.newPage();
+  };
+
   const viewports = {};
   for (const vp of VIEWPORTS) {
     const errors = { consoleErrors: [], pageErrors: [], httpErrors: [] };
-    const page = await browser.newPage({
+    const page = await newSmokePage({
       viewport: { width: vp.width, height: vp.height },
     });
     page.on("console", (msg) => {
@@ -201,7 +214,7 @@ try {
     "/tools/rahn-rent",
   ].map((path) => new URL(path, url).toString());
   for (const routeUrl of publicRoutes) {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const page = await newSmokePage({ viewport: { width: 1280, height: 800 } });
     const routeErrors = [];
     page.on("console", (msg) => {
       if (msg.type() === "error") routeErrors.push(`console: ${msg.text()}`);
@@ -245,7 +258,7 @@ try {
   }
 
   const guidedSearchCheck = { attempted: true, ok: false, steps: [], error: null };
-  const guidedSearchPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const guidedSearchPage = await newSmokePage({ viewport: { width: 390, height: 844 } });
   try {
     const response = await guidedSearchPage.goto(new URL("/smart-search", url).toString(), {
       waitUntil: "domcontentloaded",
@@ -341,7 +354,7 @@ try {
   }
 
   const neighborhoodFilterCheck = { attempted: true, ok: false, error: null, widths: [390, 768, 1280], selected: [] };
-  const neighborhoodPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const neighborhoodPage = await newSmokePage({ viewport: { width: 390, height: 844 } });
   try {
     const response = await neighborhoodPage.goto(new URL("/properties", url).toString(), {
       waitUntil: "domcontentloaded",
@@ -533,7 +546,7 @@ try {
     await neighborhoodPage.close();
   }
 
-  const apiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const apiPage = await newSmokePage({ viewport: { width: 1280, height: 800 } });
   let musicApiCheck;
   try {
     const response = await apiPage.request.get(new URL("/api/music", url).toString(), { timeout: timeoutMs });
@@ -557,7 +570,7 @@ try {
   // Auth is enabled on the deployed app. Probe the session endpoint explicitly
   // even when a preview build has auth disabled, so a missing production route
   // cannot hide behind an otherwise-green /favorites page smoke.
-  const authApiPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const authApiPage = await newSmokePage({ viewport: { width: 1280, height: 800 } });
   let authRouteCheck;
   try {
     const response = await authApiPage.request.get(
@@ -616,7 +629,7 @@ try {
     noWatermarkWhenDisabled: false,
     noWatermarkOnLightboxThumbnails: false,
   };
-  const propertyPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const propertyPage = await newSmokePage({ viewport: { width: 1280, height: 800 } });
   const watermarkEnabledForSmoke = true;
   await propertyPage.route("**/api/public-watermark", (route) => route.fulfill({
     status: 200,
@@ -775,7 +788,7 @@ try {
             // Verify the disabled setting in a fresh page instead of reloading
             // the page that just mounted/unmounted the portal. This keeps the
             // second state independent of stale router/portal hydration state.
-            const disabledWatermarkPage = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+            const disabledWatermarkPage = await newSmokePage({ viewport: { width: 1280, height: 800 } });
             try {
               await disabledWatermarkPage.route("**/api/public-watermark", (route) => route.fulfill({
                 status: 200,
@@ -953,7 +966,7 @@ try {
   const compareShareCheck = { attempted: false, ok: true, error: null, widths: [390, 768, 1280] };
   if (propertyNavigationCheck.hrefDecodedSlug) {
     compareShareCheck.attempted = true;
-    const comparePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const comparePage = await newSmokePage({ viewport: { width: 390, height: 844 } });
     try {
       await comparePage.addInitScript(({ key, slug }) => {
         localStorage.setItem(key, JSON.stringify([slug]));
@@ -990,7 +1003,7 @@ try {
   }
 
   const commissionCheck = { attempted: true, ok: false, error: null, widths: [390, 768, 1280] };
-  const commissionPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const commissionPage = await newSmokePage({ viewport: { width: 390, height: 844 } });
   try {
     const response = await commissionPage.goto(new URL("/tools/commission", url).toString(), {
       waitUntil: "domcontentloaded",
