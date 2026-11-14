@@ -14,7 +14,7 @@ import {
   Sparkles,
   Trees,
 } from "lucide-react";
-import { listPublishedProperties } from "@/lib/properties";
+import { listAreaPublishedProperties } from "@/lib/properties";
 import { getNeighborhoodMarketSnapshot, type NeighborhoodMarketSnapshot } from "@/lib/neighborhood-market";
 import { findAreaBySlug, areaHead, areaJsonLd, areaPath, allAreas } from "@/lib/areas";
 import { breadcrumbJsonLd, serializeJsonLd } from "@/lib/seo";
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/areas/$slug")({
     if (!area) {
       return {
         area: null,
-        properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>,
+        properties: [] as NonNullable<Awaited<ReturnType<typeof listAreaPublishedProperties>>>,
         propertiesUnavailable: false,
         market: null as NeighborhoodMarketSnapshot | null,
         marketUnavailable: false,
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/areas/$slug")({
 
     const data = await settleAreaPageDependencies(
       {
-        properties: () => listPublishedProperties({ data: { neighborhood: area.name } }),
+        properties: () => listAreaPublishedProperties({ data: { neighborhood: area.name } }),
         market: () => getNeighborhoodMarketSnapshot({ data: { neighborhood: area.name } }),
         content: () => getPublicAreaContent({ data: { slug: area.slug } }),
       },

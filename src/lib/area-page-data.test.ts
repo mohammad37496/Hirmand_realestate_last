@@ -1,6 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { settleAreaPageDependencies } from "./area-page-data.ts";
+import { loadAreaPropertiesIfConfigured, settleAreaPageDependencies } from "./area-page-data.ts";
+
+test("an unconfigured database does not turn unavailable area properties into a zero count", async () => {
+  let loadCalled = false;
+  const properties = await loadAreaPropertiesIfConfigured("unconfigured", async () => {
+    loadCalled = true;
+    return [];
+  });
+
+  assert.equal(properties, null);
+  assert.equal(loadCalled, false);
+});
+
+test("a configured database preserves a genuine empty area property result", async () => {
+  const properties = await loadAreaPropertiesIfConfigured("postgres", async () => []);
+  assert.deepEqual(properties, []);
+});
 
 test("optional area content failures do not erase published property listings", async () => {
   const errors: Array<[string, unknown]> = [];
