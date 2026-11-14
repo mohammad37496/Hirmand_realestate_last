@@ -17,8 +17,10 @@ const __dirname = dirname(__filename);
 
 // Pin the complete GPL static build rather than ffmpeg-static's Linux asset:
  // drawtext has been absent from that asset, which breaks Persian text watermarks.
- // SHA-256 values are the digests published by the upstream BtbN release.
+ // SHA-256 values pin the upstream FFmpeg-Builds release assets.
 const RELEASE_TAG = "autobuild-2026-11-01-12-49";
+// The upstream repository moved from BtbN/FFmpeg-Builds to this canonical owner.
+const RELEASE_REPOSITORY = "FFmpeg-Builds/FFmpeg-Builds";
 const TARGET_DIR = join(process.cwd(), ".runtime", "ffmpeg");
 const TARGET_PATH = join(TARGET_DIR, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
 const FONT_VERSION = "v33.003";
@@ -62,7 +64,7 @@ function verify(buffer, expected) {
 /**
  * Stream-decompress an XZ archive to a temporary tar file before extracting
  * the one required member. Liara's minimal Node image does not include an xz
- * executable, so `tar -xJf` cannot unpack the pinned BtbN release there. The
+ * executable, so `tar -xJf` cannot unpack the pinned upstream release there. The
  * intermediate file also lets tar finish reading its input independently of
  * the decoder stream while avoiding buffering the uncompressed archive.
  */
@@ -133,7 +135,7 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
     const parsed = new URL(requestUrl);
     if (
       parsed.origin === "https://api.github.com" &&
-      /^\/repos\/BtbN\/FFmpeg-Builds\/releases\/assets\/\d+$/.test(parsed.pathname) &&
+      /^\/repos\/FFmpeg-Builds\/FFmpeg-Builds\/releases\/assets\/\d+$/.test(parsed.pathname) &&
       options.githubToken
     ) {
       headers.set("authorization", `Bearer ${options.githubToken}`);
@@ -226,40 +228,40 @@ export async function download(url, redirects = 0, label = "FFmpeg", options = {
   throw new Error(`${label} download failed after ${maxAttempts} attempts.`);
 }
 
-/** Download the pinned asset, falling back only when the API is transiently unavailable. */
+/** Download the public pinned release first; use the asset API only as a transient fallback. */
 export async function downloadVerifiedFfmpegArchive(asset, options = {}) {
   const customBaseUrl = options.customBaseUrl?.trim();
   const downloadImpl = options.downloadImpl ?? download;
   let archive;
 
   if (customBaseUrl) {
-    const url = `${customBaseUrl.replace(/\/+$/, "")}/${RELEASE_TAG}/${asset.name}`;
+    const url = "" + customBaseUrl.replace(/\/+$/, "") + "/" + RELEASE_TAG + "/" + asset.name;
     archive = await downloadImpl(url, 0, "FFmpeg", {});
   } else {
-    const apiUrl = `https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/assets/${asset.assetId}`;
+    // The release is public and its bytes are pinned by SHA-256. Downloading
+    // directly avoids exhausting the repository-scoped GitHub API quota in CI.
+    const publicUrl = "https://github.com/" + RELEASE_REPOSITORY + "/releases/download/" + RELEASE_TAG + "/" + asset.name;
     try {
-      archive = await downloadImpl(apiUrl, 0, "FFmpeg", {
-        headers: { Accept: "application/octet-stream", "X-GitHub-Api-Version": "2022-11-28" },
-        githubToken: options.githubToken ?? process.env.GITHUB_TOKEN,
+      archive = await downloadImpl(publicUrl, 0, "FFmpeg", {
+        headers: { Accept: "application/octet-stream" },
       });
     } catch (error) {
-      // A direct public release URL is an independent route to the same pinned
-      // asset. Use it only after the API has exhausted retries on transient
-      // server failures or transport failures; never bypass API 401/403/404/429
-      // or checksum failures.
+      // Only transient server/transport failures may switch to the pinned
+      // asset-ID API. Never bypass 401/403/404/429 or checksum failures.
       const transientServerFailure = error?.status >= 500 && error.status <= 599;
       if (!transientServerFailure && error?.isTransportError !== true) throw error;
-      const fallbackUrl = `https://github.com/BtbN/FFmpeg-Builds/releases/download/${RELEASE_TAG}/${asset.name}`;
-      const failureReason = transientServerFailure ? `HTTP ${error.status}` : "a transport error";
-      console.warn(`[ffmpeg] GitHub asset API failed with ${failureReason} after retries; trying the public release URL without credentials.`);
-      archive = await downloadImpl(fallbackUrl, 0, "FFmpeg fallback", {
-        headers: { Accept: "application/octet-stream" },
+      const apiUrl = "https://api.github.com/repos/" + RELEASE_REPOSITORY + "/releases/assets/" + asset.assetId;
+      const failureReason = transientServerFailure ? "HTTP " + error.status : "a transport error";
+      console.warn("[ffmpeg] Public release URL failed with " + failureReason + " after retries; trying the pinned asset API.");
+      archive = await downloadImpl(apiUrl, 0, "FFmpeg API fallback", {
+        headers: { Accept: "application/octet-stream", "X-GitHub-Api-Version": "2022-11-28" },
+        githubToken: options.githubToken ?? process.env.GITHUB_TOKEN,
       });
     }
   }
 
-  // Both the authenticated API path and the public fallback are subject to
-  // the exact same pinned digest check before any archive is written/extracted.
+  // The public release and API fallback both pass the exact pinned digest
+  // before any archive is written or extracted.
   verify(archive, asset.sha256);
   return archive;
 }

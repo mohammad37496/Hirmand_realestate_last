@@ -1232,6 +1232,9 @@ export function PropertyDetailView({
   const [priceHistoryRetry, setPriceHistoryRetry] = useState(0);
   const [priceHistoryResolvedSlug, setPriceHistoryResolvedSlug] = useState(viewedPropertySlug ?? "");
   const [priceWatchEnabled, setPriceWatchEnabled] = useState(false);
+  const [priceWatchLoading, setPriceWatchLoading] = useState(true);
+  const [priceWatchError, setPriceWatchError] = useState<string | null>(null);
+  const [priceWatchRetry, setPriceWatchRetry] = useState(0);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportType, setReportType] = useState("قیمت یا مشخصات نادرست");
   const [reportNote, setReportNote] = useState("");
@@ -1291,48 +1294,52 @@ export function PropertyDetailView({
   useEffect(() => {
     if (!viewedPropertySlug || typeof window === "undefined") {
       setPriceWatchEnabled(false);
+      setPriceWatchLoading(false);
+      setPriceWatchError(null);
       return;
     }
 
     let ignoreWatchSync = false;
-    void fetch("/api/property-watch", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "sync" }),
-    })
-      .then((response) => response.ok
-        ? response.json() as Promise<{
-            subscriptions?: Array<{ slug: string }>;
-            alerts?: Array<{ id: string; message: string }>;
-          }>
-        : null)
-      .then((result) => {
+    setPriceWatchLoading(true);
+    setPriceWatchError(null);
+    void (async () => {
+      try {
+        const response = await fetch("/api/property-watch", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "sync" }),
+        });
+        const result = await response.json().catch(() => null) as {
+          subscriptions?: Array<{ slug: string }>;
+          alerts?: Array<{ id: string; message: string }>;
+          statusMessage?: string;
+        } | null;
+        if (!response.ok) throw new Error(result?.statusMessage || "وضعیت پیگیری قیمت دریافت نشد.");
         if (ignoreWatchSync) return;
         setPriceWatchEnabled(Boolean(result?.subscriptions?.some((item) => item.slug === viewedPropertySlug)));
         const alerts = result?.alerts ?? [];
         if (alerts.length) {
-          for (const alert of alerts.slice(0, 3)) {
-            toast.success(alert.message);
-          }
+          for (const alert of alerts.slice(0, 3)) toast.success(alert.message);
           void fetch("/api/property-watch", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              action: "seen",
-              alertIds: alerts.map((alert) => Number(alert.id)).filter(Number.isFinite),
-            }),
+            body: JSON.stringify({ action: "seen", alertIds: alerts.map((alert) => Number(alert.id)).filter(Number.isFinite) }),
           }).catch(() => {});
         }
-      })
-      .catch(() => {});
+      } catch (error) {
+        if (!ignoreWatchSync) setPriceWatchError(error instanceof Error ? error.message : "وضعیت پیگیری قیمت دریافت نشد.");
+      } finally {
+        if (!ignoreWatchSync) setPriceWatchLoading(false);
+      }
+    })();
 
     return () => {
       ignoreWatchSync = true;
     };
-  }, [viewedPropertySlug, property?.price, property?.deposit, property?.rent]);
+  }, [viewedPropertySlug, property?.price, property?.deposit, property?.rent, priceWatchRetry]);
 
   async function togglePriceWatch() {
-    if (!viewedPropertySlug || typeof window === "undefined") return;
+    if (!viewedPropertySlug || typeof window === "undefined" || priceWatchLoading || priceWatchError) return;
     const nextAction = priceWatchEnabled ? "unsubscribe" : "subscribe";
 
     try {
@@ -1341,16 +1348,22 @@ export function PropertyDetailView({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: nextAction, slug: viewedPropertySlug }),
       });
-      if (!response.ok) throw new Error("watch request failed");
+      const payload = await response.json().catch(() => null) as { ok?: boolean; enabled?: boolean; statusMessage?: string } | null;
+      if (!response.ok || payload?.ok === false || payload?.enabled !== (nextAction === "subscribe")) {
+        throw new Error(payload?.statusMessage || "ثبت پیگیری قیمت انجام نشد.");
+      }
       setPriceWatchEnabled(nextAction === "subscribe");
+      setPriceWatchError(null);
       trackAnalyticsEvent("property_price_watch", viewedPropertySlug);
       toast.success(
         nextAction === "subscribe"
           ? "پیگیری قیمت این فایل روی حساب مرورگر شما فعال شد."
           : "پیگیری قیمت این فایل خاموش شد.",
       );
-    } catch {
-      toast.error("ثبت پیگیری قیمت انجام نشد؛ دوباره تلاش کنید.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "ثبت پیگیری قیمت انجام نشد؛ دوباره تلاش کنید.";
+      setPriceWatchError(message);
+      toast.error(message);
     }
   }
 
@@ -1797,11 +1810,13 @@ export function PropertyDetailView({
                       type="button"
                       className={"property-price-watch-button" + (priceWatchEnabled ? " is-active" : "")}
                       onClick={togglePriceWatch}
-                      aria-pressed={priceWatchEnabled}
+                      disabled={priceWatchLoading || !!priceWatchError}
+                      aria-pressed={priceWatchLoading || priceWatchError ? undefined : priceWatchEnabled}
                     >
                       <Bell size={16} aria-hidden="true" />
-                      <span>{priceWatchEnabled ? "در حال پیگیری قیمت" : "پیگیری تغییر قیمت"}</span>
+                      <span>{priceWatchError ? "وضعیت پیگیری در دسترس نیست" : priceWatchLoading ? "در حال بررسی وضعیت…" : priceWatchEnabled ? "در حال پیگیری قیمت" : "پیگیری تغییر قیمت"}</span>
                     </button>
+                    {priceWatchError ? <p className="property-price-watch-error" role="alert">{priceWatchError} <button type="button" className="btn-ghost" onClick={() => setPriceWatchRetry((value) => value + 1)}>تلاش مجدد</button></p> : null}
                   </div>
                 </details>
 

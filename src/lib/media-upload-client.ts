@@ -22,10 +22,109 @@ type BeginResponse = {
   completed?: boolean;
   assembled?: boolean;
   completing?: boolean;
+  directUpload?: { url: string; headers: Record<string, string> };
   response?: Record<string, unknown>;
   statusMessage?: string;
   message?: string;
 };
+
+async function optimizeImageBeforeUpload(file: File): Promise<File> {
+  // Canvas snapshots only one frame from animated PNGs. Keep PNG/GIF/WebP/AVIF
+  // byte-for-byte and optimize JPEGs, which cannot contain animation.
+  if (file.type.trim().toLowerCase() !== "image/jpeg" || typeof createImageBitmap !== "function") {
+    return file;
+  }
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    try {
+      const maxDimension = 2560;
+      const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+      const needsResize = scale < 1;
+      const shouldCompressJpeg = file.type === "image/jpeg" && file.size > 1_500_000;
+      if (!needsResize && !shouldCompressJpeg) return file;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return file;
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const output = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(
+          resolve,
+          "image/jpeg",
+          0.86,
+        );
+      });
+      if (!output || output.size >= file.size * 0.95) return file;
+      return new File([output], file.name, {
+        type: file.type,
+        lastModified: file.lastModified,
+      });
+    } finally {
+      bitmap.close();
+    }
+  } catch {
+    // Unsupported decoders or canvas encoders must not block a valid upload.
+    return file;
+  }
+}
+
+function putDirectFile(input: {
+  url: string;
+  headers: Record<string, string>;
+  file: File;
+  signal?: AbortSignal;
+  onProgress?: (percentage: number) => void;
+}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof XMLHttpRequest === "undefined") {
+      reject(new Error("مرورگر از آپلود مستقیم پشتیبانی نمی‌کند؛ صفحه را به‌روزرسانی کنید."));
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    let settled = false;
+    const cleanup = () => input.signal?.removeEventListener("abort", abort);
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) reject(error);
+      else resolve();
+    };
+    const abort = () => xhr.abort();
+
+    if (input.signal?.aborted) {
+      finish(new DOMException("Upload aborted", "AbortError"));
+      return;
+    }
+    xhr.open("PUT", input.url, true);
+    // Keep the browser transfer below the 15-minute presigned URL lifetime,
+    // while allowing slow mobile connections to finish a 32 MB audio file.
+    xhr.timeout = 14 * 60_000;
+    for (const [name, value] of Object.entries(input.headers)) {
+      xhr.setRequestHeader(name, value);
+    }
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        input.onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 99)));
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) finish();
+      else finish(new Error(`ذخیره مستقیم در فضای ابری انجام نشد (HTTP ${xhr.status}).`));
+    };
+    xhr.onerror = () => finish(new Error("ارتباط مستقیم با فضای ابری برقرار نشد؛ تنظیم CORS یا اتصال شبکه را بررسی کنید."));
+    xhr.ontimeout = () => finish(new Error("زمان آپلود مستقیم به پایان رسید؛ همان فایل را دوباره تلاش کنید."));
+    xhr.onabort = () => finish(new DOMException("Upload aborted", "AbortError"));
+    input.signal?.addEventListener("abort", abort, { once: true });
+    if (input.signal?.aborted) {
+      abort();
+      return;
+    }
+    xhr.send(input.file);
+  });
+}
 
 /**
  * Read a possible JSON body from a response, returning null when the response
@@ -141,6 +240,8 @@ export async function uploadInChunks(options: {
     onProgress,
     signal,
   } = options;
+  const uploadFile = await optimizeImageBeforeUpload(file);
+  const uploadContentType = uploadFile.type || contentType;
   const maxCompletionAttempts = options.retryCompletion ? 3 : 1;
   const rejected = options.rejectedMessage ?? "فایل انتخاب‌شده قابل آپلود نیست.";
 
@@ -152,9 +253,9 @@ export async function uploadInChunks(options: {
     body: JSON.stringify({
       action: "begin",
       ...(options.uploadId ? { uploadId: options.uploadId } : {}),
-      filename: file.name,
-      contentType,
-      sizeBytes: file.size,
+      filename: uploadFile.name,
+      contentType: uploadContentType,
+      sizeBytes: uploadFile.size,
       ...(payload ?? {}),
     }),
     signal,
@@ -178,7 +279,7 @@ export async function uploadInChunks(options: {
     return {
       uploadId,
       totalChunks: Number(begin.totalChunks) || 0,
-      totalBytes: Number(begin.totalBytes) || file.size,
+      totalBytes: Number(begin.totalBytes) || uploadFile.size,
       response: begin.response,
     };
   }
@@ -186,21 +287,31 @@ export async function uploadInChunks(options: {
     Number(begin.chunkSize) || 2 * 1024 * 1024;
   const totalChunks = Math.max(
     1,
-    Number(begin.totalChunks) || Math.ceil(file.size / chunkSize),
+    Number(begin.totalChunks) || Math.ceil(uploadFile.size / chunkSize),
   );
-  const totalBytes = file.size || Number(begin.totalBytes) || 0;
+  const totalBytes = uploadFile.size || Number(begin.totalBytes) || 0;
 
   try {
     let sent = 0;
+    if (begin.directUpload && !begin.assembled && !begin.completing) {
+      await putDirectFile({
+        url: begin.directUpload.url,
+        headers: begin.directUpload.headers,
+        file: uploadFile,
+        signal,
+        onProgress,
+      });
+      onProgress?.(99);
+    }
     for (
-      let index = begin.assembled || begin.completing ? totalChunks : 0;
+      let index = begin.directUpload || begin.assembled || begin.completing ? totalChunks : 0;
       index < totalChunks;
       index += 1
     ) {
       const start = index * chunkSize;
-      const slice = file.slice(
+      const slice = uploadFile.slice(
         start,
-        Math.min(start + chunkSize, file.size),
+        Math.min(start + chunkSize, uploadFile.size),
       );
 
       const maxChunkAttempts = options.retryChunks ? 3 : 1;

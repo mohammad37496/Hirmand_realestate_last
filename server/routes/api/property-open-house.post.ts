@@ -26,7 +26,6 @@ export default defineEventHandler(async(event)=>{
   const body=await readBody<Record<string, unknown>>(event).catch(()=>({} as Record<string, unknown>));
   const action=String(body?.action??"");
   if (dbSource === "unconfigured") {
-    if (action === "list") return { events: [] };
     throw createError({ statusCode: 503, statusMessage: "پایگاه داده برای مدیریت بازدید گروهی تنظیم نشده است." });
   }
   const sql=await getSql();

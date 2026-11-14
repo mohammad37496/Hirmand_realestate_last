@@ -26,10 +26,13 @@ export function AdminPropertyReports() {
   const [reports, setReports] = useState<Report[]>([]);
   const [openCount, setOpenCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await fetch("/api/property-reports", {
         method: "POST",
@@ -40,8 +43,11 @@ export function AdminPropertyReports() {
       const data = await response.json() as { openCount?: number; reports?: Report[] };
       setOpenCount(Number(data.openCount) || 0);
       setReports(Array.isArray(data.reports) ? data.reports : []);
+      setHasLoaded(true);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "گزارش‌ها دریافت نشد.");
+      const message = error instanceof Error ? error.message : "گزارش‌ها دریافت نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -63,7 +69,9 @@ export function AdminPropertyReports() {
       await load();
       toast.success(status === "resolved" ? "گزارش رفع‌شده ثبت شد." : status === "dismissed" ? "گزارش نادیده گرفته شد." : "گزارش دوباره باز شد.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "تغییر وضعیت گزارش انجام نشد.");
+      const message = error instanceof Error ? error.message : "تغییر وضعیت گزارش انجام نشد.";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setBusyId(null);
     }
@@ -77,16 +85,18 @@ export function AdminPropertyReports() {
           <h2>گزارش‌های ایراد فایل</h2>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="admin-dashboard-summary">{openCount.toLocaleString("fa-IR")} گزارش باز</span>
+          <span className="admin-dashboard-summary">{loadError && !hasLoaded ? "اطلاعات در دسترس نیست" : `${openCount.toLocaleString("fa-IR")} گزارش باز${loadError ? " · داده قبلی" : ""}`}</span>
           <button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}>
             <RefreshCw size={15} className={loading ? "admin-spin" : ""} /> بروزرسانی
           </button>
         </div>
       </div>
 
-      {loading && !reports.length ? (
+      {loadError ? <div className="admin-empty" role="alert"><strong>گزارش‌های فایل در دسترس نیستند</strong><p>{loadError}{hasLoaded && reports.length ? " · آخرین داده‌های موفق نمایش داده می‌شوند." : ""}</p><button type="button" className="btn-ghost" onClick={() => void load()} disabled={loading}><RefreshCw size={14}/> تلاش مجدد</button></div> : null}
+
+      {loading && !hasLoaded ? (
         <div className="admin-empty"><AlertTriangle size={25} /><strong>در حال دریافت گزارش‌ها…</strong></div>
-      ) : reports.length === 0 ? (
+      ) : loadError && !reports.length ? null : reports.length === 0 ? (
         <div className="admin-empty"><Check size={25} /><strong>هنوز گزارشی برای بررسی ثبت نشده است.</strong></div>
       ) : (
         <div className="admin-breakdown">
@@ -108,17 +118,17 @@ export function AdminPropertyReports() {
                     مشاهده فایل <ExternalLink size={13} />
                   </a>
                   {report.status !== "resolved" ? (
-                    <button type="button" className="text-link" onClick={() => void setStatus(report.id, "resolved")} disabled={busyId === report.id}>
+                    <button type="button" className="text-link" onClick={() => void setStatus(report.id, "resolved")} disabled={busyId === report.id || !!loadError}>
                       رفع شد
                     </button>
                   ) : null}
                   {report.status !== "dismissed" ? (
-                    <button type="button" className="text-link" onClick={() => void setStatus(report.id, "dismissed")} disabled={busyId === report.id}>
+                    <button type="button" className="text-link" onClick={() => void setStatus(report.id, "dismissed")} disabled={busyId === report.id || !!loadError}>
                       نادیده بگیر
                     </button>
                   ) : null}
                   {report.status !== "open" ? (
-                    <button type="button" className="text-link" onClick={() => void setStatus(report.id, "open")} disabled={busyId === report.id}>
+                    <button type="button" className="text-link" onClick={() => void setStatus(report.id, "open")} disabled={busyId === report.id || !!loadError}>
                       بازکردن دوباره
                     </button>
                   ) : null}
