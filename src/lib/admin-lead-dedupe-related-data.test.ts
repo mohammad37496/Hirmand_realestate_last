@@ -140,6 +140,35 @@ test("lead merge moves every related record, retains feedback per token, and rep
   }
 });
 
+test("lead merge preserves a linked canonical consultant and only fills an empty consultant identity", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    await pg.exec(`
+      insert into consultants(id,name) values ('consultant-a','مشاور اصلی'),('consultant-b','مشاور دوم');
+      update leads set consultant='مشاور اصلی', consultant_id='consultant-a', consultant_link_state='linked' where id='A';
+      update leads set consultant='مشاور دوم', consultant_id='consultant-b', consultant_link_state='linked' where id='B';
+      insert into leads(id,status,name,phone,consultant,consultant_id,consultant_link_state)
+        values ('C','new','','','',null,'unassigned'),('E','new','Duplicate','','مشاور دوم','consultant-b','linked');
+    `);
+
+    assert.equal((await mergeAdminLeadDuplicate(sql, "A", "B")).kind, "merged");
+    assert.equal((await mergeAdminLeadDuplicate(sql, "C", "E")).kind, "merged");
+
+    const rows = await sql.query<{
+      id: string;
+      consultant: string | null;
+      consultant_id: string | null;
+      consultant_link_state: string;
+    }>("select id,consultant,consultant_id,consultant_link_state from leads where id in ('A','C') order by id");
+    assert.deepEqual(rows, [
+      { id: "A", consultant: "مشاور اصلی", consultant_id: "consultant-a", consultant_link_state: "linked" },
+      { id: "C", consultant: "مشاور دوم", consultant_id: "consultant-b", consultant_link_state: "linked" },
+    ]);
+  } finally {
+    await pg.close();
+  }
+});
+
 test("a related-record transfer failure rolls back the entire lead merge", async () => {
   const { pg, sql } = await createFixture();
   try {
