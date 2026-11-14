@@ -18,6 +18,7 @@ import { calculateBudgetMatch, DEFAULT_MATCH_RAHN_RATE, type BudgetInput, type B
 import { MAX_PROPERTY_MEDIA, isAllowedMediaRef } from "@/lib/media";
 import { deleteStoredMedia } from "@/lib/media-store.server";
 import { isPropertyFallbackImage } from "@/lib/property-fallback-images";
+import { selectPropertyCardImages } from "@/lib/property-card-media";
 import { writeAdminAuditLog } from "@/lib/admin-audit-log.server";
 import { getPublishReadiness } from "@/lib/property-publish-readiness";
 import { mapPropertyScheduleFields } from "@/lib/property-schedule-fields";
@@ -157,6 +158,7 @@ export type PropertyCardData = Pick<
 > & {
   featuredUntil?: string | null;
   image: string | null;
+  images?: string[];
   publishedAt?: string | null;
 };
 
@@ -485,7 +487,7 @@ const LIST_COLUMNS = `
 const CARD_COLUMNS = `
   id, slug, status, availability_status, featured, featured_until, title, transaction_type, property_type,
   neighborhood, area_m2, bedrooms, built_year, parking, elevator, storage, price, deposit, rent,
-  nullif(images->>0, '') as image,
+  nullif(images->>0, '') as image, images,
   price_drop_percent,
   latitude, longitude, published_at
 `;
@@ -515,6 +517,7 @@ function mapPropertyCard(row: Record<string, unknown>): PropertyCardData {
     deposit: row.deposit == null ? null : String(row.deposit),
     rent: row.rent == null ? null : String(row.rent),
     image: row.image ? String(row.image) : null,
+    images: selectPropertyCardImages(parseJsonArray(row.images), row.image),
     priceDropPercent: numberOrNull(row.price_drop_percent),
     latitude: roundPublicCoordinate(numberOrNull(row.latitude)),
     longitude: roundPublicCoordinate(numberOrNull(row.longitude)),

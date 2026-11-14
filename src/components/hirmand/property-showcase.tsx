@@ -15,7 +15,12 @@ import {
 import { NEIGHBORHOOD_NAMES, PROPERTY_TYPES } from "@/lib/site";
 import { listNeighborhoodNames } from "@/lib/neighborhoods";
 import { mediaSourceCandidates } from "@/lib/media";
-import { getPropertyFallbackImage, getPropertyFallbackImageAvif, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
+import { getPropertyFallbackImage, getPropertyFallbackImageAvif, getPropertyFallbackLegacyImage } from "@/lib/property-fallback-images";
+import {
+  advancePropertyCardImageFailure,
+  selectPropertyCardImages,
+  type PropertyCardImageState,
+} from "@/lib/property-card-media";
 import { formatToman } from "@/lib/money";
 import type { Property, PropertyCardData, PropertyType, PropertyTransaction } from "@/lib/properties";
 import { isFeaturedActive, listPublishedPropertyCards } from "@/lib/properties";
@@ -49,44 +54,42 @@ function priceLines(property: Property | PropertyCardData): PriceLine[] {
   const price = money(property.price);
   return price ? [{ value: `${price} تومان` }] : [];
 }
-function imageFor(property: Property | PropertyCardData) {
-  if ("image" in property && property.image && !isPropertyFallbackImage(property.image)) {
-    return property.image;
-  }
-  if ("images" in property) {
-    const ownedImage = property.images.find((src) => src && !isPropertyFallbackImage(src));
-    if (ownedImage) return ownedImage;
-  }
-  return getPropertyFallbackImage(property.propertyType, property.id);
+function imagesFor(property: Property | PropertyCardData) {
+  return selectPropertyCardImages(
+    "images" in property ? property.images : undefined,
+    "image" in property ? property.image : undefined,
+  );
 }
 
-
 function PropertyImage({
-  src,
+  sources,
   alt,
   fallback,
   fallbackAvif,
   fallbackLegacy,
 }: {
-  src: string;
+  sources: string[];
   alt: string;
   fallback: string;
   fallbackAvif: string;
   fallbackLegacy: string;
 }) {
-  const candidates = mediaSourceCandidates(src, fallback);
-  const [attempt, setAttempt] = useState(0);
-  const [legacyMode, setLegacyMode] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const current = candidates[Math.min(attempt, candidates.length - 1)] ?? fallback;
-  const usingLocalFallback = current === fallback && isPropertyFallbackImage(fallback);
+  const [imageState, setImageState] = useState<PropertyCardImageState>({
+    sourceIndex: 0,
+    candidateIndex: 0,
+    legacyMode: false,
+    failed: false,
+  });
+  const { sourceIndex, candidateIndex, legacyMode, failed } = imageState;
+  const source = sources[sourceIndex] ?? fallback;
+  const candidates = mediaSourceCandidates(source, fallback);
+  const current = candidates[Math.min(candidateIndex, candidates.length - 1)] ?? fallback;
+  const usingLocalFallback = sourceIndex >= sources.length || current === fallback;
   const usingLocalRasterFallback =
     usingLocalFallback && /\.(avif|webp)$/i.test(fallback);
+  const displayedSource = legacyMode && usingLocalFallback ? fallbackLegacy : current;
 
   if (failed) {
-    if (usingLocalFallback && !legacyMode && fallbackLegacy !== fallback) {
-      return <img src={fallbackLegacy} alt={alt} loading="lazy" decoding="async" />;
-    }
     return <span className="property-image-fallback" role="img" aria-label={alt}>تصویر این فایل بارگذاری نشد</span>;
   }
 
@@ -97,28 +100,27 @@ function PropertyImage({
       ) : null}
       {usingLocalRasterFallback && !legacyMode ? <source srcSet={fallback} type="image/webp" /> : null}
       <img
-        src={legacyMode && usingLocalFallback ? fallbackLegacy : current}
+        key={`${sourceIndex}:${candidateIndex}:${displayedSource}`}
+        src={displayedSource}
         alt={alt}
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
-        onError={() => {
-          if (usingLocalFallback && !legacyMode) {
-            setLegacyMode(true);
-            return;
-          }
-          if (attempt < candidates.length - 1) {
-            setAttempt((value) => Math.min(value + 1, candidates.length - 1));
-          } else {
-            setFailed(true);
-          }
+        onError={(event) => {
+          if (event.currentTarget.getAttribute("src") !== displayedSource) return;
+          setImageState((state) => advancePropertyCardImageFailure(state, {
+            sourceCount: sources.length,
+            candidateCount: candidates.length,
+            usingLocalFallback,
+            hasLegacyFallback: fallbackLegacy !== fallback,
+          }));
         }}
       />
     </picture>
   );
 }
 export function PropertyCard({ property, showActions = true }: { property: Property | PropertyCardData; showActions?: boolean }) {
-  const image = imageFor(property);
+  const images = imagesFor(property);
   const transaction = TRANSACTION_LABEL[property.transactionType];
   const type = PROPERTY_TYPE_LABEL[property.propertyType];
   const code = property.id.slice(-6).toUpperCase();
@@ -147,7 +149,8 @@ export function PropertyCard({ property, showActions = true }: { property: Prope
           aria-label={`مشاهده تصویر و جزئیات فایل ${property.title}`}
         >
           <PropertyImage
-            src={image}
+            key={`${property.id}:${images.join("|")}`}
+            sources={images}
             alt={property.title}
             fallback={getPropertyFallbackImage(property.propertyType, property.id)}
             fallbackAvif={getPropertyFallbackImageAvif(property.propertyType, property.id)}
