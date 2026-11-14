@@ -2038,7 +2038,7 @@ svg {
    rules used different min-heights and let optional content stretch the row. */
 @media (max-width: 720px) {
   .pf-page:has(.pf-grid.is-list-view) {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important;
   }
 
   .pf-page .pf-grid.is-list-view > .pcard.pcard-mobile-list {

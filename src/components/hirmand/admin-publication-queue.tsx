@@ -48,7 +48,7 @@ export function AdminPublicationQueue() {
   }
 
   return (
-    <section className="admin-panel admin-publication-queue" aria-labelledby="admin-publication-queue-title">
+    <section id="admin-publication-queue" className="admin-panel admin-publication-queue" aria-labelledby="admin-publication-queue-title">
       <div className="admin-panel-head">
         <div>
           <span className="kicker">کنترل انتشار</span>

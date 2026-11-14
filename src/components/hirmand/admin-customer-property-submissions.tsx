@@ -421,7 +421,7 @@ export function AdminCustomerPropertySubmissions() {
   const quickFilterLabel = queueFilter === "overdue" ? "فقط overdue" : queueFilter === "unassigned" ? "بدون مسئول" : queueFilter === "high" ? "فقط فوری" : "همه پرونده‌ها";
 
   return (
-    <section className="admin-customer-submissions admin-panel">
+    <section id="admin-customer-property-submissions" className="admin-customer-submissions admin-panel">
       <div className="admin-panel-head">
         <div>
           <span className="kicker">ثبت ملک مشتری</span>

@@ -30,6 +30,7 @@ import {
   createRangeNotSatisfiableResponse,
   liaraRangeNotSatisfiableResponse,
 } from "./music-range-response.ts";
+import { liaraMediaHttpStatus } from "./liara-media-errors.ts";
 
 test("Liara object URLs use the signed same-origin media proxy", () => {
   const source = "https://storage.c2.liara.space/hirmand/properties/uploads/gallery/home.webp";
@@ -294,6 +295,26 @@ test("Liara video and audio routes apply the shared upstream idle timeout", () =
     musicRoute,
     /new Response\(\s*withLiaraStreamIdleTimeout\(upstream\.body,\s*LIARA_MEDIA_STREAM_IDLE_TIMEOUT_MS\)/,
   );
+});
+
+test("Liara media outages are retryable while missing objects remain 404", () => {
+  assert.equal(liaraMediaHttpStatus(null), 503);
+  for (const status of [408, 429, 500, 502, 503, 504]) {
+    assert.equal(liaraMediaHttpStatus(new Response(null, { status })), 503);
+  }
+  assert.equal(liaraMediaHttpStatus(new Response(null, { status: 404 })), 404);
+  for (const status of [400, 403, 416]) {
+    assert.equal(liaraMediaHttpStatus(new Response(null, { status })), 502);
+  }
+});
+
+test("Liara image, video and music routes preserve retryable storage status", () => {
+  const mediaProxy = readFileSync("server/routes/api/media-proxy.get.ts", "utf8");
+  const musicRoute = readFileSync("server/routes/api/music/file/[id].get.ts", "utf8");
+  assert.match(mediaProxy, /liaraMediaHttpStatus\(null\)/);
+  assert.match(mediaProxy, /liaraMediaHttpStatus\(response\)/);
+  assert.match(musicRoute, /liaraMediaHttpStatus\(null\)/);
+  assert.match(musicRoute, /liaraMediaHttpStatus\(upstream\)/);
 });
 
 
