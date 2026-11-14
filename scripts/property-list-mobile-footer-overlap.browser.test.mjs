@@ -47,9 +47,9 @@ try {
         return grid?.classList.contains("is-list-view") && button?.getAttribute("aria-pressed") === "true";
       });
 
-      // The last-card clearance calculation is sensitive to late font swaps:
-      // a fallback-to-webfont metric change can move the document after the
-      // requested scroll and make the measured gap stale by several pixels.
+      // The last-card clearance calculation is sensitive to late font swaps
+      // and the compact sticky-header transition triggered by the first scroll.
+      // Settle both before measuring the final geometry.
       await page.evaluate(async () => {
         await document.fonts.ready;
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -152,6 +152,15 @@ try {
         return { requestedScroll, beforeScrollTop, cardFound: true, footerFound: Boolean(footerRect) };
       });
       if (!scrollPlan.footerFound) throw new Error("fixed bottom action bar disappeared while measuring the last list card");
+      await page.waitForTimeout(250);
+      const correctionScroll = await lastCard.evaluate((card) => {
+        const footer = document.querySelector(".quick-actions");
+        if (!footer) return 0;
+        const remaining = Math.max(0, card.getBoundingClientRect().bottom - footer.getBoundingClientRect().top + 4);
+        if (remaining > 0) window.scrollBy({ top: remaining, behavior: "instant" });
+        return remaining;
+      });
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       await page.waitForFunction(() => {
         const cards = document.querySelectorAll(".pf-grid.is-list-view > .pcard.pcard-mobile-list");
         const card = cards.item(cards.length - 1);
@@ -191,13 +200,14 @@ try {
           documentScrollHeight: scrollingElement.scrollHeight,
           documentClientHeight: scrollingElement.clientHeight,
           requestedScroll: plan.requestedScroll,
+          correctionScroll: plan.correctionScroll,
           actualScroll: scrollingElement.scrollTop - plan.beforeScrollTop,
           pagePaddingBottom: pageElement ? getComputedStyle(pageElement).paddingBottom : null,
           scrollY: window.scrollY,
           viewportHeight: window.innerHeight,
           scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
         };
-      }, scrollPlan);
+      }, { ...scrollPlan, correctionScroll });
       if (bottomGeometry.cardOverlapsFooter || bottomGeometry.imageOverlapsFooter || bottomGeometry.bodyOverlapsFooter || bottomGeometry.cardFooterGap < 4) {
         failures.push(`${viewport.width}x${viewport.height}: the fixed bottom action bar occludes the last list card, its image, or its details: ${JSON.stringify(bottomGeometry)}`);
       }

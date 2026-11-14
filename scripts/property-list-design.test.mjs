@@ -186,6 +186,7 @@ test("mobile list cards can scroll fully clear of the fixed bottom action dock",
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*scroll-margin-block-end:\s*calc\(80px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(mobileFooterBrowserTest, /await lastCard\.waitFor\(\{ state: "visible" \}\)/);
   assert.match(mobileFooterBrowserTest, /await document\.fonts\.ready/);
+  assert.match(mobileFooterBrowserTest, /const correctionScroll = await lastCard\.evaluate/);
   assert.match(mobileFooterBrowserTest, /const scrollPlan = await lastCard\.evaluate\(\(card\) =>/);
   assert.match(mobileFooterBrowserTest, /const requestedScroll = footerRect \? Math\.max\(0, cardRect\.bottom - footerRect\.top \+ 4\) : 0/);
   assert.match(mobileFooterBrowserTest, /window\.scrollBy\(\{ top: requestedScroll, behavior: "instant" \}\)/);
