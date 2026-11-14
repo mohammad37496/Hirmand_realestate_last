@@ -32,6 +32,7 @@ test("admin property mapping retains scheduled publication timestamps", () => {
 test("public detail and list server functions use the non-admin property mapper", () => {
   const publicFunctions = [
     "listPublishedProperties",
+    "listAreaPublishedProperties",
     "listPublishedPropertiesByContact",
     "listPublishedPropertiesByConsultant",
     "getPublishedPropertyByFileCode",
@@ -47,9 +48,21 @@ test("public detail and list server functions use the non-admin property mapper"
     assert.notEqual(start, -1, `missing public property function ${name}`);
     const nextExport = propertiesSource.indexOf("\nexport const ", start + 1);
     const implementation = propertiesSource.slice(start, nextExport === -1 ? undefined : nextExport);
-    assert.match(implementation, /mapProperty\(/, `${name} should map its response through mapProperty`);
+    if (name === "listPublishedProperties" || name === "listAreaPublishedProperties") {
+      assert.match(implementation, /loadPublishedProperties\(data\)/, `${name} should use the shared published-property mapper`);
+    } else {
+      assert.match(implementation, /mapProperty\(/, `${name} should map its response through mapProperty`);
+    }
     assert.doesNotMatch(implementation, /mapProperty\([^)]*,\s*\{\s*admin:\s*true/, `${name} must not use admin mapping`);
   }
+
+  const loaderStart = propertiesSource.indexOf("async function loadPublishedProperties(");
+  const loaderEnd = propertiesSource.indexOf("\nexport const listPublishedProperties", loaderStart);
+  assert.notEqual(loaderStart, -1, "missing shared published-property loader");
+  assert.notEqual(loaderEnd, -1, "missing shared loader boundary");
+  const loader = propertiesSource.slice(loaderStart, loaderEnd);
+  assert.match(loader, /mapProperty\(row\)/, "shared published-property loader must use the public mapper");
+  assert.doesNotMatch(loader, /mapProperty\([^)]*,\s*\{\s*admin:\s*true/, "shared loader must not use admin mapping");
 });
 
 test("admin property list and trash functions retain the admin mapping opt-in", () => {
