@@ -254,20 +254,25 @@ try {
       const nextImage = page.getByRole("button", { name: "تصویر بعدی" });
       for (let step = 0; step < imageUrls.length - 2; step += 1) await nextImage.click();
     }
-    await page.locator(".property-gallery-main .property-image-fallback").waitFor({ state: "visible", timeout: 5_000 });
-    await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۸"));
+    await page.waitForFunction(() => {
+      const active = document.querySelector('.property-gallery-thumb[aria-current="true"]');
+      const image = document.querySelector(".property-gallery-main img[itemprop='image']");
+      return active?.getAttribute("aria-label")?.includes("۱") && image?.complete === true && image.naturalWidth > 0;
+    }, null, { timeout: 5_000 });
+    const wrappedImage = await page.locator(".property-gallery-main img[itemprop='image']").getAttribute("src");
+    assert.ok(wrappedImage?.includes("qa-gallery=1"), `${device.name}: an exhausted last image must advance to the next healthy image instead of showing a fallback; got ${wrappedImage}`);
+    assert.equal(await page.locator(".property-gallery-main .property-image-fallback").count(), 0, `${device.name}: a healthy gallery image must remain visible after one image fails`);
 
+    await thumbs.nth(1).click();
+    await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۲"));
     await page.locator(".property-gallery-nav.property-gallery-prev").click();
     await page.waitForFunction(() => {
       const active = document.querySelector('.property-gallery-thumb[aria-current="true"]');
       const image = document.querySelector(".property-gallery-main img[itemprop='image']");
-      return active?.getAttribute("aria-label")?.includes("۷") && image?.complete === true && image.naturalWidth > 0;
+      return active?.getAttribute("aria-label")?.includes("۱") && image?.complete === true && image.naturalWidth > 0;
     });
-    assert.ok((await page.locator(".property-gallery-main img[itemprop='image']").getAttribute("src"))?.includes("qa-gallery=7"), `${device.name}: previous-image control must recover from the failed image`);
+    assert.ok((await page.locator(".property-gallery-main img[itemprop='image']").getAttribute("src"))?.includes("qa-gallery=1"), `${device.name}: previous-image navigation must skip the failed last image`);
     await page.locator(".property-gallery-nav.property-gallery-next").click();
-    await page.locator(".property-gallery-main .property-image-fallback").waitFor({ state: "visible", timeout: 5_000 });
-    await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۸"));
-    await thumbs.nth(1).click();
     await page.waitForFunction(() => {
       const active = document.querySelector('.property-gallery-thumb[aria-current="true"]');
       const image = document.querySelector(".property-gallery-main img[itemprop='image']");
@@ -290,9 +295,9 @@ try {
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), "بستن نمایش تصاویر", `${device.name}: opening the lightbox must move focus to its close control`);
 
     await page.keyboard.press("ArrowLeft");
-    await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۸"));
-    await page.keyboard.press("ArrowRight");
     await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۱"));
+    await page.keyboard.press("ArrowRight");
+    await page.waitForFunction(() => document.querySelector('.property-gallery-thumb[aria-current="true"]')?.getAttribute("aria-label")?.includes("۲"));
 
     await lightbox.evaluate((dialog) => {
       const input = document.createElement("input");
@@ -302,7 +307,7 @@ try {
       dialog.append(input);
       input.focus();
     });
-    const guardedImageLabel = await thumbs.nth(0).getAttribute("aria-label");
+    const guardedImageLabel = await page.locator('.property-gallery-thumb[aria-current="true"]').getAttribute("aria-label");
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-qa-gallery-keyboard-guard")), "true", `${device.name}: keyboard guard fixture must receive focus`);
     await page.keyboard.press("ArrowLeft");
     assert.equal(await page.locator('.property-gallery-thumb[aria-current="true"]').getAttribute("aria-label"), guardedImageLabel, `${device.name}: gallery arrow keys must not hijack an editable input`);

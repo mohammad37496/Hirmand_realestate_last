@@ -18,6 +18,30 @@ export function recordMediaFailure(
   return true;
 }
 
+/** Find the next non-empty media item that has not exhausted its sources. */
+export function nextUnfailedMediaIndex(
+  images: readonly string[],
+  failedIndexes: ReadonlySet<number>,
+  currentIndex: number,
+): number | null {
+  if (
+    !Number.isInteger(currentIndex) ||
+    currentIndex < 0 ||
+    currentIndex >= images.length
+  ) {
+    return null;
+  }
+
+  for (let offset = 1; offset < images.length; offset += 1) {
+    const candidate = (currentIndex + offset) % images.length;
+    if (images[candidate]?.trim() && !failedIndexes.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 /** A later successful load or explicit retry makes this entry eligible again. */
 export function clearMediaFailure(failedIndexes: Set<number>, index: number): void {
   failedIndexes.delete(index);

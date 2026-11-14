@@ -158,7 +158,7 @@ import { formatPersianDate } from "@/lib/persian-date";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { shouldHandleGalleryArrowKey } from "@/lib/gallery-keyboard.mjs";
 import { isVideoUrl, mediaPreviewSource, mediaSourceCandidates } from "@/lib/media";
-import { clearMediaFailure, recordMediaFailure } from "@/lib/property-media-recovery";
+import { clearMediaFailure, nextUnfailedMediaIndex, recordMediaFailure } from "@/lib/property-media-recovery";
 import { isPermanentlyWatermarkedMediaUrl } from "@/lib/property-watermark";
 import { getPropertyFallbackImage, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { areaSlug } from "@/lib/areas";
@@ -814,9 +814,17 @@ function Gallery({
 
   const markImageFailed = useCallback((failedIndex: number) => {
     if (activeRef.current !== failedIndex) return;
-    if (recordMediaFailure(images, failedImageIndexesRef.current, failedIndex)) {
+    if (!recordMediaFailure(images, failedImageIndexesRef.current, failedIndex)) return;
+    const nextIndex = nextUnfailedMediaIndex(images, failedImageIndexesRef.current, failedIndex);
+    if (nextIndex === null) {
       setFallbackActive(true);
+      return;
     }
+    activeRef.current = nextIndex;
+    setActive(nextIndex);
+    setFallbackActive(false);
+    setImageResetToken((value) => value + 1);
+    setZoomScale(1);
   }, [images]);
 
   useEffect(() => {
