@@ -7,6 +7,15 @@ export type AreaPageDependencyResult<TProperties, TMarket, TContent> = {
   failed: AreaPageDependency[];
 };
 
+/** Keep an unconfigured database distinct from a successful query with no published properties. */
+export async function loadAreaPropertiesIfConfigured<T>(
+  databaseSource: string,
+  load: () => Promise<T[]>,
+): Promise<T[] | null> {
+  if (databaseSource === "unconfigured") return null;
+  return load();
+}
+
 /** Loads independent area-page data without allowing one failed query to erase the others. */
 export async function settleAreaPageDependencies<TProperties, TMarket, TContent>(
   loaders: {

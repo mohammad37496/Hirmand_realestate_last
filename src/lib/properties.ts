@@ -7,6 +7,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { nullableMoneyFieldSchema } from "@/lib/property-input-normalization";
 import { buildPublicPropertyFilterParams, buildPublicPropertyOrderBySql, buildPublicPropertyWhereSql } from "@/lib/property-search-sql";
 import { publicPropertyFiltersSchema } from "@/lib/property-search-contract";
+import { loadAreaPropertiesIfConfigured } from "@/lib/area-page-data";
 import { buildSmartPropertyMatchScoreSql } from "@/lib/smart-property-match-sql";
 import { matchablePropertyVisibilitySql } from "@/lib/property-matchability";
 import { requireAdminPermission } from "@/lib/admin-role.server";
@@ -614,23 +615,34 @@ export const matchPublishedPropertiesBySmartSearch = createServerFn({ method: "G
     );
   });
 
+async function loadPublishedProperties(data: z.infer<typeof publicPropertyFiltersSchema>) {
+  const sql = await getSql();
+  const params = buildPublicPropertyFilterParams(data);
+  const rows = await sql.query<Record<string, unknown>>(
+    [
+      "select " + LIST_COLUMNS,
+      "from properties where " + buildPublicPropertyWhereSql(),
+      "order by " + buildPublicPropertyOrderBySql(),
+      "limit 48 offset $38",
+    ].join(" "),
+    [...params, data.sort],
+  );
+  return rows.map((row) => mapProperty(row));
+}
+
 export const listPublishedProperties = createServerFn({ method: "GET" })
   .validator(publicPropertyFiltersSchema)
   .handler(async ({ data }) => {
     if (dbSource === "unconfigured") return [];
-    const sql = await getSql();
-    const params = buildPublicPropertyFilterParams(data);
-    const rows = await sql.query<Record<string, unknown>>(
-      [
-        "select " + LIST_COLUMNS,
-        "from properties where " + buildPublicPropertyWhereSql(),
-        "order by " + buildPublicPropertyOrderBySql(),
-        "limit 48 offset $38",
-      ].join(" "),
-      [...params, data.sort],
-    );
-    return rows.map((row) => mapProperty(row));
+    return loadPublishedProperties(data);
   });
+
+/** Area pages need to distinguish an unavailable database from a real empty listing. */
+export const listAreaPublishedProperties = createServerFn({ method: "GET" })
+  .validator(publicPropertyFiltersSchema)
+  .handler(async ({ data }) =>
+    loadAreaPropertiesIfConfigured(dbSource, () => loadPublishedProperties(data)),
+  );
 
 export const countPublishedProperties = createServerFn({ method: "GET" })
   .validator(publicPropertyFiltersSchema)
