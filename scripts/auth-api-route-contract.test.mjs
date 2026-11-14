@@ -16,6 +16,22 @@ test("Better Auth handles both session reads and sign-in/sign-out writes", () =>
   assert.match(source, /POST\s*:\s*async\s*\(\{\s*request\s*\}\)\s*=>\s*auth\.handler\(request\)/);
 });
 
+const providerSource = readFileSync(new URL("../src/lib/auth/providers.ts", import.meta.url), "utf8");
+const envExampleSource = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
+const readmeSource = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+
+test("documented production OAuth callbacks match Better Auth provider routes", () => {
+  for (const providerId of ["grok-google", "grok-x"]) {
+    assert.ok(providerSource.includes(`providerId: "${providerId}"`));
+    assert.ok(envExampleSource.includes(`https://hirmandrealestate.ir/api/auth/callback/${providerId}`));
+    assert.ok(readmeSource.includes(`https://hirmandrealestate.ir/api/auth/callback/${providerId}`));
+  }
+  assert.doesNotMatch(envExampleSource, /\/api\/auth\/oauth2\/callback\//);
+  assert.doesNotMatch(readmeSource, /\/api\/auth\/oauth2\/callback\//);
+  assert.match(readmeSource, /GROK_PREVIEW_CLIENT_SECRET/);
+  assert.match(readmeSource, /https:\/\/\*\.grok-sandbox\.com\/api\/auth\/callback\/\*/);
+});
+
 const adminSessionPath = fileURLToPath(new URL("../server/routes/api/admin/session.post.ts", import.meta.url));
 const adminSessionSource = readFileSync(adminSessionPath, "utf8");
 const logoutBlock = adminSessionSource.split('if (action === "logout") {')[1]?.split("\n  }")[0] ?? "";
@@ -35,6 +51,12 @@ test("admin logout preserves the cookie on revoke failure and clears it only aft
 
 const smokePath = fileURLToPath(new URL("./browser-smoke.mjs", import.meta.url));
 const smokeSource = readFileSync(smokePath, "utf8");
+
+test("production-preview browser smoke forwards a synthetic client IP only to loopback", () => {
+  assert.match(smokeSource, /const localSmokeTarget = \["localhost", "127\.0\.0\.1", "\[::1\]"\]\.includes\(new URL\(url\)\.hostname\)/);
+  assert.match(smokeSource, /localSmokeTarget \? \{ extraHTTPHeaders: \{ "x-forwarded-for": "127\.0\.0\.1" \} \} : \{\}/);
+  assert.doesNotMatch(smokeSource, /browser\.newPage\(/);
+});
 
 test("browser smoke requires a JSON 200 from the Better Auth session route", () => {
   assert.match(smokeSource, /new URL\(["']\/api\/auth\/get-session["'], url\)/);

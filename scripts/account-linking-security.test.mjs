@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import fs from "node:fs";
 import { handleOAuthUserInfo } from "../node_modules/better-auth/dist/oauth2/link-account.mjs";
+
+const previewAuthSource = fs.readFileSync(new URL("../src/lib/auth/preview.ts", import.meta.url), "utf8");
+const authServerSource = fs.readFileSync(new URL("../src/lib/auth/server.ts", import.meta.url), "utf8");
+
+test("preview OAuth client secret is supplied by server environment, never committed to source", () => {
+  assert.doesNotMatch(previewAuthSource, /PREVIEW_CLIENT_SECRET\s*=/,
+    "a public source repository must not contain a reusable OAuth client secret");
+  assert.match(authServerSource, /allowPreviewOAuth\s*\?\s*env\("GROK_PREVIEW_CLIENT_SECRET"\)/,
+    "preview OAuth must fail closed unless its secret is configured in the server environment");
+});
 
 test("a trusted OAuth identity cannot take over an unverified local email/password account", async () => {
   let linkAttempts = 0;
@@ -9,9 +20,9 @@ test("a trusted OAuth identity cannot take over an unverified local email/passwo
   const result = await handleOAuthUserInfo({
     context: {
       internalAdapter: {
-        findOAuthUser: async () => ({
+        findAccountOwnerByKey: async () => null,
+        findUserByEmail: async () => ({
           user: { id: "attacker-owned-account", email: "victim@example.com", emailVerified: false },
-          linkedAccount: null,
           accounts: [],
         }),
         linkAccount: async () => { linkAttempts += 1; },
