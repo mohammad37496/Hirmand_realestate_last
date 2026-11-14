@@ -76,6 +76,10 @@ export const ADMIN_RATE_LIMIT_MIGRATIONS = Object.freeze([
   "0106_admin_rate_limits.sql",
 ]);
 
+export const LEAD_MERGE_MIGRATIONS = Object.freeze([
+  "0109_lead_merge_related_records.sql",
+]);
+
 /**
  * Fail closed when an auth-enabled deployment is missing a required root migration.
  * @param {Iterable<string>} paths

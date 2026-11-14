@@ -320,6 +320,41 @@ jobs:
           echo "::error::Liara runtime logs did not report PostgreSQL admin rate-limit migration verification for deployment ${EXPECTED_DEPLOYMENT_SHA} within 12 attempts."
           exit 1
 
+      - name: Verify CRM lead merge migration in Liara runtime logs
+        timeout-minutes: 3
+        env:
+          LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
+          LIARA_TEAM_ID: ${{ secrets.LIARA_TEAM_ID }}
+          LIARA_APP_NAME: ${{ vars.LIARA_APP_NAME }}
+          EXPECTED_DEPLOYMENT_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_NAME="${LIARA_APP_NAME:-hirmand}"
+          EXPECTED_LINE="[migrate] lead merge migrations verified for deployment ${EXPECTED_DEPLOYMENT_SHA}: 0109_lead_merge_related_records.sql"
+          TEAM_ARGS=()
+          if [[ -n "${LIARA_TEAM_ID:-}" ]]; then
+            TEAM_ARGS+=(--team-id="${LIARA_TEAM_ID}")
+          fi
+          for attempt in {1..12}; do
+            LOG_OUTPUT="$(liara app logs \
+              --app="${APP_NAME}" \
+              --api-token="${LIARA_TOKEN}" \
+              "${TEAM_ARGS[@]}" \
+              --timestamps \
+              --last-lines \
+              --since="15 minutes ago" 2>/dev/null || true)"
+            if grep -Fq "${EXPECTED_LINE}" <<<"${LOG_OUTPUT}"; then
+              echo "CRM lead merge migration verified for deployment ${EXPECTED_DEPLOYMENT_SHA}."
+              exit 0
+            fi
+            if [[ "${attempt}" -lt 12 ]]; then
+              sleep 10
+            fi
+          done
+          echo "::error::Liara runtime logs did not report CRM lead merge migration verification for deployment ${EXPECTED_DEPLOYMENT_SHA} within 12 attempts."
+          exit 1
+
       - name: Verify live Liara release matches this commit
         id: live_release_verify
         continue-on-error: true

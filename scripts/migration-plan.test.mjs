@@ -15,6 +15,7 @@ import {
   assertRequiredMigrationLedger,
   ADMIN_RATE_LIMIT_MIGRATIONS,
   CUSTOMER_AUTH_MIGRATIONS,
+  LEAD_MERGE_MIGRATIONS,
   LEAD_CONSULTANT_RELATION_MIGRATIONS,
   PROPERTY_CONSULTANT_RELATION_MIGRATIONS,
   isMigrationFile,
@@ -115,6 +116,14 @@ test("PostgreSQL admin rate-limit migration is required in every production depl
   assert.doesNotThrow(() => assertRequiredMigrationLedger(ADMIN_RATE_LIMIT_MIGRATIONS, ADMIN_RATE_LIMIT_MIGRATIONS));
   assert.throws(() => assertRequiredMigrationFiles([], ADMIN_RATE_LIMIT_MIGRATIONS), /0106_admin_rate_limits\.sql/);
   assert.throws(() => assertRequiredMigrationLedger([], ADMIN_RATE_LIMIT_MIGRATIONS), /0106_admin_rate_limits\.sql/);
+});
+
+test("CRM lead-merge migration is required in every production deploy ledger", () => {
+  assert.deepEqual(LEAD_MERGE_MIGRATIONS, ["0109_lead_merge_related_records.sql"]);
+  assert.doesNotThrow(() => assertRequiredMigrationFiles(LEAD_MERGE_MIGRATIONS, LEAD_MERGE_MIGRATIONS));
+  assert.doesNotThrow(() => assertRequiredMigrationLedger(LEAD_MERGE_MIGRATIONS, LEAD_MERGE_MIGRATIONS));
+  assert.throws(() => assertRequiredMigrationFiles([], LEAD_MERGE_MIGRATIONS), /0109_lead_merge_related_records\.sql/);
+  assert.throws(() => assertRequiredMigrationLedger([], LEAD_MERGE_MIGRATIONS), /0109_lead_merge_related_records\.sql/);
 });
 
 test("non-.sql entries are dropped (readdir also yields the auth/ directory)", () => {
