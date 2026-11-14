@@ -29,6 +29,7 @@ test("admin logout verifies the signed token and awaits server-side revocation",
 test("admin logout preserves the cookie on revoke failure and clears it only after success", () => {
   assert.ok(logoutBlock.indexOf("if (!logoutCompleted)") < logoutBlock.indexOf("setCookie(event, ADMIN_SESSION_COOKIE"));
   assert.match(logoutBlock, /if \(!logoutCompleted\)[\s\S]*?statusCode:\s*503/);
+  assert.match(logoutBlock, /setCookie\(event, ADMIN_SESSION_COOKIE, "",[\s\S]*?maxAge:\s*0/);
   assert.match(logoutBlock, /return \{ success: true \}/);
 });
 
@@ -45,4 +46,29 @@ test("browser smoke requires a JSON 200 from the Better Auth session route", () 
   assert.match(smokeSource, /new URL\(["']\/api\/auth\/get-session["'], url\)/);
   assert.match(smokeSource, /response.status\(\) === 200 && validJson/);
   assert.match(smokeSource, /if \(!authRouteCheck.ok\)/);
+});
+
+const logoutHelperPath = fileURLToPath(new URL("../src/lib/admin-session-logout.ts", import.meta.url));
+const logoutHelperSource = readFileSync(logoutHelperPath, "utf8");
+
+const adminSessionServerPath = fileURLToPath(new URL("../src/lib/admin-session.server.ts", import.meta.url));
+const adminSessionServerSource = readFileSync(adminSessionServerPath, "utf8");
+
+test("production rejects stateless admin JWTs when database configuration is missing", () => {
+  assert.match(adminSessionServerSource, /shouldRejectStatelessAdminSession\(dbSource !== "unconfigured", process\.env\.NODE_ENV === "production" \|\| process\.env\.VERCEL === "1"\)/);
+  assert.match(adminSessionServerSource, /if \(shouldRejectStatelessAdminSession[\s\S]*?return null/);
+});
+
+test("stateless admin-key logout clears the local cookie without claiming server-side revocation", () => {
+  assert.match(logoutBlock, /dbSource !== "unconfigured"/);
+  assert.match(logoutHelperSource, /if \(!databaseConfigured\) return true/);
+  assert.match(logoutHelperSource, /copied development JWT remains[\s\S]*?valid until expiry/);
+});
+
+test("production rejects stateless admin-key login before issuing a cookie", () => {
+  const probeIndex = adminSessionSource.indexOf('if (!submittedKey && !accountLogin) return');
+  const guardIndex = adminSessionSource.indexOf('shouldRejectStatelessAdminSession(dbSource !== "unconfigured", secureCookie)');
+  const cookieIndex = adminSessionSource.indexOf('setCookie(event, ADMIN_SESSION_COOKIE, token');
+  assert.ok(probeIndex >= 0 && guardIndex > probeIndex && cookieIndex > guardIndex);
+  assert.match(adminSessionSource, /if \(shouldRejectStatelessAdminSession\([\s\S]*?statusCode:\s*503/);
 });
