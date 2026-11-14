@@ -60,7 +60,8 @@
     "test:admin-overdue-task-dedupe": "node --experimental-strip-types --test src/lib/admin-overdue-lead-tasks.test.ts scripts/admin-overdue-task-postgres.test.mjs && node --test scripts/admin-overdue-task-dedupe-contract.test.mjs",
     "test:customer-tracking-client": "node --experimental-strip-types --test src/lib/customer-tracking-client.test.ts src/lib/public-lead-tracking-money.test.ts && node --test scripts/customer-tracking-client-contract.test.mjs",
     "test:notification-inbox": "node --experimental-strip-types --test src/lib/admin-notification-access.test.ts src/lib/admin-notification-candidates.test.ts src/lib/admin-notification-migration.test.ts src/lib/admin-notification-store.test.ts src/lib/admin-notification-sync.test.ts && node --test scripts/admin-notification-candidates-contract.test.mjs",
-    "test:property-card-media": "node --experimental-strip-types --test src/lib/property-card-media.test.ts && node --test scripts/property-card-media-contract.test.mjs"
+    "test:property-card-media": "node --experimental-strip-types --test src/lib/property-card-media.test.ts && node --test scripts/property-card-media-contract.test.mjs",
+    "test:property-card-media-browser": "node scripts/property-card-media-browser.test.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
