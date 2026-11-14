@@ -256,6 +256,14 @@ testRunner.test("responsive guardrails load after the older global styles", () =
   assert.match(rootRoute, /<html lang="fa" dir="rtl"/);
 });
 
+testRunner.test("mobile property list reserves enough scroll room above the fixed bottom action bar", () => {
+  assert.match(
+    responsiveCss,
+    /\.pf-page:has\(\.pf-grid\.is-list-view\)\s*\{\s*padding-bottom:\s*calc\(120px \+ env\(safe-area-inset-bottom\)\) !important;/,
+  );
+  assert.match(responsiveCss, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*scroll-margin-block-end:\s*calc\(80px \+ env\(safe-area-inset-bottom\)\)/s);
+});
+
 testRunner.test("Playwright responsive matrix includes all requested widths and key routes", () => {
   assert.match(browserSmoke, /const viewportWidths = \[320, 360, 375, 390, 430, 768, 1024, 1440\]/);
   assert.match(browserSmoke, /const brokenWords = \[\]/, "browser smoke must inspect narrow Persian text elements");
