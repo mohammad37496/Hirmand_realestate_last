@@ -114,8 +114,9 @@ test("public lead actions check origin and rate-limit capability-token operation
 });
 
 test("public visit cancellation uses an atomic active-status predicate and returns conflict for stale state", () => {
-  assert.match(publicLeadActionsRoute, /cancelPropertyVisitRequest\(sql, leadId\)/);
-  assert.match(publicLeadActionsRoute, /cancelResult\.kind !== "cancelled"[\s\S]*?statusCode: 409/);
+  assert.match(publicLeadActionsRoute, /cancelPropertyVisitRequest\(transactionSql, target\.leadId\)/);
+  assert.match(propertyVisitRequest, /merged_into_lead_id is null and status not in \('closed','spam'\) and visit_status in \('requested','confirmed'\)/);
+  assert.match(publicLeadActionsRoute, /actionResult\.kind === "not_cancellable"[\s\S]*?statusCode: 409/);
   assert.doesNotMatch(publicLeadActionsRoute, /update leads set visit_status='cancelled'[^\n]*where id=\$1"/);
 });
 
@@ -151,9 +152,10 @@ test("every public lead branch uses the canonical property visibility predicate"
 });
 
 test("public visit rescheduling checks conflicts and updates under the same property row lock", () => {
-  assert.match(publicLeadActionsRoute, /reschedulePropertyVisitRequest\(sql,/);
+  assert.match(publicLeadActionsRoute, /reschedulePropertyVisitRequestInTransaction\(transactionSql,/);
   assert.doesNotMatch(publicLeadActionsRoute, /select id from leads where property_id is not null[\s\S]*?update leads set visit_preferred_at/);
-  assert.match(publicLeadActionsRoute, /rescheduleResult\.kind === "conflict"/);
+  assert.match(publicLeadActionsRoute, /actionResult\.kind === "conflict"/);
+  assert.match(propertyVisitRequest, /from properties p[\s\S]*?for update/);
 });
 
 test("public property interactions share the canonical publication and unpublish visibility predicate", () => {

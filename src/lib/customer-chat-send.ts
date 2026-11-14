@@ -1,4 +1,5 @@
 import type { Sql } from "./db";
+import { lockPublicLeadTrackingTarget } from "./public-lead-tracking.ts";
 
 export type CustomerChatSendResult =
   | { kind: "sent"; id: string }
@@ -14,16 +15,8 @@ export async function sendCustomerChatMessage(
   if (typeof sql.transaction !== "function") return { kind: "unavailable" };
 
   return sql.transaction(async (transactionSql) => {
-    const leads = await transactionSql.query<{ id: string; trackingToken: string }>(
-      `select id, public_tracking_token as "trackingToken"
-       from leads
-       where upper(public_tracking_token)=upper($1)
-       limit 1
-       for update`,
-      [input.trackingCode],
-    );
-    const lead = leads[0];
-    if (!lead) return { kind: "not_found" };
+    const target = await lockPublicLeadTrackingTarget(transactionSql, input.trackingCode);
+    if (!target) return { kind: "not_found" };
 
     const recent = await transactionSql.query<{ id: string }>(
       `select id
@@ -31,7 +24,7 @@ export async function sendCustomerChatMessage(
        where lead_id=$1
          and created_at > clock_timestamp() - interval '12 seconds'
        limit 1`,
-      [lead.id],
+      [target.leadId],
     );
     if (recent.length) return { kind: "cooldown" };
 
@@ -40,7 +33,7 @@ export async function sendCustomerChatMessage(
       `insert into customer_messages
         (id,lead_id,tracking_token,sender_type,sender_name,message,created_at)
        values($1,$2,$3,'customer',$4,$5,clock_timestamp())`,
-      [id, lead.id, lead.trackingToken, input.senderName, input.message],
+      [id, target.leadId, target.trackingToken, input.senderName, input.message],
     );
     return { kind: "sent", id };
   });

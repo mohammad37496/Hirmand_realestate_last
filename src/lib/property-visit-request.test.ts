@@ -8,7 +8,13 @@ test("public visit cancellation only changes requested or confirmed visits", asy
   const pg = new PGlite();
   try {
     await pg.exec(`
-      create table leads (id text primary key, visit_status text not null, updated_at timestamptz not null default current_timestamp);
+      create table leads (
+        id text primary key,
+        visit_status text not null,
+        status text not null default 'new',
+        merged_into_lead_id text,
+        updated_at timestamptz not null default current_timestamp
+      );
       insert into leads(id,visit_status) values ('requested','requested'),('confirmed','confirmed'),('completed','completed'),('cancelled','cancelled');
     `);
     const sql = {

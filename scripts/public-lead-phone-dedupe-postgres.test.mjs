@@ -56,6 +56,7 @@ test("same-phone public lead submissions serialize across independent PostgreSQL
       create table "${schema}".leads (
         id text primary key,
         phone text not null,
+        status text not null default 'new',
         name text,
         people_count integer,
         job text,

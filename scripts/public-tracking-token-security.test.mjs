@@ -22,6 +22,7 @@ const [publicTracking, ownerStatus, partnerLookup, customerChatGet, customerChat
   read("src/lib/tracking-token.server.ts"),
 ]);
 const customerChatSend = await read("src/lib/customer-chat-send.ts");
+const publicLeadTracking = await read("src/lib/public-lead-tracking.ts");
 
 function assertThrottleBefore(route, validationOrLookup) {
   const throttle = route.indexOf("consumeAdminAttempt(");
@@ -59,11 +60,12 @@ test("partner lookup checks same-origin and rate limits before reading and valid
 
 test("customer chat lookups and sends are rate limited before token validation", () => {
   assertThrottleBefore(customerChatGet, "codeSchema.safeParse(rawCode)");
-  assert.match(customerChatGet, /public_tracking_token/);
+  assert.match(customerChatGet, /sharePublicLeadTrackingTarget/);
+  assert.match(publicLeadTracking, /where public_tracking_token = upper\(\$1\)/);
   assert.match(customerChatPost, /assertSameOrigin\(event\)/);
   assert.match(customerChatPost, /setResponseHeader\(event,\s*["']cache-control["'],\s*["']no-store["']\)/);
   assertThrottleBefore(customerChatPost, "schema.safeParse(");
-  assert.match(customerChatSend, /public_tracking_token/);
+  assert.match(customerChatSend, /lockPublicLeadTrackingTarget/);
 });
 
 test("other public token operations retain their existing pre-validation throttles", () => {
@@ -94,7 +96,7 @@ test("all public-token consumers share the legacy-compatible validator and 128-b
   for (const route of [publicTracking, ownerStatus, customerChatGet, customerChatPost, submissions, publicActions, adminCustomerChat]) {
     assert.match(route, /isValidPublicTrackingToken/);
   }
-  assert.match(adminCustomerChat, /public_tracking_token/);
+  assert.match(adminCustomerChat, /lockPublicLeadTrackingTarget/);
   assert.match(mediaAccess, /isValidPublicTrackingToken/);
   assert.match(leadsRoute, /generatePublicTrackingToken\(\)/);
   assert.match(submissions, /generatePublicTrackingToken\(\)/);

@@ -152,10 +152,10 @@ test("concurrent reschedules for one property and time cannot both reserve the s
   const lockQueries: string[] = [];
   const transactionSql = {
     query: async <T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> => {
-      if (/select id, property_id, visit_status from leads/i.test(text)) {
+      if (/select id, property_id, visit_status, status, merged_into_lead_id from leads/i.test(text)) {
         lockQueries.push(text);
         const lead = leads.find((item) => item.id === String(params[0]));
-        return (lead ? [{ id: lead.id, property_id: lead.property_id, visit_status: lead.visit_status }] : []) as T[];
+        return (lead ? [{ id: lead.id, property_id: lead.property_id, visit_status: lead.visit_status, status: "new", merged_into_lead_id: null }] : []) as T[];
       }
       if (/from properties/i.test(text)) {
         lockQueries.push(text);
@@ -219,6 +219,7 @@ test("PGlite serializes concurrent visit creation and rescheduling on the proper
         deal text, property_type text, neighborhood text, consultant text, consultant_id text, note text,
         source text, follow_up_at timestamptz, floor_preference text, property_id text,
         visit_preferred_at timestamptz, visit_requested_at timestamptz, visit_status text,
+        status text not null default 'new', merged_into_lead_id text,
         public_tracking_token text, created_at timestamptz default current_timestamp,
         updated_at timestamptz default current_timestamp
       );

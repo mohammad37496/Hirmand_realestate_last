@@ -158,17 +158,29 @@ export async function reschedulePropertyVisitRequest(
     throw new Error("Database transaction support is required for property visit rescheduling.");
   }
 
-  return sql.transaction(async (transactionSql) => {
+  return sql.transaction((transactionSql) => reschedulePropertyVisitRequestInTransaction(transactionSql, input));
+}
+
+/** Reschedule within a caller-owned transaction that already resolved the public tracking alias. */
+export async function reschedulePropertyVisitRequestInTransaction(
+  transactionSql: Pick<Sql, "query">,
+  input: { leadId: string; visitAt: string },
+): Promise<PropertyVisitRescheduleResult> {
     const leadRows = await transactionSql.query<{
       id: string;
       property_id: string | null;
       visit_status: string;
+      status: string;
+      merged_into_lead_id: string | null;
     }>(
-      "select id, property_id, visit_status from leads where id=$1 limit 1 for update",
+      "select id, property_id, visit_status, status, merged_into_lead_id from leads where id=$1 limit 1 for update",
       [input.leadId],
     );
     const lead = leadRows[0];
     if (!lead) return { kind: "not_found" };
+    if (lead.merged_into_lead_id || lead.status === "closed" || lead.status === "spam") {
+      return { kind: "not_reschedulable" };
+    }
     if (lead.visit_status !== "requested" && lead.visit_status !== "confirmed") {
       return { kind: "not_reschedulable" };
     }
@@ -188,20 +200,19 @@ export async function reschedulePropertyVisitRequest(
     if (conflictRows[0]) return { kind: "conflict" };
 
     const updatedRows = await transactionSql.query<{ id: string }>(
-      "update leads set visit_preferred_at=$2, visit_status='requested', updated_at=current_timestamp where id=$1 returning id",
+      "update leads set visit_preferred_at=$2, visit_status='requested', updated_at=current_timestamp where id=$1 and merged_into_lead_id is null and status not in ('closed','spam') and visit_status in ('requested','confirmed') returning id",
       [input.leadId, input.visitAt],
     );
     return updatedRows[0] ? { kind: "updated" } : { kind: "failed" };
-  });
 }
 
 /** Cancel only a still-active public visit; the predicate is the concurrency guard. */
 export async function cancelPropertyVisitRequest(
-  sql: Sql,
+  sql: Pick<Sql, "query">,
   leadId: string,
 ): Promise<PropertyVisitCancellationResult> {
   const rows = await sql.query<{ id: string }>(
-    "update leads set visit_status='cancelled', updated_at=current_timestamp where id=$1 and visit_status in ('requested','confirmed') returning id",
+    "update leads set visit_status='cancelled', updated_at=current_timestamp where id=$1 and merged_into_lead_id is null and status not in ('closed','spam') and visit_status in ('requested','confirmed') returning id",
     [leadId],
   );
   return rows[0] ? { kind: "cancelled" } : { kind: "not_cancellable" };

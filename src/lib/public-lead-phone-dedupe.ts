@@ -48,7 +48,7 @@ export async function findRecentPublicCallbackLead(
   callbackAt: Date,
 ): Promise<{ id: string; public_tracking_token: string | null } | null> {
   const rows = await sql.query<{ id: string; public_tracking_token: string | null }>(
-    "select id, public_tracking_token from leads where phone=$1 and callback_preferred_at=$2::timestamptz and created_at > clock_timestamp() - interval '10 minutes' order by created_at desc limit 1",
+    "select id, public_tracking_token from leads where phone=$1 and status not in ('closed','spam') and callback_preferred_at=$2::timestamptz and created_at > clock_timestamp() - interval '10 minutes' order by created_at desc, id desc limit 1",
     [phone, callbackAt.toISOString()],
   );
   return rows[0] ?? null;
@@ -59,7 +59,7 @@ export async function findRecentPublicLeadByPhone(
   phone: string,
 ): Promise<{ id: string; public_tracking_token: string | null } | null> {
   const rows = await sql.query<{ id: string; public_tracking_token: string | null }>(
-    "select id,public_tracking_token from leads where phone=$1 and created_at > clock_timestamp() - interval '10 minutes' limit 1",
+    "select id,public_tracking_token from leads where phone=$1 and status not in ('closed','spam') and created_at > clock_timestamp() - interval '10 minutes' order by created_at desc, id desc limit 1",
     [phone],
   );
   return rows[0] ?? null;
@@ -73,7 +73,7 @@ export async function findRecentPropertyRequestLead(
   deal: string,
 ): Promise<{ id: string; public_tracking_token: string | null } | null> {
   const rows = await sql.query<{ id: string; public_tracking_token: string | null }>(
-    "select id,public_tracking_token from leads where property_id::text=$1 and phone=$2 and deal=$3 and created_at > clock_timestamp() - interval '10 minutes' order by created_at desc limit 1",
+    "select id,public_tracking_token from leads where property_id::text=$1 and phone=$2 and deal=$3 and status not in ('closed','spam') and created_at > clock_timestamp() - interval '10 minutes' order by created_at desc, id desc limit 1",
     [propertyId, phone, deal],
   );
   return rows[0] ?? null;
