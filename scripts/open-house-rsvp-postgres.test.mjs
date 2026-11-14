@@ -334,6 +334,7 @@ test("public visit cancellation cannot overwrite an admin-completed visit after 
       create table leads (
         id text primary key,
         visit_status text not null,
+        merged_into_lead_id text references leads(id) on delete restrict,
         updated_at timestamptz not null default current_timestamp
       );
       insert into leads(id,visit_status) values ('lead-1','requested');
