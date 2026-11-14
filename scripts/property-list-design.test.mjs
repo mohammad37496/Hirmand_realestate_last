@@ -191,20 +191,15 @@ test("mobile list cards can scroll fully clear of the fixed bottom action dock",
   assert.match(mobileFooterBrowserTest, /if \(!scrollPlan\.footerFound\)/);
   assert.match(mobileFooterBrowserTest, /actualScroll:\s*scrollingElement\.scrollTop\s*-\s*plan\.beforeScrollTop/);
   assert.match(mobileFooterBrowserTest, /bottomGeometry\.cardFooterGap\s*<\s*4/);
-  assert.match(uniformBrowserSmoke, /scrollIntoView\(\{\s*block:\s*"end",\s*inline:\s*"nearest",\s*behavior:\s*"instant"\s*\}\)/);
-  assert.match(uniformBrowserSmoke, /footerGeometry\.overlap \|\| footerGeometry\.gap < 4/);
+  assert.doesNotMatch(uniformBrowserSmoke, /scrollIntoView/);
+  assert.doesNotMatch(uniformBrowserSmoke, /\.quick-actions/);
 });
 
-test("mobile uniform-card browser checks disable smooth scrolling before measuring final card clearance", () => {
-  for (const file of ["./property-list-mobile-uniform.browser.test.mjs"]) {
-    const source = fs.readFileSync(new URL(file, import.meta.url), "utf8");
-    const scrollCall = source.match(/await\s+(?:\w+\.last\(\)|\w+)\.evaluate\(\(card\)\s*=>\s*card\.scrollIntoView/);
-    assert.ok(scrollCall, `${file} must scroll the final card into view`);
-    const scrollIndex = scrollCall.index ?? -1;
-    const beforeScroll = source.slice(0, scrollIndex);
-    assert.match(beforeScroll, /document\.documentElement\.style\.scrollBehavior\s*=\s*"auto"/);
-    assert.match(beforeScroll, /document\.body\.style\.scrollBehavior\s*=\s*"auto"/);
-  }
+test("mobile uniform-card browser checks do not scroll synthetic cards into the live pagination sentinel", () => {
+  assert.doesNotMatch(uniformBrowserSmoke, /scrollIntoView/);
+  assert.doesNotMatch(uniformBrowserSmoke, /:last-child/);
+  assert.doesNotMatch(uniformBrowserSmoke, /\.quick-actions/);
+  assert.match(mobileFooterBrowserTest, /const requestedScroll = footerRect \? Math\.max\(0, cardRect\.bottom - footerRect\.top \+ 4\) : 0/);
 });
 
 test("homepage shared cards retain the compact RTL list and 44px image action overlay on phones", () => {

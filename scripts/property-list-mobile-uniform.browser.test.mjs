@@ -205,59 +205,6 @@ try {
       );
       if (invalid.length) failures.push(`${viewport.width}px: list-card variants do not share the compact 132px geometry: ${JSON.stringify(invalid)}`);
 
-      const footer = page.locator(".quick-actions").first();
-      let footerGeometry = null;
-      if (await footer.count()) {
-        // This is a final-position geometry assertion. Do not sample a smooth
-        // scroll animation that may still be in flight on a loaded CI runner.
-        await page.evaluate(() => {
-          document.documentElement.style.scrollBehavior = "auto";
-          document.body.style.scrollBehavior = "auto";
-        });
-        await cards.last().evaluate((card) => card.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" }));
-        await page.evaluate(() => {
-          const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
-          const footerElement = document.querySelector(".quick-actions");
-          if (!card || !footerElement) return;
-          const cardRect = card.getBoundingClientRect();
-          const footerRect = footerElement.getBoundingClientRect();
-          const clearance = footerRect.top - cardRect.bottom;
-          if (clearance < 8) window.scrollBy({ top: 8 - clearance, behavior: "instant" });
-        });
-        await page.waitForFunction(() => {
-          const card = document.querySelector(".pf-grid.is-list-view > .pcard.pcard-mobile-list:last-child");
-          const footerElement = document.querySelector(".quick-actions");
-          if (!card || !footerElement) return false;
-          const cardRect = card.getBoundingClientRect();
-          const footerRect = footerElement.getBoundingClientRect();
-          return cardRect.bottom <= footerRect.top - 4;
-        }, null, { timeout: 3_000 });
-        footerGeometry = await cards.last().evaluate((card) => {
-          const footerElement = document.querySelector(".quick-actions");
-          const pageRoot = document.querySelector(".pf-page");
-          const rect = (element) => {
-            const value = element?.getBoundingClientRect();
-            return value ? { top: value.top, bottom: value.bottom, left: value.left, right: value.right } : null;
-          };
-          const cardRect = rect(card);
-          const footerRect = rect(footerElement);
-          const pageStyle = pageRoot ? getComputedStyle(pageRoot) : null;
-          const cardStyle = getComputedStyle(card);
-          return {
-            cardRect,
-            footerRect,
-            pagePaddingBottom: pageStyle?.paddingBottom ?? null,
-            pageHasList: pageRoot?.matches(":has(.pf-grid.is-list-view)") ?? false,
-            pageScrollHeight: pageRoot?.scrollHeight ?? null,
-            pageClientHeight: pageRoot?.clientHeight ?? null,
-            cardScrollMarginEnd: cardStyle.scrollMarginBlockEnd,
-            overlap: Boolean(cardRect && footerRect && cardRect.left < footerRect.right - 1 && cardRect.right > footerRect.left + 1 && cardRect.top < footerRect.bottom - 1 && cardRect.bottom > footerRect.top + 1),
-            gap: cardRect && footerRect ? footerRect.top - cardRect.bottom : null,
-          };
-        });
-        if (footerGeometry.overlap || footerGeometry.gap < 4) failures.push(`${viewport.width}px: last card intersects or approaches the fixed footer unsafely: ${JSON.stringify(footerGeometry)}`);
-      }
-
       const range = (key, nested) => {
         const values = metrics.map((item) => nested ? item[nested]?.[key] : item[key]).filter(Number.isFinite);
         return values.length ? { min: Math.min(...values), max: Math.max(...values) } : null;
@@ -280,7 +227,6 @@ try {
           footerHeight: range("height", "footer"),
           variants: [...new Set(metrics.map((item) => item.variant))],
         },
-        footerGeometry,
       });
     } catch (error) {
       failures.push(`${viewport.width}px: ${error instanceof Error ? error.message : String(error)}`);
