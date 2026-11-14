@@ -8,19 +8,18 @@
  * `app-builder-deployer/auth/src/preview-oauth.ts` must be updated to this path
  * before deploying this dependency upgrade. Do not deploy until the broker is
  * updated.
- * This keeps live previews on real sign-in (no demo/mock users) without
- * platform injection. When deployed, the deployer injects per-app
+ * This keeps live previews on real sign-in (no demo/mock users) when the preview
+ * platform injects the secret server-side. When deployed, the deployer injects per-app
  * `GROK_AUTH_*` that overrides these (see `server.ts`).
  *
- * These MUST equal the broker's `GROK_PREVIEW_CLIENT_ID` /
- * `GROK_PREVIEW_CLIENT_SECRET` (set in the broker's Vercel env; the broker stores
- * only the secret's `base64url(SHA-256)` hash). This is a dedicated, low-privilege
- * client (preview-only, `*.grok-sandbox.com`) — rotate it by regenerating the
- * broker env var and this constant together.
+ * The broker's preview client secret is supplied only through the server-side
+ * `GROK_PREVIEW_CLIENT_SECRET` environment variable. Never commit it here: this
+ * repository is public and a source-level fallback would disclose a reusable
+ * OAuth client credential. The broker stores only the secret's
+ * `base64url(SHA-256)` hash, so rotate the broker secret and configure the new
+ * value in the preview runtime before enabling preview OAuth.
  */
 export const PREVIEW_CLIENT_ID = "grok_preview";
-export const PREVIEW_CLIENT_SECRET =
-  "8bcdb7fc5a33874ad933ca568918d5790388a0795e44c4d1dea691f801b17ec5";
 
 /** The shared auth broker issuer (OIDC discovery lives under it). */
 export const GROK_ISSUER_DEFAULT = "https://auth.grok.me";

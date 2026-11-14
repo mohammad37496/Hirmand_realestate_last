@@ -24,7 +24,7 @@
  *     `requireUserId` resolves a dev user with no database configured, and
  *     throws fail-closed once `DATABASE_URL` is set (see `verify.server.ts`).
  *
- * NEVER import this from client code — it pulls in `pg` + the preview secret +
+ * NEVER import this from client code — it pulls in `pg` + server-only secrets +
  * server-only Better Auth internals. The client uses `@/lib/auth/client`;
  * components read the user via `@/lib/auth/use-current-user`; server functions get
  * a verified id via `@/lib/auth/middleware`.
@@ -47,7 +47,6 @@ import {
   GROK_ISSUER_DEFAULT,
   PREVIEW_ALLOWED_HOSTS,
   PREVIEW_CLIENT_ID,
-  PREVIEW_CLIENT_SECRET,
 } from "./preview";
 
 // Kick (and share) PGLite bootstrap as soon as the auth server module loads.
@@ -90,7 +89,8 @@ const allowPreviewOAuth = process.env.NODE_ENV !== "production";
 const grokOAuthEnabled = env("VITE_GROK_OAUTH_ENABLED") === "true" ||
   (allowPreviewOAuth && env("VITE_GROK_OAUTH_ENABLED") !== "false");
 const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? (allowPreviewOAuth ? PREVIEW_CLIENT_ID : undefined);
-const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? (allowPreviewOAuth ? PREVIEW_CLIENT_SECRET : undefined);
+const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ??
+  (allowPreviewOAuth ? env("GROK_PREVIEW_CLIENT_SECRET") : undefined);
 const grokOAuthConfigured = grokOAuthEnabled && Boolean(grokClientId && grokClientSecret);
 
 /** True when at least one real customer authentication method is configured. */

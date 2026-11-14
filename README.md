@@ -103,8 +103,10 @@ npm run dev
 
 برای فعال‌شدن ورود Google و X، پس از دریافت شناسه و رمز اختصاصی از OAuth Broker، مقدار `VITE_GROK_OAUTH_ENABLED=true` را تنظیم و همین دو نشانی callback را در تنظیمات Broker ثبت کنید:
 
-- `https://hirmandrealestate.ir/api/auth/oauth2/callback/grok-google`
-- `https://hirmandrealestate.ir/api/auth/oauth2/callback/grok-x`
+- `https://hirmandrealestate.ir/api/auth/callback/grok-google`
+- `https://hirmandrealestate.ir/api/auth/callback/grok-x`
+
+Live previews use a separate `GROK_PREVIEW_CLIENT_SECRET` server-side setting. The preview platform must inject it into the preview runtime and the OAuth broker must allow `https://*.grok-sandbox.com/api/auth/callback/*`; never put this secret in source or a `VITE_` variable.
 
 در شروع production، دستور `npm start` ابتدا migrationهای ریشهٔ `migrations/` را اجرا می‌کند و سپس سرور Nitro را بالا می‌آورد. وقتی حساب‌های کاربری فعال‌اند، خطای migration مانع شروع سرور می‌شود تا API حساب روی schema ناقص اجرا نشود. پیش از deploy، اتصال `DATABASE_URL` و secretهای حساب را در محیط Liara بررسی کنید.
 

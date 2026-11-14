@@ -16,6 +16,22 @@ test("Better Auth handles both session reads and sign-in/sign-out writes", () =>
   assert.match(source, /POST\s*:\s*async\s*\(\{\s*request\s*\}\)\s*=>\s*auth\.handler\(request\)/);
 });
 
+const providerSource = readFileSync(new URL("../src/lib/auth/providers.ts", import.meta.url), "utf8");
+const envExampleSource = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
+const readmeSource = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+
+test("documented production OAuth callbacks match Better Auth provider routes", () => {
+  for (const providerId of ["grok-google", "grok-x"]) {
+    assert.ok(providerSource.includes(`providerId: "${providerId}"`));
+    assert.ok(envExampleSource.includes(`https://hirmandrealestate.ir/api/auth/callback/${providerId}`));
+    assert.ok(readmeSource.includes(`https://hirmandrealestate.ir/api/auth/callback/${providerId}`));
+  }
+  assert.doesNotMatch(envExampleSource, /\/api\/auth\/oauth2\/callback\//);
+  assert.doesNotMatch(readmeSource, /\/api\/auth\/oauth2\/callback\//);
+  assert.match(readmeSource, /GROK_PREVIEW_CLIENT_SECRET/);
+  assert.match(readmeSource, /https:\/\/\*\.grok-sandbox\.com\/api\/auth\/callback\/\*/);
+});
+
 const adminSessionPath = fileURLToPath(new URL("../server/routes/api/admin/session.post.ts", import.meta.url));
 const adminSessionSource = readFileSync(adminSessionPath, "utf8");
 const logoutBlock = adminSessionSource.split('if (action === "logout") {')[1]?.split("\n  }")[0] ?? "";
