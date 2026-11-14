@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { SITE } from "@/lib/site";
-import { formatToman } from "@/lib/money";
+import { formatToman, formatTomanExact } from "@/lib/money";
 import {
   AdminErrorBanner,
   AdminListSkeleton,
@@ -77,7 +77,7 @@ type Lead = {
   matchCount: number;
   propertyId: string | null;
   callbackPreferredAt: string | null;
-  offerAmount: number | null;
+  offerAmount: string | null;
   offerConditions: string;
   visitPreferredAt: string | null;
   visitRequestedAt: string | null;
@@ -696,7 +696,7 @@ export function AdminLeadManager({ staffMode = false }: { staffMode?: boolean } 
                   {lead.offerAmount ? (
                     <div className="admin-lead-follow-up admin-lead-offer">
                       <Tag size={14} />
-                      <span>پیشنهاد قیمت: <strong>{formatToman(lead.offerAmount)} تومان</strong></span>
+                      <span>پیشنهاد قیمت: <strong>{formatTomanExact(lead.offerAmount)}</strong></span>
                       {lead.offerConditions ? <small>{lead.offerConditions}</small> : null}
                     </div>
                   ) : null}
