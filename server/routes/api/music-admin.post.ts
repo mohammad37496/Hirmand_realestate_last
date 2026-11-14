@@ -6,6 +6,7 @@ import {
   setResponseHeader,
 } from "h3";
 import { dbSource, getSql } from "@/lib/db";
+import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
 import {
   ADMIN_SESSION_COOKIE,
   getAdminSessionClaims,
@@ -55,13 +56,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: "دسترسی مدیریت موسیقی برای این حساب فعال نیست." });
   }
 
-  if (dbSource === "unconfigured") {
-    if (body.action === "list") return { tracks: [] };
-    throw createError({
-      statusCode: 503,
-      statusMessage: "پایگاه داده برای مدیریت موسیقی تنظیم نشده است.",
-    });
-  }
+  assertAdminDatabaseConfigured(dbSource, "پایگاه داده مدیریت تنظیم نشده است؛ کتابخانه موسیقی در دسترس نیست.");
 
   const sql = await getSql();
   const action = body.action ?? "list";

@@ -117,6 +117,7 @@ function NotificationsPage() {
   const [recent, setRecent] = useState<PropertyCardData[]>([]);
   const [savedSearchMatches, setSavedSearchMatches] = useState<Array<{ id: string; name: string; count: number; createdAt: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [watchError, setWatchError] = useState<string | null>(null);
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const savedSearchRefreshGate = useRef(createSnapshotRefreshGate());
 
@@ -141,26 +142,40 @@ function NotificationsPage() {
     setLoading(true);
     try {
       const savedSearchRefresh = refreshSavedSearchMatches(true);
-      const [watchResponse, latest] = await Promise.all([
+      const [watchResult, latest] = await Promise.all([
         fetch("/api/property-watch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "sync" }) })
-          .then((response) => response.json() as Promise<{ alerts?: WatchAlert[]; subscriptions?: WatchSubscription[] }>),
+          .then(async (response) => {
+            const payload = await response.json().catch(() => null) as { alerts?: WatchAlert[]; subscriptions?: WatchSubscription[]; statusMessage?: string } | null;
+            if (!response.ok) throw new Error(payload?.statusMessage || "اعلان‌های پیگیری فایل‌ها دریافت نشدند.");
+            return { ok: true as const, payload };
+          })
+          .catch((error) => ({ ok: false as const, error })),
         listPublishedPropertyCards({ data: { sort: "newest", offset: 0 } }),
       ]);
-      const nextAlerts = Array.isArray(watchResponse.alerts) ? watchResponse.alerts : [];
-      setAlerts(nextAlerts);
-      setSubscriptions(Array.isArray(watchResponse.subscriptions) ? watchResponse.subscriptions : []);
+      const nextAlerts: WatchAlert[] | null = watchResult.ok
+        ? (Array.isArray(watchResult.payload?.alerts) ? watchResult.payload.alerts : [])
+        : null;
+      if (watchResult.ok) {
+        setAlerts(nextAlerts ?? []);
+        setSubscriptions(Array.isArray(watchResult.payload?.subscriptions) ? watchResult.payload.subscriptions : []);
+        setWatchError(null);
+      } else {
+        setWatchError(watchResult.error instanceof Error ? watchResult.error.message : "اعلان‌های پیگیری فایل‌ها دریافت نشدند.");
+      }
       setRecent(latest);
       await savedSearchRefresh;
       if ("Notification" in window) setBrowserPermission(Notification.permission);
 
-      const seen = new Set<string>(JSON.parse(safeRead(SEEN_ALERTS_KEY) ?? "[]"));
-      const freshAlerts = nextAlerts.filter((alert) => !seen.has(alert.id));
-      if ("Notification" in window && Notification.permission === "granted" && freshAlerts.length) {
-        for (const alert of freshAlerts.slice(0, 2)) {
-          new Notification("هیرمند · اعلان ملک", { body: alert.message });
-          seen.add(alert.id);
+      if (nextAlerts) {
+        const seen = new Set<string>(JSON.parse(safeRead(SEEN_ALERTS_KEY) ?? "[]"));
+        const freshAlerts = nextAlerts.filter((alert) => !seen.has(alert.id));
+        if ("Notification" in window && Notification.permission === "granted" && freshAlerts.length) {
+          for (const alert of freshAlerts.slice(0, 2)) {
+            new Notification("هیرمند · اعلان ملک", { body: alert.message });
+            seen.add(alert.id);
+          }
+          safeWrite(SEEN_ALERTS_KEY, JSON.stringify([...seen].slice(-100)));
         }
-        safeWrite(SEEN_ALERTS_KEY, JSON.stringify([...seen].slice(-100)));
       }
       safeWrite(SEEN_AT_KEY, new Date().toISOString());
     } catch {
@@ -219,8 +234,16 @@ function NotificationsPage() {
 
   async function markAllSeen() {
     const ids = alerts.map((alert) => Number(alert.id)).filter(Number.isFinite);
-    if (ids.length) {
-      await fetch("/api/property-watch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "seen", alertIds: ids }) }).catch(() => {});
+    try {
+      if (ids.length) {
+        const response = await fetch("/api/property-watch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "seen", alertIds: ids }) });
+        const payload = await response.json().catch(() => null) as { ok?: boolean; statusMessage?: string } | null;
+        if (!response.ok || payload?.ok === false) throw new Error(payload?.statusMessage || "اعلان‌ها به‌روزرسانی نشدند.");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "اعلان‌ها به‌روزرسانی نشدند.";
+      setWatchError(message);
+      return;
     }
     const alertSeen = new Set<string>(JSON.parse(safeRead(SEEN_ALERTS_KEY) ?? "[]"));
     savedSearchMatches.forEach((item) => alertSeen.add("search:" + item.id + ":" + item.createdAt));
@@ -230,6 +253,7 @@ function NotificationsPage() {
     setAlerts([]);
     setRecent([]);
     setSavedSearchMatches([]);
+    setWatchError(null);
   }
 
   async function unsubscribe(slug: string) {
@@ -239,10 +263,12 @@ function NotificationsPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "unsubscribe", slug }),
       });
-      if (!response.ok) throw new Error("unsubscribe failed");
+      const payload = await response.json().catch(() => null) as { ok?: boolean; enabled?: boolean; statusMessage?: string } | null;
+      if (!response.ok || payload?.ok === false || payload?.enabled !== false) throw new Error(payload?.statusMessage || "خاموش‌کردن پیگیری انجام نشد.");
       setSubscriptions((current) => current.filter((item) => item.slug !== slug));
-    } catch {
-      // Keep the subscription visible so the visitor can retry.
+      setWatchError(null);
+    } catch (error) {
+      setWatchError(error instanceof Error ? error.message : "خاموش‌کردن پیگیری انجام نشد.");
     }
   }
 
@@ -256,10 +282,11 @@ function NotificationsPage() {
           <div className="notification-actions">
             <button type="button" className="btn-gold" onClick={() => void refresh()} disabled={loading}><RefreshCw size={16} /> {loading ? "در حال به‌روزرسانی…" : "به‌روزرسانی"}</button>
             {browserPermission !== "granted" && browserPermission !== "denied" && browserPermission !== "unsupported" ? <button type="button" className="btn-ghost" onClick={() => void requestBrowserNotifications()}><BellRing size={16} /> فعال‌سازی اعلان مرورگر</button> : null}
-            <button type="button" className="btn-ghost" onClick={() => void markAllSeen()}><CheckCheck size={16} /> پاک‌کردن موارد دیده‌نشده</button>
+            <button type="button" className="btn-ghost" onClick={() => void markAllSeen()} disabled={!!watchError}><CheckCheck size={16} /> پاک‌کردن موارد دیده‌نشده</button>
           </div>
           {browserPermission === "denied" ? <small className="notification-note">اعلان مرورگر در تنظیمات مرورگر مسدود شده است.</small> : null}
         </section>
+        {watchError ? <div className="admin-empty" role="alert"><strong>اعلان‌های پیگیری در دسترس نیستند</strong><p>{watchError}{alerts.length || subscriptions.length ? " · آخرین داده‌های موفق ممکن است قدیمی باشند." : ""}</p><button type="button" className="btn-ghost" onClick={() => void refresh()} disabled={loading}><RefreshCw size={14}/> تلاش مجدد</button></div> : null}
         {subscriptions.length ? (
           <section className="notification-feed" aria-labelledby="notification-subscriptions-title">
             <div className="smart-search-result-head">
@@ -275,7 +302,7 @@ function NotificationsPage() {
                   </div>
                   <div className="notification-subscription-actions">
                     {subscription.isPublic ? <Link to="/properties/$slug" params={{ slug: subscription.slug }} className="notification-open">باز کردن</Link> : null}
-                    <button type="button" className="btn-ghost" onClick={() => void unsubscribe(subscription.slug)}>خاموش کردن</button>
+                    <button type="button" className="btn-ghost" onClick={() => void unsubscribe(subscription.slug)} disabled={!!watchError}>خاموش کردن</button>
                   </div>
                 </article>
               ))}
@@ -295,7 +322,7 @@ function NotificationsPage() {
                 {item.href ? <Link to={item.href} className="notification-open">باز کردن</Link> : null}
               </article>
             ))}
-          </div> : <section className="property-empty"><Bell size={28} /><strong>فعلاً اعلان فعالی ندارید.</strong><p>فایل جدید مطابق جستجوهای ذخیره‌شده یا تغییر مهم در فایل‌های پیگیری‌شده، از همین‌جا قابل مشاهده است.</p><Link to="/properties" className="btn-gold">رفتن به فایل‌ها</Link></section>}
+          </div> : watchError ? <section className="property-empty"><Bell size={28} /><strong>وضعیت همه اعلان‌ها در دسترس نیست.</strong><p>ممکن است اعلان‌های پیگیری دریافت نشده باشند؛ برای بررسی دوباره تلاش کنید.</p><button type="button" className="btn-gold" onClick={() => void refresh()} disabled={loading}><RefreshCw size={14}/> تلاش مجدد</button></section> : <section className="property-empty"><Bell size={28} /><strong>فعلاً اعلان فعالی ندارید.</strong><p>فایل جدید مطابق جستجوهای ذخیره‌شده یا تغییر مهم در فایل‌های پیگیری‌شده، از همین‌جا قابل مشاهده است.</p><Link to="/properties" className="btn-gold">رفتن به فایل‌ها</Link></section>}
         </section>
       </main>
     </SiteChrome>
