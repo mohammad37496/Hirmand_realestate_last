@@ -1,4 +1,5 @@
 import { createError, defineEventHandler, getCookie, readBody, setResponseHeader } from "h3";
+import { formatDecimalMoney } from "@/lib/decimal-money";
 import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
@@ -183,7 +184,7 @@ export default defineEventHandler(async (event) => {
           visitLabels[String(row.visit_status) as VisitStatus] ?? "بدون بازدید",
           row.visit_preferred_at == null ? "" : csvDate(row.visit_preferred_at),
           row.callback_preferred_at == null ? "" : csvDate(row.callback_preferred_at),
-          row.offer_amount == null ? "" : Number(row.offer_amount).toLocaleString("fa-IR"),
+          row.offer_amount == null ? "" : formatDecimalMoney(String(row.offer_amount)),
           row.offer_conditions,
           row.acquisition_source ?? row.source,
           row.budget_deposit_min ?? row.budget_deposit,
@@ -283,7 +284,7 @@ export default defineEventHandler(async (event) => {
         followUpAt: row.follow_up_at == null ? null : new Date(String(row.follow_up_at)).toISOString(),
         propertyId: row.property_id == null ? null : String(row.property_id),
         callbackPreferredAt: row.callback_preferred_at == null ? null : new Date(String(row.callback_preferred_at)).toISOString(),
-        offerAmount: row.offer_amount == null ? null : Number(row.offer_amount),
+        offerAmount: row.offer_amount == null ? null : String(row.offer_amount),
         offerConditions: String(row.offer_conditions ?? ""),
         visitPreferredAt: row.visit_preferred_at == null ? null : new Date(String(row.visit_preferred_at)).toISOString(),
         visitRequestedAt: row.visit_requested_at == null ? null : new Date(String(row.visit_requested_at)).toISOString(),
