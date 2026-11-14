@@ -17,6 +17,7 @@ import {
   revokeAdminSession,
 } from "@/lib/admin-session.server";
 import { completeAdminSessionLogout } from "@/lib/admin-session-logout";
+import { shouldRejectStatelessAdminSession } from "@/lib/admin-session-policy";
 import { verifyAdminPassword } from "@/lib/admin-password.server";
 import { normalizeAdminRole } from "@/lib/admin-roles";
 import { dbSource, getSql } from "@/lib/db";
@@ -88,6 +89,13 @@ export default defineEventHandler(async (event) => {
 
   // A signed-out session probe is not a failed login attempt.
   if (!submittedKey && !accountLogin) return { success: true, authenticated: false };
+
+  if (shouldRejectStatelessAdminSession(dbSource !== "unconfigured", secureCookie)) {
+    throw createError({
+      statusCode: 503,
+      statusMessage: "ورود مدیریت بدون پایگاه داده در محیط عملیاتی مجاز نیست.",
+    });
+  }
 
   const rateKey = accountLogin ? `admin-account-login:${fingerprint}` : `admin-login:${fingerprint}`;
   const attempt = await consumeAdminAttempt(rateKey);
