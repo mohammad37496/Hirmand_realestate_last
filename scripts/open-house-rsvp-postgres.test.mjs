@@ -333,6 +333,7 @@ test("public visit cancellation cannot overwrite an admin-completed visit after 
     await pool.query(`
       create table leads (
         id text primary key,
+        status text not null default 'new',
         visit_status text not null,
         merged_into_lead_id text references leads(id) on delete restrict,
         updated_at timestamptz not null default current_timestamp
