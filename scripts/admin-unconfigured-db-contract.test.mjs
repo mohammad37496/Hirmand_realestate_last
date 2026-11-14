@@ -39,7 +39,7 @@ const serverFunctionModules = [
     file: "admin-security.ts",
     operations: ["listAdminSecuritySessions", "revokeAdminSessionById", "revokeOtherAdminSessions", "purgeExpiredAdminSessions"],
   },
-  { file: "admin-notifications.ts", operations: ["listAdminNotifications", "markAdminNotificationRead", "markAllAdminNotificationsRead"] },
+  { file: "admin-notifications.ts", operations: ["listAdminNotifications", "markAdminNotificationRead", "markAllAdminNotificationsRead", "dismissAdminNotification"] },
   { file: "admin-publication.ts", operations: ["listPendingPublicationReviews", "requestPropertyPublication", "reviewPropertyPublication"] },
   { file: "seo-redirects.ts", operations: ["listAdminRedirects", "upsertAdminRedirect", "deleteAdminRedirect", "listAdmin404Logs", "clearAdmin404Logs"] },
 ];

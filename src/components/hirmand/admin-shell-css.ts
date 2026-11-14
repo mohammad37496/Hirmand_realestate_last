@@ -1734,8 +1734,13 @@ export const ADMIN_CSS = `
 .admin-notification-center h2{display:flex;align-items:center;gap:7px}
 .admin-notification-count{background:var(--brass-600);color:#111;padding-inline:7px}
 .admin-notification-actions{display:flex;gap:7px;flex-wrap:wrap}
+.admin-notification-updated{margin:5px 0 0;color:var(--subtle);font-size:.62rem}
+.admin-notification-toolbar{display:flex;justify-content:flex-start;margin:0 0 10px}
+.admin-notification-filters{display:inline-flex;gap:4px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--card-2)}
+.admin-notification-filters button{min-height:36px;padding:0 11px;border:0;border-radius:999px;background:transparent;color:var(--muted);font:inherit;font-size:.66rem;font-weight:800;cursor:pointer}
+.admin-notification-filters button.is-active{background:var(--navy-900);color:#fff}
 .admin-notification-list{display:grid;gap:8px}
-.admin-notification-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:14px;background:var(--card);transition:background .16s,border-color .16s}
+.admin-notification-row{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:14px;background:var(--card);transition:background .16s,border-color .16s}
 .admin-notification-row.is-unread{background:var(--card-2)}
 .admin-notification-row.severity-critical{border-inline-start:4px solid #b84b35}
 .admin-notification-row.severity-warning{border-inline-start:4px solid #c18a34}
@@ -1747,6 +1752,12 @@ export const ADMIN_CSS = `
 .admin-notification-title small{color:var(--subtle);font-size:.61rem;white-space:nowrap}
 .admin-notification-main p{margin:4px 0 0;color:var(--muted);font-size:.7rem;line-height:1.65}
 .admin-notification-read{align-self:center;color:var(--subtle);font-size:.63rem;white-space:nowrap}
+.admin-notification-row-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.admin-notification-row-actions .btn-ghost{display:inline-flex;align-items:center;gap:5px;min-height:30px;padding:4px 9px;font-size:.65rem}
+.admin-notification-dismiss{display:inline-grid;place-items:center;width:36px;height:36px;border:1px solid var(--line);border-radius:9px;background:transparent;color:var(--subtle);cursor:pointer}
+.admin-notification-dismiss:disabled{opacity:.45;cursor:wait}
+.admin-notification-error{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.admin-notification-empty{display:flex;align-items:center;gap:9px}
 .admin-backup-summary-line{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;color:var(--muted);font-size:.67rem}
 .admin-backup-summary-line span{padding:5px 8px;border:1px solid var(--line);border-radius:999px;background:var(--card-2)}
 .admin-backup-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
@@ -1765,10 +1776,14 @@ export const ADMIN_CSS = `
   .admin-role-form{grid-template-columns:1fr}
   .admin-role-row{grid-template-columns:auto minmax(0,1fr)}
   .admin-role-actions{grid-column:1/-1;justify-content:flex-start}
-  .admin-notification-row{grid-template-columns:auto minmax(0,1fr)}
-  .admin-notification-row>.btn-ghost,.admin-notification-read{grid-column:2;justify-self:start}
+  .admin-notification-row{grid-template-columns:auto minmax(0,1fr);padding:10px}
   .admin-notification-title{display:grid;gap:3px}
   .admin-notification-title small{white-space:normal}
+  .admin-notification-row-actions{gap:5px}
+  .admin-notification-filters button{min-height:40px}
+  .admin-notification-row-actions .btn-ghost{min-height:44px}
+  .admin-notification-dismiss{width:44px;height:44px}
+  .admin-notification-actions{width:100%;justify-content:flex-start}
   .admin-role-chip{font-size:.62rem;min-height:31px}
   .admin-backup-actions{justify-content:flex-start}
   .admin-backup-retention-controls{align-items:stretch}

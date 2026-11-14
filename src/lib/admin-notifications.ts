@@ -1,104 +1,35 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getCookie } from "@tanstack/react-start/server";
+import { createError } from "h3";
 import { z } from "zod";
 import { dbSource, getSql } from "@/lib/db";
-import {
-  ADMIN_SESSION_COOKIE,
-  getAdminSessionClaims,
-} from "@/lib/admin-session.server";
+import { ADMIN_SESSION_COOKIE, getAdminSessionClaims } from "@/lib/admin-session.server";
 import { assertAdminServerFnOrigin } from "@/lib/admin-server-fn-guard.server";
 import { assertAdminDatabaseConfigured } from "@/lib/admin-database-availability.server";
-import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
-import { loadAdminNotificationCandidates } from "@/lib/admin-notification-candidates";
+import { normalizeAdminRole } from "@/lib/admin-roles";
+import { getAdminNotificationAccountKey, getAdminNotificationPermissions } from "@/lib/admin-notification-access";
+import { syncAdminNotificationCandidates } from "@/lib/admin-notification-sync";
+import {
+  dismissAdminNotificationForAccount,
+  listAdminNotificationsForAccount,
+  markAdminNotificationReadForAccount,
+  markAllAdminNotificationsReadForAccount,
+} from "@/lib/admin-notification-store";
 
 async function requireAdmin() {
   const token = getCookie(ADMIN_SESSION_COOKIE);
   const claims = await getAdminSessionClaims(token);
-  if (!claims) throw new Error("نشست مدیریت معتبر نیست.");
+  if (!claims) throw createError({ statusCode: 401, statusMessage: "نشست مدیریت معتبر نیست." });
   assertAdminServerFnOrigin();
-  if (!hasAdminPermission(normalizeAdminRole(claims.role), "lead.manage")) {
-    throw new Error("برای مشاهده و مدیریت اعلان‌های مشتریان، مجوز مدیریت CRM لازم است.");
+  const role = normalizeAdminRole(claims.role);
+  const permissions = getAdminNotificationPermissions(role);
+  if (!permissions.some((permission) => permission !== "reports.view")) {
+    throw createError({ statusCode: 403, statusMessage: "دسترسی مشاهده صندوق اعلان‌ها برای این حساب فعال نیست." });
   }
-  return claims;
-}
-
-type Candidate = {
-  sourceKey: string;
-  kind: string;
-  severity: "info" | "warning" | "critical";
-  title: string;
-  body: string;
-  entityType?: string;
-  entityId?: string;
-};
-
-async function syncCandidates(sql: Awaited<ReturnType<typeof getSql>>) {
-  const candidates: Candidate[] = [];
-  const { leads, visits, messages, staleProperties } = await loadAdminNotificationCandidates(sql);
-
-  for (const row of leads) {
-    const due = new Date(String(row.follow_up_at));
-    candidates.push({
-      sourceKey: "lead-overdue:" + String(row.id) + ":" + due.toISOString(),
-      kind: "lead",
-      severity: "critical",
-      title: "پیگیری مشتری عقب افتاده",
-      body: String(row.name ?? "مشتری") + " زمان پیگیری‌اش گذشته است.",
-      entityType: "lead",
-      entityId: String(row.id),
-    });
-  }
-
-  for (const row of visits) {
-    candidates.push({
-      sourceKey: "lead-visit:" + String(row.id),
-      kind: "visit",
-      severity: "warning",
-      title: "درخواست بازدید جدید",
-      body: String(row.name ?? "مشتری") + " درخواست بازدید ثبت کرده است.",
-      entityType: "lead",
-      entityId: String(row.id),
-    });
-  }
-
-  for (const row of messages) {
-    candidates.push({
-      sourceKey: "customer-message:" + String(row.lead_id) + ":" + String(row.latest),
-      kind: "message",
-      severity: "warning",
-      title: "پیام جدید مشتری",
-      body: String(row.unread_count ?? 1) + " پیام خوانده‌نشده در گفت‌وگوی مشتری دارید.",
-      entityType: "lead",
-      entityId: String(row.lead_id),
-    });
-  }
-
-  for (const row of staleProperties) {
-    candidates.push({
-      sourceKey: "property-no-image:" + String(row.id),
-      kind: "property",
-      severity: "warning",
-      title: "فایل منتشرشده بدون تصویر",
-      body: String(row.title ?? "فایل") + " هنوز تصویر ندارد.",
-      entityType: "property",
-      entityId: String(row.id),
-    });
-  }
-
-  for (const candidate of candidates) {
-    await sql.query(
-      "insert into admin_notifications (source_key,kind,severity,title,body,entity_type,entity_id) values ($1,$2,$3,$4,$5,$6,$7) on conflict (source_key) do nothing",
-      [
-        candidate.sourceKey,
-        candidate.kind,
-        candidate.severity,
-        candidate.title,
-        candidate.body,
-        candidate.entityType ?? null,
-        candidate.entityId ?? null,
-      ],
-    );
-  }
+  return {
+    permissions,
+    accountId: getAdminNotificationAccountKey(claims.accountId, role),
+  };
 }
 
 export type AdminNotification = {
@@ -109,56 +40,49 @@ export type AdminNotification = {
   body: string;
   entityType: string | null;
   entityId: string | null;
+  entitySlug: string | null;
   createdAt: string;
   readAt: string | null;
 };
 
 export const listAdminNotifications = createServerFn({ method: "POST" })
-  .validator(z.object({ limit: z.number().int().min(1).max(100).optional().default(50) }))
+  .validator(z.object({ limit: z.number().int().min(1).max(100).optional().default(60) }))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const admin = await requireAdmin();
     assertAdminDatabaseConfigured(dbSource, "صندوق اعلان‌های مدیریت در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
-    await syncCandidates(sql);
-    const rows = await sql.query<Record<string, unknown>>(
-      "select id,kind,severity,title,body,entity_type,entity_id,created_at,read_at from admin_notifications order by (read_at is null) desc, created_at desc limit $1",
-      [data.limit],
-    );
-    const unread = Number((await sql.query<{ count: number }>(
-      "select count(*)::int as count from admin_notifications where read_at is null",
-    ))[0]?.count) || 0;
-    return {
-      unread,
-      notifications: rows.map((row) => ({
-        id: Number(row.id),
-        kind: String(row.kind ?? "system"),
-        severity: String(row.severity ?? "info") as AdminNotification["severity"],
-        title: String(row.title ?? ""),
-        body: String(row.body ?? ""),
-        entityType: row.entity_type ? String(row.entity_type) : null,
-        entityId: row.entity_id ? String(row.entity_id) : null,
-        createdAt: new Date(String(row.created_at)).toISOString(),
-        readAt: row.read_at ? new Date(String(row.read_at)).toISOString() : null,
-      })),
-    };
+    await syncAdminNotificationCandidates(sql, admin.permissions);
+    return listAdminNotificationsForAccount(sql, admin.accountId, admin.permissions, data.limit);
   });
 
 export const markAdminNotificationRead = createServerFn({ method: "POST" })
   .validator(z.object({ id: z.number().int().positive() }))
   .handler(async ({ data }) => {
-    await requireAdmin();
+    const admin = await requireAdmin();
     assertAdminDatabaseConfigured(dbSource, "علامت‌گذاری اعلان در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
-    await sql.query("update admin_notifications set read_at=current_timestamp where id=$1", [data.id]);
+    const success = await markAdminNotificationReadForAccount(sql, data.id, admin.accountId, admin.permissions);
+    if (!success) throw createError({ statusCode: 404, statusMessage: "اعلان پیدا نشد یا دسترسی مشاهده آن را ندارید." });
     return { success: true };
   });
 
 export const markAllAdminNotificationsRead = createServerFn({ method: "POST" })
   .validator(z.object({}).optional())
   .handler(async () => {
-    await requireAdmin();
+    const admin = await requireAdmin();
     assertAdminDatabaseConfigured(dbSource, "علامت‌گذاری اعلان‌ها در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
     const sql = await getSql();
-    await sql.query("update admin_notifications set read_at=current_timestamp where read_at is null");
+    const marked = await markAllAdminNotificationsReadForAccount(sql, admin.accountId, admin.permissions);
+    return { success: true, marked };
+  });
+
+export const dismissAdminNotification = createServerFn({ method: "POST" })
+  .validator(z.object({ id: z.number().int().positive() }))
+  .handler(async ({ data }) => {
+    const admin = await requireAdmin();
+    assertAdminDatabaseConfigured(dbSource, "مدیریت اعلان در دسترس نیست؛ اتصال پایگاه داده را بررسی کنید.");
+    const sql = await getSql();
+    const success = await dismissAdminNotificationForAccount(sql, data.id, admin.accountId, admin.permissions);
+    if (!success) throw createError({ statusCode: 404, statusMessage: "اعلان پیدا نشد یا دسترسی مشاهده آن را ندارید." });
     return { success: true };
   });
