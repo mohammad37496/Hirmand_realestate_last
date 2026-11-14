@@ -1,6 +1,6 @@
-const PUBLIC_LEAD_FEEDBACK_UNIQUE_CONSTRAINT = "lead_visit_feedback_lead_idx";
+const PUBLIC_LEAD_FEEDBACK_UNIQUE_CONSTRAINT = "lead_visit_feedback_tracking_token_idx";
 
-/** Return true only for the one-feedback-per-lead uniqueness conflict. */
+/** Return true only for the one-feedback-per-original-tracking-token uniqueness conflict. */
 export function isDuplicatePublicLeadFeedbackError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
 

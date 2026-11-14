@@ -17,7 +17,7 @@ test("tracking lookup hydrates feedback state and reconciles duplicate retries",
   const route = await readFile(new URL("../routes/request-tracking.tsx", import.meta.url), "utf8");
   const endpoint = await readFile(new URL("../../server/routes/api/public-lead-tracking.get.ts", import.meta.url), "utf8");
 
-  assert.match(endpoint, /exists\s*\(select 1 from lead_visit_feedback f where f\.lead_id=l\.id\)\s+as feedback_submitted/i);
+  assert.match(endpoint, /exists\s*\(select 1 from lead_visit_feedback f where f\.tracking_token=\$1\)\s+as feedback_submitted/i);
   assert.match(endpoint, /feedbackSubmitted:\s*row\.feedback_submitted === true/);
   assert.match(route, /setFeedbackSubmitted\(data\.feedbackSubmitted === true\)/);
   assert.match(route, /throw new TrackingActionError\(response\.status,/);

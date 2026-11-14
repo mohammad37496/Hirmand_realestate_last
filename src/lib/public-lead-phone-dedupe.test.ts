@@ -28,6 +28,7 @@ async function createFixture() {
     create table leads (
       id text primary key,
       phone text not null,
+      status text not null default 'new',
       property_id text,
       deal text,
       budget_amount integer,
@@ -57,6 +58,41 @@ async function createFixture() {
   `);
   return { pg, ...createSql(pg) };
 }
+
+test("public lead dedupe never reuses a closed or spam lead and selects the newest active match", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    const phone = "09123456789";
+    const callbackAt = "2026-11-14T10:00:00.000Z";
+    await sql.query(
+      `insert into leads(id,phone,status,property_id,deal,callback_preferred_at,public_tracking_token,created_at) values
+       ('older-active',$1,'new','property-1','درخواست مدارک',$2,'TRACK-A',clock_timestamp() - interval '2 minutes'),
+       ('newer-closed',$1,'closed','property-1','درخواست مدارک',$2,'TRACK-B',clock_timestamp() - interval '1 minute'),
+       ('spam-match',$1,'spam','property-1','درخواست مدارک',$2,'TRACK-C',clock_timestamp() - interval '30 seconds')`,
+      [phone, callbackAt],
+    );
+
+    assert.deepEqual(await findRecentPublicLeadByPhone(sql, phone), {
+      id: "older-active",
+      public_tracking_token: "TRACK-A",
+    });
+    assert.deepEqual(await findRecentPublicCallbackLead(sql, phone, new Date(callbackAt)), {
+      id: "older-active",
+      public_tracking_token: "TRACK-A",
+    });
+    assert.deepEqual(await findRecentPropertyRequestLead(sql, "property-1", phone, "درخواست مدارک"), {
+      id: "older-active",
+      public_tracking_token: "TRACK-A",
+    });
+
+    await sql.query("update leads set status='closed' where id='older-active'");
+    assert.equal(await findRecentPublicLeadByPhone(sql, phone), null);
+    assert.equal(await findRecentPublicCallbackLead(sql, phone, new Date(callbackAt)), null);
+    assert.equal(await findRecentPropertyRequestLead(sql, "property-1", phone, "درخواست مدارک"), null);
+  } finally {
+    await pg.close();
+  }
+});
 
 const activity = {
   activityType: "follow_up" as const,

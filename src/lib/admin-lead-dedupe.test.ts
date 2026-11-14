@@ -19,15 +19,17 @@ async function createFixture() {
       people_count integer, job text, deal text, property_type text, neighborhood text,
       consultant text, consultant_id text, consultant_link_state text not null default 'legacy_unresolved', note text, status text not null, source text,
       acquisition_source text, acquisition_medium text, acquisition_campaign text,
-      acquisition_referrer text, follow_up_at timestamptz, last_contacted_at timestamptz,
+      acquisition_referrer text, acquisition_landing_path text, follow_up_at timestamptz, last_contacted_at timestamptz,
       property_id text, visit_preferred_at timestamptz, visit_requested_at timestamptz,
-      visit_status text, lease_deadline timestamptz, budget_deposit numeric,
+      visit_status text, lease_deadline timestamptz, floor_preference text not null default '',
+      callback_preferred_at timestamptz, offer_amount numeric, offer_conditions text not null default '', budget_deposit numeric,
       budget_rent numeric, budget_purchase numeric, budget_sale numeric,
       budget_deposit_min numeric, budget_deposit_max numeric, budget_rent_min numeric,
       budget_rent_max numeric, budget_purchase_min numeric, budget_purchase_max numeric,
       budget_sale_min numeric, budget_sale_max numeric, budget_equivalent numeric,
       budget_bedrooms integer, budget_rate numeric, requested_bedrooms integer,
       requested_amenities jsonb, matched_properties jsonb, match_count integer,
+      merged_into_lead_id text,
       created_at timestamptz not null default current_timestamp,
       updated_at timestamptz not null default current_timestamp
     );
@@ -35,6 +37,12 @@ async function createFixture() {
       id bigserial primary key, lead_id text not null, activity_type text not null,
       title text not null default '', note text not null default '', metadata jsonb not null default '{}'::jsonb
     );
+    create table admin_tasks (id text primary key, entity_type text not null, entity_id text, updated_at timestamptz not null default current_timestamp);
+    create table customer_property_submissions (id text primary key, lead_id text);
+    create table customer_messages (id text primary key, lead_id text not null, tracking_token text not null, sender_type text not null, sender_name text not null, message text not null);
+    create table finance_transactions (id text primary key, lead_id text);
+    create table admin_deals (id text primary key, lead_id text, updated_at timestamptz not null default current_timestamp);
+    create table lead_visit_feedback (id bigserial primary key, lead_id text not null, tracking_token text not null);
     insert into leads(id,name,phone,status,note,source,requested_amenities,matched_properties,match_count)
       values
         ('A','Canonical A','09123456789','new','','website','[]'::jsonb,'[]'::jsonb,0),
@@ -73,7 +81,9 @@ test("duplicate merge keeps the canonical consultant ID and does not attach a mi
   try {
     await sql.query("update leads set consultant='Snapshot A',consultant_link_state='legacy_unresolved' where id='A'");
     await sql.query("update leads set consultant='مشاور دوم',consultant_id='consultant-2',consultant_link_state='linked' where id='B'");
-    assert.deepEqual(await mergeAdminLeadDuplicate(sql, "A", "B"), { kind: "merged", movedActivities: 1 });
+    const result = await mergeAdminLeadDuplicate(sql, "A", "B");
+    assert.equal(result.kind, "merged");
+    if (result.kind === "merged") assert.equal(result.movedActivities, 1);
     const row = await sql.query<{ consultant: string; consultant_id: string | null; consultant_link_state: string }>(
       "select consultant,consultant_id,consultant_link_state from leads where id='A'",
     );
@@ -88,7 +98,9 @@ test("duplicate merge copies a linked consultant only when the canonical snapsho
   try {
     await sql.query("update leads set consultant='',consultant_link_state='unassigned' where id='A'");
     await sql.query("update leads set consultant='مشاور دوم',consultant_id='consultant-2',consultant_link_state='linked' where id='B'");
-    assert.deepEqual(await mergeAdminLeadDuplicate(sql, "A", "B"), { kind: "merged", movedActivities: 1 });
+    const result = await mergeAdminLeadDuplicate(sql, "A", "B");
+    assert.equal(result.kind, "merged");
+    if (result.kind === "merged") assert.equal(result.movedActivities, 1);
     const row = await sql.query<{ consultant: string; consultant_id: string | null; consultant_link_state: string }>(
       "select consultant,consultant_id,consultant_link_state from leads where id='A'",
     );
@@ -178,10 +190,9 @@ function createPostgresSql(pool: InstanceType<typeof Pool>, hooks: {
 test("a closed duplicate is excluded from active suggestions and rejected by stale merge IDs", async () => {
   const { pg, sql } = await createFixture();
   try {
-    assert.deepEqual(await mergeAdminLeadDuplicate(sql, "A", "B"), {
-      kind: "merged",
-      movedActivities: 1,
-    });
+    const result = await mergeAdminLeadDuplicate(sql, "A", "B");
+    assert.equal(result.kind, "merged");
+    if (result.kind === "merged") assert.equal(result.movedActivities, 1);
 
     const activeCandidates = await sql.query<{ id: string }>(
       "select id from leads where status not in ('closed','spam') and regexp_replace(phone,'[^0-9]','','g')=$1 order by id",
@@ -251,8 +262,11 @@ test("two PostgreSQL sessions serialize competing merges of the same duplicate l
         people_count integer, job text, deal text, property_type text, neighborhood text,
         consultant text, consultant_id text, consultant_link_state text not null default 'legacy_unresolved', note text, source text, acquisition_source text, acquisition_medium text,
         acquisition_campaign text, acquisition_referrer text, follow_up_at timestamptz,
+        acquisition_landing_path text,
         last_contacted_at timestamptz, property_id text, visit_preferred_at timestamptz,
         visit_requested_at timestamptz, visit_status text, lease_deadline timestamptz,
+        floor_preference text not null default '', callback_preferred_at timestamptz,
+        offer_amount numeric, offer_conditions text not null default '', merged_into_lead_id text,
         budget_deposit numeric, budget_rent numeric, budget_purchase numeric, budget_sale numeric,
         budget_deposit_min numeric, budget_deposit_max numeric, budget_rent_min numeric,
         budget_rent_max numeric, budget_purchase_min numeric, budget_purchase_max numeric,
@@ -267,6 +281,12 @@ test("two PostgreSQL sessions serialize competing merges of the same duplicate l
         id bigserial primary key, lead_id text not null, activity_type text not null,
         title text not null default '', note text not null default '', metadata jsonb not null default '{}'::jsonb
       );
+      create table admin_tasks (id text primary key, entity_type text not null, entity_id text, updated_at timestamptz not null default current_timestamp);
+      create table customer_property_submissions (id text primary key, lead_id text);
+      create table customer_messages (id text primary key, lead_id text not null, tracking_token text not null, sender_type text not null, sender_name text not null, message text not null);
+      create table finance_transactions (id text primary key, lead_id text);
+      create table admin_deals (id text primary key, lead_id text, updated_at timestamptz not null default current_timestamp);
+      create table lead_visit_feedback (id bigserial primary key, lead_id text not null, tracking_token text not null);
       insert into leads(id,name,phone,status,note,source)
         values ('A','Canonical A','09123456789','new','','website'),
                ('B','Duplicate B','09123456789','new','B-only context','divar'),

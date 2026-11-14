@@ -6,6 +6,7 @@ import { isValidPublicTrackingToken } from "@/lib/tracking-token";
 import { compareDecimalStrings } from "@/lib/decimal-money";
 import { formatTomanExact } from "@/lib/money";
 import { toExactPublicOfferAmount } from "@/lib/public-lead-tracking-money";
+import { sharePublicLeadTrackingTarget } from "@/lib/public-lead-tracking";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 type VisitStatus = "none" | "requested" | "confirmed" | "completed" | "cancelled";
@@ -49,16 +50,23 @@ export default defineEventHandler(async (event) => {
   }
 
   const sql = await getSql();
-  const rows = await sql.query<Record<string, unknown>>(
-    "select l.public_tracking_token,l.status,l.created_at,l.updated_at,coalesce(c.name,l.consultant) as consultant,l.deal,l.property_type,l.neighborhood,l.visit_requested_at,l.visit_preferred_at,l.visit_status,l.callback_preferred_at,l.offer_amount,l.offer_conditions," +
-      "exists (select 1 from lead_visit_feedback f where f.lead_id=l.id) as feedback_submitted," +
-      "cps.status as customer_property_submission_status,cps.review_note as customer_property_submission_review_note," +
-      "p.title as property_title,p.slug as property_slug " +
-      "from leads l left join properties p on p.id::text=l.property_id::text left join consultants c on c.id=l.consultant_id " +
-      "left join customer_property_submissions cps on cps.public_tracking_token=l.public_tracking_token " +
-      "where l.public_tracking_token=$1 limit 1",
-    [code],
-  );
+  if (typeof sql.transaction !== "function") {
+    throw createError({ statusCode: 503, statusMessage: "سامانه پیگیری موقتاً در دسترس نیست." });
+  }
+  const rows = await sql.transaction(async (transactionSql) => {
+    const target = await sharePublicLeadTrackingTarget(transactionSql, code);
+    if (!target) return [];
+    return transactionSql.query<Record<string, unknown>>(
+      "select $1::text as public_tracking_token,l.status,l.created_at,l.updated_at,coalesce(c.name,l.consultant) as consultant,l.deal,l.property_type,l.neighborhood,l.visit_requested_at,l.visit_preferred_at,l.visit_status,l.callback_preferred_at,l.offer_amount,l.offer_conditions," +
+        "exists (select 1 from lead_visit_feedback f where f.tracking_token=$1) as feedback_submitted," +
+        "cps.status as customer_property_submission_status,cps.review_note as customer_property_submission_review_note," +
+        "p.title as property_title,p.slug as property_slug " +
+        "from leads l left join properties p on p.id::text=l.property_id::text left join consultants c on c.id=l.consultant_id " +
+        "left join customer_property_submissions cps on cps.public_tracking_token=$1 " +
+        "where l.id=$2 limit 1",
+      [target.trackingToken, target.leadId],
+    );
+  });
 
   const row = rows[0];
   if (!row) {

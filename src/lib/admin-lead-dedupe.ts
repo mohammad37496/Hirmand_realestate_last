@@ -42,7 +42,17 @@ export async function listAdminLeadDuplicateCandidates(sql: Sql) {
 }
 
 export type AdminLeadMergeResult =
-  | { kind: "merged"; movedActivities: number }
+  | {
+      kind: "merged";
+      movedActivities: number;
+      movedTasks: number;
+      movedSubmissions: number;
+      movedFeedback: number;
+      movedMessages: number;
+      movedFinanceTransactions: number;
+      movedDeals: number;
+      repointedAliases: number;
+    }
   | { kind: "not_found" }
   | { kind: "duplicate_inactive" }
   | { kind: "canonical_inactive" }
@@ -90,7 +100,18 @@ export async function mergeAdminLeadDuplicate(
       return { kind: "consultant_changed" };
     }
 
-    const rows = await transactionSql.query<{ canonical_id: string; moved_activities: number | string; duplicate_id: string }>(
+    const rows = await transactionSql.query<{
+      canonical_id: string;
+      duplicate_id: string;
+      moved_activities: number | string;
+      moved_tasks: number | string;
+      moved_submissions: number | string;
+      moved_feedback: number | string;
+      moved_messages: number | string;
+      moved_finance_transactions: number | string;
+      moved_deals: number | string;
+      repointed_aliases: number | string;
+    }>(
       `with duplicate as (
         select * from leads where id = $2 and status not in ('closed','spam')
       ),
@@ -121,6 +142,7 @@ export async function mergeAdminLeadDuplicate(
           acquisition_medium = coalesce(l.acquisition_medium, d.acquisition_medium),
           acquisition_campaign = coalesce(l.acquisition_campaign, d.acquisition_campaign),
           acquisition_referrer = coalesce(l.acquisition_referrer, d.acquisition_referrer),
+          acquisition_landing_path = case when trim(coalesce(l.acquisition_landing_path,'')) = '' then d.acquisition_landing_path else l.acquisition_landing_path end,
           follow_up_at = coalesce(l.follow_up_at, d.follow_up_at),
           last_contacted_at = coalesce(l.last_contacted_at, d.last_contacted_at),
           property_id = coalesce(l.property_id, d.property_id),
@@ -128,6 +150,10 @@ export async function mergeAdminLeadDuplicate(
           visit_requested_at = coalesce(l.visit_requested_at, d.visit_requested_at),
           visit_status = case when coalesce(l.visit_status,'none') = 'none' then coalesce(d.visit_status,l.visit_status) else l.visit_status end,
           lease_deadline = coalesce(l.lease_deadline, d.lease_deadline),
+          floor_preference = case when trim(coalesce(l.floor_preference,'')) = '' then d.floor_preference else l.floor_preference end,
+          callback_preferred_at = coalesce(l.callback_preferred_at, d.callback_preferred_at),
+          offer_amount = coalesce(l.offer_amount, d.offer_amount),
+          offer_conditions = case when trim(coalesce(l.offer_conditions,'')) = '' then d.offer_conditions else l.offer_conditions end,
           budget_deposit = coalesce(l.budget_deposit, d.budget_deposit),
           budget_rent = coalesce(l.budget_rent, d.budget_rent),
           budget_purchase = coalesce(l.budget_purchase, d.budget_purchase),
@@ -145,13 +171,21 @@ export async function mergeAdminLeadDuplicate(
           budget_rate = coalesce(l.budget_rate, d.budget_rate),
           requested_bedrooms = coalesce(l.requested_bedrooms, d.requested_bedrooms),
           requested_amenities = case
-            when jsonb_array_length(coalesce(l.requested_amenities,'[]'::jsonb)) = 0
-              then coalesce(d.requested_amenities,'[]'::jsonb)
+            when case
+              when jsonb_typeof(coalesce(l.requested_amenities,'[]'::jsonb)) = 'array'
+                then jsonb_array_length(coalesce(l.requested_amenities,'[]'::jsonb)) = 0
+              else false
+            end
+              then coalesce(d.requested_amenities,l.requested_amenities,'[]'::jsonb)
             else l.requested_amenities
           end,
           matched_properties = case
-            when jsonb_array_length(coalesce(l.matched_properties,'[]'::jsonb)) = 0
-              then coalesce(d.matched_properties,'[]'::jsonb)
+            when case
+              when jsonb_typeof(coalesce(l.matched_properties,'[]'::jsonb)) = 'array'
+                then jsonb_array_length(coalesce(l.matched_properties,'[]'::jsonb)) = 0
+              else false
+            end
+              then coalesce(d.matched_properties,l.matched_properties,'[]'::jsonb)
             else l.matched_properties
           end,
           match_count = greatest(coalesce(l.match_count,0),coalesce(d.match_count,0)),
@@ -166,16 +200,66 @@ export async function mergeAdminLeadDuplicate(
         where lead_id = $2 and exists(select 1 from merged)
         returning id
       ),
+      moved_tasks as (
+        update admin_tasks
+        set entity_id = $1, updated_at = clock_timestamp()
+        where entity_type = 'lead' and entity_id = $2 and exists(select 1 from merged)
+        returning id
+      ),
+      moved_submissions as (
+        update customer_property_submissions
+        set lead_id = $1
+        where lead_id = $2 and exists(select 1 from merged)
+        returning id
+      ),
+      moved_messages as (
+        update customer_messages
+        set lead_id = $1
+        where lead_id = $2 and exists(select 1 from merged)
+        returning id
+      ),
+      moved_finance_transactions as (
+        update finance_transactions
+        set lead_id = $1
+        where lead_id = $2 and exists(select 1 from merged)
+        returning id
+      ),
+      moved_deals as (
+        update admin_deals
+        set lead_id = $1, updated_at = clock_timestamp()
+        where lead_id = $2 and exists(select 1 from merged)
+        returning id
+      ),
+      moved_feedback as (
+        update lead_visit_feedback
+        set lead_id = $1
+        where lead_id = $2 and exists(select 1 from merged)
+        returning id
+      ),
       closed_duplicate as (
         update leads
         set status = 'closed',
-            note = concat_ws(E'\\n', nullif(trim(note),''), 'این لید در ' || to_char(current_timestamp,'YYYY-MM-DD HH24:MI') || ' با لید ' || $1 || ' ادغام شد.'),
+            merged_into_lead_id = $1,
+            note = concat_ws(chr(10), nullif(trim(note),''), 'این لید در ' || to_char(current_timestamp,'YYYY-MM-DD HH24:MI') || ' با لید ' || $1 || ' ادغام شد.'),
             updated_at = clock_timestamp()
         where id = $2 and status not in ('closed','spam') and exists(select 1 from merged)
+        returning id
+      ),
+      repointed_aliases as (
+        update leads
+        set merged_into_lead_id = $1, updated_at = clock_timestamp()
+        where merged_into_lead_id = $2 and id <> $2 and exists(select 1 from closed_duplicate)
         returning id
       )
       select (select id from merged) as canonical_id,
              (select count(*) from moved_activities)::int as moved_activities,
+             (select count(*) from moved_tasks)::int as moved_tasks,
+             (select count(*) from moved_submissions)::int as moved_submissions,
+             (select count(*) from moved_feedback)::int as moved_feedback,
+             (select count(*) from moved_messages)::int as moved_messages,
+             (select count(*) from moved_finance_transactions)::int as moved_finance_transactions,
+             (select count(*) from moved_deals)::int as moved_deals,
+             (select count(*) from repointed_aliases)::int as repointed_aliases,
              (select id from closed_duplicate) as duplicate_id`,
       [canonicalId, duplicateId],
     );
@@ -188,11 +272,21 @@ export async function mergeAdminLeadDuplicate(
       [
         canonicalId,
         "ادغام لید تکراری",
-        "رکورد " + duplicateId + " ادغام و بسته شد؛ فعالیت‌های CRM آن به این لید منتقل شدند.",
+        "رکورد " + duplicateId + " ادغام و بسته شد؛ سوابق CRM، پیام‌ها، پرونده‌ها، معاملات و اطلاعات مالی آن به این لید منتقل شدند.",
         JSON.stringify({ mergedLeadId: duplicateId }),
       ],
     );
 
-    return { kind: "merged", movedActivities: Number(rows[0].moved_activities) || 0 };
+    return {
+      kind: "merged",
+      movedActivities: Number(rows[0].moved_activities) || 0,
+      movedTasks: Number(rows[0].moved_tasks) || 0,
+      movedSubmissions: Number(rows[0].moved_submissions) || 0,
+      movedFeedback: Number(rows[0].moved_feedback) || 0,
+      movedMessages: Number(rows[0].moved_messages) || 0,
+      movedFinanceTransactions: Number(rows[0].moved_finance_transactions) || 0,
+      movedDeals: Number(rows[0].moved_deals) || 0,
+      repointedAliases: Number(rows[0].repointed_aliases) || 0,
+    };
   });
 }

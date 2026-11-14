@@ -52,7 +52,7 @@ export function AdminLeadDedupe() {
   async function merge(canonical: LeadRef, duplicate: LeadRef) {
     const ok = await confirm({
       title: "پیش‌نمایش ادغام لید",
-      description: "اطلاعات غیرخالی لید اصلی حفظ می‌شود، فیلدهای خالی از لید دوم تکمیل می‌شوند، فعالیت‌های CRM منتقل می‌شوند و رکورد دوم فقط بسته می‌شود؛ حذف فیزیکی انجام نمی‌شود.",
+      description: "اطلاعات غیرخالی لید اصلی حفظ و فیلدهای خالی تکمیل می‌شوند؛ فعالیت‌ها، وظایف، پیام‌ها، پرونده‌های ثبت ملک، سوابق بازدید، تراکنش‌های مالی و معاملات منتقل می‌شوند. کدهای رهگیری قبلی فعال می‌مانند و رکورد دوم بدون حذف فیزیکی بسته می‌شود.",
       items: [canonical.name + " · " + canonical.phone, duplicate.name + " · " + duplicate.phone],
       confirmLabel: "ادغام و حفظ رکورد اصلی",
       tone: "danger",
@@ -66,9 +66,26 @@ export function AdminLeadDedupe() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "merge", canonicalId: canonical.id, duplicateId: duplicate.id }),
       });
-      const data = await response.json() as { statusMessage?: string; movedActivities?: number };
+      const data = await response.json() as {
+        statusMessage?: string;
+        movedActivities?: number;
+        movedTasks?: number;
+        movedSubmissions?: number;
+        movedFeedback?: number;
+        movedMessages?: number;
+        movedFinanceTransactions?: number;
+        movedDeals?: number;
+      };
       if (!response.ok) throw new Error(data.statusMessage || "ادغام انجام نشد.");
-      toast.success("ادغام انجام شد؛ " + (data.movedActivities ?? 0).toLocaleString("fa-IR") + " فعالیت منتقل شد.");
+      toast.success("ادغام انجام شد؛ " + [
+        [data.movedActivities, "فعالیت"],
+        [data.movedTasks, "وظیفه"],
+        [data.movedMessages, "پیام"],
+        [data.movedSubmissions, "پرونده ثبت ملک"],
+        [data.movedFeedback, "بازخورد"],
+        [data.movedDeals, "معامله"],
+        [data.movedFinanceTransactions, "تراکنش مالی"],
+      ].map(([count, label]) => (Number(count ?? 0)).toLocaleString("fa-IR") + " " + label).join("، ") + " منتقل شد.");
       await load();
     } catch (error) {
       toast.error(adminErrorMessage(error, "ادغام لید انجام نشد."));

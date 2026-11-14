@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
     return {
       canonical: rows[0],
       duplicate: rows[1],
-      rule: "اطلاعات غیرخالی رکورد اصلی حفظ می‌شود؛ فیلدهای خالی آن از رکورد دوم پر می‌شوند. فعالیت‌های CRM به رکورد اصلی منتقل و رکورد دوم بسته می‌شود.",
+      rule: "اطلاعات غیرخالی رکورد اصلی حفظ می‌شود؛ فیلدهای خالی آن از رکورد دوم پر می‌شوند. فعالیت‌ها، وظایف، پیام‌ها، پرونده‌های ثبت ملک، سوابق بازدید، تراکنش‌های مالی و معاملات منتقل می‌شوند؛ کد رهگیری قدیمی نیز به پرونده اصلی می‌رسد. رکورد دوم حذف فیزیکی نمی‌شود.",
     };
   }
 
@@ -101,5 +101,12 @@ export default defineEventHandler(async (event) => {
     canonicalId,
     duplicateId,
     movedActivities: result.movedActivities,
+    movedTasks: result.movedTasks,
+    movedSubmissions: result.movedSubmissions,
+    movedFeedback: result.movedFeedback,
+    movedMessages: result.movedMessages,
+    movedFinanceTransactions: result.movedFinanceTransactions,
+    movedDeals: result.movedDeals,
+    repointedAliases: result.repointedAliases,
   };
 });
