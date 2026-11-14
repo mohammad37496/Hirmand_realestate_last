@@ -793,6 +793,7 @@ function Gallery({
 }) {
   const [active, setActive] = useState(0);
   const [fallbackActive, setFallbackActive] = useState(false);
+  const [imageResetToken, setImageResetToken] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const touchStartX = useRef<number | null>(null);
@@ -805,18 +806,17 @@ function Gallery({
   const failedImageIndexesRef = useRef(new Set<number>());
   const thumbRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  const current = fallbackActive ? fallback : images[active] ?? images[0] ?? fallback;
+  // Let ResilientImage keep rendering its established fallback state after all
+  // candidates fail; replacing src with the fallback URL would remount it as a
+  // normal image and bypass the accessible fallback markup.
+  const current = images[active] ?? images[0] ?? fallback;
   const mediaSignature = images.join("\u0000");
 
-  const advanceAfterImageFailure = useCallback((failedIndex: number) => {
-    const result = recordMediaFailure(images, failedImageIndexesRef.current, failedIndex);
-    if (result.status !== "advanced") return;
-    if (result.nextIndex == null) {
+  const markImageFailed = useCallback((failedIndex: number) => {
+    if (activeRef.current !== failedIndex) return;
+    if (recordMediaFailure(images, failedImageIndexesRef.current, failedIndex)) {
       setFallbackActive(true);
-      return;
     }
-    setFallbackActive(false);
-    setActive(result.nextIndex);
   }, [images]);
 
   useEffect(() => {
@@ -831,9 +831,12 @@ function Gallery({
   const goTo = useCallback(
     (next: number) => {
       if (!images.length) return;
-      clearMediaFailure(failedImageIndexesRef.current, (next + images.length) % images.length);
-      setActive((next + images.length) % images.length);
+      const nextIndex = (next + images.length) % images.length;
+      clearMediaFailure(failedImageIndexesRef.current, nextIndex);
+      activeRef.current = nextIndex;
+      setActive(nextIndex);
       setFallbackActive(false);
+      setImageResetToken((value) => value + 1);
       setZoomScale(1);
     },
     [images.length],
@@ -973,7 +976,7 @@ function Gallery({
             <VideoPlayer src={current} title={title} className="is-gallery" />
           ) : (
             <ResilientImage
-              key={`${active}:${current}`}
+              key={`${active}:${current}:${imageResetToken}`}
               src={current}
               fallback={fallback}
               fallbackLegacy={fallbackLegacy}
@@ -981,8 +984,12 @@ function Gallery({
               itemProp="image"
               loading="eager"
               fetchPriority="high"
-              onLoaded={() => clearMediaFailure(failedImageIndexesRef.current, active)}
-              onExhausted={() => advanceAfterImageFailure(active)}
+              onLoaded={() => {
+                if (activeRef.current !== active) return;
+                clearMediaFailure(failedImageIndexesRef.current, active);
+                setFallbackActive(false);
+              }}
+              onExhausted={() => markImageFailed(active)}
             />
           )}
 

@@ -17,7 +17,10 @@ test("lightbox thumbnail selection uses the gallery navigation path", () => {
 });
 
 test("the primary gallery image clears recovery state after load and reports exhaustion by index", () => {
-  assert.match(componentSource, /onLoaded=\{\(\) => clearMediaFailure\(failedImageIndexesRef\.current, active\)\}/);
-  assert.match(componentSource, /onExhausted=\{\(\) => advanceAfterImageFailure\(active\)\}/);
-  assert.match(componentSource, /key=\{`\$\{active\}:\$\{current\}`\}/);
+  assert.match(componentSource, /const current = images\[active\] \?\? images\[0\] \?\? fallback/);
+  assert.doesNotMatch(componentSource, /const current = fallbackActive \? fallback/);
+  assert.match(componentSource, /onLoaded=\{\(\) => \{\s*if \(activeRef\.current !== active\) return;\s*clearMediaFailure\(failedImageIndexesRef\.current, active\);\s*setFallbackActive\(false\);/);
+  assert.match(componentSource, /onExhausted=\{\(\) => markImageFailed\(active\)\}/);
+  assert.match(componentSource, /setImageResetToken\(\(value\) => value \+ 1\)/);
+  assert.match(componentSource, /key=\{`\$\{active\}:\$\{current\}:\$\{imageResetToken\}`\}/);
 });

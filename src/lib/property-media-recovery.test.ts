@@ -2,18 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   clearMediaFailure,
-  nextUnfailedMediaIndex,
   recordMediaFailure,
 } from "./property-media-recovery.ts";
 
-test("gallery recovery advances to the next unfailed image in order", () => {
+test("gallery recovery records the exhausted active image", () => {
   const images = ["first.webp", "second.webp", "third.webp"];
   const failed = new Set<number>();
 
-  assert.deepEqual(recordMediaFailure(images, failed, 0), {
-    status: "advanced",
-    nextIndex: 1,
-  });
+  assert.equal(recordMediaFailure(images, failed, 0), true);
   assert.deepEqual([...failed], [0]);
 });
 
@@ -21,29 +17,25 @@ test("duplicate exhaustion notifications do not skip a healthy next image", () =
   const images = ["first.webp", "second.webp", "third.webp"];
   const failed = new Set<number>();
 
-  assert.equal(recordMediaFailure(images, failed, 0).status, "advanced");
-  assert.deepEqual(recordMediaFailure(images, failed, 0), { status: "ignored" });
+  assert.equal(recordMediaFailure(images, failed, 0), true);
+  assert.equal(recordMediaFailure(images, failed, 0), false);
   assert.deepEqual([...failed], [0]);
-  assert.equal(nextUnfailedMediaIndex(images, failed, 0), 1);
 });
 
 test("a successful later load clears the failure so the image can be retried", () => {
   const images = ["first.webp", "second.webp", "third.webp"];
   const failed = new Set<number>();
 
-  assert.equal(recordMediaFailure(images, failed, 0).status, "advanced");
+  assert.equal(recordMediaFailure(images, failed, 0), true);
   clearMediaFailure(failed, 0);
-  assert.deepEqual(recordMediaFailure(images, failed, 0), {
-    status: "advanced",
-    nextIndex: 1,
-  });
+  assert.equal(recordMediaFailure(images, failed, 0), true);
 });
 
-test("gallery recovery skips failed and empty entries, wraps once, and stops when exhausted", () => {
-  assert.equal(
-    nextUnfailedMediaIndex(["first.webp", "", "third.webp"], new Set([0]), 0),
-    2,
-  );
-  assert.equal(nextUnfailedMediaIndex(["first.webp", "second.webp"], new Set([0, 1]), 0), null);
-  assert.equal(nextUnfailedMediaIndex(["only.webp"], new Set(), 0), null);
+test("empty and out-of-range entries are not recorded as failed", () => {
+  const images = ["first.webp", "", "third.webp"];
+  const failed = new Set<number>();
+  assert.equal(recordMediaFailure(images, failed, 1), false);
+  assert.equal(recordMediaFailure(images, failed, -1), false);
+  assert.equal(recordMediaFailure(images, failed, 3), false);
+  assert.deepEqual([...failed], []);
 });
