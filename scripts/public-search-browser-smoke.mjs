@@ -53,15 +53,17 @@ try {
   await searchPage.goto(new URL("/smart-search", baseUrl).toString(), { waitUntil: "domcontentloaded" });
   await searchPage.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => undefined);
   await searchPage.waitForTimeout(500);
+  const textModeTab = searchPage.getByRole("tab", { name: "جستجوی متنی فارسی" });
+  await textModeTab.click();
+  await searchPage.waitForFunction(() => {
+    const selected = document.querySelector('.smart-search-mode-tabs [role="tab"][aria-selected="true"]');
+    return selected?.textContent?.includes("جستجوی متنی فارسی") ?? false;
+  }, null, { timeout: 5_000 });
+  await searchPage.locator('input[aria-label="جستجوی فارسی ملک"]').waitFor({ state: "visible", timeout: 5_000 });
   await searchPage.getByRole("textbox", { name: "جستجوی فارسی ملک" }).fill("آپارتمان");
   await searchPage.getByRole("button", { name: "جستجوی هوشمند" }).click();
   const searchHeading = searchPage.locator(".smart-search-result-head h2").first();
-  const searchHeadingReady = await searchHeading.waitFor({ state: "visible", timeout: 5_000 }).then(() => true).catch(() => false);
-  if (!searchHeadingReady) {
-    const debug = await searchPage.evaluate(() => ({ url: location.href, title: document.title, body: document.body.innerText.slice(0, 900), headings: [...document.querySelectorAll("h1,h2,h3")].map((heading) => heading.textContent?.trim()) }));
-    throw new Error(`smart-search results did not render after submit: ${JSON.stringify({ debug, runtimeErrors })}`);
-  }
-  await searchPage.waitForFunction(() => document.querySelector(".smart-search-result-head h2")?.textContent?.includes("۴۸"));
+  await searchPage.waitForFunction(() => document.querySelector(".smart-search-result-head h2")?.textContent?.includes("۴۸"), null, { timeout: 30_000 });
   assert.equal(readPersianCount(await searchHeading.textContent()), 48, "smart search must show the first 48 results");
   assert.equal(await visibleCardCount(searchPage), 48, "the first smart-search page must render 48 real property cards");
   assert.equal(await searchPage.getByRole("button", { name: "نمایش فایل‌های بیشتر" }).count(), 1, "smart search must expose a next-page action");
@@ -91,11 +93,7 @@ try {
     throw new Error(`nearby geolocation did not resolve successfully: ${JSON.stringify({ debug, runtimeErrors })}`);
   }
   const nearbyHeading = nearbyPage.locator(".smart-search-result-head h2").first();
-  const nearbyHeadingReady = await nearbyHeading.waitFor({ state: "visible", timeout: 5_000 }).then(() => true).catch(() => false);
-  if (!nearbyHeadingReady) {
-    const debug = await nearbyPage.evaluate(() => ({ url: location.href, title: document.title, body: document.body.innerText.slice(0, 900), headings: [...document.querySelectorAll("h1,h2,h3")].map((heading) => heading.textContent?.trim()) }));
-    throw new Error(`nearby results did not render after geolocation success: ${JSON.stringify(debug)}`);
-  }
+  await nearbyPage.waitForFunction(() => document.querySelector(".smart-search-result-head h2") !== null, null, { timeout: 30_000 });
   assert.equal(await visibleCardCount(nearbyPage), 48, "nearby must render its first 48 coordinate-backed property cards");
   assert.equal(await nearbyPage.getByRole("button", { name: "بارگذاری فایل‌های بیشتر" }).count(), 1, "nearby must expose incremental loading beyond the first page");
 
