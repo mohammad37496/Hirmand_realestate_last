@@ -1,6 +1,8 @@
 /**
- * A logout is successful only when an existing server-side session has been
- * revoked (or when there is no valid session token to revoke).
+ * Database-backed sessions require a successful server-side revoke. In
+ * unconfigured local/dev mode legacy admin-key sessions are stateless, so
+ * logout only clears this browser cookie; a copied development JWT remains
+ * valid until expiry. Production rejects stateless admin sessions.
  */
 export async function completeAdminSessionLogout(
   sessionId: string | null,
@@ -8,7 +10,7 @@ export async function completeAdminSessionLogout(
   revoke: (sessionId: string) => Promise<unknown>,
 ): Promise<boolean> {
   if (!sessionId) return true;
-  if (!databaseConfigured) return false;
+  if (!databaseConfigured) return true;
 
   try {
     await revoke(sessionId);
