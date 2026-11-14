@@ -47,6 +47,14 @@ try {
         return grid?.classList.contains("is-list-view") && button?.getAttribute("aria-pressed") === "true";
       });
 
+      // The last-card clearance calculation is sensitive to late font swaps:
+      // a fallback-to-webfont metric change can move the document after the
+      // requested scroll and make the measured gap stale by several pixels.
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      });
+
       const cards = page.locator(".pf-grid.is-list-view > .pcard.pcard-mobile-list");
       await cards.first().waitFor({ state: "visible" });
       const cardMetrics = await cards.evaluateAll((items) => items.map((card) => {
