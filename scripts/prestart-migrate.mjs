@@ -7,6 +7,7 @@ import {
   assertRequiredMigrationLedger,
   ADMIN_RATE_LIMIT_MIGRATIONS,
   CUSTOMER_AUTH_MIGRATIONS,
+  LEAD_MERGE_MIGRATIONS,
   LEAD_CONSULTANT_RELATION_MIGRATIONS,
   PROPERTY_CONSULTANT_RELATION_MIGRATIONS,
   pendingMigrations,
@@ -41,11 +42,13 @@ export async function runMigrations({
   verifyPropertyConsultantMigration = true,
   verifyLeadConsultantMigration = true,
   verifyAdminRateLimitMigration = true,
+  verifyLeadMergeMigration = true,
 }) {
   const entries = await readdir(migrationsDir);
   if (verifyPropertyConsultantMigration) assertRequiredMigrationFiles(entries, PROPERTY_CONSULTANT_RELATION_MIGRATIONS);
   if (verifyLeadConsultantMigration) assertRequiredMigrationFiles(entries, LEAD_CONSULTANT_RELATION_MIGRATIONS);
   if (verifyAdminRateLimitMigration) assertRequiredMigrationFiles(entries, ADMIN_RATE_LIMIT_MIGRATIONS);
+  if (verifyLeadMergeMigration) assertRequiredMigrationFiles(entries, LEAD_MERGE_MIGRATIONS);
   if (verifyCustomerAuth) assertRequiredMigrationFiles(entries);
   const pool = poolFactory({
     connectionString,
@@ -109,6 +112,10 @@ export async function runMigrations({
     if (verifyAdminRateLimitMigration) {
       assertRequiredMigrationLedger(appliedNames, ADMIN_RATE_LIMIT_MIGRATIONS);
       console.log(`[migrate] admin rate-limit migrations verified${deploymentLabel}: ${ADMIN_RATE_LIMIT_MIGRATIONS.join(", ")}`);
+    }
+    if (verifyLeadMergeMigration) {
+      assertRequiredMigrationLedger(appliedNames, LEAD_MERGE_MIGRATIONS);
+      console.log(`[migrate] lead merge migrations verified${deploymentLabel}: ${LEAD_MERGE_MIGRATIONS.join(", ")}`);
     }
   } finally {
     if (client) {
