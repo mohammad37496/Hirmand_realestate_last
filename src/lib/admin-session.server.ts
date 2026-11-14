@@ -2,6 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { dbSource, getSql } from "@/lib/db";
 import { normalizeAdminRole, type AdminRole } from "@/lib/admin-roles";
+import { shouldRejectStatelessAdminSession } from "@/lib/admin-session-policy";
 
 export const ADMIN_SESSION_COOKIE =
   process.env.NODE_ENV === "production" || process.env.VERCEL === "1"
@@ -63,6 +64,7 @@ export async function getAdminSessionIdFromToken(token: string | undefined): Pro
 }
 
 export async function getAdminSessionClaims(token: string | undefined): Promise<AdminSessionClaims | null> {
+  if (shouldRejectStatelessAdminSession(dbSource !== "unconfigured", process.env.NODE_ENV === "production" || process.env.VERCEL === "1")) return null;
   const payload = await verifyPayload(token);
   if (!payload) return null;
 

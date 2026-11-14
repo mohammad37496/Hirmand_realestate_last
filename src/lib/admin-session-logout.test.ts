@@ -6,10 +6,10 @@ test("logout succeeds without a server-side revoke only when there is no session
   assert.equal(await completeAdminSessionLogout(null, false, async () => { throw new Error("must not run"); }), true);
 });
 
-test("logout fails closed when the database is unconfigured for an existing session", async () => {
+test("stateless local admin logout clears the browser cookie without claiming server-side revocation", async () => {
   let called = false;
   const result = await completeAdminSessionLogout("session-1", false, async () => { called = true; });
-  assert.equal(result, false);
+  assert.equal(result, true);
   assert.equal(called, false);
 });
 
