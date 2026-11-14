@@ -158,6 +158,7 @@ import { formatPersianDate } from "@/lib/persian-date";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { shouldHandleGalleryArrowKey } from "@/lib/gallery-keyboard.mjs";
 import { isVideoUrl, mediaPreviewSource, mediaSourceCandidates } from "@/lib/media";
+import { clearMediaFailure, recordMediaFailure } from "@/lib/property-media-recovery";
 import { isPermanentlyWatermarkedMediaUrl } from "@/lib/property-watermark";
 import { getPropertyFallbackImage, getPropertyFallbackLegacyImage, isPropertyFallbackImage } from "@/lib/property-fallback-images";
 import { areaSlug } from "@/lib/areas";
@@ -672,6 +673,8 @@ function ResilientImage({
   loading,
   itemProp,
   fetchPriority,
+  onLoaded,
+  onExhausted,
 }: {
   src: string;
   alt: string;
@@ -681,6 +684,8 @@ function ResilientImage({
   loading?: "eager" | "lazy";
   itemProp?: string;
   fetchPriority?: "high" | "low" | "auto";
+  onLoaded?: () => void;
+  onExhausted?: () => void;
 }) {
   const candidates = mediaSourceCandidates(src, fallback);
   const [attempt, setAttempt] = useState(0);
@@ -753,6 +758,9 @@ function ResilientImage({
         itemProp={itemProp}
         referrerPolicy="no-referrer"
         decoding="async"
+        onLoad={() => {
+          if (!usingLocalFallback) onLoaded?.();
+        }}
         onError={() => {
           if (usingLocalFallback && !legacyMode && fallbackLegacyImage) {
             setLegacyMode(true);
@@ -762,6 +770,7 @@ function ResilientImage({
             setAttempt((value) => Math.min(value + 1, candidates.length - 1));
           } else {
             setFailed(true);
+            if (!usingLocalFallback) onExhausted?.();
           }
         }}
       />
@@ -783,6 +792,7 @@ function Gallery({
   fallbackLegacy?: string;
 }) {
   const [active, setActive] = useState(0);
+  const [fallbackActive, setFallbackActive] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const touchStartX = useRef<number | null>(null);
@@ -792,9 +802,27 @@ function Gallery({
   const lightboxRef = useRef<HTMLDivElement | null>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
   const activeRef = useRef(0);
+  const failedImageIndexesRef = useRef(new Set<number>());
   const thumbRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
-  const current = images[active] ?? images[0] ?? "";
+  const current = fallbackActive ? fallback : images[active] ?? images[0] ?? fallback;
+  const mediaSignature = images.join("\u0000");
+
+  const advanceAfterImageFailure = useCallback((failedIndex: number) => {
+    const result = recordMediaFailure(images, failedImageIndexesRef.current, failedIndex);
+    if (result.status !== "advanced") return;
+    if (result.nextIndex == null) {
+      setFallbackActive(true);
+      return;
+    }
+    setFallbackActive(false);
+    setActive(result.nextIndex);
+  }, [images]);
+
+  useEffect(() => {
+    failedImageIndexesRef.current.clear();
+    setFallbackActive(false);
+  }, [mediaSignature]);
 
   useEffect(() => {
     activeRef.current = active;
@@ -803,7 +831,9 @@ function Gallery({
   const goTo = useCallback(
     (next: number) => {
       if (!images.length) return;
+      clearMediaFailure(failedImageIndexesRef.current, (next + images.length) % images.length);
       setActive((next + images.length) % images.length);
+      setFallbackActive(false);
       setZoomScale(1);
     },
     [images.length],
@@ -943,6 +973,7 @@ function Gallery({
             <VideoPlayer src={current} title={title} className="is-gallery" />
           ) : (
             <ResilientImage
+              key={`${active}:${current}`}
               src={current}
               fallback={fallback}
               fallbackLegacy={fallbackLegacy}
@@ -950,6 +981,8 @@ function Gallery({
               itemProp="image"
               loading="eager"
               fetchPriority="high"
+              onLoaded={() => clearMediaFailure(failedImageIndexesRef.current, active)}
+              onExhausted={() => advanceAfterImageFailure(active)}
             />
           )}
 
@@ -973,7 +1006,7 @@ function Gallery({
               <span className="property-gallery-sample-label">تصویر نمونه</span>
             ) : null}
             {featured ? <span className="property-gallery-featured">فایل ویژه</span> : null}
-            {images.length > 1 ? (
+            {images.length > 1 && !fallbackActive ? (
               <span className="property-gallery-counter" aria-live="polite">
                 تصویر {(active + 1).toLocaleString("fa-IR")} از {images.length.toLocaleString("fa-IR")}
               </span>
@@ -1094,9 +1127,11 @@ function Gallery({
                     {!isPermanentlyWatermarkedMediaUrl(current) ? <PropertyMediaWatermark /> : null}
                   </div>
                 )}
-                <div className="property-lightbox-count" aria-live="polite">
-                  تصویر {(active + 1).toLocaleString("fa-IR")} از {images.length.toLocaleString("fa-IR")}
-                </div>
+                {!fallbackActive ? (
+                  <div className="property-lightbox-count" aria-live="polite">
+                    تصویر {(active + 1).toLocaleString("fa-IR")} از {images.length.toLocaleString("fa-IR")}
+                  </div>
+                ) : null}
                 {!isVideoUrl(current) ? (
                   <button
                     type="button"
@@ -1130,7 +1165,7 @@ function Gallery({
                     key={src + "-" + index}
                     type="button"
                     className={"property-lightbox-thumb" + (index === active ? " is-active" : "")}
-                    onClick={() => setActive(index)}
+                    onClick={() => goTo(index)}
                     aria-label={"تصویر " + (index + 1).toLocaleString("fa-IR")}
                     aria-current={index === active ? "true" : undefined}
                   >
