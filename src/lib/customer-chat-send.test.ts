@@ -9,7 +9,8 @@ async function createFixture() {
   await pg.exec(`
     create table leads (
       id text primary key,
-      public_tracking_token text not null unique
+      public_tracking_token text not null unique,
+      merged_into_lead_id text
     );
     create table customer_messages (
       id text primary key,
@@ -20,7 +21,9 @@ async function createFixture() {
       message text not null,
       created_at timestamptz not null default current_timestamp
     );
-    insert into leads(id, public_tracking_token) values ('lead-1', 'HIR-26-ABCDEF123456');
+    insert into leads(id, public_tracking_token, merged_into_lead_id) values
+      ('lead-1', 'HIR-26-ABCDEF123456', null),
+      ('lead-2', 'HIR-26-123456ABCDEF', 'lead-1');
   `);
 
   const sql = {
@@ -116,6 +119,38 @@ test("an unknown tracking code does not create a message", async () => {
   }
 });
 
+test("a message sent with a merged lead token attaches to the canonical lead and retains its own thread token", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    const result = await sendCustomerChatMessage(sql, {
+      ...input,
+      trackingCode: "HIR-26-123456ABCDEF",
+    });
+    assert.equal(result.kind, "sent");
+    const rows = await sql.query<{ lead_id: string; tracking_token: string }>(
+      "select lead_id,tracking_token from customer_messages",
+    );
+    assert.deepEqual(rows, [{ lead_id: "lead-1", tracking_token: "HIR-26-123456ABCDEF" }]);
+  } finally {
+    await pg.close();
+  }
+});
+
+test("merged tracking tokens share the canonical lead cooldown", async () => {
+  const { pg, sql } = await createFixture();
+  try {
+    assert.equal((await sendCustomerChatMessage(sql, input)).kind, "sent");
+    assert.equal((await sendCustomerChatMessage(sql, {
+      ...input,
+      trackingCode: "HIR-26-123456ABCDEF",
+    })).kind, "cooldown");
+    const rows = await sql.query<{ tracking_token: string }>("select tracking_token from customer_messages");
+    assert.deepEqual(rows.map((row) => row.tracking_token), ["HIR-26-ABCDEF123456"]);
+  } finally {
+    await pg.close();
+  }
+});
+
 test("customer chat send fails closed when transaction support is unavailable", async () => {
   let queryCount = 0;
   const sql = {
@@ -130,7 +165,7 @@ test("a failed cooldown lookup rejects and never inserts a message", async () =>
   const sql = {
     transaction: async <T>(callback: (transactionSql: Sql) => Promise<T>) => callback({
       query: async <R = Record<string, unknown>>(text: string) => {
-        if (/from leads/i.test(text)) return [{ id: "lead-1", trackingToken: input.trackingCode }] as R[];
+        if (/from leads/i.test(text)) return [{ id: "lead-1", public_tracking_token: input.trackingCode, merged_into_lead_id: null }] as R[];
         if (/from customer_messages/i.test(text)) throw new Error("cooldown lookup unavailable");
         if (/insert into customer_messages/i.test(text)) insertCount += 1;
         return [] as R[];

@@ -5,6 +5,7 @@ import { dbSource, getSql } from "@/lib/db";
 import { ADMIN_SESSION_COOKIE, getAdminSessionClaims, verifyAdminSessionToken } from "@/lib/admin-session.server";
 import { assertSameOrigin } from "@/lib/admin-rate-limit.server";
 import { hasAdminPermission, normalizeAdminRole } from "@/lib/admin-roles";
+import { lockPublicLeadTrackingTarget } from "@/lib/public-lead-tracking";
 
 const schema = z.object({
   code: z.string().trim().toUpperCase().refine(isValidPublicTrackingToken),
@@ -33,18 +34,19 @@ export default defineEventHandler(async (event) => {
   }
 
   const sql = await getSql();
-  const lead = await sql.query<{ id:string }>(
-    "select id from leads where upper(public_tracking_token)=upper($1) limit 1",
-    [body.data.code],
-  );
-  if (!lead[0]) {
-    throw createError({ statusCode:404, statusMessage:"کد رهگیری پیدا نشد." });
+  if (typeof sql.transaction !== "function") {
+    throw createError({ statusCode: 503, statusMessage: "پایگاه داده موقتاً در دسترس نیست." });
   }
-
-  await sql.query(
-    "insert into customer_messages(id,lead_id,tracking_token,sender_type,sender_name,message) select $1,id,public_tracking_token,'admin',$2,$3 from leads where upper(public_tracking_token)=upper($4)",
-    [crypto.randomUUID(), body.data.consultant || "هیرمند", body.data.message, body.data.code],
-  );
+  const inserted = await sql.transaction(async (transactionSql) => {
+    const target = await lockPublicLeadTrackingTarget(transactionSql, body.data.code);
+    if (!target) return false;
+    await transactionSql.query(
+      "insert into customer_messages(id,lead_id,tracking_token,sender_type,sender_name,message) values($1,$2,$3,'admin',$4,$5)",
+      [crypto.randomUUID(), target.leadId, target.trackingToken, body.data.consultant || "هیرمند", body.data.message],
+    );
+    return true;
+  });
+  if (!inserted) throw createError({ statusCode:404, statusMessage:"کد رهگیری پیدا نشد." });
 
   return { success: true, message: "پاسخ برای مشتری ثبت شد." };
 });

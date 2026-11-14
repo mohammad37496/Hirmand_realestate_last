@@ -81,7 +81,8 @@ test("concurrent customer chat sends serialize across independent PostgreSQL ses
     await pool.query(`
       create table leads (
         id text primary key,
-        public_tracking_token text not null unique
+        public_tracking_token text not null unique,
+        merged_into_lead_id text references leads(id) on delete restrict
       );
       create table customer_messages (
         id text primary key,

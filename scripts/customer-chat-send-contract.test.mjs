@@ -4,6 +4,7 @@ import test from "node:test";
 
 const route = await readFile(new URL("../server/routes/api/customer-chat.post.ts", import.meta.url), "utf8");
 const helper = await readFile(new URL("../src/lib/customer-chat-send.ts", import.meta.url), "utf8");
+const trackingHelper = await readFile(new URL("../src/lib/public-lead-tracking.ts", import.meta.url), "utf8");
 const verify = await readFile(new URL("../.github/workflows/verify.yml", import.meta.url), "utf8");
 
 test("customer chat route delegates send/cooldown handling to the atomic helper", () => {
@@ -20,10 +21,12 @@ test("customer chat route delegates send/cooldown handling to the atomic helper"
 
 test("customer chat cooldown is checked under a locked lead row in one transaction", () => {
   assert.match(helper, /sql\.transaction\(/);
-  assert.match(helper, /for update/i);
+  assert.match(helper, /lockPublicLeadTrackingTarget\(/);
+  assert.match(trackingHelper, /for update/i);
+  assert.match(helper, /where lead_id=\$1/i);
   assert.match(helper, /created_at > clock_timestamp\(\) - interval '12 seconds'/i);
   assert.match(helper, /created_at\)[\s\S]*?values\([\s\S]*?clock_timestamp\(\)/i);
-  assert.ok(helper.indexOf("for update") < helper.indexOf("from customer_messages"));
+  assert.ok(helper.indexOf("lockPublicLeadTrackingTarget") < helper.indexOf("from customer_messages"));
   assert.ok(helper.indexOf("from customer_messages") < helper.indexOf("insert into customer_messages"));
 });
 
