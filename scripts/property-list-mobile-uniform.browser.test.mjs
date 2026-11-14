@@ -33,6 +33,24 @@ try {
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
     try {
+      // This harness mutates the rendered card list to measure layout, not
+      // infinite-scroll behavior. Keep the real IntersectionObserver for all
+      // other UI observers, but prevent the marketplace's load-more sentinel
+      // from fetching and replacing cards while geometry is being measured.
+      await page.addInitScript(() => {
+        const NativeIntersectionObserver = window.IntersectionObserver;
+        if (!NativeIntersectionObserver) return;
+        window.__hirmandBlockedListSentinelObservations = 0;
+        window.IntersectionObserver = class extends NativeIntersectionObserver {
+          observe(target) {
+            if (target instanceof Element && target.matches(".pf-more > [aria-hidden='true']")) {
+              window.__hirmandBlockedListSentinelObservations += 1;
+              return;
+            }
+            super.observe(target);
+          }
+        };
+      });
       const response = await page.goto(new URL("/properties?sort=price_asc", baseUrl).toString(), {
         waitUntil: "domcontentloaded",
         timeout: 30_000,
@@ -127,6 +145,13 @@ try {
         }
         return { usedSyntheticSource, sourceCount: grid.querySelectorAll(":scope > .pcard.pcard-mobile-list").length };
       });
+      const sentinelGuard = await page.evaluate(() => ({
+        sentinelPresent: Boolean(document.querySelector(".pf-more > [aria-hidden='true']")),
+        blockedObservations: window.__hirmandBlockedListSentinelObservations ?? 0,
+      }));
+      if (sentinelGuard.sentinelPresent && sentinelGuard.blockedObservations < 1) {
+        failures.push(`${viewport.width}px: the load-more sentinel was not isolated from layout measurement: ${JSON.stringify(sentinelGuard)}`);
+      }
 
       const cards = page.locator(".pf-grid.is-list-view > .pcard.pcard-mobile-list");
       const metrics = await cards.evaluateAll((items) => items.map((card) => {
@@ -265,6 +290,7 @@ try {
       results.push({
         viewport,
         ...fixture,
+        sentinelGuard,
         cardCount: metrics.length,
         expectedImageWidth,
         geometry: {
