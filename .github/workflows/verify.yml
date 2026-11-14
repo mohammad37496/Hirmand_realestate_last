@@ -202,6 +202,9 @@ jobs:
           # here rather than halfway through the browser smoke suite.
           npx playwright install chromium
           node scripts/playwright-runtime-smoke.mjs
+          # Exercise natural-language mode selection, first-page pagination,
+          # and geolocated nearby results against an isolated seeded PGlite DB.
+          node scripts/public-search-browser-harness.test.mjs
           # Run the isolated PGlite gallery fixture across real phone/tablet
           # viewports. Keep its responsive screenshots with the other Verify
           # artifacts instead of writing into the repository checkout.
