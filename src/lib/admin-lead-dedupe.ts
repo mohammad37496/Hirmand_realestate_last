@@ -1,4 +1,5 @@
 import type { Sql } from "./db.ts";
+import { lockPublicLeadTrackingAliasGraphForMerge } from "./public-lead-tracking.ts";
 
 const DIGIT_TRANSLATION = "۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩";
 
@@ -68,6 +69,11 @@ export async function mergeAdminLeadDuplicate(
   if (!sql.transaction) throw new Error("Lead merge requires database transaction support.");
 
   return sql.transaction(async (transactionSql) => {
+    // Tracking requests hold the shared alias-graph lock before locking any
+    // lead in the chain. Take its exclusive counterpart before this merge
+    // reads or locks leads, preventing alias->parent / parent->alias deadlocks.
+    await lockPublicLeadTrackingAliasGraphForMerge(transactionSql);
+
     // Match the FK deletion lock order: consultant rows first, then lead rows.
     // A snapshot read is followed by a locked re-check before any merge write.
     const observed = await transactionSql.query<{ id: string; consultant_id: string | null }>(

@@ -128,6 +128,11 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
 
+      - name: Verify public tracking and lead merge lock ordering across PostgreSQL sessions
+        run: node --experimental-strip-types --test scripts/public-lead-tracking-merge-lock-postgres.test.mjs
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/hirmand_verify
+
       - name: Verify deal and settlement lifecycle locking across PostgreSQL sessions
         run: node --experimental-strip-types --test scripts/admin-deal-lifecycle-postgres.test.mjs
         env:

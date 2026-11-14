@@ -5,6 +5,18 @@ export type PublicLeadTrackingTarget = {
   trackingToken: string;
 };
 
+const PUBLIC_LEAD_TRACKING_ALIAS_GRAPH_LOCK = "hirmand:public-lead-tracking-alias-graph";
+
+/** Take the exclusive alias-graph lock before a merge changes any lead rows. */
+export async function lockPublicLeadTrackingAliasGraphForMerge(
+  sql: Pick<Sql, "query">,
+): Promise<void> {
+  await sql.query(
+    "select pg_advisory_xact_lock(hashtextextended($1, 0))",
+    [PUBLIC_LEAD_TRACKING_ALIAS_GRAPH_LOCK],
+  );
+}
+
 /** Resolve a legacy tracking token to the final lead while preserving the requested token. */
 export async function resolvePublicLeadTrackingTarget(
   sql: Pick<Sql, "query">,
@@ -49,6 +61,14 @@ async function resolveLockedPublicLeadTrackingTarget(
   trackingToken: string,
   lockClause: "for share" | "for update",
 ): Promise<PublicLeadTrackingTarget | null> {
+  // Readers/writers take a shared transaction lock before touching lead rows.
+  // Merges take the matching exclusive lock before their first row lock, so a
+  // merge cannot hold a parent row while waiting for an alias held by a reader.
+  await sql.query(
+    "select pg_advisory_xact_lock_shared(hashtextextended($1, 0))",
+    [PUBLIC_LEAD_TRACKING_ALIAS_GRAPH_LOCK],
+  );
+
   const originals = await sql.query<{
     id: string;
     public_tracking_token: string;

@@ -148,3 +148,11 @@ test("public tracking, actions and chat resolve aliases without replacing the or
   assert.match(sources[2]!, /loadLatestCustomerChatMessages\(transactionSql, target\.leadId, target\.trackingToken\)/);
   assert.match(sources[3]!, /target\.leadId, target\.trackingToken/);
 });
+
+test("lead merge takes the exclusive alias-graph lock before reading or locking lead rows", async () => {
+  const source = await readFile(new URL("./admin-lead-dedupe.ts", import.meta.url), "utf8");
+  const lock = source.indexOf("await lockPublicLeadTrackingAliasGraphForMerge(transactionSql)");
+  const firstLeadRead = source.indexOf('"select id,consultant_id from leads');
+  assert.ok(lock >= 0, "lead merge must acquire the exclusive alias-graph lock");
+  assert.ok(firstLeadRead > lock, "the exclusive alias-graph lock must precede every lead row lock/read");
+});
