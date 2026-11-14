@@ -55,3 +55,19 @@ test("a successful empty property query remains a genuine empty state", async ()
   assert.deepEqual(result.properties, []);
   assert.deepEqual(result.failed, []);
 });
+
+test("an unavailable market snapshot is distinct from a successful zero-count snapshot", async () => {
+  const unavailable = await settleAreaPageDependencies({
+    properties: async () => [],
+    market: async () => null,
+    content: async () => null,
+  });
+  const emptyButAvailable = await settleAreaPageDependencies({
+    properties: async () => [],
+    market: async () => ({ activeFiles: 0, saleFiles: 0, rentFiles: 0 }),
+    content: async () => null,
+  });
+
+  assert.equal(unavailable.market, null);
+  assert.deepEqual(emptyButAvailable.market, { activeFiles: 0, saleFiles: 0, rentFiles: 0 });
+});
