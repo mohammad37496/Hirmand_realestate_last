@@ -38,6 +38,7 @@ export const Route = createFileRoute("/areas/$slug")({
         properties: [] as Awaited<ReturnType<typeof listPublishedProperties>>,
         propertiesUnavailable: false,
         market: null as NeighborhoodMarketSnapshot | null,
+        marketUnavailable: false,
         content: null as AreaContent | null,
       };
     }
@@ -55,6 +56,7 @@ export const Route = createFileRoute("/areas/$slug")({
       properties: data.properties ?? [],
       propertiesUnavailable: data.properties === null,
       market: data.market,
+      marketUnavailable: data.market === null,
       content: data.content,
     };
   },
@@ -96,7 +98,7 @@ function formatFa(value: number) {
 
 function AreaPage() {
   const router = useRouter();
-  const { area, properties, propertiesUnavailable, market, content } = Route.useLoaderData();
+  const { area, properties, propertiesUnavailable, market, marketUnavailable, content } = Route.useLoaderData();
   const highlights = content ? linesForAreaPage(content.highlights) : [];
   const amenities = content ? linesForAreaPage(content.amenities) : [];
 
@@ -316,7 +318,25 @@ function AreaPage() {
           </section>
         ) : null}
 
-        {market ? (
+        {marketUnavailable ? (
+          <section className="area-profile-market-section">
+            <div className="area-profile-section-heading">
+              <div>
+                <span className="area-profile-section-kicker">داده‌های داخلی سایت</span>
+                <h2>نبض بازار ملک در {area.name}</h2>
+              </div>
+              <p>آمار بازار در حال حاضر قابل دریافت نیست؛ مقادیر صفر به‌عنوان آمار واقعی نمایش داده نمی‌شوند.</p>
+            </div>
+            <div className="area-profile-empty-listings" role="alert">
+              <span><Building2 size={23} aria-hidden="true" /></span>
+              <h3>داده‌های بازار موقتاً در دسترس نیست.</h3>
+              <p>پس از برقراری ارتباط با پایگاه داده می‌توانید دوباره آمار این محله را دریافت کنید.</p>
+              <button type="button" className="area-action area-action-primary" onClick={() => void router.invalidate()}>
+                تلاش دوباره
+              </button>
+            </div>
+          </section>
+        ) : market ? (
           <section className="area-profile-market-section">
             <div className="area-profile-section-heading">
               <div>
