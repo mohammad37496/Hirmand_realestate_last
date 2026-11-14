@@ -55,6 +55,14 @@ test("mobile shared RTL list cards and explicit photo grid mode remain intact", 
   assert.doesNotMatch(mobileActionDecision, /^\s*\.pcard-mobile-list > \.pcard-media > \.pcard-actions\s*\{\s*display:\s*none !important;/m);
 });
 
+test("mobile list geometry smoke isolates the infinite-load sentinel while measuring cards", () => {
+  assert.match(uniformBrowserSmoke, /await page\.addInitScript\(\(\) => \{/);
+  assert.match(uniformBrowserSmoke, /target\.matches\("\.pf-more > \[aria-hidden='true'\]"\)/);
+  assert.match(uniformBrowserSmoke, /window\.__hirmandBlockedListSentinelObservations \+= 1/);
+  assert.match(uniformBrowserSmoke, /sentinelPresent && sentinelGuard\.blockedObservations < 1/);
+  assert.match(uniformBrowserSmoke, /sentinelGuard,/);
+});
+
 test("shared mobile cards keep their actions in one horizontally scrollable row", () => {
   assert.match(marketplaceCss, /\.pcard > \.pcard-media > \.pcard-actions \.property-actions,[\s\S]*?\.pcard > \.pcard-media > \.pcard-actions \.property-actions-compact\s*\{[\s\S]*?display:\s*flex !important;[\s\S]*?flex-wrap:\s*nowrap !important;[\s\S]*?overflow-x:\s*auto !important/);
   assert.match(marketplaceCss, /\.pcard-mobile-list > \.pcard-media > \.pcard-actions \.property-action\s*\{[\s\S]*?flex-basis:\s*44px/);
