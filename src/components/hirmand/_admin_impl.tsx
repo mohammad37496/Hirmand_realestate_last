@@ -83,6 +83,7 @@ import { AdminMusicManager } from "@/components/hirmand/admin-music-manager";
 import { AdminLeadManager } from "@/components/hirmand/admin-lead-manager";
 import { AdminCustomerInbox } from "@/components/hirmand/admin-customer-inbox";
 import { AdminDashboard } from "@/components/hirmand/admin-dashboard";
+import { AdminNotificationCenter } from "@/components/hirmand/admin-notification-center";
 import { AdminSalesFunnel } from "@/components/hirmand/admin-sales-funnel";
 import { AdminManagementReport } from "@/components/hirmand/admin-management-report";
 import { ADMIN_CSS } from "@/components/hirmand/admin-shell-css";
@@ -2186,6 +2187,7 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
 
         <div className="admin-content">
           {view === "staffHome" && staffMode ? (
+            <>
             <section className="admin-panel" style={{ marginBottom: 16 }}>
               <div className="admin-panel-head">
                 <div>
@@ -2216,6 +2218,11 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                 انتشار نهایی، ویرایش فایل‌های ثبت‌شده، حذف اطلاعات و تنظیمات سایت در اختیار مدیر باقی می‌ماند.
               </p>
             </section>
+            <AdminNotificationCenter
+              onOpenLeads={() => navigateTo("leads")}
+              onOpenDivar={() => navigateTo("divar")}
+            />
+            </>
           ) : null}
 
           {view === "dashboard" ? (
@@ -2243,6 +2250,10 @@ export function AdminPropertiesPage({ mode = "admin" }: { mode?: "admin" | "staf
                 onOpenPartners={() => navigateTo("partners")}
                 onOpenAttendance={() => navigateTo("attendance")}
                 onOpenMusic={() => navigateTo("music")}
+                onOpenMessages={() => navigateTo("messages")}
+                onOpenDeals={() => navigateTo("deals")}
+                onOpenIntegrity={() => navigateTo("integrity")}
+                onOpenBackup={() => navigateTo("backup")}
               />
             </>
           ) : view === "managementReport" ? (

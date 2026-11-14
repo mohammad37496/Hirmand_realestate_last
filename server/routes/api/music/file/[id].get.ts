@@ -4,6 +4,7 @@ import {
   getLiaraObject,
   liaraObjectKeyFromUrl,
 } from "@/lib/liara-object-storage.server";
+import { liaraMediaHttpStatus } from "@/lib/liara-media-errors";
 import {
   isPlayableMediaUrl,
   normalizeStoredMediaUrl,
@@ -88,7 +89,7 @@ export default defineEventHandler(async (event) => {
 
     if (!upstream) {
       throw createError({
-        statusCode: 502,
+        statusCode: liaraMediaHttpStatus(null),
         statusMessage: "دسترسی به فایل موسیقی برقرار نشد.",
       });
     }
@@ -97,7 +98,7 @@ export default defineEventHandler(async (event) => {
       const rangeFailureResponse = liaraRangeNotSatisfiableResponse(upstream);
       if (rangeFailureResponse) return rangeFailureResponse;
 
-      const status = upstream.status === 404 ? 404 : 502;
+      const status = liaraMediaHttpStatus(upstream);
       throw createError({
         statusCode: status,
         statusMessage:

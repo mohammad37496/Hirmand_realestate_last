@@ -5,6 +5,7 @@ import { hasAdminPermission } from "@/lib/admin-roles";
 import { clientFingerprint, consumeAdminAttempt, tooManyAttemptsError } from "@/lib/admin-rate-limit.server";
 import { detectRasterImageType, isDivarRemoteHost, isLiaraStorageHost, isVideoUrl } from "@/lib/media";
 import { getLiaraObject, isAllowedLiaraMediaKey, liaraObjectKeyFromUrl } from "@/lib/liara-object-storage.server";
+import { liaraMediaHttpStatus } from "@/lib/liara-media-errors";
 import {
   databaseMediaVisibility,
   hasCompletedCustomerUploadMedia,
@@ -198,7 +199,7 @@ export default defineEventHandler(async (event) => {
       range: video ? getHeader(event, "range") : undefined,
     });
     if (!response) {
-      throw createError({ statusCode: 502, statusMessage: "دریافت رسانه از فضای ذخیره‌سازی هیرمند ممکن نشد." });
+      throw createError({ statusCode: liaraMediaHttpStatus(null), statusMessage: "دریافت رسانه از فضای ذخیره‌سازی هیرمند ممکن نشد." });
     }
     if (video) {
       const videoResponse = createLiaraVideoResponse(
@@ -209,12 +210,12 @@ export default defineEventHandler(async (event) => {
       );
       if (videoResponse) return videoResponse;
       if (!response.ok) {
-        throw createError({ statusCode: response.status === 404 ? 404 : 502, statusMessage: "دریافت ویدئو از فضای ذخیره‌سازی هیرمند ممکن نشد." });
+        throw createError({ statusCode: liaraMediaHttpStatus(response), statusMessage: "دریافت ویدئو از فضای ذخیره‌سازی هیرمند ممکن نشد." });
       }
       throw createError({ statusCode: 415, statusMessage: "نوع ویدئوی ذخیره‌شده پشتیبانی نمی‌شود." });
     }
     if (!response.ok) {
-      throw createError({ statusCode: response?.status === 404 ? 404 : 502, statusMessage: "دریافت تصویر از فضای ذخیره‌سازی هیرمند ممکن نشد." });
+      throw createError({ statusCode: liaraMediaHttpStatus(response), statusMessage: "دریافت تصویر از فضای ذخیره‌سازی هیرمند ممکن نشد." });
     }
     const bytes = await readBoundedImage(response, MAX_LIARA_IMAGE_BYTES, TIMEOUT_MS);
     const contentType = detectRasterImageType(bytes);

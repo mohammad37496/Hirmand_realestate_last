@@ -36,6 +36,7 @@ import { hasAdminPermission, type AdminRole } from "@/lib/admin-roles";
 import { toIranianE164Phone } from "@/lib/phone-normalization";
 import { AdminSmartAlerts } from "@/components/hirmand/admin-smart-alerts";
 import { AdminNotificationCenter } from "@/components/hirmand/admin-notification-center";
+import { getAdminNotificationPermissions } from "@/lib/admin-notification-access";
 
 type LeadStatus = "new" | "contacted" | "follow_up" | "visited" | "contract" | "closed" | "spam";
 
@@ -206,6 +207,10 @@ export function AdminDashboard({
   onOpenPartners,
   onOpenAttendance,
   onOpenMusic,
+  onOpenMessages,
+  onOpenDeals,
+  onOpenIntegrity,
+  onOpenBackup,
 }: {
   role: AdminRole;
   onOpenProperties: () => void;
@@ -217,6 +222,10 @@ export function AdminDashboard({
   onOpenPartners: () => void;
   onOpenAttendance: () => void;
   onOpenMusic: () => void;
+  onOpenMessages?: () => void;
+  onOpenDeals?: () => void;
+  onOpenIntegrity?: () => void;
+  onOpenBackup?: () => void;
 }) {
   const canManageProperties = hasAdminPermission(role, "property.manage");
   const canManageLeads = hasAdminPermission(role, "lead.manage");
@@ -224,6 +233,7 @@ export function AdminDashboard({
   const canManageTeam = role === "owner" || role === "manager";
   const canManageDeals = hasAdminPermission(role, "deal.manage");
   const canUseDivar = role === "owner" || role === "manager" || role === "sales";
+  const canViewNotifications = getAdminNotificationPermissions(role).some((permission) => permission !== "reports.view");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -409,7 +419,17 @@ export function AdminDashboard({
           onOpenProperties={canManageProperties ? onOpenProperties : undefined}
         />
       ) : null}
-      {canManageLeads ? <AdminNotificationCenter /> : null}
+      {canViewNotifications ? (
+        <AdminNotificationCenter
+          onOpenLeads={canManageLeads ? onOpenLeads : undefined}
+          onOpenMessages={canManageLeads && hasAdminPermission(role, "reports.view") ? onOpenMessages : undefined}
+          onOpenProperties={canManageProperties ? onOpenProperties : undefined}
+          onOpenDeals={canManageDeals ? onOpenDeals : undefined}
+          onOpenDivar={hasAdminPermission(role, "divar.import") ? onOpenDivar : undefined}
+          onOpenIntegrity={hasAdminPermission(role, "team.manage") ? onOpenIntegrity : undefined}
+          onOpenBackup={hasAdminPermission(role, "team.manage") ? onOpenBackup : undefined}
+        />
+      ) : null}
       {loadError ? (
         <div style={{ marginBottom: 16 }}>
           <AdminErrorBanner message={loadError} onRetry={() => void load()} />
