@@ -167,7 +167,7 @@ test("mobile list cards keep every property photo in the same compact frame", ()
     responsiveHardeningCss.lastIndexOf("/* One fixed, compact geometry for every marketplace mobile list card."),
   );
   assert.match(compactMobileList, /@media \(max-width:\s*720px\)/);
-  assert.match(compactMobileList, /\.pf-page:has\(\.pf-grid\.is-list-view\)\s*\{[^}]*padding-bottom:\s*calc\(96px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(compactMobileList, /\.pf-page:has\(\.pf-grid\.is-list-view\)\s*\{[^}]*padding-bottom:\s*calc\(120px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list\s*\{[^}]*grid-template-rows:\s*132px;[^}]*height:\s*132px;[^}]*max-height:\s*132px/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-link\s*\{[^}]*width:\s*calc\(100% - clamp\(92px,\s*28vw,\s*112px\)\);[^}]*height:\s*132px;[^}]*margin-inline-start:\s*clamp\(92px,\s*28vw,\s*112px\)/);
   assert.match(compactMobileList, /\.pf-page \.pf-grid\.is-list-view > \.pcard\.pcard-mobile-list > \.pcard-media\s*\{[^}]*height:\s*132px;[^}]*max-height:\s*132px/);
